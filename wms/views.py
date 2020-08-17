@@ -404,7 +404,8 @@ def commit_updates_to_es(shop, product):
 
 @receiver(post_save, sender=WarehouseInventory)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    transaction.on_commit(lambda: commit_updates_to_es(instance.warehouse, instance.sku))
+    if instance.inventory_type.inventory_type=='normal' and instance.inventory_state.inventory_state=='available':
+        transaction.on_commit(lambda: commit_updates_to_es(instance.warehouse, instance.sku))
 
 
 def bin_stock_movement_data(upload_data, stock_movement_obj):
@@ -715,24 +716,18 @@ def audit_download(request):
                 bin_inventory_obj = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
                                                                 sku=Product.objects.filter(product_sku=data[0])[0])
                 # for loop for every bin inventory object
-                bin_normal_quantity = 0
-                bin_damaged_quantity = 0
-                bin_expired_quantity = 0
-                bin_missing_quantity = 0
-
                 for bin_inventory in bin_inventory_obj:
                     # condition to get those object which type is normal
                     bin_obj_normal = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
                                                 sku=Product.objects.filter(product_sku=data[0])[0],
                                                 bin=bin_inventory.bin, inventory_type=inventory_type_normal[0],
-                                                                 batch_id=bin_inventory.batch_id)
+                                                                 batch_id=bin_inventory.batch_id).last()
 
                     try:
-                        for bin_id in bin_obj_normal:
-                            if bin_id:
-                                bin_normal_quantity = bin_id.quantity
-                            else:
-                                bin_normal_quantity = 0
+                        if bin_obj_normal:
+                            bin_normal_quantity = bin_obj_normal.quantity
+                        else:
+                            bin_normal_quantity = 0
                     except:
                         bin_normal_quantity = 0
 
@@ -742,14 +737,13 @@ def audit_download(request):
                                                           bin=bin_inventory.bin,
                                                           inventory_type=inventory_type_damaged[0],
                                                                   batch_id=bin_inventory.batch_id
-                                                                  )
+                                                                  ).last()
 
                     try:
-                        for bin_id in bin_obj_damaged:
-                            if bin_id:
-                                bin_damaged_quantity = bin_id.quantity
-                            else:
-                                bin_damaged_quantity = 0
+                        if bin_obj_damaged:
+                            bin_damaged_quantity = bin_obj_damaged.quantity
+                        else:
+                            bin_damaged_quantity = 0
                     except:
                         bin_damaged_quantity = 0
 
@@ -759,13 +753,12 @@ def audit_download(request):
                                                                   bin=bin_inventory.bin,
                                                                   inventory_type=inventory_type_expired[0],
                                                                   batch_id=bin_inventory.batch_id
-                                                                  )
+                                                                  ).last()
                     try:
-                        for bin_id in bin_obj_expired:
-                            if bin_id:
-                                bin_expired_quantity = bin_id.quantity
-                            else:
-                                bin_expired_quantity = 0
+                        if bin_obj_expired:
+                            bin_expired_quantity = bin_obj_expired.quantity
+                        else:
+                            bin_expired_quantity = 0
                     except:
                         bin_expired_quantity = 0
 
@@ -775,13 +768,12 @@ def audit_download(request):
                                                           bin=bin_inventory.bin,
                                                           inventory_type=inventory_type_missing[0],
                                                                   batch_id=bin_inventory.batch_id
-                                                                  )
+                                                                  ).last()
                     try:
-                        for bin_id in bin_obj_missing:
-                            if bin_id:
-                                bin_missing_quantity = bin_id.quantity
-                            else:
-                                bin_missing_quantity = 0
+                        if bin_obj_missing:
+                            bin_missing_quantity = bin_obj_missing.quantity
+                        else:
+                            bin_missing_quantity = 0
                     except:
                         bin_missing_quantity = 0
 
@@ -842,60 +834,67 @@ def audit_upload(request):
             upload_data = form.cleaned_data['file']
 
             # iteration for csv data
-            with transaction.atomic():
-                audit_inventory_obj = AuditInventory.create_audit_entry(request.user, request.FILES['file'])
-                for row_id, data in enumerate(upload_data):
-                    # convert expiry date according to database field type
+            #with transaction.atomic():
+            audit_inventory_obj = AuditInventory.create_audit_entry(request.user, request.FILES['file'])
+            for row_id, data in enumerate(upload_data):
+                # convert expiry date according to database field type
+                try:
+                    expiry_date = datetime.strptime(data[3], '%d/%m/%Y').strftime('%Y-%m-%d')
+                except:
                     try:
-                        expiry_date = datetime.strptime(data[3], '%d/%m/%Y').strftime('%Y-%m-%d')
+                        expiry_date = datetime.strptime(data[3], '%d-%m-%Y').strftime('%Y-%m-%d')
                     except:
                         try:
-                            expiry_date = datetime.strptime(data[3], '%d-%m-%Y').strftime('%Y-%m-%d')
+                            expiry_date = datetime.strptime(data[3], '%d-%m-%y').strftime('%Y-%m-%d')
                         except:
-                            try:
-                                expiry_date = datetime.strptime(data[3], '%d-%m-%y').strftime('%Y-%m-%d')
-                            except:
-                                expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
+                            expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
 
-                    # Check SKU and Expiry data is exist or not
-                    grn_order_obj = GRNOrderProductMapping.objects.filter(
-                        product__product_sku=data[1][-17:],
-                        expiry_date=expiry_date)
-                    # call function to create audit data in Audit Model
-                    if grn_order_obj.exists():
-                        # create batch id for SKU and save data in In and Put Away Model
-                        bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                                        bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                                                        sku=Product.objects.filter(
-                                                                            product_sku=data[1][-17:]).last())
-                        if not bin_inventory_obj.exists():
-                            batch_id = create_batch_id_from_audit(data)
-                            bin_objects_create(data, batch_id)
-
-                    else:
-                        batch_id = create_batch_id_from_audit(data)
-                        quantity = int(data[9]) + int(data[10]) + int(data[11]) + int(data[12])
-                        InCommonFunctions.create_in(Shop.objects.filter(id=data[0])[0], 'Audit Adjustment', audit_inventory_obj[0].id,
-                                                    Product.objects.filter(product_sku=data[1][-17:]).last(),
-                                                    batch_id, int(quantity), int(quantity))
-                        # create bin inventory data
-                        bin_objects_create(data, batch_id)
-
+                # Check SKU and Expiry data is exist or not
+                grn_order_obj = GRNOrderProductMapping.objects.filter(
+                    product__product_sku=data[1][-17:],
+                    expiry_date=expiry_date)
+                # call function to create audit data in Audit Model
+                if grn_order_obj.exists():
+                    # create batch id for SKU and save data in In and Put Away Model
                     bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
                                                                     bin=Bin.objects.filter(bin_id=data[4]).last(),
                                                                     sku=Product.objects.filter(
                                                                         product_sku=data[1][-17:]).last())
+                    if not bin_inventory_obj.exists():
+                        batch_id = create_batch_id_from_audit(data)
+                        bin_objects_create(data, batch_id)
 
-                    # call function to get inventory types from Bin Inventory
-                    inventory_type = get_inventory_types_for_bin(data, bin_inventory_obj)
-                    for key, value in inventory_type.items():
-                        # call function to create data in different models like:- Bin Inventory, Warehouse Inventory and
-                        # Warehouse Internal Inventory Model
-                        AuditInventory.audit_exist_batch_id(data, key, value, audit_inventory_obj)
-                    # pickup_entry_creation_with_cron
-                return render(request, 'admin/wms/audit-upload.html', {'form': form,
-                                                                   'success': 'Audit CSV uploaded successfully !',
-                                                                   })
+                        bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
+                                                                        bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                                        sku=Product.objects.filter(
+                                                                            product_sku=data[1][-17:]).last(),
+                                                                        batch_id=batch_id)
+
+                else:
+                    batch_id = create_batch_id_from_audit(data)
+                    quantity = int(data[9]) + int(data[10]) + int(data[11]) + int(data[12])
+                    InCommonFunctions.create_in(Shop.objects.filter(id=data[0])[0], 'Audit Adjustment', audit_inventory_obj[0].id,
+                                                Product.objects.filter(product_sku=data[1][-17:]).last(),
+                                                batch_id, int(quantity), int(quantity))
+                    # create bin inventory data
+                    bin_objects_create(data, batch_id)
+
+                    bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
+                                                                    bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                                    sku=Product.objects.filter(
+                                                                        product_sku=data[1][-17:]).last(),
+                                                                    batch_id=batch_id)
+
+                # call function to get inventory types from Bin Inventory
+                inventory_type = get_inventory_types_for_bin(data, bin_inventory_obj)
+                for key, value in inventory_type.items():
+                    # call function to create data in different models like:- Bin Inventory, Warehouse Inventory and
+                    # Warehouse Internal Inventory Model
+                    AuditInventory.audit_exist_batch_id(data, key, value, audit_inventory_obj)
+                # pickup_entry_creation_with_cron
+            return render(request, 'admin/wms/audit-upload.html', {'form': form,
+                                                               'success': 'Audit CSV uploaded successfully !',
+                                                               })
 
         else:
             return render(request, 'admin/wms/audit-upload.html', {'form': form})

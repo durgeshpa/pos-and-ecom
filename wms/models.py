@@ -318,14 +318,25 @@ class StockCorrectionChange(models.Model):
 
 @receiver(post_save, sender=BinInventory)
 def create_warehouse_inventory(sender, instance=None, created=False, *args, **kwargs):
-
-    if created:
-        WarehouseInventory.objects.update_or_create(warehouse=instance.warehouse,sku=instance.sku,
-                                                    inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-                                                    inventory_type=InventoryType.objects.filter(inventory_type=instance.inventory_type).last(),
-                                                    defaults={'quantity':BinInventory.available_qty_with_inventory_type(instance.warehouse.id, instance.sku.id,
-                                                    InventoryType.objects.filter(inventory_type=instance.inventory_type).last().id),
-                                                    'in_stock':instance.in_stock})
+    warehouse_obj = WarehouseInventory.objects.filter(warehouse=instance.warehouse,sku=instance.sku,inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
+                                                      inventory_type=InventoryType.objects.filter(inventory_type=instance.inventory_type).last(),
+                                                      )
+    if warehouse_obj.exists():
+        warehouse_obj = warehouse_obj.last()
+        # quantity = warehouse_obj.quantity
+        warehouse_obj.quantity = (BinInventory.available_qty_with_inventory_type(instance.warehouse.id, instance.sku.id,InventoryType.objects.filter(inventory_type=instance.inventory_type).last().id))
+        warehouse_obj.in_stock = instance.in_stock
+        warehouse_obj.save()
+    else:
+        WarehouseInventory.objects.create(warehouse=instance.warehouse,sku=instance.sku,inventory_state=InventoryState.objects.filter(inventory_state='available').last(),inventory_type=InventoryType.objects.filter(inventory_type=instance.inventory_type).last(),
+                                                           quantity=BinInventory.available_qty_with_inventory_type(instance.warehouse.id, instance.sku.id,InventoryType.objects.filter(
+                                                               inventory_type=instance.inventory_type).last().id), in_stock=instance.in_stock)
+    # WarehouseInventory.objects.update_or_create(warehouse=instance.warehouse,sku=instance.sku,
+    #                                             inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
+    #                                             inventory_type=InventoryType.objects.filter(inventory_type=instance.inventory_type).last(),
+    #                                             defaults={'quantity':BinInventory.available_qty_with_inventory_type(instance.warehouse.id, instance.sku.id,
+    #                                             InventoryType.objects.filter(inventory_type=instance.inventory_type).last().id),
+    #                                             'in_stock':instance.in_stock})
 
 
 class OrderReserveRelease(models.Model):
@@ -356,4 +367,8 @@ class Audit(models.Model):
 
     def __str__(self):
         return str(self.id)
+
+
+
+
 
