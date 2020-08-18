@@ -264,7 +264,8 @@ class PickupList(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         picker_boy = request.GET.get('picker_boy')
         orders = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
-                                      Q(picker_order__picking_status='picking_assigned'),
+                                      Q(picker_order__picking_status__in=['picking_assigned', 'picking_complete']),
+                                      Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete']),
                                       Q(created_at__startswith=date.date()))
 
         if not orders:
