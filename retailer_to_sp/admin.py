@@ -357,10 +357,19 @@ class OrderedProductBatchAdmin(NestedTabularInline):
     readonly_fields = ('batch_id', 'ordered_piece', 'expiry_date', 'pickup_quantity')
     extra=0
     classes = ['batch_inline', ]
+
     def ordered_piece(self, obj=None):
         return '-'
+
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj and obj.ordered_product.shipment_status == 'READY_TO_SHIP':
+            return self.readonly_fields + ('quantity','damaged_qty','expired_qty' )
+        return self.readonly_fields
+
+
 
     class Media:
         css = {
@@ -1220,6 +1229,11 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
 
     def expiry_date(self, obj=None):
         return "-"
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj and obj.shipment_status == 'READY_TO_SHIP':
+            return self.readonly_fields + ['shipped_qty','damaged_qty','expired_qty']
+        return self.readonly_fields
 
 
 class ShipmentAdmin(NestedModelAdmin):
