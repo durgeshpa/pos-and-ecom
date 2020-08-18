@@ -691,6 +691,13 @@ class ShipmentProductMappingForm(forms.ModelForm):
                 if shipment_status == 'READY_TO_SHIP' or shipment_status == 'CANCELLED':
                     for field_name in self.fields:
                         self.fields[field_name].disabled = True
+        instance = getattr(self, 'instance', None)
+        if instance.pk:
+            shipment_status = instance.ordered_product.shipment_status
+            if shipment_status != 'SHIPMENT_CREATED':
+                for field_name in self.fields:
+                    self.fields[field_name].disabled = True
+
 
     def clean(self):
         data = self.cleaned_data
@@ -1025,9 +1032,12 @@ class OrderedProductBatchForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        if int(self.instance.pickup_quantity)!= data.get('quantity') + data.get('damaged_qty') + data.get('expired_qty'):
-            raise forms.ValidationError('Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
-        return data
+        if self.instance.ordered_product_mapping.ordered_product.shipment_status !='SHIPMENT_CREATED':
+            return data
+        else:
+            if int(self.instance.pickup_quantity)!= data.get('quantity') + data.get('damaged_qty') + data.get('expired_qty'):
+                raise forms.ValidationError('Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
+            return data
 
 
 

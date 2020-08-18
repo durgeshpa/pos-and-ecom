@@ -365,7 +365,7 @@ class OrderedProductBatchAdmin(NestedTabularInline):
         return False
 
     def get_readonly_fields(self, request, obj=None):
-        if obj and obj.ordered_product.shipment_status == 'READY_TO_SHIP':
+        if obj and obj.ordered_product.shipment_status != 'SHIPMENT_CREATED':
             return self.readonly_fields + ('quantity','damaged_qty','expired_qty' )
         return self.readonly_fields
 
