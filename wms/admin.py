@@ -72,8 +72,8 @@ class BinAdmin(admin.ModelAdmin):
     resource_class = BinResource
     actions = ['download_csv_for_bins', 'download_barcode']
     list_display = (
-        'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode')
-    readonly_fields = ['bin_barcode', 'barcode_image', 'download_bin_id_barcode']
+        'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode','download_barcode_image')
+    readonly_fields = ['bin_barcode', 'barcode_image', 'download_bin_id_barcode','download_barcode_image']
     search_fields = ('bin_id',)
     list_filter = [
         ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
@@ -106,6 +106,14 @@ class BinAdmin(admin.ModelAdmin):
         return format_html(
             "<a href= '%s' >Download Barcode</a>" %
             (reverse('merged_barcodes', args=[bin_id]))
+        )
+    def download_barcode_image(self, obj):
+        info_logger.info("download bin barcode method has been called.")
+        if not obj.bin_barcode:
+            return format_html("-")
+        return format_html(
+            "<a href='data:image/png;base64,{}' download='{}'>{}</a>".format(barcodeGen(obj.bin_id), obj.bin_id, obj.
+                                                                             bin_id)
         )
 
     download_bin_id_barcode.short_description = 'Download Bin ID Barcode'

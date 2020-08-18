@@ -234,12 +234,20 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
             formset.order = Cart.objects.get(pk=int(cart_id))
         return formset
 
+    # def download_batch_id_barcode(self, obj):
+    #     if not obj.batch_id:
+    #         return format_html("-")
+    #     return format_html(
+    #         "<a href= '%s' >Download Barcode</a>" %
+    #         (reverse('batch_barcodes',args=[obj.pk]))
+    #     )
     def download_batch_id_barcode(self, obj):
+        info_logger.info("download bin barcode method has been called.")
         if not obj.batch_id:
             return format_html("-")
         return format_html(
-            "<a href= '%s' >Download Barcode</a>" %
-            (reverse('batch_barcodes',args=[obj.pk]))
+            "<a href='data:image/png;base64,{}' download='{}'>{}</a>".format(barcodeGen(obj.batch_id), obj.batch_id, obj.
+                                                                             batch_id)
         )
 
 
