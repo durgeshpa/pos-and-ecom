@@ -759,6 +759,29 @@ class UploadAuditAdminForm(forms.Form):
             # iterate the row from initial to end
             for row_id_1, row_1 in enumerate(reader):
                 if row_1[1] == row[1]:
+                    # to validate normal final quantity is empty or contains the number
+                    if not row_1[9] or not re.match("^[\d]*$", row_1[9]):
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(
+                                row_id_1 + 1) + "," + "Normal-Final Qty can not be empty or string type."))
+
+                    # to validate damaged final quantity is empty or contains the number
+                    if not row_1[10] or not re.match("^[\d]*$", row_1[10]):
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(
+                                row_id_1 + 1) + "," + "Damaged-Final Qty can not be empty or string type."))
+
+                    # to validate expired final quantity is empty or contains the number
+                    if not row_1[11] or not re.match("^[\d]*$", row_1[11]):
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(
+                                row_id_1 + 1) + "," + "Expired-Final Qty can not be empty or string type."))
+
+                    # to validate missing final quantity is empty or contains the number
+                    if not row_1[12] or not re.match("^[\d]*$", row_1[12]):
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(
+                                row_id_1 + 1) + "," + "Missing-Final Qty can not be empty or string type."))
                     count = int(row_1[9]) + int(row_1[10]) + int(row_1[11]) + int(row_1[12])
                     final_count = count + final_count
             # to validate initial count and final count is equal
