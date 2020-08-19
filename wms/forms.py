@@ -545,6 +545,11 @@ class UploadAuditAdminForm(forms.Form):
         form_data_list = []
         for row_id, row in enumerate(reader):
 
+            if '' in row:
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
+                    row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == '' and
+                        row[10] == '' and row[11] == '' and row[12] == ''):
+                    continue
             # to validate warehouse id is empty or not
             if not row[0] or not re.match("^[\d]*$", row[0]):
                 raise ValidationError(_(
