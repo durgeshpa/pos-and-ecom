@@ -422,7 +422,8 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
 
 class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'initial_inventory_type', 'final_inventory_type', 'initial_bin',
-                    'final_bin', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
+                    'final_bin','transaction_type', 'transaction_id',
+                    'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_per_page = 50
 
 

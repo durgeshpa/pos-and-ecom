@@ -154,14 +154,25 @@ class CommonInventoryStateFunctions(object):
 class CommonWarehouseInventoryFunctions(object):
 
     @classmethod
-    def create_warehouse_inventory(cls, warehouse, sku, inventory_state,inventory_type,quantity,in_stock):
-        WarehouseInventory.objects.update_or_create(warehouse=warehouse, sku=sku,
-                                                    inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
-                                                    defaults={
-                                                             'inventory_type': InventoryType.objects.filter(inventory_type=inventory_type).last(),
-                                                             'inventory_state':InventoryState.objects.filter(inventory_state=inventory_state).last(),
-                                                             'quantity':quantity,
-                                                             'in_stock': in_stock})
+    def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
+
+        ware_house_inventory_obj = WarehouseInventory.objects.filter(
+            warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
+                inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
+                inventory_type=inventory_type).last(), in_stock=in_stock).last()
+
+        if ware_house_inventory_obj:
+            ware_house_quantity = quantity + ware_house_inventory_obj.quantity
+            ware_house_inventory_obj.quantity = ware_house_quantity
+            ware_house_inventory_obj.save()
+        else:
+            WarehouseInventory.objects.get_or_create(
+                warehouse=warehouse,
+                sku=sku,
+                inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
+                inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
+                in_stock=in_stock, quantity=quantity)
+
 
     @classmethod
     def filtered_warehouse_inventory_items(cls, **kwargs):
@@ -327,31 +338,31 @@ class OrderManagement(object):
 
 class InternalInventoryChange(object):
     @classmethod
-    def create_bin_internal_inventory_change(cls, shop_id, sku, batch_id, bin_id, final_bin_id, initial_type,
-                                             final_type, quantity, inventory_csv):
+    def create_bin_internal_inventory_change(cls, shop_id, sku, batch_id, final_bin_id,
+                                             final_type, transaction_type, transaction_id, quantity):
         """
 
-        :param shop_id: shop id
-        :param sku: sku id
-        :param batch_id: batch id
-        :param bin_id: initial bin id
-        :param final_bin_id: final bin id
-        :param initial_type: initial inventory type
-        :param final_type: final inventory type
-        :param quantity: quantity
-        :param inventory_csv: stock movement csv obj
-        :return: queryset
+        :param shop_id:
+        :param sku:
+        :param batch_id:
+        :param initial_bin:
+        :param final_bin_id:
+        :param initial_type:
+        :param final_type:
+        :param transaction_type:
+        :param transaction_id:
+        :param quantity:
+        :param inventory_csv:
+        :return:
         """
         try:
-            BinInternalInventoryChange.objects.create(warehouse_id=shop_id, sku=Product.objects.get(product_sku=sku),
+            BinInternalInventoryChange.objects.create(warehouse_id=shop_id.id, sku=sku,
                                                       batch_id=batch_id,
-                                                      initial_bin=Bin.objects.get(bin_id=bin_id),
                                                       final_bin=Bin.objects.get(bin_id=final_bin_id),
-                                                      initial_inventory_type=InventoryType.objects.get(
-                                                          inventory_type=initial_type),
-                                                      final_inventory_type=InventoryType.objects.get(
-                                                          inventory_type=final_type),
-                                                      quantity=quantity, inventory_csv=inventory_csv)
+                                                      final_inventory_type=final_type,
+                                                      transaction_type=transaction_type,
+                                                      transaction_id=transaction_id,
+                                                      quantity=quantity)
         except Exception as e:
             error_logger.error(e)
 
@@ -478,36 +489,65 @@ class StockMovementCSV(object):
 
 
 def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_state, t, val, put_away_status, pu):
-    with transaction.atomic():
-        bin_inven_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(),
-                                                                               sku=put_away.last().sku, batch_id=batch_id,inventory_type=InventoryType.objects.filter(
-                                                                       inventory_type=inv_type).last(), in_stock=t)
-        if bin_inven_obj.exists():
-            bin_inven_obj=bin_inven_obj.last()
-            bin_inven_obj.quantity= (val + bin_inven_obj.quantity)
-            bin_inven_obj.save()
-        else:
-            BinInventory.objects.create(warehouse=sh,bin=Bin.objects.filter(bin_id=bin_id).last(), sku=put_away.last().sku, batch_id=batch_id, inventory_type=InventoryType.objects.filter(inventory_type=inv_type).last(), quantity=val, in_stock=t)
-        # CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),
-        #                                                            put_away.last().sku, batch_id,
-        #                                                            InventoryType.objects.filter(
-        #                                                                inventory_type=inv_type).last(), val, t)
-        if put_away_status is True:
-            PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
-                                               bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
-                                               putaway_quantity=val, putaway_status=True,
-                                               sku=pu[0].sku, batch_id=pu[0].batch_id,
-                                               putaway_type=pu[0].putaway_type)
-        else:
-            PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
-                                               bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
-                                               putaway_quantity=val, putaway_status=False,
-                                               sku=pu[0].sku, batch_id=pu[0].batch_id,
-                                               putaway_type=pu[0].putaway_type)
-        # CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, put_away.last().sku,
-        #                                                              CommonInventoryStateFunctions.filter_inventory_state(inventory_state=inv_state).last(),
-        #                                                              InventoryType.objects.filter(inventory_type=inv_type).last(),
-        #                                                              BinInventory.available_qty(sh.id, put_away.last().sku.id), t)
+    """
+
+    :param sh:
+    :param bin_id:
+    :param put_away:
+    :param batch_id:
+    :param inv_type:
+    :param inv_state:
+    :param t:
+    :param val:
+    :param put_away_status:
+    :param pu:
+    :return:
+    """
+    bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(),
+                                                                           sku=put_away.last().sku, batch_id=batch_id,inventory_type=InventoryType.objects.filter(
+                                                                   inventory_type=inv_type).last(), in_stock=t)
+    if bin_inventory_obj.exists():
+        bin_inventory_obj = bin_inventory_obj.last()
+        bin_quantity = val + bin_inventory_obj.quantity
+        bin_inventory_obj.quantity = bin_quantity
+        bin_inventory_obj.save()
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, pu[0].sku, inv_type, inv_state, bin_quantity,
+                                                                     True)
+    else:
+        BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(), sku=put_away.last().sku,
+                                    batch_id=batch_id, inventory_type=InventoryType.objects.filter(
+                inventory_type=inv_type).last(), quantity=val, in_stock=t)
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, pu[0].sku, inv_type, inv_state, val,
+                                                                     True)
+
+    if put_away_status is True:
+        PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
+                                           bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
+                                           putaway_quantity=val, putaway_status=True,
+                                           sku=pu[0].sku, batch_id=pu[0].batch_id,
+                                           putaway_type=pu[0].putaway_type)
+    else:
+        PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
+                                           bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
+                                           putaway_quantity=val, putaway_status=False,
+                                           sku=pu[0].sku, batch_id=pu[0].batch_id,
+                                           putaway_type=pu[0].putaway_type)
+
+    transaction_type = 'put_away_type'
+    transaction_id = put_away[0].id
+    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
+    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+    WareHouseInternalInventoryChange.create_warehouse_inventory_change(sh, pu[0].sku, transaction_type, transaction_id,
+                                                                       final_type[0], final_stage[0], val)
+
+    final_bin_id = bin_id
+    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
+    transaction_type = 'put_away_type'
+    transaction_id = put_away[0].id
+    quantity = val
+    InternalInventoryChange.create_bin_internal_inventory_change(sh, pu[0].sku, batch_id, final_bin_id,
+                                                                 final_type[0], transaction_type,
+                                                                 transaction_id, quantity)
 
 
 def common_for_release(prod_list, shop_id, transaction_type, transaction_id, order_status):
@@ -1020,3 +1060,29 @@ def get_expiry_date(batch_id):
         expiry_date = '30/' + batch_id[17:19] + '/20' + batch_id[19:21]
     return expiry_date
 
+
+class WareHouseInternalInventoryChange(object):
+    @classmethod
+    def create_warehouse_inventory_change(cls, warehouse, sku, transaction_type, transaction_id,
+                                                    final_type, final_stage, quantity):
+        """
+
+        :param warehouse: warehouse obj
+        :param sku: sku obj
+        :param transaction_type: type of transaction
+        :param transaction_id: transaction id
+        :param final_stage: final stage obj
+        :param quantity: quantity
+        :return: None
+        """
+        try:
+            # Create data in WareHouse Internal Inventory Model
+            WarehouseInternalInventoryChange.objects.create(warehouse_id=warehouse.id,
+                                                            sku=sku, transaction_type=transaction_type,
+                                                            transaction_id=transaction_id,
+                                                            final_type=final_type,
+                                                            final_stage=final_stage,
+                                                            quantity=quantity,
+                                                            )
+        except Exception as e:
+            error_logger.error(e)
