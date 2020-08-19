@@ -648,19 +648,19 @@ def cancel_order_with_pick(instance):
             pick_up_bin_quantity = pickup_bin.pickup_quantity
 
         # get the queryset object form Bin Inventory Model
-        bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=pickup_bin.bin.bin.bin_id,
-                                                                             sku__id=pickup_bin.pickup.sku.id,
-                                                                             batch_id=pickup_bin.batch_id,
-                                                                             inventory_type=inv_type['N'],
-                                                                             quantity__gt=0)
-        # get the last object from Bin Inventory Model
-        bin_inv_obj = bin_inv_obj.last()
-        # get the quantity from queryset object
-        quantity = bin_inv_obj.quantity
-        # assigned overall quantity to bin inventory object
-        bin_inv_obj.quantity = quantity+pick_up_bin_quantity
-        # save the object
-        bin_inv_obj.save()
+        # bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=pickup_bin.bin.bin.bin_id,
+        #                                                                      sku__id=pickup_bin.pickup.sku.id,
+        #                                                                      batch_id=pickup_bin.batch_id,
+        #                                                                      inventory_type=inv_type['N'],
+        #                                                                      quantity__gt=0)
+        # # get the last object from Bin Inventory Model
+        # bin_inv_obj = bin_inv_obj.last()
+        # # get the quantity from queryset object
+        # quantity = bin_inv_obj.quantity
+        # # assigned overall quantity to bin inventory object
+        # bin_inv_obj.quantity = quantity+pick_up_bin_quantity
+        # # save the object
+        # bin_inv_obj.save()
 
         # update or create put away model
         pu, _ = Putaway.objects.update_or_create(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
@@ -679,7 +679,8 @@ def cancel_order_with_pick(instance):
             obj.status = 'picking_cancelled'
             obj.save()
     # call the warehouse internal and ware house internal inventory function to update the value
-    cancel_order_for_warehouse(instance)
+    #cancel_order_for_warehouse(instance)
+    cancel_order(instance)
 
 
 class AuditInventory(object):
