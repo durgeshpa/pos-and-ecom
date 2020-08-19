@@ -571,6 +571,43 @@ def cancel_order(instance):
         wim = WarehouseInventory.objects.filter(sku__id=prod,
                                                 inventory_state__inventory_state='available',
                                                 inventory_type__inventory_type='normal')
+        wim_quantity = wim[0].quantity
+        wim.update(quantity=wim_quantity + qty)
+        # initialize the transaction type, initial stage, final stage and inventory type
+        transaction_type = 'canceled'
+        initial_stage = 'ordered'
+        final_stage = 'canceled'
+        inventory_type = 'normal'
+        # create the data in Warehouse internal inventory model
+        WarehouseInternalInventoryChange.objects.create(warehouse=wim[0].warehouse,
+                                                        sku=wim[0].sku,
+                                                        transaction_type=transaction_type,
+                                                        transaction_id=ware_house_internal[0].transaction_id,
+                                                        initial_stage=InventoryState.objects.get(inventory_state=initial_stage),
+                                                            final_stage=InventoryState.objects.get(inventory_state=final_stage),
+                                                        inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
+                                                        quantity=qty)
+
+
+def cancel_order_for_warehouse(instance):
+    """
+
+    :param instance: order instance
+    :return:
+    """
+    # get the queryset object form warehouse internal inventory model
+    ware_house_internal = WarehouseInternalInventoryChange.objects.filter(
+        transaction_id=instance.order_no, final_stage=4, transaction_type='ordered')
+    # fetch all sku
+    sku_id = [p.sku.id for p in ware_house_internal]
+    # fetch all quantity
+    quantity = [p.quantity for p in ware_house_internal]
+    # iterate over sku and quantity
+    for prod, qty in zip(sku_id, quantity):
+        # get the queryset from warehouse inventory model
+        wim = WarehouseInventory.objects.filter(sku__id=prod,
+                                                inventory_state__inventory_state='available',
+                                                inventory_type__inventory_type='normal')
         # initialize the transaction type, initial stage, final stage and inventory type
         transaction_type = 'canceled'
         initial_stage = 'ordered'
@@ -642,7 +679,7 @@ def cancel_order_with_pick(instance):
             obj.status = 'picking_cancelled'
             obj.save()
     # call the warehouse internal and ware house internal inventory function to update the value
-    cancel_order(instance)
+    cancel_order_for_warehouse(instance)
 
 
 class AuditInventory(object):
