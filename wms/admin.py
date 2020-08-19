@@ -146,6 +146,12 @@ class SKUIDFilter(InputFilter):
         return queryset
 
 
+class PutawayuserFilter(AutocompleteFilter):
+    title = 'PUTAWAY USER'
+    field_name = 'putaway_user'
+    autocomplete_url = 'putaway-user-autocomplete'
+
+
 class BinResource(resources.ModelResource):
     info_logger.info("Bin Resource Admin has been called.")
 
@@ -259,7 +265,7 @@ class PutAwayAdmin(admin.ModelAdmin):
         'putaway_user', 'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity',
         'putaway_quantity')
     search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
-    list_filter = [Warehouse, BatchIdFilter, SKUFilter, 'putaway_type']
+    list_filter = [Warehouse, BatchIdFilter, SKUFilter, 'putaway_type', PutawayuserFilter]
     list_per_page = 50
 
     class Media:
