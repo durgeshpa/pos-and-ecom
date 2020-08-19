@@ -261,7 +261,8 @@ class WarehouseInternalInventoryChange(models.Model):
         ('ordered', "Ordered"),
         ('released', "Released"),
         ('canceled', 'Canceled'),
-        ('audit_adjustment', 'Audit Adjustment')
+        ('audit_adjustment', 'Audit Adjustment'),
+        ('put_away_type', 'Put Away Type'),
 
     )
 
@@ -290,13 +291,25 @@ class WarehouseInternalInventoryChange(models.Model):
 
 
 class BinInternalInventoryChange(models.Model):
+    bin_transaction_type = (
+        ('warehouse_adjustment', "WareHouse Adjustment"),
+        ('reserved', "Reserved"),
+        ('ordered', "Ordered"),
+        ('released', "Released"),
+        ('canceled', 'Canceled'),
+        ('audit_adjustment', 'Audit Adjustment'),
+        ('put_away_type', 'Put Away Type'),
+
+    )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     initial_inventory_type = models.ForeignKey(InventoryType,related_name='initial_inventory_type', null=True, blank=True, on_delete=models.DO_NOTHING)
     final_inventory_type = models.ForeignKey(InventoryType,related_name='final_inventory_type', null=True, blank=True, on_delete=models.DO_NOTHING)
-    initial_bin = models.ForeignKey(Bin,related_name='initial_bin', null=True, blank=True, on_delete=models.DO_NOTHING)
-    final_bin = models.ForeignKey(Bin,related_name='final_bin', null=True, blank=True, on_delete=models.DO_NOTHING)
+    initial_bin = models.ForeignKey(Bin, related_name='initial_bin', null=True, blank=True, on_delete=models.DO_NOTHING)
+    final_bin = models.ForeignKey(Bin, related_name='final_bin', null=True, blank=True, on_delete=models.DO_NOTHING)
+    transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=bin_transaction_type)
+    transaction_id = models.CharField(max_length=25, null=True, blank=True)
     quantity = models.PositiveIntegerField()
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -319,29 +332,6 @@ class StockCorrectionChange(models.Model):
 
     class Meta:
         db_table = "wms_stock_correction_change"
-
-
-@receiver(post_save, sender=BinInventory)
-def create_warehouse_inventory(sender, instance=None, created=False, *args, **kwargs):
-    warehouse_obj = WarehouseInventory.objects.filter(warehouse=instance.warehouse,sku=instance.sku,inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-                                                      inventory_type=InventoryType.objects.filter(inventory_type=instance.inventory_type).last(),
-                                                      )
-    if warehouse_obj.exists():
-        warehouse_obj = warehouse_obj.last()
-        # quantity = warehouse_obj.quantity
-        warehouse_obj.quantity = (BinInventory.available_qty_with_inventory_type(instance.warehouse.id, instance.sku.id,InventoryType.objects.filter(inventory_type=instance.inventory_type).last().id))
-        warehouse_obj.in_stock = instance.in_stock
-        warehouse_obj.save()
-    else:
-        WarehouseInventory.objects.create(warehouse=instance.warehouse,sku=instance.sku,inventory_state=InventoryState.objects.filter(inventory_state='available').last(),inventory_type=InventoryType.objects.filter(inventory_type=instance.inventory_type).last(),
-                                                           quantity=BinInventory.available_qty_with_inventory_type(instance.warehouse.id, instance.sku.id,InventoryType.objects.filter(
-                                                               inventory_type=instance.inventory_type).last().id), in_stock=instance.in_stock)
-    # WarehouseInventory.objects.update_or_create(warehouse=instance.warehouse,sku=instance.sku,
-    #                                             inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-    #                                             inventory_type=InventoryType.objects.filter(inventory_type=instance.inventory_type).last(),
-    #                                             defaults={'quantity':BinInventory.available_qty_with_inventory_type(instance.warehouse.id, instance.sku.id,
-    #                                             InventoryType.objects.filter(inventory_type=instance.inventory_type).last().id),
-    #                                             'in_stock':instance.in_stock})
 
 
 class OrderReserveRelease(models.Model):
