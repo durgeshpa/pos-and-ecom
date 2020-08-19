@@ -586,6 +586,7 @@ def cancel_order(instance):
         initial_stage = 'ordered'
         final_type = 'normal'
         final_stage = 'available'
+        inventory_type = 'normal'
         # create the data in Warehouse internal inventory model
         WarehouseInternalInventoryChange.objects.create(warehouse=wim[0].warehouse,
                                                         sku=wim[0].sku,
@@ -594,8 +595,8 @@ def cancel_order(instance):
                                                         initial_stage=InventoryState.objects.get(inventory_state=initial_stage),
                                                             final_stage=InventoryState.objects.get(inventory_state=final_stage),
                                                         initial_type=InventoryType.objects.get(inventory_type=initial_type),
-                                                        final_type=InventoryType.objects.get(
-                                                            inventory_type=final_type),
+                                                        final_type=InventoryType.objects.get(inventory_type=final_type),
+                                                        inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
                                                         quantity=qty)
 
 
