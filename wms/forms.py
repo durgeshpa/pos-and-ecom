@@ -1,4 +1,5 @@
 import logging
+import collections
 import re
 import csv
 import codecs
@@ -543,6 +544,7 @@ class UploadAuditAdminForm(forms.Form):
         first_row = next(reader)
         # list which contains csv data and pass into the view file
         form_data_list = []
+        unique_data_list = []
         for row_id, row in enumerate(reader):
 
             if '' in row:
@@ -767,5 +769,11 @@ class UploadAuditAdminForm(forms.Form):
                     "Initial Qty of SKU is not equal to Final Qty of SKU."))
 
             form_data_list.append(row)
+            unique_data_list.append(row[0]+row[1]+row[3]+row[4])
+        duplicate_data_list = ([item for item, count in collections.Counter(unique_data_list).items() if count > 1])
+        if len(duplicate_data_list) > 0:
+            raise ValidationError(_(
+                "Alert ! Duplicate Data. SKU with same Expiry Date and same Bin ID is exist in the csv,"
+                " please re-verify at your end."))
 
         return form_data_list
