@@ -402,13 +402,12 @@ class InventoryStateAdmin(admin.ModelAdmin):
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage',
-        'quantity', 'created_at', 'modified_at', 'inventory_csv')
+        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_type', 'initial_stage',
+        'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = (
-        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity',
-        'created_at',
-        'modified_at')
+        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_type', 'initial_stage',
+        'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at')
 
     search_fields = ('sku__product_sku', 'transaction_id',)
     list_filter = [
