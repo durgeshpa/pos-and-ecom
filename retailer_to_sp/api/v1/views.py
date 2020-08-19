@@ -50,7 +50,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
 )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
     OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-    ShipmentRescheduling, Note
+    ShipmentRescheduling, Note, OrderedProductBatch
 )
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,
     Order as GramMappedOrder, OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment,
@@ -1620,8 +1620,8 @@ class ReleaseBlocking(APIView):
             #             ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
             #         ordered_reserve.order_product_reserved.save()
             #         ordered_reserve.delete()
-            if CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).exists():
-                CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).delete()
+            if CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).exists():
+                CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).delete()
 
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
 
@@ -1710,6 +1710,7 @@ class ShipmentDeliveryUpdate(APIView):
         msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
         try:
             shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+            shipment_batch = OrderedProductBatch.objects.filter(ordered_product_mapping__ordered_product__id=shipment_id)
         except ObjectDoesNotExist:
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
         try:
@@ -1721,7 +1722,7 @@ class ShipmentDeliveryUpdate(APIView):
                 if  shipped_qty >= int(returned_qty) + int(damaged_qty):
                     delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
                     ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
-                        returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty)
+                        returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty, cancellation_date=datetime.now())
                 #shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
                 else:
                     product_name = Product.objects.get(id=product).product_name

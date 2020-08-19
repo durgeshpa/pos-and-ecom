@@ -25,7 +25,7 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-                                   Shipment)
+                                   Shipment, populate_data_on_qc_pass, add_to_putaway_on_return)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -49,7 +49,7 @@ from addresses.models import Address
 from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
-from wms.models import Pickup, WarehouseInternalInventoryChange
+from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
 
 logger = logging.getLogger('retailer_to_sp_controller')
@@ -196,10 +196,12 @@ class RequiredFormSet(BaseFormSet):
         to_ship_sum = []
         for form in self.forms:
             to_ship_pieces = form.cleaned_data.get('shipped_qty')
+            picked_pieces = form.cleaned_data.get('picked_pieces')
             if to_ship_pieces:
                 to_ship_sum.append(to_ship_pieces)
         if sum(to_ship_sum) == 0:
-            raise ValidationError("Please add shipment quantity for at least one product")
+            pass
+            # raise ValidationError("Please add shipment quantity for at least one product")
 
 
 def ordered_product_mapping_shipment(request):
@@ -224,9 +226,9 @@ def ordered_product_mapping_shipment(request):
             .filter(
             ordered_product__order_id=order_id,
             product__id__in=[i['cart_product'] for i in cart_products]) \
-            .annotate(Sum('delivered_qty'), Sum('shipped_qty'))
+            .annotate(Sum('delivered_qty'), Sum('shipped_qty'), Sum('picked_pieces'))
         products_list = []
-        pick_up_obj = Pickup.objects.filter(pickup_type_id=Order.objects.filter(id=order_id).last().order_no)
+        pick_up_obj = Pickup.objects.filter(pickup_type_id=Order.objects.filter(id=order_id).last().order_no).order_by('created_at')
         for item, pick_up in zip(cart_products, pick_up_obj):
             shipment_product = list(filter(lambda product: product['product'] == item['cart_product'],
                                            shipment_products))
@@ -243,6 +245,7 @@ def ordered_product_mapping_shipment(request):
                         'already_shipped_qty': already_shipped_qty,
                         'to_be_shipped_qty': to_be_shipped_qty,
                         'shipped_qty': pick_up.pickup_quantity,
+                        'picked_pieces':pick_up.pickup_quantity
                     })
             else:
                 products_list.append({
@@ -251,7 +254,8 @@ def ordered_product_mapping_shipment(request):
                     'ordered_qty': item['no_of_pieces'],
                     'already_shipped_qty': 0,
                     'to_be_shipped_qty': 0,
-                    'shipped_qty': pick_up.pickup_quantity,
+                    'shipped_qty':pick_up.pickup_quantity,
+                    'picked_pieces':pick_up.pickup_quantity
                 })
         form_set = ordered_product_set(initial=products_list)
         form = OrderedProductForm(initial={'order': order_id})
@@ -273,8 +277,9 @@ def ordered_product_mapping_shipment(request):
                     for forms in form_set:
                         if forms.is_valid():
                             to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                            picked_pieces = forms.cleaned_data.get('picked_pieces', 0)
                             product_name = forms.cleaned_data.get('product')
-                            if to_be_ship_qty:
+                            if to_be_ship_qty >= 0:
                                 formset_data = forms.save(commit=False)
                                 formset_data.ordered_product = shipment
                                 max_pieces_allowed = int(formset_data.ordered_qty) - int(
@@ -283,12 +288,13 @@ def ordered_product_mapping_shipment(request):
                                     raise Exception(
                                         '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
                                 formset_data.save()
-                    return redirect('/admin/retailer_to_sp/shipment/')
+                populate_data_on_qc_pass(order)
+                return redirect('/admin/retailer_to_sp/shipment/')
 
             except Exception as e:
                 messages.error(request, e)
                 logger.exception("An error occurred while creating shipment {}".format(e))
-
+           # populate_data_on_qc_pass(order)
     return render(
         request,
         'admin/retailer_to_sp/OrderedProductMappingShipment.html',
@@ -483,6 +489,8 @@ def trip_planning_change(request, pk):
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if current_trip_status == Trip.RETURN_VERIFIED:
+                    for i in trip_instance.rt_invoice_trip.all():
+                        add_to_putaway_on_return(i.id)
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if selected_shipment_ids:
@@ -1373,12 +1381,12 @@ class OrderCancellation(object):
 
         reserved_qty_queryset = self.get_reserved_qty()
         for item in reserved_qty_queryset:
-            sp_ordered_product_mapping = SPOrderedProductMapping.objects.filter(id=item['sp_grn'])
+            sp_ordered_product_mapping = SPOrderedProductMapping.objects.filter(id=item['r_sku'])
             for opm in sp_ordered_product_mapping:
                 opm.available_qty = opm.available_qty + item['r_qty']
                 opm.save()
 
-        reserved_qty_queryset.update(reserve_status=OrderedProductReserved.ORDER_CANCELLED)
+        # reserved_qty_queryset.update(reserve_status=OrderedProductReserved.ORDER_CANCELLED)
 
     def cancel(self):
         # check if order associated with any shipment
@@ -1531,7 +1539,7 @@ class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
         qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
         qs = Order.objects.filter(
             # order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'PICKING_ASSIGNED', 'PICKUP_CREATED'],
-            order_status__in=[Order.OPDP, 'PARTIALLY_SHIPPED', 'PICKING_ASSIGNED', 'PICKUP_CREATED'],
+            order_status__in=[Order.OPDP, 'picking_complete',],
             order_closed=False
         ).exclude(
             Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status=False)| Q(order_status=Order.CANCELLED))

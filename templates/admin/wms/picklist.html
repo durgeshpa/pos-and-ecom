@@ -1,39 +1,3 @@
-<!--{% load i18n %}-->
-<!--{% load static %}-->
-<!--{% load staticfiles %}-->
-<!--{% load app_filters_credit_note %}-->
-<!--{% load humanize %}-->
-
-<!--<html>-->
-
-<!--	<head>-->
-<!--<meta charset="UTF-8">-->
-<!--<title>PickList</title>-->
-<!--    <meta name="viewport" content="width=device-width, initial-scale=1">-->
-<!--	<link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">-->
-<!--   <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/style.css">-->
-
-<!--	<style>-->
-
-<!--	</style>-->
-<!--</head>-->
-
-
-
-<!--<body>-->
-<!--{% for m in data_list %}-->
-<!--    <td class="text-center">{{ m.product_name }}</td>-->
-<!--    <td class="text-center">{{ m.sku }}</td>-->
-<!--    <td class="text-center">{{ m.product_mrp }}</td>-->
-<!--    <td class="text-center">{{ m.batch_id }}</td>-->
-<!--    <td class="text-center">{{ m.bin_id  }}</td>-->
-<!--{% endfor %}-->
-
-
-<!--</body>-->
-<!--</html>-->
-
-
 {% load i18n %}
 {% load static %}
 {% load staticfiles %}
@@ -47,6 +11,54 @@
 </head>
 <body>
 
+<div class="container-fluid" >
+  <div class="col-md-6" >
+    <div class="barcode">
+      <div class="pull-right">Order No:<img src="data:image/png;base64,{{barcode}}" height="130px">
+    </div>
+  </div>
+  </div>
+
+  	<table class="table">
+	<thead>
+      <tr>
+        <th class="no-border">Order ID : {{order_obj.order_no}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store Name : {{buyer_shop}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store Shipping Address : {{buyer_shipping_address}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store Shipping City : {{buyer_shipping_city}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Contact No : {{buyer_contact_no}}</th>
+      </tr>
+    </thead>
+	</table>
+  <table class="table table-bordered">
+    <thead>
+      <th>Expiry Check:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered">
+    <thead>
+      <th>Product Description Check:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered">
+    <thead>
+      <th> MRP Check:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered">
+    <thead>
+      <th> Cleanliness/ Damage Check:</th>
+    </thead>
+  </table>
+
   <table class="table table-bordered">
     <thead>
       <tr>
@@ -54,7 +66,7 @@
           <th>Product Name</th>
           <th>Product SKU</th>
           <th>Prod MRP</th>
-          <th>Picked Qty</th>
+          <th>To Be Picked Qty</th>
           <th>Batch ID</th>
           <th>BIN ID</th>
           <th>Remark</th>
