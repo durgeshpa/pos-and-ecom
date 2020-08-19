@@ -402,7 +402,7 @@ class InventoryStateAdmin(admin.ModelAdmin):
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'inventory_type', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage',
+        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage',
         'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = (

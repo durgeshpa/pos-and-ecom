@@ -269,7 +269,11 @@ class WarehouseInternalInventoryChange(models.Model):
     sku = models.ForeignKey(Product, null=True, blank=True, on_delete=models.DO_NOTHING)
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=transaction_type)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
-    inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
+    # inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
+    initial_type = models.ForeignKey(InventoryType, related_name='initial_type', null=True, blank=True,
+                                      on_delete=models.DO_NOTHING)
+    final_type = models.ForeignKey(InventoryType, related_name='final_type', null=True, blank=True,
+                                    on_delete=models.DO_NOTHING)
     initial_stage = models.ForeignKey(InventoryState, related_name='initial_stage', null=True, blank=True, on_delete=models.DO_NOTHING)
     final_stage = models.ForeignKey(InventoryState, related_name='final_stage', null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
