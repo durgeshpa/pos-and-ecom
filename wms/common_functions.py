@@ -1061,6 +1061,14 @@ def get_expiry_date(batch_id):
     return expiry_date
 
 
+def set_expiry_date(batch_id):
+    if len(batch_id) == 23:
+        expiry_date = batch_id[17:19] + '/' + batch_id[19:21] + '/' + batch_id[21:23]
+    else:
+        expiry_date = '30/' + batch_id[17:19] + '/' + batch_id[19:21]
+    return expiry_date
+
+
 class WareHouseInternalInventoryChange(object):
     @classmethod
     def create_warehouse_inventory_change(cls, warehouse, sku, transaction_type, transaction_id,
