@@ -1,8 +1,7 @@
 from dal import autocomplete
 from shops.models import Shop
-from wms.models import Bin, BinInventory, InventoryType, InventoryState, PickupBinInventory
+from wms.models import InventoryType, InventoryState
 from accounts.models import User
-from products.models import Product
 
 
 class WareHouseComplete(autocomplete.Select2QuerySetView):

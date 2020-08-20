@@ -8,7 +8,7 @@ from django.contrib import admin
 from django.http import HttpResponse
 from django.utils.html import format_html
 from django.urls import reverse
-from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter
+from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
 from rangefilter.filter import DateTimeRangeFilter
 from retailer_backend.admin import InputFilter
 # app imports
@@ -182,7 +182,7 @@ class BinAdmin(admin.ModelAdmin):
     search_fields = ('bin_id',)
     list_filter = [BinIdFilter,
         ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
-        ('bin_type', ChoiceDropdownFilter),
+        ('bin_type', DropdownFilter),
     ]
     list_per_page = 50
 
@@ -258,7 +258,6 @@ class BinAdmin(admin.ModelAdmin):
     download_barcode.short_description = "Download Barcode List"
 
 
-
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
@@ -278,7 +277,7 @@ class PutAwayAdmin(admin.ModelAdmin):
         'putaway_user', 'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity',
         'putaway_quantity')
     search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
-    list_filter = [Warehouse, BatchIdFilter, SKUFilter, 'putaway_type', PutawayuserFilter]
+    list_filter = [Warehouse, BatchIdFilter, SKUFilter, ('putaway_type', DropdownFilter), PutawayuserFilter]
     list_per_page = 50
 
     class Media:
@@ -293,7 +292,7 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     actions = ['download_bulk_put_away_bin_inventory_csv']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin__bin_id')
     list_filter = [
-        Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, 'putaway_type', ('created_at', DateTimeRangeFilter)]
+        Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, ('putaway_type', DropdownFilter), ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
 
     def download_bulk_put_away_bin_inventory_csv(self, request, queryset):
@@ -408,7 +407,7 @@ class PickupAdmin(admin.ModelAdmin):
     form = PickupForm
     list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status')
     search_fields = ('pickup_type_id', 'sku__product_sku',)
-    list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, 'status', 'pickup_type']
+    list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, ('status', DropdownFilter), 'pickup_type']
     list_per_page = 50
 
     class Media:
@@ -512,7 +511,7 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
 
     search_fields = ('sku__product_sku', 'transaction_id',)
     list_filter = [Warehouse, ProductSKUFilter, TransactionIDFilter, InventoryTypeFilter, InitialStageFilter,
-                   FinalStageFilter, 'transaction_type', ('created_at', DateTimeRangeFilter),
+                   FinalStageFilter, ('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter),
                    ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
 
