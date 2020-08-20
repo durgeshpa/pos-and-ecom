@@ -575,8 +575,11 @@ def release_blocking_with_cron():
 
 
 def pickup_entry_creation_with_cron():
+    info_logger.info("POST request while upload the .csv file for Audit file download.")
+    print("hello")
     cart = Cart.objects.filter(rt_order_cart_mapping__order_status='ordered')
     data_list=[]
+    print(cart)
     if cart.exists():
         order_obj = [i.rt_order_cart_mapping for i in cart]
         for i in order_obj:
@@ -632,7 +635,7 @@ def pickup_entry_creation_with_cron():
                         prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked, "batch_id": batch_id, "bin": bin_id}
                         print(bin_id)
                         data_list.append(prod_list)
-                        CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, j, quantity=already_picked, pickup_quantity=0)
+                        CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, j, quantity=already_picked, pickup_quantity=None)
                     else:
                         already_picked = qty_in_bin
                         remaining_qty = qty - already_picked
@@ -641,7 +644,7 @@ def pickup_entry_creation_with_cron():
                         qty = remaining_qty
                         prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked, "batch_id": batch_id,"bin": bin_id}
                         data_list.append(prod_list)
-                        CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id,j,quantity=already_picked, pickup_quantity=0)
+                        CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id,j,quantity=already_picked, pickup_quantity=None)
 
 
 class DownloadBinCSV(View):
