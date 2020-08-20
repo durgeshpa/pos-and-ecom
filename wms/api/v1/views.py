@@ -400,29 +400,14 @@ class PickupDetail(APIView):
         if not order_no:
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        pickup_orders = Order.objects.filter(order_no=order_no).last()
-        if pickup_orders is None:
-            msg = {'is_success': True, 'message': 'Order number does not exist.', 'data': None}
-            return Response(msg, status=status.HTTP_200_OK)
         bin_id = request.GET.get('bin_id')
         if not bin:
             msg = {'is_success': True, 'message': 'Bin id is not empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        sku_list = []
-        for i in pickup_orders.ordered_cart.rt_cart_list.all():
-            sku_list.append(i.cart_product.id)
 
-        bin_list = []
-        for sku in sku_list:
-            bin_obj = BinInventory.objects.filter(bin__bin_id=bin_id, sku__id=sku)
-            if bin_obj.exists():
-                bin_list.append(bin_obj)
-        pick_list = []
-        for bin_id in bin_list[0]:
-            picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin=bin_id)
-            if picking_details.exists():
-                pick_list.append(picking_details[0])
-        serializer = PickupBinInventorySerializer(pick_list, many=True)
+        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id)
+        if picking_details.exists():
+            serializer = PickupBinInventorySerializer(picking_details, many=True)
         msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
 
