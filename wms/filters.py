@@ -1,6 +1,6 @@
 from dal import autocomplete
 from shops.models import Shop
-from wms.models import InventoryType, InventoryState
+from wms.models import Bin, BinInventory, InventoryType, InventoryState, PickupBinInventory
 from accounts.models import User
 from products.models import Product
 
@@ -54,13 +54,3 @@ class PutawayUserFilter(autocomplete.Select2QuerySetView):
         return qs
 
 
-class ProductSKUFilter(autocomplete.Select2QuerySetView):
-    def get_queryset(self, *args, **kwargs):
-        if not self.request.user.is_authenticated:
-            return Product.objects.none()
-
-        qs = Product.objects.all()
-
-        if self.q:
-            qs = qs.filter(product_sku__icontains=self.q)
-        return qs

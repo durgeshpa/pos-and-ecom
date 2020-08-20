@@ -47,14 +47,25 @@ class BinIdFilter(InputFilter):
         return queryset
 
 
-class BinNumberFilter(InputFilter):
-    title = 'Bin Number'
+class BinIDFilterForPickupBinInventory(InputFilter):
+    title = 'Bin ID'
     parameter_name = 'bin'
 
     def queryset(self, request, queryset):
         value = self.value()
         if value:
-            return queryset.filter(bin=value)
+            return queryset.filter(bin__bin__bin_id=value)
+        return queryset
+
+
+class BinFilterForBinInventory(InputFilter):
+    title = 'Bin'
+    parameter_name = 'bin'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(bin__bin_id=value)
         return queryset
 
 
@@ -143,10 +154,15 @@ class TransactionIDFilter(InputFilter):
         return queryset
 
 
-class ProductSKUFilter(AutocompleteFilter):
+class ProductSKUFilter(InputFilter):
     title = 'SKU'
-    field_name = 'sku'
-    autocomplete_url = 'product-sku-autocomplete'
+    parameter_name = 'sku'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(sku__product_sku=value)
+        return queryset
 
 
 class PutawayuserFilter(AutocompleteFilter):
@@ -343,7 +359,7 @@ class BinInventoryAdmin(admin.ModelAdmin):
     actions = ['download_barcode']
     list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at', 'modified_at')
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at')
-    list_filter = [BinIdFilter, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter]
+    list_filter = [BinFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter]
     list_per_page = 50
 
     class Media:
@@ -406,8 +422,7 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin', 'created_at')
     search_fields = ('batch_id', 'bin__bin__bin_id')
-    list_filter = [Warehouse, BatchIdFilter, BinNumberFilter, ('created_at', DateTimeRangeFilter)]
-
+    list_filter = [Warehouse, BatchIdFilter, BinIDFilterForPickupBinInventory, ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
 
     def order_number(self, obj):
