@@ -500,9 +500,10 @@ class PickupComplete(APIView):
         pick_obj = Pickup.objects.filter(pickup_type_id=order_no)
         if pick_obj.exists():
             sum_of_pickup = [i.pickup_quantity for i in pick_obj]
-            if 0 in sum_of_pickup:
+            prod = [i.sku.product_name for i in pick_obj]
+            if None in sum_of_pickup:
                 return Response({'is_success': False,
-                                 'message': "Some items are not picked up"})
+                                 'message': "Pickup Incomplete for some products in {}. Min value to pick is 0".format(prod)})
             else:
                 Order.objects.filter(order_no=order_no).update(order_status='picking_complete')
                 pick_obj.update(status='picking_complete')

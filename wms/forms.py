@@ -1,4 +1,5 @@
 import logging
+import collections
 import re
 import csv
 import codecs
@@ -543,6 +544,7 @@ class UploadAuditAdminForm(forms.Form):
         first_row = next(reader)
         # list which contains csv data and pass into the view file
         form_data_list = []
+        unique_data_list = []
         for row_id, row in enumerate(reader):
 
             if '' in row:
@@ -757,6 +759,29 @@ class UploadAuditAdminForm(forms.Form):
             # iterate the row from initial to end
             for row_id_1, row_1 in enumerate(reader):
                 if row_1[1] == row[1]:
+                    # to validate normal final quantity is empty or contains the number
+                    if not row_1[9] or not re.match("^[\d]*$", row_1[9]):
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(
+                                row_id_1 + 1) + "," + "Normal-Final Qty can not be empty or string type."))
+
+                    # to validate damaged final quantity is empty or contains the number
+                    if not row_1[10] or not re.match("^[\d]*$", row_1[10]):
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(
+                                row_id_1 + 1) + "," + "Damaged-Final Qty can not be empty or string type."))
+
+                    # to validate expired final quantity is empty or contains the number
+                    if not row_1[11] or not re.match("^[\d]*$", row_1[11]):
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(
+                                row_id_1 + 1) + "," + "Expired-Final Qty can not be empty or string type."))
+
+                    # to validate missing final quantity is empty or contains the number
+                    if not row_1[12] or not re.match("^[\d]*$", row_1[12]):
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(
+                                row_id_1 + 1) + "," + "Missing-Final Qty can not be empty or string type."))
                     count = int(row_1[9]) + int(row_1[10]) + int(row_1[11]) + int(row_1[12])
                     final_count = count + final_count
             # to validate initial count and final count is equal
@@ -767,5 +792,11 @@ class UploadAuditAdminForm(forms.Form):
                     "Initial Qty of SKU is not equal to Final Qty of SKU."))
 
             form_data_list.append(row)
+            unique_data_list.append(row[0]+row[1]+row[3]+row[4])
+        duplicate_data_list = ([item for item, count in collections.Counter(unique_data_list).items() if count > 1])
+        if len(duplicate_data_list) > 0:
+            raise ValidationError(_(
+                "Alert ! Duplicate Data. SKU with same Expiry Date and same Bin ID is exist in the csv,"
+                " please re-verify at your end."))
 
         return form_data_list
