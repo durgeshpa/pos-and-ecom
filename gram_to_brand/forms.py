@@ -179,7 +179,7 @@ class GRNOrderProductForm(forms.ModelForm):
     po_product_quantity = forms.IntegerField()
     po_product_price = forms.DecimalField()
     already_grned_product = forms.IntegerField()
-    already_returned_product = forms.IntegerField(disabled=True)
+    already_returned_product = forms.IntegerField()
     expiry_date = forms.DateField(required=False, widget=AdminDateWidget())
     best_before_year = forms.ChoiceField(choices=BEST_BEFORE_YEAR_CHOICE,)
     best_before_month = forms.ChoiceField(choices=BEST_BEFORE_MONTH_CHOICE,)
@@ -250,7 +250,7 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
         super(GRNOrderProductFormset, self).clean()
         products_dict = {}
         count=0
-        for form in self:
+        for form in self.forms:
             if form.cleaned_data.get('product_invoice_qty'):
                 count += 1
             if form.cleaned_data.get('delivered_qty') is None:
