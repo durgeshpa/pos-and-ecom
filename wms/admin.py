@@ -143,15 +143,10 @@ class TransactionIDFilter(InputFilter):
         return queryset
 
 
-class SKUIDFilter(InputFilter):
-    title = 'SKU ID'
-    parameter_name = 'sku_id'
-
-    def queryset(self, request, queryset):
-        value = self.value()
-        if value:
-            return queryset.filter(sku_id=value)
-        return queryset
+class ProductSKUFilter(AutocompleteFilter):
+    title = 'SKU'
+    field_name = 'sku'
+    autocomplete_url = 'product-sku-autocomplete'
 
 
 class PutawayuserFilter(AutocompleteFilter):
@@ -501,7 +496,7 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
         'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at')
 
     search_fields = ('sku__product_sku', 'transaction_id',)
-    list_filter = [Warehouse, SKUIDFilter, TransactionIDFilter, InventoryTypeFilter, InitialStageFilter,
+    list_filter = [Warehouse, ProductSKUFilter, TransactionIDFilter, InventoryTypeFilter, InitialStageFilter,
                    FinalStageFilter, 'transaction_type', ('created_at', DateTimeRangeFilter),
                    ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
