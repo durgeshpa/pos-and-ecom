@@ -21,6 +21,8 @@ from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinIn
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
 from barCodeGenerator import barcodeGen, merged_barcode_gen
+from django.db import transaction
+from .common_functions import CommonWarehouseInventoryFunctions, WareHouseInternalInventoryChange, InternalInventoryChange
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -240,6 +242,60 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
+    def save_model(self, request, obj, form, change):
+        with transaction.atomic():
+            if obj.putaway_type == 'CANCELLED':
+                obj.putaway_status = True
+                if obj.bin.inventory_type.inventory_type == 'normal':
+                    obj.bin.quantity = obj.bin.quantity + obj.putaway_quantity
+                    obj.bin.save()
+                    normal_inventory_type = 'normal',
+                    available_inventory_state = 'available',
+                    ordered_inventory_state = 'ordered',
+                    available_quantity = obj.putaway_quantity
+                    ordered_quantity = int(-obj.putaway_quantity)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
+                                                                                 normal_inventory_type[0],
+                                                                                 available_inventory_state[0],
+                                                                                 available_quantity, True)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
+                                                                                 normal_inventory_type[0],
+                                                                                 ordered_inventory_state[0],
+                                                                                 ordered_quantity, True)
+                    transaction_type = 'put_away_type'
+                    transaction_id = obj.putaway_id
+                    initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
+                    initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
+                    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
+                    final_stage = InventoryState.objects.filter(inventory_state='canceled').last(),
+                    WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse, obj.sku,
+                                                                                       transaction_type,
+                                                                                       transaction_id,
+                                                                                       initial_type[0],
+                                                                                       initial_stage[0],
+                                                                                       final_type[0], final_stage[0],
+                                                                                       available_quantity)
+                    initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
+                    final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
+                    initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
+                    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
+                    transaction_type = 'put_away_type'
+                    transaction_id = obj.putaway_id
+                    quantity = available_quantity
+                    batch_id = obj.batch_id
+                    BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
+                                                              batch_id=batch_id,
+                                                              initial_bin=Bin.objects.get(bin_id=initial_bin_id),
+                                                              final_bin=Bin.objects.get(bin_id=final_bin_id),
+                                                              initial_inventory_type=initial_type[0],
+                                                              final_inventory_type=final_type[0],
+                                                              transaction_type=transaction_type,
+                                                              transaction_id=transaction_id,
+                                                              quantity=quantity)
+                super().save_model(request, obj, form, change)
+            else:
+                pass
 
 
 class InventoryTypeAdmin(admin.ModelAdmin):

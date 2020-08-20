@@ -176,13 +176,12 @@ class PutawayBinInventory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        check_quantity = PutawayBinInventory.objects.filter(putaway=self.putaway.id).aggregate(
-            total=Sum('putaway_quantity')).get('total')
-        if not check_quantity:
-            check_quantity = 0
-        if check_quantity < Putaway.objects.filter(id=self.putaway.id).last().quantity:
-            super(PutawayBinInventory, self).save(*args, **kwargs)
+    # def save(self, *args, **kwargs):
+    #     check_quantity = PutawayBinInventory.objects.filter(putaway=self.putaway.id).aggregate(total=Sum('putaway_quantity')).get('total')
+    #     if not check_quantity:
+    #         check_quantity=0
+    #     if check_quantity <= Putaway.objects.filter(id=self.putaway.id).last().quantity:
+    #         super(PutawayBinInventory, self).save(*args, **kwargs)
 
     class Meta:
         db_table = "wms_putaway_bin_inventory"
