@@ -566,7 +566,18 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
                 ware_obj.quantity=available_qty
                 ware_obj.save()
                 # wim.update(quantity=available_qty)
-                WarehouseInventory.objects.filter(id=ordered_id).update(quantity=reserved_qty,inventory_state=InventoryState.objects.filter(inventory_state='ordered').last())
+                order_ware = WarehouseInventory.objects.filter(sku__id=prod, inventory_state=InventoryState.objects.filter(
+                                                                            inventory_state='ordered').last()).last()
+                if order_ware:
+                    order_ware.quantity = reserved_qty
+                    order_ware.save()
+                else:
+                    WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=shop_id),sku=Product.objects.get(id=prod), inventory_state=InventoryState.objects.filter(
+                        inventory_state='ordered').last(), quantity=reserved_qty, in_stock=True,
+                                                      inventory_type=InventoryType.objects.filter(
+                                                          inventory_type='normal').last()
+                                                      )
+                WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
             else:
                 ware_obj = wim.last()
                 ware_obj.quantity=(available_qty+reserved_qty)
