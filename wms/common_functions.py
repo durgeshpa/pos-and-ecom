@@ -621,7 +621,7 @@ def cancel_order(instance):
         wim_ordered_quantity = wim_ordered[0].quantity
         wim_ordered.update(quantity=wim_ordered_quantity - qty)
         # initialize the transaction type, initial stage, final stage and inventory type
-        transaction_type = 'Order Cancel'
+        transaction_type = 'canceled'
         initial_type = 'normal'
         initial_stage = 'ordered'
         final_type = 'normal'
