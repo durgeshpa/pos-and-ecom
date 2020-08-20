@@ -162,7 +162,8 @@ class PutAwayBinInventoryForm(forms.ModelForm):
 
         if instance:
             self.fields['putaway_quantity'].initial = 0
-            # self.fields['putaway_quantity'].disabled = True
+            if instance.putaway_status is True:
+                self.fields['putaway_status'].disabled = True
 
 
 class BinInventoryForm(forms.ModelForm):
