@@ -1011,9 +1011,16 @@ def common_on_return_and_partial(shipment):
                 'D': InventoryType.objects.get(inventory_type='damaged'),
                 'N': InventoryType.objects.get(inventory_type='normal')}
     for i in shipment.rt_order_product_order_product_mapping.all():
+        bin_list = [j.bin for j in i.rt_ordered_product_mapping.all()]
+        bin_id_for_input = None
+        for bin_id in bin_list:
+            if bin_id.quantity == 0:
+                continue
+            else:
+                bin_id_for_input = bin_id
         for j in i.rt_ordered_product_mapping.all():
             if j.returned_qty > 0:
-                create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin.bin_id,inv_type['N'], 't', j.returned_qty)
+                # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin.bin_id,inv_type['N'], 't', j.returned_qty)
                 putaway_qty = j.returned_qty
                 if putaway_qty ==0:
                     continue
@@ -1029,10 +1036,12 @@ def common_on_return_and_partial(shipment):
 
             else:
                 if j.damaged_qty > 0:
-                    create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['D'], 't', j.damaged_qty)
+                    pass
+                    # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['D'], 't', j.damaged_qty)
 
                 if j.expired_qty > 0:
-                    create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['E'],'t', j.expired_qty)
+                    pass
+                    # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['E'],'t', j.expired_qty)
 
                 putaway_qty = (j.pickup_quantity - j.quantity)
                 if putaway_qty <= 0:
@@ -1044,7 +1053,7 @@ def common_on_return_and_partial(shipment):
                                                                                         'putaway_quantity': putaway_qty})
                     PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
                                                              batch_id=j.batch_id, putaway_type='PAR_SHIPMENT',
-                                                             putaway=pu, bin=j.bin, putaway_status=False,
+                                                             putaway=pu, bin=bin_id_for_input, putaway_status=False,
                                                              defaults={'putaway_quantity': putaway_qty})
 
 
