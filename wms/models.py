@@ -224,7 +224,7 @@ class PickupBinInventory(models.Model):
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
-    pickup_quantity = models.PositiveIntegerField()
+    pickup_quantity = models.PositiveIntegerField(null = True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
