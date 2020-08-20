@@ -23,7 +23,7 @@ from django.dispatch import receiver
 from django.db import transaction
 from datetime import datetime
 from .common_functions import CommonPickBinInvFunction, common_for_release, CommonPickupFunctions,\
-    create_batch_id_from_audit, get_expiry_date
+    create_batch_id_from_audit, get_expiry_date, set_expiry_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
@@ -782,7 +782,7 @@ def audit_download(request):
                         bin_missing_quantity = 0
 
                     # get expired date for individual bin and sku
-                    expiry_date = get_expiry_date(bin_inventory.batch_id)
+                    expiry_date = set_expiry_date(bin_inventory.batch_id)
                     # append data in a list
                     data_list.append([bin_inventory.warehouse_id, bin_inventory.sku.product_name + '-' + bin_inventory.sku.product_sku, product_price,
                                      expiry_date, bin_inventory.bin.bin_id, bin_normal_quantity, bin_damaged_quantity, bin_expired_quantity,

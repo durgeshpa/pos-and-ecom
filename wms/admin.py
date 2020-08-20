@@ -28,6 +28,14 @@ error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 
 
+class BinResource(resources.ModelResource):
+    info_logger.info("Bin Resource Admin has been called.")
+
+    class Meta:
+        model = Bin
+        exclude = ('created_at', 'modified_at')
+
+
 class BinIdFilter(InputFilter):
     title = 'Bin ID'
     parameter_name = 'bin_id'
@@ -152,14 +160,6 @@ class PutawayuserFilter(AutocompleteFilter):
     autocomplete_url = 'putaway-user-autocomplete'
 
 
-class BinResource(resources.ModelResource):
-    info_logger.info("Bin Resource Admin has been called.")
-
-    class Meta:
-        model = Bin
-        exclude = ('created_at', 'modified_at')
-
-
 class BinAdmin(admin.ModelAdmin):
     info_logger.info("Bin Admin has been called.")
     form = BinForm
@@ -251,8 +251,10 @@ class BinAdmin(admin.ModelAdmin):
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
-    list_display = ('warehouse', 'sku', 'quantity')
+    list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'quantity',)
+    search_fields = ('batch_id', 'in_type_id', 'sku__product_sku',)
     list_filter = [Warehouse, BatchIdFilter, SKUFilter, InTypeIDFilter, 'in_type']
+    list_per_page = 50
 
     class Media:
         pass
@@ -350,7 +352,26 @@ class BinInventoryAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     class Media:
-        pass
+        js = ('admin/js/picker.js',)
+
+    def download_barcode(self, request, queryset):
+        """
+        :param self:
+        :param request:
+        :param queryset:
+        :return:
+        """
+        info_logger.info("download Barocde List for GRN method has been called.")
+        bin_id_list = {}
+        for obj in queryset:
+            product_mrp = obj.sku.product_pro_price.filter(seller_shop=obj.warehouse, approval_status=2)
+
+            temp_data = {"qty": 1,"data": {"SKU": obj.sku.product_sku,
+                                      "MRP": product_mrp.last().mrp if product_mrp.exists() else ''}}
+            bin_id_list[obj.batch_id] = temp_data
+        return merged_barcode_gen(bin_id_list)
+
+    download_barcode.short_description = "Download Barcode List"
 
 
 class OutAdmin(admin.ModelAdmin):
@@ -358,6 +379,7 @@ class OutAdmin(admin.ModelAdmin):
     form = OutForm
     list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
     readonly_fields = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
+    list_per_page = 50
 
     def get_urls(self):
         from django.conf.urls import url
@@ -472,13 +494,12 @@ class InventoryStateAdmin(admin.ModelAdmin):
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage',
-        'quantity', 'created_at', 'modified_at', 'inventory_csv')
+        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_type', 'initial_stage',
+        'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = (
-        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity',
-        'created_at',
-        'modified_at')
+        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_type', 'initial_stage',
+        'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at')
 
     search_fields = ('sku__product_sku', 'transaction_id',)
     list_filter = [Warehouse, SKUIDFilter, TransactionIDFilter, InventoryTypeFilter, InitialStageFilter,
@@ -492,8 +513,8 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
 
 class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'initial_inventory_type', 'final_inventory_type', 'initial_bin',
-                    'final_bin', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
-    list_filter = [Warehouse, SKUFilter]
+                    'final_bin','transaction_type', 'transaction_id',
+                    'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_per_page = 50
 
 
