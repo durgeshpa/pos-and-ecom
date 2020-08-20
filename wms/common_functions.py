@@ -338,7 +338,7 @@ class OrderManagement(object):
 
 class InternalInventoryChange(object):
     @classmethod
-    def create_bin_internal_inventory_change(cls, shop_id, sku, batch_id, final_bin_id,
+    def create_bin_internal_inventory_change(cls, shop_id, sku, batch_id, final_bin_id, initial_type,
                                              final_type, transaction_type, transaction_id, quantity):
         """
 
@@ -359,6 +359,7 @@ class InternalInventoryChange(object):
             BinInternalInventoryChange.objects.create(warehouse_id=shop_id.id, sku=sku,
                                                       batch_id=batch_id,
                                                       final_bin=Bin.objects.get(bin_id=final_bin_id),
+                                                      initial_inventory_type=initial_type,
                                                       final_inventory_type=final_type,
                                                       transaction_type=transaction_type,
                                                       transaction_id=transaction_id,
@@ -535,17 +536,21 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
 
     transaction_type = 'put_away_type'
     transaction_id = put_away[0].id
+    initial_type = InventoryType.objects.filter(inventory_type='new').last(),
+    initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
     final_type = InventoryType.objects.filter(inventory_type='normal').last(),
     final_stage = InventoryState.objects.filter(inventory_state='available').last(),
     WareHouseInternalInventoryChange.create_warehouse_inventory_change(sh, pu[0].sku, transaction_type, transaction_id,
+                                                                       initial_type[0], initial_stage[0],
                                                                        final_type[0], final_stage[0], val)
 
     final_bin_id = bin_id
+    initial_type = InventoryType.objects.filter(inventory_type='new').last(),
     final_type = InventoryType.objects.filter(inventory_type='normal').last(),
     transaction_type = 'put_away_type'
     transaction_id = put_away[0].id
     quantity = val
-    InternalInventoryChange.create_bin_internal_inventory_change(sh, pu[0].sku, batch_id, final_bin_id,
+    InternalInventoryChange.create_bin_internal_inventory_change(sh, pu[0].sku, batch_id, final_bin_id, initial_type[0],
                                                                  final_type[0], transaction_type,
                                                                  transaction_id, quantity)
 
@@ -1084,22 +1089,27 @@ def set_expiry_date(batch_id):
 class WareHouseInternalInventoryChange(object):
     @classmethod
     def create_warehouse_inventory_change(cls, warehouse, sku, transaction_type, transaction_id,
-                                                    final_type, final_stage, quantity):
+                                          initial_type, initial_stage, final_type, final_stage, quantity):
         """
 
-        :param warehouse: warehouse obj
-        :param sku: sku obj
-        :param transaction_type: type of transaction
-        :param transaction_id: transaction id
-        :param final_stage: final stage obj
-        :param quantity: quantity
-        :return: None
+        :param warehouse:
+        :param sku:
+        :param transaction_type:
+        :param transaction_id:
+        :param initial_type:
+        :param initial_stage:
+        :param final_type:
+        :param final_stage:
+        :param quantity:
+        :return:
         """
         try:
             # Create data in WareHouse Internal Inventory Model
             WarehouseInternalInventoryChange.objects.create(warehouse_id=warehouse.id,
                                                             sku=sku, transaction_type=transaction_type,
                                                             transaction_id=transaction_id,
+                                                            initial_type=initial_type,
+                                                            initial_stage = initial_stage,
                                                             final_type=final_type,
                                                             final_stage=final_stage,
                                                             quantity=quantity,
