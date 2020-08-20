@@ -284,10 +284,10 @@ class OrderManagement(object):
             warehouse_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
                                               sku=Product.objects.get(id=int(prod_id)),
                                               inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                                              inventory_state=InventoryState.objects.filter(inventory_state='reserved').last(), quantity=0)
+                                              inventory_state=InventoryState.objects.filter(inventory_state='reserved').last())
             if warehouse_obj.exists():
                 w_obj = warehouse_obj.last()
-                w_obj.quantity=ordered_qty
+                w_obj.quantity=ordered_qty + w_obj.quantity
                 w_obj.save()
             else:
                 WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=shop_id),
