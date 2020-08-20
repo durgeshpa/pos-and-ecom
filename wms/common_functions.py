@@ -693,56 +693,57 @@ def cancel_order_with_pick(instance):
     :return:
 
     """
-    # get the queryset object from Pickup Bin Inventory Model
-    pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)
-    # get the the normal inventory type
-    inv_type = {'N': InventoryType.objects.get(inventory_type='normal')}
-    # iterate over the PickupBin Inventory object
-    for pickup_bin in pickup_bin_object:
-        # if pick up status is pickup creation
-        if pickup_bin.pickup.status == 'pickup_creation':
-            pick_up_bin_quantity = pickup_bin.quantity
-        # if pick up status is pickup assigned
-        elif pickup_bin.pickup.status == 'picking_assigned':
-            pick_up_bin_quantity = pickup_bin.quantity
-        # if pick up status is pickup cancelled
-        else:
-            pick_up_bin_quantity = pickup_bin.pickup_quantity
+    with transaction.atomic():
+        # get the queryset object from Pickup Bin Inventory Model
+        pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)
+        # get the the normal inventory type
+        inv_type = {'N': InventoryType.objects.get(inventory_type='normal')}
+        # iterate over the PickupBin Inventory object
+        for pickup_bin in pickup_bin_object:
+            # if pick up status is pickup creation
+            if pickup_bin.pickup.status == 'pickup_creation':
+                pick_up_bin_quantity = pickup_bin.quantity
+            # if pick up status is pickup assigned
+            elif pickup_bin.pickup.status == 'picking_assigned':
+                pick_up_bin_quantity = pickup_bin.quantity
+            # if pick up status is pickup cancelled
+            else:
+                pick_up_bin_quantity = pickup_bin.pickup_quantity
 
-        # get the queryset object form Bin Inventory Model
-        # bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=pickup_bin.bin.bin.bin_id,
-        #                                                                      sku__id=pickup_bin.pickup.sku.id,
-        #                                                                      batch_id=pickup_bin.batch_id,
-        #                                                                      inventory_type=inv_type['N'],
-        #                                                                      quantity__gt=0)
-        # # get the last object from Bin Inventory Model
-        # bin_inv_obj = bin_inv_obj.last()
-        # # get the quantity from queryset object
-        # quantity = bin_inv_obj.quantity
-        # # assigned overall quantity to bin inventory object
-        # bin_inv_obj.quantity = quantity+pick_up_bin_quantity
-        # # save the object
-        # bin_inv_obj.save()
+            # get the queryset object form Bin Inventory Model
+            # bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=pickup_bin.bin.bin.bin_id,
+            #                                                                      sku__id=pickup_bin.pickup.sku.id,
+            #                                                                      batch_id=pickup_bin.batch_id,
+            #                                                                      inventory_type=inv_type['N'],
+            #                                                                      quantity__gt=0)
+            # # get the last object from Bin Inventory Model
+            # bin_inv_obj = bin_inv_obj.last()
+            # # get the quantity from queryset object
+            # quantity = bin_inv_obj.quantity
+            # # assigned overall quantity to bin inventory object
+            # bin_inv_obj.quantity = quantity+pick_up_bin_quantity
+            # # save the object
+            # bin_inv_obj.save()
 
-        # update or create put away model
-        pu, _ = Putaway.objects.update_or_create(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
-                                                 putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
-                                                 batch_id=pickup_bin.batch_id, defaults={'quantity': pick_up_bin_quantity,
-                                                                                'putaway_quantity': pick_up_bin_quantity})
-        # update or create put away bin inventory model
-        PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
-                                                     batch_id=pickup_bin.batch_id, putaway_type='CANCELLED',
-                                                     putaway=pu, bin=pickup_bin.bin, putaway_status=False,
-                                                     defaults={'putaway_quantity': pick_up_bin_quantity})
-        # get the queryset filter from Pickup model
-        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no, sku__id=pickup_bin.pickup.sku.id)
-        # iterate the pickup objects and set the status picking cancelled
-        for obj in pickup_obj:
-            obj.status = 'picking_cancelled'
-            obj.save()
-    # call the warehouse internal and ware house internal inventory function to update the value
-    # cancel_order_for_warehouse(instance)
-    # cancel_order(instance)
+            # update or create put away model
+            pu, _ = Putaway.objects.update_or_create(putaway_user=instance.last_modified_by, warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
+                                                     putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
+                                                     batch_id=pickup_bin.batch_id, defaults={'quantity': pick_up_bin_quantity,
+                                                                                    'putaway_quantity': 0})
+            # update or create put away bin inventory model
+            PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
+                                                         batch_id=pickup_bin.batch_id, putaway_type='CANCELLED',
+                                                         putaway=pu, bin=pickup_bin.bin, putaway_status=False,
+                                                         defaults={'putaway_quantity': pick_up_bin_quantity})
+            # get the queryset filter from Pickup model
+            pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no, sku__id=pickup_bin.pickup.sku.id)
+            # iterate the pickup objects and set the status picking cancelled
+            for obj in pickup_obj:
+                obj.status = 'picking_cancelled'
+                obj.save()
+        # call the warehouse internal and ware house internal inventory function to update the value
+        # cancel_order_for_warehouse(instance)
+        # cancel_order(instance)
 
 
 class AuditInventory(object):
