@@ -29,7 +29,8 @@ INVENTORY_TYPE_CHOICES = (
     ('discarded', 'DISCARDED'),  # Inventory Rejected
     ('disposed', 'DISPOSED'),  # Inventory Disposed
     ('missing', 'MISSING'),  # Inventory Missing
-    ('returned', 'RETURNED')
+    ('returned', 'RETURNED'),
+    ('new', 'New')
 )
 
 INVENTORY_STATE_CHOICES = (
@@ -37,7 +38,8 @@ INVENTORY_STATE_CHOICES = (
     ('reserved', 'RESERVED'),  # Inventory Reserved
     ('shipped', 'SHIPPED'),  # Inventory Shipped
     ('ordered', 'Ordered'),  # Inventory Ordered
-    ('canceled', 'Canceled')  # Inventory Canceled
+    ('canceled', 'Canceled'),  # Inventory Canceled
+    ('new', 'New')
 )
 
 
