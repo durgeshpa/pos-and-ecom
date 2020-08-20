@@ -216,7 +216,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
               'expiry_date', 'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty',
               'returned_qty', 'download_batch_id_barcode')
     exclude = ('last_modified_by', 'available_qty',)
-    readonly_fields = ('download_batch_id_barcode','already_returned_product')
+    readonly_fields = ('download_batch_id_barcode',)
     extra = 0
     ordering = ['product__product_name']
     template = 'admin/gram_to_brand/grn_order/tabular.html'
@@ -224,7 +224,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     # readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
-            return self.readonly_fields + ('product_mrp','po_product_quantity','po_product_price','already_grned_product','already_returned_product')
+            return self.readonly_fields + ('product_mrp','po_product_quantity','po_product_price','already_grned_product', 'already_returned_product')
         return self.readonly_fields
 
     def get_formset(self, request, obj=None, **kwargs):
