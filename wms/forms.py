@@ -507,17 +507,17 @@ class DownloadAuditAdminForm(forms.Form):
         for row_id, row in enumerate(reader):
             try:
                 if not row[0]:
-                    raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU can not be empty."))
+                    raise ValidationError(_("Issue in Row" + " " + str(row_id + 2) + "," + "SKU can not be empty."))
             except:
-                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU can not be empty."))
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 2) + "," + "SKU can not be empty."))
 
             if not Product.objects.filter(product_sku=row[0]):
-                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU is not valid,"
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 2) + "," + "SKU is not valid,"
                                                                                        " Please re-verify at your end."))
 
             if not BinInventory.objects.filter(warehouse=self.data['warehouse'],
                                                sku=Product.objects.filter(product_sku=row[0])[0]):
-                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU id is not associated"
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 2) + "," + "SKU id is not associated"
                                                                                        " with selected warehouse."))
             form_data_list.append(row)
 
@@ -555,32 +555,32 @@ class UploadAuditAdminForm(forms.Form):
             # to validate warehouse id is empty or not
             if not row[0] or not re.match("^[\d]*$", row[0]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Warehouse ID can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Warehouse ID can not be empty."))
 
             # to validate warehouse id is exist in the database
             if not Shop.objects.filter(pk=row[0]).exists():
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Warehouse ID doesn't exist in the system."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Warehouse ID doesn't exist in the system."))
 
             # to validate sku id is empty or not
             if not row[1]:
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "SKU ID can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "SKU ID can not be empty."))
 
             # to validate sku id is exist in the database
             if not Product.objects.filter(product_sku=row[1][-17:]).exists():
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "SKU ID is not exist in the system."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "SKU ID is not exist in the system."))
 
             # to validate mrp is empty or contains the number
             if not row[2] or not re.match("^[\d]*$", row[2]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Product of MRP can not be empty or string type."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Product of MRP can not be empty or string type."))
 
             # to validate expiry date is empty or not and validate the correct format
             if not row[3]:
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Expiry date can not be empty."))
             try:
                 # if expiry date is "dd/mm/yy"
                 if datetime.strptime(row[3], '%d/%m/%y'):
@@ -592,7 +592,7 @@ class UploadAuditAdminForm(forms.Form):
                         pass
                     else:
                         raise ValidationError(_(
-                            "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
+                            "Issue in Row" + " " + str(row_id + 2) + "," + "Expiry date format is not correct,"
                                                                            " It should be DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY and DD-MM-YY format,"
                                                                            " Example:-11/07/2020, 11/07/20,"
                                                                            "11-07-2020 and 11-07-20."))
@@ -611,7 +611,7 @@ class UploadAuditAdminForm(forms.Form):
                         except:
                             # raise validation error
                             raise ValidationError(_(
-                                "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
+                                "Issue in Row" + " " + str(row_id + 2) + "," + "Expiry date format is not correct,"
                                                                                " It should be DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY and DD-MM-YY format,"
                                                                                " Example:-11/07/2020, 11/07/20,"
                                                                                " 11-07-2020 and 11-07-20."))
@@ -619,52 +619,52 @@ class UploadAuditAdminForm(forms.Form):
             # to validate BIN ID is empty or not
             if not row[4]:
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Bin ID can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID can not be empty."))
 
             # to validate BIN ID is exist in the database
             if not Bin.objects.filter(bin_id=row[4]).exists():
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Bin ID is not exist in the system."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID is not exist in the system."))
 
             # to validate normal initial quantity is empty or contains the number
             if not row[5] or not re.match("^[\d]*$", row[5]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Normal-Initial Qty can not be empty or string type."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Normal-Initial Qty can not be empty or string type."))
 
             # to validate damaged initial quantity is empty or contains the number
             if not row[6] or not re.match("^[\d]*$", row[6]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Damaged-Initial Qty can not be empty or string type."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Damaged-Initial Qty can not be empty or string type."))
 
             # to validate expired initial quantity is empty or contains the number
             if not row[7] or not re.match("^[\d]*$", row[7]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Expired-Initial Qty can not be empty or string type."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Expired-Initial Qty can not be empty or string type."))
 
             # to validate missing initial quantity is empty or contains the number
             if not row[8] or not re.match("^[\d]*$", row[8]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Initial Qty can not be empty or string type."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Missing-Initial Qty can not be empty or string type."))
 
             # to validate normal final quantity is empty or contains the number
             if not row[9] or not re.match("^[\d]*$", row[9]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Normal-Final Qty can not be empty or string type."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Normal-Final Qty can not be empty or string type."))
 
             # to validate damaged final quantity is empty or contains the number
             if not row[10] or not re.match("^[\d]*$", row[10]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Damaged-Final Qty can not be empty or string type."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Damaged-Final Qty can not be empty or string type."))
 
             # to validate expired final quantity is empty or contains the number
             if not row[11] or not re.match("^[\d]*$", row[11]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Expired-Final Qty can not be empty or string type."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Expired-Final Qty can not be empty or string type."))
 
             # to validate missing final quantity is empty or contains the number
             if not row[12] or not re.match("^[\d]*$", row[12]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Final Qty can not be empty or string type."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Missing-Final Qty can not be empty or string type."))
 
             # to get the date format
             try:
@@ -682,21 +682,21 @@ class UploadAuditAdminForm(forms.Form):
             if expiry_date > datetime.today().strftime("%Y-%m-%d"):
                 if int(row[11]) > 0:
                     raise ValidationError(_(
-                        "Issue in Row" + " " + str(row_id + 1) + "," + "For Future expiry date, the expired qty (final)"
+                        "Issue in Row" + " " + str(row_id + 2) + "," + "For Future expiry date, the expired qty (final)"
                                                                        " should be 0."))
 
             # to validate normal qty for past expired date
             if expiry_date < datetime.today().strftime("%Y-%m-%d"):
                 if int(row[9]) > 0:
                     raise ValidationError(_(
-                        "Issue in Row" + " " + str(row_id + 1) + "," + "For Past expiry date, the normal qty (final)"
+                        "Issue in Row" + " " + str(row_id + 2) + "," + "For Past expiry date, the normal qty (final)"
                                                                        " should be 0."))
 
             # to validate normal qty for past damaged date
             if expiry_date < datetime.today().strftime("%Y-%m-%d"):
                 if int(row[10]) > 0:
                     raise ValidationError(_(
-                        "Issue in Row" + " " + str(row_id + 1) + "," + "For Past expiry date, the damaged qty (final)"
+                        "Issue in Row" + " " + str(row_id + 2) + "," + "For Past expiry date, the damaged qty (final)"
                                                                        " should be 0."))
 
             # to get object from GRN Order Product Mapping
@@ -714,7 +714,7 @@ class UploadAuditAdminForm(forms.Form):
                                 pass
                             else:
                                 raise ValidationError(_(
-                                    "Issue in Row" + " " + str(row_id + 1) + "," + "Non zero qty of 2 Different"
+                                    "Issue in Row" + " " + str(row_id + 2) + "," + "Non zero qty of 2 Different"
                                                                                    " Batch ID/Expiry date for same SKU"
                                                                                    " can’t save in the same Bin."))
 
@@ -763,32 +763,32 @@ class UploadAuditAdminForm(forms.Form):
                     if not row_1[9] or not re.match("^[\d]*$", row_1[9]):
                         raise ValidationError(_(
                             "Issue in Row" + " " + str(
-                                row_id_1 + 1) + "," + "Normal-Final Qty can not be empty or string type."))
+                                row_id_1 + 2) + "," + "Normal-Final Qty can not be empty or string type."))
 
                     # to validate damaged final quantity is empty or contains the number
                     if not row_1[10] or not re.match("^[\d]*$", row_1[10]):
                         raise ValidationError(_(
                             "Issue in Row" + " " + str(
-                                row_id_1 + 1) + "," + "Damaged-Final Qty can not be empty or string type."))
+                                row_id_1 + 2) + "," + "Damaged-Final Qty can not be empty or string type."))
 
                     # to validate expired final quantity is empty or contains the number
                     if not row_1[11] or not re.match("^[\d]*$", row_1[11]):
                         raise ValidationError(_(
                             "Issue in Row" + " " + str(
-                                row_id_1 + 1) + "," + "Expired-Final Qty can not be empty or string type."))
+                                row_id_1 + 2) + "," + "Expired-Final Qty can not be empty or string type."))
 
                     # to validate missing final quantity is empty or contains the number
                     if not row_1[12] or not re.match("^[\d]*$", row_1[12]):
                         raise ValidationError(_(
                             "Issue in Row" + " " + str(
-                                row_id_1 + 1) + "," + "Missing-Final Qty can not be empty or string type."))
+                                row_id_1 + 2) + "," + "Missing-Final Qty can not be empty or string type."))
                     count = int(row_1[9]) + int(row_1[10]) + int(row_1[11]) + int(row_1[12])
                     final_count = count + final_count
             # to validate initial count and final count is equal
             if not initial_count == final_count:
                 # raise validation error
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," +
+                    "Issue in Row" + " " + str(row_id + 2) + "," +
                     "Initial Qty of SKU is not equal to Final Qty of SKU."))
 
             form_data_list.append(row)
