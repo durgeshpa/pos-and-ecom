@@ -488,7 +488,6 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
 
 class InventoryStateAdmin(admin.ModelAdmin):
     list_display = ('inventory_state',)
-    readonly_fields = ('inventory_state',)
     list_per_page = 50
 
 
@@ -545,7 +544,7 @@ class OrderReleaseAdmin(admin.ModelAdmin):
                 pass
             return obj.warehouse_internal_inventory_release.transaction_id
         except:
-            pass
+            return obj.warehouse_internal_inventory_reserve.transaction_id
 
     order_number.short_description = 'Order Number'
 

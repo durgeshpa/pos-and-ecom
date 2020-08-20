@@ -464,7 +464,7 @@ class GRNOrderProductMapping(models.Model):
     @property
     def already_returned_product(self):
         already_returned = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(Sum('returned_qty'))
-        return 0 if already_returned.get('returned_qty__sum') == None else already_returned.get('returned_qty__sum')
+        return 0 if already_returned.get('returned_qty__sum') is None else already_returned.get('returned_qty__sum')
 
     @property
     def ordered_qty(self):
