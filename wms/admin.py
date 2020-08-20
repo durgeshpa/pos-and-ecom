@@ -396,7 +396,6 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
 
 class InventoryStateAdmin(admin.ModelAdmin):
     list_display = ('inventory_state',)
-    readonly_fields = ('inventory_state',)
     list_per_page = 50
 
 
