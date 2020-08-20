@@ -419,8 +419,8 @@ class WareHouseCommonFunction(object):
 
 class InternalWarehouseChange(object):
     @classmethod
-    def create_warehouse_inventory_change(cls, warehouse, sku, transaction_type, transaction_id, initial_stage,
-                                          final_stage, inventory_type, quantity, inventory_csv):
+    def create_warehouse_inventory_change(cls, warehouse, sku, transaction_type, transaction_id, initial_type,initial_stage,
+                                          final_type,final_stage, quantity, inventory_csv):
         """
 
         :param warehouse: warehouse obj
@@ -439,7 +439,8 @@ class InternalWarehouseChange(object):
                                                             sku=sku, transaction_type=transaction_type,
                                                             transaction_id=transaction_id, initial_stage=initial_stage,
                                                             final_stage=final_stage, quantity=quantity,
-                                                            inventory_type=inventory_type, inventory_csv=inventory_csv)
+                                                            initial_type=initial_type,final_type=final_type,
+                                                            inventory_csv=inventory_csv)
         except Exception as e:
             error_logger.error(e)
 

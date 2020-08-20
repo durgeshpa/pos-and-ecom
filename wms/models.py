@@ -37,6 +37,7 @@ INVENTORY_STATE_CHOICES = (
     ('reserved', 'RESERVED'),  # Inventory Reserved
     ('shipped', 'SHIPPED'),  # Inventory Shipped
     ('ordered', 'Ordered'),  # Inventory Ordered
+    ('picked', 'PICKED'),  # Inventory picked
     ('canceled', 'Canceled'),  # Inventory Canceled
     ('new', 'New')
 )
