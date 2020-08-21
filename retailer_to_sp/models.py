@@ -1623,6 +1623,7 @@ class OrderedProductMapping(models.Model):
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
+    returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
     expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
@@ -1891,6 +1892,7 @@ class OrderedProductBatch(models.Model):
     expiry_date = models.CharField(max_length=30, null=True, blank=True)
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
+    returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
     pickup_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked pieces")
     expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
     created_at = models.DateTimeField(auto_now_add=True)

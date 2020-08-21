@@ -160,7 +160,7 @@ class OrderedProductMappingForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProductMapping
-        fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty']
+        fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty', 'returned_damage_qty']
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductMappingForm, self).__init__(*args, **kwargs)
@@ -185,7 +185,7 @@ class OrderedProductMappingDeliveryForm(forms.ModelForm):
         model = OrderedProductMapping
         fields = [
             'product', 'ordered_qty', 'already_shipped_qty', 'delivered_qty',
-            'returned_qty', 'damaged_qty'
+            'returned_qty', 'damaged_qty', 'returned_damage_qty'
         ]
 
     def clean(self):
@@ -193,6 +193,7 @@ class OrderedProductMappingDeliveryForm(forms.ModelForm):
         delivered_qty = int(self.cleaned_data.get('delivered_qty', '0'))
         returned_qty = int(self.cleaned_data.get('returned_qty', '0'))
         damaged_qty = int(self.cleaned_data.get('damaged_qty', '0'))
+        returned_damage_qty = int(self.cleaned_data.get('returned_damage_qty'), '0')
         already_shipped_qty = int(self.cleaned_data.get('already_shipped_qty'))
         if sum([delivered_qty, returned_qty,
                 damaged_qty]) != already_shipped_qty:
@@ -882,19 +883,19 @@ class OrderedProductReschedule(forms.ModelForm):
         return_reason = self.cleaned_data.get('return_reason')
         if not self.instance.shipment_status == OrderedProduct.RESCHEDULED:
             return_qty = 0
-            damaged_qty = 0
+            returned_damage_qty = 0
             total_products = self.data.get(
                 'rt_order_product_order_product_mapping-TOTAL_FORMS')
             for product in range(int(total_products)):
                 return_field = ("rt_order_product_order_product_mapping-%s-returned_qty") \
                                % product
-                damaged_field = ("rt_order_product_order_product_mapping-%s-damaged_qty") \
+                returned_damage_field = ("rt_order_product_order_product_mapping-%s-returned_damage_qty") \
                                 % product
                 return_qty += int(self.data.get(return_field))
-                damaged_qty += int(self.data.get(damaged_field))
-            if (return_qty or damaged_qty) and not return_reason:
+                returned_damage_qty += int(self.data.get(returned_damage_field))
+            if (return_qty or returned_damage_qty) and not return_reason:
                 raise forms.ValidationError(_('This field is required'), )
-            elif (not return_qty and not damaged_qty) and return_reason:
+            elif (not return_qty and not returned_damage_qty) and return_reason:
                 raise forms.ValidationError(
                     _('Either enter Return Qty for any product'
                       ' or Deselect this option'),
@@ -948,7 +949,7 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
     class Meta:
         model = OrderedProductMapping
         fields = ['product', 'shipped_qty',
-                  'returned_qty', 'damaged_qty', 'delivered_qty']
+                  'returned_qty', 'returned_damage_qty', 'delivered_qty']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -959,11 +960,11 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
                 if (instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED) or (
                     instance.ordered_product.trip and instance.ordered_product.trip.trip_status == Trip.RETURN_VERIFIED):
                     self.fields['returned_qty'].disabled = True
-                    self.fields['damaged_qty'].disabled = True
+                    self.fields['returned_damage_qty'].disabled = True
 
     def clean(self):
         data = self.cleaned_data
-        if int(self.instance.shipped_qty) != data.get('returned_qty') + data.get('damaged_qty') + data.get('delivered_qty'):
+        if int(self.instance.shipped_qty) != data.get('returned_qty') + data.get('returned_damage_qty') + data.get('delivered_qty'):
             raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
         return data
 
@@ -1062,10 +1063,10 @@ class OrderedProductBatchForm(forms.ModelForm):
 class OrderedProductBatchingForm(forms.ModelForm):
     class Meta:
         model = OrderedProductBatch
-        fields = ('quantity', 'damaged_qty', 'returned_qty', 'delivered_qty')
+        fields = ('quantity', 'returned_damage_qty', 'returned_qty', 'delivered_qty')
 
     def clean(self):
         data = self.cleaned_data
-        if int(self.instance.quantity) != data.get('damaged_qty') + data.get('returned_qty') + data.get('delivered_qty'):
+        if int(self.instance.quantity) != data.get('returned_damage_qty') + data.get('returned_qty') + data.get('delivered_qty'):
             raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
         return data

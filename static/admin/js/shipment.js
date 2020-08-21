@@ -66,21 +66,22 @@ function changeReturnedQty(){
 function changeDamagedQty(){
     $(document).ready(function(){
         xx = [0,1,2,3,4,5,6]
-        $("input[name$='-damaged_qty']").keyup(function(){
+        $("input[name$='-returned_damage_qty']").keyup(function(){
     for(var i=0;i<10;i++){
         var sum = 0
         for (var j=0; j<10;j++){
-            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
+            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_damage_qty` + "]").val())
             if (isNaN(tot)){
                 continue
             }
             sum +=tot
-            $("input[name=" + `rt_order_product_order_product_mapping-${i}-damaged_qty` + "]").val(sum);
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_damage_qty` + "]").val(sum);
         }
         }
         });
     })
 }
+
 
 function changeDeliveredQty(){
     $(document).ready(function(){
