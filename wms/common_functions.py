@@ -1059,40 +1059,44 @@ def common_on_return_and_partial(shipment):
                 continue
             else:
                 bin_id_for_input = bin_id
-        for j in i.rt_ordered_product_mapping.all():
-            if j.returned_qty > 0:
 
-                # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin.bin_id,inv_type['N'], 't', j.returned_qty)
-                putaway_qty = j.returned_qty
+        for j in i.rt_ordered_product_mapping.all():
+            if j.returned_qty > 0 or j.returned_damage_qty > 0 or j.delivered_qty >0:
+                # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin.bin_id,inv_type['N'],
+                # 't', j.returned_qty)
+                putaway_qty = j.returned_qty+j.returned_damage_qty
                 if putaway_qty == 0:
                     continue
                 else:
                     pu, _ = Putaway.objects.update_or_create(warehouse=j.pickup.warehouse, putaway_type='RETURNED',
                                                              putaway_type_id=shipment.invoice_no, sku=j.pickup.sku,
                                                              batch_id=j.batch_id, defaults={'quantity': putaway_qty,
-                                                                                            'putaway_quantity': 0})
+                                                                                            'putaway_quantity': putaway_qty})
                     PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
                                                                  batch_id=j.batch_id, putaway_type='RETURNED',
-                                                                 putaway=pu, bin=j.bin, putaway_status=False,
+                                                                 putaway=pu, bin=bin_id_for_input, putaway_status=False,
                                                                  defaults={'putaway_quantity': putaway_qty})
 
             else:
                 if j.damaged_qty > 0:
                     pass
-                    # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['D'], 't', j.damaged_qty)
+                    # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['D'],
+                    # 't', j.damaged_qty)
 
                 if j.expired_qty > 0:
                     pass
-                    # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['E'],'t', j.expired_qty)
+                    # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['E'],
+                    # 't', j.expired_qty)
 
                 putaway_qty = (j.pickup_quantity - j.quantity)
                 if putaway_qty <= 0:
                     continue
                 else:
                     pu, _ = Putaway.objects.update_or_create(warehouse=j.pickup.warehouse, putaway_type='PAR_SHIPMENT',
-                                                         putaway_type_id=shipment.invoice_no, sku=j.pickup.sku,
-                                                         batch_id=j.batch_id, defaults={'quantity': putaway_qty,
-                                                                                        'putaway_quantity': 0})
+                                                             putaway_type_id=shipment.invoice_no, sku=j.pickup.sku,
+                                                             batch_id=j.batch_id, defaults={'quantity': putaway_qty,
+                                                                                            'putaway_quantity': 0})
+
                     PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
                                                              batch_id=j.batch_id, putaway_type='PAR_SHIPMENT',
                                                              putaway=pu, bin=bin_id_for_input, putaway_status=False,

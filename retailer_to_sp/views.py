@@ -104,8 +104,8 @@ class DownloadCreditNote(APIView):
             products = pp
             reason = 'Cancelled'
         else:
-            products = [i for i in pp if(i.returned_qty + i.damaged_qty) != 0]
-            reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
+            products = [i for i in pp if(i.returned_qty + i.returned_damage_qty) != 0]
+            reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.returned_damage_qty>0] else 'Returned and Damaged'
 
         order_id = credit_note.shipment.order.order_no
         sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
@@ -146,9 +146,9 @@ class DownloadCreditNote(APIView):
 
         else:
             for m in products:
-                sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
-                sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
-                inline_sum_amount = (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
+                sum_qty = sum_qty + (int(m.returned_qty + m.returned_damage_qty))
+                sum_amount = sum_amount + (int(m.returned_qty + m.returned_damage_qty) *(m.price_to_retailer))
+                inline_sum_amount = (int(m.returned_qty + m.returned_damage_qty) *(m.price_to_retailer))
                 for n in m.get_products_gst_tax():
                     divisor = (1+(n.tax.tax_percentage/100))
                     original_amount = (float(inline_sum_amount)/divisor)
@@ -438,11 +438,11 @@ def trip_planning_change(request, pk):
 
                         OrderedProductMapping.objects\
                             .filter(ordered_product__in=trip_shipments)\
-                            .update(delivered_qty=(F('shipped_qty')-(F('damaged_qty')+F('returned_qty'))))
+                            .update(delivered_qty=(F('shipped_qty')-(F('returned_damage_qty')+F('returned_qty'))))
 
                         # updating return reason for shiments having return and damaged qty but not return reason
                         trip_shipments.annotate(
-                            sum=Sum(F('rt_order_product_order_product_mapping__returned_qty')+F('rt_order_product_order_product_mapping__damaged_qty'))
+                            sum=Sum(F('rt_order_product_order_product_mapping__returned_qty')+F('rt_order_product_order_product_mapping__returned_damage_qty'))
                         ).filter(sum__gt=0, return_reason=None).update(return_reason=OrderedProduct.REASON_NOT_ENTERED_BY_DELIVERY_BOY)
 
                         trip_shipments = trip_shipments\
@@ -450,7 +450,7 @@ def trip_planning_change(request, pk):
                                 delivered_sum=Sum('rt_order_product_order_product_mapping__delivered_qty'),
                                 shipped_sum=Sum('rt_order_product_order_product_mapping__shipped_qty'),
                                 returned_sum=Sum('rt_order_product_order_product_mapping__returned_qty'),
-                                damaged_sum=Sum('rt_order_product_order_product_mapping__damaged_qty'))
+                                damaged_sum=Sum('rt_order_product_order_product_mapping__returned_damage_qty'))
 
                         for shipment in trip_shipments:
                             if shipment.shipped_sum == (shipment.returned_sum + shipment.damaged_sum):
@@ -1002,7 +1002,7 @@ def order_invoices(request):
 def update_delivered_qty(instance, inline_form):
     instance.delivered_qty = instance.shipped_qty - (
             inline_form.cleaned_data.get('returned_qty', 0) +
-            inline_form.cleaned_data.get('damaged_qty', 0)
+            inline_form.cleaned_data.get('returned_damage_qty', 0)
     )
     instance.save()
 
@@ -1016,7 +1016,7 @@ def update_shipment_status(form_instance, formset):
         update_delivered_qty(instance, inline_form)
         shipped_qty_list.append(instance.shipped_qty if instance else 0)
         returned_qty_list.append(inline_form.cleaned_data.get('returned_qty', 0))
-        damaged_qty_list.append(inline_form.cleaned_data.get('damaged_qty', 0))
+        damaged_qty_list.append(inline_form.cleaned_data.get('returned_damage_qty', 0))
 
     shipped_qty = sum(shipped_qty_list)
     returned_qty = sum(returned_qty_list)
@@ -1475,7 +1475,7 @@ class StatusChangedAfterAmountCollected(APIView):
 
 def update_shipment_status_after_return(shipment_obj):
     shipment_products_dict = OrderedProductMapping.objects.values('product').filter(ordered_product=shipment_obj). \
-        aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('damaged_qty'))
+        aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('returned_damage_qty'))
 
     total_delivered_qty = shipment_products_dict['delivered_qty_sum']
     total_shipped_qty = shipment_products_dict['shipped_qty_sum']
@@ -1499,7 +1499,7 @@ def update_shipment_status_after_return(shipment_obj):
 
 def update_shipment_status_with_id(shipment_obj):
     shipment_products_dict = OrderedProductMapping.objects.values('product').filter(ordered_product=shipment_obj). \
-        aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('damaged_qty'))
+        aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('returned_damage_qty'))
 
     total_delivered_qty = shipment_products_dict['delivered_qty_sum']
     total_shipped_qty = shipment_products_dict['shipped_qty_sum']
