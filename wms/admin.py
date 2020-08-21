@@ -22,7 +22,7 @@ from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinIn
                     StockMovementCSVUploadAdminForm)
 from barCodeGenerator import barcodeGen, merged_barcode_gen
 from django.db import transaction
-from .common_functions import CommonWarehouseInventoryFunctions, WareHouseInternalInventoryChange, InternalInventoryChange
+from .common_functions import CommonWarehouseInventoryFunctions, WareHouseInternalInventoryChange, InternalInventoryChange, CommonBinInventoryFunctions
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -352,9 +352,41 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
             if obj.putaway_type == 'Order_Cancelled':
                 ordered_inventory_state = 'ordered',
                 initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
+                # set the status is True
+                obj.putaway_status = True
+                if obj.bin.inventory_type.inventory_type == 'normal':
+                    obj.bin.quantity = obj.bin.quantity + obj.putaway_quantity
+                    obj.bin.save()
+                else:
+                    pass
             elif obj.putaway_type == 'Pickup_Cancelled':
                 ordered_inventory_state = 'picked',
                 initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                # set the status is True
+                obj.putaway_status = True
+                if obj.bin.inventory_type.inventory_type == 'normal':
+                    obj.bin.quantity = obj.bin.quantity + obj.putaway_quantity
+                    obj.bin.save()
+                else:
+                    pass
+
+            elif obj.putaway_type == 'Shipment_Cancelled':
+                ordered_inventory_state = 'picked',
+                initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                # set the status is True
+                obj.putaway_status = True
+                if obj.bin.inventory_type.inventory_type == 'normal':
+                    obj.bin.quantity = obj.bin.quantity + obj.putaway_quantity
+                    obj.bin.save()
+                else:
+                    pass
+
+            elif obj.putaway_type == 'PAR_SHIPMENT':
+                ordered_inventory_state = 'picked',
+                initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                # set the status is True
+                obj.putaway_status = True
+
 
             # common values for both type cancellation
             normal_inventory_type = 'normal',
@@ -370,13 +402,6 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
             final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
             quantity = available_quantity
             batch_id = obj.batch_id
-            # set the status is True
-            obj.putaway_status = True
-            if obj.bin.inventory_type.inventory_type == 'normal':
-                obj.bin.quantity = obj.bin.quantity + obj.putaway_quantity
-                obj.bin.save()
-            else:
-                pass
             CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
                                                                          normal_inventory_type[0],
                                                                          available_inventory_state[0],
