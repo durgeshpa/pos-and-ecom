@@ -1642,13 +1642,13 @@ class OrderedProductMapping(models.Model):
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
 
-        if self.returned_qty > 0 or self.damaged_qty > 0:
-            already_shipped_qty = int(self.shipped_qty)
-            if sum([returned_qty, damaged_qty]) > already_shipped_qty:
-                raise ValidationError(
-                    _('Sum of returned and damaged pieces should be '
-                      'less than no. of pieces to ship'),
-                )
+        # if self.returned_qty > 0 or self.damaged_qty > 0:
+        #     already_shipped_qty = int(self.shipped_qty)
+        #     if sum([returned_qty, damaged_qty]) > already_shipped_qty:
+        #         raise ValidationError(
+        #             _('Sum of returned and damaged pieces should be '
+        #               'less than no. of pieces to ship'),
+        #         )
 
     @property
     def product_weight(self):

@@ -175,6 +175,7 @@ class OrderedProductMappingForm(forms.ModelForm):
         self.fields['delivered_qty'].label = "Delivered Pieces"
         self.fields['damaged_qty'].label = "Damaged Pieces"
         self.fields['returned_qty'].label = "Returned Pieces"
+        self.fields['returned_damage_qty'] = "Returned Damaged"
 
 
 class OrderedProductMappingDeliveryForm(forms.ModelForm):

@@ -1074,7 +1074,7 @@ def common_on_return_and_partial(shipment):
                 bin_id_for_input = bin_id
 
         for j in i.rt_ordered_product_mapping.all():
-            if j.returned_qty > 0 or j.returned_damage_qty > 0:
+            if j.returned_qty > 0 or j.returned_damage_qty > 0 or j.delivered_qty >0:
                 # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin.bin_id,inv_type['N'],
                 # 't', j.returned_qty)
                 putaway_qty = j.returned_qty+j.returned_damage_qty
