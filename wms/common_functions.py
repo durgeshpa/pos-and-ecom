@@ -709,12 +709,15 @@ def cancel_order_with_pick(instance):
             # if pick up status is pickup creation
             if pickup_bin.pickup.status == 'pickup_creation':
                 pick_up_bin_quantity = pickup_bin.quantity
+                status = 'Order_Cancelled'
             # if pick up status is pickup assigned
             elif pickup_bin.pickup.status == 'picking_assigned':
                 pick_up_bin_quantity = pickup_bin.quantity
+                status = 'Order_Cancelled'
             # if pick up status is pickup cancelled
             else:
                 pick_up_bin_quantity = pickup_bin.pickup_quantity
+                status = 'Pickup_Cancelled'
 
             # get the queryset object form Bin Inventory Model
             # bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=pickup_bin.bin.bin.bin_id,
@@ -738,7 +741,7 @@ def cancel_order_with_pick(instance):
                                                                                     'putaway_quantity': 0})
             # update or create put away bin inventory model
             PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
-                                                         batch_id=pickup_bin.batch_id, putaway_type='CANCELLED',
+                                                         batch_id=pickup_bin.batch_id, putaway_type=status,
                                                          putaway=pu, bin=pickup_bin.bin, putaway_status=False,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
             # get the queryset filter from Pickup model
