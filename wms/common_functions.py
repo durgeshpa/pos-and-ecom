@@ -1096,9 +1096,7 @@ def common_on_return_and_partial(shipment):
                                                              putaway_type_id=shipment.invoice_no, sku=j.pickup.sku,
                                                              batch_id=j.batch_id, defaults={'quantity': putaway_qty,
                                                                                             'putaway_quantity': 0})
-                                                         putaway_type_id=shipment.invoice_no, sku=j.pickup.sku,
-                                                         batch_id=j.batch_id, defaults={'quantity': putaway_qty,
-                                                                                        'putaway_quantity': 0})
+
                     PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
                                                              batch_id=j.batch_id, putaway_type='PAR_SHIPMENT',
                                                              putaway=pu, bin=bin_id_for_input, putaway_status=False,
