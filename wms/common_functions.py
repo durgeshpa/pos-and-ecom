@@ -765,9 +765,17 @@ def cancel_order_with_pick(instance):
                 pick_up_bin_quantity = pickup_bin.quantity
                 status = 'Order_Cancelled'
             # if pick up status is pickup cancelled
-            else:
-                pick_up_bin_quantity = pickup_bin.pickup_quantity
-                status = 'Pickup_Cancelled'
+            elif pickup_bin.pickup.status == 'picking_complete':
+                if instance.rt_order_order_product.all():
+                    if instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].shipped_qty > 0\
+                            and instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].damaged_qty > 0\
+                            and instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].expired_qty > 0:
+                        pick_up_bin_quantity = instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].shipped_qty
+                        status = 'Shipment_Cancelled'
+                else:
+                    pick_up_bin_quantity = pickup_bin.pickup_quantity
+                    status = 'Pickup_Cancelled'
+
 
             # get the queryset object form Bin Inventory Model
             # bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=pickup_bin.bin.bin.bin_id,
