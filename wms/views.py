@@ -664,7 +664,7 @@ def pickup_entry_creation_with_cron():
                         CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, j,
                                                                            quantity=already_picked,
                                                                            pickup_quantity=None)
-                        InternalInventoryChange.create_bin_internal_inventory_change(shops,sku,batch_id,j.bin,
+                        InternalInventoryChange.create_bin_internal_inventory_change(shops,obj.sku,batch_id,j.bin,
                                                                                      type_normal, type_normal,
                                                                                      "pickup-cration", pickup_obj.pk,
                                                                                      remaining_qty)
@@ -680,9 +680,9 @@ def pickup_entry_creation_with_cron():
                         CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, j,
                                                                            quantity=already_picked,
                                                                            pickup_quantity=None)
-                        InternalInventoryChange.create_bin_internal_inventory_change(shops, sku, batch_id, j.bin,
+                        InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id, j.bin,
                                                                                      type_normal, type_normal,
-                                                                                     "pickup-cration", pickup_obj.pk,
+                                                                                     "pickup-creation", pickup_obj.pk,
                                                                                      remaining_qty)
 
 

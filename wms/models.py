@@ -266,6 +266,8 @@ class WarehouseInternalInventoryChange(models.Model):
         ('canceled', 'Canceled'),
         ('audit_adjustment', 'Audit Adjustment'),
         ('put_away_type', 'Put Away Type'),
+        ('pickup_created', 'Pickup Created'),
+        ('pickup_complete', 'Pickup Complete')
 
     )
 
@@ -304,6 +306,8 @@ class BinInternalInventoryChange(models.Model):
         ('canceled', 'Canceled'),
         ('audit_adjustment', 'Audit Adjustment'),
         ('put_away_type', 'Put Away Type'),
+        ('pickup_created', 'Pickup Created'),
+        ('pickup_complete', 'Pickup Complete')
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
