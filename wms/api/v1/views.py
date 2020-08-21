@@ -565,12 +565,12 @@ class PickupComplete(APIView):
                                                                                              reverse_quantity, True)
                             InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
                                                                                           pickup_bin.pickup.sku, "pickup_complete",
-                                                                                          123, type_normal,state_ordered,
+                                                                                          pickup.pk, type_normal,state_ordered,
                                                                                           type_normal, state_picked,
                                                                                           pickup_bin.pickup_quantity,None)
                             InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
                                                                                           pickup_bin.pickup.sku, "pickup_complete",
-                                                                                          123, type_normal,state_ordered,
+                                                                                          pickup.pk, type_normal,state_ordered,
                                                                                         type_normal, state_available,
                                                                                           reverse_quantity,None)
 
