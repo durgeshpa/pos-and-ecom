@@ -8,7 +8,7 @@ from django.contrib import admin
 from django.http import HttpResponse
 from django.utils.html import format_html
 from django.urls import reverse
-from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter
+from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
 from rangefilter.filter import DateTimeRangeFilter
 from retailer_backend.admin import InputFilter
 # app imports
@@ -21,6 +21,8 @@ from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinIn
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
 from barCodeGenerator import barcodeGen, merged_barcode_gen
+from django.db import transaction
+from .common_functions import CommonWarehouseInventoryFunctions, WareHouseInternalInventoryChange, InternalInventoryChange
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -34,6 +36,61 @@ class BinResource(resources.ModelResource):
     class Meta:
         model = Bin
         exclude = ('created_at', 'modified_at')
+
+
+class BinIdFilter(InputFilter):
+    title = 'Bin ID'
+    parameter_name = 'bin_id'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(bin_id=value)
+        return queryset
+
+
+class BinIDFilterForPickupBinInventory(InputFilter):
+    title = 'Bin ID'
+    parameter_name = 'bin'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(bin__bin__bin_id=value)
+        return queryset
+
+
+class BinFilterForBinInventory(InputFilter):
+    title = 'Bin'
+    parameter_name = 'bin'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(bin__bin_id=value)
+        return queryset
+
+
+class BatchIdFilter(InputFilter):
+    title = 'Batch ID'
+    parameter_name = 'batch_id'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(batch_id=value)
+        return queryset
+
+
+class SKUFilter(InputFilter):
+    title = 'SKU'
+    parameter_name = 'sku'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(sku=value)
+        return queryset
 
 
 class Warehouse(AutocompleteFilter):
@@ -66,6 +123,56 @@ class FinalStageFilter(AutocompleteFilter):
     autocomplete_url = 'final-stage-autocomplete'
 
 
+class InTypeIDFilter(InputFilter):
+    title = 'In Type ID'
+    parameter_name = 'in_type_id'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(in_type_id=value)
+        return queryset
+
+
+class PicktypeIDFilter(InputFilter):
+    title = 'Pickup Type ID'
+    parameter_name = 'pickup_type_id'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(pickup_type_id=value)
+        return queryset
+
+
+class TransactionIDFilter(InputFilter):
+    title = 'Transaction ID'
+    parameter_name = 'transaction_id'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(transaction_id=value)
+        return queryset
+
+
+class ProductSKUFilter(InputFilter):
+    title = 'SKU'
+    parameter_name = 'sku'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(sku__product_sku=value)
+        return queryset
+
+
+class PutawayuserFilter(AutocompleteFilter):
+    title = 'PUTAWAY USER'
+    field_name = 'putaway_user'
+    autocomplete_url = 'putaway-user-autocomplete'
+
+
 class BinAdmin(admin.ModelAdmin):
     info_logger.info("Bin Admin has been called.")
     form = BinForm
@@ -75,9 +182,9 @@ class BinAdmin(admin.ModelAdmin):
         'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode','download_barcode_image')
     readonly_fields = ['bin_barcode', 'barcode_image', 'download_bin_id_barcode','download_barcode_image']
     search_fields = ('bin_id',)
-    list_filter = [
+    list_filter = [BinIdFilter,
         ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
-        ('bin_type', ChoiceDropdownFilter),
+        ('bin_type', DropdownFilter),
     ]
     list_per_page = 50
 
@@ -153,13 +260,12 @@ class BinAdmin(admin.ModelAdmin):
     download_barcode.short_description = "Download Barcode List"
 
 
-
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
     list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'quantity',)
     search_fields = ('batch_id', 'in_type_id', 'sku__product_sku',)
-    list_filter = [Warehouse, 'in_type']
+    list_filter = [Warehouse, BatchIdFilter, SKUFilter, InTypeIDFilter, 'in_type']
     list_per_page = 50
 
     class Media:
@@ -173,7 +279,7 @@ class PutAwayAdmin(admin.ModelAdmin):
         'putaway_user', 'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity',
         'putaway_quantity')
     search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
-    list_filter = [Warehouse, 'putaway_type', ]
+    list_filter = [Warehouse, BatchIdFilter, SKUFilter, ('putaway_type', DropdownFilter), PutawayuserFilter]
     list_per_page = 50
 
     class Media:
@@ -188,7 +294,7 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     actions = ['download_bulk_put_away_bin_inventory_csv']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin__bin_id')
     list_filter = [
-        ('created_at', DateTimeRangeFilter), Warehouse, 'putaway_type', ]
+        Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, ('putaway_type', DropdownFilter), ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
 
     def download_bulk_put_away_bin_inventory_csv(self, request, queryset):
@@ -241,6 +347,63 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+    def save_model(self, request, obj, form, change):
+        with transaction.atomic():
+            if obj.putaway_type == 'Order_Cancelled':
+                ordered_inventory_state = 'ordered',
+                initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
+            elif obj.putaway_type == 'Pickup_Cancelled':
+                ordered_inventory_state = 'picked',
+                initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+
+            # common values for both type cancellation
+            normal_inventory_type = 'normal',
+            available_inventory_state = 'available',
+            available_quantity = obj.putaway_quantity
+            ordered_quantity = int(-obj.putaway_quantity)
+            transaction_type = 'put_away_type'
+            transaction_id = obj.putaway_id
+            initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
+            final_type = InventoryType.objects.filter(inventory_type='normal').last(),
+            final_stage = InventoryState.objects.filter(inventory_state='canceled').last(),
+            initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
+            final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
+            quantity = available_quantity
+            batch_id = obj.batch_id
+            # set the status is True
+            obj.putaway_status = True
+            if obj.bin.inventory_type.inventory_type == 'normal':
+                obj.bin.quantity = obj.bin.quantity + obj.putaway_quantity
+                obj.bin.save()
+            else:
+                pass
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
+                                                                         normal_inventory_type[0],
+                                                                         available_inventory_state[0],
+                                                                         available_quantity, True)
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
+                                                                         normal_inventory_type[0],
+                                                                         ordered_inventory_state[0],
+                                                                         ordered_quantity, True)
+            WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse, obj.sku,
+                                                                               transaction_type,
+                                                                               transaction_id,
+                                                                               initial_type[0],
+                                                                               initial_stage[0],
+                                                                               final_type[0], final_stage[0],
+                                                                               available_quantity)
+            BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
+                                                      batch_id=batch_id,
+                                                      initial_bin=Bin.objects.get(bin_id=initial_bin_id),
+                                                      final_bin=Bin.objects.get(bin_id=final_bin_id),
+                                                      initial_inventory_type=initial_type[0],
+                                                      final_inventory_type=final_type[0],
+                                                      transaction_type=transaction_type,
+                                                      transaction_id=transaction_id,
+                                                      quantity=quantity)
+
+            super().save_model(request, obj, form, change)
+
 
 class InventoryTypeAdmin(admin.ModelAdmin):
     info_logger.info("Inventory Type Admin has been called.")
@@ -254,7 +417,7 @@ class BinInventoryAdmin(admin.ModelAdmin):
     actions = ['download_barcode']
     list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at', 'modified_at')
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at')
-    list_filter = [Warehouse, InventoryTypeFilter, ]
+    list_filter = [BinFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter]
     list_per_page = 50
 
     class Media:
@@ -303,7 +466,7 @@ class PickupAdmin(admin.ModelAdmin):
     form = PickupForm
     list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status')
     search_fields = ('pickup_type_id', 'sku__product_sku',)
-    list_filter = [Warehouse, 'status', 'pickup_type', ]
+    list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, ('status', DropdownFilter), 'pickup_type']
     list_per_page = 50
 
     class Media:
@@ -317,9 +480,7 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin', 'created_at')
     search_fields = ('batch_id', 'bin__bin__bin_id')
-    list_filter = [
-        ('created_at', DateTimeRangeFilter), Warehouse,
-    ]
+    list_filter = [Warehouse, BatchIdFilter, BinIDFilterForPickupBinInventory, ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
 
     def order_number(self, obj):
@@ -385,9 +546,8 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
 
     readonly_fields = ('warehouse', 'sku', 'inventory_type', 'inventory_state', 'in_stock', 'created_at', 'modified_at')
     search_fields = ('sku__product_sku',)
-    list_filter = [
-        ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse, InventoryTypeFilter,
-        InventoryStateFilter, ]
+    list_filter = [Warehouse, SKUFilter, InventoryTypeFilter, InventoryStateFilter, ('created_at', DateTimeRangeFilter),
+                   ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
 
     class Media:
@@ -409,9 +569,9 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
         'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at')
 
     search_fields = ('sku__product_sku', 'transaction_id',)
-    list_filter = [
-        ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse, InventoryTypeFilter,
-        InitialStageFilter, FinalStageFilter, 'transaction_type', ]
+    list_filter = [Warehouse, ProductSKUFilter, TransactionIDFilter, InventoryTypeFilter, InitialStageFilter,
+                   FinalStageFilter, ('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter),
+                   ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
 
     class Media:
@@ -431,6 +591,7 @@ class StockCorrectionChangeAdmin(admin.ModelAdmin):
     list_per_page = 50
 
 
+
 class OrderReleaseAdmin(admin.ModelAdmin):
     list_display = (
         'warehouse', 'sku', 'order_number', 'warehouse_internal_inventory_reserve',
@@ -442,7 +603,7 @@ class OrderReleaseAdmin(admin.ModelAdmin):
         'release_time', 'created_at')
 
     search_fields = ('sku__product_sku',)
-    list_filter = [Warehouse, ]
+    list_filter = [Warehouse, SKUFilter]
     list_per_page = 50
 
     def order_number(self, obj):
@@ -512,4 +673,3 @@ admin.site.register(WarehouseInternalInventoryChange, WarehouseInternalInventory
 admin.site.register(BinInternalInventoryChange, BinInternalInventoryChangeAdmin)
 admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)
 admin.site.register(OrderReserveRelease, OrderReleaseAdmin)
-admin.site.register(Audit, AuditAdmin)
