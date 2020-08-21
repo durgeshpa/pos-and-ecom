@@ -1683,7 +1683,7 @@ class ShipmentDeliveryBulkUpdate(APIView):
 
         try:
             for item in products:
-                item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.damaged_qty))
+                item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.returned_damage_qty))
                 item.save()
             cash_to_be_collected = products.last().ordered_product.cash_to_be_collected()
             is_pan_required = self.is_pan_required(products.last())
@@ -1717,7 +1717,7 @@ class ShipmentDeliveryUpdate(APIView):
             for item in request.data.get('delivered_items'):
                 product = item.get('product', None)
                 returned_qty = item.get('returned_qty', None)
-                damaged_qty = item.get('damaged_qty', None)
+                damaged_qty = item.get('returned_damage_qty', None)
                 shipped_qty = int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty)
                 if  shipped_qty >= int(returned_qty) + int(damaged_qty):
                     delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
@@ -1764,7 +1764,7 @@ class ShipmentDetail(APIView):
 
         product = self.request.POST.get('product')
         returned_qty = self.request.POST.get('returned_qty')
-        damaged_qty = self.request.POST.get('damaged_qty')
+        damaged_qty = self.request.POST.get('returned_damage_qty')
 
         if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(returned_qty) + int(damaged_qty):
             ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
@@ -1916,7 +1916,7 @@ class RescheduleReason(generics.ListCreateAPIView):
             self.perform_create(serializer)
             products = ShipmentProducts.objects.filter(ordered_product__id=request.data.get('shipment'))
             for item in products:
-                item.delivered_qty = item.returned_qty = item.damaged_qty = 0
+                item.delivered_qty = item.returned_qty = item.returned_damage_qty = 0
                 item.save()
             self.update_shipment(request.data.get('shipment'))
             update_trip_status(request.data.get('trip'))
