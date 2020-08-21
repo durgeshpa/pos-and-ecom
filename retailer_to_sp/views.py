@@ -228,7 +228,7 @@ def ordered_product_mapping_shipment(request):
             product__id__in=[i['cart_product'] for i in cart_products]) \
             .annotate(Sum('delivered_qty'), Sum('shipped_qty'), Sum('picked_pieces'))
         products_list = []
-        pick_up_obj = Pickup.objects.filter(pickup_type_id=Order.objects.filter(id=order_id).last().order_no).order_by('created_at')
+        pick_up_obj = Pickup.objects.filter(pickup_type_id=Order.objects.filter(id=order_id).last().order_no).order_by('sku')
         for item, pick_up in zip(cart_products, pick_up_obj):
             shipment_product = list(filter(lambda product: product['product'] == item['cart_product'],
                                            shipment_products))
@@ -1449,6 +1449,7 @@ def order_cancellation(sender, instance=None, created=False, **kwargs):
             cancel_order_with_pick(instance)
         order = OrderCancellation(instance)
         order.cancel()
+
 
 class StatusChangedAfterAmountCollected(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
