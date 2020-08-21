@@ -482,7 +482,8 @@ LOGGING = {
    },
    'formatters': {
        'verbose': {
-           'format': '%(levelname)s|%(asctime)s|%(module)s|%(process)d|%(thread)d|%(message)s',
+           'format': '%(levelname)s|%(asctime)s|[%(filename)s:%(lineno)s - %(funcName)20s() ]|%(module)s|%('
+                     'process)d|%(thread)d|%(message)s',
            'datefmt' : "%d/%b/%Y %H:%M:%S"
        },
        'simple': {

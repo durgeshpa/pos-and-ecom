@@ -666,8 +666,8 @@ def pickup_entry_creation_with_cron():
                                                                            pickup_quantity=None)
                         InternalInventoryChange.create_bin_internal_inventory_change(shops,obj.sku,batch_id,j.bin,
                                                                                      type_normal, type_normal,
-                                                                                     "pickup-cration", pickup_obj.pk,
-                                                                                     remaining_qty)
+                                                                                     "pickup_created", pickup_obj.pk,
+                                                                                     already_picked)
                     else:
                         already_picked = qty_in_bin
                         remaining_qty = qty - already_picked
@@ -683,7 +683,7 @@ def pickup_entry_creation_with_cron():
                         InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id, j.bin,
                                                                                      type_normal, type_normal,
                                                                                      "pickup-creation", pickup_obj.pk,
-                                                                                     remaining_qty)
+                                                                                     already_picked)
 
 
 class DownloadBinCSV(View):

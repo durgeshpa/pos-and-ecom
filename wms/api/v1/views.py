@@ -1,6 +1,6 @@
 import logging
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
-    PickupBinInventory
+    PickupBinInventory,StockMovementCSVUpload
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
     PickupBinInventorySerializer
 from wms.views import PickupInventoryManagement, update_putaway
@@ -521,6 +521,7 @@ class PickupComplete(APIView):
 
             else:
                 with transaction.atomic():
+                    csv_instance = StockMovementCSVUpload.objects.filter(pk=1).last()
                     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
                     state_available=InventoryState.objects.filter(inventory_state="available").last()
                     state_picked=InventoryState.objects.filter(inventory_state="picked").last()
@@ -564,14 +565,14 @@ class PickupComplete(APIView):
                                                                                              reverse_quantity, True)
                             InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
                                                                                           pickup_bin.pickup.sku, "pickup_complete",
-                                                                                          pickup.pk, type_normal,state_ordered,
+                                                                                          123, type_normal,state_ordered,
                                                                                           type_normal, state_picked,
-                                                                                          pickup_bin.pickup_quantity)
+                                                                                          pickup_bin.pickup_quantity,None)
                             InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
                                                                                           pickup_bin.pickup.sku, "pickup_complete",
-                                                                                          pickup.pk, type_normal,state_ordered,
-                                                                                          type_normal, state_available,
-                                                                                          reverse_quantity)
+                                                                                          123, type_normal,state_ordered,
+                                                                                        type_normal, state_available,
+                                                                                          reverse_quantity,None)
 
                 return Response({'is_success': True,
                                  'message': "Pickup complete for all the items"})

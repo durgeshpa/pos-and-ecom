@@ -468,7 +468,7 @@ class InternalWarehouseChange(object):
         :return: queryset
         """
         try:
-            WarehouseInternalInventoryChange.objects.create(warehouse_id=warehouse,
+            WarehouseInternalInventoryChange.objects.create(warehouse=warehouse,
                                                             sku=sku, transaction_type=transaction_type,
                                                             transaction_id=transaction_id, initial_stage=initial_stage,
                                                             final_stage=final_stage, quantity=quantity,
