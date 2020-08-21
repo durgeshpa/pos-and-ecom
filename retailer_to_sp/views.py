@@ -51,6 +51,7 @@ from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOA
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
+from wms.views import shipment_out_inventory_change
 
 logger = logging.getLogger('retailer_to_sp_controller')
 
@@ -497,6 +498,7 @@ def trip_planning_change(request, pk):
                     selected_shipment_list = selected_shipment_ids.split(',')
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                  pk__in=selected_shipment_list)
+                    shipment_out_inventory_change(selected_shipments, TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],trip=trip_instance)
 
                     # updating order status for shipments with respect to trip status
@@ -1593,3 +1595,4 @@ def shipment_status(request):
     else:
         context['count'] = -1
     return HttpResponse(json.dumps(context))
+

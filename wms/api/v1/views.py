@@ -527,48 +527,47 @@ class PickupComplete(APIView):
                     state_ordered=InventoryState.objects.filter(inventory_state="ordered").last()
                     Order.objects.filter(order_no=order_no).update(order_status='picking_complete')
                     pick_obj.update(status='picking_complete')
-                    pick_obj = Pickup.objects.filter(pickup_type_id=order_no)
-                    if pick_obj.exists():
-                        for pickup in pick_obj:
-                            pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)
-                            for pickup_bin in pickup_bin_list:
-                                if pickup_bin.pickup_quantity is None:
-                                    pickup_bin.pickup_quantity = 0
-                                reverse_quantity = pickup_bin.quantity - pickup_bin.pickup_quantity
-                                # Entry in bin table
-                                CommonBinInventoryFunctions.update_or_create_bin_inventory(pickup_bin.warehouse,
+
+                    for pickup in pick_obj:
+                        pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)
+                        for pickup_bin in pickup_bin_list:
+                            if pickup_bin.pickup_quantity is None:
+                                pickup_bin.pickup_quantity = 0
+                            reverse_quantity = pickup_bin.quantity - pickup_bin.pickup_quantity
+                            # Entry in bin table
+                            CommonBinInventoryFunctions.update_or_create_bin_inventory(pickup_bin.warehouse,
                                                                                            pickup_bin.bin.bin,
                                                                                            pickup_bin.pickup.sku
                                                                                            , pickup_bin.batch_id, type_normal,
                                                                                            reverse_quantity, True)
-                                InternalInventoryChange.create_bin_internal_inventory_change(pickup_bin.warehouse,
+                            InternalInventoryChange.create_bin_internal_inventory_change(pickup_bin.warehouse,
                                                                                              pickup_bin.pickup.sku,
                                                                                              pickup_bin.batch_id,
                                                                                              pickup_bin.bin.bin,
                                                                                              type_normal,type_normal,
                                                                                              "pickup", pickup.pk,
                                                                                              reverse_quantity)
-                                # Entry in warehouse Table
-                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
+                            # Entry in warehouse Table
+                            CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
                                                                                              pickup_bin.pickup.sku,
                                                                                              "normal", "ordered",
                                                                                              pickup_bin.quantity * -1,
                                                                                              True)
-                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
+                            CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
                                                                                              pickup_bin.pickup.sku,
                                                                                              "normal", "picked",
                                                                                              pickup_bin.pickup_quantity,
                                                                                              True)
-                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
+                            CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
                                                                                              pickup_bin.pickup.sku,
                                                                                              "normal", "available",
                                                                                              reverse_quantity, True)
-                                InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
+                            InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
                                                                                           pickup_bin.pickup.sku, "pickup",
                                                                                           pickup.pk, type_normal,state_ordered,
                                                                                           type_normal, state_picked,
                                                                                           pickup_bin.pickup_quantity, "")
-                                InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
+                            InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
                                                                                           pickup_bin.pickup.sku, "pickup",
                                                                                           pickup.pk, type_normal,state_ordered,
                                                                                           type_normal, state_available,

@@ -196,6 +196,7 @@ class Out(models.Model):
     out_type = models.CharField(max_length=20, null=True, blank=True)
     out_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
