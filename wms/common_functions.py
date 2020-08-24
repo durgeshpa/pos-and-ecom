@@ -323,6 +323,10 @@ class OrderManagement(object):
                                                             sku=Product.objects.get(id=int(prod_id)),
                                                             transaction_type=transaction_type,
                                                             transaction_id=transaction_id,
+                                                            initial_type=InventoryType.objects.filter(
+                                                                inventory_type='normal').last(),
+                                                            final_type=InventoryType.objects.filter(
+                                                                inventory_type='normal').last(),
                                                             initial_stage=InventoryState.objects.filter(
                                                                 inventory_state='available').last(),
                                                             final_stage=InventoryState.objects.filter(
@@ -642,6 +646,10 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
                                                             sku=Product.objects.get(id=prod),
                                                             transaction_type=transaction_type,
                                                             transaction_id=transaction_id,
+                                                            initial_type=InventoryType.objects.filter(
+                                                                inventory_type='normal').last(),
+                                                            final_type=InventoryType.objects.filter(
+                                                                inventory_type='normal').last(),
                                                             initial_stage=InventoryState.objects.filter(
                                                                 inventory_state='reserved').last(),
                                                             final_stage=InventoryState.objects.filter(
