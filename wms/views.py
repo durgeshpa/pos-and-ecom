@@ -1112,10 +1112,10 @@ def shipment_out_inventory_change(shipment, final_status):
                                                                           shipment_item.product, "shipped_out",
                                                                           shipment.pk, type_normal, state_picked,
                                                                           type_normal, state_shipped,
-                                                                          shipment_item.shipped_qty, "")
+                                                                          shipment_item.shipped_qty, None)
                 shipment_batch_list = OrderedProductBatch.objects.filter(ordered_product_mapping=shipment_item).all()
                 for shipment_batch in shipment_batch_list:
-                    OutCommonFunctions.create_out(shipment.order.seller_shop, shipment_item.product, 'ship_out',
+                    OutCommonFunctions.create_out(shipment.order.seller_shop, 'ship_out',
                                                   shipment.pk, shipment_item.product, shipment_batch.batch_id,
                                                   shipment_batch.quantity)
 
