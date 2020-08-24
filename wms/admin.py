@@ -356,7 +356,12 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
                 initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
                 cancel_ordered(obj, ordered_inventory_state, initial_stage)
 
-            elif obj.putaway_type == 'Pickup_Cancelled' and obj.putaway_type == 'Shipment_Cancelled':
+            elif obj.putaway_type == 'Pickup_Cancelled':
+                ordered_inventory_state = 'picked',
+                initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                cancel_ordered(obj, ordered_inventory_state, initial_stage)
+
+            elif obj.putaway_type == 'Shipment_Cancelled':
                 ordered_inventory_state = 'picked',
                 initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
                 cancel_ordered(obj, ordered_inventory_state, initial_stage)
