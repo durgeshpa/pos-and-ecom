@@ -325,6 +325,7 @@ def assign_picker(request, shop_id=None):
                 #updating order status
                 Order.objects.filter(picker_order__in=selected_orders)\
                     .update(order_status=Order.PICKING_ASSIGNED)
+                Pickup.objects.filter(pickup_type_id=selected_orders[0].order.order_no).update(status='picking_assigned')
 
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker

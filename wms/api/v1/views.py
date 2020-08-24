@@ -7,7 +7,7 @@ from wms.views import PickupInventoryManagement, update_putaway
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop
-from retailer_to_sp.models import Order
+from retailer_to_sp.models import Order, PickerDashboard
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
@@ -526,7 +526,9 @@ class PickupComplete(APIView):
                     state_available=InventoryState.objects.filter(inventory_state="available").last()
                     state_picked=InventoryState.objects.filter(inventory_state="picked").last()
                     state_ordered=InventoryState.objects.filter(inventory_state="ordered").last()
+                    order_obj = Order.objects.filter(order_no=order_no)
                     Order.objects.filter(order_no=order_no).update(order_status='picking_complete')
+                    PickerDashboard.objects.filter(order=order_obj[0]).update(picking_status='picking_complete')
                     pick_obj.update(status='picking_complete')
 
                     for pickup in pick_obj:
