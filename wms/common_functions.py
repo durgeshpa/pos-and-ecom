@@ -780,7 +780,7 @@ def cancel_order_with_pick(instance):
                         status = 'Shipment_Cancelled'
                     else:
                         pick_up_bin_quantity = pickup_bin.pickup_quantity
-                        status = 'Pickup_Cancelled'
+                        status = 'Shipment_Cancelled'
                 else:
                     pick_up_bin_quantity = pickup_bin.pickup_quantity
                     status = 'Pickup_Cancelled'
