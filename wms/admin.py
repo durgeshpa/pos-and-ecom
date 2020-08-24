@@ -655,3 +655,4 @@ admin.site.register(WarehouseInternalInventoryChange, WarehouseInternalInventory
 admin.site.register(BinInternalInventoryChange, BinInternalInventoryChangeAdmin)
 admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)
 admin.site.register(OrderReserveRelease, OrderReleaseAdmin)
+admin.site.register(Audit, AuditAdmin)
