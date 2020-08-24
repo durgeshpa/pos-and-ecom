@@ -770,6 +770,9 @@ def cancel_order_with_pick(instance):
                             and instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].expired_qty > 0:
                         pick_up_bin_quantity = pickup_bin.pickup.orderedproductbatch_set.all()[0].ordered_product_mapping.shipped_qty
                         status = 'Shipment_Cancelled'
+                    else:
+                        pick_up_bin_quantity = pickup_bin.pickup_quantity
+                        status = 'Pickup_Cancelled'
                 else:
                     pick_up_bin_quantity = pickup_bin.pickup_quantity
                     status = 'Pickup_Cancelled'
@@ -1187,7 +1190,7 @@ def cancel_ordered(obj, ordered_inventory_state, initial_stage):
         transaction_id = obj.putaway_id
         initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
         final_type = InventoryType.objects.filter(inventory_type='normal').last(),
-        final_stage = InventoryState.objects.filter(inventory_state='canceled').last(),
+        final_stage = InventoryState.objects.filter(inventory_state='available').last(),
         initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
         final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
         quantity = available_quantity
