@@ -181,13 +181,14 @@ class BinAdmin(admin.ModelAdmin):
     resource_class = BinResource
     actions = ['download_csv_for_bins', 'download_barcode']
     list_display = (
-        'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode','download_barcode_image')
-    readonly_fields = ['bin_barcode', 'barcode_image', 'download_bin_id_barcode','download_barcode_image']
+        'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode',
+        'download_barcode_image')
+    readonly_fields = ['bin_barcode', 'barcode_image', 'download_bin_id_barcode', 'download_barcode_image']
     search_fields = ('bin_id',)
     list_filter = [BinIdFilter,
-        ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
-        ('bin_type', DropdownFilter),
-    ]
+                   ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
+                   ('bin_type', DropdownFilter),
+                   ]
     list_per_page = 50
 
     class Media:
@@ -216,6 +217,7 @@ class BinAdmin(admin.ModelAdmin):
             "<a href= '%s' >Download Barcode</a>" %
             (reverse('merged_barcodes', args=[bin_id]))
         )
+
     def download_barcode_image(self, obj):
         info_logger.info("download bin barcode method has been called.")
         if not obj.bin_barcode:
@@ -296,7 +298,8 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     actions = ['download_bulk_put_away_bin_inventory_csv']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin__bin_id')
     list_filter = [
-        Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, ('putaway_type', DropdownFilter), ('created_at', DateTimeRangeFilter)]
+        Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, ('putaway_type', DropdownFilter),
+        ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
 
     def download_bulk_put_away_bin_inventory_csv(self, request, queryset):
@@ -394,7 +397,8 @@ class BinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
     actions = ['download_barcode']
-    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at', 'modified_at')
+    list_display = (
+    'batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at', 'modified_at')
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at')
     list_filter = [BinIDFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter]
     list_per_page = 50
@@ -414,8 +418,8 @@ class BinInventoryAdmin(admin.ModelAdmin):
         for obj in queryset:
             product_mrp = obj.sku.product_pro_price.filter(seller_shop=obj.warehouse, approval_status=2)
 
-            temp_data = {"qty": 1,"data": {"SKU": obj.sku.product_sku,
-                                      "MRP": product_mrp.last().mrp if product_mrp.exists() else ''}}
+            temp_data = {"qty": 1, "data": {"SKU": obj.sku.product_sku,
+                                            "MRP": product_mrp.last().mrp if product_mrp.exists() else ''}}
             bin_id_list[obj.batch_id] = temp_data
         return merged_barcode_gen(bin_id_list)
 
@@ -425,8 +429,8 @@ class BinInventoryAdmin(admin.ModelAdmin):
 class OutAdmin(admin.ModelAdmin):
     info_logger.info("Out Admin has been called.")
     form = OutForm
-    list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
-    readonly_fields = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
+    list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'batch_id', 'quantity', 'created_at', 'modified_at')
+    readonly_fields = ('warehouse', 'out_type', 'out_type_id', 'sku', 'batch_id', 'quantity', 'created_at', 'modified_at')
     list_per_page = 50
 
     def get_urls(self):
@@ -559,7 +563,7 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
 
 class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'initial_inventory_type', 'final_inventory_type', 'initial_bin',
-                    'final_bin','transaction_type', 'transaction_id',
+                    'final_bin', 'transaction_type', 'transaction_id',
                     'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_per_page = 50
 
@@ -568,7 +572,6 @@ class StockCorrectionChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id',
                     'correction_type', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_per_page = 50
-
 
 
 class OrderReleaseAdmin(admin.ModelAdmin):

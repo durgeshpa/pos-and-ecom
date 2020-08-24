@@ -267,7 +267,8 @@ class WarehouseInternalInventoryChange(models.Model):
         ('audit_adjustment', 'Audit Adjustment'),
         ('put_away_type', 'Put Away Type'),
         ('pickup_created', 'Pickup Created'),
-        ('pickup_complete', 'Pickup Complete')
+        ('pickup_complete', 'Pickup Complete'),
+        ('shipped_out', 'Shipped Out')
 
     )
 
