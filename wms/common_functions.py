@@ -1071,10 +1071,11 @@ def common_on_return_and_partial(shipment):
                 if putaway_qty == 0:
                     continue
                 else:
-                    pu, _ = Putaway.objects.update_or_create(warehouse=j.pickup.warehouse, putaway_type='RETURNED',
+                    In.objects.create(warehouse=j.pickup.warehouse, in_type='RETURN', in_type_id=shipment.invoice_no, sku=j.pickup.sku, batch_id=j.batch_id,quantity=putaway_qty)
+                    pu, _ = Putaway.objects.update_or_create(putaway_user=shipment.last_modified_by, warehouse=j.pickup.warehouse, putaway_type='RETURNED',
                                                              putaway_type_id=shipment.invoice_no, sku=j.pickup.sku,
                                                              batch_id=j.batch_id, defaults={'quantity': putaway_qty,
-                                                                                            'putaway_quantity': putaway_qty})
+                                                                                            'putaway_quantity': 0})
                     PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
                                                                  batch_id=j.batch_id, putaway_type='RETURNED',
                                                                  putaway=pu, bin=bin_id_for_input, putaway_status=False,
@@ -1095,7 +1096,7 @@ def common_on_return_and_partial(shipment):
                 if putaway_qty <= 0:
                     continue
                 else:
-                    pu, _ = Putaway.objects.update_or_create(warehouse=j.pickup.warehouse, putaway_type='PAR_SHIPMENT',
+                    pu, _ = Putaway.objects.update_or_create(putaway_user=shipment.last_modified_by,warehouse=j.pickup.warehouse, putaway_type='PAR_SHIPMENT',
                                                              putaway_type_id=shipment.invoice_no, sku=j.pickup.sku,
                                                              batch_id=j.batch_id, defaults={'quantity': putaway_qty,
                                                                                             'putaway_quantity': 0})
