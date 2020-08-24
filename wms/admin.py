@@ -24,7 +24,7 @@ from barCodeGenerator import barcodeGen, merged_barcode_gen
 from retailer_to_sp.models import OrderedProduct, Shipment
 from django.db import transaction
 from .common_functions import CommonWarehouseInventoryFunctions, WareHouseInternalInventoryChange, InternalInventoryChange,\
-    CommonBinInventoryFunctions, cancel_ordered, cancel_shipment
+    CommonBinInventoryFunctions, cancel_ordered, cancel_shipment, cancel_returned
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -373,7 +373,14 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
                     invoice__invoice_no=obj.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
                 cancel_shipment(obj, ordered_inventory_state, initial_stage, shipment_obj)
 
-            # common values for both type cancellation
+            elif obj.putaway_type == 'RETURNED':
+                ordered_inventory_state = 'picked',
+                initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                shipment_obj = OrderedProduct.objects.filter(
+                    invoice__invoice_no=obj.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
+                cancel_returned(obj, ordered_inventory_state, initial_stage, shipment_obj)
+
+            # save the put away bin inventory status form false to true
             super().save_model(request, obj, form, change)
 
 
