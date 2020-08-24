@@ -60,8 +60,8 @@ class BinIDFilterForPickupBinInventory(InputFilter):
         return queryset
 
 
-class BinFilterForBinInventory(InputFilter):
-    title = 'Bin'
+class BinIDFilterForBinInventory(InputFilter):
+    title = 'Bin ID'
     parameter_name = 'bin'
 
     def queryset(self, request, queryset):
@@ -417,7 +417,7 @@ class BinInventoryAdmin(admin.ModelAdmin):
     actions = ['download_barcode']
     list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at', 'modified_at')
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at')
-    list_filter = [BinFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter]
+    list_filter = [BinIDFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter]
     list_per_page = 50
 
     class Media:
