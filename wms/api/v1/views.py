@@ -34,12 +34,12 @@ class CheckBinID(APIView):
         bin_id = request.GET.get('bin_id')
         if not bin_id:
             return Response(msg, status=status.HTTP_200_OK)
-        bins = CommonBinFunctions.get_filtered_bins(bin_id=bin_id)
+        bins = CommonBinFunctions.get_filtered_bins(bin_id=bin_id, is_active=True)
         if bins.exists():
             msg = {'is_success': True, 'message': "Bin id exists.", 'data': ""}
             return Response(msg, status=status.HTTP_200_OK)
         else:
-            msg = {'is_success': False, 'message': "Bin id does not exists.", 'data': ""}
+            msg = {'is_success': False, 'message': "Bin id is not activated.", 'data': ""}
             return Response(msg, status=status.HTTP_200_OK)
 
 
@@ -130,6 +130,10 @@ class PutAwayViewSet(APIView):
         msg = {'is_success': False, 'message': 'Some Required field empty.', 'data': None}
         bin_id = self.request.data.get('bin_id')
         if not bin_id:
+            return Response(msg, status=status.HTTP_200_OK)
+        bin_obj = Bin.objects.filter(bin_id=bin_id, is_active=True)
+        if not bin_obj:
+            msg = {'is_success': False, 'message': "Bin id is not activated.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         try:
             warehouse = request.user.shop_employee.all()[0].shop_id
@@ -424,6 +428,10 @@ class PickupDetail(APIView):
         if not bin:
             msg = {'is_success': True, 'message': 'Bin id is not empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+        bin_obj = Bin.objects.filter(bin_id=bin_id, is_active=True)
+        if not bin_obj:
+            msg = {'is_success': False, 'message': "Bin id is not activated", 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
 
         picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id)
         if picking_details.exists():
@@ -436,6 +444,10 @@ class PickupDetail(APIView):
         msg = {'is_success': False, 'message': 'Missing Required field.', 'data': None}
         bin_id = request.data.get('bin_id')
         if not bin_id:
+            return Response(msg, status=status.HTTP_200_OK)
+        bin_obj = Bin.objects.filter(bin_id=bin_id, is_active=True)
+        if not bin_obj:
+            msg = {'is_success': False, 'message': "Bin id is not activated.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         order_no = request.data.get('order_no')
         if not order_no:
