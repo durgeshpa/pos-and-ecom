@@ -478,7 +478,7 @@ class PickupDetail(APIView):
                         picking_details.update(pickup_quantity=i + pick_qty)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                         pickup__sku__id=j)
-                        sum_total = sum([i.pickup_quantity for i in pick_object])
+                        sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
                         Pickup.objects.filter(pickup_type_id=order_no, sku__id=j).update(pickup_quantity=sum_total)
                         # bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=bin_id,
                         #                                                                      sku__id=j,
