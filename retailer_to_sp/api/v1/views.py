@@ -76,7 +76,7 @@ from common.data_wrapper_view import DataWrapperViewSet
 from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext_lazy as _
 from common.data_wrapper import format_serializer_errors
-from sp_to_gram.tasks import es_search
+from sp_to_gram.tasks import es_search, upload_shop_stock
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
@@ -1972,3 +1972,12 @@ class ReturnReason(generics.UpdateAPIView):
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
+class RefreshEs(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        shop_id = None
+        shop_id = self.request.GET.get('shop_id')
+        upload_shop_stock(shop_id)
+        return Response({"message": "Shop data updated on ES","response_data": None, "is_success": True})

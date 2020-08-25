@@ -24,7 +24,7 @@ from barCodeGenerator import barcodeGen, merged_barcode_gen
 from retailer_to_sp.models import OrderedProduct, Shipment
 from django.db import transaction
 from .common_functions import CommonWarehouseInventoryFunctions, WareHouseInternalInventoryChange, InternalInventoryChange,\
-    CommonBinInventoryFunctions, cancel_ordered, cancel_shipment
+    CommonBinInventoryFunctions, cancel_ordered, cancel_shipment, cancel_returned
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -198,9 +198,9 @@ class BinAdmin(admin.ModelAdmin):
                        'download_bin_id_barcode', 'download_barcode_image']
     search_fields = ('bin_id',)
     list_filter = [BinIdFilter,
-        ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
-        ('bin_type', DropdownFilter),
-    ]
+                   ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
+                   ('bin_type', DropdownFilter),
+                   ]
     list_per_page = 50
 
     class Media:
@@ -229,6 +229,7 @@ class BinAdmin(admin.ModelAdmin):
             "<a href= '%s' >Download Barcode</a>" %
             (reverse('merged_barcodes', args=[bin_id]))
         )
+
     def download_barcode_image(self, obj):
         info_logger.info("download bin barcode method has been called.")
         if not obj.bin_barcode:
@@ -312,7 +313,8 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     readonly_fields = ['warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway', 'bin', 'putaway_quantity']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin__bin_id')
     list_filter = [
-        Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, ('putaway_type', DropdownFilter), ('created_at', DateTimeRangeFilter)]
+        Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, ('putaway_type', DropdownFilter),
+        ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
 
     def download_bulk_put_away_bin_inventory_csv(self, request, queryset):
@@ -389,7 +391,14 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
                     invoice__invoice_no=obj.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
                 cancel_shipment(obj, ordered_inventory_state, initial_stage, shipment_obj)
 
-            # common values for both type cancellation
+            elif obj.putaway_type == 'RETURNED':
+                ordered_inventory_state = 'picked',
+                initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                shipment_obj = OrderedProduct.objects.filter(
+                    invoice__invoice_no=obj.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
+                cancel_returned(obj, ordered_inventory_state, initial_stage, shipment_obj)
+
+            # save the put away bin inventory status form false to true
             super().save_model(request, obj, form, change)
 
 
@@ -424,8 +433,8 @@ class BinInventoryAdmin(admin.ModelAdmin):
         for obj in queryset:
             product_mrp = obj.sku.product_pro_price.filter(seller_shop=obj.warehouse, approval_status=2)
 
-            temp_data = {"qty": 1,"data": {"SKU": obj.sku.product_sku,
-                                      "MRP": product_mrp.last().mrp if product_mrp.exists() else ''}}
+            temp_data = {"qty": 1, "data": {"SKU": obj.sku.product_sku,
+                                            "MRP": product_mrp.last().mrp if product_mrp.exists() else ''}}
             bin_id_list[obj.batch_id] = temp_data
         return merged_barcode_gen(bin_id_list)
 
@@ -435,8 +444,8 @@ class BinInventoryAdmin(admin.ModelAdmin):
 class OutAdmin(admin.ModelAdmin):
     info_logger.info("Out Admin has been called.")
     form = OutForm
-    list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
-    readonly_fields = ('batch_id', 'warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
+    list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'batch_id', 'quantity', 'created_at', 'modified_at')
+    readonly_fields = ('warehouse', 'out_type', 'out_type_id', 'sku', 'batch_id', 'quantity', 'created_at', 'modified_at')
     list_filter = [Warehouse, ('out_type', DropdownFilter), SKUFilter, BatchIdFilter, OutTypeIDFilter]
     list_per_page = 50
 
@@ -574,9 +583,8 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
 
 class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'initial_inventory_type', 'final_inventory_type', 'initial_bin',
-                    'final_bin','transaction_type', 'transaction_id',
+                    'final_bin', 'transaction_type', 'transaction_id',
                     'quantity', 'created_at', 'modified_at', 'inventory_csv')
-    # readonly_fields = ['warehouse', 'sku', 'batch_id', ]
     list_per_page = 50
 
 
@@ -584,7 +592,6 @@ class StockCorrectionChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id',
                     'correction_type', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_per_page = 50
-
 
 
 class OrderReleaseAdmin(admin.ModelAdmin):
@@ -668,3 +675,4 @@ admin.site.register(WarehouseInternalInventoryChange, WarehouseInternalInventory
 admin.site.register(BinInternalInventoryChange, BinInternalInventoryChangeAdmin)
 admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)
 admin.site.register(OrderReserveRelease, OrderReleaseAdmin)
+admin.site.register(Audit, AuditAdmin)

@@ -265,9 +265,10 @@ class WarehouseInternalInventoryChange(models.Model):
         ('released', "Released"),
         ('canceled', 'Canceled'),
         ('audit_adjustment', 'Audit Adjustment'),
-        ('put_away_type', 'Put Away Type'),
+        ('put_away_type', 'Put Away'),
         ('pickup_created', 'Pickup Created'),
-        ('pickup_complete', 'Pickup Complete')
+        ('pickup_complete', 'Pickup Complete'),
+        ('shipped_out', 'Shipped Out')
 
     )
 
@@ -305,7 +306,7 @@ class BinInternalInventoryChange(models.Model):
         ('released', "Released"),
         ('canceled', 'Canceled'),
         ('audit_adjustment', 'Audit Adjustment'),
-        ('put_away_type', 'Put Away Type'),
+        ('put_away_type', 'Put Away'),
         ('pickup_created', 'Pickup Created'),
         ('pickup_complete', 'Pickup Complete')
 

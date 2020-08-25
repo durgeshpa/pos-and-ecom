@@ -165,11 +165,11 @@ class DownloadCreditNote(APIView):
 
         total_amount = round(credit_note.note_amount)
         total_amount_int = total_amount
-        amt = [num2words(i) for i in str(total_amount).split('.')]
+        amt = [num2words(i) for i in str(sum_amount).split('.')]
         rupees = amt[0]
 
         data = {
-            "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":total_amount,
+            "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":sum_amount,
             "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
             "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
             "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2,
@@ -325,6 +325,7 @@ def assign_picker(request, shop_id=None):
                 #updating order status
                 Order.objects.filter(picker_order__in=selected_orders)\
                     .update(order_status=Order.PICKING_ASSIGNED)
+                Pickup.objects.filter(pickup_type_id=selected_orders[0].order.order_no).update(status='picking_assigned')
 
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
@@ -498,7 +499,7 @@ def trip_planning_change(request, pk):
                     selected_shipment_list = selected_shipment_ids.split(',')
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                  pk__in=selected_shipment_list)
-                    shipment_out_inventory_change(selected_shipments, TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                    shipment_out_inventory_change(selected_shipments.last(), TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],trip=trip_instance)
 
                     # updating order status for shipments with respect to trip status

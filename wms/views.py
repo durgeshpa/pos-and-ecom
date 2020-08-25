@@ -1089,36 +1089,36 @@ def bin_objects_create(data, batch_id):
 
 def shipment_out_inventory_change(shipment, final_status):
     pass
-    # status = OrderedProduct.SHIPMENT_STATUS
-    # if shipment.shipment_status == status('READY_TO_DISPATCH') and final_status == 'OUT_FOR_DELIVERY':
-    #     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
-    #     state_picked = InventoryState.objects.filter(inventory_state="picked").last()
-    #     state_shipped = InventoryState.objects.filter(inventory_state="shipped").last()
-    #     shipment_item_list = OrderedProductMapping.objects.filter(ordered_product=shipment).all()
-    #     with transaction.atomic():
-    #         for shipment_item in shipment_item_list:
-    #             CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.sellerseller_shop,
-    #                                                                          shipment_item.product,
-    #                                                                          "normal", "picked",
-    #                                                                          shipment_item.shipped_qty * -1,
-    #                                                                          True)
-    #             CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.sellerseller_shop,
-    #                                                                          shipment_item.product,
-    #                                                                          "normal", "shiped",
-    #                                                                          shipment_item.shipped_qty,
-    #                                                                          True)
-    #
-    #             InternalWarehouseChange.create_warehouse_inventory_change(shipment.order.sellerseller_shop,
-    #                                                                       shipment_item.product, "ship_out",
-    #                                                                       shipment.pk, type_normal, state_picked,
-    #                                                                       type_normal, state_shipped,
-    #                                                                       shipment_item.shipped_qty, "")
-    #             shipment_batch_list = OrderedProductBatch.objects.filter(ordered_product_mapping=shipment_item).all()
-    #             for shipment_batch in shipment_batch_list:
-    #                 OutCommonFunctions.create_out(shipment.order.sellerseller_shop, shipment_item.product, 'ship_out',
-    #                                               shipment.pk, shipment_item.product, shipment_batch.batch_id,
-    #                                               shipment_batch.quantity)
-    #
-    #
-    # else:
-    #     pass
+    status = OrderedProduct.SHIPMENT_STATUS
+    if shipment.shipment_status == 'READY_TO_SHIP' and final_status == 'OUT_FOR_DELIVERY':
+        type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+        state_picked = InventoryState.objects.filter(inventory_state="picked").last()
+        state_shipped = InventoryState.objects.filter(inventory_state="shipped").last()
+        shipment_item_list = OrderedProductMapping.objects.filter(ordered_product=shipment).all()
+        with transaction.atomic():
+            for shipment_item in shipment_item_list:
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
+                                                                             shipment_item.product,
+                                                                             "normal", "picked",
+                                                                             shipment_item.shipped_qty * -1,
+                                                                             True)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
+                                                                             shipment_item.product,
+                                                                             "normal", "shipped",
+                                                                             shipment_item.shipped_qty,
+                                                                             True)
+
+                InternalWarehouseChange.create_warehouse_inventory_change(shipment.order.seller_shop,
+                                                                          shipment_item.product, "shipped_out",
+                                                                          shipment.pk, type_normal, state_picked,
+                                                                          type_normal, state_shipped,
+                                                                          shipment_item.shipped_qty, None)
+                shipment_batch_list = OrderedProductBatch.objects.filter(ordered_product_mapping=shipment_item).all()
+                for shipment_batch in shipment_batch_list:
+                    OutCommonFunctions.create_out(shipment.order.seller_shop, 'ship_out',
+                                                  shipment.pk, shipment_item.product, shipment_batch.batch_id,
+                                                  shipment_batch.quantity)
+
+
+    else:
+        pass

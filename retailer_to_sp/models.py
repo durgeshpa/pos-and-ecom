@@ -1603,6 +1603,8 @@ class PickerDashboard(models.Model):
 
     def save(self, *args, **kwargs):
         super(PickerDashboard, self).save(*args, **kwargs)
+        if self.picking_status == 'picking_assigned':
+            Pickup.objects.filter(pickup_type_id=self.order.order_no).update(status='picking_assigned')
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
