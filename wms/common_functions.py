@@ -811,11 +811,11 @@ def cancel_order_with_pick(instance):
                                                          putaway=pu, bin=pickup_bin.bin, putaway_status=False,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
             # get the queryset filter from Pickup model
-            pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no, sku__id=pickup_bin.pickup.sku.id)
-            # iterate the pickup objects and set the status picking cancelled
-            for obj in pickup_obj:
-                obj.status = 'picking_cancelled'
-                obj.save()
+        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no, sku__id=pickup_bin.pickup.sku.id)
+        # iterate the pickup objects and set the status picking cancelled
+        for obj in pickup_obj:
+            obj.status = 'picking_cancelled'
+            obj.save()
 
 
 class AuditInventory(object):
