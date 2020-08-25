@@ -1077,7 +1077,7 @@ def common_on_return_and_partial(shipment):
                 'N': InventoryType.objects.get(inventory_type='normal')}
     for i in shipment.rt_order_product_order_product_mapping.all():
         bin_list = [j.bin for j in i.rt_ordered_product_mapping.all()]
-        bin_id_for_input = None
+        bin_id_for_input = bin_list[0]
         for bin_id in bin_list:
             if bin_id.quantity == 0:
                 continue
