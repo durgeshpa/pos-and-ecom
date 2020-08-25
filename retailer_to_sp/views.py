@@ -1505,7 +1505,7 @@ def update_shipment_status_with_id(shipment_obj):
     total_delivered_qty = shipment_products_dict['delivered_qty_sum']
     total_shipped_qty = shipment_products_dict['shipped_qty_sum']
     total_returned_qty = shipment_products_dict['returned_qty_sum']
-    total_damaged_qty = shipment_products_dict['damaged_qty_sum']
+    total_damaged_qty = shipment_products_dict['returned_damage_qty_sum']
 
 
     if total_shipped_qty == (total_returned_qty + total_damaged_qty):
@@ -1516,6 +1516,10 @@ def update_shipment_status_with_id(shipment_obj):
 
     elif total_shipped_qty >= (total_returned_qty + total_damaged_qty):
         shipment_obj.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
+    shipment_obj.save()
+    # saving it again as there might be some signals on first save
+    if shipment_obj.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
+        shipment_obj.shipment_status = 'FULLY_RETURNED_AND_VERIFIED'
     shipment_obj.save()
 
 
