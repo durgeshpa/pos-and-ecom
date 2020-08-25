@@ -88,6 +88,14 @@ class BinForm(forms.ModelForm):
             raise ValidationError(_("Duplicate Data ! Warehouse with same Bin Id is already exists in the system."))
         return self.cleaned_data['bin_id']
 
+    def __init__(self, *args, **kwargs):
+        super(BinForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+
+        if instance:
+            if instance.is_active is True:
+                self.fields['is_active'].disabled = True
+
 
 def bin_id_validation(bin_id, bin_type):
     if not bin_id:
@@ -628,9 +636,9 @@ class UploadAuditAdminForm(forms.Form):
                     "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID can not be empty."))
 
             # to validate BIN ID is exist in the database
-            if not Bin.objects.filter(bin_id=row[4]).exists():
+            if not Bin.objects.filter(bin_id=row[4], is_active=True).exists():
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID is not exist in the system."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID is not activated in the system."))
 
             # to validate normal initial quantity is empty or contains the number
             if not row[5] or not re.match("^[\d]*$", row[5]):
