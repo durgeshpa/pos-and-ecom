@@ -556,7 +556,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
         bin_quantity = val + bin_inventory_obj.quantity
         bin_inventory_obj.quantity = bin_quantity
         bin_inventory_obj.save()
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, pu[0].sku, inv_type, inv_state, bin_quantity,
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, pu[0].sku, inv_type, inv_state, val,
                                                                      True)
     else:
         BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(), sku=put_away.last().sku,
