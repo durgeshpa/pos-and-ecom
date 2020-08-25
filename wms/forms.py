@@ -144,7 +144,7 @@ class PutAwayForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(PutAwayForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
-        self.fields['putaway_quantity'].initial = 0
+        # self.fields['putaway_quantity'].initial = 0
         # self.fields['putaway_quantity'].disabled = True
 
 
@@ -161,7 +161,7 @@ class PutAwayBinInventoryForm(forms.ModelForm):
         instance = getattr(self, 'instance', None)
 
         if instance:
-            self.fields['putaway_quantity'].initial = 0
+            # self.fields['putaway_quantity'].initial = 0
             if instance.putaway_status is True:
                 self.fields['putaway_status'].disabled = True
 
