@@ -1185,12 +1185,16 @@ class WareHouseInternalInventoryChange(object):
             error_logger.error(e)
 
 
-def cancel_ordered(obj, ordered_inventory_state, initial_stage):
-    # set the status is True
-    obj.putaway_status = True
+def cancel_ordered(request, obj, ordered_inventory_state, initial_stage):
     if obj.bin.inventory_type.inventory_type == 'normal':
         obj.bin.quantity = obj.bin.quantity + obj.putaway_quantity
         obj.bin.save()
+        if obj.putaway.putaway_quantity == 0:
+            obj.putaway.putaway_quantity = obj.putaway_quantity
+        else:
+            obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
+        obj.putaway_user = request.user
+        obj.putaway.save()
         normal_inventory_type = 'normal',
         available_inventory_state = 'available',
         available_quantity = obj.putaway_quantity
