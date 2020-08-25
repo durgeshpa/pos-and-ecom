@@ -324,8 +324,10 @@ class StockMovementCsvSample(View):
                 f = StringIO()
                 writer = csv.writer(f)
                 # header of csv file
-                writer.writerow(['Warehouse ID', 'SKU', 'Batch ID', 'Bin ID', 'In/Out', 'Quantity'])
-                writer.writerow(['1393', 'ORCPCRTOY00000002', 'ORCPCRTOY000000020820', 'B2BZ01SR01-001', 'In', '100'])
+                writer.writerow(['Warehouse ID', 'SKU', 'Expiry Date', 'Bin ID', 'Inventory Movement Type',
+                                 'Normal Quantity', 'Damaged Quantity', 'Expired Quantity', 'Missing Quantity'])
+                writer.writerow(['1393', 'ORCPCRTOY00000002', '20/08/2020', 'B2BZ01SR01-001',
+                                 'In', '0', '0', '0', '0'])
 
             elif request.GET['inventory_movement_type'] == '4':
                 filename = 'warehouse_inventory_change' + ".csv"
