@@ -462,7 +462,6 @@ def trip_planning_change(request, pk):
 
                             elif shipment.shipped_sum > (shipment.returned_sum + shipment.damaged_sum):
                                 shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
-                            shipment.save()
 
                         # updating order status to completed
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
@@ -500,6 +499,7 @@ def trip_planning_change(request, pk):
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                  pk__in=selected_shipment_list)
                     shipment_out_inventory_change(selected_shipments.last(), TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                    check_shipment_verified(selected_shipment_ids, trip_status,current_trip_status)
                     selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],trip=trip_instance)
 
                     # updating order status for shipments with respect to trip status
@@ -1008,7 +1008,7 @@ def update_delivered_qty(instance, inline_form):
     instance.save()
 
 
-def update_shipment_status(form_instance, formset):
+def update_shipment_status_verified(form_instance, formset):
     shipped_qty_list = []
     returned_qty_list = []
     damaged_qty_list = []
@@ -1024,13 +1024,13 @@ def update_shipment_status(form_instance, formset):
     damaged_qty = sum(damaged_qty_list)
 
     if shipped_qty == (returned_qty + damaged_qty):
-        form_instance.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
+        form_instance.shipment_status = 'FULLY_RETURNED_AND_VERIFIED'
 
     elif (returned_qty + damaged_qty) == 0:
-        form_instance.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
+        form_instance.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
 
     elif shipped_qty > (returned_qty + damaged_qty):
-        form_instance.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
+        form_instance.shipment_status = 'PARTIALLY_DELIVERED_AND_VERIFIED'
 
     form_instance.save()
 
@@ -1601,4 +1601,8 @@ def shipment_status(request):
     else:
         context['count'] = -1
     return HttpResponse(json.dumps(context))
+
+def check_shipment_verified(shipment_list, trip_status,current_trip_status):
+    if trip_status=='COMPLETED' and current_trip_status=='CLOSED':
+
 
