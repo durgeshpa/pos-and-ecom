@@ -2444,23 +2444,24 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
 def populate_data_on_qc_pass(order):
     pick_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
     for i in pick_bin_inv:
-        ordered_product_mapping = order.rt_order_order_product.all().last().rt_order_product_order_product_mapping.filter(product__id=i.pickup.sku.id).last()
-        obj = OrderedProductBatch.objects.create(
-            batch_id=i.batch_id,
-            bin_ids=i.bin.bin.bin_id,
-            pickup_inventory=i,
-            ordered_product_mapping=ordered_product_mapping,
-            pickup=i.pickup,
-            bin=i.bin,
-            quantity=i.pickup_quantity,
-            pickup_quantity=i.pickup_quantity,
-            expiry_date=get_expiry_date(i.batch_id),
-            delivered_qty=ordered_product_mapping.delivered_qty,
-            ordered_pieces=i.quantity
-            # already_shipped_qty=ordered_product_mapping.shipped_qty
-
-
-        )
+        try:
+            ordered_product_mapping = order.rt_order_order_product.all().last().rt_order_product_order_product_mapping.filter(product__id=i.pickup.sku.id).first()
+            obj = OrderedProductBatch.objects.create(
+                batch_id=i.batch_id,
+                bin_ids=i.bin.bin.bin_id,
+                pickup_inventory=i,
+                ordered_product_mapping=ordered_product_mapping,
+                pickup=i.pickup,
+                bin=i.bin,
+                quantity=i.pickup_quantity,
+                pickup_quantity=i.pickup_quantity,
+                expiry_date=get_expiry_date(i.batch_id),
+                delivered_qty=ordered_product_mapping.delivered_qty,
+                ordered_pieces=i.quantity
+                # already_shipped_qty=ordered_product_mapping.shipped_qty
+            )
+        except:
+            pass
 
 
 @receiver(post_save, sender=OrderedProductBatch)
