@@ -1,6 +1,6 @@
 import logging
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
-    PickupBinInventory,StockMovementCSVUpload
+    PickupBinInventory, StockMovementCSVUpload
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
     PickupBinInventorySerializer
 from wms.views import PickupInventoryManagement, update_putaway
@@ -535,9 +535,9 @@ class PickupComplete(APIView):
                 with transaction.atomic():
                     csv_instance = StockMovementCSVUpload.objects.filter(pk=1).last()
                     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
-                    state_available=InventoryState.objects.filter(inventory_state="available").last()
-                    state_picked=InventoryState.objects.filter(inventory_state="picked").last()
-                    state_ordered=InventoryState.objects.filter(inventory_state="ordered").last()
+                    state_available = InventoryState.objects.filter(inventory_state="available").last()
+                    state_picked = InventoryState.objects.filter(inventory_state="picked").last()
+                    state_ordered = InventoryState.objects.filter(inventory_state="ordered").last()
                     order_obj = Order.objects.filter(order_no=order_no)
                     Order.objects.filter(order_no=order_no).update(order_status='picking_complete')
                     PickerDashboard.objects.filter(order=order_obj[0]).update(picking_status='picking_complete')
@@ -550,43 +550,52 @@ class PickupComplete(APIView):
                                 pickup_bin.pickup_quantity = 0
                             reverse_quantity = pickup_bin.quantity - pickup_bin.pickup_quantity
                             # Entry in bin table
-                            CommonBinInventoryFunctions.update_or_create_bin_inventory(pickup_bin.warehouse,
+                            if reverse_quantity != 0:
+                                CommonBinInventoryFunctions.update_or_create_bin_inventory(pickup_bin.warehouse,
                                                                                            pickup_bin.bin.bin,
                                                                                            pickup_bin.pickup.sku
-                                                                                           , pickup_bin.batch_id, type_normal,
+                                                                                           , pickup_bin.batch_id,
+                                                                                           type_normal,
                                                                                            reverse_quantity, True)
-                            InternalInventoryChange.create_bin_internal_inventory_change(pickup_bin.warehouse,
+                                InternalInventoryChange.create_bin_internal_inventory_change(pickup_bin.warehouse,
                                                                                              pickup_bin.pickup.sku,
                                                                                              pickup_bin.batch_id,
                                                                                              pickup_bin.bin.bin,
-                                                                                             type_normal,type_normal,
-                                                                                             "pickup_complete", pickup.pk,
+                                                                                             type_normal, type_normal,
+                                                                                             "pickup_complete",
+                                                                                             pickup.pk,
                                                                                              reverse_quantity)
                             # Entry in warehouse Table
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
-                                                                                             pickup_bin.pickup.sku,
-                                                                                             "normal", "ordered",
-                                                                                             pickup_bin.quantity * -1,
-                                                                                             True)
+                                                                                         pickup_bin.pickup.sku,
+                                                                                         "normal", "ordered",
+                                                                                         pickup_bin.quantity * -1,
+                                                                                         True)
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
-                                                                                             pickup_bin.pickup.sku,
-                                                                                             "normal", "picked",
-                                                                                             pickup_bin.pickup_quantity,
-                                                                                             True)
-                            CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
+                                                                                         pickup_bin.pickup.sku,
+                                                                                         "normal", "picked",
+                                                                                         pickup_bin.pickup_quantity,
+                                                                                         True)
+                            InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
+                                                                                      pickup_bin.pickup.sku,
+                                                                                      "pickup_complete",
+                                                                                      pickup.pk, type_normal,
+                                                                                      state_ordered,
+                                                                                      type_normal, state_picked,
+                                                                                      pickup_bin.pickup_quantity, None)
+                            if reverse_quantity != 0:
+                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
                                                                                              pickup_bin.pickup.sku,
                                                                                              "normal", "available",
                                                                                              reverse_quantity, True)
-                            InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
-                                                                                          pickup_bin.pickup.sku, "pickup_complete",
-                                                                                          pickup.pk, type_normal,state_ordered,
-                                                                                          type_normal, state_picked,
-                                                                                          pickup_bin.pickup_quantity,None)
-                            InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
-                                                                                          pickup_bin.pickup.sku, "pickup_complete",
-                                                                                          pickup.pk, type_normal,state_ordered,
-                                                                                        type_normal, state_available,
-                                                                                          reverse_quantity,None)
+
+                                InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
+                                                                                          pickup_bin.pickup.sku,
+                                                                                          "pickup_complete",
+                                                                                          pickup.pk, type_normal,
+                                                                                          state_ordered,
+                                                                                          type_normal, state_available,
+                                                                                          reverse_quantity, None)
 
                 return Response({'is_success': True,
                                  'message': "Pickup complete for all the items"})

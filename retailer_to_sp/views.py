@@ -501,7 +501,7 @@ def trip_planning_change(request, pk):
                     selected_shipment_list = selected_shipment_ids.split(',')
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                  pk__in=selected_shipment_list)
-                    shipment_out_inventory_change(selected_shipments.last(), TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                    shipment_out_inventory_change(selected_shipments, TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],trip=trip_instance)
 
                     # updating order status for shipments with respect to trip status

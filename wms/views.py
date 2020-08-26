@@ -99,7 +99,7 @@ def update_putaway(id, batch_id, warehouse, put_quantity, user):
         info_logger.info("Put away quantity update function has started.")
         pu = PutawayCommonFunctions.get_filtered_putaways(id=id, batch_id=batch_id, warehouse=warehouse)
         put_away_new = put_quantity if pu.last().quantity >= put_quantity else put_quantity - (
-                    put_quantity - pu.last().quantity)
+                put_quantity - pu.last().quantity)
         updated_putaway = pu.last().putaway_quantity
         if updated_putaway == pu.last().quantity:
             return put_quantity
@@ -280,7 +280,7 @@ class PickupInventoryManagement:
                                 update_pickup_inventory(self.id, self.picked_p)
                                 if b.value in [d.value for d in
                                                BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by(
-                                                       '-batch_id', 'quantity')]:
+                                                   '-batch_id', 'quantity')]:
                                     self.pickup_quantity -= b.quantity
                                 else:
                                     self.pickup_quantity = i
@@ -666,7 +666,7 @@ def pickup_entry_creation_with_cron():
                         CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, j,
                                                                            quantity=already_picked,
                                                                            pickup_quantity=None)
-                        InternalInventoryChange.create_bin_internal_inventory_change(shops,obj.sku,batch_id,j.bin,
+                        InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id, j.bin,
                                                                                      type_normal, type_normal,
                                                                                      "pickup_created", pickup_obj.pk,
                                                                                      already_picked)
@@ -1089,38 +1089,39 @@ def bin_objects_create(data, batch_id):
                 inventory_type=InventoryType.objects.filter(inventory_type='missing').last())
 
 
-def shipment_out_inventory_change(shipment, final_status):
-    pass
+def shipment_out_inventory_change(shipment_list, final_status):
     status = OrderedProduct.SHIPMENT_STATUS
-    if shipment.shipment_status == 'READY_TO_SHIP' and final_status == 'OUT_FOR_DELIVERY':
-        type_normal = InventoryType.objects.filter(inventory_type="normal").last()
-        state_picked = InventoryState.objects.filter(inventory_state="picked").last()
-        state_shipped = InventoryState.objects.filter(inventory_state="shipped").last()
-        shipment_item_list = OrderedProductMapping.objects.filter(ordered_product=shipment).all()
-        with transaction.atomic():
-            for shipment_item in shipment_item_list:
-                CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
-                                                                             shipment_item.product,
-                                                                             "normal", "picked",
-                                                                             shipment_item.shipped_qty * -1,
-                                                                             True)
-                CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
-                                                                             shipment_item.product,
-                                                                             "normal", "shipped",
-                                                                             shipment_item.shipped_qty,
-                                                                             True)
+    for shipment in shipment_list:
+        if shipment.shipment_status == 'READY_TO_SHIP' and final_status == 'OUT_FOR_DELIVERY':
+            type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+            state_picked = InventoryState.objects.filter(inventory_state="picked").last()
+            state_shipped = InventoryState.objects.filter(inventory_state="shipped").last()
+            shipment_item_list = OrderedProductMapping.objects.filter(ordered_product=shipment).all()
+            with transaction.atomic():
+                for shipment_item in shipment_item_list:
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
+                                                                                 shipment_item.product,
+                                                                                 "normal", "picked",
+                                                                                 shipment_item.shipped_qty * -1,
+                                                                                 True)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
+                                                                                 shipment_item.product,
+                                                                                 "normal", "shipped",
+                                                                                 shipment_item.shipped_qty,
+                                                                                 True)
 
-                InternalWarehouseChange.create_warehouse_inventory_change(shipment.order.seller_shop,
-                                                                          shipment_item.product, "shipped_out",
-                                                                          shipment.pk, type_normal, state_picked,
-                                                                          type_normal, state_shipped,
-                                                                          shipment_item.shipped_qty, None)
-                shipment_batch_list = OrderedProductBatch.objects.filter(ordered_product_mapping=shipment_item).all()
-                for shipment_batch in shipment_batch_list:
-                    OutCommonFunctions.create_out(shipment.order.seller_shop, 'ship_out',
-                                                  shipment.pk, shipment_item.product, shipment_batch.batch_id,
-                                                  shipment_batch.quantity)
+                    InternalWarehouseChange.create_warehouse_inventory_change(shipment.order.seller_shop,
+                                                                              shipment_item.product, "shipped_out",
+                                                                              shipment.pk, type_normal, state_picked,
+                                                                              type_normal, state_shipped,
+                                                                              shipment_item.shipped_qty, None)
+                    shipment_batch_list = OrderedProductBatch.objects.filter(
+                        ordered_product_mapping=shipment_item).all()
+                    for shipment_batch in shipment_batch_list:
+                        OutCommonFunctions.create_out(shipment.order.seller_shop, 'ship_out',
+                                                      shipment.pk, shipment_item.product, shipment_batch.batch_id,
+                                                      shipment_batch.quantity)
 
 
-    else:
-        pass
+        else:
+            pass
