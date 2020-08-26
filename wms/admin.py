@@ -389,14 +389,14 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
                 initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
                 shipment_obj = OrderedProduct.objects.filter(
                     invoice__invoice_no=obj.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
-                cancel_shipment(obj, ordered_inventory_state, initial_stage, shipment_obj)
+                cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipment_obj)
 
             elif obj.putaway_type == 'RETURNED':
                 ordered_inventory_state = 'picked',
                 initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
                 shipment_obj = OrderedProduct.objects.filter(
                     invoice__invoice_no=obj.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
-                cancel_returned(obj, ordered_inventory_state, initial_stage, shipment_obj)
+                cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipment_obj)
 
             # save the put away bin inventory status form false to true
             super().save_model(request, obj, form, change)
