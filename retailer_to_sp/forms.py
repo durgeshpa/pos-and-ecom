@@ -703,6 +703,7 @@ class ShipmentProductMappingForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
+        data['shipped_qty']= self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty'))
         if self.instance.picked_pieces !=data.get('shipped_qty') + data.get('damaged_qty') + data.get('expired_qty'):
             raise forms.ValidationError(
                 'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
@@ -970,6 +971,7 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
         data = self.cleaned_data
         if self.instance.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
                 self.instance.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
+            data['delivered_qty'] = int(self.instance.shipped_qty) - (data.get('returned_qty') + data.get('returned_damage_qty'))
             if int(self.instance.shipped_qty) != data.get('returned_qty') + data.get('returned_damage_qty') + data.get('delivered_qty'):
                 raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
         return data
@@ -1059,6 +1061,7 @@ class OrderedProductBatchForm(forms.ModelForm):
         if self.instance.ordered_product_mapping.ordered_product.shipment_status !='SHIPMENT_CREATED':
             return data
         else:
+            data['quantity'] = int(self.instance.pickup_quantity) - (data.get('damaged_qty') + data.get('expired_qty'))
             if int(self.instance.pickup_quantity)!= data.get('quantity') + data.get('damaged_qty') + data.get('expired_qty'):
                 raise forms.ValidationError('Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
             return data
@@ -1085,6 +1088,7 @@ class OrderedProductBatchingForm(forms.ModelForm):
         data = self.cleaned_data
         if self.instance.ordered_product_mapping.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
                 self.instance.ordered_product_mapping.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
+            data['delivered_qty'] = int(self.instance.quantity) - (data.get('returned_damage_qty') + data.get('returned_qty'))
             if int(self.instance.quantity) != data.get('returned_damage_qty') + data.get('returned_qty') + data.get('delivered_qty'):
                 raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
         return data

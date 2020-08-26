@@ -88,6 +88,14 @@ class BinForm(forms.ModelForm):
             raise ValidationError(_("Duplicate Data ! Warehouse with same Bin Id is already exists in the system."))
         return self.cleaned_data['bin_id']
 
+    def __init__(self, *args, **kwargs):
+        super(BinForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+
+        if instance:
+            if instance.is_active is True:
+                self.fields['is_active'].disabled = True
+
 
 def bin_id_validation(bin_id, bin_type):
     if not bin_id:
@@ -144,7 +152,7 @@ class PutAwayForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(PutAwayForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
-        self.fields['putaway_quantity'].initial = 0
+        # self.fields['putaway_quantity'].initial = 0
         # self.fields['putaway_quantity'].disabled = True
 
 
@@ -161,7 +169,7 @@ class PutAwayBinInventoryForm(forms.ModelForm):
         instance = getattr(self, 'instance', None)
 
         if instance:
-            self.fields['putaway_quantity'].initial = 0
+            # self.fields['putaway_quantity'].initial = 0
             if instance.putaway_status is True:
                 self.fields['putaway_status'].disabled = True
 
@@ -219,16 +227,16 @@ class StockMovementCsvViewForm(forms.Form):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted.")
 
-        if self.data['inventory_movement_type'] == '2' and self.cleaned_data['file'].name == 'bin_stock_movement.csv':
+        if self.data['inventory_movement_type'] == '2':
             data = validation_bin_stock_movement(self)
 
-        elif self.data['inventory_movement_type'] == '3' and self.cleaned_data['file'].name == 'stock_correction.csv':
+        elif self.data['inventory_movement_type'] == '3':
             data = validation_stock_correction(self)
 
-        elif self.data['inventory_movement_type'] == '4' and self.cleaned_data['file'].name == 'warehouse_inventory_change.csv':
+        elif self.data['inventory_movement_type'] == '4':
             data = validation_warehouse_inventory(self)
         else:
-            raise forms.ValidationError("Inventory movement type and file name is not correct, Please re-verify it at"
+            raise forms.ValidationError("Inventory movement type is not correct, Please re-verify it at"
                                         " your end .")
 
         return data
@@ -351,6 +359,11 @@ def validation_stock_correction(self):
     # list which contains csv data and pass into the view file
     form_data_list = []
     for row_id, row in enumerate(reader):
+        if '' in row:
+            if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
+                    row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == '' and
+                    row[10] == '' and row[11] == '' and row[12] == ''):
+                continue
         # validation for shop id, it should be numeric.
         if not row[0] or not re.match("^[\d]*$", row[0]):
             raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s]. It should be numeric.'),
@@ -623,9 +636,9 @@ class UploadAuditAdminForm(forms.Form):
                     "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID can not be empty."))
 
             # to validate BIN ID is exist in the database
-            if not Bin.objects.filter(bin_id=row[4]).exists():
+            if not Bin.objects.filter(bin_id=row[4], is_active=True).exists():
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID is not exist in the system."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID is not activated in the system."))
 
             # to validate normal initial quantity is empty or contains the number
             if not row[5] or not re.match("^[\d]*$", row[5]):
