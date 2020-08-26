@@ -811,7 +811,7 @@ def cancel_order_with_pick(instance):
                                                          putaway=pu, bin=pickup_bin.bin, putaway_status=False,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
             # get the queryset filter from Pickup model
-        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no, sku__id=pickup_bin.pickup.sku.id)
+        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
         # iterate the pickup objects and set the status picking cancelled
         for obj in pickup_obj:
             obj.status = 'picking_cancelled'
@@ -1198,12 +1198,16 @@ class WareHouseInternalInventoryChange(object):
             error_logger.error(e)
 
 
-def cancel_ordered(obj, ordered_inventory_state, initial_stage):
-    # set the status is True
-    obj.putaway_status = True
+def cancel_ordered(request, obj, ordered_inventory_state, initial_stage):
     if obj.bin.inventory_type.inventory_type == 'normal':
         obj.bin.quantity = obj.bin.quantity + obj.putaway_quantity
         obj.bin.save()
+        if obj.putaway.putaway_quantity == 0:
+            obj.putaway.putaway_quantity = obj.putaway_quantity
+        else:
+            obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
+        obj.putaway_user = request.user
+        obj.putaway.save()
         normal_inventory_type = 'normal',
         available_inventory_state = 'available',
         available_quantity = obj.putaway_quantity
