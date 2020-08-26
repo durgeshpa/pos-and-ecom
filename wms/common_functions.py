@@ -789,7 +789,9 @@ def cancel_order_with_pick(instance):
                     if instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].shipped_qty > 0\
                             and instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].damaged_qty > 0\
                             and instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].expired_qty > 0:
-                        pick_up_bin_quantity = pickup_bin.pickup.orderedproductbatch_set.all()[0].ordered_product_mapping.shipped_qty
+                        for pickup_order in pickup_bin.pickup.orderedproductbatch_set.all():
+                            if pickup_bin.bin.id == pickup_order.bin.id:
+                                pick_up_bin_quantity = pickup_order.quantity
                         status = 'Shipment_Cancelled'
                     else:
                         pick_up_bin_quantity = pickup_bin.pickup_quantity
