@@ -180,9 +180,6 @@ class CommonWarehouseInventoryFunctions(object):
                 inventory_type=inventory_type).last(), in_stock=in_stock).last()
 
         if ware_house_inventory_obj:
-            if ware_house_inventory_obj.quantity == 0:
-                if quantity < 0:
-                    quantity = 0
             ware_house_quantity = quantity + ware_house_inventory_obj.quantity
             ware_house_inventory_obj.quantity = ware_house_quantity
             ware_house_inventory_obj.save()
