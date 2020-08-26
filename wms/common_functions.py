@@ -1206,7 +1206,7 @@ def cancel_ordered(request, obj, ordered_inventory_state, initial_stage):
             obj.putaway.putaway_quantity = obj.putaway_quantity
         else:
             obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
-        obj.putaway_user = request.user
+        obj.putaway_user = request.user.pk
         obj.putaway.save()
         normal_inventory_type = 'normal',
         available_inventory_state = 'available',
@@ -1217,8 +1217,8 @@ def cancel_ordered(request, obj, ordered_inventory_state, initial_stage):
         initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
         final_type = InventoryType.objects.filter(inventory_type='normal').last(),
         final_stage = InventoryState.objects.filter(inventory_state='available').last(),
-        initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
-        final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
+        initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+        final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
         quantity = available_quantity
         batch_id = obj.batch_id
         CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
@@ -1238,8 +1238,10 @@ def cancel_ordered(request, obj, ordered_inventory_state, initial_stage):
                                                                            available_quantity)
         BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
                                                   batch_id=batch_id,
-                                                  initial_bin=Bin.objects.get(bin_id=initial_bin_id),
-                                                  final_bin=Bin.objects.get(bin_id=final_bin_id),
+                                                  initial_bin=Bin.objects.get(bin_id=initial_bin_id,
+                                                                              warehouse=obj.warehouse),
+                                                  final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                            warehouse=obj.warehouse),
                                                   initial_inventory_type=initial_type[0],
                                                   final_inventory_type=final_type[0],
                                                   transaction_type=transaction_type,
@@ -1250,7 +1252,13 @@ def cancel_ordered(request, obj, ordered_inventory_state, initial_stage):
         pass
 
 
-def cancel_shipment(obj, ordered_inventory_state, initial_stage, shipment_obj):
+def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipment_obj):
+    if obj.putaway.putaway_quantity == 0:
+        obj.putaway.putaway_quantity = obj.putaway_quantity
+    else:
+        obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
+    obj.putaway_user = request.user.pk
+    obj.putaway.save()
     transaction_type = 'put_away_type'
     transaction_id = obj.putaway_id
     initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
@@ -1261,8 +1269,8 @@ def cancel_shipment(obj, ordered_inventory_state, initial_stage, shipment_obj):
     expired_inventory_type = 'expired',
     damaged_inventory_type = 'damaged',
     available_inventory_state = 'available',
-    initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
-    final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
+    initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+    final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
     batch_id = obj.batch_id
     for shipped_obj in shipment_obj:
         if obj.sku_id == shipped_obj.product.product_sku:
@@ -1295,8 +1303,10 @@ def cancel_shipment(obj, ordered_inventory_state, initial_stage, shipment_obj):
                                                                                    expired_qty)
                 BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
                                                           batch_id=batch_id,
-                                                          initial_bin=Bin.objects.get(bin_id=initial_bin_id),
-                                                          final_bin=Bin.objects.get(bin_id=final_bin_id),
+                                                          initial_bin=Bin.objects.get(bin_id=initial_bin_id,
+                                                                                      warehouse=obj.warehouse),
+                                                          final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                                    warehouse=obj.warehouse),
                                                           initial_inventory_type=initial_type[0],
                                                           final_inventory_type=type_expired,
                                                           transaction_type=transaction_type,
@@ -1317,8 +1327,10 @@ def cancel_shipment(obj, ordered_inventory_state, initial_stage, shipment_obj):
                                                                                    damaged_qty)
                 BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
                                                           batch_id=batch_id,
-                                                          initial_bin=Bin.objects.get(bin_id=initial_bin_id),
-                                                          final_bin=Bin.objects.get(bin_id=final_bin_id),
+                                                          initial_bin=Bin.objects.get(bin_id=initial_bin_id,
+                                                                                      warehouse=obj.warehouse),
+                                                          final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                                    warehouse=obj.warehouse),
                                                           initial_inventory_type=initial_type[0],
                                                           final_inventory_type=type_damaged,
                                                           transaction_type=transaction_type,
@@ -1333,7 +1345,13 @@ def cancel_shipment(obj, ordered_inventory_state, initial_stage, shipment_obj):
             pass
 
 
-def cancel_returned(obj, ordered_inventory_state, initial_stage, shipment_obj):
+def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipment_obj):
+    if obj.putaway.putaway_quantity == 0:
+        obj.putaway.putaway_quantity = obj.putaway_quantity
+    else:
+        obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
+    obj.putaway_user = request.user.pk
+    obj.putaway.save()
     transaction_type = 'put_away_type'
     transaction_id = obj.putaway_id
     initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
@@ -1342,8 +1360,8 @@ def cancel_returned(obj, ordered_inventory_state, initial_stage, shipment_obj):
     normal_inventory_type = 'normal',
     damaged_inventory_type = 'damaged',
     available_inventory_state = 'available',
-    initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
-    final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id)
+    initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+    final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
     batch_id = obj.batch_id
     for shipped_obj in shipment_obj:
         if obj.sku_id == shipped_obj.product.product_sku:
@@ -1376,8 +1394,10 @@ def cancel_returned(obj, ordered_inventory_state, initial_stage, shipment_obj):
                                                                                    normal_qty)
                 BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
                                                           batch_id=batch_id,
-                                                          initial_bin=Bin.objects.get(bin_id=initial_bin_id),
-                                                          final_bin=Bin.objects.get(bin_id=final_bin_id),
+                                                          initial_bin=Bin.objects.get(bin_id=initial_bin_id,
+                                                                                      warehouse=obj.warehouse),
+                                                          final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                                    warehouse=obj.warehouse),
                                                           initial_inventory_type=initial_type[0],
                                                           final_inventory_type=initial_type[0],
                                                           transaction_type=transaction_type,
@@ -1398,8 +1418,10 @@ def cancel_returned(obj, ordered_inventory_state, initial_stage, shipment_obj):
                                                                                    returned_damaged_qty)
                 BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
                                                           batch_id=batch_id,
-                                                          initial_bin=Bin.objects.get(bin_id=initial_bin_id),
-                                                          final_bin=Bin.objects.get(bin_id=final_bin_id),
+                                                          initial_bin=Bin.objects.get(bin_id=initial_bin_id,
+                                                                                      warehouse=obj.warehouse),
+                                                          final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                                    warehouse=obj.warehouse),
                                                           initial_inventory_type=initial_type[0],
                                                           final_inventory_type=type_damaged,
                                                           transaction_type=transaction_type,
