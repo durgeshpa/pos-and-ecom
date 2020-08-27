@@ -686,9 +686,9 @@ class ShipmentProductMappingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentProductMappingForm, self).__init__(*args, **kwargs)
-        self.fields['shipped_qty'].disabled = True
-        self.fields['damaged_qty'].disabled = True
-        self.fields['expired_qty'].disabled = True
+        #self.fields['shipped_qty'].disabled = True
+        #self.fields['damaged_qty'].disabled = True
+        #self.fields['expired_qty'].disabled = True
         self.fields['picked_pieces'].disabled = True
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
