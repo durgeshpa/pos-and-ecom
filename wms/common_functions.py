@@ -1160,16 +1160,16 @@ def get_create_batch_id_from_audit(data):
     """
     try:
         try:
-            batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[2], '%d-%m-%y').strftime('%d%m%y'))
+            batch_id = '{}{}'.format(data[2], datetime.strptime(data[3], '%d-%m-%y').strftime('%d%m%y'))
 
         except:
             try:
-                batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[2], '%d-%m-%Y').strftime('%d%m%y'))
+                batch_id = '{}{}'.format(data[2], datetime.strptime(data[3], '%d-%m-%Y').strftime('%d%m%y'))
             except:
                 try:
-                    batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[2], '%d/%m/%Y').strftime('%d%m%y'))
+                    batch_id = '{}{}'.format(data[2], datetime.strptime(data[3], '%d/%m/%Y').strftime('%d%m%y'))
                 except:
-                    batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[2], '%d/%m/%y').strftime('%d%m%y'))
+                    batch_id = '{}{}'.format(data[2], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
         return batch_id
     except Exception as e:
         error_logger.error(e.message)
