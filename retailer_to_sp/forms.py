@@ -1040,7 +1040,7 @@ class OrderedProductBatchForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductBatchForm, self).__init__(*args, **kwargs)
-        self.fields['quantity'].disabled = True
+        #self.fields['quantity'].disabled = True
         self.fields['pickup_quantity'].disabled = True
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
