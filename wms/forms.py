@@ -381,21 +381,49 @@ def validation_stock_correction(self):
                                   params={'value': row_id + 1}, )
 
         # validate for product sku is exist or not
-        if not Product.objects.filter(product_sku=row[1]).exists():
+        if not Product.objects.filter(product_sku=row[1][-17:]).exists():
             raise ValidationError(_('Invalid Product SKU at Row number [%(value)s].'
                                     'Product SKU does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 1}, )
 
-        # validate for batch id
+        # validate for expiry_date
         if not row[2]:
-            raise ValidationError(_('Batch Id can not be blank at Row number [%(value)s].'),
-                                  params={'value': row_id + 1}, )
+            raise ValidationError(_(
+                "Issue in Row" + " " + str(row_id + 2) + "," + "Expiry date can not be empty."))
+        try:
+            # if expiry date is "dd/mm/yy"
+            if datetime.strptime(row[2], '%d/%m/%y'):
+                pass
+        except:
+            try:
+                # if expiry date is "dd/mm/yyyy"
+                if datetime.strptime(row[2], '%d/%m/%Y'):
+                    pass
+                else:
+                    raise ValidationError(_(
+                        "Issue in Row" + " " + str(row_id + 2) + "," + "Expiry date format is not correct,"
+                                                                       " It should be DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY and DD-MM-YY format,"
+                                                                       " Example:-11/07/2020, 11/07/20,"
+                                                                       "11-07-2020 and 11-07-20."))
 
-        # validate for batch id exist or not
-        if not GRNOrderProductMapping.objects.filter(batch_id=row[2]).exists():
-            raise ValidationError(_('Invalid Batch Id at Row number [%(value)s].'
-                                    'Batch Id does not exists in the system.Please re-verify at your end.'),
-                                  params={'value': row_id + 1}, )
+            except:
+                try:
+                    # if expiry date is "dd-mm-yy"
+                    if datetime.strptime(row[2], '%d-%m-%y'):
+                        pass
+
+                except:
+                    try:
+                        # if expiry date is "dd-mm-yyyy"
+                        if datetime.strptime(row[2], '%d-%m-%Y'):
+                            pass
+                    except:
+                        # raise validation error
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(row_id + 2) + "," + "Expiry date format is not correct,"
+                                                                           " It should be DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY and DD-MM-YY format,"
+                                                                           " Example:-11/07/2020, 11/07/20,"
+                                                                           " 11-07-2020 and 11-07-20."))
 
         # validate for bin id
         if not row[3]:
@@ -403,7 +431,7 @@ def validation_stock_correction(self):
                                   params={'value': row_id + 1}, )
 
         # validate for bin id exist or not
-        if not Bin.objects.filter(bin_id=row[3]).exists():
+        if not Bin.objects.filter(bin_id=row[3], is_active=True).exists():
             raise ValidationError(_('Invalid Initial Bin Id at Row number [%(value)s]. '
                                     'Initial Bin Id does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 1}, )
@@ -414,16 +442,51 @@ def validation_stock_correction(self):
                                   params={'value': row_id + 1},)
 
         # validate for In/out type is exist or not
-        if not row[4] in ['In', 'Out']:
-            raise ValidationError(_('Invalid options for In/Out at Row number [%(value)s].'
-                                    'It should be either In or Out. Please re-verify at your end.'),
+        if not row[4] in ['In']:
+            raise ValidationError(_('Invalid options for Inventory Movement Type at Row number [%(value)s].'
+                                    'It should be In type. Please re-verify at your end.'),
                                   params={'value': row_id + 1},)
 
         # validation for quantity
         if not row[5] or not re.match("^[\d]*$", row[5]):
-            raise ValidationError(_('Invalid Quantity at Row number [%(value)s]. It should be numeric.'),
+            raise ValidationError(_('Invalid Normal Quantity at Row number [%(value)s]. It should be numeric.'),
                                   params={'value': row_id + 1}, )
+
+        if not row[6] or not re.match("^[\d]*$", row[5]):
+            raise ValidationError(_('Invalid Damaged Quantity at Row number [%(value)s]. It should be numeric.'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[7] or not re.match("^[\d]*$", row[5]):
+            raise ValidationError(_('Invalid Expired Quantity at Row number [%(value)s]. It should be numeric.'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[8] or not re.match("^[\d]*$", row[5]):
+            raise ValidationError(_('Invalid Missing Quantity at Row number [%(value)s]. It should be numeric.'),
+                                  params={'value': row_id + 1}, )
+
+        if int(row[5]) + int(row[6]) + int(row[7]) + int(row[8]) == 0:
+            raise ValidationError(_('Sum of Normal, Damaged, Expired and Missing quantity can not be zero.'),
+                                  params={'value': row_id + 1}, )
+
+        # to get the date format
+        try:
+            expiry_date = datetime.strptime(row[2], '%d/%m/%Y').strftime('%Y-%m-%d')
+        except:
+            try:
+                expiry_date = datetime.strptime(row[2], '%d-%m-%Y').strftime('%Y-%m-%d')
+            except:
+                try:
+                    expiry_date = datetime.strptime(row[2], '%d-%m-%y').strftime('%Y-%m-%d')
+                except:
+                    expiry_date = datetime.strptime(row[2], '%d/%m/%y').strftime('%Y-%m-%d')
+
+        # to validate normal qty for past expired date
+        if expiry_date <= datetime.today().strftime("%Y-%m-%d"):
+            raise ValidationError(_('Expiry date can not be Past Date. It should be Future date.'),
+                                  params={'value': row_id + 1}, )
+
         form_data_list.append(row)
+
     return form_data_list
 
 

@@ -591,6 +591,8 @@ class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
 class StockCorrectionChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id',
                     'correction_type', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
+    readonly_fields = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id', 'correction_type', 'quantity',
+                       'created_at', 'modified_at', 'inventory_csv')
     list_per_page = 50
 
 
