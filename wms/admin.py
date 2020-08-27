@@ -433,7 +433,7 @@ class BinInventoryAdmin(admin.ModelAdmin):
         for obj in queryset:
             product_mrp = obj.sku.product_pro_price.filter(seller_shop=obj.warehouse, approval_status=2)
 
-            temp_data = {"qty": 1, "data": {"SKU": obj.sku.product_sku,
+            temp_data = {"qty": 1, "data": {"SKU": obj.sku.product_name,
                                             "MRP": product_mrp.last().mrp if product_mrp.exists() else ''}}
             bin_id_list[obj.batch_id] = temp_data
         return merged_barcode_gen(bin_id_list)

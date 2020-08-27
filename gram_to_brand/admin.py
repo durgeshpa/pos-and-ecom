@@ -384,8 +384,8 @@ class GRNOrderAdmin(admin.ModelAdmin):
             for grn_product in grn_product_list:
                 product_mrp = ProductVendorMapping.objects.filter(vendor=obj.order.ordered_cart.supplier_name,
                                                                   product=grn_product.product)
-                temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(grn_product.product.product_case_size)),
-                             "data": {"SKU": grn_product.product.product_sku,
+                temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(product_mrp.last().case_size)),
+                             "data": {"SKU": grn_product.product.product_name,
                                       "MRP": product_mrp.last().product_mrp if product_mrp.exists() else ''}}
             bin_id_list[grn_product.batch_id] = temp_data
         return merged_barcode_gen(bin_id_list)

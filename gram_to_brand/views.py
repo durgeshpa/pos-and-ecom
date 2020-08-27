@@ -119,8 +119,8 @@ class MergedBarcode(APIView):
         grn_product = GRNOrderProductMapping.objects.filter(pk=pk).last()
         grn_order = grn_product.grn_order
         product_mrp = grn_product.vendor_product
-        temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(grn_product.product.product_case_size)),
-                     "data": {"SKU": grn_product.product.product_sku,
+        temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(grn_product.vendor_product.case_size)),
+                     "data": {"SKU": grn_product.product.product_name,
                               "MRP": product_mrp.product_mrp if product_mrp.product_mrp else ''}}
 
         bin_id_list[grn_product.batch_id] = temp_data
