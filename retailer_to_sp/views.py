@@ -464,7 +464,7 @@ def trip_planning_change(request, pk):
 
                             elif shipment.shipped_sum > (shipment.returned_sum + shipment.damaged_sum):
                                 shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
-
+                            shipment.save()
                         # updating order status to completed
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
                         Order.objects.filter(rt_order_order_product__id__in=trip_shipments).update(order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
@@ -501,7 +501,7 @@ def trip_planning_change(request, pk):
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                  pk__in=selected_shipment_list)
                     shipment_out_inventory_change(selected_shipments.last(), TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
-                    check_shipment_verified(selected_shipment_ids, trip_status,current_trip_status)
+                    #check_shipment_verified(selected_shipment_ids, trip_status,current_trip_status)
                     selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],trip=trip_instance)
 
                     # updating order status for shipments with respect to trip status
@@ -510,7 +510,7 @@ def trip_planning_change(request, pk):
 
                 return redirect('/admin/retailer_to_sp/trip/')
             else:
-                form = TripForm(request.user, request.POST, instance=trip_instance)
+                form = TripForm(request.user, request.POST, instance=trip_instance,error="abc")
     else:
         form = TripForm(request.user, instance=trip_instance)
     return render(
@@ -1604,8 +1604,13 @@ def shipment_status(request):
         context['count'] = -1
     return HttpResponse(json.dumps(context))
 
-def check_shipment_verified(shipment_list, trip_status,current_trip_status):
-    #if trip_status=='COMPLETED' and current_trip_status=='CLOSED':
-    pass
+# def check_shipment_verified(shipment_list, trip_status,current_trip_status):
+#     shipment_status_verify = ['FULLY_RETURNED_AND_VERIFIED','PARTIALLY_DELIVERED_AND_VERIFIED','FULLY_DELIVERED_AND_VERIFIED']
+#     if trip_status=='COMPLETED' and current_trip_status=='CLOSED':
+#         for shipment in shipment_list:
+#             if shipment.shipment_status not in shipment_status_verify:
+
+
+
 
 

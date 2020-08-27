@@ -545,8 +545,20 @@ class TripForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
+        shipment_status_verify = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
+                                  'FULLY_DELIVERED_AND_VERIFIED']
+
+        shipment_ids = data.get('selected_id').split(',')
+        if self.instance and self.instance.trip_status == Trip.COMPLETED and data['trip_status'] == Trip.RETURN_VERIFIED:
+            shipment_list = Shipment.objects.filter(id__in=shipment_ids)
+            for shipment in shipment_list:
+                if shipment.shipment_status not in shipment_status_verify:
+                    raise forms.ValidationError(_('Some Shipments are not in verified state. Verify them before marking the trip closes'), )
+
+
+
         if self.instance and self.instance.trip_status == Trip.READY:
-            shipment_ids = data.get('selected_id').split(',')
+
             cancelled_shipments = Shipment.objects.values('id', 'invoice__invoice_no'
                                                           ).filter(id__in=shipment_ids, shipment_status='CANCELLED')
 
@@ -962,7 +974,8 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
             if not (instance.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
-                    instance.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED'):
+                    instance.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED' or
+                    instance.ordered_product.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED'):
                 self.fields['returned_qty'].disabled = True
                 self.fields['returned_damage_qty'].disabled = True
                 self.fields['delivered_qty'].disabled = True
@@ -1079,7 +1092,8 @@ class OrderedProductBatchingForm(forms.ModelForm):
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
             if not (instance.ordered_product_mapping.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
-                    instance.ordered_product_mapping.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED'):
+                    instance.ordered_product_mapping.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED' or
+                    instance.ordered_product_mapping.ordered_product.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED'):
                 self.fields['returned_qty'].disabled = True
                 self.fields['returned_damage_qty'].disabled = True
                 self.fields['delivered_qty'].disabled = True
