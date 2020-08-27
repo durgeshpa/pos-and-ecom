@@ -10,6 +10,8 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
 from rangefilter.filter import DateTimeRangeFilter
+
+from products.models import ProductVendorMapping
 from retailer_backend.admin import InputFilter
 # app imports
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload
@@ -23,7 +25,8 @@ from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinIn
 from barCodeGenerator import barcodeGen, merged_barcode_gen
 from retailer_to_sp.models import OrderedProduct, Shipment
 from django.db import transaction
-from .common_functions import CommonWarehouseInventoryFunctions, WareHouseInternalInventoryChange, InternalInventoryChange,\
+from .common_functions import CommonWarehouseInventoryFunctions, WareHouseInternalInventoryChange, \
+    InternalInventoryChange, \
     CommonBinInventoryFunctions, cancel_ordered, cancel_shipment, cancel_returned
 
 # Logger
@@ -295,7 +298,8 @@ class PutAwayAdmin(admin.ModelAdmin):
     list_display = (
         'putaway_user', 'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity',
         'putaway_quantity')
-    readonly_fields = ('warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity', 'putaway_quantity',)
+    readonly_fields = (
+    'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity', 'putaway_quantity',)
     search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
     list_filter = [Warehouse, BatchIdFilter, SKUFilter, ('putaway_type', DropdownFilter), PutawayuserFilter]
     list_per_page = 50
@@ -412,7 +416,8 @@ class BinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
     actions = ['download_barcode']
-    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at', 'modified_at')
+    list_display = (
+    'batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at', 'modified_at')
     readonly_fields = ['warehouse', 'bin', 'sku', 'batch_id', 'inventory_type', 'quantity', 'in_stock']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at')
     list_filter = [BinIDFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter]
@@ -431,10 +436,10 @@ class BinInventoryAdmin(admin.ModelAdmin):
         info_logger.info("download Barocde List for GRN method has been called.")
         bin_id_list = {}
         for obj in queryset:
-            product_mrp = obj.sku.product_pro_price.filter(seller_shop=obj.warehouse, approval_status=2)
+            product_mrp = ProductVendorMapping.objects.filter(product=obj.sku).last()
 
             temp_data = {"qty": 1, "data": {"SKU": obj.sku.product_name,
-                                            "MRP": product_mrp.last().mrp if product_mrp.exists() else ''}}
+                                            "MRP": product_mrp.product_mrp if product_mrp.product_mrp else ''}}
             bin_id_list[obj.batch_id] = temp_data
         return merged_barcode_gen(bin_id_list)
 
@@ -445,7 +450,8 @@ class OutAdmin(admin.ModelAdmin):
     info_logger.info("Out Admin has been called.")
     form = OutForm
     list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'batch_id', 'quantity', 'created_at', 'modified_at')
-    readonly_fields = ('warehouse', 'out_type', 'out_type_id', 'sku', 'batch_id', 'quantity', 'created_at', 'modified_at')
+    readonly_fields = (
+    'warehouse', 'out_type', 'out_type_id', 'sku', 'batch_id', 'quantity', 'created_at', 'modified_at')
     list_filter = [Warehouse, ('out_type', DropdownFilter), SKUFilter, BatchIdFilter, OutTypeIDFilter]
     list_per_page = 50
 
@@ -467,7 +473,8 @@ class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
     list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status')
-    readonly_fields = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status', 'out', )
+    readonly_fields = (
+    'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status', 'out',)
     search_fields = ('pickup_type_id', 'sku__product_sku',)
     list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, ('status', DropdownFilter), 'pickup_type']
     list_per_page = 50
@@ -547,7 +554,8 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
         'warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
     list_select_related = ('warehouse', 'inventory_type', 'inventory_state', 'sku')
 
-    readonly_fields = ('warehouse', 'sku', 'inventory_type', 'inventory_state', 'in_stock', 'created_at', 'modified_at', 'quantity',)
+    readonly_fields = (
+    'warehouse', 'sku', 'inventory_type', 'inventory_state', 'in_stock', 'created_at', 'modified_at', 'quantity',)
     search_fields = ('sku__product_sku',)
     list_filter = [Warehouse, SKUFilter, InventoryTypeFilter, InventoryStateFilter, ('created_at', DateTimeRangeFilter),
                    ('modified_at', DateTimeRangeFilter)]
@@ -568,7 +576,8 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
         'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = (
-        'inventory_type', 'inventory_csv', 'status', 'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_type', 'initial_stage',
+        'inventory_type', 'inventory_csv', 'status', 'warehouse', 'sku', 'transaction_type', 'transaction_id',
+        'initial_type', 'initial_stage',
         'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at')
 
     search_fields = ('sku__product_sku', 'transaction_id',)

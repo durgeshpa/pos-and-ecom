@@ -992,6 +992,7 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
                 self.fields['returned_qty'].disabled = True
                 self.fields['returned_damage_qty'].disabled = True
                 self.fields['delivered_qty'].disabled = True
+                self.fields['shipped_qty'].disabled = True
 
     def clean(self):
         data = self.cleaned_data
@@ -1116,6 +1117,7 @@ class OrderedProductBatchingForm(forms.ModelForm):
                 self.fields['returned_qty'].disabled = True
                 self.fields['returned_damage_qty'].disabled = True
                 self.fields['delivered_qty'].disabled = True
+                self.fields['quantity'].disabled = True
 
     def clean(self):
         data = self.cleaned_data
