@@ -194,8 +194,8 @@ class BinAdmin(admin.ModelAdmin):
     list_display = (
         'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode',
         'download_barcode_image')
-    readonly_fields = ['warehouse', 'bin_id', 'bin_type', 'bin_barcode', 'barcode_image',
-                       'download_bin_id_barcode', 'download_barcode_image']
+    # readonly_fields = ['warehouse', 'bin_id', 'bin_type', 'bin_barcode', 'barcode_image',
+    #                    'download_bin_id_barcode', 'download_barcode_image']
     search_fields = ('bin_id',)
     list_filter = [BinIdFilter,
                    ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
