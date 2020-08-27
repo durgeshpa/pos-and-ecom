@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'dal',
     'dal_select2',
     'dal_admin_filters',
+    'nested_admin',
     # 'jet.dashboard',
     # 'jet',
     'django.contrib.admin',
@@ -99,6 +100,7 @@ INSTALLED_APPS = [
     'offer',
     'celerybeat_status',
     'django_elasticsearch_dsl',
+    'wms',
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -329,6 +331,9 @@ CRONJOBS = [
     ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
     ('30 21 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
 
+    ('*/8 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
+    ('*/5 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
+    ('* */6 * * *', 'retailer_backend.cron.sync_es_products')
 ]
 
 INTERNAL_IPS = ['127.0.0.1','localhost']

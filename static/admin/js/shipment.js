@@ -1,6 +1,10 @@
 /* This js is only for PlanShipment and Damage Dashboard Admin. */
 (function($) {
     $(document).ready(function() {
+    changeReturnedQty()
+    changeDamagedQty()
+    changeDeliveredQty()
+    hideLink()
       $("#changelist-form").submit(function( event ) {
         event.preventDefault()
             var shipment_id = [];
@@ -39,3 +43,67 @@
     });
   });
 })(django.jQuery);
+
+function changeReturnedQty(){
+    $(document).ready(function(){
+        xx = [0,1,2,3,4,5,6]
+        $("input[name$='-returned_qty']").keyup(function(){
+    for(var i=0;i<10;i++){
+        var sum = 0
+        for (var j=0; j<10;j++){
+            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_qty` + "]").val())
+            if (isNaN(tot)){
+                continue
+            }
+            sum +=tot
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_qty` + "]").val(sum);
+        }
+        }
+        });
+    })
+}
+
+function changeDamagedQty(){
+    $(document).ready(function(){
+        xx = [0,1,2,3,4,5,6]
+        $("input[name$='-returned_damage_qty']").keyup(function(){
+    for(var i=0;i<10;i++){
+        var sum = 0
+        for (var j=0; j<10;j++){
+            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_damage_qty` + "]").val())
+            if (isNaN(tot)){
+                continue
+            }
+            sum +=tot
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_damage_qty` + "]").val(sum);
+        }
+        }
+        });
+    })
+}
+
+
+function changeDeliveredQty(){
+    $(document).ready(function(){
+        xx = [0,1,2,3,4,5,6]
+        $("input[name$='-delivered_qty']").keyup(function(){
+    for(var i=0;i<10;i++){
+        var sum = 0
+        for (var j=0; j<10;j++){
+            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-delivered_qty` + "]").val())
+            if (isNaN(tot)){
+                continue
+            }
+            sum +=tot
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-delivered_qty` + "]").val(sum);
+        }
+        }
+        });
+    })
+}
+
+function hideLink(){
+    $(document).ready(function(){
+        $(".djn-add-item").hide()
+    })
+}

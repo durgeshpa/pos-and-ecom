@@ -161,25 +161,25 @@ table tr td,th,h4,span,address{
     						<tbody>
     							<!-- foreach ($order->lineItems as $line) or some such thing here -->
     							<tr>
-                    {% for m in products %}
-                    {% if m.returned_qty > 0  %}
+                    {% for key,value in products.items %}
+                    {% if value.returned_qty > 0  %}
     								<td><strong>{{forloop.counter}}</strong></td>
-										<td class="text-center">{{ m.product.product_sku}}</td>
-    								<td class="text-center">{{ m.product.product_short_description}}</td>
+										<td class="text-center">{{ value.product.product_sku}}</td>
+    								<td class="text-center">{{ value.product.product_short_description}}</td>
 
-    								<td class="text-center">{{ m.product.product_hsn}}</td>
-										   {% for n in m.product.product_pro_tax.all %}
+    								<td class="text-center">{{ value.product.product_hsn}}</td>
+										   {% for n in value.product.product_pro_tax.all %}
 											 		{% if n.tax.tax_type == 'gst' %}
 		    										<td class="text-center">{{n.tax.tax_percentage}}%</td>
 													{% endif %}
 												{% endfor %}
 
-									<td class="text-center">{{m.returned_qty}}</td>
-    								<td class="text-center">{{m.po_product_price}}</td>
+									<td class="text-center">{{value.returned_qty}}</td>
+    								<td class="text-center">{{value.po_product_price}}</td>
     								<td class="text-center">PCS</td>
-										   <div style="display:none"> {{m.returned_qty | returned_qty}}</div>
+										   <div style="display:none"> {{value.returned_qty | returned_qty}}</div>
 
-    								<td class="text-right">{{m.po_product_price | po_product_price | floatformat:2 | intcomma }}/-</td>
+    								<td class="text-right">{{value.po_product_price | po_product_price | intcomma }}/-</td>
     							</tr>
                   {% endif %}
 									{% endfor %}

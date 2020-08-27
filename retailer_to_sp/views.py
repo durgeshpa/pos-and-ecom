@@ -25,7 +25,7 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-                                   Shipment)
+                                   Shipment, populate_data_on_qc_pass, add_to_putaway_on_return)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -49,6 +49,9 @@ from addresses.models import Address
 from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
+from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
+from wms.common_functions import cancel_order, cancel_order_with_pick
+from wms.views import shipment_out_inventory_change
 
 logger = logging.getLogger('django')
 
@@ -106,8 +109,8 @@ class DownloadCreditNote(APIView):
             products = pp
             reason = 'Cancelled'
         else:
-            products = [i for i in pp if(i.returned_qty + i.damaged_qty) != 0]
-            reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
+            products = [i for i in pp if(i.returned_qty + i.returned_damage_qty) != 0]
+            reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.returned_damage_qty>0] else 'Returned and Damaged'
 
         order_id = credit_note.shipment.order.order_no
         sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
@@ -148,9 +151,9 @@ class DownloadCreditNote(APIView):
 
         else:
             for m in products:
-                sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
-                sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
-                inline_sum_amount = (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
+                sum_qty = sum_qty + (int(m.returned_qty + m.returned_damage_qty))
+                sum_amount = sum_amount + (int(m.returned_qty + m.returned_damage_qty) *(m.price_to_retailer))
+                inline_sum_amount = (int(m.returned_qty + m.returned_damage_qty) *(m.price_to_retailer))
                 for n in m.get_products_gst_tax():
                     divisor = (1+(n.tax.tax_percentage/100))
                     original_amount = (float(inline_sum_amount)/divisor)
@@ -167,11 +170,11 @@ class DownloadCreditNote(APIView):
 
         total_amount = round(credit_note.note_amount)
         total_amount_int = total_amount
-        amt = [num2words(i) for i in str(total_amount).split('.')]
+        amt = [num2words(i) for i in str(sum_amount).split('.')]
         rupees = amt[0]
 
         data = {
-            "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":total_amount,
+            "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":sum_amount,
             "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
             "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
             "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2,
@@ -199,10 +202,12 @@ class RequiredFormSet(BaseFormSet):
         to_ship_sum = []
         for form in self.forms:
             to_ship_pieces = form.cleaned_data.get('shipped_qty')
+            picked_pieces = form.cleaned_data.get('picked_pieces')
             if to_ship_pieces:
                 to_ship_sum.append(to_ship_pieces)
         if sum(to_ship_sum) == 0:
-            raise ValidationError("Please add shipment quantity for at least one product")
+            pass
+            # raise ValidationError("Please add shipment quantity for at least one product")
 
 
 def ordered_product_mapping_shipment(request):
@@ -226,12 +231,15 @@ def ordered_product_mapping_shipment(request):
             .values('product') \
             .filter(
             ordered_product__order_id=order_id,
-            product_id__in=[i['cart_product'] for i in cart_products]) \
-            .annotate(Sum('delivered_qty'), Sum('shipped_qty'))
+            product__id__in=[i['cart_product'] for i in cart_products]) \
+            .annotate(Sum('delivered_qty'), Sum('shipped_qty'), Sum('picked_pieces'))
         products_list = []
+        #pick_up_obj = Pickup.objects.filter(pickup_type_id=Order.objects.filter(id=order_id).last().order_no).order_by('sku')
         for item in cart_products:
             shipment_product = list(filter(lambda product: product['product'] == item['cart_product'],
                                            shipment_products))
+            pick_up_obj = Pickup.objects.filter(sku=Product.objects.filter(id=item['cart_product'])[0],
+                                                pickup_type_id=Order.objects.filter(id=order_id).last().order_no)
             if shipment_product:
                 shipment_product_dict = shipment_product[0]
                 already_shipped_qty = shipment_product_dict.get('delivered_qty__sum')
@@ -243,7 +251,9 @@ def ordered_product_mapping_shipment(request):
                         'product_name': item['cart_product__product_name'],
                         'ordered_qty': ordered_no_pieces,
                         'already_shipped_qty': already_shipped_qty,
-                        'to_be_shipped_qty': to_be_shipped_qty
+                        'to_be_shipped_qty': to_be_shipped_qty,
+                        'shipped_qty': pick_up_obj[0].pickup_quantity,
+                        'picked_pieces':pick_up_obj[0].pickup_quantity
                     })
             else:
                 products_list.append({
@@ -251,7 +261,9 @@ def ordered_product_mapping_shipment(request):
                     'product_name': item['cart_product__product_name'],
                     'ordered_qty': item['no_of_pieces'],
                     'already_shipped_qty': 0,
-                    'to_be_shipped_qty': 0
+                    'to_be_shipped_qty': 0,
+                    'shipped_qty':pick_up_obj[0].pickup_quantity,
+                    'picked_pieces':pick_up_obj[0].pickup_quantity
                 })
         form_set = ordered_product_set(initial=products_list)
         form = OrderedProductForm(initial={'order': order_id})
@@ -273,8 +285,9 @@ def ordered_product_mapping_shipment(request):
                     for forms in form_set:
                         if forms.is_valid():
                             to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                            picked_pieces = forms.cleaned_data.get('picked_pieces', 0)
                             product_name = forms.cleaned_data.get('product')
-                            if to_be_ship_qty:
+                            if to_be_ship_qty >= 0:
                                 formset_data = forms.save(commit=False)
                                 formset_data.ordered_product = shipment
                                 max_pieces_allowed = int(formset_data.ordered_qty) - int(
@@ -283,12 +296,13 @@ def ordered_product_mapping_shipment(request):
                                     raise Exception(
                                         '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
                                 formset_data.save()
-                    return redirect('/admin/retailer_to_sp/shipment/')
+                populate_data_on_qc_pass(order)
+                return redirect('/admin/retailer_to_sp/shipment/')
 
             except Exception as e:
                 messages.error(request, e)
                 logger.exception("An error occurred while creating shipment {}".format(e))
-
+           # populate_data_on_qc_pass(order)
     return render(
         request,
         'admin/retailer_to_sp/OrderedProductMappingShipment.html',
@@ -317,7 +331,8 @@ def assign_picker(request, shop_id=None):
                                        picking_status='picking_assigned')
                 #updating order status
                 Order.objects.filter(picker_order__in=selected_orders)\
-                    .update(order_status=Order.DISPATCH_PENDING)
+                    .update(order_status=Order.PICKING_ASSIGNED)
+                Pickup.objects.filter(pickup_type_id=selected_orders[0].order.order_no).update(status='picking_assigned')
 
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
@@ -431,11 +446,11 @@ def trip_planning_change(request, pk):
 
                         OrderedProductMapping.objects\
                             .filter(ordered_product__in=trip_shipments)\
-                            .update(delivered_qty=(F('shipped_qty')-(F('damaged_qty')+F('returned_qty'))))
+                            .update(delivered_qty=(F('shipped_qty')-(F('returned_damage_qty')+F('returned_qty'))))
 
                         # updating return reason for shiments having return and damaged qty but not return reason
                         trip_shipments.annotate(
-                            sum=Sum(F('rt_order_product_order_product_mapping__returned_qty')+F('rt_order_product_order_product_mapping__damaged_qty'))
+                            sum=Sum(F('rt_order_product_order_product_mapping__returned_qty')+F('rt_order_product_order_product_mapping__returned_damage_qty'))
                         ).filter(sum__gt=0, return_reason=None).update(return_reason=OrderedProduct.REASON_NOT_ENTERED_BY_DELIVERY_BOY)
 
                         trip_shipments = trip_shipments\
@@ -443,7 +458,7 @@ def trip_planning_change(request, pk):
                                 delivered_sum=Sum('rt_order_product_order_product_mapping__delivered_qty'),
                                 shipped_sum=Sum('rt_order_product_order_product_mapping__shipped_qty'),
                                 returned_sum=Sum('rt_order_product_order_product_mapping__returned_qty'),
-                                damaged_sum=Sum('rt_order_product_order_product_mapping__damaged_qty'))
+                                damaged_sum=Sum('rt_order_product_order_product_mapping__returned_damage_qty'))
 
                         for shipment in trip_shipments:
                             if shipment.shipped_sum == (shipment.returned_sum + shipment.damaged_sum):
@@ -483,12 +498,15 @@ def trip_planning_change(request, pk):
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if current_trip_status == Trip.RETURN_VERIFIED:
+                    for i in trip_instance.rt_invoice_trip.all():
+                        add_to_putaway_on_return(i.id)
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if selected_shipment_ids:
                     selected_shipment_list = selected_shipment_ids.split(',')
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                  pk__in=selected_shipment_list)
+                    shipment_out_inventory_change(selected_shipments, TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],trip=trip_instance)
 
                     # updating order status for shipments with respect to trip status
@@ -996,7 +1014,7 @@ def order_invoices(request):
 def update_delivered_qty(instance, inline_form):
     instance.delivered_qty = instance.shipped_qty - (
             inline_form.cleaned_data.get('returned_qty', 0) +
-            inline_form.cleaned_data.get('damaged_qty', 0)
+            inline_form.cleaned_data.get('returned_damage_qty', 0)
     )
     instance.save()
 
@@ -1010,7 +1028,7 @@ def update_shipment_status(form_instance, formset):
         update_delivered_qty(instance, inline_form)
         shipped_qty_list.append(instance.shipped_qty if instance else 0)
         returned_qty_list.append(inline_form.cleaned_data.get('returned_qty', 0))
-        damaged_qty_list.append(inline_form.cleaned_data.get('damaged_qty', 0))
+        damaged_qty_list.append(inline_form.cleaned_data.get('returned_damage_qty', 0))
 
     shipped_qty = sum(shipped_qty_list)
     returned_qty = sum(returned_qty_list)
@@ -1063,7 +1081,7 @@ def update_shipment_status(form_instance, formset):
 
 #     elif (total_delivered_qty == 0 and total_shipped_qty > 0 and
 #           total_returned_qty == 0 and total_damaged_qty == 0):
-#         order.order_status = 'DISPATCH_PENDING'
+#         order.order_status = 'PICKING_ASSIGNED'
 
 #     elif (ordered_qty - total_delivered_qty) > 0 and total_delivered_qty > 0:
 #         if order.order_closed:
@@ -1327,19 +1345,15 @@ class OrderCancellation(object):
         return [i['product_id'] for i in shipment_products]
 
     def get_reserved_qty(self):
-        reserved_qty_queryset = OrderedProductReserved.objects \
-            .values(sp_grn=F('order_product_reserved_id'),
-                    r_qty=F('reserved_qty'), s_qty=F('shipped_qty'),
-                    r_product=F('product_id'),
-                    man_date=F('order_product_reserved__manufacture_date'),
-                    exp_date=F('order_product_reserved__expiry_date')) \
-            .filter(cart_id=self.cart, reserve_status=OrderedProductReserved.ORDERED)
+        reserved_qty_queryset = WarehouseInternalInventoryChange.objects \
+            .values(r_sku=F('sku__id'),
+                    r_qty=F('quantity')).filter(transaction_id=self.order.order_no, transaction_type='reserved')
         return reserved_qty_queryset
 
     def get_cart_products_price(self, products_list):
         product_price_map = {}
         cart_products = CartProductMapping.objects.filter(
-            cart_product_id__in=products_list,
+            cart_product__id__in=products_list,
             cart=self.cart)
         for item in cart_products:
             product_price_map[item.cart_product_id] = item.item_effective_prices
@@ -1369,52 +1383,24 @@ class OrderCancellation(object):
         reserved_qty_queryset = self.get_reserved_qty()
 
         # Creating SP GRN products
-        if order_closed:
-            for item in reserved_qty_queryset:
-                SPOrderedProductMapping.objects.create(
-                    shop_id=self.seller_shop_id, ordered_product=credit_grn,
-                    product_id=item['r_product'],
-                    shipped_qty=item['s_qty'],
-                    available_qty=item['s_qty'],
-                    damaged_qty=0,
-                    ordered_qty=item['s_qty'],
-                    delivered_qty=item['s_qty'],
-                    manufacture_date=item['man_date'],
-                    expiry_date=item['exp_date'],
-                )
-                product_price = product_price_map.get(item['r_product'], 0)
-                credit_amount += (item['s_qty'] * product_price)
-        else:
-            for item in reserved_qty_queryset:
-                SPOrderedProductMapping.objects.create(
-                    shop_id=self.seller_shop_id, ordered_product=credit_grn,
-                    product_id=item['r_product'],
-                    shipped_qty=item['r_qty'],
-                    available_qty=item['r_qty'],
-                    damaged_qty=0,
-                    ordered_qty=item['r_qty'],
-                    delivered_qty=item['r_qty'],
-                    manufacture_date=item['man_date'],
-                    expiry_date=item['exp_date'],
-                )
-                product_price = product_price_map.get(item['r_product'], 0)
-                credit_amount += (item['s_qty'] * product_price)
+        for item in reserved_qty_queryset:
+            product_price = product_price_map.get(item['r_sku'], 0)
+            credit_amount += (item['r_qty'] * product_price)
 
         # update credit note amount
         credit_note.amount = credit_amount
         credit_note.save()
-        reserved_qty_queryset.update(reserve_status=OrderedProductReserved.ORDER_CANCELLED)
 
     def update_sp_qty_from_cart_or_shipment(self):
 
         reserved_qty_queryset = self.get_reserved_qty()
         for item in reserved_qty_queryset:
-            sp_ordered_product_mapping = SPOrderedProductMapping.objects.filter(id=item['sp_grn'])
+            sp_ordered_product_mapping = SPOrderedProductMapping.objects.filter(id=item['r_sku'])
             for opm in sp_ordered_product_mapping:
                 opm.available_qty = opm.available_qty + item['r_qty']
                 opm.save()
 
-        reserved_qty_queryset.update(reserve_status=OrderedProductReserved.ORDER_CANCELLED)
+        # reserved_qty_queryset.update(reserve_status=OrderedProductReserved.ORDER_CANCELLED)
 
     def cancel(self):
         # check if order associated with any shipment
@@ -1470,8 +1456,14 @@ class OrderCancellation(object):
 @receiver(post_save, sender=Order)
 def order_cancellation(sender, instance=None, created=False, **kwargs):
     if instance.order_status == 'CANCELLED':
+        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
+        if not pickup_obj:
+            cancel_order(instance)
+        else:
+            cancel_order_with_pick(instance)
         order = OrderCancellation(instance)
         order.cancel()
+
 
 class StatusChangedAfterAmountCollected(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -1495,7 +1487,7 @@ class StatusChangedAfterAmountCollected(APIView):
 
 def update_shipment_status_after_return(shipment_obj):
     shipment_products_dict = OrderedProductMapping.objects.values('product').filter(ordered_product=shipment_obj). \
-        aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('damaged_qty'))
+        aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('returned_damage_qty'))
 
     total_delivered_qty = shipment_products_dict['delivered_qty_sum']
     total_shipped_qty = shipment_products_dict['shipped_qty_sum']
@@ -1519,7 +1511,7 @@ def update_shipment_status_after_return(shipment_obj):
 
 def update_shipment_status_with_id(shipment_obj):
     shipment_products_dict = OrderedProductMapping.objects.values('product').filter(ordered_product=shipment_obj). \
-        aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('damaged_qty'))
+        aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('returned_damage_qty'))
 
     total_delivered_qty = shipment_products_dict['delivered_qty_sum']
     total_shipped_qty = shipment_products_dict['shipped_qty_sum']
@@ -1561,7 +1553,8 @@ class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
         qs = Order.objects.filter(
-            order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+            # order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'PICKING_ASSIGNED', 'PICKUP_CREATED'],
+            order_status='picking_complete',
             order_closed=False
         ).exclude(
             Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status=False)| Q(order_status=Order.CANCELLED))
@@ -1615,3 +1608,4 @@ def shipment_status(request):
     else:
         context['count'] = -1
     return HttpResponse(json.dumps(context))
+

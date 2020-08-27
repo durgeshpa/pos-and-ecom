@@ -36,11 +36,11 @@ from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
                     OrderedProductReschedule, OrderedProductMappingRescheduleForm, OrderForm, EditAssignPickerForm,
-                    ResponseCommentForm, BulkCartForm)
+                    ResponseCommentForm, BulkCartForm, OrderedProductBatchForm, OrderedProductBatchingForm)
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount)
+                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -49,6 +49,7 @@ from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCr
                       DeliveryCompletedAt, OrderCreatedAt)
 from .tasks import update_order_status_picker_reserve_qty
 from payments.models import OrderPayment, ShipmentPayment
+from nested_admin import NestedModelAdmin, NestedStackedInline, NestedTabularInline
 from retailer_backend.messages import ERROR_MESSAGES
 
 logger = logging.getLogger('django')
@@ -348,6 +349,49 @@ class ShopSearch(InputFilter):
             return queryset.filter(
                 Q(shop__shop_name__icontains=shop_name)
             )
+
+class OrderedProductBatchAdmin(NestedTabularInline):
+    model = OrderedProductBatch
+    form = OrderedProductBatchForm
+    fields = ('batch_id', 'ordered_piece', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty')
+    readonly_fields = ('batch_id', 'ordered_piece', 'expiry_date')
+    extra=0
+    classes = ['batch_inline', ]
+
+    def ordered_piece(self, obj=None):
+        return '-'
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    # def get_readonly_fields(self, request, obj=None):
+    #     if obj and obj.ordered_product.shipment_status != 'SHIPMENT_CREATED':
+    #         return self.readonly_fields + ('quantity','damaged_qty','expired_qty' )
+    #     return self.readonly_fields
+
+
+
+    class Media:
+        css = {
+            'all': ('admin/css/ordered_product_batch.css',)
+        }
+
+
+class OrderedProductBatchingAdmin(NestedTabularInline):
+    model = OrderedProductBatch
+    form = OrderedProductBatchingForm
+    fields = ('batch_id', 'ordered_piece','expiry_date','quantity','returned_qty','returned_damage_qty','delivered_qty')
+    readonly_fields = ('batch_id', 'ordered_piece','expiry_date','quantity')
+    extra=0
+    classes = ['return_batch_inline', ]
+    def has_delete_permission(self, request, obj=None):
+        return False
+    def ordered_piece(self, obj=None):
+        return '-'
+    class Media:
+        css = {
+            'all': ('admin/css/ordered_product_batch.css',)
+        }
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -822,19 +866,12 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         #     return self.picklist_id
     picklist.short_description = 'Picklist'
 
-    def download_pick_list(self,obj):
-        # if obj.picking_status == "picking_complete":
-        #     return ""
+    def download_pick_list(self, obj):
         if obj.order.order_status not in ["active", "pending"]:
-            if obj.shipment:
-                return format_html(
-                    "<a href= '%s' >Download Pick List</a>" %
-                    (reverse('download_pick_list_picker_sp', args=[obj.order.pk, obj.shipment.pk]))
-                )
-            else:
-                return format_html(
-                    "<a href= '/retailer/sp/download-pick-list-picker-sp/%s/0/list/' >Download Pick List</a>" %
-                    obj.order.pk)
+            return format_html(
+                "<a href= '%s' >Download Pick List</a>" %
+                (reverse('create-picklist', args=[obj.order.pk]))
+            )
 
     def download_bulk_pick_list(self, request, *args, **kwargs):
         """
@@ -925,7 +962,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         if obj.order_status not in ["active", "pending"]:
             return format_html(
                 "<a href= '%s' >Download Pick List</a>" %
-                (reverse('download_pick_list_sp', args=[obj.pk]))
+                (reverse('create-picklist', args=[obj.pk]))
             )
 
     def download_bulk_pick_list(self, request, *args, **kwargs):
@@ -990,7 +1027,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         ]
         return urls
 
-class ShipmentReschedulingAdmin(admin.TabularInline):
+class ShipmentReschedulingAdmin(NestedTabularInline):
     model = ShipmentRescheduling
     form = ShipmentReschedulingForm
     fields = ['rescheduling_reason', 'rescheduling_date']
@@ -1000,21 +1037,25 @@ class ShipmentReschedulingAdmin(admin.TabularInline):
         return False
 
 
-class OrderedProductMappingAdmin(admin.TabularInline):
+class OrderedProductMappingAdmin(NestedTabularInline):
     model = OrderedProductMapping
     form = OrderedProductMappingRescheduleForm
-    fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty',
-              'returned_qty', 'damaged_qty', 'delivered_qty']
-    readonly_fields = ['ordered_qty', 'product', 'gf_code', 'shipped_qty',
-                       'delivered_qty']
+    fields = ['product', 'ordered_qty','expiry_date','shipped_qty',
+              'returned_qty', 'returned_damage_qty', 'delivered_qty']
+    readonly_fields = ['ordered_qty','expiry_date','product', 'gf_code', 'shipped_qty',
+                       'cancellation_date']
+    inlines = [OrderedProductBatchingAdmin, ]
     extra = 0
     max_num = 0
-
+    classes = ['return_table_inline', ]
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def expiry_date(self, obj=None):
+        return '-'
 
-class OrderedProductAdmin(admin.ModelAdmin):
+
+class OrderedProductAdmin(NestedModelAdmin):
     change_list_template = 'admin/retailer_to_sp/OrderedProduct/change_list.html'
     actions = ['download_bulk_invoice']
     list_per_page = FIFTY
@@ -1026,16 +1067,16 @@ class OrderedProductAdmin(admin.ModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason',
+        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check'
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     readonly_fields = (
-        'order', 'invoice_no', 'trip', 'shipment_status',
+        'order', 'invoice_no', 'trip', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
     )
     form = OrderedProductReschedule
     ordering = ['-created_at']
-
+    classes = ['table_inline', ]
     def download_invoice(self, obj):
         if obj.shipment_status == 'SHIPMENT_CREATED':
             return format_html("-")
@@ -1087,7 +1128,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
-        js = ('admin/js/shipment.js',)
+        js = ('admin/js/shipment.js','https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
 
 
 class DispatchProductMappingAdmin(admin.TabularInline):
@@ -1173,19 +1214,29 @@ class DispatchAdmin(admin.ModelAdmin):
                 )
 
 
-class ShipmentProductMappingAdmin(admin.TabularInline):
+class ShipmentProductMappingAdmin(NestedTabularInline):
     model = ShipmentProductMapping
     form = ShipmentProductMappingForm
-    fields = ['product', 'ordered_qty', 'already_shipped_qty', 'to_be_shipped_qty','shipped_qty']
-    readonly_fields = ['product', 'ordered_qty', 'to_be_shipped_qty', 'already_shipped_qty']
+    inlines = [OrderedProductBatchAdmin, ]
+    fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty', 'expired_qty']
+    readonly_fields = ['product', 'ordered_qty', 'expiry_date']
     extra = 0
     max_num = 0
-
+    classes = ['table_inline', ]
     def has_delete_permission(self, request, obj=None):
         return False
 
 
-class ShipmentAdmin(admin.ModelAdmin):
+    def expiry_date(self, obj=None):
+        return "-"
+
+    # def get_readonly_fields(self, request, obj=None):
+    #     if obj and obj.shipment_status == 'READY_TO_SHIP':
+    #         return self.readonly_fields + ['shipped_qty','damaged_qty','expired_qty']
+    #     return self.readonly_fields
+
+
+class ShipmentAdmin(NestedModelAdmin):
     has_invoice_no = True
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
@@ -1204,13 +1255,13 @@ class ShipmentAdmin(admin.ModelAdmin):
         ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
-              'shipment_status', 'close_order']
+              'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
     search_fields = [
         'order__order_no', 'invoice__invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
-                       'invoice_city']
+                       'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     list_per_page = FIFTY
     ordering = ['-created_at']
 
@@ -1267,7 +1318,8 @@ class ShipmentAdmin(admin.ModelAdmin):
     download_bulk_invoice.short_description = DOWNLOAD_BULK_INVOICE
 
     class Media:
-        js = ('admin/js/shipment.js', )
+        js = ('admin/js/shipment.js','https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
+
 
     def pincode(self, obj):
         return obj.order.shipping_address.pincode
@@ -1306,7 +1358,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         if not self.has_invoice_no:
             # delay function to generate pdf from qc pending to qa passed
             # request = jsonpickle.encode(request, unpicklable=False)
-            # pdf_generation(request, form.instance.pk)
+            # pdf_generation.delay(request, form.instance.pk)
             shipment_products_dict = form.instance.rt_order_product_order_product_mapping.all()\
                 .values('product__id').annotate(shipped_items=Sum('shipped_qty'))
             total_shipped_qty = form.instance.order.rt_order_order_product\
@@ -1534,6 +1586,22 @@ class NoteAdmin(admin.ModelAdmin):
     list_filter = [('created_at', DateTimeRangeFilter),ShipmentSearch, CreditNoteSearch, ShopSearch]
 
     search_fields = ('credit_note_id','shop__shop_name', 'shipment__invoice__invoice_no')
+
+    def note_amount(self, obj):
+        pp = OrderedProductMapping.objects.filter(ordered_product=obj.shipment.id)
+        shipment_cancelled = True if obj.shipment.shipment_status == 'CANCELLED' else False
+        products = pp
+        sum_amount = 0
+        if shipment_cancelled:
+            for m in products:
+                sum_amount = sum_amount + (int(m.shipped_qty) * (m.price_to_retailer))
+
+        else:
+            for m in products:
+                sum_amount = sum_amount + (int(m.returned_qty + m.returned_damage_qty) * (m.price_to_retailer))
+        return sum_amount
+
+    note_amount.short_description = 'Note Amount'
 
     class Media:
         pass

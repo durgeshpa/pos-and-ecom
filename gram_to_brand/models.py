@@ -34,6 +34,7 @@ from sp_to_gram.models import (
     OrderedProduct as SpGRNOrder,
     OrderedProductMapping as SpGRNOrderProductMapping
 )
+from wms.common_functions import PutawayCommonFunctions, InCommonFunctions
 from base.models import (BaseOrder, BaseCart, BaseShipment)
 #from gram_to_brand.forms import GRNOrderProductForm
 # from analytics.post_save_signal import get_grn_report
@@ -416,6 +417,11 @@ class Document(models.Model):
     document_number = models.CharField(max_length=255,null=True,blank=True)
     document_image = models.FileField(null=True,blank=True,upload_to='brand_invoice')
 
+    # def clean(self):
+    #     super(Document).clean()
+    #     if self.document_image is None:
+    #         raise ValidationError("Document needs to be uploaded")
+
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='product_grn_order_product',null=True,blank=True, on_delete=models.CASCADE)
@@ -429,6 +435,7 @@ class GRNOrderProductMapping(models.Model):
     damaged_qty = models.PositiveIntegerField(default=0)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order_product', null=True,blank=True, on_delete=models.CASCADE)
     vendor_product = models.ForeignKey(ProductVendorMapping, related_name='vendor_grn_products', null=True, blank=True,on_delete=models.CASCADE)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -453,6 +460,11 @@ class GRNOrderProductMapping(models.Model):
         already_grn = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(Sum('delivered_qty'))
         return 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum')
         #
+
+    @property
+    def already_returned_product(self):
+        already_returned = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(Sum('returned_qty'))
+        return 0 if already_returned.get('returned_qty__sum') is None else already_returned.get('returned_qty__sum')
 
     @property
     def ordered_qty(self):
@@ -483,17 +495,17 @@ class GRNOrderProductMapping(models.Model):
 
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
-        total_items= self.delivered_qty + self.returned_qty
-        diff = self.po_product_quantity - self.already_grned_product
+        # total_items= self.delivered_qty + self.returned_qty
+        # diff = self.po_product_quantity - self.already_grned_product
 
         self.already_grn = self.delivered_qty
-        if self.product_invoice_qty <= diff:
-            if self.product_invoice_qty < total_items:
-                raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
-            elif total_items < self.product_invoice_qty:
-                raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity'))
-        else:
-            raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
+        # if self.product_invoice_qty <= diff:
+        #     if self.product_invoice_qty < total_items:
+        #         raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
+        #     elif total_items < self.product_invoice_qty:
+        #         raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity'))
+        # else:
+        #     raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
         if self.manufacture_date :
             if self.manufacture_date >= datetime.date.today():
                 raise ValidationError(_("Manufactured Date cannot be greater than or equal to today's date"))
@@ -508,8 +520,11 @@ class GRNOrderProductMapping(models.Model):
     def save(self, *args, **kwargs):
         if not self.vendor_product and self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product:
             self.vendor_product = self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product
-
+        if self.expiry_date and not self.batch_id and self.delivered_qty:
+            self.batch_id = '{}{}'.format(self.product.product_sku,
+                                          self.expiry_date.strftime('%d%m%y'))
         super(GRNOrderProductMapping, self).save(*args, **kwargs)
+
 
 class BrandNote(models.Model):
     NOTE_TYPE_CHOICES = (
@@ -593,18 +608,23 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     sp_grn_order = sp_grn_orders.last()
                 else:
                     sp_grn_order = SpGRNOrder.objects.create(order=sp_order)
-                SpGRNOrderProductMapping.objects.create(
-                    ordered_product=sp_grn_order,
-                    product=instance.product,
-                    manufacture_date=instance.manufacture_date,
-                    expiry_date=instance.expiry_date,
-                    shipped_qty=instance.delivered_qty,
-                    available_qty=instance.delivered_qty,
-                    ordered_qty=instance.delivered_qty,
-                    delivered_qty=instance.delivered_qty,
-                    returned_qty=0,
-                    damaged_qty=0
-                )
+                if instance.batch_id:
+                    SpGRNOrderProductMapping.objects.create(
+                        ordered_product=sp_grn_order,
+                        product=instance.product,
+                        manufacture_date=instance.manufacture_date,
+                        expiry_date=instance.expiry_date,
+                        shipped_qty=instance.delivered_qty,
+                        available_qty=instance.delivered_qty,
+                        ordered_qty=instance.delivered_qty,
+                        delivered_qty=instance.delivered_qty,
+                        returned_qty=0,
+                        damaged_qty=0,
+                        batch_id=instance.batch_id
+                    )
+                putaway_quantity = 0
+                if instance.batch_id:
+                    InCommonFunctions.create_in(shop.retailer, 'GRN', instance.grn_order.grn_id,instance.product, instance.batch_id, int(instance.delivered_qty), putaway_quantity)
         # ends here
         instance.available_qty = 0
         instance.save()

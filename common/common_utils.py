@@ -1,19 +1,18 @@
 # python imports
 import datetime
-import time
 import hmac
 import hashlib
-import requests
 import logging
-import ast
 from functools import reduce
+import barcode
+from barcode.writer import ImageWriter
+from io import BytesIO
 from decouple import config
 
 # django imports
 from django.http import HttpResponse
 
 # app imports
-from retailer_to_sp.models import OrderedProduct
 from retailer_backend import common_function as CommonFunction
 
 # third party imports
@@ -117,19 +116,19 @@ def create_invoice_data(ordered_product):
     """
     try:
         if ordered_product.order.ordered_cart.cart_type == 'RETAIL':
-            if ordered_product.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if ordered_product.shipment_status == "READY_TO_SHIP":
                 CommonFunction.generate_invoice_number(
                     'invoice_no', ordered_product.pk,
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     ordered_product.invoice_amount)
         elif ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
-            if ordered_product.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if ordered_product.shipment_status == "READY_TO_SHIP":
                 CommonFunction.generate_invoice_number_discounted_order(
                     'invoice_no', ordered_product.pk,
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     ordered_product.invoice_amount)
         elif ordered_product.order.ordered_cart.cart_type == 'BULK':
-            if ordered_product.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if ordered_product.shipment_status == "READY_TO_SHIP":
                 CommonFunction.generate_invoice_number_bulk_order(
                     'invoice_no', ordered_product.pk,
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
@@ -143,3 +142,22 @@ def create_invoice_data(ordered_product):
             ordered_product.no_of_sacks = 0
     except Exception as e:
         logger.exception(e)
+
+
+def barcode_gen(value):
+    ean = barcode.get_barcode_class('code128')
+    ean = ean(value, writer=ImageWriter())
+    image = ean.render()
+    output_stream = BytesIO()
+    image_resize = image.resize((900, 300))
+    image_resize.save(output_stream, format='JPEG', quality=150)
+    output_stream.seek(0)
+    return output_stream
+
+#
+# def barcode_decoder(value):
+# 	image = Image.open(value)
+# 	image = image.convert('L')
+# 	data = decode(image)
+# 	return str(data[0][0])
+
