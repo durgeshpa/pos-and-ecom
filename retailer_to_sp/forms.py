@@ -553,7 +553,7 @@ class TripForm(forms.ModelForm):
             shipment_list = Shipment.objects.filter(id__in=shipment_ids)
             for shipment in shipment_list:
                 if shipment.shipment_status not in shipment_status_verify:
-                    raise forms.ValidationError(_('Some Shipments are not in verified state. Verify them before marking the trip closes'), )
+                    raise forms.ValidationError("Please Verify all shipments before closing the Trip")
 
 
 
