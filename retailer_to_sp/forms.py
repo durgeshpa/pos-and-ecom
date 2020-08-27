@@ -686,6 +686,10 @@ class ShipmentProductMappingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentProductMappingForm, self).__init__(*args, **kwargs)
+        self.fields['shipped_qty'].disabled = True
+        self.fields['damaged_qty'].disabled = True
+        self.fields['expired_qty'].disabled = True
+        self.fields['picked_pieces'].disabled = True
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
             if instance.pk:
@@ -703,7 +707,7 @@ class ShipmentProductMappingForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        data['shipped_qty']= self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty'))
+        #data['shipped_qty']= self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty'))
         if self.instance.picked_pieces !=data.get('shipped_qty') + data.get('damaged_qty') + data.get('expired_qty'):
             raise forms.ValidationError(
                 'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
@@ -1036,6 +1040,8 @@ class OrderedProductBatchForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductBatchForm, self).__init__(*args, **kwargs)
+        #self.fields['quantity'].disabled = True
+        self.fields['pickup_quantity'].disabled = True
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
             if instance.pk:
@@ -1056,9 +1062,12 @@ class OrderedProductBatchForm(forms.ModelForm):
         if self.instance.ordered_product_mapping.ordered_product.shipment_status !='SHIPMENT_CREATED':
             return data
         else:
-            data['quantity'] = int(self.instance.pickup_quantity) - (data.get('damaged_qty') + data.get('expired_qty'))
+            if data.get('damaged_qty') is None:
+                raise forms.ValidationError('Damaged Quantity can not be blank.')
+            if data.get('expired_qty') is None:
+                raise forms.ValidationError('Expired Quantity can not be blank.')
             if int(self.instance.pickup_quantity)!= data.get('quantity') + data.get('damaged_qty') + data.get('expired_qty'):
-                raise forms.ValidationError('Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
+                raise forms.ValidationError('Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship.)')
             return data
 
 
