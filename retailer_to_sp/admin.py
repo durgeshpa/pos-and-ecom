@@ -901,7 +901,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
             else:
                 return response[0]
         else:
-            response = messages.error(request, ERROR_MESSAGES['1001'])
+            response = messages.error(request, ERROR_MESSAGES["4001"])
         return response
 
     download_pick_list.short_description = 'Download Pick List'
@@ -989,7 +989,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
             else:
                 return response[0]
         else:
-            response = messages.error(request, ERROR_MESSAGES['1001'])
+            response = messages.error(request, ERROR_MESSAGES["4001"])
         return response
 
     download_pick_list.short_description = 'Download Pick List'
@@ -1299,7 +1299,7 @@ class ShipmentAdmin(NestedModelAdmin):
                     argument_list.append(arg.pk)
             # if we are getting only QC pending status files for downloading
             if len(argument_list) == 0:
-                response = messages.error(request, ERROR_MESSAGES['1002'])
+                response = messages.error(request, ERROR_MESSAGES["4002"])
                 return response
             # call get method under the DownloadInvoiceSP class
             try:
@@ -1312,7 +1312,7 @@ class ShipmentAdmin(NestedModelAdmin):
                 logger.exception(e)
                 return redirect(request.META['HTTP_REFERER'])
         else:
-            response = messages.error(request, ERROR_MESSAGES['1001'])
+            response = messages.error(request, ERROR_MESSAGES["4001"])
         return response
     # download single invoice short description
     download_bulk_invoice.short_description = 'Download Invoice'
@@ -1795,7 +1795,7 @@ class InvoiceAdmin(admin.ModelAdmin):
             for arg in args[ZERO]:
                 if len(args[0]) <= 1 and (
                         arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-'):
-                    error_message = messages.error(request, ERROR_MESSAGES['1002'])
+                    error_message = messages.error(request, ERROR_MESSAGES["4002"])
                     return error_message
                 elif arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
                     pass
@@ -1809,7 +1809,7 @@ class InvoiceAdmin(admin.ModelAdmin):
             else:
                 return response[0]
         else:
-            response = messages.error(request, ERROR_MESSAGES['1001'])
+            response = messages.error(request, ERROR_MESSAGES["4001"])
         return response
 
     # download bulk invoice short description

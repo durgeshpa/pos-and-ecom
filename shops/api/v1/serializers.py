@@ -1,19 +1,20 @@
 import re
-
+import datetime
 from rest_framework import serializers
+from datetime import datetime, timedelta
 
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
     ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
-    FavouriteProduct
+    FavouriteProduct, DayBeatPlanning, ExecutiveFeedback
 )
 from django.contrib.auth import get_user_model
 from accounts.api.v1.serializers import UserSerializer,GroupSerializer
 from retailer_backend.validators import MobileNumberValidator
 from rest_framework import validators
-
+from retailer_to_sp.models import Order, Payment
 from products.models import Product, ProductImage
 #from retailer_to_sp.api.v1.serializers import ProductImageSerializer #ProductSerializer
-
+from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from django.db.models import Q
 
 
@@ -234,3 +235,435 @@ class ShopTimingSerializer(serializers.ModelSerializer):
         model = ShopTiming
         fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
         read_only_fields = ('shop',)
+
+
+class BeatShopSerializer(serializers.ModelSerializer):
+    """
+    Shop Serializer for Beat Plan
+    """
+    contact_number = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_contact_number(obj):
+        """
+
+        :param obj: day beat plan object
+        :return: shop contact number
+        """
+        return obj.shipping_address.address_contact_number
+
+    class Meta:
+        """ Meta class """
+        model = Shop
+        fields = ('id', 'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'contact_number')
+
+
+class FeedBackSerializer(serializers.ModelSerializer):
+    """
+    Beat Plan Serializer
+    """
+    executive_feedback_value = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_executive_feedback_value(obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: serializer of feedback model
+        """
+        if obj.executive_feedback == '1':
+            executive_feedback = "Place Order"
+        if obj.executive_feedback == '2':
+            executive_feedback = "No Order For Today"
+        if obj.executive_feedback == '3':
+            executive_feedback = "Price Not Matching"
+        if obj.executive_feedback == '4':
+            executive_feedback = "Stock Not Available"
+        if obj.executive_feedback == '5':
+            executive_feedback = "Could Not Visit"
+        return executive_feedback
+
+    class Meta:
+        """ Meta class """
+        model = ExecutiveFeedback
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'executive_feedback_value', 'feedback_date',)
+
+
+class DayBeatPlanSerializer(serializers.ModelSerializer):
+    """
+    Beat Plan Serializer
+    """
+    day_beat_plan = serializers.SerializerMethodField()
+    shop = BeatShopSerializer()
+    feedback = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_day_beat_plan(obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: day beat plan id
+        """
+        return obj.id
+
+    @staticmethod
+    def get_feedback(obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: serializer of feedback model
+        """
+        try:
+            executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan=obj)
+            if executive_feedback[0].executive_feedback is '':
+                return []
+            serializer = FeedBackSerializer(obj.day_beat_plan, many=True).data
+            return serializer
+        except:
+            return []
+
+    class Meta:
+        """ Meta class """
+        model = DayBeatPlanning
+        fields = ('day_beat_plan', 'beat_plan', 'shop_category', 'beat_plan_date', 'next_plan_date', 'temp_status',
+                  'shop', 'feedback')
+
+
+class ExecutiveReportSerializer(serializers.ModelSerializer):
+    """
+    This is Serializer to ger Report for Sales Executive
+    """
+    executive_name = serializers.SerializerMethodField()
+    shop_mapped = serializers.SerializerMethodField()
+    shop_visited = serializers.SerializerMethodField()
+    productivity = serializers.SerializerMethodField()
+    num_of_order = serializers.SerializerMethodField()
+    order_amount = serializers.SerializerMethodField()
+
+    def get_executive_name(self, obj):
+        """
+
+        :param obj: object of shop user mapping
+        :return: executive first name
+        """
+        return obj.employee.first_name
+
+    def get_shop_mapped(self, obj):
+        """
+
+        :param obj: object of shop user mapping
+        :return: count of shop map
+        """
+        # condition to check past day
+        if self._context['report'] is '1':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            shop_map_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                                next_plan_date=previous_day_date.date())
+
+            for date_beat in date_beat_planning:
+                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat).count()
+                shop_map_count = executive_feedback_object + shop_map_count
+
+        # condition to check past week
+        elif self._context['report'] is '2':
+            shop_map_count = 0
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date-timedelta(7)
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                                next_plan_date__range=(week_end_date,
+                                                                                       previous_day_date))
+            for date_beat in date_beat_planning:
+                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat).count()
+                shop_map_count = executive_feedback_object + shop_map_count
+
+        # condition to check past month
+        else:
+            shop_map_count = 0
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(30)
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                                next_plan_date__range=(week_end_date,
+                                                                                       previous_day_date))
+            for date_beat in date_beat_planning:
+                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat).count()
+                shop_map_count = executive_feedback_object + shop_map_count
+
+        return shop_map_count
+
+    def get_shop_visited(self, obj):
+        """
+
+        :param obj: object of shop user mapping
+        :return: count of shop visit
+        """
+        # condition to check past day
+        if self._context['report'] is '1':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            shop_visit_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                feedback_date=previous_day_date
+                                                                ).exclude(executive_feedback=5).count()
+                shop_visit_count = shop_visit_count+shop_visited
+
+        # condition to check past week
+        elif self._context['report'] is '2':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(7)
+            shop_visit_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                feedback_date__range=(week_end_date,
+                                                                                      previous_day_date)
+                                                                ).exclude(executive_feedback=5).count()
+                shop_visit_count = shop_visit_count + shop_visited
+        # condition to check past week
+        else:
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(30)
+            shop_visit_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                feedback_date__range=(
+                                                                    week_end_date, previous_day_date)
+                                                                ).exclude(executive_feedback=5).count()
+                shop_visit_count = shop_visit_count + shop_visited
+
+        return shop_visit_count
+
+    def get_productivity(self, obj):
+        """
+
+        :param obj: object of shop user mapping
+        :return: productivity of sales executive
+        """
+        # condition to check past day
+        if self._context['report'] is '1':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            shop_visit_count = 0
+            shop_map_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
+
+            for date_beat in date_beat_planning:
+                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                             feedback_date=previous_day_date).count()
+                shop_map_count = executive_feedback_object + shop_map_count
+
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                feedback_date=previous_day_date).exclude(
+                    executive_feedback=5).count()
+                shop_visit_count = shop_visit_count + shop_visited
+
+            if shop_visit_count != 0:
+                productivity = str(round(shop_visit_count / shop_map_count, 4) * 100) + '%'
+            else:
+                productivity = str(00.00) + '%'
+        # condition to check past week
+        elif self._context['report'] is '2':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(7)
+            shop_visit_count = 0
+            shop_map_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
+
+            for date_beat in date_beat_planning:
+                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                             feedback_date__range=(week_end_date,
+                                                                                                   previous_day_date)
+                                                                             ).count()
+                shop_map_count = executive_feedback_object + shop_map_count
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                feedback_date__range=(week_end_date,
+                                                                                      previous_day_date)
+                                                                ).exclude(executive_feedback=5).count()
+                shop_visit_count = shop_visit_count + shop_visited
+
+            if shop_visit_count != 0:
+                productivity = str(round(shop_visit_count / shop_map_count, 4) * 100) + '%'
+            else:
+                productivity = str(00.00) + '%'
+        # condition to check past month
+        else:
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(30)
+            shop_visit_count = 0
+            shop_map_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
+
+            for date_beat in date_beat_planning:
+                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                             feedback_date__range=(
+                                                                                 week_end_date, previous_day_date)
+                                                                             ).count()
+                shop_map_count = executive_feedback_object + shop_map_count
+
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat, feedback_date__range=(
+                    week_end_date, previous_day_date)).exclude(executive_feedback=5).count()
+                shop_visit_count = shop_visit_count + shop_visited
+
+            if shop_visit_count != 0:
+                productivity = str(round(shop_visit_count / shop_map_count, 4) * 100) + '%'
+            else:
+                productivity = str(00.00) + '%'
+        return productivity
+
+    def get_num_of_order(self, obj):
+        """
+
+        :param obj: object of shop user mapping
+        :return: count of orders
+        """
+        # condition to check past day
+        if self._context['report'] is '1':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            order_count = Order.objects.filter(ordered_by=obj.employee, created_at__date=previous_day_date).count()
+
+        # condition to check past week
+        elif self._context['report'] is '2':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(7)
+            order_count = Order.objects.filter(ordered_by=obj.employee, created_at__date__range=(
+                week_end_date, previous_day_date)).count()
+        # condition to check past month
+        else:
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(30)
+            order_count = Order.objects.filter(ordered_by=obj.employee, created_at__date__range=(
+                week_end_date, previous_day_date)).count()
+
+        return order_count
+
+    def get_order_amount(self, obj):
+        """
+
+        :param obj: object of shop user mapping
+        :return: total amount of order
+        """
+        # condition to check past day
+        if self._context['report'] is '1':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date=previous_day_date)
+            total_amount = 0
+            for order in order_object:
+                payment_object = Payment.objects.filter(order_id=order)
+                total_amount = round(total_amount + payment_object[0].paid_amount)
+
+        # condition to check past week
+        elif self._context['report'] is '2':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(7)
+            order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date__range=(
+                week_end_date, previous_day_date))
+            total_amount = 0
+            for order in order_object:
+                payment_object = Payment.objects.filter(order_id=order)
+                total_amount = round(total_amount + payment_object[0].paid_amount)
+
+        # condition to check past month
+        else:
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(30)
+            order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date__range=(
+                week_end_date, previous_day_date))
+            total_amount = 0
+            for order in order_object:
+                payment_object = Payment.objects.filter(order_id=order)
+                total_amount = round(total_amount + payment_object[0].paid_amount)
+
+        return total_amount
+
+    class Meta:
+        """ Meta class """
+        model = ShopUserMapping
+        fields = ('id', 'executive_name', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order',
+                  'order_amount')
+
+
+class FeedbackCreateSerializers(serializers.ModelSerializer):
+    """
+    Applied Sales Executive Feedback
+    """
+    day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
+    executive_feedback = serializers.CharField(required=True, max_length=1)
+    feedback_date = serializers.DateField(required=True)
+
+    class Meta:
+        """
+        Applied executive feedback create meta class
+        """
+        model = ExecutiveFeedback
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'created_at', 'modified_at')
+
+    def create(self, validated_data):
+        """
+
+        :param validated_data: data which comes from post method
+        :return: instance otherwise error message
+        """
+        # validated_data['feedback_date'] = datetime.today().strftime("%Y-%m-%d")
+        # condition to check same reference of Day Beat Plan with same date is exist or not
+        executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan=validated_data['day_beat_plan'])
+        if executive_feedback.exists():
+            # create instance of Executive Feedback
+            executive_feedback.update(executive_feedback=validated_data['executive_feedback'],
+                                      feedback_date=validated_data['feedback_date'])
+
+            # condition to check if executive apply "Could Not Visit" for less than equal to 5 within the same date
+            # then assign next visit date and beat plan date accordingly
+            day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
+            if (ExecutiveFeedback.objects.filter(executive_feedback=5, feedback_date=validated_data['feedback_date']
+                                                 ).count() <= 5) and executive_feedback[0].executive_feedback == '5':
+                if day_beat_plan[0].shop_category == "P1":
+                    next_visit_date = validated_data['feedback_date'] + timedelta(days=1)
+                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
+                    temp_status = True
+                elif day_beat_plan[0].shop_category == "P2":
+                    next_visit_date = validated_data['feedback_date'] + timedelta(days=2)
+                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
+                    temp_status = True
+                else:
+                    next_visit_date = validated_data['feedback_date'] + timedelta(days=3)
+                    beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
+                    temp_status = True
+
+            # condition to check if executive apply feedback which is not related to "Could Not Visit" and also
+            # check next visit date condition for rest of the feedback
+            else:
+                if day_beat_plan[0].shop_category == "P1" and day_beat_plan[0].temp_status is False:
+                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
+                    beat_plan_date = next_visit_date
+                    temp_status = False
+
+                elif day_beat_plan[0].shop_category == "P2" and day_beat_plan[0].temp_status is False:
+                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
+                    beat_plan_date = next_visit_date
+                    temp_status = False
+
+                elif day_beat_plan[0].shop_category == "P3" and day_beat_plan[0].temp_status is False:
+                    next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
+                    beat_plan_date = next_visit_date
+                    temp_status = False
+                else:
+                    next_visit_date = day_beat_plan[0].beat_plan_date
+                    beat_plan_date = next_visit_date
+                    temp_status = False
+
+            # Create Data for next visit in Day Beat Planning
+            DayBeatPlanning.objects.get_or_create(shop_category=day_beat_plan[0].shop_category,
+                                                  next_plan_date=next_visit_date,
+                                                  beat_plan_date=beat_plan_date,
+                                                  shop=day_beat_plan[0].shop,
+                                                  beat_plan=day_beat_plan[0].beat_plan,
+                                                  temp_status=temp_status)
+
+            # return executive feedback instance
+            return executive_feedback[0]
+        # return False
+        return False

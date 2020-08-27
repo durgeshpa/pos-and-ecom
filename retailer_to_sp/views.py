@@ -34,7 +34,7 @@ from django.views.generic import TemplateView
 from django.contrib import messages
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
-from shops.models import Shop
+from shops.models import Shop, ShopMigrationMapp
 from retailer_to_sp.api.v1.serializers import (
     DispatchSerializer, CommercialShipmentSerializer
 )
@@ -52,7 +52,7 @@ from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInvent
 from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change
 
-logger = logging.getLogger('retailer_to_sp_controller')
+logger = logging.getLogger('django')
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -78,6 +78,7 @@ class DownloadCreditNote(APIView):
     """
     permission_classes = (AllowAny,)
     filename = 'credit_note.pdf'
+    #changed later based on shop
     template_name = 'admin/credit_note/credit_note.html'
 
     def get(self, request, *args, **kwargs):
@@ -89,10 +90,14 @@ class DownloadCreditNote(APIView):
             gstinn2 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
 
         for gs in credit_note.shipment.order.shipping_address.shop_name.shop_name_documents.all():
-            gstinn1 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
+            gstinn1 = gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
 
-        gst_number = '07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name == 'Delhi' else '09AAHCG4891M1ZV'
-
+        #gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
+        # changes for org change
+        shop_mapping_list = ShopMigrationMapp.objects.filter(
+            new_sp_addistro_shop=credit_note.shipment.order.seller_shop.pk).all()
+        if shop_mapping_list.exists():
+            self.template_name = 'admin/credit_note/addistro_credit_note.html'
         amount = credit_note.amount
         pp = OrderedProductMapping.objects.filter(ordered_product=credit_note.shipment.id)
 
@@ -170,16 +175,11 @@ class DownloadCreditNote(APIView):
         rupees = amt[0]
 
         data = {
-            "object": credit_note, "products": products, "shop": credit_note, "total_amount_int": total_amount_int,
-            "sum_qty": sum_qty, "sum_amount": sum_amount,
-            "url": request.get_host(), "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
-            "sgst": sgst, "cess": cess, "surcharge": surcharge,
-            "total_amount": round(total_amount, 2), "order_id": order_id, "shop_name_gram": shop_name_gram,
-            "nick_name_gram": nick_name_gram, "city_gram": city_gram,
-            "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
-            "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
-            "gstinn3": gstinn3, "gst_number": gst_number, "reason": reason, "rupees": rupees, "cin": cin,
-            "pan_no": pan_no, 'shipment_cancelled': shipment_cancelled}
+            "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":sum_amount,
+            "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
+            "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
+            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2,
+            "gstinn3":gstinn3,"reason":reason,"rupees":rupees,"cin":cin,"pan_no":pan_no, 'shipment_cancelled': shipment_cancelled}
 
         cmd_option = {
             "margin-top": 10,
@@ -861,7 +861,8 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
             "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
             "buyer_shipping_address": order_obj.shipping_address.address_line1,
             "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-            "barcode": barcode
+            "barcode": barcode,
+            "url": request.get_host(), "scheme": request.is_secure() and "https" or "http"
         }
         if shipment:
             data["shipment_products"] = shipment_product_list
@@ -883,8 +884,8 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
             show_content_in_browser=False, cmd_options=cmd_option)
         try:
             # save pdf file in pick_list_pdf field
-            order_obj.picker_order.all()[0].pick_list_pdf.save("{}".format(file_name),
-                                                               ContentFile(response.rendered_content), save=True)
+            picklist = order_obj.picker_order.all()[0]
+            order_obj.picker_order.all()[0].pick_list_pdf.save("{}".format(file_name), ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
         return response
@@ -982,6 +983,7 @@ def pick_list_download(request, order_obj):
                 "product_mrp": cart_pro.cart_product_price.mrp,
                 "ordered_qty": cart_pro.qty,
                 "no_of_pieces": cart_pro.no_of_pieces,
+
             }
             cart_product_list.append(product_list)
 
@@ -992,7 +994,8 @@ def pick_list_download(request, order_obj):
             "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
             "buyer_shipping_address": order_obj.shipping_address.address_line1,
             "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-            "barcode": barcode
+            "barcode": barcode,
+            "url": request.get_host(), "scheme": request.is_secure() and "https" or "http"
         }
         cmd_option = {
             "margin-top": 10,

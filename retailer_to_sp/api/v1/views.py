@@ -57,7 +57,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
     CustomerCare as GramMappedCustomerCare
 )
 
-from shops.models import Shop, ParentRetailerMapping
+from shops.models import Shop, ParentRetailerMapping, ShopMigrationMapp
 from shops.models import Shop,ParentRetailerMapping, ShopUserMapping
 from brand.models import Brand
 from products.models import ProductCategory
@@ -1168,7 +1168,7 @@ class DownloadInvoiceSP(APIView):
         return response
 
 
-@task
+# @task
 def pdf_generation(request, ordered_product):
     """
     :param request: request object
@@ -1179,6 +1179,7 @@ def pdf_generation(request, ordered_product):
     file_prefix = PREFIX_INVOICE_FILE_NAME
     # get the file name along with with prefix name
     filename = create_file_name(file_prefix, ordered_product)
+    #we will be changing based on shop name
     template_name = 'admin/invoice/invoice_sp.html'
     if type(request) is str:
         request = None
@@ -1219,6 +1220,10 @@ def pdf_generation(request, ordered_product):
             buyer_shop_gistin = ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
                 shop_document_type='gstin').exists() else 'unregistered'
+
+        shop_mapping_list = ShopMigrationMapp.objects.filter(new_sp_addistro_shop=ordered_product.order.ordered_cart.seller_shop.pk).all()
+        if shop_mapping_list.exists():
+            template_name = 'admin/invoice/invoice_addistro_sp.html'
 
         product_listing = []
         taxes_list = []
@@ -1329,7 +1334,9 @@ def pdf_generation(request, ordered_product):
         total_amount_int = total_amount
         amt = [num2words(i) for i in str(total_amount).split('.')]
         rupees = amt[0]
-
+        logger.info("createing invoice pdf")
+        logger.info(template_name)
+        logger.info(request.get_host())
         data = {"shipment": ordered_product, "order": ordered_product.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
                 "igst": igst, "cgst": cgst, "sgst": sgst, "cess": cess, "surcharge": surcharge,
@@ -1367,11 +1374,16 @@ class DownloadCreditNoteDiscounted(APIView):
             gstinn2 =gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
         for gs in credit_note.shipment.order.shipping_address.shop_name.shop_name_documents.all():
             gstinn1 = gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
-        gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
+        #gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
+        #changes for org change
+        shop_mapping_list = ShopMigrationMapp.objects.filter(
+            new_sp_addistro_shop=credit_note.shipment.order.seller_shop.pk).all()
+        if shop_mapping_list.exists():
+            self.template_name = 'admin/credit_note/addistro_discounted_credit_note.html'
         amount = credit_note.amount
         credit_note_type = credit_note.credit_note_type
         products = credit_note.shipment.rt_order_product_order_product_mapping.all()
-        # reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
+        # reason = 'Retuned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
         order_id = credit_note.shipment.order.order_no
         sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
@@ -1406,7 +1418,8 @@ class DownloadCreditNoteDiscounted(APIView):
             "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":total_amount,
             "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
             "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
-            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2, "gstinn3":gstinn3,"gst_number":gst_number,"rupees":rupees,"credit_note_type":credit_note_type,"pan_no":pan_no, "cin":cin,}
+            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2,
+            "gstinn3":gstinn3,"rupees":rupees,"credit_note_type":credit_note_type,"pan_no":pan_no, "cin":cin,}
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,

@@ -1156,7 +1156,15 @@ class Trip(models.Model):
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
     received_amount = models.DecimalField(blank=True, null=True,
-                                          max_digits=19, decimal_places=2)
+                                    max_digits=19, decimal_places=2)
+    opening_kms = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Vehicle Opening Trip(Kms)")
+    closing_kms = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Vehicle Closing Trip(Kms)")
+    no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total crates shipped")
+    no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total packets shipped")
+    no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total sacks shipped")
+    no_of_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total crates collected")
+    no_of_packets_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total packets collected")
+    no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total sacks collected")
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -1353,7 +1361,7 @@ class OrderedProduct(models.Model):  # Shipment
     RESCHEDULED = "RESCHEDULED"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
-        (READY_TO_SHIP, 'QC Passed'),
+        ('READY_TO_SHIP', 'QC Passed'),
         ('READY_TO_DISPATCH', 'Ready to Dispatch'),
         ('OUT_FOR_DELIVERY', 'Out for Delivery'),
         ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),

@@ -137,7 +137,7 @@ class OrderedProductForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+        fields = ['order',]
 
 
     def __init__(self, *args, **kwargs):
@@ -444,12 +444,6 @@ class TripForm(forms.ModelForm):
     search_by_pincode = forms.CharField(required=False)
     Invoice_No = forms.CharField(required=False)
     trip_id = forms.CharField(required=False)
-    total_crates_shipped = forms.IntegerField(required=False, disabled=True)
-    total_packets_shipped = forms.IntegerField(required=False, disabled=True)
-    total_sacks_shipped = forms.IntegerField(required=False, disabled=True)
-    total_crates_collected = forms.IntegerField(required=False, disabled=True)
-    total_packets_collected = forms.IntegerField(required=False, disabled=True)
-    total_sacks_collected = forms.IntegerField(required=False, disabled=True)
     trip_weight = forms.CharField(required=False, disabled=True)
     total_trip_amount_value = forms.CharField(required=False, disabled=True)
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
@@ -459,7 +453,10 @@ class TripForm(forms.ModelForm):
         model = Trip
         fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
                   'e_way_bill_no', 'search_by_area', 'search_by_pincode',
-                  'Invoice_No', 'selected_id', 'unselected_id', 'trip_weight']
+                  'Invoice_No', 'selected_id', 'unselected_id', 'trip_weight',
+                  'opening_kms', 'closing_kms', 'no_of_crates', 'no_of_packets',
+                  'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check',
+                  'no_of_sacks_check']
 
     class Media:
         js = ('admin/js/select2.min.js',)
@@ -471,6 +468,10 @@ class TripForm(forms.ModelForm):
 
     def __init__(self, user, *args, **kwargs):
         super(TripForm, self).__init__(*args, **kwargs)
+        self.fields['closing_kms'].disabled = True
+        self.fields['no_of_crates_check'].disabled = True
+        self.fields['no_of_packets_check'].disabled = True
+        self.fields['no_of_sacks_check'].disabled = True
         self.fields['trip_id'].widget = forms.HiddenInput()
 
         instance = getattr(self, 'instance', None)
@@ -478,12 +479,6 @@ class TripForm(forms.ModelForm):
             self.fields['seller_shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', 'gf'])
         else:
             self.fields['seller_shop'].queryset = Shop.objects.filter(related_users=user)
-        self.fields['total_crates_shipped'].initial = instance.total_crates_shipped
-        self.fields['total_packets_shipped'].initial = instance.total_packets_shipped
-        self.fields['total_sacks_shipped'].initial = instance.total_sacks_shipped
-        self.fields['total_crates_collected'].initial = instance.total_crates_collected
-        self.fields['total_packets_collected'].initial = instance.total_packets_collected
-        self.fields['total_sacks_collected'].initial = instance.total_sacks_collected
         self.fields['trip_weight'].initial = instance.trip_weight()
         self.fields['trip_weight'].disabled = True
         self.fields['total_trip_amount_value'].initial = instance.total_trip_amount_value
@@ -494,9 +489,19 @@ class TripForm(forms.ModelForm):
         if trip:
             trip_status = instance.trip_status
             self.fields['trip_id'].initial = trip
+
+            if trip and not trip_status == Trip.READY:
+                self.fields['opening_kms'].disabled = True
+                self.fields['no_of_crates'].disabled = True
+                self.fields['no_of_packets'].disabled = True
+                self.fields['no_of_sacks'].disabled = True
+
             if trip_status == Trip.READY:
                 self.fields['seller_shop'].disabled = True
                 self.fields['trip_status'].choices = Trip.TRIP_STATUS[0], Trip.TRIP_STATUS[2], Trip.TRIP_STATUS[1]
+                self.fields['no_of_crates'].disabled = True
+                self.fields['no_of_packets'].disabled = True
+                self.fields['no_of_sacks'].disabled = True
 
             elif trip_status == Trip.STARTED:
                 self.fields['delivery_boy'].disabled = True
@@ -515,8 +520,13 @@ class TripForm(forms.ModelForm):
                 self.fields['search_by_area'].widget = forms.HiddenInput()
                 self.fields['search_by_pincode'].widget = forms.HiddenInput()
                 self.fields['Invoice_No'].widget = forms.HiddenInput()
+                self.fields['closing_kms'].disabled = False
+                self.fields['no_of_crates_check'].disabled = False
+                self.fields['no_of_packets_check'].disabled = False
+                self.fields['no_of_sacks_check'].disabled = False
 
             elif trip_status == Trip.RETURN_VERIFIED:
+                self.fields['e_way_bill_no'].disabled = True
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
@@ -573,7 +583,6 @@ class TripForm(forms.ModelForm):
                       (reverse("admin:retailer_to_sp_shipment_change",
                                args=[i.get('id')]), i.get('invoice__invoice_no'))
                       for i in cancelled_shipments]])
-
         return data
 
 
@@ -633,7 +642,7 @@ class ShipmentForm(forms.ModelForm):
 
     class Meta:
         model = Shipment
-        fields = ['order', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+        fields = ['order', 'shipment_status']
 
     class Media:
         js = (

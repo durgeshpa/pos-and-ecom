@@ -23,7 +23,7 @@ from django.dispatch import receiver
 from django.db import transaction
 from datetime import datetime
 from .common_functions import CommonPickBinInvFunction, common_for_release, CommonPickupFunctions, \
-    create_batch_id_from_audit, get_expiry_date, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions
+    create_batch_id_from_audit, get_expiry_date, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, get_create_batch_id_from_audit
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
@@ -324,10 +324,10 @@ class StockMovementCsvSample(View):
                 f = StringIO()
                 writer = csv.writer(f)
                 # header of csv file
-                writer.writerow(['Warehouse ID', 'SKU', 'Expiry Date', 'Bin ID', 'Inventory Movement Type',
+                writer.writerow(['Warehouse ID', 'Product Name', 'SKU', 'Expiry Date', 'Bin ID', 'Inventory Movement Type',
                                  'Normal Quantity', 'Damaged Quantity', 'Expired Quantity', 'Missing Quantity'])
-                writer.writerow(['1393', 'ORCPCRTOY00000002', '20/08/2020', 'B2BZ01SR01-001',
-                                 'In', '0', '0', '0', '0'])
+                writer.writerow(['88', 'Complan Kesar Badam Refill, 200 gm', 'HOKBACFRT00000021', '20/08/2020',
+                                 'V2VZ01SR001-0001', 'In', '0', '0', '0', '0'])
 
             elif request.GET['inventory_movement_type'] == '4':
                 filename = 'warehouse_inventory_change' + ".csv"
@@ -488,37 +488,50 @@ def stock_correction_data(upload_data, stock_movement_obj):
             for data in upload_data:
                 # get the type of stock
                 stock_correction_type = 'stock_adjustment'
-                try:
-                    # create stock correction id
-                    stock_correction_id = 'stock_' + data[4] + data[0] + data[3][11:] + data[2][16:]
-                except Exception as e:
-                    error_logger.error(e)
-                    # default correction id
-                    stock_correction_id = 'stock_' + '00001'
-
                 # Create data in IN Model
-                putaway_quantity = 0
+                batch_id = get_create_batch_id_from_audit(data)
+                quantity = int(data[6]) + int(data[7]) + int(data[8]) + int(data[9])
                 InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
-                                            stock_correction_id, Product.objects.get(product_sku=data[1]), data[2],
-                                            data[5], putaway_quantity)
+                                            stock_movement_obj[0].id, Product.objects.get(product_sku=data[2]),
+                                            batch_id, quantity, 0)
 
                 # Create date in BinInventory, Put Away BinInventory and WarehouseInventory
-                inventory_type = 'normal'
+                # inventory_type = 'normal'
                 inventory_state = 'available'
-                in_stock = 't'
-                put_away_obj = PutawayCommonFunctions.get_filtered_putaways(batch_id=data[2],
-                                                                            warehouse=Shop.objects.get(id=data[0]))
-                updating_tables_on_putaway(Shop.objects.get(id=data[0]), data[3], put_away_obj, data[2], inventory_type,
-                                           inventory_state, in_stock, data[5])
+                status = True
+                iter_list = iterate_quantity_type(data)
+                for key, value in iter_list.items():
+                    put_away_obj = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id,
+                                                                                warehouse=Shop.objects.get(id=data[0]))
+                    updating_tables_on_putaway(Shop.objects.get(id=data[0]), data[4], put_away_obj, batch_id, key,
+                                               inventory_state, status, value, status, put_away_obj)
 
-                # Create data in Stock Correction change Model
+                    # Create data in Stock Correction change Model
                 InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
-                                                                            Product.objects.get(product_sku=data[1]),
-                                                                            data[2], Bin.objects.get(bin_id=data[3]),
-                                                                            data[4], data[5], stock_movement_obj[0])
+                                                                            Product.objects.get(product_sku=data[2]),
+                                                                            batch_id, Bin.objects.get(bin_id=data[4]),
+                                                                            data[5], quantity, stock_movement_obj[0])
             return
     except Exception as e:
         error_logger.error(e)
+
+
+def iterate_quantity_type(data):
+    """
+
+    :param data:
+    :return:
+    """
+    inventory_type = {}
+    if int(data[6]) > 0:
+        inventory_type.update({'normal': int(data[6])})
+    if int(data[7]) > 0:
+        inventory_type.update({'damaged': int(data[7])})
+    if int(data[8]) > 0:
+        inventory_type.update({'expired': int(data[8])})
+    if int(data[9]) > 0:
+        inventory_type.update({'missing': int(data[9])})
+    return inventory_type
 
 
 def warehouse_inventory_change_data(upload_data, stock_movement_obj):
