@@ -270,13 +270,45 @@ function changeDamagedPieces(){
         $("input[name$='-damaged_qty']").keyup(function(){
     for(var i=0;i<10;i++){
         var sum = 0
+        var final_sum = 0
+        var additional_qty = 0
         for (var j=0; j<10;j++){
-            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
-            if (isNaN(tot)){
-                continue
+//            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
+            var damaged_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
+            var expired_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            var quantity = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
+//            if (isNaN(tot)){
+//                tot = 0
+//            }
+            if (isNaN(damaged_qty)){
+                damaged_qty = 0
             }
-            sum +=tot
+            if (isNaN(expired_qty)){
+                expired_qty = 0
+            }
+            if (isNaN(quantity)){
+                quantity = 0
+            }
+            if (isNaN(final_qty)){
+                final_qty = 0
+            }
+            additional_qty = damaged_qty + expired_qty
+            if (additional_qty > quantity)
+            {
+            sum +=damaged_qty
+            final_sum =quantity
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-damaged_qty` + "]").val(sum);
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(final_sum)
+            }
+            else
+            {
+            var final_qty = quantity -(damaged_qty + expired_qty)
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(final_qty)
+            sum +=damaged_qty
+            final_sum +=final_qty
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-damaged_qty` + "]").val(sum);
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(final_sum);
+            }
         }
         }
         });
@@ -289,13 +321,45 @@ function changeExpPieces(){
         $("input[name$='-expired_qty']").keyup(function(){
     for(var i=0;i<10;i++){
         var sum = 0
+        var final_sum = 0
+        var additional_qty = 0
         for (var j=0; j<10;j++){
-            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
-            if (isNaN(tot)){
-                continue
+//            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            var damaged_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
+            var expired_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            var pickup_quantity = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
+//            if (isNaN(tot)){
+//                tot = 0
+//            }
+            if (isNaN(damaged_qty)){
+                damaged_qty = 0
             }
-            sum +=tot
+            if (isNaN(expired_qty)){
+                expired_qty = 0
+            }
+            if (isNaN(pickup_quantity)){
+                quantity = 0
+            }
+            if (isNaN(final_qty)){
+                final_qty = 0
+            }
+            additional_qty = damaged_qty + expired_qty
+            if (additional_qty > pickup_quantity)
+            {
+            sum +=expired_qty
+            final_sum =pickup_quantity
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-expired_qty` + "]").val(sum);
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(final_sum)
+            }
+            else
+            {
+            var final_qty = pickup_quantity -(damaged_qty + expired_qty)
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(final_qty)
+            sum +=expired_qty
+            final_sum +=final_qty
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-expired_qty` + "]").val(sum);
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(final_sum);
+            }
         }
         }
         });
