@@ -407,8 +407,17 @@ function updateval(){
         $("input[name^='rt_order_product_order_product_mapping']").keyup(function(){
     for(var i=0;i<10;i++){
         var sum = 0
+//        var final_sum  = 0
         for (var j=0; j<10;j++){
-            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val())
+            var damaged_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-damaged_qty` + "]").val())
+            var expired_qty = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            var quantity = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
+            var initial_quantity = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val())
+            if (quantity != initial_quantity){
+            final_sum = damaged_qty + expired_qty
+            quantity_value = quantity -(damaged_qty + expired_qty)
+            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val(quantity_value))
+            }
             if (isNaN(tot)){
                 continue
             }
