@@ -50,7 +50,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
 )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
     OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-    ShipmentRescheduling, Note
+    ShipmentRescheduling, Note, OrderedProductBatch
 )
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,
     Order as GramMappedOrder, OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment,
@@ -66,8 +66,9 @@ from retailer_backend.common_function import getShopMapping,checkNotShopAndMappi
 from retailer_backend.messages import ERROR_MESSAGES
 
 from retailer_to_sp.tasks import (
-    ordered_product_available_qty_update, release_blocking, create_reserved_order
+    ordered_product_available_qty_update, release_blocking
 )
+from wms.common_functions import OrderManagement, get_stock
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
 from retailer_to_sp.filters import PickerDashboardFilter
 from common.data_wrapper_view import DataWrapperViewSet
@@ -75,7 +76,7 @@ from common.data_wrapper_view import DataWrapperViewSet
 from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext_lazy as _
 from common.data_wrapper import format_serializer_errors
-from sp_to_gram.tasks import es_search
+from sp_to_gram.tasks import es_search, upload_shop_stock
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
@@ -85,6 +86,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  create_invoice_data)
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
+from wms.models import WarehouseInternalInventoryChange
 
 User = get_user_model()
 
@@ -455,8 +457,8 @@ class AddToCart(APIView):
                 msg['message'] = ["Qty not Found"]
                 return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
-            available=OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-            shop_products_dict =collections.defaultdict(lambda: 0, {g['product_id']: int(g['available_qty']) for g in available})
+            available=get_stock(parent_mapping.parent).filter(sku__id=cart_product,quantity__gt=0).values('sku__id').annotate(quantity=Sum('quantity'))
+            shop_products_dict =collections.defaultdict(lambda: 0, {g['sku__id']: int(g['quantity']) for g in available})
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 ordered_qty = 0
                 product = Product.objects.get(id = cart_product)
@@ -647,8 +649,8 @@ class CartDetail(APIView):
                     cart=cart
                 )
 
-                available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_products.values('cart_product'), available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                shop_products_dict = collections.defaultdict(lambda: 0, {g['product_id']: int(g['available_qty']) for g in available})
+                available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'), quantity__gt=0).values('sku__id').annotate(quantity=Sum('quantity'))
+                shop_products_dict = collections.defaultdict(lambda: 0, {g['sku__id']: int(g['quantity']) for g in available})
                 for cart_product in cart_products:
                     item_qty = CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).last().qty
                     updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
@@ -763,8 +765,8 @@ class ReservedOrder(generics.ListAPIView):
                 cart_products.update(qty_error_msg='')
                 cart_products.update(capping_error_msg ='')
                 cart_product_ids = cart_products.values('cart_product')
-                shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                shop_products_dict = collections.defaultdict(lambda: 0, {g['product_id']:int(g['available_qty']) for g in shop_products_available})
+                shop_products_available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_product_ids,quantity__gt=0).values('sku__id').annotate(quantity=Sum('quantity'))
+                shop_products_dict = collections.defaultdict(lambda: 0, {g['sku__id']:int(g['quantity']) for g in shop_products_available})
 
                 products_available = {}
                 products_unavailable = []
@@ -845,10 +847,11 @@ class ReservedOrder(generics.ListAPIView):
                 else:
                     reserved_args = json.dumps({
                         'shop_id': parent_mapping.parent.id,
-                        'cart_id': cart.id,
-                        'products': products_available
+                        'transaction_id': cart.order_id,
+                        'products': products_available,
+                        'transaction_type': 'reserved'
                         })
-                    create_reserved_order(reserved_args)
+                    OrderManagement.create_reserved_order(reserved_args)
             serializer = CartSerializer(cart, context={
                 'parent_mapping_id': parent_mapping.parent.id,
                 'buyer_shop_id': shop_id})
@@ -945,8 +948,8 @@ class CreateOrder(APIView):
                     cart.seller_shop = parent_mapping.parent
                     cart.save()
 
-
-                if OrderedProductReserved.objects.filter(cart=cart).exists():
+                if WarehouseInternalInventoryChange.objects.filter(
+                        transaction_id=cart.order_id, transaction_type='reserved').exists():
                     order,_ = Order.objects.get_or_create(last_modified_by=request.user,ordered_by=request.user, ordered_cart=cart, order_no=cart.order_id)
 
                     order.billing_address = billing_address
@@ -963,7 +966,14 @@ class CreateOrder(APIView):
                         ordered_reserve.order_product_reserved.save()
                         ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
                         ordered_reserve.save()
-
+                    sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
+                    reserved_args = json.dumps({
+                        'shop_id': parent_mapping.parent.id,
+                        'transaction_id': cart.order_id,
+                        'transaction_type': 'ordered',
+                        'order_status': order.order_status
+                    })
+                    OrderManagement.release_blocking(reserved_args, sku_id)
                     serializer = OrderSerializer(order,
                         context={'parent_mapping_id': parent_mapping.parent.id,
                                  'buyer_shop_id': shop_id,
@@ -1593,6 +1603,8 @@ class ReleaseBlocking(APIView):
         cart_id = self.request.POST.get('cart_id')
         msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
 
+        products_available = {}
+
         if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
 
@@ -1605,14 +1617,24 @@ class ReleaseBlocking(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
-                for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
-                    ordered_reserve.order_product_reserved.available_qty = int(
-                        ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
-                    ordered_reserve.order_product_reserved.save()
-                    ordered_reserve.delete()
-            if CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).exists():
-                CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).delete()
+            cart = Cart.objects.filter(id=cart_id).last()
+            sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
+            reserved_args = json.dumps({
+                'shop_id': parent_mapping.parent.id,
+                'transaction_id': cart.order_id,
+                'transaction_type': 'released',
+                'order_status': 'available'
+            })
+
+            OrderManagement.release_blocking(reserved_args, sku_id)
+            # if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
+            #     for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
+            #         ordered_reserve.order_product_reserved.available_qty = int(
+            #             ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
+            #         ordered_reserve.order_product_reserved.save()
+            #         ordered_reserve.delete()
+            if CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).exists():
+                CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).delete()
 
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
 
@@ -1674,7 +1696,7 @@ class ShipmentDeliveryBulkUpdate(APIView):
 
         try:
             for item in products:
-                item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.damaged_qty))
+                item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.returned_damage_qty))
                 item.save()
             cash_to_be_collected = products.last().ordered_product.cash_to_be_collected()
             is_pan_required = self.is_pan_required(products.last())
@@ -1701,18 +1723,19 @@ class ShipmentDeliveryUpdate(APIView):
         msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
         try:
             shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+            shipment_batch = OrderedProductBatch.objects.filter(ordered_product_mapping__ordered_product__id=shipment_id)
         except ObjectDoesNotExist:
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
         try:
             for item in request.data.get('delivered_items'):
                 product = item.get('product', None)
                 returned_qty = item.get('returned_qty', None)
-                damaged_qty = item.get('damaged_qty', None)
+                damaged_qty = item.get('returned_damage_qty', None)
                 shipped_qty = int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty)
                 if  shipped_qty >= int(returned_qty) + int(damaged_qty):
                     delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
                     ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
-                        returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty)
+                        returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty, cancellation_date=datetime.now())
                 #shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
                 else:
                     product_name = Product.objects.get(id=product).product_name
@@ -1754,7 +1777,7 @@ class ShipmentDetail(APIView):
 
         product = self.request.POST.get('product')
         returned_qty = self.request.POST.get('returned_qty')
-        damaged_qty = self.request.POST.get('damaged_qty')
+        damaged_qty = self.request.POST.get('returned_damage_qty')
 
         if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(returned_qty) + int(damaged_qty):
             ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
@@ -1906,7 +1929,7 @@ class RescheduleReason(generics.ListCreateAPIView):
             self.perform_create(serializer)
             products = ShipmentProducts.objects.filter(ordered_product__id=request.data.get('shipment'))
             for item in products:
-                item.delivered_qty = item.returned_qty = item.damaged_qty = 0
+                item.delivered_qty = item.returned_qty = item.returned_damage_qty = 0
                 item.save()
             self.update_shipment(request.data.get('shipment'))
             update_trip_status(request.data.get('trip'))
@@ -1962,3 +1985,12 @@ class ReturnReason(generics.UpdateAPIView):
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
+class RefreshEs(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        shop_id = None
+        shop_id = self.request.GET.get('shop_id')
+        upload_shop_stock(shop_id)
+        return Response({"message": "Shop data updated on ES","response_data": None, "is_success": True})

@@ -30,10 +30,11 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
+from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType
+from wms.common_functions import CommonPickupFunctions,PutawayCommonFunctions, common_on_return_and_partial, get_expiry_date
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
-
 from shops.models import Shop, ShopNameDisplay
 
 from .utils import (order_invoices, order_shipment_amount,
@@ -725,6 +726,9 @@ class Order(models.Model):
     COMPLETED = 'completed'
     READY_TO_DISPATCH = 'ready_to_dispatch'
     CANCELLED = 'CANCELLED'
+    PICKING_COMPLETE = 'picking_complete'
+    PICKING_ASSIGNED = 'PICKING_ASSIGNED'
+    PICKUP_CREATED = 'PICKUP_CREATED'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'), #1
@@ -749,7 +753,10 @@ class Order(models.Model):
         (PARTIAL_SHIPMENT_CREATED, 'Partial Shipment Created'),
         (FULL_SHIPMENT_CREATED, 'Full Shipment Created'),
         (READY_TO_DISPATCH, 'Ready to Dispatch'),
-        (COMPLETED, 'Completed')
+        (COMPLETED, 'Completed'),
+        (PICKING_COMPLETE, 'Picking Complete'),
+        (PICKING_ASSIGNED, 'Picking Assigned'),
+        (PICKUP_CREATED, 'Pickup Created'),
     )
 
     CASH_NOT_AVAILABLE = 'cna'
@@ -1506,18 +1513,22 @@ class OrderedProduct(models.Model): #Shipment
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+                # populate_data_on_qc_pass(self.order)
+
         elif self.order.ordered_cart.cart_type == 'DISCOUNTED':
             if self.shipment_status == OrderedProduct.READY_TO_SHIP:
                 CommonFunction.generate_invoice_number_discounted_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+                # populate_data_on_qc_pass(self.order)
         elif self.order.ordered_cart.cart_type == 'BULK':
             if self.shipment_status == OrderedProduct.READY_TO_SHIP:
                 CommonFunction.generate_invoice_number_bulk_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+                # populate_data_on_qc_pass(self.order)
 
         if self.no_of_crates == None:
             self.no_of_crates = 0
@@ -1578,6 +1589,8 @@ class PickerDashboard(models.Model):
         (PICKING_ASSIGNED, 'Picking Assigned'),
         ('picking_in_progress', 'Picking In Progress'),
         ('picking_complete', 'Picking Complete'),
+        ('picking_cancelled', 'Picking Cancelled'),
+
     )
 
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
@@ -1598,6 +1611,8 @@ class PickerDashboard(models.Model):
 
     def save(self, *args, **kwargs):
         super(PickerDashboard, self).save(*args, **kwargs)
+        if self.picking_status == 'picking_assigned':
+            Pickup.objects.filter(pickup_type_id=self.order.order_no).update(status='picking_assigned')
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
@@ -1618,6 +1633,8 @@ class OrderedProductMapping(models.Model):
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
+    returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
+    expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
         null=True, on_delete=models.DO_NOTHING
@@ -1626,20 +1643,22 @@ class OrderedProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     effective_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
-    discounted_price = models.DecimalField(default = 0, max_digits=10, decimal_places=2, null=True, blank=False)
+    discounted_price = models.DecimalField(default=0, max_digits=10, decimal_places=2, null=True, blank=False)
+    cancellation_date = models.DateTimeField(null=True, blank=True)
+    picked_pieces = models.PositiveIntegerField(default=0)
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
 
-        if self.returned_qty > 0 or self.damaged_qty > 0:
-            already_shipped_qty = int(self.shipped_qty)
-            if sum([returned_qty, damaged_qty]) > already_shipped_qty:
-                raise ValidationError(
-                    _('Sum of returned and damaged pieces should be '
-                      'less than no. of pieces to ship'),
-                )
+        # if self.returned_qty > 0 or self.damaged_qty > 0:
+        #     already_shipped_qty = int(self.shipped_qty)
+        #     if sum([returned_qty, damaged_qty]) > already_shipped_qty:
+        #         raise ValidationError(
+        #             _('Sum of returned and damaged pieces should be '
+        #               'less than no. of pieces to ship'),
+        #         )
 
     @property
     def product_weight(self):
@@ -1842,12 +1861,12 @@ class OrderedProductMapping(models.Model):
         return round(self.discounted_price,2)
 
     def save(self, *args, **kwargs):
-        if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
-            raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
-        else:
-            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
-            self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().discounted_price
-            super().save(*args, **kwargs)
+        # if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty, self.returned_qty]):
+        #     raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
+        # else:
+        self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
+        self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().discounted_price
+        super().save(*args, **kwargs)
 
 
 class Dispatch(OrderedProduct):
@@ -1867,6 +1886,34 @@ class Shipment(OrderedProduct):
         proxy = True
         verbose_name = _("Plan Shipment")
         verbose_name_plural = _("Plan Shipment")
+
+
+class OrderedProductBatch(models.Model):
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
+    bin_ids = models.CharField(max_length=17, null=True, blank=True, verbose_name='bin_id')
+    pickup_inventory = models.ForeignKey(PickupBinInventory, null=True, related_name='rt_pickup_bin_inv', on_delete=models.DO_NOTHING)
+    ordered_product_mapping = models.ForeignKey(OrderedProductMapping, null=True, related_name='rt_ordered_product_mapping', on_delete=models.DO_NOTHING)
+    pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
+    bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField(default=0, verbose_name='NO. OF PIECES TO SHIP')
+    ordered_pieces = models.CharField(max_length=10, null=True, blank=True)
+    delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
+    already_shipped_qty = models.PositiveIntegerField(default=0)
+    expiry_date = models.CharField(max_length=30, null=True, blank=True)
+    returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
+    damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
+    returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
+    pickup_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked pieces")
+    expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    # def save(self, *args, **kwargs):
+    #     if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.pickup_quantity != sum(
+    #             [self.quantity, self.damaged_qty, self.expired_qty]):
+    #         raise ValidationError(_('Picked quantity sum mismatched with picked pieces'))
+    #     else:
+    #         super().save(*args, **kwargs)
 
 
 class ShipmentProductMapping(OrderedProductMapping):
@@ -2239,16 +2286,26 @@ def update_full_part_order_status(shipment):
 
 @task
 def assign_update_picker_to_shipment(shipment_id):
-   shipment = OrderedProduct.objects.get(pk=shipment_id)
-   if shipment.shipment_status == "SHIPMENT_CREATED":
-       # assign shipment to picklist
-       # tbd : if manual(by searching relevant picklist id) or automated
-       if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
-           picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
-   elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
-       if shipment.picker_shipment.all().exists():
-           shipment.picker_shipment.all().update(picking_status="picking_complete")
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    if shipment.shipment_status == "SHIPMENT_CREATED":
+        # assign shipment to picklist
+        # tbd : if manual(by searching relevant picklist id) or automated
+        if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
+            picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
+        elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if shipment.picker_shipment.all().exists():
+                shipment.picker_shipment.all().update(picking_status="picking_complete")
 
+
+def add_to_putaway_on_partail(shipment_id):
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    common_on_return_and_partial(shipment)
+
+
+def add_to_putaway_on_return(shipment_id):
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    common_on_return_and_partial(shipment)
+    
 
 @receiver(post_save, sender=OrderedProduct)
 def update_picking_status(sender, instance=None, created=False, **kwargs):
@@ -2258,23 +2315,23 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     #assign_update_picker_to_shipment.delay(instance.id)
     assign_update_picker_to_shipment(instance.id)
 
-@receiver(post_save, sender=Order)
-def assign_picklist(sender, instance=None, created=False, **kwargs):
-    '''
-    Method to update picking status
-    '''
-    #assign shipment to picklist once SHIPMENT_CREATED
-    if created:
-        # assign piclist to order
-        try:
-            pincode = "00" #instance.shipping_address.pincode
-        except:
-            pincode = "00"
-        PickerDashboard.objects.create(
-            order=instance,
-            picking_status="picking_pending",
-            picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
-            )
+# @receiver(post_save, sender=Order)
+# def assign_picklist(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update picking status
+#     '''
+#     #assign shipment to picklist once SHIPMENT_CREATED
+#     if created:
+#         # assign piclist to order
+#         try:
+#             pincode = "00" #instance.shipping_address.pincode
+#         except:
+#             pincode = "00"
+#         PickerDashboard.objects.create(
+#             order=instance,
+#             picking_status="picking_pending",
+#             picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
+#             )
 
 
 # post_save.connect(get_order_report, sender=Order)
@@ -2356,7 +2413,7 @@ def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=PickerDashboard)
 def update_order_status_from_picker(sender, instance=None, created=False, **kwargs):
     if instance.picking_status == PickerDashboard.PICKING_ASSIGNED:
-        instance.order.order_status = Order.DISPATCH_PENDING
+        instance.order.order_status = Order.PICKING_ASSIGNED
         instance.order.save()
 
 
@@ -2390,3 +2447,41 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
         instance.order.save()
     if instance.shipment_status == OrderedProduct.RESCHEDULED:
         update_full_part_order_status(instance)
+
+
+def populate_data_on_qc_pass(order):
+    pick_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
+    for i in pick_bin_inv:
+        try:
+            ordered_product_mapping = order.rt_order_order_product.all().last().rt_order_product_order_product_mapping.filter(product__id=i.pickup.sku.id).first()
+            obj = OrderedProductBatch.objects.create(
+                batch_id=i.batch_id,
+                bin_ids=i.bin.bin.bin_id,
+                pickup_inventory=i,
+                ordered_product_mapping=ordered_product_mapping,
+                pickup=i.pickup,
+                bin=i.bin,
+                quantity=i.pickup_quantity,
+                pickup_quantity=i.pickup_quantity,
+                expiry_date=get_expiry_date(i.batch_id),
+                delivered_qty=ordered_product_mapping.delivered_qty,
+                ordered_pieces=i.quantity
+                # already_shipped_qty=ordered_product_mapping.shipped_qty
+            )
+        except:
+            pass
+
+
+@receiver(post_save, sender=OrderedProductBatch)
+def create_putaway(sender, created=False, instance=None, *args, **kwargs):
+    if instance.returned_qty == 0 and instance.delivered_qty == 0:
+        add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
+
+
+# post save method to check the pickup status is cancelled and after that update status cancelled in
+# Picker Dashboard Model
+@receiver(post_save, sender=Pickup)
+def cancel_status_picker_dashboard(sender, instance=None, created=False, *args, **kwargs):
+    if instance.status == 'picking_cancelled':
+        picker_dashboard = PickerDashboard.objects.filter(order__order_no=instance.pickup_type_id)
+        picker_dashboard.update(picking_status='picking_cancelled')

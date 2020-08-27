@@ -20,7 +20,7 @@ from shops.models import Shop, ShopType
 from .models import (
     Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping,
     BrandNote, PickList, PickListItems, OrderedProductReserved, Po_Message,
-    BEST_BEFORE_MONTH_CHOICE, BEST_BEFORE_YEAR_CHOICE
+    BEST_BEFORE_MONTH_CHOICE, BEST_BEFORE_YEAR_CHOICE, Document
 )
 from brand.models import Brand
 from addresses.models import State, Address
@@ -179,20 +179,22 @@ class GRNOrderProductForm(forms.ModelForm):
     po_product_quantity = forms.IntegerField()
     po_product_price = forms.DecimalField()
     already_grned_product = forms.IntegerField()
-    expiry_date = forms.DateField(required=False,widget=AdminDateWidget())
+    already_returned_product = forms.IntegerField()
+    expiry_date = forms.DateField(required=False, widget=AdminDateWidget())
     best_before_year = forms.ChoiceField(choices=BEST_BEFORE_YEAR_CHOICE,)
     best_before_month = forms.ChoiceField(choices=BEST_BEFORE_MONTH_CHOICE,)
 
     class Meta:
         model = GRNOrderProductMapping
-        fields = ('product', 'product_mrp', 'po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date',
+        fields = ('product', 'product_mrp', 'po_product_quantity','po_product_price','already_grned_product','already_returned_product','product_invoice_price','manufacture_date',
                   'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
-        readonly_fields = ('product','product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product')
+        readonly_fields = ('product','product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product', 'already_returned_product')
         autocomplete_fields = ('product',)
+
 
     class Media:
         #css = {'all': ('pretty.css',)}
-        js = ('/static/admin/js/grn_form.js',)
+        js = ('/static/admin/js/grn_form.js', )
 
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductForm, self).__init__(*args, **kwargs)
@@ -206,18 +208,21 @@ class GRNOrderProductForm(forms.ModelForm):
 
     def clean(self):
         super(GRNOrderProductForm, self).clean()
-        manufacture_date = self.cleaned_data.get('manufacture_date')
-        expiry_date = self.cleaned_data.get('expiry_date')
-        if self.cleaned_data.get('product_invoice_qty') >0:
-            self.fields_required(['manufacture_date'])
-            if self.cleaned_data.get('expiry_date') and self.cleaned_data.get('expiry_date') > self.cleaned_data.get('manufacture_date'):
-                pass
-            elif int(self.cleaned_data.get('best_before_year')) or int(self.cleaned_data.get('best_before_month')):
-                expiry_date = self.cleaned_data.get('manufacture_date') + relativedelta(years=int(self.cleaned_data.get('best_before_year')), months=int(self.cleaned_data.get('best_before_month')))
-                self.cleaned_data['expiry_date'] = expiry_date
-            else:
-                raise ValidationError(_('Please enter either expiry date greater than manufactured date or best before'))
-        return self.cleaned_data
+        if self.cleaned_data.get('product', None):
+            if self.cleaned_data.get('expiry_date') and self.cleaned_data.get('manufacture_date') is None:
+                raise ValidationError(_('Manufacture date is required'))
+            manufacture_date = self.cleaned_data.get('manufacture_date')
+            expiry_date = self.cleaned_data.get('expiry_date')
+            if self.cleaned_data.get('product_invoice_qty') is None or self.cleaned_data.get('product_invoice_qty') >0:
+                self.fields_required(['manufacture_date'])
+                if self.cleaned_data.get('expiry_date') and self.cleaned_data.get('expiry_date') > self.cleaned_data.get('manufacture_date'):
+                    pass
+                elif int(self.cleaned_data.get('best_before_year')) or int(self.cleaned_data.get('best_before_month')):
+                    expiry_date = self.cleaned_data.get('manufacture_date') + relativedelta(years=int(self.cleaned_data.get('best_before_year')), months=int(self.cleaned_data.get('best_before_month')))
+                    self.cleaned_data['expiry_date'] = expiry_date
+                else:
+                    raise ValidationError(_('Please enter either expiry date greater than manufactured date or best before'))
+            return self.cleaned_data
 
 
 class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
@@ -227,23 +232,69 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
         if hasattr(self, 'order') and self.order:
             ordered_cart = self.order
             initial = []
-            for item in ordered_cart.products.all():
+            for item in ordered_cart.products.order_by('product_name'):
                 already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('delivered_qty'))
+                already_return = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('returned_qty'))
                 initial.append({
                     'product' : item,
                     'product_mrp': item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_mrp if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else '-',
                     'po_product_quantity': item.cart_product_mapping.filter(cart=ordered_cart).last().qty,
                     'po_product_price':  item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price,
                     'already_grned_product': 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum'),
+                    'already_returned_product': 0 if already_return.get('returned_qty__sum') == None else already_return.get('returned_qty__sum'),
                     })
             self.extra = len(initial)
             self.initial= initial
 
     def clean(self):
         super(GRNOrderProductFormset, self).clean()
+        products_dict = {}
         count=0
-        for form in self:
+        for form in self.forms:
             if form.cleaned_data.get('product_invoice_qty'):
-                count+=1
+                count += 1
+            if form.cleaned_data.get('delivered_qty') is None:
+                raise ValidationError('This field is required')
+            if form.cleaned_data.get('returned_qty') is None:
+                raise ValidationError('This field is required')
+
+            if form.instance.product.id in products_dict:
+                product_data = products_dict[form.instance.product.id]
+                product_data['total_items'] = product_data['total_items'] + (form.cleaned_data.get('delivered_qty') + form.cleaned_data.get('returned_qty'))
+                product_data['product_invoice_qty'] = product_data['product_invoice_qty'] + form.cleaned_data.get('product_invoice_qty')
+            else:
+                products_data = {'total_items':(form.cleaned_data.get('delivered_qty') + form.cleaned_data.get('returned_qty')),
+                                 'diff':(form.instance.po_product_quantity - (form.instance.already_grned_product + form.instance.already_returned_product)),
+                                 'product_invoice_qty':form.cleaned_data.get('product_invoice_qty'),
+                                 'product_name':form.cleaned_data.get('product')}
+                products_dict[form.instance.product.id] = products_data
+
         if count <1:
             raise ValidationError("Please fill the product invoice quantity of at least one product.")
+
+        for k,v in products_dict.items():
+            if v.get('product_invoice_qty') <= v.get('diff'):
+                if v.get('product_invoice_qty') < v.get('total_items'):
+                    raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity for %s') % v.get('product_name'))
+                elif v.get('total_items') < v.get('product_invoice_qty'):
+                    raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity for %s') % v.get('product_name'))
+            else:
+                raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and (already_grned_product + already_returned_product) for %s') % v.get('product_name'))
+
+
+class DocumentForm(forms.ModelForm):
+    document_image = forms.FileField(required=True)
+    document_number = forms.CharField(required=True)
+
+
+class DocumentFormset(forms.models.BaseInlineFormSet):
+    model = Document
+
+    def clean(self):
+        super(DocumentFormset, self).clean()
+        for form in self:
+            if form.cleaned_data.get('document_number') is None:
+                raise ValidationError("Document Number is Required.")
+
+            if form.cleaned_data.get('document_image') is None:
+                raise ValidationError("Document Image is Required.")

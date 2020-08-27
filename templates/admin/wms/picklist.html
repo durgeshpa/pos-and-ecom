@@ -1,0 +1,106 @@
+{% load i18n %}
+{% load static %}
+{% load staticfiles %}
+<html lang="en">
+<head>
+  <title>Pick List</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" type="text/css" href="{% static 'admin/css/bootstrap.css' %}">
+  <link rel="stylesheet" type="text/css" href="{% static 'admin/css/style2.css' %}">
+</head>
+<body>
+
+<div class="container-fluid" >
+  <div class="col-md-6" >
+    <div class="barcode">
+      <div class="pull-right">Order No:<img src="data:image/png;base64,{{barcode}}" height="130px">
+    </div>
+  </div>
+  </div>
+
+  	<table class="table">
+	<thead>
+      <tr>
+        <th class="no-border">Order ID : {{order_obj.order_no}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store Name : {{buyer_shop}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store Shipping Address : {{buyer_shipping_address}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store Shipping City : {{buyer_shipping_city}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Contact No : {{buyer_contact_no}}</th>
+      </tr>
+    </thead>
+	</table>
+  <table class="table table-bordered">
+    <thead>
+      <th>Expiry Check:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered">
+    <thead>
+      <th>Product Description Check:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered">
+    <thead>
+      <th> MRP Check:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered">
+    <thead>
+      <th> Cleanliness/ Damage Check:</th>
+    </thead>
+  </table>
+
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+          <th><strong>Sl No.</strong></th>
+          <th>Product Name</th>
+          <th>Product SKU</th>
+          <th>Prod MRP</th>
+          <th>To Be Picked Qty</th>
+          <th>Batch ID</th>
+          <th>BIN ID</th>
+          <th>Remark</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for cart in data_list %}
+      <tr>
+        <td>{{forloop.counter}}</td>
+        <td>{{ cart.product }}</td>
+        <td>{{ cart.sku }}</td>
+        <td>{{ cart.mrp }}</td>
+        <td>{{ cart.qty }}</td>
+        <td>{{ cart.batch_id }}</td>
+        <td>{{ cart.bin }}</td>
+        <td>--------</td>
+        <td></td>
+		<td></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <table class="table table-bordered" colspan=6>
+    <thead>
+      <th> Picker Signature:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered" colspan=6>
+    <thead>
+      <th> Biller Signature:</th>
+    </thead>
+  </table>
+</div>
+
+</body>
+</html>
+

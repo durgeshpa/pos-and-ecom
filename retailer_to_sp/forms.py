@@ -26,7 +26,7 @@ from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
     OrderedProductMapping, Order, Dispatch, Trip,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
-    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment,BulkOrder
+    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment,BulkOrder, OrderedProductBatch
 )
 from products.models import Product
 from shops.models import Shop
@@ -34,6 +34,7 @@ from accounts.models import UserWithName
 from accounts.middlewares import get_current_user
 from addresses.models import Address
 from payments.models import ShipmentPayment
+
 
 User = get_user_model()
 
@@ -147,7 +148,7 @@ class OrderedProductForm(forms.ModelForm):
         data = self.cleaned_data
         if not self.cleaned_data['order'].picker_order.all().exists():
             raise forms.ValidationError(_("Please assign picklist to the order"), )
-        if self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
+        if self.cleaned_data['order'].picker_order.last().picking_status != "picking_complete":
             raise forms.ValidationError(_("Please set the picking status in picker dashboard"), )
         return data
 
@@ -159,7 +160,7 @@ class OrderedProductMappingForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProductMapping
-        fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty']
+        fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty', 'returned_damage_qty']
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductMappingForm, self).__init__(*args, **kwargs)
@@ -174,6 +175,7 @@ class OrderedProductMappingForm(forms.ModelForm):
         self.fields['delivered_qty'].label = "Delivered Pieces"
         self.fields['damaged_qty'].label = "Damaged Pieces"
         self.fields['returned_qty'].label = "Returned Pieces"
+        self.fields['returned_damage_qty'] = "Returned Damaged"
 
 
 class OrderedProductMappingDeliveryForm(forms.ModelForm):
@@ -184,7 +186,7 @@ class OrderedProductMappingDeliveryForm(forms.ModelForm):
         model = OrderedProductMapping
         fields = [
             'product', 'ordered_qty', 'already_shipped_qty', 'delivered_qty',
-            'returned_qty', 'damaged_qty'
+            'returned_qty', 'damaged_qty', 'returned_damage_qty'
         ]
 
     def clean(self):
@@ -192,6 +194,7 @@ class OrderedProductMappingDeliveryForm(forms.ModelForm):
         delivered_qty = int(self.cleaned_data.get('delivered_qty', '0'))
         returned_qty = int(self.cleaned_data.get('returned_qty', '0'))
         damaged_qty = int(self.cleaned_data.get('damaged_qty', '0'))
+        returned_damage_qty = int(self.cleaned_data.get('returned_damage_qty'), '0')
         already_shipped_qty = int(self.cleaned_data.get('already_shipped_qty'))
         if sum([delivered_qty, returned_qty,
                 damaged_qty]) != already_shipped_qty:
@@ -211,6 +214,10 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
         required=False, widget=forms.TextInput(attrs={'readonly': True}))
     to_be_shipped_qty = forms.CharField(
         required=False, widget=forms.TextInput(attrs={'readonly': True}))
+    shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
+    picked_pieces = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
     product = forms.ModelChoiceField(
         queryset=Product.objects.all(), widget=forms.TextInput)
     product_name = forms.CharField(
@@ -220,7 +227,51 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
         model = OrderedProductMapping
         fields = [
             'product', 'ordered_qty', 'already_shipped_qty',
-            'to_be_shipped_qty', 'shipped_qty',
+            'to_be_shipped_qty', 'shipped_qty','picked_pieces',
+        ]
+
+    def clean_shipped_qty(self):
+
+        ordered_qty = int(self.cleaned_data.get('ordered_qty'))
+        shipped_qty = int(self.cleaned_data.get('shipped_qty'))
+        # picked_pieces = int(self.cleaned_data.get('picked_pieces'))
+        to_be_shipped_qty = int(self.cleaned_data.get('to_be_shipped_qty'))
+        # already_shipped_qty = int(self.cleaned_data.get('already_shipped_qty'))
+        max_qty_allowed = ordered_qty - to_be_shipped_qty
+        if max_qty_allowed < shipped_qty:
+            raise forms.ValidationError(
+                _('Max. Qty allowed: %s') % (max_qty_allowed),
+            )
+        else:
+            return shipped_qty
+
+    def __init__(self, *args, **kwargs):
+        super(OrderedProductMappingShipmentForm, self).__init__(*args, **kwargs)
+        # self.fields['ordered_qty'].widget.attrs['class'] = 'hide_input_box'
+        # self.fields['already_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
+        # self.fields['to_be_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
+        self.fields['product'].widget = forms.HiddenInput()
+
+
+class OrderedProductBatchForm(forms.ModelForm):
+    ordered_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
+    already_shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
+    to_be_shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
+    shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(), widget=forms.TextInput)
+    product_name = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = [
+            'product', 'ordered_qty', 'already_shipped_qty',
+            'to_be_shipped_qty', 'shipped_qty','picked_pieces'
         ]
 
     def clean_shipped_qty(self):
@@ -631,16 +682,23 @@ class ShipmentForm(forms.ModelForm):
 class ShipmentProductMappingForm(forms.ModelForm):
     ordered_qty = forms.CharField(required=False)
     already_shipped_qty = forms.CharField(required=False)
+    # shipped_qty = forms.IntegerField(disabled=True)
+    # picked_pieces = forms.IntegerField(disabled=True)
+    # damaged_qty = forms.IntegerField(disabled=True)
 
     class Meta:
         model = ShipmentProductMapping
         fields = [
             'product', 'ordered_qty', 'already_shipped_qty',
-            'shipped_qty'
+            'shipped_qty','picked_pieces'
         ]
 
     def __init__(self, *args, **kwargs):
         super(ShipmentProductMappingForm, self).__init__(*args, **kwargs)
+        #self.fields['shipped_qty'].disabled = True
+        #self.fields['damaged_qty'].disabled = True
+        #self.fields['expired_qty'].disabled = True
+        self.fields['picked_pieces'].disabled = True
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
             if instance.pk:
@@ -648,6 +706,22 @@ class ShipmentProductMappingForm(forms.ModelForm):
                 if shipment_status == 'READY_TO_SHIP' or shipment_status == 'CANCELLED':
                     for field_name in self.fields:
                         self.fields[field_name].disabled = True
+        instance = getattr(self, 'instance', None)
+        if instance.pk:
+            shipment_status = instance.ordered_product.shipment_status
+            if shipment_status != 'SHIPMENT_CREATED':
+                for field_name in self.fields:
+                    self.fields[field_name].disabled = True
+
+
+    def clean(self):
+        data = self.cleaned_data
+        #data['shipped_qty']= self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty'))
+        if self.instance.picked_pieces !=data.get('shipped_qty') + data.get('damaged_qty') + data.get('expired_qty'):
+            raise forms.ValidationError(
+                'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
+        return data
+
 
 
 class CartProductMappingForm(forms.ModelForm):
@@ -824,19 +898,19 @@ class OrderedProductReschedule(forms.ModelForm):
         return_reason = self.cleaned_data.get('return_reason')
         if not self.instance.shipment_status == OrderedProduct.RESCHEDULED:
             return_qty = 0
-            damaged_qty = 0
+            returned_damage_qty = 0
             total_products = self.data.get(
                 'rt_order_product_order_product_mapping-TOTAL_FORMS')
             for product in range(int(total_products)):
                 return_field = ("rt_order_product_order_product_mapping-%s-returned_qty") \
                                % product
-                damaged_field = ("rt_order_product_order_product_mapping-%s-damaged_qty") \
+                returned_damage_field = ("rt_order_product_order_product_mapping-%s-returned_damage_qty") \
                                 % product
                 return_qty += int(self.data.get(return_field))
-                damaged_qty += int(self.data.get(damaged_field))
-            if (return_qty or damaged_qty) and not return_reason:
+                returned_damage_qty += int(self.data.get(returned_damage_field))
+            if (return_qty or returned_damage_qty) and not return_reason:
                 raise forms.ValidationError(_('This field is required'), )
-            elif (not return_qty and not damaged_qty) and return_reason:
+            elif (not return_qty and not returned_damage_qty) and return_reason:
                 raise forms.ValidationError(
                     _('Either enter Return Qty for any product'
                       ' or Deselect this option'),
@@ -890,7 +964,7 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
     class Meta:
         model = OrderedProductMapping
         fields = ['product', 'shipped_qty',
-                  'returned_qty', 'damaged_qty', 'delivered_qty']
+                  'returned_qty', 'returned_damage_qty', 'delivered_qty']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -901,7 +975,18 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
                 if (instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED) or (
                     instance.ordered_product.trip and instance.ordered_product.trip.trip_status == Trip.RETURN_VERIFIED):
                     self.fields['returned_qty'].disabled = True
-                    self.fields['damaged_qty'].disabled = True
+                    self.fields['returned_damage_qty'].disabled = True
+
+    def clean(self):
+        data = self.cleaned_data
+        #data['delivered_qty'] = int(self.instance.shipped_qty) - (data.get('returned_qty') + data.get('returned_damage_qty'))
+        if int(self.instance.shipped_qty) != data.get('returned_qty') + data.get('returned_damage_qty') + data.get('delivered_qty'):
+            raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
+        return data
+
+
+
+
 
 
 class OrderForm(forms.ModelForm):
@@ -955,3 +1040,56 @@ class OrderForm(forms.ModelForm):
                     [i for i in Order.ORDER_STATUS if i[0] == instance.order_status] +
                     [('CANCELLED', 'Cancelled')]))
                 self.fields['order_status'].choices = order_status_choices
+
+
+class OrderedProductBatchForm(forms.ModelForm):
+    class Meta:
+        model = OrderedProductBatch
+        fields = ('pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty')
+
+    def __init__(self, *args, **kwargs):
+        super(OrderedProductBatchForm, self).__init__(*args, **kwargs)
+        #self.fields['quantity'].disabled = True
+        self.fields['pickup_quantity'].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance.pk:
+                shipment_status = instance.ordered_product_mapping.ordered_product.shipment_status
+                if shipment_status == 'READY_TO_SHIP' or shipment_status == 'CANCELLED':
+                    for field_name in self.fields:
+                        self.fields[field_name].disabled = True
+
+        instance = getattr(self, 'instance', None)
+        if instance.pk:
+            shipment_status = instance.ordered_product_mapping.ordered_product.shipment_status
+            if shipment_status != 'SHIPMENT_CREATED':
+                for field_name in self.fields:
+                    self.fields[field_name].disabled = True
+
+    def clean(self):
+        data = self.cleaned_data
+        if self.instance.ordered_product_mapping.ordered_product.shipment_status !='SHIPMENT_CREATED':
+            return data
+        else:
+            if data.get('damaged_qty') is None:
+                raise forms.ValidationError('Damaged Quantity can not be blank.')
+            if data.get('expired_qty') is None:
+                raise forms.ValidationError('Expired Quantity can not be blank.')
+            if int(self.instance.pickup_quantity)!= data.get('quantity') + data.get('damaged_qty') + data.get('expired_qty'):
+                raise forms.ValidationError('Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship.)')
+            return data
+
+
+
+
+class OrderedProductBatchingForm(forms.ModelForm):
+    class Meta:
+        model = OrderedProductBatch
+        fields = ('quantity', 'returned_damage_qty', 'returned_qty', 'delivered_qty')
+
+    def clean(self):
+        data = self.cleaned_data
+        #data['delivered_qty'] = int(self.instance.quantity) - (data.get('returned_damage_qty') + data.get('returned_qty'))
+        if int(self.instance.quantity) != data.get('returned_damage_qty') + data.get('returned_qty') + data.get('delivered_qty'):
+            raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
+        return data

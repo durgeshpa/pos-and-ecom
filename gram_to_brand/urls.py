@@ -1,8 +1,11 @@
 
-from .views import (SupplierAutocomplete,ShippingAddressAutocomplete,BillingAddressAutocomplete,BrandAutocomplete,StateAutocomplete,
-        OrderAutocomplete,ProductAutocomplete,VendorProductAutocomplete,VendorProductPrice, DownloadPurchaseOrder,
-        GRNProductPriceMappingData,GRNProductAutocomplete,GRNProductMappingData,GRNProduct1MappingData,GRNOrderAutocomplete,
-        GRNedProductData, ApproveView, DisapproveView, DownloadDebitNote)
+from .views import (SupplierAutocomplete, ShippingAddressAutocomplete, BillingAddressAutocomplete, BrandAutocomplete,
+                    StateAutocomplete,
+                    OrderAutocomplete, ProductAutocomplete, VendorProductAutocomplete, VendorProductPrice,
+                    DownloadPurchaseOrder,
+                    GRNProductPriceMappingData, GRNProductAutocomplete, GRNProductMappingData, GRNProduct1MappingData,
+                    GRNOrderAutocomplete,
+                    GRNedProductData, ApproveView, DisapproveView, DownloadDebitNote, MergedBarcode)
 
 
 from django.conf.urls import url,include
@@ -31,5 +34,6 @@ urlpatterns = [
 
     url(r'^approve/(?P<pk>\d+)/$', ApproveView.as_view(), name='approve-account', ),
     url(r'^dis-approve/(?P<pk>\d+)/$', DisapproveView.as_view(), name='dis-approve-account', ),
+    url(r'^merged_barcode/(?P<pk>\d+)/$', MergedBarcode.as_view(), name='batch_barcodes', ),
 
 ]

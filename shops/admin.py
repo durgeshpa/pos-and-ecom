@@ -21,12 +21,14 @@ from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
                     AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm)
-from .views import (StockAdjustmentView, stock_adjust_sample,
+from .views import (StockAdjustmentView,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView,
                     ShopUserMappingCsvSample, ShopTimingAutocomplete,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView,
-                    ShopUserMappingCsvSample, ShopTimingAutocomplete
-                    )
+                    ShopUserMappingCsvSample, ShopTimingAutocomplete)
+from .views import (StockAdjustmentView,shop_stock_download,
+                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
+)
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel
@@ -244,11 +246,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                        self.admin_site.admin_view(StockAdjustmentView.as_view()),
                        name="StockAdjustment"
                    ),
-                   url(
-                       r'^adjust-stock-sample/(?P<shop_id>\w+)/$',
-                       self.admin_site.admin_view(stock_adjust_sample),
-                       name="ShopStocks"
-                   ),
+                   # url(
+                   #     r'^adjust-stock-sample/(?P<shop_id>\w+)/$',
+                   #     self.admin_site.admin_view(stock_adjust_sample),
+                   #     name="ShopStocks"
+                   # ),
                    url(
                        r'^shop-sales-report/$',
                        self.admin_site.admin_view(SalesReport.as_view()),
@@ -279,6 +281,46 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                        self.admin_site.admin_view(UserAutocomplete.as_view()),
                        name="user-autocomplete"
                    ),
+                    url(
+                        r'^adjust-stock/(?P<shop_id>\w+)/$',
+                        self.admin_site.admin_view(StockAdjustmentView.as_view()),
+                        name="StockAdjustment"
+                    ),
+                    url(
+                        r'^shop_stock_download/(?P<shop_id>\w+)/$',
+                        self.admin_site.admin_view(shop_stock_download),
+                        name="ShopStocks"
+                    ),
+                    url(
+                        r'^shop-sales-report/$',
+                        self.admin_site.admin_view(SalesReport.as_view()),
+                        name="shop-sales-report"
+                    ),
+                    url(
+                        r'^shop-sales-form/$',
+                        self.admin_site.admin_view(SalesReportFormView.as_view()),
+                        name="shop-sales-form"
+                    ),
+                    url(
+                        r'^shop-timing-autocomplete/$',
+                        self.admin_site.admin_view(ShopTimingAutocomplete.as_view()),
+                        name="shop-timing-autocomplete"
+                    ),
+                    url(
+                        r'^bulk-shop-updation/$',
+                        self.admin_site.admin_view(bulk_shop_updation),
+                        name="bulk-shop-updation"
+                    ),
+                    url(
+                        r'^shop-autocomplete/$',
+                        self.admin_site.admin_view(ShopAutocomplete.as_view()),
+                        name="shop-autocomplete"
+                    ),
+                    url(
+                        r'^user-autocomplete/$',
+                        self.admin_site.admin_view(UserAutocomplete.as_view()),
+                        name="user-autocomplete"
+                    ),
 
                ] + urls
         return urls
