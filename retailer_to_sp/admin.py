@@ -381,7 +381,7 @@ class OrderedProductBatchingAdmin(NestedTabularInline):
     model = OrderedProductBatch
     form = OrderedProductBatchingForm
     fields = ('batch_id', 'ordered_piece','expiry_date','quantity','returned_qty','returned_damage_qty','delivered_qty')
-    readonly_fields = ('batch_id', 'ordered_piece','expiry_date','quantity')
+    readonly_fields = ('batch_id', 'ordered_piece','expiry_date')
     extra=0
     classes = ['return_batch_inline', ]
     def has_delete_permission(self, request, obj=None):
@@ -1042,7 +1042,7 @@ class OrderedProductMappingAdmin(NestedTabularInline):
     form = OrderedProductMappingRescheduleForm
     fields = ['product', 'ordered_qty','expiry_date','shipped_qty',
               'returned_qty', 'returned_damage_qty', 'delivered_qty']
-    readonly_fields = ['ordered_qty','expiry_date','product', 'gf_code', 'shipped_qty',
+    readonly_fields = ['ordered_qty','expiry_date','product', 'gf_code',
                        'cancellation_date']
     inlines = [OrderedProductBatchingAdmin, ]
     extra = 0

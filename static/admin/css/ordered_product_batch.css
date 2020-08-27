@@ -51,3 +51,9 @@ font-weight: bold;
 .return_table_inline  .original{
 width:0%
 }
+input[readonly] {
+  background-color: #e3e3e3;
+}
+input[disabled] {
+  background-color: #e3e3e3;
+}
