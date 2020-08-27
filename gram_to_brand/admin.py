@@ -234,21 +234,21 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
             formset.order = Cart.objects.get(pk=int(cart_id))
         return formset
 
-    # def download_batch_id_barcode(self, obj):
-    #     if not obj.batch_id:
-    #         return format_html("-")
-    #     return format_html(
-    #         "<a href= '%s' >Download Barcode</a>" %
-    #         (reverse('batch_barcodes',args=[obj.pk]))
-    #     )
     def download_batch_id_barcode(self, obj):
-        info_logger.info("download bin barcode method has been called.")
         if not obj.batch_id:
             return format_html("-")
         return format_html(
-            "<a href='data:image/png;base64,{}' download='{}'>{}</a>".format(barcodeGen(obj.batch_id), obj.batch_id, obj.
-                                                                             batch_id)
+            "<a href= '%s' >Download Barcode</a>" %
+            (reverse('batch_barcodes',args=[obj.pk]))
         )
+    # def download_batch_id_barcode(self, obj):
+    #     info_logger.info("download bin barcode method has been called.")
+    #     if not obj.batch_id:
+    #         return format_html("-")
+    #     return format_html(
+    #         "<a href='data:image/png;base64,{}' download='{}'>{}</a>".format(barcodeGen(obj.batch_id), obj.batch_id, obj.
+    #                                                                          batch_id)
+    #     )
 
 
     download_batch_id_barcode.short_description = 'Download Batch ID Barcode'
@@ -384,10 +384,10 @@ class GRNOrderAdmin(admin.ModelAdmin):
             for grn_product in grn_product_list:
                 product_mrp = ProductVendorMapping.objects.filter(vendor=obj.order.ordered_cart.supplier_name,
                                                                   product=grn_product.product)
-                temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(grn_product.product.product_case_size)),
-                             "data": {"SKU": grn_product.product.product_sku,
+                temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(product_mrp.last().case_size)),
+                             "data": {"SKU": grn_product.product.product_name,
                                       "MRP": product_mrp.last().product_mrp if product_mrp.exists() else ''}}
-            bin_id_list[grn_product.batch_id] = temp_data
+                bin_id_list[grn_product.batch_id] = temp_data
         return merged_barcode_gen(bin_id_list)
 
     download_barcode.short_description = "Download Barcode List"
