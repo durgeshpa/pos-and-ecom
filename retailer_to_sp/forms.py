@@ -970,7 +970,7 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        data['delivered_qty'] = int(self.instance.shipped_qty) - (data.get('returned_qty') + data.get('returned_damage_qty'))
+        #data['delivered_qty'] = int(self.instance.shipped_qty) - (data.get('returned_qty') + data.get('returned_damage_qty'))
         if int(self.instance.shipped_qty) != data.get('returned_qty') + data.get('returned_damage_qty') + data.get('delivered_qty'):
             raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
         return data
@@ -1080,7 +1080,7 @@ class OrderedProductBatchingForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        data['delivered_qty'] = int(self.instance.quantity) - (data.get('returned_damage_qty') + data.get('returned_qty'))
+        #data['delivered_qty'] = int(self.instance.quantity) - (data.get('returned_damage_qty') + data.get('returned_qty'))
         if int(self.instance.quantity) != data.get('returned_damage_qty') + data.get('returned_qty') + data.get('delivered_qty'):
             raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
         return data
