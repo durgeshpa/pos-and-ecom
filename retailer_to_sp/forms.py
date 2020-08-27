@@ -470,9 +470,9 @@ class TripForm(forms.ModelForm):
                 self.fields['search_by_pincode'].widget = forms.HiddenInput()
                 self.fields['Invoice_No'].widget = forms.HiddenInput()
                 self.fields['closing_kms'].disabled = False
-                self.fields['no_of_crates_check'].disabled = True
-                self.fields['no_of_packets_check'].disabled = True
-                self.fields['no_of_sacks_check'].disabled = True
+                self.fields['no_of_crates_check'].disabled = False
+                self.fields['no_of_packets_check'].disabled = False
+                self.fields['no_of_sacks_check'].disabled = False
 
             elif trip_status == Trip.RETURN_VERIFIED:
                 self.fields['e_way_bill_no'].disabled = True
@@ -520,7 +520,6 @@ class TripForm(forms.ModelForm):
                       (reverse("admin:retailer_to_sp_shipment_change",
                                args=[i.get('id')]), i.get('invoice__invoice_no'))
                       for i in cancelled_shipments]])
-
         return data
 
 
