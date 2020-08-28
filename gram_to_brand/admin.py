@@ -426,7 +426,7 @@ class OrderAdmin(admin.ModelAdmin):
 
     def add_grn_link(self, obj):
         if obj.ordered_cart.po_status in [obj.ordered_cart.FINANCE_APPROVED, obj.ordered_cart.PARTIAL_DELIVERED,
-                                          obj.ordered_cart.PARTIAL_RETURN]:
+                                          obj.ordered_cart.PARTIAL_RETURN,obj.ordered_cart.OPEN]:
             return format_html(
                 "<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&cart=%s' class ='addlink' > Add GRN</a>" % (
                 obj.id, obj.ordered_cart.id))
