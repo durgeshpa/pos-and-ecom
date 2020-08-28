@@ -24,7 +24,7 @@ from retailer_backend.admin import InputFilter
 from retailer_to_sp.api.v1.views import DownloadInvoiceSP, pdf_generation
 from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, load_dispatches, order_invoices,
                                   ordered_product_mapping_shipment, trip_planning, trip_planning_change,
-                                  update_shipment_status, reshedule_update_shipment, RetailerCart, assign_picker,
+                                  update_shipment_status_verified, reshedule_update_shipment, RetailerCart, assign_picker,
                                   assign_picker_change, UserWithNameAutocomplete, SellerAutocomplete,
                                   ShipmentOrdersAutocomplete, BuyerShopAutocomplete, BuyerParentShopAutocomplete,
                                   DownloadPickList, DownloadPickListPicker)
@@ -381,7 +381,7 @@ class OrderedProductBatchingAdmin(NestedTabularInline):
     model = OrderedProductBatch
     form = OrderedProductBatchingForm
     fields = ('batch_id', 'ordered_piece','expiry_date','quantity','returned_qty','returned_damage_qty','delivered_qty')
-    readonly_fields = ('batch_id', 'ordered_piece','expiry_date','quantity')
+    readonly_fields = ('batch_id', 'ordered_piece','expiry_date')
     extra=0
     classes = ['return_batch_inline', ]
     def has_delete_permission(self, request, obj=None):
@@ -1042,7 +1042,7 @@ class OrderedProductMappingAdmin(NestedTabularInline):
     form = OrderedProductMappingRescheduleForm
     fields = ['product', 'ordered_qty','expiry_date','shipped_qty',
               'returned_qty', 'returned_damage_qty', 'delivered_qty']
-    readonly_fields = ['ordered_qty','expiry_date','product', 'gf_code', 'shipped_qty',
+    readonly_fields = ['ordered_qty','expiry_date','product', 'gf_code',
                        'cancellation_date']
     inlines = [OrderedProductBatchingAdmin, ]
     extra = 0
@@ -1072,7 +1072,7 @@ class OrderedProductAdmin(NestedModelAdmin):
     autocomplete_fields = ('order',)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     readonly_fields = (
-        'order', 'invoice_no', 'trip', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
+        'order', 'invoice_no', 'trip', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
     )
     form = OrderedProductReschedule
     ordering = ['-created_at']
@@ -1110,14 +1110,16 @@ class OrderedProductAdmin(NestedModelAdmin):
         )
 
     def save_related(self, request, form, formsets, change):
+        complete_shipment_status = ['FULLY_RETURNED_AND_COMPLETED','PARTIALLY_DELIVERED_AND_COMPLETED',
+                                    'FULLY_DELIVERED_AND_COMPLETED']
         form_instance = getattr(form, 'instance', None)
         formsets_dict = {formset.__class__.__name__: formset
                          for formset in formsets}
         if (not form_instance.rescheduling_shipment.exists()) and ('ShipmentReschedulingFormFormSet' in formsets_dict and
             [i for i in formsets_dict['ShipmentReschedulingFormFormSet'].cleaned_data if i]):
             reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
-        else:
-            update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
+        elif form_instance.shipment_status in complete_shipment_status:
+            update_shipment_status_verified(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             #create_credit_note(form.instance)
         # update_order_status(
         #     close_order_checked=False,

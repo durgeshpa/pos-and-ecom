@@ -555,8 +555,20 @@ class TripForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
+        shipment_status_verify = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
+                                  'FULLY_DELIVERED_AND_VERIFIED']
+
+        shipment_ids = data.get('selected_id').split(',')
+        if self.instance and self.instance.trip_status == Trip.COMPLETED and data['trip_status'] == Trip.RETURN_VERIFIED:
+            shipment_list = Shipment.objects.filter(id__in=shipment_ids)
+            for shipment in shipment_list:
+                if shipment.shipment_status not in shipment_status_verify:
+                    raise forms.ValidationError("Please Verify all shipments before closing the Trip")
+
+
+
         if self.instance and self.instance.trip_status == Trip.READY:
-            shipment_ids = data.get('selected_id').split(',')
+
             cancelled_shipments = Shipment.objects.values('id', 'invoice__invoice_no'
                                                           ).filter(id__in=shipment_ids, shipment_status='CANCELLED')
 
@@ -887,16 +899,17 @@ class OrderedProductReschedule(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if not get_current_user().is_superuser:
-            instance = getattr(self, 'instance', None)
-            #if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
-            if ((instance.shipment_status == OrderedProduct.RESCHEDULED) or
-                (instance.trip and instance.trip.trip_status == Trip.RETURN_VERIFIED)):
-                self.fields['return_reason'].disabled = True
+        instance = getattr(self, 'instance', None)
+        self.fields['shipment_status'].disabled = True
+        if not (instance.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
+                instance.shipment_status == 'FULLY_RETURNED_AND_COMPLETED'):
+            self.fields['return_reason'].disabled = True
+
 
     def clean_return_reason(self):
         return_reason = self.cleaned_data.get('return_reason')
-        if not self.instance.shipment_status == OrderedProduct.RESCHEDULED:
+        if self.instance.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
+                self.instance.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
             return_qty = 0
             returned_damage_qty = 0
             total_products = self.data.get(
@@ -906,8 +919,10 @@ class OrderedProductReschedule(forms.ModelForm):
                                % product
                 returned_damage_field = ("rt_order_product_order_product_mapping-%s-returned_damage_qty") \
                                 % product
-                return_qty += int(self.data.get(return_field))
-                returned_damage_qty += int(self.data.get(returned_damage_field))
+                if self.data.get(return_field) is not None:
+                    return_qty += int(self.data.get(return_field))
+                if self.data.get(returned_damage_field) is not None:
+                    returned_damage_qty += int(self.data.get(returned_damage_field))
             if (return_qty or returned_damage_qty) and not return_reason:
                 raise forms.ValidationError(_('This field is required'), )
             elif (not return_qty and not returned_damage_qty) and return_reason:
@@ -953,11 +968,12 @@ class ShipmentReschedulingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
-        if not get_current_user().is_superuser:
-            instance = getattr(self, 'instance', None)
-            if instance and instance.pk or (instance.shipment and instance.shipment.trip and instance.shipment.trip.trip_status == Trip.RETURN_VERIFIED):
-                self.fields['rescheduling_reason'].disabled = True
-                self.fields['rescheduling_date'].disabled = True
+        instance = getattr(self, 'instance', None)
+        # if instance.shipment:
+        #     if not (self.instance.shipment.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
+        #             self.instance.shipment.shipment_status == 'FULLY_RETURNED_AND_COMPLETED'):
+        #         self.fields['rescheduling_reason'].disabled = True
+        #         self.fields['rescheduling_date'].disabled = True
 
 
 class OrderedProductMappingRescheduleForm(forms.ModelForm):
@@ -968,20 +984,24 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if not get_current_user().is_superuser:
-            instance = getattr(self, 'instance', None)
-            if instance and instance.pk:
-                #if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
-                if (instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED) or (
-                    instance.ordered_product.trip and instance.ordered_product.trip.trip_status == Trip.RETURN_VERIFIED):
-                    self.fields['returned_qty'].disabled = True
-                    self.fields['returned_damage_qty'].disabled = True
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk:
+            if not (instance.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
+                    instance.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED' or
+                    instance.ordered_product.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED'):
+                self.fields['returned_qty'].disabled = True
+                self.fields['returned_damage_qty'].disabled = True
+                self.fields['delivered_qty'].disabled = True
+                self.fields['shipped_qty'].disabled = True
 
     def clean(self):
         data = self.cleaned_data
-        #data['delivered_qty'] = int(self.instance.shipped_qty) - (data.get('returned_qty') + data.get('returned_damage_qty'))
-        if int(self.instance.shipped_qty) != data.get('returned_qty') + data.get('returned_damage_qty') + data.get('delivered_qty'):
-            raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
+        if self.instance.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
+                self.instance.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
+            data['delivered_qty'] = int(self.instance.shipped_qty) - (data.get('returned_qty') + data.get('returned_damage_qty'))
+            #data['delivered_qty'] = int(self.instance.shipped_qty) - (data.get('returned_qty') + data.get('returned_damage_qty'))
+            if int(self.instance.shipped_qty) != data.get('returned_qty') + data.get('returned_damage_qty') + data.get('delivered_qty'):
+                raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
         return data
 
 
@@ -1087,9 +1107,25 @@ class OrderedProductBatchingForm(forms.ModelForm):
         model = OrderedProductBatch
         fields = ('quantity', 'returned_damage_qty', 'returned_qty', 'delivered_qty')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk:
+            if not (instance.ordered_product_mapping.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
+                    instance.ordered_product_mapping.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED' or
+                    instance.ordered_product_mapping.ordered_product.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED'):
+                self.fields['returned_qty'].disabled = True
+                self.fields['returned_damage_qty'].disabled = True
+                self.fields['delivered_qty'].disabled = True
+                self.fields['quantity'].disabled = True
+
     def clean(self):
         data = self.cleaned_data
-        #data['delivered_qty'] = int(self.instance.quantity) - (data.get('returned_damage_qty') + data.get('returned_qty'))
-        if int(self.instance.quantity) != data.get('returned_damage_qty') + data.get('returned_qty') + data.get('delivered_qty'):
-            raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
+        if self.instance.ordered_product_mapping.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
+                self.instance.ordered_product_mapping.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
+            data['delivered_qty'] = int(self.instance.quantity) - (data.get('returned_damage_qty') + data.get('returned_qty'))
+            #data['delivered_qty'] = int(self.instance.quantity) - (data.get('returned_damage_qty') + data.get('returned_qty'))
+            if int(self.instance.quantity) != data.get('returned_damage_qty') + data.get('returned_qty') + data.get('delivered_qty'):
+                raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, '
+                                            'delivered)')
         return data

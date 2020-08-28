@@ -44,30 +44,42 @@
   });
 })(django.jQuery);
 
-function changeReturnedQty(){
-    $(document).ready(function(){
-        xx = [0,1,2,3,4,5,6]
-        $("input[name$='-returned_qty']").keyup(function(){
-    for(var i=0;i<10;i++){
-        var sum = 0
-        for (var j=0; j<10;j++){
-            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_qty` + "]").val())
-            if (isNaN(tot)){
-                continue
-            }
-            sum +=tot
-            $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_qty` + "]").val(sum);
-        }
-        }
-        });
-    })
-}
+(function($) {
+$(document).ready(function(){
+       $('.return_table_inline').find('input').prop("readonly", true)
+       $('.return_batch_inline table tr.has_original').each(function(){
+            var delivered_qty=0
+            delivered_qty = $(this).find("input[name$='-quantity']").val()-$(this).find("input[name$='-returned_qty']").val()-
+            $(this).find("input[name$='-returned_damage_qty']").val()
+            $(this).find("input[name$='-delivered_qty']").val(delivered_qty)
 
-function changeDamagedQty(){
-    $(document).ready(function(){
-        xx = [0,1,2,3,4,5,6]
-        $("input[name$='-returned_damage_qty']").keyup(function(){
-    for(var i=0;i<10;i++){
+       })
+       $('.return_batch_inline').find('input').prop("readonly", false)
+       $("input[name$='-delivered_qty']").prop("readonly", true)
+       $("input[name$='-shipped_qty']").prop("readonly", true)
+       $("input[name$='-quantity']").prop("readonly", true)
+    })
+})(django.jQuery);
+
+(function($) {
+$(document).ready(function(){
+       $("input").change(function(){
+       if($(this).val()<0)
+       {
+            $(this).val(0)
+       }
+       for(var i=0;i<10;i++){
+        var sum = 0
+           for (var j=0; j<10;j++){
+                var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_qty` + "]").val())
+                if (isNaN(tot)){
+                    continue
+                }
+                sum +=tot
+                $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_qty` + "]").val(sum);
+                }
+           }
+        for(var i=0;i<10;i++){
         var sum = 0
         for (var j=0; j<10;j++){
             var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_damage_qty` + "]").val())
@@ -78,28 +90,82 @@ function changeDamagedQty(){
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_damage_qty` + "]").val(sum);
         }
         }
-        });
+        $('table tr.has_original').each(function(){
+            var delivered_qty=0
+            delivered_qty = $(this).find("input[name$='-quantity']").val()-$(this).find("input[name$='-returned_qty']").val()-
+            $(this).find("input[name$='-returned_damage_qty']").val()
+            if (isNaN(delivered_qty))
+            {
+                delivered_qty = $(this).find("input[name$='-shipped_qty']").val()-$(this).find("input[name$='-returned_qty']").val()-
+                $(this).find("input[name$='-returned_damage_qty']").val()
+            }
+            $(this).find("input[name$='-delivered_qty']").val(delivered_qty)
+
+       })
     })
+    $("submit").click(function(){
+        alert("hello")
+    })
+
+    })
+})(django.jQuery);
+
+function changeReturnedQty(){
+//    $(document).ready(function(){
+//        xx = [0,1,2,3,4,5,6]
+//        $("input[name$='-returned_qty']").keyup(function(){
+//    for(var i=0;i<10;i++){
+//        var sum = 0
+//        for (var j=0; j<10;j++){
+//            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_qty` + "]").val())
+//            if (isNaN(tot)){
+//                continue
+//            }
+//            sum +=tot
+//            $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_qty` + "]").val(sum);
+//        }
+//        }
+//        });
+//    })
+}
+
+function changeDamagedQty(){
+//    $(document).ready(function(){
+//        xx = [0,1,2,3,4,5,6]
+//        $("input[name$='-returned_damage_qty']").keyup(function(){
+//    for(var i=0;i<10;i++){
+//        var sum = 0
+//        for (var j=0; j<10;j++){
+//            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_damage_qty` + "]").val())
+//            if (isNaN(tot)){
+//                continue
+//            }
+//            sum +=tot
+//            $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_damage_qty` + "]").val(sum);
+//        }
+//        }
+//        });
+//    })
 }
 
 
 function changeDeliveredQty(){
-    $(document).ready(function(){
-        xx = [0,1,2,3,4,5,6]
-        $("input[name$='-delivered_qty']").keyup(function(){
-    for(var i=0;i<10;i++){
-        var sum = 0
-        for (var j=0; j<10;j++){
-            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-delivered_qty` + "]").val())
-            if (isNaN(tot)){
-                continue
-            }
-            sum +=tot
-            $("input[name=" + `rt_order_product_order_product_mapping-${i}-delivered_qty` + "]").val(sum);
-        }
-        }
-        });
-    })
+//    $(document).ready(function(){
+//        xx = [0,1,2,3,4,5,6]
+//        $("input[name$='-delivered_qty']").keyup(function(){
+//    for(var i=0;i<10;i++){
+//        var sum = 0
+//        for (var j=0; j<10;j++){
+//            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-delivered_qty` + "]").val())
+//            if (isNaN(tot)){
+//                continue
+//            }
+//            sum +=tot
+//            $("input[name=" + `rt_order_product_order_product_mapping-${i}-delivered_qty` + "]").val(sum);
+//        }
+//        }
+//        });
+//    })
 }
 
 function hideLink(){
