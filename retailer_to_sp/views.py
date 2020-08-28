@@ -422,7 +422,8 @@ TRIP_SHIPMENT_STATUS_MAP = {
     'READY': 'READY_TO_DISPATCH',
     'STARTED': "OUT_FOR_DELIVERY",
     'CANCELLED': "READY_TO_SHIP",
-    'COMPLETED': "FULLY_DELIVERED_AND_COMPLETED"
+    'COMPLETED': "FULLY_DELIVERED_AND_COMPLETED",
+    'CLOSED': "FULLY_DELIVERED_AND_VERIFIED"
 }
 
 TRIP_ORDER_STATUS_MAP = {
@@ -1539,7 +1540,7 @@ def update_shipment_status_with_id(shipment_obj):
     total_delivered_qty = shipment_products_dict['delivered_qty_sum']
     total_shipped_qty = shipment_products_dict['shipped_qty_sum']
     total_returned_qty = shipment_products_dict['returned_qty_sum']
-    total_damaged_qty = shipment_products_dict['returned_damage_qty_sum']
+    total_damaged_qty = shipment_products_dict['damaged_qty_sum']
 
     if total_shipped_qty == (total_returned_qty + total_damaged_qty):
         shipment_obj.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
