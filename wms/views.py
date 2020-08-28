@@ -319,6 +319,10 @@ class StockMovementCsvSample(View):
                 writer.writerow(
                     ['1393', 'ORCPCRTOY00000002', 'ORCPCRTOY000000020820', 'B2BZ01SR01-001', 'B2BZ01SR01-002',
                      'normal', 'damaged', '100'])
+                f.seek(0)
+                response = HttpResponse(f, content_type='text/csv')
+                response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+                return response
             elif request.GET['inventory_movement_type'] == '3':
                 filename = 'stock_correction' + ".csv"
                 f = StringIO()
@@ -328,7 +332,10 @@ class StockMovementCsvSample(View):
                                  'Normal Quantity', 'Damaged Quantity', 'Expired Quantity', 'Missing Quantity'])
                 writer.writerow(['88', 'Complan Kesar Badam Refill, 200 gm', 'HOKBACFRT00000021', '20/08/2020',
                                  'V2VZ01SR001-0001', 'In', '0', '0', '0', '0'])
-
+                f.seek(0)
+                response = HttpResponse(f, content_type='text/csv')
+                response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+                return response
             elif request.GET['inventory_movement_type'] == '4':
                 filename = 'warehouse_inventory_change' + ".csv"
                 f = StringIO()
@@ -337,10 +344,10 @@ class StockMovementCsvSample(View):
                 writer.writerow(['Warehouse ID', 'SKU', 'Initial Stage', 'Final Stage', 'Inventory Type', 'Quantity'])
                 writer.writerow(['1393', 'ORCPCRTOY00000002', 'available', 'reserved', 'normal', '100'])
 
-            f.seek(0)
-            response = HttpResponse(f, content_type='text/csv')
-            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
-            return response
+                f.seek(0)
+                response = HttpResponse(f, content_type='text/csv')
+                response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+                return response
         except Exception as e:
             error_logger.error(e.message)
 
@@ -509,7 +516,8 @@ def stock_correction_data(upload_data, stock_movement_obj):
                     # Create data in Stock Correction change Model
                 InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
                                                                             Product.objects.get(product_sku=data[2]),
-                                                                            batch_id, Bin.objects.get(bin_id=data[4]),
+                                                                            batch_id, Bin.objects.get(bin_id=data[4],
+                                                                                                      warehouse=Shop.objects.get(id=data[0])),
                                                                             data[5], quantity, stock_movement_obj[0])
             return
     except Exception as e:
