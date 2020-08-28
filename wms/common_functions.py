@@ -392,7 +392,8 @@ class InternalInventoryChange(object):
         try:
             BinInternalInventoryChange.objects.create(warehouse_id=shop_id.id, sku=sku,
                                                       batch_id=batch_id,
-                                                      final_bin=Bin.objects.get(bin_id=final_bin_id),
+                                                      final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                                warehouse=Shop.objects.get(id=shop_id.id)),
                                                       initial_inventory_type=initial_type,
                                                       final_inventory_type=final_type,
                                                       transaction_type=transaction_type,
