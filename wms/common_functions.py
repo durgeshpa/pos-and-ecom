@@ -777,7 +777,7 @@ def cancel_order_with_pick(instance):
         # iterate over the PickupBin Inventory object
         for pickup_bin in pickup_bin_object:
             # if pick up status is pickup creation
-            if pickup_bin.pickup.status == 'pickup_creation':
+            if (pickup_bin.pickup.status == 'pickup_creation') or (pickup_bin.pickup.status =='picking_assigned'):
                 put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
                                         putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
                                         batch_id=pickup_bin.batch_id,
@@ -789,11 +789,6 @@ def cancel_order_with_pick(instance):
                     quantity = pickup_bin.quantity
                     pick_up_bin_quantity = pickup_bin.quantity
                 status = 'Order_Cancelled'
-            # if pick up status is pickup assigned
-            elif pickup_bin.pickup.status == 'picking_assigned':
-                pick_up_bin_quantity = pickup_bin.quantity
-                status = 'Order_Cancelled'
-            # if pick up status is pickup cancelled
             elif pickup_bin.pickup.status == 'picking_complete':
                 if instance.rt_order_order_product.all():
                     if instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].shipped_qty > 0\
@@ -804,11 +799,33 @@ def cancel_order_with_pick(instance):
                                 pick_up_bin_quantity = pickup_order.quantity
                         status = 'Shipment_Cancelled'
                     else:
-                        pick_up_bin_quantity = pickup_bin.pickup_quantity
-                        status = 'Shipment_Cancelled'
+                        put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
+                                                                 putaway_type='CANCELLED',
+                                                                 putaway_type_id=instance.order_no,
+                                                                 sku=pickup_bin.bin.sku,
+                                                                 batch_id=pickup_bin.batch_id,
+                                                                 )
+                        if put_away_object.exists():
+                            quantity = put_away_object[0].quantity + pickup_bin.quantity
+                            pick_up_bin_quantity = pickup_bin.pickup_quantity
+                            status = 'Shipment_Cancelled'
+                        else:
+                            quantity = pickup_bin.quantity
+                            pick_up_bin_quantity = pickup_bin.pickup_quantity
+                            status = 'Shipment_Cancelled'
                 else:
-                    pick_up_bin_quantity = pickup_bin.pickup_quantity
-                    status = 'Pickup_Cancelled'
+                    put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
+                                                             putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
+                                                             batch_id=pickup_bin.batch_id,
+                                                             )
+                    if put_away_object.exists():
+                        quantity = put_away_object[0].quantity + pickup_bin.quantity
+                        pick_up_bin_quantity = pickup_bin.pickup_quantity
+                        status = 'Pickup_Cancelled'
+                    else:
+                        quantity = pickup_bin.quantity
+                        pick_up_bin_quantity = pickup_bin.pickup_quantity
+                        status = 'Pickup_Cancelled'
 
             # update or create put away model
             pu, _ = Putaway.objects.update_or_create(putaway_user=instance.last_modified_by,
