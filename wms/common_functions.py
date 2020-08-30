@@ -778,7 +778,16 @@ def cancel_order_with_pick(instance):
         for pickup_bin in pickup_bin_object:
             # if pick up status is pickup creation
             if pickup_bin.pickup.status == 'pickup_creation':
-                pick_up_bin_quantity = pickup_bin.quantity
+                put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
+                                        putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
+                                        batch_id=pickup_bin.batch_id,
+                                        )
+                if put_away_object.exists():
+                    quantity = put_away_object[0].quantity + pickup_bin.quantity
+                    pick_up_bin_quantity = pickup_bin.quantity
+                else:
+                    quantity = pickup_bin.quantity
+                    pick_up_bin_quantity = pickup_bin.quantity
                 status = 'Order_Cancelled'
             # if pick up status is pickup assigned
             elif pickup_bin.pickup.status == 'picking_assigned':
@@ -806,7 +815,7 @@ def cancel_order_with_pick(instance):
                                                      warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
                                                      putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
                                                      batch_id=pickup_bin.batch_id,
-                                                     defaults={'quantity': pick_up_bin_quantity,
+                                                     defaults={'quantity': quantity,
                                                                'putaway_quantity': 0})
             # update or create put away bin inventory model
             PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
@@ -1232,7 +1241,7 @@ def cancel_ordered(request, obj, ordered_inventory_state, initial_stage):
             obj.putaway.putaway_quantity = obj.putaway_quantity
         else:
             obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
-        obj.putaway_user = request.user.pk
+        obj.putaway.putaway_user = request
         obj.putaway.save()
         normal_inventory_type = 'normal',
         available_inventory_state = 'available',
@@ -1274,6 +1283,9 @@ def cancel_ordered(request, obj, ordered_inventory_state, initial_stage):
                                                   transaction_id=transaction_id,
                                                   quantity=quantity)
 
+        obj.putaway_status = True
+        obj.save()
+
     else:
         pass
 
@@ -1283,7 +1295,7 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
         obj.putaway.putaway_quantity = obj.putaway_quantity
     else:
         obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
-    obj.putaway_user = request.user.pk
+    obj.putaway.putaway_user = request
     obj.putaway.save()
     transaction_type = 'put_away_type'
     transaction_id = obj.putaway_id
@@ -1366,6 +1378,8 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
                                                                          normal_inventory_type[0],
                                                                          ordered_inventory_state[0],
                                                                          ordered_quantity, True)
+            obj.putaway_status = True
+            obj.save()
 
         else:
             pass
@@ -1376,7 +1390,7 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
         obj.putaway.putaway_quantity = obj.putaway_quantity
     else:
         obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
-    obj.putaway_user = request.user.pk
+    obj.putaway.putaway_user = request
     obj.putaway.save()
     transaction_type = 'put_away_type'
     transaction_id = obj.putaway_id
@@ -1457,6 +1471,8 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
                                                                          normal_inventory_type[0],
                                                                          ordered_inventory_state[0],
                                                                          ordered_quantity, True)
+            obj.putaway_status = True
+            obj.save()
 
         else:
             pass

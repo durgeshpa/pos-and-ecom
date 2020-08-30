@@ -6,15 +6,17 @@ import codecs
 from django import forms
 from datetime import datetime
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
-    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, WarehouseInventory
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit
 from products.models import Product
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
-from sp_to_gram.models import OrderedProductMapping
 from .common_functions import create_batch_id_from_audit
+from retailer_to_sp.models import OrderedProduct
+from django.db import transaction
+from .common_functions import cancel_ordered, cancel_shipment, cancel_returned
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -165,6 +167,7 @@ class PutAwayBinInventoryForm(forms.ModelForm):
         fields = '__all__'
 
     def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
         super(PutAwayBinInventoryForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
 
@@ -172,6 +175,42 @@ class PutAwayBinInventoryForm(forms.ModelForm):
             # self.fields['putaway_quantity'].initial = 0
             if instance.putaway_status is True:
                 self.fields['putaway_status'].disabled = True
+
+    def clean(self):
+        with transaction.atomic():
+            if self.cleaned_data['putaway_status'] is False:
+                raise forms.ValidationError("You can't perform this action, Please mark Putaway status is Active.")
+            if PutawayBinInventory.objects.filter(id=self.instance.id)[0].putaway_status is True:
+                raise forms.ValidationError("You can't perform this action, PutAway has already done.")
+            else:
+                if self.instance.putaway_type == 'Order_Cancelled':
+                    ordered_inventory_state = 'ordered',
+                    initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
+                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage)
+
+                elif self.instance.putaway_type == 'Pickup_Cancelled':
+                    ordered_inventory_state = 'picked',
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage)
+
+                elif self.instance.putaway_type == 'Shipment_Cancelled':
+                    ordered_inventory_state = 'picked',
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage)
+
+                elif self.instance.putaway_type == 'PAR_SHIPMENT':
+                    ordered_inventory_state = 'picked',
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    shipment_obj = OrderedProduct.objects.filter(
+                        invoice__invoice_no=self.instance.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
+                    cancel_shipment(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_obj)
+
+                elif self.instance.putaway_type == 'RETURNED':
+                    ordered_inventory_state = 'picked',
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    shipment_obj = OrderedProduct.objects.filter(
+                        invoice__invoice_no=self.instance.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
+                    cancel_returned(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_obj)
 
 
 class BinInventoryForm(forms.ModelForm):
