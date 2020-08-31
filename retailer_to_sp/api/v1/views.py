@@ -1867,7 +1867,7 @@ class ShipmentDetail(APIView):
 
         product = self.request.POST.get('product')
         returned_qty = self.request.POST.get('returned_qty')
-        damaged_qty = self.request.POST.get('returned_damage_qty')
+        damaged_qty = self.request.POST.get('damaged_qty')
 
         if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(
                 returned_qty) + int(damaged_qty):
