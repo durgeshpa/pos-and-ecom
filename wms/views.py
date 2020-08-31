@@ -625,88 +625,88 @@ def pickup_entry_creation_with_cron():
     cart = Cart.objects.filter(rt_order_cart_mapping__order_status='ordered')
     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
     data_list = []
-    print(cart)
-    if cart.exists():
-        order_obj = [i.rt_order_cart_mapping for i in cart]
-        for i in order_obj:
-            try:
-                pincode = "00"  # instance.shipping_address.pincode
-            except:
-                pincode = "00"
-            PickerDashboard.objects.create(
-                order=i,
-                picking_status="picking_pending",
-                picklist_id=generate_picklist_id(pincode),
-            )
-            Order.objects.filter(order_no=i.order_no).update(order_status='PICKUP_CREATED')
-            shop = Shop.objects.filter(id=i.seller_shop.id).last()
-            order_no = i.order_no
-            for j in i.ordered_cart.rt_cart_list.all():
-                CommonPickupFunctions.create_pickup_entry(shop, 'Order', order_no, j.cart_product, j.no_of_pieces,
-                                                          'pickup_creation')
-            pu = Pickup.objects.filter(pickup_type_id=order_no)
-            for obj in pu:
-                bin_inv_dict = {}
-                pickup_obj = obj
-                qty = obj.quantity
-                bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0,
-                                                          inventory_type__inventory_type='normal').order_by('-batch_id',
-                                                                                                            'quantity')
-                for k in bin_lists:
-                    if len(k.batch_id) == 23:
-                        bin_inv_dict[str(datetime.strptime(
-                            k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],
-                            "%d-%m-%Y"))] = k
-                    else:
-                        bin_inv_dict[str(
-                            datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21], "%d-%m-%Y"))] = k
-                bin_inv_dict = list(bin_inv_dict.items())
-                bin_inv_dict.sort()
-                bin_inv_dict = dict(bin_inv_dict)
-                product = obj.sku.product_name
-                sku = obj.sku.product_sku
-                mrp = obj.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp if obj.sku.rt_cart_product_mapping.all().last().cart_product_price else None
-                for i, j in bin_inv_dict.items():
-                    if qty == 0:
-                        break
-                    already_picked = 0
-                    batch_id = j.batch_id if j else None
-                    qty_in_bin = j.quantity if j else 0
-                    ids = j.id if j else None
-                    shops = j.warehouse
-                    bin_id = j.bin.bin_id if j else None
-                    if qty - already_picked <= qty_in_bin:
-                        already_picked += qty
-                        remaining_qty = qty_in_bin - already_picked
-                        j.quantity = remaining_qty
-                        j.save()
-                        qty = 0
-                        prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked,
-                                     "batch_id": batch_id, "bin": bin_id}
-                        data_list.append(prod_list)
-                        CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, j,
-                                                                           quantity=already_picked,
-                                                                           pickup_quantity=None)
-                        InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id, j.bin,
-                                                                                     type_normal, type_normal,
-                                                                                     "pickup_created", pickup_obj.pk,
-                                                                                     already_picked)
-                    else:
-                        already_picked = qty_in_bin
-                        remaining_qty = qty - already_picked
-                        j.quantity = 0
-                        j.save()
-                        qty = remaining_qty
-                        prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked,
-                                     "batch_id": batch_id, "bin": bin_id}
-                        data_list.append(prod_list)
-                        CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, j,
-                                                                           quantity=already_picked,
-                                                                           pickup_quantity=None)
-                        InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id, j.bin,
-                                                                                     type_normal, type_normal,
-                                                                                     "pickup-creation", pickup_obj.pk,
-                                                                                     already_picked)
+    with transaction.atomic():
+        if cart.exists():
+            order_obj = [i.rt_order_cart_mapping for i in cart]
+            for i in order_obj:
+                try:
+                    pincode = "00"  # instance.shipping_address.pincode
+                except:
+                    pincode = "00"
+                PickerDashboard.objects.create(
+                    order=i,
+                    picking_status="picking_pending",
+                    picklist_id=generate_picklist_id(pincode),
+                )
+                Order.objects.filter(order_no=i.order_no).update(order_status='PICKUP_CREATED')
+                shop = Shop.objects.filter(id=i.seller_shop.id).last()
+                order_no = i.order_no
+                for j in i.ordered_cart.rt_cart_list.all():
+                    CommonPickupFunctions.create_pickup_entry(shop, 'Order', order_no, j.cart_product, j.no_of_pieces,
+                                                              'pickup_creation')
+                pu = Pickup.objects.filter(pickup_type_id=order_no)
+                for obj in pu:
+                    bin_inv_dict = {}
+                    pickup_obj = obj
+                    qty = obj.quantity
+                    bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0,
+                                                              inventory_type__inventory_type='normal').order_by('-batch_id',
+                                                                                                                'quantity')
+                    for k in bin_lists:
+                        if len(k.batch_id) == 23:
+                            bin_inv_dict[k] = str(datetime.strptime(
+                                k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],
+                                "%d-%m-%Y"))
+                        else:
+                            bin_inv_dict[k] = str(
+                                datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21], "%d-%m-%Y"))
+                    bin_inv_dict = list(bin_inv_dict.items())
+                    # bin_inv_dict.sort()
+                    bin_inv_dict = dict(bin_inv_dict)
+                    product = obj.sku.product_name
+                    sku = obj.sku.product_sku
+                    mrp = obj.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp if obj.sku.rt_cart_product_mapping.all().last().cart_product_price else None
+                    for i, j in bin_inv_dict.items():
+                        if qty == 0:
+                            break
+                        already_picked = 0
+                        batch_id = i.batch_id if i else None
+                        qty_in_bin = i.quantity if i else 0
+                        ids = i.id if i else None
+                        shops = i.warehouse
+                        bin_id = i.bin.bin_id if i else None
+                        if qty - already_picked <= qty_in_bin:
+                            already_picked += qty
+                            remaining_qty = qty_in_bin - already_picked
+                            i.quantity = remaining_qty
+                            i.save()
+                            qty = 0
+                            prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked,
+                                         "batch_id": batch_id, "bin": bin_id}
+                            data_list.append(prod_list)
+                            CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, i,
+                                                                               quantity=already_picked,
+                                                                               pickup_quantity=None)
+                            InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id, i.bin,
+                                                                                         type_normal, type_normal,
+                                                                                         "pickup_created", pickup_obj.pk,
+                                                                                         already_picked)
+                        else:
+                            already_picked = qty_in_bin
+                            remaining_qty = qty - already_picked
+                            i.quantity = 0
+                            i.save()
+                            qty = remaining_qty
+                            prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked,
+                                         "batch_id": batch_id, "bin": bin_id}
+                            data_list.append(prod_list)
+                            CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, i,
+                                                                               quantity=already_picked,
+                                                                               pickup_quantity=None)
+                            InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id, i.bin,
+                                                                                         type_normal, type_normal,
+                                                                                         "pickup-creation", pickup_obj.pk,
+                                                                                         already_picked)
 
 
 class DownloadBinCSV(View):

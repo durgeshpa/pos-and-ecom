@@ -23,11 +23,6 @@ from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinIn
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
 from barCodeGenerator import barcodeGen, merged_barcode_gen
-from retailer_to_sp.models import OrderedProduct, Shipment
-from django.db import transaction
-from .common_functions import CommonWarehouseInventoryFunctions, WareHouseInternalInventoryChange, \
-    InternalInventoryChange, \
-    CommonBinInventoryFunctions, cancel_ordered, cancel_shipment, cancel_returned
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -307,7 +302,6 @@ class PutAwayAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-
 class PutawayBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Bin Inventory Admin has been called.")
     form = PutAwayBinInventoryForm
@@ -371,39 +365,13 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-    def save_model(self, request, obj, form, change):
-        with transaction.atomic():
-            if obj.putaway_type == 'Order_Cancelled':
-                ordered_inventory_state = 'ordered',
-                initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
-                cancel_ordered(request, obj, ordered_inventory_state, initial_stage)
-
-            elif obj.putaway_type == 'Pickup_Cancelled':
-                ordered_inventory_state = 'picked',
-                initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                cancel_ordered(request, obj, ordered_inventory_state, initial_stage)
-
-            elif obj.putaway_type == 'Shipment_Cancelled':
-                ordered_inventory_state = 'picked',
-                initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                cancel_ordered(request, obj, ordered_inventory_state, initial_stage)
-
-            elif obj.putaway_type == 'PAR_SHIPMENT':
-                ordered_inventory_state = 'picked',
-                initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                shipment_obj = OrderedProduct.objects.filter(
-                    invoice__invoice_no=obj.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
-                cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipment_obj)
-
-            elif obj.putaway_type == 'RETURNED':
-                ordered_inventory_state = 'picked',
-                initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                shipment_obj = OrderedProduct.objects.filter(
-                    invoice__invoice_no=obj.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
-                cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipment_obj)
-
-            # save the put away bin inventory status form false to true
-            super().save_model(request, obj, form, change)
+    def get_form(self, request, obj=None, **kwargs):
+        ModelForm = super(PutawayBinInventoryAdmin, self).get_form(request, obj, **kwargs)
+        class ModelFormWithRequest(ModelForm):
+            def __new__(cls, *args, **kwargs):
+                kwargs['request'] = request
+                return ModelForm(*args, **kwargs)
+        return ModelFormWithRequest
 
 
 class InventoryTypeAdmin(admin.ModelAdmin):
