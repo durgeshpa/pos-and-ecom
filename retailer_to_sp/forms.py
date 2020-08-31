@@ -26,7 +26,7 @@ from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
     OrderedProductMapping, Order, Dispatch, Trip,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
-    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment,BulkOrder, OrderedProductBatch
+    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment, BulkOrder, OrderedProductBatch
 )
 from products.models import Product
 from shops.models import Shop
@@ -34,7 +34,6 @@ from accounts.models import UserWithName
 from accounts.middlewares import get_current_user
 from addresses.models import Address
 from payments.models import ShipmentPayment
-
 
 User = get_user_model()
 
@@ -101,6 +100,7 @@ class CustomerCareForm(forms.ModelForm):
         model = CustomerCare
         fields = '__all__'
 
+
 class ResponseCommentForm(forms.ModelForm):
     comment = forms.CharField(
         widget=forms.Textarea(attrs={
@@ -111,6 +111,7 @@ class ResponseCommentForm(forms.ModelForm):
     class Meta:
         model = ResponseComment
         fields = '__all__'
+
 
 class ReturnProductMappingForm(forms.ModelForm):
     returned_product = forms.ModelChoiceField(
@@ -132,17 +133,16 @@ class ReturnProductMappingForm(forms.ModelForm):
 
 class OrderedProductForm(forms.ModelForm):
     order = forms.ModelChoiceField(queryset=Order.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:ShipmentOrdersAutocomplete',),
+                                   widget=autocomplete.ModelSelect2(url='admin:ShipmentOrdersAutocomplete', ),
                                    required=True)
 
     class Meta:
         model = OrderedProduct
-        fields = ['order',]
-
+        fields = ['order', ]
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
-        #self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
+        # self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
 
     def clean(self):
         data = self.cleaned_data
@@ -160,7 +160,8 @@ class OrderedProductMappingForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProductMapping
-        fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty', 'returned_damage_qty']
+        fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty', 'delivered_qty', 'returned_qty', 'damaged_qty',
+                  'returned_damage_qty']
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductMappingForm, self).__init__(*args, **kwargs)
@@ -227,7 +228,7 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
         model = OrderedProductMapping
         fields = [
             'product', 'ordered_qty', 'already_shipped_qty',
-            'to_be_shipped_qty', 'shipped_qty','picked_pieces',
+            'to_be_shipped_qty', 'shipped_qty', 'picked_pieces',
         ]
 
     def clean_shipped_qty(self):
@@ -271,7 +272,7 @@ class OrderedProductBatchForm(forms.ModelForm):
         model = OrderedProductMapping
         fields = [
             'product', 'ordered_qty', 'already_shipped_qty',
-            'to_be_shipped_qty', 'shipped_qty','picked_pieces'
+            'to_be_shipped_qty', 'shipped_qty', 'picked_pieces'
         ]
 
     def clean_shipped_qty(self):
@@ -337,7 +338,6 @@ class EditAssignPickerForm(forms.ModelForm):
         widget=RelatedFieldWidgetCanAddPicker(
             UserWithName,
             related_url="admin:accounts_user_add"))
-
 
     class Meta:
         model = PickerDashboard
@@ -437,7 +437,7 @@ class TripForm(forms.ModelForm):
     delivery_boy = forms.ModelChoiceField(
         queryset=UserWithName.objects.all(),
         widget=autocomplete.ModelSelect2(
-            url='admin:user_with_name_autocomplete',)
+            url='admin:user_with_name_autocomplete', )
     )
     trip_status = forms.ChoiceField(choices=Trip.TRIP_STATUS)
     search_by_area = forms.CharField(required=False)
@@ -539,12 +539,12 @@ class TripForm(forms.ModelForm):
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
                 if trip_status == 'CLOSED':
-                    self.fields['trip_status'].choices = Trip.TRIP_STATUS[4:5] #"CLOSED"
+                    self.fields['trip_status'].choices = Trip.TRIP_STATUS[4:5]  # "CLOSED"
                 elif trip_status == Trip.PAYMENT_VERIFIED:
-                    self.fields['trip_status'].choices = Trip.TRIP_STATUS[5:] #"CLOSED"
+                    self.fields['trip_status'].choices = Trip.TRIP_STATUS[5:]  # "CLOSED"
                 else:
                     self.fields['trip_status'].choices = Trip.TRIP_STATUS[1:2]
-                #self.fields['trip_status'].choices = TRIP_STATUS[1:2]
+                # self.fields['trip_status'].choices = TRIP_STATUS[1:2]
 
         else:
             self.fields['trip_status'].initial = Trip.READY
@@ -559,13 +559,12 @@ class TripForm(forms.ModelForm):
                                   'FULLY_DELIVERED_AND_VERIFIED']
 
         shipment_ids = data.get('selected_id').split(',')
-        if self.instance and self.instance.trip_status == Trip.COMPLETED and data['trip_status'] == Trip.RETURN_VERIFIED:
+        if self.instance and self.instance.trip_status == Trip.COMPLETED and data[
+            'trip_status'] == Trip.RETURN_VERIFIED:
             shipment_list = Shipment.objects.filter(id__in=shipment_ids)
             for shipment in shipment_list:
                 if shipment.shipment_status not in shipment_status_verify:
                     raise forms.ValidationError("Please Verify all shipments before closing the Trip")
-
-
 
         if self.instance and self.instance.trip_status == Trip.READY:
 
@@ -584,7 +583,6 @@ class TripForm(forms.ModelForm):
                                args=[i.get('id')]), i.get('invoice__invoice_no'))
                       for i in cancelled_shipments]])
         return data
-
 
 
 class DispatchForm(forms.ModelForm):
@@ -680,20 +678,21 @@ class ShipmentForm(forms.ModelForm):
 
         # if order is cancelled don't let the user to save data
         if self.instance and (self.instance.order.order_status == Order.CANCELLED):
-            raise forms.ValidationError(_('Order for this shipment has been cancelled!'),)
+            raise forms.ValidationError(_('Order for this shipment has been cancelled!'), )
 
         if self.instance and self.instance.order.order_closed:
             return data
         if (data['close_order'] and
                 data['shipment_status'] != OrderedProduct.READY_TO_SHIP):
-                raise forms.ValidationError(
-                    _('You can only close the order in QC Passed state'),)
+            raise forms.ValidationError(
+                _('You can only close the order in QC Passed state'), )
         return data
 
 
 class ShipmentProductMappingForm(forms.ModelForm):
     ordered_qty = forms.CharField(required=False)
     already_shipped_qty = forms.CharField(required=False)
+
     # shipped_qty = forms.IntegerField(disabled=True)
     # picked_pieces = forms.IntegerField(disabled=True)
     # damaged_qty = forms.IntegerField(disabled=True)
@@ -702,14 +701,14 @@ class ShipmentProductMappingForm(forms.ModelForm):
         model = ShipmentProductMapping
         fields = [
             'product', 'ordered_qty', 'already_shipped_qty',
-            'shipped_qty','picked_pieces'
+            'shipped_qty', 'picked_pieces'
         ]
 
     def __init__(self, *args, **kwargs):
         super(ShipmentProductMappingForm, self).__init__(*args, **kwargs)
-        #self.fields['shipped_qty'].disabled = True
-        #self.fields['damaged_qty'].disabled = True
-        #self.fields['expired_qty'].disabled = True
+        # self.fields['shipped_qty'].disabled = True
+        # self.fields['damaged_qty'].disabled = True
+        # self.fields['expired_qty'].disabled = True
         self.fields['picked_pieces'].disabled = True
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
@@ -725,15 +724,13 @@ class ShipmentProductMappingForm(forms.ModelForm):
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
 
-
     def clean(self):
         data = self.cleaned_data
-        #data['shipped_qty']= self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty'))
-        if self.instance.picked_pieces !=data.get('shipped_qty') + data.get('damaged_qty') + data.get('expired_qty'):
+        # data['shipped_qty']= self.instance.picked_pieces - (data.get('damaged_qty') + data.get('expired_qty'))
+        if self.instance.picked_pieces != data.get('shipped_qty') + data.get('damaged_qty') + data.get('expired_qty'):
             raise forms.ValidationError(
                 'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
         return data
-
 
 
 class CartProductMappingForm(forms.ModelForm):
@@ -789,6 +786,7 @@ class CartForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:retailer-shop-autocomplete', ),
         required=False
     )
+
     class Meta:
         model = Cart
         fields = ('seller_shop', 'buyer_shop')
@@ -796,6 +794,7 @@ class CartForm(forms.ModelForm):
             'seller_shop': autocomplete.ModelSelect2(url='seller-shop-autocomplete'),
             'buyer_shop': autocomplete.ModelSelect2(url='buyer-shop-autocomplete')
         }
+
 
 class BulkCartForm(forms.ModelForm):
     seller_shop = forms.ModelChoiceField(
@@ -805,7 +804,7 @@ class BulkCartForm(forms.ModelForm):
     )
     buyer_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='r'),
-        widget=autocomplete.ModelSelect2(url='admin:buyer-parent-autocomplete', forward=('seller_shop') ),
+        widget=autocomplete.ModelSelect2(url='admin:buyer-parent-autocomplete', forward=('seller_shop')),
         required=True
     )
     shipping_address = forms.ModelChoiceField(
@@ -824,6 +823,7 @@ class BulkCartForm(forms.ModelForm):
         ),
         required=True
     )
+
     class Meta:
         model = BulkOrder
         fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv', 'order_type')
@@ -831,7 +831,7 @@ class BulkCartForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(BulkCartForm, self).__init__(*args, **kwargs)
         if self.fields:
-            self.fields['cart_products_csv'].help_text = self.instance.\
+            self.fields['cart_products_csv'].help_text = self.instance. \
                 cart_products_sample_file
 
     def clean(self):
@@ -871,18 +871,18 @@ class CommercialForm(forms.ModelForm):
         # setup check for payment verified
         if data['trip_status'] == Trip.PAYMENT_VERIFIED:
             if float(self.instance.cash_to_be_collected()) != float(self.instance.total_received_amount):
-                raise forms.ValidationError(_("Amount to be Collected should be equal to Total Received Amount"),)
+                raise forms.ValidationError(_("Amount to be Collected should be equal to Total Received Amount"), )
 
             # setup check for transferred
             # check if number of pending payment approval is 0
             trip_shipments = self.instance.rt_invoice_trip.values_list('id', flat=True)
-            #pending_payments_count = trip_shipments.filter(parent_order_payment__parent_payment__payment_approval_status="approval_pending").count()
+            # pending_payments_count = trip_shipments.filter(parent_order_payment__parent_payment__payment_approval_status="approval_pending").count()
             pending_payments_count = ShipmentPayment.objects.filter(
                 shipment__in=trip_shipments,
                 parent_order_payment__parent_payment__payment_approval_status="pending_approval"
             ).count()
             if pending_payments_count:
-                raise forms.ValidationError(_("All shipment payments are not verified"),)
+                raise forms.ValidationError(_("All shipment payments are not verified"), )
         return data
 
 
@@ -902,14 +902,15 @@ class OrderedProductReschedule(forms.ModelForm):
         instance = getattr(self, 'instance', None)
         self.fields['shipment_status'].disabled = True
         if not (instance.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
-                instance.shipment_status == 'FULLY_RETURNED_AND_COMPLETED'):
+                instance.shipment_status == 'FULLY_RETURNED_AND_COMPLETED'
+                or instance.ordered_product.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED'):
             self.fields['return_reason'].disabled = True
-
 
     def clean_return_reason(self):
         return_reason = self.cleaned_data.get('return_reason')
         if self.instance.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
-                self.instance.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
+                self.instance.shipment_status == 'FULLY_RETURNED_AND_COMPLETED' or \
+                self.instance.ordered_product.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED':
             return_qty = 0
             returned_damage_qty = 0
             total_products = self.data.get(
@@ -918,7 +919,7 @@ class OrderedProductReschedule(forms.ModelForm):
                 return_field = ("rt_order_product_order_product_mapping-%s-returned_qty") \
                                % product
                 returned_damage_field = ("rt_order_product_order_product_mapping-%s-returned_damage_qty") \
-                                % product
+                                        % product
                 if self.data.get(return_field) is not None:
                     return_qty += int(self.data.get(return_field))
                 if self.data.get(returned_damage_field) is not None:
@@ -997,16 +998,33 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
     def clean(self):
         data = self.cleaned_data
         if self.instance.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
-                self.instance.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
-            data['delivered_qty'] = int(self.instance.shipped_qty) - (data.get('returned_qty') + data.get('returned_damage_qty'))
-            #data['delivered_qty'] = int(self.instance.shipped_qty) - (data.get('returned_qty') + data.get('returned_damage_qty'))
-            if int(self.instance.shipped_qty) != data.get('returned_qty') + data.get('returned_damage_qty') + data.get('delivered_qty'):
-                raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
+                self.instance.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED' or \
+                self.instance.ordered_product.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED':
+            sku_return_qty = data['returned_qty']
+            sku_returned_damage_qty = data['returned_damage_qty']
+            product_batch_list_field = self.prefix + '-rt_ordered_product_mapping-TOTAL_FORMS'
+            product_batch_list = self.data.get(product_batch_list_field)
+            batch_return_qty = 0
+            batch_damaged_qty = 0
+            for batch in range(int(product_batch_list)):
+                batch_return_field = self.prefix + '-rt_ordered_product_mapping-{0}-returned_qty'.format(batch)
+                batch_damaged_field = self.prefix + '-rt_ordered_product_mapping-{0}--returned_damage_qty'.format(batch)
+                if self.data.get(batch_return_field) is not None:
+                    batch_return_qty = batch_return_qty + int(self.data.get(batch_return_field))
+                if self.data.get(batch_damaged_field) is not None:
+                    batch_damaged_qty = batch_return_qty + int(self.data.get(batch_damaged_field))
+            if sku_return_qty != batch_return_qty or sku_returned_damage_qty != batch_damaged_qty:
+                raise forms.ValidationError(
+                    'Sum of Return or Damaged return quantity of batches should be equal to Return or Damaged return quantity '
+                    'of SKU')
+
+            data['delivered_qty'] = int(self.instance.shipped_qty) - (
+                    data.get('returned_qty') + data.get('returned_damage_qty'))
+            if int(self.instance.shipped_qty) != data.get('returned_qty') + data.get('returned_damage_qty') + data.get(
+                    'delivered_qty'):
+                raise forms.ValidationError(
+                    'No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
         return data
-
-
-
-
 
 
 class OrderForm(forms.ModelForm):
@@ -1031,11 +1049,11 @@ class OrderForm(forms.ModelForm):
         data = self.cleaned_data
         if (data['order_status'] == 'CANCELLED' and
                 not data['cancellation_reason']):
-            raise forms.ValidationError(_('Please select cancellation reason!'),)
+            raise forms.ValidationError(_('Please select cancellation reason!'), )
         if (data['cancellation_reason'] and
                 not data['order_status'] == 'CANCELLED'):
             raise forms.ValidationError(
-                _('The reason does not match with the action'),)
+                _('The reason does not match with the action'), )
         return data['cancellation_reason']
 
     def clean(self):
@@ -1044,8 +1062,8 @@ class OrderForm(forms.ModelForm):
         data = self.cleaned_data
         if self.cleaned_data.get('order_status') == 'CANCELLED':
             if self.instance.order_status in [Order.DISPATCHED, Order.COMPLETED]:
-                    raise forms.ValidationError(
-                        _('Sorry! This order cannot be cancelled'), )
+                raise forms.ValidationError(
+                    _('Sorry! This order cannot be cancelled'), )
         return data
 
     def __init__(self, *args, **kwargs):
@@ -1069,7 +1087,7 @@ class OrderedProductBatchForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductBatchForm, self).__init__(*args, **kwargs)
-        #self.fields['quantity'].disabled = True
+        # self.fields['quantity'].disabled = True
         self.fields['pickup_quantity'].disabled = True
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
@@ -1088,18 +1106,18 @@ class OrderedProductBatchForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        if self.instance.ordered_product_mapping.ordered_product.shipment_status !='SHIPMENT_CREATED':
+        if self.instance.ordered_product_mapping.ordered_product.shipment_status != 'SHIPMENT_CREATED':
             return data
         else:
             if data.get('damaged_qty') is None:
                 raise forms.ValidationError('Damaged Quantity can not be blank.')
             if data.get('expired_qty') is None:
                 raise forms.ValidationError('Expired Quantity can not be blank.')
-            if int(self.instance.pickup_quantity)!= data.get('quantity') + data.get('damaged_qty') + data.get('expired_qty'):
-                raise forms.ValidationError('Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship.)')
+            if int(self.instance.pickup_quantity) != data.get('quantity') + data.get('damaged_qty') + data.get(
+                    'expired_qty'):
+                raise forms.ValidationError(
+                    'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship.)')
             return data
-
-
 
 
 class OrderedProductBatchingForm(forms.ModelForm):
@@ -1111,7 +1129,8 @@ class OrderedProductBatchingForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
-            if not (instance.ordered_product_mapping.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
+            if not (
+                    instance.ordered_product_mapping.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
                     instance.ordered_product_mapping.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED' or
                     instance.ordered_product_mapping.ordered_product.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED'):
                 self.fields['returned_qty'].disabled = True
@@ -1123,9 +1142,10 @@ class OrderedProductBatchingForm(forms.ModelForm):
         data = self.cleaned_data
         if self.instance.ordered_product_mapping.ordered_product.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
                 self.instance.ordered_product_mapping.ordered_product.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
-            data['delivered_qty'] = int(self.instance.quantity) - (data.get('returned_damage_qty') + data.get('returned_qty'))
-            #data['delivered_qty'] = int(self.instance.quantity) - (data.get('returned_damage_qty') + data.get('returned_qty'))
-            if int(self.instance.quantity) != data.get('returned_damage_qty') + data.get('returned_qty') + data.get('delivered_qty'):
+            data['delivered_qty'] = int(self.instance.quantity) - (
+                    data.get('returned_damage_qty') + data.get('returned_qty'))
+            if int(self.instance.quantity) != data.get('returned_damage_qty') + data.get('returned_qty') + data.get(
+                    'delivered_qty'):
                 raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, '
                                             'delivered)')
         return data

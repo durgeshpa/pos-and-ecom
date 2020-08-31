@@ -46,7 +46,7 @@
 
 (function($) {
 $(document).ready(function(){
-       $('.return_table_inline').find('input').prop("readonly", true)
+       //$('.return_table_inline').find('input').prop("readonly", true)
        $('.return_batch_inline table tr.has_original').each(function(){
             var delivered_qty=0
             delivered_qty = $(this).find("input[name$='-quantity']").val()-$(this).find("input[name$='-returned_qty']").val()-
@@ -68,28 +68,28 @@ $(document).ready(function(){
        {
             $(this).val(0)
        }
-       for(var i=0;i<10;i++){
-        var sum = 0
-           for (var j=0; j<10;j++){
-                var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_qty` + "]").val())
-                if (isNaN(tot)){
-                    continue
-                }
-                sum +=tot
-                $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_qty` + "]").val(sum);
-                }
-           }
-        for(var i=0;i<10;i++){
-        var sum = 0
-        for (var j=0; j<10;j++){
-            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_damage_qty` + "]").val())
-            if (isNaN(tot)){
-                continue
-            }
-            sum +=tot
-            $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_damage_qty` + "]").val(sum);
-        }
-        }
+//       for(var i=0;i<10;i++){
+//        var sum = 0
+//           for (var j=0; j<10;j++){
+//                var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_qty` + "]").val())
+//                if (isNaN(tot)){
+//                    continue
+//                }
+//                sum +=tot
+//                $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_qty` + "]").val(sum);
+//                }
+//           }
+//        for(var i=0;i<10;i++){
+//        var sum = 0
+//        for (var j=0; j<10;j++){
+//            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-returned_damage_qty` + "]").val())
+//            if (isNaN(tot)){
+//                continue
+//            }
+//            sum +=tot
+//            $("input[name=" + `rt_order_product_order_product_mapping-${i}-returned_damage_qty` + "]").val(sum);
+//        }
+//        }
         $('table tr.has_original').each(function(){
             var delivered_qty=0
             delivered_qty = $(this).find("input[name$='-quantity']").val()-$(this).find("input[name$='-returned_qty']").val()-
@@ -103,9 +103,7 @@ $(document).ready(function(){
 
        })
     })
-    $("submit").click(function(){
-        alert("hello")
-    })
+
 
     })
 })(django.jQuery);
