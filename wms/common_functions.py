@@ -1129,13 +1129,14 @@ def common_on_return_and_partial(shipment):
                 shipment_product_batch_bin_list = PickupBinInventory.objects.filter(
                     shipment_batch=shipment_product_batch)
                 bin_id_for_input = None
+                shipment_product_batch_bin_temp = None
                 for shipment_product_batch_bin in shipment_product_batch_bin_list:
                     if shipment_product_batch_bin.bin.quantity == 0:
+                        bin_id_for_input=shipment_product_batch_bin.bin
                         continue
                     else:
                         bin_id_for_input = shipment_product_batch_bin.bin
-                if bin_id_for_input is None:
-                    bin_id_for_input = shipment_product_batch_bin.bin
+                        break
                 if shipment_product_batch.returned_qty > 0 or shipment_product_batch.returned_damage_qty > 0 \
                         or shipment_product_batch.delivered_qty > 0:
                     putaway_qty = shipment_product_batch.returned_qty + shipment_product_batch.returned_damage_qty
@@ -1179,16 +1180,16 @@ def common_on_return_and_partial(shipment):
                         continue
                     else:
                         pu, _ = Putaway.objects.update_or_create(putaway_user=shipment.last_modified_by,
-                                                                 warehouse=shipment_product.pickup.warehouse,
+                                                                 warehouse=shipment_product_batch.pickup.warehouse,
                                                                  putaway_type='PAR_SHIPMENT',
                                                                  putaway_type_id=shipment.order.order_no,
-                                                                 sku=shipment_product.pickup.sku,
-                                                                 batch_id=shipment_product.batch_id,
+                                                                 sku=shipment_product_batch.pickup.sku,
+                                                                 batch_id=shipment_product_batch.batch_id,
                                                                  defaults={'quantity': partial_ship_qty, 'putaway_quantity': 0})
 
-                        PutawayBinInventory.objects.update_or_create(warehouse=shipment_product.pickup.warehouse,
-                                                                     sku=shipment_product.pickup.sku,
-                                                                     batch_id=shipment_product.batch_id,
+                        PutawayBinInventory.objects.update_or_create(warehouse=shipment_product_batch.pickup.warehouse,
+                                                                     sku=shipment_product_batch.pickup.sku,
+                                                                     batch_id=shipment_product_batch.batch_id,
                                                                      putaway_type='PAR_SHIPMENT',
                                                                      putaway=pu, bin=bin_id_for_input,
                                                                      putaway_status=False,

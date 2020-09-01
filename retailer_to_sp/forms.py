@@ -1008,15 +1008,15 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
             batch_damaged_qty = 0
             for batch in range(int(product_batch_list)):
                 batch_return_field = self.prefix + '-rt_ordered_product_mapping-{0}-returned_qty'.format(batch)
-                batch_damaged_field = self.prefix + '-rt_ordered_product_mapping-{0}--returned_damage_qty'.format(batch)
+                batch_damaged_field = self.prefix + '-rt_ordered_product_mapping-{0}-returned_damage_qty'.format(batch)
                 if self.data.get(batch_return_field) is not None:
                     batch_return_qty = batch_return_qty + int(self.data.get(batch_return_field))
                 if self.data.get(batch_damaged_field) is not None:
-                    batch_damaged_qty = batch_return_qty + int(self.data.get(batch_damaged_field))
+                    batch_damaged_qty = batch_damaged_qty + int(self.data.get(batch_damaged_field))
             if sku_return_qty != batch_return_qty or sku_returned_damage_qty != batch_damaged_qty:
                 raise forms.ValidationError(
-                    'Sum of Return or Damaged return quantity of batches should be equal to Return or Damaged return quantity '
-                    'of SKU')
+                    'Sum of Return or Damaged return quantity of batches should be equal to Return or Damaged return '
+                    'quantity of SKU')
 
             data['delivered_qty'] = int(self.instance.shipped_qty) - (
                     data.get('returned_qty') + data.get('returned_damage_qty'))
