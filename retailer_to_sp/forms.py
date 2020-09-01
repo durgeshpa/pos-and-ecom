@@ -910,7 +910,7 @@ class OrderedProductReschedule(forms.ModelForm):
         return_reason = self.cleaned_data.get('return_reason')
         if self.instance.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
                 self.instance.shipment_status == 'FULLY_RETURNED_AND_COMPLETED' or \
-                self.instance.ordered_product.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED':
+                self.instance.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED':
             return_qty = 0
             returned_damage_qty = 0
             total_products = self.data.get(
