@@ -796,12 +796,9 @@ def cancel_order_with_pick(instance):
                 quantity = 0
                 pick_up_bin_quantity = 0
                 if instance.rt_order_order_product.all():
-                    if instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[
-                        0].shipped_qty > 0 \
-                            and instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[
-                        0].damaged_qty > 0 \
-                            and instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[
-                        0].expired_qty > 0:
+                    if instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].shipped_qty > 0\
+                            or instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].damaged_qty > 0\
+                            or instance.rt_order_order_product.all()[0].rt_order_product_order_product_mapping.all()[0].expired_qty > 0:
                         for pickup_order in pickup_bin.pickup.orderedproductbatch_set.all():
                             if pickup_bin.bin.id == pickup_order.bin.id:
                                 put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
