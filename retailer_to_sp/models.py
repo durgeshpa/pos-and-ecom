@@ -2047,6 +2047,9 @@ class Shipment(OrderedProduct):
 
 class OrderedProductBatch(models.Model):
     batch_id = models.CharField(max_length=50, null=True, blank=True)
+    bin_ids = models.CharField(max_length=17, null=True, blank=True, verbose_name='bin_id')
+    pickup_inventory = models.ForeignKey(PickupBinInventory, null=True, related_name='rt_pickup_bin_inv',
+                                         on_delete=models.DO_NOTHING)
     ordered_product_mapping = models.ForeignKey(OrderedProductMapping, null=True,
                                                 related_name='rt_ordered_product_mapping', on_delete=models.DO_NOTHING)
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -2642,7 +2645,7 @@ def populate_data_on_qc_pass(order):
             else:
                 shipment_product_batch = OrderedProductBatch.objects.create(
                     batch_id=i.batch_id,
-                    # bin_ids=i.bin.bin.bin_id,
+                    bin_ids=i.bin.bin.bin_id,
                     pickup_inventory=i,
                     ordered_product_mapping=ordered_product_mapping,
                     pickup=i.pickup,
