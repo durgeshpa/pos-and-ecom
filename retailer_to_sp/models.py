@@ -437,24 +437,24 @@ class Cart(models.Model):
                 next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value + discount_value_cart,
                                                         2)
                 next_cart_coupon_discount = cart_coupon_list[i - next_index].rule.discount.discount_value if \
-                cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
-                            str(cart_coupon_list[i - next_index].rule.discount.discount_value) + '%')
+                    cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
+                        str(cart_coupon_list[i - next_index].rule.discount.discount_value) + '%')
                 entice_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (
-                next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[
-                                                                                   i - next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (
-                next_cart_coupon_min_value_diff, next_cart_coupon_discount)
+                    next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[
+                                                                                       i - next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (
+                    next_cart_coupon_min_value_diff, next_cart_coupon_discount)
                 offers_list.append(
                     {'entice_text': entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type': 'none'})
             elif i == 1 and not coupon_applied:
                 next_cart_coupon_min_value = cart_coupon_list[i - next_index].rule.cart_qualifying_min_sku_value
                 next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value, 2)
                 next_cart_coupon_discount = cart_coupon_list[i - next_index].rule.discount.discount_value if \
-                cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
-                            str(cart_coupon_list[i - next_index].rule.discount.discount_value) + '%')
+                    cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
+                        str(cart_coupon_list[i - next_index].rule.discount.discount_value) + '%')
                 entice_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (
-                next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[
-                                                                                   i - next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (
-                next_cart_coupon_min_value_diff, next_cart_coupon_discount)
+                    next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[
+                                                                                       i - next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (
+                    next_cart_coupon_min_value_diff, next_cart_coupon_discount)
                 offers_list.append(
                     {'entice_text': entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type': 'none'})
             else:
@@ -1156,15 +1156,20 @@ class Trip(models.Model):
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
     received_amount = models.DecimalField(blank=True, null=True,
-                                    max_digits=19, decimal_places=2)
-    opening_kms = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Vehicle Opening Trip(Kms)")
-    closing_kms = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Vehicle Closing Trip(Kms)")
+                                          max_digits=19, decimal_places=2)
+    opening_kms = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                              verbose_name="Vehicle Opening Trip(Kms)")
+    closing_kms = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                              verbose_name="Vehicle Closing Trip(Kms)")
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total crates shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total packets shipped")
     no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total sacks shipped")
-    no_of_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total crates collected")
-    no_of_packets_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total packets collected")
-    no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total sacks collected")
+    no_of_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                     verbose_name="Total crates collected")
+    no_of_packets_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                      verbose_name="Total packets collected")
+    no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                    verbose_name="Total sacks collected")
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -2042,9 +2047,6 @@ class Shipment(OrderedProduct):
 
 class OrderedProductBatch(models.Model):
     batch_id = models.CharField(max_length=50, null=True, blank=True)
-    bin_ids = models.CharField(max_length=17, null=True, blank=True, verbose_name='bin_id')
-    pickup_inventory = models.ForeignKey(PickupBinInventory, null=True, related_name='rt_pickup_bin_inv',
-                                         on_delete=models.DO_NOTHING)
     ordered_product_mapping = models.ForeignKey(OrderedProductMapping, null=True,
                                                 related_name='rt_ordered_product_mapping', on_delete=models.DO_NOTHING)
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -2627,23 +2629,34 @@ def populate_data_on_qc_pass(order):
     pick_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
     for i in pick_bin_inv:
         try:
-            ordered_product_mapping = order.rt_order_order_product.all().last().rt_order_product_order_product_mapping.filter(product__id=i.pickup.sku.id).first()
-            obj = OrderedProductBatch.objects.create(
-                batch_id=i.batch_id,
-                bin_ids=i.bin.bin.bin_id,
-                pickup_inventory=i,
-                ordered_product_mapping=ordered_product_mapping,
-                pickup=i.pickup,
-                bin=i.bin,
-                quantity=i.pickup_quantity,
-                pickup_quantity=i.pickup_quantity,
-                expiry_date=get_expiry_date(i.batch_id),
-                delivered_qty=ordered_product_mapping.delivered_qty,
-                ordered_pieces=i.quantity
-                # already_shipped_qty=ordered_product_mapping.shipped_qty
-            )
+            ordered_product_mapping = order.rt_order_order_product.all().last().rt_order_product_order_product_mapping.filter(
+                product__id=i.pickup.sku.id).first()
+            if OrderedProductBatch.objects.filter(batch_id=i.batch_id,
+                                                  ordered_product_mapping=ordered_product_mapping).exists():
+                shipment_product_batch = OrderedProductBatch.objects.filter(batch_id=i.batch_id,
+                                                                            ordered_product_mapping=ordered_product_mapping).last()
+                quantity = shipment_product_batch.quantity + i.pickup_quantity
+                ordered_pieces = shipment_product_batch.ordered_pieces + i.quantity
+                shipment_product_batch.update(quantity=quantity, pickup_quantity=quantity,
+                                              ordered_pieces=ordered_pieces)
+            else:
+                shipment_product_batch = OrderedProductBatch.objects.create(
+                    batch_id=i.batch_id,
+                    # bin_ids=i.bin.bin.bin_id,
+                    pickup_inventory=i,
+                    ordered_product_mapping=ordered_product_mapping,
+                    pickup=i.pickup,
+                    bin=i.bin,  # redundant
+                    quantity=i.pickup_quantity,
+                    pickup_quantity=i.pickup_quantity,
+                    expiry_date=get_expiry_date(i.batch_id),
+                    delivered_qty=ordered_product_mapping.delivered_qty,
+                    ordered_pieces=i.quantity
+                )
+            i.update(shipment_batch=shipment_product_batch)
         except:
             pass
+
 
 @receiver(post_save, sender=OrderedProductBatch)
 def create_putaway(sender, created=False, instance=None, *args, **kwargs):
