@@ -660,9 +660,8 @@ def pickup_entry_creation_with_cron():
                         else:
                             bin_inv_dict[k] = str(
                                 datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21], "%d-%m-%Y"))
-                    bin_inv_dict = list(bin_inv_dict.items())
-                    # bin_inv_dict.sort()
-                    bin_inv_dict = dict(bin_inv_dict)
+                    bin_inv_list = list(bin_inv_dict.items())
+                    bin_inv_dict = dict(sorted(dict(bin_inv_list).items(), key=lambda x: x[1]))
                     product = obj.sku.product_name
                     sku = obj.sku.product_sku
                     mrp = obj.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp if obj.sku.rt_cart_product_mapping.all().last().cart_product_price else None
