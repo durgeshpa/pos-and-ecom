@@ -1132,13 +1132,14 @@ def common_on_return_and_partial(shipment):
                 shipment_product_batch_bin_list = PickupBinInventory.objects.filter(
                     shipment_batch=shipment_product_batch)
                 bin_id_for_input = None
+                shipment_product_batch_bin_temp = None
                 for shipment_product_batch_bin in shipment_product_batch_bin_list:
                     if shipment_product_batch_bin.bin.quantity == 0:
+                        bin_id_for_input=shipment_product_batch_bin.bin
                         continue
                     else:
                         bin_id_for_input = shipment_product_batch_bin.bin
-                if bin_id_for_input is None:
-                    bin_id_for_input = shipment_product_batch_bin.bin
+                        break
                 if shipment_product_batch.returned_qty > 0 or shipment_product_batch.returned_damage_qty > 0 \
                         or shipment_product_batch.delivered_qty > 0:
                     putaway_qty = shipment_product_batch.returned_qty + shipment_product_batch.returned_damage_qty

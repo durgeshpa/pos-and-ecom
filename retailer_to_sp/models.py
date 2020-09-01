@@ -2639,9 +2639,11 @@ def populate_data_on_qc_pass(order):
                 shipment_product_batch = OrderedProductBatch.objects.filter(batch_id=i.batch_id,
                                                                             ordered_product_mapping=ordered_product_mapping).last()
                 quantity = shipment_product_batch.quantity + i.pickup_quantity
-                ordered_pieces = shipment_product_batch.ordered_pieces + i.quantity
-                shipment_product_batch.update(quantity=quantity, pickup_quantity=quantity,
-                                              ordered_pieces=ordered_pieces)
+                ordered_pieces = int(shipment_product_batch.ordered_pieces) + i.quantity
+                shipment_product_batch.quantity=quantity
+                shipment_product_batch.pickup_quantity = quantity
+                shipment_product_batch.ordered_pieces = ordered_pieces
+                shipment_product_batch.save()
             else:
                 shipment_product_batch = OrderedProductBatch.objects.create(
                     batch_id=i.batch_id,
@@ -2656,8 +2658,9 @@ def populate_data_on_qc_pass(order):
                     delivered_qty=ordered_product_mapping.delivered_qty,
                     ordered_pieces=i.quantity
                 )
-            i.update(shipment_batch=shipment_product_batch)
-        except:
+            i.shipment_batch=shipment_product_batch
+            i.save()
+        except Exception as e:
             pass
 
 
