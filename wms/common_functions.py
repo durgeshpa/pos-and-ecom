@@ -393,7 +393,8 @@ class InternalInventoryChange(object):
             BinInternalInventoryChange.objects.create(warehouse_id=shop_id.id, sku=sku,
                                                       batch_id=batch_id,
                                                       final_bin=Bin.objects.get(bin_id=final_bin_id,
-                                                                                warehouse=Shop.objects.get(id=shop_id.id)),
+                                                                                warehouse=Shop.objects.get(
+                                                                                    id=shop_id.id)),
                                                       initial_inventory_type=initial_type,
                                                       final_inventory_type=final_type,
                                                       transaction_type=transaction_type,
@@ -638,7 +639,8 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
 
                 for i in cart.rt_cart_list.filter(cart_product=prod):
                     qty = WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).last().quantity
-                    WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).update(quantity=qty-i.no_of_pieces)
+                    WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).update(
+                        quantity=qty - i.no_of_pieces)
             else:
                 for i in cart.rt_cart_list.filter(cart_product=prod):
                     ware_obj = wim.last()
@@ -647,7 +649,8 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
                 # wim.update(quantity=available_qty+reserved_qty)
                 for i in cart.rt_cart_list.filter(cart_product=prod):
                     qty = WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).last().quantity
-                    WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).update(quantity=qty-i.no_of_pieces)
+                    WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).update(
+                        quantity=qty - i.no_of_pieces)
                 # WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
             warehouse_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=transaction_id,
                                                                                 transaction_type='reserved',
@@ -777,11 +780,11 @@ def cancel_order_with_pick(instance):
         # iterate over the PickupBin Inventory object
         for pickup_bin in pickup_bin_object:
             # if pick up status is pickup creation
-            if (pickup_bin.pickup.status == 'pickup_creation') or (pickup_bin.pickup.status =='picking_assigned'):
+            if (pickup_bin.pickup.status == 'pickup_creation') or (pickup_bin.pickup.status == 'picking_assigned'):
                 put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
-                                        putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
-                                        batch_id=pickup_bin.batch_id,
-                                        )
+                                                         putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
+                                                         batch_id=pickup_bin.batch_id,
+                                                         )
                 if put_away_object.exists():
                     quantity = put_away_object[0].quantity + pickup_bin.quantity
                     pick_up_bin_quantity = pickup_bin.quantity
@@ -1120,65 +1123,77 @@ def common_on_return_and_partial(shipment):
         inv_type = {'E': InventoryType.objects.get(inventory_type='expired'),
                     'D': InventoryType.objects.get(inventory_type='damaged'),
                     'N': InventoryType.objects.get(inventory_type='normal')}
-        for i in shipment.rt_order_product_order_product_mapping.all():
-            bin_list = [j.bin for j in i.rt_ordered_product_mapping.all()]
-            bin_id_for_input = bin_list[0]
-            for bin_id in bin_list:
-                if bin_id.quantity == 0:
-                    continue
-                else:
-                    bin_id_for_input = bin_id
-
-            for j in i.rt_ordered_product_mapping.all():
-                if j.returned_qty > 0 or j.returned_damage_qty > 0 or j.delivered_qty >0:
-                    # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin.bin_id,inv_type['N'],
-                    # 't', j.returned_qty)
-                    putaway_qty = j.returned_qty+j.returned_damage_qty
+        for shipment_product in shipment.rt_order_product_order_product_mapping.all():
+            for shipment_product_batch in shipment_product.rt_ordered_product_mapping.all():
+                # first bin with non 0 inventory for a batch or last empty bin
+                shipment_product_batch_bin_list = PickupBinInventory.objects.filter(
+                    shipment_batch=shipment_product_batch)
+                bin_id_for_input = None
+                for shipment_product_batch_bin in shipment_product_batch_bin_list:
+                    if shipment_product_batch_bin.bin.quantity == 0:
+                        continue
+                    else:
+                        bin_id_for_input = shipment_product_batch_bin.bin
+                if bin_id_for_input is None:
+                    bin_id_for_input = shipment_product_batch_bin.bin
+                if shipment_product_batch.returned_qty > 0 or shipment_product_batch.returned_damage_qty > 0 \
+                        or shipment_product_batch.delivered_qty > 0:
+                    putaway_qty = shipment_product_batch.returned_qty + shipment_product_batch.returned_damage_qty
                     if putaway_qty == 0:
                         continue
                     else:
-                        In.objects.create(warehouse=j.pickup.warehouse, in_type='RETURN', in_type_id=shipment.invoice_no, sku=j.pickup.sku, batch_id=j.batch_id,quantity=putaway_qty)
-                        pu, _ = Putaway.objects.update_or_create(putaway_user=shipment.last_modified_by, warehouse=j.pickup.warehouse, putaway_type='RETURNED',
-                                                                 putaway_type_id=shipment.invoice_no, sku=j.pickup.sku,
-                                                                 batch_id=j.batch_id, defaults={'quantity': putaway_qty,
-                                                                                                'putaway_quantity': 0})
-                        PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
-                                                                     batch_id=j.batch_id, putaway_type='RETURNED',
-                                                                     putaway=pu, bin=bin_id_for_input, putaway_status=False,
+                        In.objects.create(warehouse=shipment_product_batch.pickup.warehouse, in_type='RETURN',
+                                          in_type_id=shipment.id, sku=shipment_product_batch.pickup.sku,
+                                          batch_id=shipment_product_batch.batch_id, quantity=putaway_qty)
+                        pu, _ = Putaway.objects.update_or_create(putaway_user=shipment.last_modified_by,
+                                                                 warehouse=shipment_product_batch.pickup.warehouse,
+                                                                 putaway_type='RETURNED',
+                                                                 putaway_type_id=shipment.invoice_no,
+                                                                 sku=shipment_product_batch.pickup.sku,
+                                                                 batch_id=shipment_product_batch.batch_id,
+                                                                 defaults={'quantity': putaway_qty,
+                                                                           'putaway_quantity': 0})
+                        PutawayBinInventory.objects.update_or_create(warehouse=shipment_product_batch.pickup.warehouse,
+                                                                     sku=shipment_product_batch.pickup.sku,
+                                                                     batch_id=shipment_product_batch.batch_id,
+                                                                     putaway_type='RETURNED',
+                                                                     putaway=pu, bin=bin_id_for_input,
+                                                                     putaway_status=False,
                                                                      defaults={'putaway_quantity': putaway_qty})
 
                 else:
-                    if j.damaged_qty > 0:
-                        pass
-                        # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['D'],
-                        # 't', j.damaged_qty)
 
-                    if j.expired_qty > 0:
-                        pass
-                        # create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['E'],
-                        # 't', j.expired_qty)
-                    put_away_object = Putaway.objects.filter(putaway_user=shipment.last_modified_by,
-                                                     warehouse=j.pickup.warehouse, putaway_type='PAR_SHIPMENT',
-                                                     putaway_type_id=shipment.order.order_no, sku=j.pickup.sku,
-                                                     batch_id=j.batch_id)
-
-                    if put_away_object.exists():
-                        qty = i.expired_qty + i.damaged_qty
-                    else:
-                        qty = i.expired_qty + i.damaged_qty
-                    putaway_qty = (j.pickup_quantity - j.quantity)
-                    if putaway_qty <= 0:
+                    # put_away_object = Putaway.objects.filter(putaway_user=shipment.last_modified_by,
+                    #                                          warehouse=shipment_product_batch.pickup.warehouse,
+                    #                                          putaway_type='PAR_SHIPMENT',
+                    #                                          putaway_type_id=shipment.order.order_no,
+                    #                                          sku=shipment_product_batch.pickup.sku,
+                    #                                          batch_id=shipment_product_batch.batch_id)
+                    #
+                    # if put_away_object.exists():
+                    #     qty = i.expired_qty + i.damaged_qty
+                    # else:
+                    #     qty = i.expired_qty + i.damaged_qty
+                    partial_ship_qty = (shipment_product_batch.pickup_quantity - shipment_product_batch.quantity)
+                    if partial_ship_qty <= 0:
                         continue
                     else:
-                        pu, _ = Putaway.objects.update_or_create(putaway_user=shipment.last_modified_by,warehouse=j.pickup.warehouse, putaway_type='PAR_SHIPMENT',
-                                                                 putaway_type_id=shipment.order.order_no, sku=j.pickup.sku,
-                                                                 batch_id=j.batch_id, defaults={'quantity': qty,
-                                                                                                'putaway_quantity': 0})
+                        pu, _ = Putaway.objects.update_or_create(putaway_user=shipment.last_modified_by,
+                                                                 warehouse=shipment_product.pickup.warehouse,
+                                                                 putaway_type='PAR_SHIPMENT',
+                                                                 putaway_type_id=shipment.order.order_no,
+                                                                 sku=shipment_product.pickup.sku,
+                                                                 batch_id=shipment_product.batch_id,
+                                                                 defaults={'quantity': partial_ship_qty, 'putaway_quantity': 0})
 
-                        PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
-                                                                 batch_id=j.batch_id, putaway_type='PAR_SHIPMENT',
-                                                                 putaway=pu, bin=j.bin, putaway_status=False,
-                                                                 defaults={'putaway_quantity': putaway_qty})
+                        PutawayBinInventory.objects.update_or_create(warehouse=shipment_product.pickup.warehouse,
+                                                                     sku=shipment_product.pickup.sku,
+                                                                     batch_id=shipment_product.batch_id,
+                                                                     putaway_type='PAR_SHIPMENT',
+                                                                     putaway=pu, bin=bin_id_for_input,
+                                                                     putaway_status=False,
+                                                                     defaults={'putaway_quantity': partial_ship_qty})
+
 
 def create_batch_id_from_audit(data):
     """

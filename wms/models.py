@@ -1,4 +1,6 @@
 from django.db import models
+
+import retailer_to_sp
 from products.models import Product
 from shops.models import Shop
 from common.common_utils import barcode_gen
@@ -230,6 +232,8 @@ class PickupBinInventory(models.Model):
     pickup_quantity = models.PositiveIntegerField(null=True, default=None)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    shipment_batch = models.ForeignKey('retailer_to_sp.OrderedProductBatch', null=True, related_name='rt_pickup_batch_mapping',
+                                       default=None,on_delete=models.DO_NOTHING)
 
     class Meta:
         db_table = "wms_pickup_bin_inventory"
