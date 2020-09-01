@@ -1054,7 +1054,7 @@ def update_shipment_status_verified(form_instance, formset):
     returned_qty = sum(returned_qty_list)
     damaged_qty = sum(damaged_qty_list)
     with transaction.atomic():
-        add_to_putaway_on_return(form_instance.id)
+        #add_to_putaway_on_return(form_instance.id)
         if shipped_qty == (returned_qty + damaged_qty):
             form_instance.shipment_status = 'FULLY_RETURNED_AND_VERIFIED'
 

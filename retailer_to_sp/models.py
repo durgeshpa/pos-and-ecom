@@ -2141,14 +2141,15 @@ class Commercial(Trip):
         verbose_name_plural = _("Commercial")
 
     def clean(self):
-        shipment_status_list = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
-                                'FULLY_DELIVERED_AND_VERIFIED']
-        super(OrderedProduct, self).clean()
-        for shipment in self.rt_invoice_trip:
-            if shipment.shipment_status not in shipment_status_list:
-                raise ValidationError(_("Some shipments are not in Verified stage. Please verify them before closing "
-                                        "the trip"))
-                break
+        pass
+        # shipment_status_list = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
+        #                         'FULLY_DELIVERED_AND_VERIFIED']
+        # super(Commercial, self).clean()
+        # for shipment in self.rt_invoice_trip:
+        #     if shipment.shipment_status not in shipment_status_list:
+        #         raise ValidationError(_("Some shipments are not in Verified stage. Please verify them before closing "
+        #                                 "the trip"))
+        #         break
 
     def change_shipment_status(self):
         self.rt_invoice_trip.update(
