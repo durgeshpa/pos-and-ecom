@@ -903,7 +903,7 @@ class OrderedProductReschedule(forms.ModelForm):
         self.fields['shipment_status'].disabled = True
         if not (instance.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED' or \
                 instance.shipment_status == 'FULLY_RETURNED_AND_COMPLETED'
-                or instance.ordered_product.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED'):
+                or instance.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED'):
             self.fields['return_reason'].disabled = True
 
     def clean_return_reason(self):
