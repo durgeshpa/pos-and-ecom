@@ -2640,7 +2640,7 @@ def populate_data_on_qc_pass(order):
                                                                             ordered_product_mapping=ordered_product_mapping).last()
                 quantity = shipment_product_batch.quantity + i.pickup_quantity
                 ordered_pieces = int(shipment_product_batch.ordered_pieces) + i.quantity
-                shipment_product_batch.quantity=quantity
+                shipment_product_batch.quantity = quantity
                 shipment_product_batch.pickup_quantity = quantity
                 shipment_product_batch.ordered_pieces = ordered_pieces
                 shipment_product_batch.save()
@@ -2658,7 +2658,7 @@ def populate_data_on_qc_pass(order):
                     delivered_qty=ordered_product_mapping.delivered_qty,
                     ordered_pieces=i.quantity
                 )
-            i.shipment_batch=shipment_product_batch
+            i.shipment_batch = shipment_product_batch
             i.save()
         except Exception as e:
             pass
@@ -2668,6 +2668,14 @@ def populate_data_on_qc_pass(order):
 def create_putaway(sender, created=False, instance=None, *args, **kwargs):
     if instance.returned_qty == 0 and instance.delivered_qty == 0:
         add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
+
+
+@receiver(post_save, sender=OrderedProductBatch)
+def return_putaway(sender, created=False, instance=None, *args, **kwargs):
+    complete_shipment_status = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
+                                'FULLY_DELIVERED_AND_VERIFIED']
+    if instance.ordered_product_mapping.ordered_product.shipment_status in complete_shipment_status:
+        add_to_putaway_on_return(instance.ordered_product_mapping.ordered_product.id)
 
 
 # post save method to check the pickup status is cancelled and after that update status cancelled in
