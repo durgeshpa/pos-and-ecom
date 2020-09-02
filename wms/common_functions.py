@@ -824,11 +824,11 @@ def cancel_order_with_pick(instance):
                                                                  batch_id=pickup_bin.batch_id,
                                                                  )
                         if put_away_object.exists():
-                            quantity = put_away_object[0].quantity + pickup_bin.quantity
+                            quantity = put_away_object[0].quantity + pickup_bin.pickup_quantity
                             pick_up_bin_quantity = pickup_bin.pickup_quantity
                             status = 'Shipment_Cancelled'
                         else:
-                            quantity = pickup_bin.quantity
+                            quantity = pickup_bin.pickup_quantity
                             pick_up_bin_quantity = pickup_bin.pickup_quantity
                             status = 'Shipment_Cancelled'
                 else:
