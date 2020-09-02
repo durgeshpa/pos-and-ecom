@@ -206,8 +206,8 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                     cancel_shipment(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_obj)
 
                 elif self.instance.putaway_type == 'RETURNED':
-                    ordered_inventory_state = 'picked',
-                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    ordered_inventory_state = 'shipped',
+                    initial_stage = InventoryState.objects.filter(inventory_state='shipped').last(),
                     shipment_obj = OrderedProduct.objects.filter(
                         invoice__invoice_no=self.instance.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
                     cancel_returned(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_obj)
