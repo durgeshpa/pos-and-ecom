@@ -1369,8 +1369,8 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
     batch_id = obj.batch_id
     for i in shipment_obj:
         for shipped_obj in i.rt_ordered_product_mapping.all():
-            if obj.sku_id == shipped_obj.bin.sku.product_sku:
-                if obj.bin.bin.bin_id == shipped_obj.pickup_inventory.bin.bin.bin_id:
+            for pick_bin in shipped_obj.rt_pickup_batch_mapping.all():
+                if pick_bin.bin.bin.bin_id == obj.bin.bin.bin_id:
                     expired_qty = shipped_obj.expired_qty
                     damaged_qty = shipped_obj.damaged_qty
                     if expired_qty > 0:
@@ -1439,9 +1439,6 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
                                                                                  ordered_quantity, True)
                     obj.putaway_status = True
                     obj.save()
-                else:
-                    pass
-
             else:
                 pass
 
