@@ -974,7 +974,7 @@ class AuditInventory(object):
                 # get the quantity
                 for in_ware_house in all_ware_house_inventory_obj:
                     all_ware_house_quantity = in_ware_house.quantity + all_ware_house_quantity
-                if all_ware_house_quantity >= ware_house_inventory_obj.quantity:
+                if all_ware_house_quantity > ware_house_inventory_obj.quantity:
                     final_quantity = 0
                     reserved_inv_type_quantity = all_ware_house_quantity - ware_house_inventory_obj.quantity
                     ware_house_inventory_obj.quantity = final_quantity
