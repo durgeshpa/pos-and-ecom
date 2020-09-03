@@ -78,7 +78,7 @@ class DownloadCreditNote(APIView):
     """
     permission_classes = (AllowAny,)
     filename = 'credit_note.pdf'
-    #changed later based on shop
+    # changed later based on shop
     template_name = 'admin/credit_note/credit_note.html'
 
     def get(self, request, *args, **kwargs):
@@ -90,9 +90,9 @@ class DownloadCreditNote(APIView):
             gstinn2 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
 
         for gs in credit_note.shipment.order.shipping_address.shop_name.shop_name_documents.all():
-            gstinn1 = gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
+            gstinn1 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
 
-        #gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
+        # gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
         # changes for org change
         shop_mapping_list = ShopMigrationMapp.objects.filter(
             new_sp_addistro_shop=credit_note.shipment.order.seller_shop.pk).all()
@@ -175,11 +175,16 @@ class DownloadCreditNote(APIView):
         rupees = amt[0]
 
         data = {
-            "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":sum_amount,
-            "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
-            "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
-            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2,
-            "gstinn3":gstinn3,"reason":reason,"rupees":rupees,"cin":cin,"pan_no":pan_no, 'shipment_cancelled': shipment_cancelled}
+            "object": credit_note, "products": products, "shop": credit_note, "total_amount_int": total_amount_int,
+            "sum_qty": sum_qty, "sum_amount": sum_amount,
+            "url": request.get_host(), "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
+            "sgst": sgst, "cess": cess, "surcharge": surcharge,
+            "total_amount": round(total_amount, 2), "order_id": order_id, "shop_name_gram": shop_name_gram,
+            "nick_name_gram": nick_name_gram, "city_gram": city_gram,
+            "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
+            "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
+            "gstinn3": gstinn3, "reason": reason, "rupees": rupees, "cin": cin, "pan_no": pan_no,
+            'shipment_cancelled': shipment_cancelled}
 
         cmd_option = {
             "margin-top": 10,
@@ -515,10 +520,11 @@ def trip_planning_change(request, pk):
                     selected_shipment_list = selected_shipment_ids.split(',')
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                  pk__in=selected_shipment_list)
+
                     shipment_out_inventory_change(selected_shipments, TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
-                    # check_shipment_verified(selected_shipment_ids, trip_status,current_trip_status)
-                    selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],
-                                              trip=trip_instance)
+                    if current_trip_status not in ['COMPLETED', 'CLOSED']:
+                        selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],
+                                                  trip=trip_instance)
 
                     # updating order status for shipments with respect to trip status
                     if current_trip_status in TRIP_ORDER_STATUS_MAP.keys():
@@ -528,7 +534,7 @@ def trip_planning_change(request, pk):
                 return redirect('/admin/retailer_to_sp/trip/')
             else:
                 pass
-                #form = TripForm(request.user, request.POST, instance=trip_instance)
+                # form = TripForm(request.user, request.POST, instance=trip_instance)
     else:
         form = TripForm(request.user, instance=trip_instance)
     # error = None
@@ -886,7 +892,8 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
         try:
             # save pdf file in pick_list_pdf field
             picklist = order_obj.picker_order.all()[0]
-            order_obj.picker_order.all()[0].pick_list_pdf.save("{}".format(file_name), ContentFile(response.rendered_content), save=True)
+            order_obj.picker_order.all()[0].pick_list_pdf.save("{}".format(file_name),
+                                                               ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
         return response
@@ -1054,7 +1061,7 @@ def update_shipment_status_verified(form_instance, formset):
     returned_qty = sum(returned_qty_list)
     damaged_qty = sum(damaged_qty_list)
     with transaction.atomic():
-        #add_to_putaway_on_return(form_instance)
+        # add_to_putaway_on_return(form_instance)
         if shipped_qty == (returned_qty + damaged_qty):
             form_instance.shipment_status = 'FULLY_RETURNED_AND_VERIFIED'
 
