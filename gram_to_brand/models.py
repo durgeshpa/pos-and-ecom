@@ -506,9 +506,9 @@ class GRNOrderProductMapping(models.Model):
         #         raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity'))
         # else:
         #     raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
-        if self.manufacture_date :
-            if self.manufacture_date >= datetime.date.today():
-                raise ValidationError(_("Manufactured Date cannot be greater than or equal to today's date"))
+       # if self.manufacture_date :
+            #if self.manufacture_date >= datetime.date.today():
+            #    raise ValidationError(_("Manufacture Date cannot be in future"))
             # elif self.expiry_date < self.manufacture_date:
             #     raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
         # else:
