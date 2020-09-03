@@ -10,7 +10,8 @@ from accounts.middlewares import get_current_user
 from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
+
 
 from django.db.models import F, FloatField, Sum, Func, Q, Count, Case, Value, When
 from django.db.models.signals import post_save, pre_save
@@ -30,9 +31,9 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
-from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType
+from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType, InventoryState
 from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
-    get_expiry_date
+    get_expiry_date, OrderManagement
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
@@ -50,6 +51,7 @@ from django.db.models import Sum
 from django.db.models import Q
 from django.urls import reverse
 from retailer_backend import common_function
+from wms.models import WarehouseInventory
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
@@ -577,11 +579,12 @@ class BulkOrder(models.Model):
                     product_ids.append(Product.objects.get(product_sku=sku).id)
                 else:
                     raise ValidationError("The SKU %s is invalid" % (sku))
-            from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
-            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(
-                product__in=product_ids, available_qty__gte=0).values('product_id').annotate(
-                available_qty=Sum('available_qty'))
-            shop_products_dict = {g['product_id']: int(g['available_qty']) for g in shop_products_available}
+            shop_products_available = WarehouseInventory.objects.filter(
+                    sku__product_sku__in=product_skus, quantity__gte=0,
+                inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+            inventory_state=InventoryState.objects.filter(inventory_state='available').last()).values('sku_id').annotate(
+                    quantity=Sum('quantity'))
+            shop_products_dict = {g['sku_id']: int(g['quantity']) for g in shop_products_available}
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
             headers = next(reader, None)
             duplicate_products = []
@@ -622,16 +625,22 @@ class BulkOrder(models.Model):
                         if product_price.selling_price < discounted_price:
                             raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                                 0] + " | Discounted Price can't be more than Product Price."))
-                    product_id = product.id
-                    ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
+                    # product_id = product.id
+                    #ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
                     ordered_qty = int(row[2])
-                    product_availability = shop_products_dict.get(product.id, 0)
+                    # product_availability = shop_products_dict.get(sku, 0)
+                    available_quantity = WarehouseInventory.objects.filter(
+                        sku__product_sku=row[0],
+                        inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+                        inventory_state=InventoryState.objects.filter(inventory_state='available').last())[0].quantity
+                    # product_available = int(
+                    #     int(shop_products_dict.get(product.id, 0)) / int(product.product_inner_case_size))
                     product_available = int(
-                        int(shop_products_dict.get(product.id, 0)) / int(product.product_inner_case_size))
+                         int(available_quantity) / int(product.product_inner_case_size))
                     if product_available >= ordered_qty:
                         count += 1
             if count == 0:
-                raise ValidationError(_("Order can't be placed as none of the products uploaded are in stock."))
+                raise ValidationError(_("Ordered Quantity is more than Available quantity."))
 
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
@@ -669,76 +678,98 @@ def create_order_id(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=BulkOrder)
 def create_bulk_order(sender, instance=None, created=False, **kwargs):
-    if created:
-        products_available = {}
-        if instance.cart_products_csv:
-            product_skus = []
-            product_ids = []
-            reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
-            headers = next(reader, None)
-            product_skus = [x[0] for x in reader if x]
-            for sku in product_skus:
-                product_ids.append(Product.objects.get(product_sku=sku).id)
-            from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
-            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(instance.seller_shop).filter(
-                product__in=product_ids, available_qty__gte=0).values('product_id').annotate(
-                available_qty=Sum('available_qty'))
-            shop_products_dict = {g['product_id']: int(g['available_qty']) for g in shop_products_available}
-            reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
-            for id, row in enumerate(reader):
-                for row in reader:
-                    if row[0]:
-                        product = Product.objects.get(product_sku=row[0])
-                        product_id = product.id
-                        product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
-                        ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
-                        ordered_qty = int(row[2])
-                        product_availability = shop_products_dict.get(product.id, 0)
-                        product_available = int(
-                            int(shop_products_dict.get(product.id, 0)) / int(product.product_inner_case_size))
-                        if product_available >= ordered_qty:
-                            products_available[product_id] = ordered_pieces
-                            if instance.order_type == 'DISCOUNTED':
-                                CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
-                                                                  qty=int(row[2]),
-                                                                  no_of_pieces=int(row[2]) * int(
-                                                                      product.product_inner_case_size),
-                                                                  cart_product_price=product_price,
-                                                                  discounted_price=float(row[3]))
-                            else:
-                                CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
-                                                                  qty=int(row[2]),
-                                                                  no_of_pieces=int(row[2]) * int(
-                                                                      product.product_inner_case_size),
-                                                                  cart_product_price=product_price,
-                                                                  discounted_price=0)
-        from retailer_to_sp.tasks import create_reserved_order
+    with transaction.atomic():
+        if created:
+            products_available = {}
+            if instance.cart_products_csv:
+                product_skus = []
+                product_ids = []
+                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+                headers = next(reader, None)
+                product_skus = [x[0] for x in reader if x]
+                for sku in product_skus:
+                    product_ids.append(Product.objects.get(product_sku=sku).id)
+                from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
+                shop_products_available = WarehouseInventory.objects.filter(
+                        sku__product_sku__in=product_skus, quantity__gte=0,
+                    inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+                inventory_state=InventoryState.objects.filter(inventory_state='available').last()).values('sku_id').annotate(
+                        quantity=Sum('quantity'))
+                shop_products_dict = {g['sku_id']: int(g['quantity']) for g in shop_products_available}
+                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+                for id, row in enumerate(reader):
+                    for row in reader:
+                        if row[0]:
+                            product = Product.objects.get(product_sku=row[0])
+                            product_id = product.id
+                            product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
+                            ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
+                            ordered_qty = int(row[2])
+                            available_quantity = WarehouseInventory.objects.filter(
+                                sku__product_sku=row[0],
+                                inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+                                inventory_state=InventoryState.objects.filter(inventory_state='available').last())[
+                                0].quantity
+                            #product_availability = shop_products_dict.get(product.id, 0)
+                            product_available = int(
+                                int(available_quantity) / int(product.product_inner_case_size))
+                            if product_available >= ordered_qty:
+                                products_available[product_id] = ordered_pieces
+                                if instance.order_type == 'DISCOUNTED':
+                                    cart_obj = CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
+                                                                      qty=int(row[2]),
+                                                                      no_of_pieces=int(row[2]) * int(
+                                                                          product.product_inner_case_size),
+                                                                      cart_product_price=product_price,
+                                                                      discounted_price=float(row[3]))
+                                else:
+                                    cart_obj = CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
+                                                                      qty=int(row[2]),
+                                                                      no_of_pieces=int(row[2]) * int(
+                                                                          product.product_inner_case_size),
+                                                                      cart_product_price=product_price,
+                                                                      discounted_price=0)
+            #from retailer_to_sp.tasks import create_reserved_order
+            # reserved_args = json.dumps({
+            #     'shop_id': instance.seller_shop.id,
+            #     'cart_id': instance.cart.id,
+            #     'products': products_available
+            # })
+            reserved_args = json.dumps({
+                'shop_id': instance.seller_shop.id,
+                'transaction_id': instance.cart.order_id,
+                'products': products_available,
+                'transaction_type': 'reserved'
+            })
+            OrderManagement.create_reserved_order(reserved_args)
+        order, _ = Order.objects.get_or_create(ordered_cart=instance.cart)
+        order.order_no = instance.cart.order_id
+        order.ordered_cart = instance.cart
+        order.seller_shop = instance.seller_shop
+        order.buyer_shop = instance.buyer_shop
+        order.billing_address = instance.billing_address
+        order.shipping_address = instance.shipping_address
+        user = get_current_user()
+        order.ordered_by = user
+        order.last_modified_by = user
+        order.received_by = user
+        order.order_status = 'ordered'
+        order.save()
+        # from sp_to_gram.models import OrderedProductReserved
+        # for ordered_reserve in OrderedProductReserved.objects.filter(cart=instance.cart,
+        #                                                              reserve_status=OrderedProductReserved.RESERVED):
+        #     ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
+        #     ordered_reserve.order_product_reserved.save()
+        #     ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
+        #     ordered_reserve.save()
         reserved_args = json.dumps({
             'shop_id': instance.seller_shop.id,
-            'cart_id': instance.cart.id,
-            'products': products_available
+            'transaction_id': instance.cart.order_id,
+            'transaction_type': 'ordered',
+            'order_status': order.order_status
         })
-        create_reserved_order(reserved_args)
-    order, _ = Order.objects.get_or_create(ordered_cart=instance.cart)
-    order.order_no = instance.cart.order_id
-    order.ordered_cart = instance.cart
-    order.seller_shop = instance.seller_shop
-    order.buyer_shop = instance.buyer_shop
-    order.billing_address = instance.billing_address
-    order.shipping_address = instance.shipping_address
-    user = get_current_user()
-    order.ordered_by = user
-    order.last_modified_by = user
-    order.received_by = user
-    order.order_status = 'ordered'
-    order.save()
-    from sp_to_gram.models import OrderedProductReserved
-    for ordered_reserve in OrderedProductReserved.objects.filter(cart=instance.cart,
-                                                                 reserve_status=OrderedProductReserved.RESERVED):
-        ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
-        ordered_reserve.order_product_reserved.save()
-        ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
-        ordered_reserve.save()
+        sku_id = [i.cart_product.id for i in instance.cart.rt_cart_list.all()]
+        OrderManagement.release_blocking(reserved_args, sku_id)
 
 
 class CartProductMapping(models.Model):
