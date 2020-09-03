@@ -13,7 +13,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
-from .common_functions import create_batch_id_from_audit
+from .common_functions import create_batch_id
 from retailer_to_sp.models import OrderedProduct
 from django.db import transaction
 from .common_functions import cancel_ordered, cancel_shipment, cancel_returned
@@ -836,15 +836,22 @@ class UploadAuditAdminForm(forms.Form):
                                                                        " should be 0."))
 
             # to get object from GRN Order Product Mapping
-            grn_order_obj = GRNOrderProductMapping.objects.filter(
-                product__product_sku=row[1][-17:],
-                expiry_date=expiry_date)
+            sku = row[1][-17:]
+            # create batch id
+            batch_id = create_batch_id(sku, row[3])
+            bin_exp_obj = BinInventory.objects.filter(warehouse=row[0],
+                                                      bin=Bin.objects.filter(bin_id=row[4]).last(),
+                                                      sku=Product.objects.filter(
+                                                          product_sku=row[1][-17:]).last(),
+                                                      batch_id=batch_id)
             # if combination of expiry date and sku is not exist in GRN Order Product Mapping
-            if not grn_order_obj.exists():
+            if not bin_exp_obj.exists():
                 bin_in_obj = BinInventory.objects.filter(
                     warehouse=row[0], sku=Product.objects.filter(product_sku=row[1][-17:]).last())
                 for bin_in in bin_in_obj:
-                    if not (bin_in.batch_id == create_batch_id_from_audit(row)):
+                    sku = row[1][-17:]
+                    # create batch id
+                    if not (bin_in.batch_id == create_batch_id(sku, row[3])):
                         if bin_in.bin.bin_id == row[4]:
                             if bin_in.quantity == 0:
                                 pass
