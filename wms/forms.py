@@ -632,7 +632,7 @@ class DownloadAuditAdminForm(forms.Form):
         fields = ('warehouse',)
 
     def clean_file(self):
-        info_logger.info("Validation for File format for Bulk Bin Upload.")
+        info_logger.info("Validation for File format for Audit Download.")
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only .csv file accepted.")
 
@@ -641,6 +641,11 @@ class DownloadAuditAdminForm(forms.Form):
         # list which contains csv data and pass into the view file
         form_data_list = []
         for row_id, row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if '' in row:
+                if row[0] == '':
+                    continue
             try:
                 if not row[0]:
                     raise ValidationError(_("Issue in Row" + " " + str(row_id + 2) + "," + "SKU can not be empty."))
@@ -672,7 +677,7 @@ class UploadAuditAdminForm(forms.Form):
         fields = ('warehouse',)
 
     def clean_file(self):
-        info_logger.info("Validation for File format for Bulk Bin Upload.")
+        info_logger.info("Validation for File format for Audit Upload.")
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only .csv file accepted.")
 
@@ -682,7 +687,8 @@ class UploadAuditAdminForm(forms.Form):
         form_data_list = []
         unique_data_list = []
         for row_id, row in enumerate(reader):
-
+            if len(row) == 0:
+                continue
             if '' in row:
                 if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
                     row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == '' and
