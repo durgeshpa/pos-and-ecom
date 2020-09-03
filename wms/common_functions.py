@@ -6,6 +6,7 @@ from datetime import datetime
 from celery.task import task
 
 # django imports
+from django import forms
 from django.db.models import Sum, Q
 from django.db import transaction
 
@@ -1309,8 +1310,11 @@ def cancel_ordered(request, obj, ordered_inventory_state, initial_stage):
         initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
         final_type = InventoryType.objects.filter(inventory_type='normal').last(),
         final_stage = InventoryState.objects.filter(inventory_state='available').last(),
-        initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
-        final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+        try:
+            initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+            final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+        except:
+            raise forms.ValidationError("Bin Id is not associate with this Warehouse.")
         quantity = available_quantity
         batch_id = obj.batch_id
         CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
@@ -1364,8 +1368,11 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
     expired_inventory_type = 'expired',
     damaged_inventory_type = 'damaged',
     available_inventory_state = 'available',
-    initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
-    final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+    try:
+        initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+        final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+    except:
+        raise forms.ValidationError("Bin Id is not associate with this Warehouse.")
     batch_id = obj.batch_id
     for i in shipment_obj:
         for shipped_obj in i.rt_ordered_product_mapping.all():
@@ -1461,8 +1468,11 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
     normal_inventory_type = 'normal',
     damaged_inventory_type = 'damaged',
     available_inventory_state = 'available',
-    initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
-    final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+    try:
+        initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+        final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+    except:
+        raise forms.ValidationError("Bin Id is not associate with this Warehouse.")
     batch_id = obj.batch_id
     for i in shipment_obj:
         for shipped_obj in i.rt_ordered_product_mapping.all():
