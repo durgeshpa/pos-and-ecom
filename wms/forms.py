@@ -13,7 +13,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
-from .common_functions import create_batch_id_from_audit
+from .common_functions import create_batch_id
 from retailer_to_sp.models import OrderedProduct
 from django.db import transaction
 from .common_functions import cancel_ordered, cancel_shipment, cancel_returned
@@ -632,7 +632,7 @@ class DownloadAuditAdminForm(forms.Form):
         fields = ('warehouse',)
 
     def clean_file(self):
-        info_logger.info("Validation for File format for Bulk Bin Upload.")
+        info_logger.info("Validation for File format for Audit Download.")
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only .csv file accepted.")
 
@@ -641,6 +641,11 @@ class DownloadAuditAdminForm(forms.Form):
         # list which contains csv data and pass into the view file
         form_data_list = []
         for row_id, row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if '' in row:
+                if row[0] == '':
+                    continue
             try:
                 if not row[0]:
                     raise ValidationError(_("Issue in Row" + " " + str(row_id + 2) + "," + "SKU can not be empty."))
@@ -672,7 +677,7 @@ class UploadAuditAdminForm(forms.Form):
         fields = ('warehouse',)
 
     def clean_file(self):
-        info_logger.info("Validation for File format for Bulk Bin Upload.")
+        info_logger.info("Validation for File format for Audit Upload.")
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only .csv file accepted.")
 
@@ -682,7 +687,8 @@ class UploadAuditAdminForm(forms.Form):
         form_data_list = []
         unique_data_list = []
         for row_id, row in enumerate(reader):
-
+            if len(row) == 0:
+                continue
             if '' in row:
                 if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
                     row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == '' and
@@ -836,15 +842,22 @@ class UploadAuditAdminForm(forms.Form):
                                                                        " should be 0."))
 
             # to get object from GRN Order Product Mapping
-            grn_order_obj = GRNOrderProductMapping.objects.filter(
-                product__product_sku=row[1][-17:],
-                expiry_date=expiry_date)
+            sku = row[1][-17:]
+            # create batch id
+            batch_id = create_batch_id(sku, row[3])
+            bin_exp_obj = BinInventory.objects.filter(warehouse=row[0],
+                                                      bin=Bin.objects.filter(bin_id=row[4]).last(),
+                                                      sku=Product.objects.filter(
+                                                          product_sku=row[1][-17:]).last(),
+                                                      batch_id=batch_id)
             # if combination of expiry date and sku is not exist in GRN Order Product Mapping
-            if not grn_order_obj.exists():
+            if not bin_exp_obj.exists():
                 bin_in_obj = BinInventory.objects.filter(
                     warehouse=row[0], sku=Product.objects.filter(product_sku=row[1][-17:]).last())
                 for bin_in in bin_in_obj:
-                    if not (bin_in.batch_id == create_batch_id_from_audit(row)):
+                    sku = row[1][-17:]
+                    # create batch id
+                    if not (bin_in.batch_id == create_batch_id(sku, row[3])):
                         if bin_in.bin.bin_id == row[4]:
                             if bin_in.quantity == 0:
                                 pass

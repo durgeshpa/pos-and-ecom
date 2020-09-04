@@ -797,7 +797,8 @@ def cancel_order_with_pick(instance):
                 quantity = 0
                 pick_up_bin_quantity = 0
                 if instance.rt_order_order_product.all():
-                    if instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_SHIP':
+                    if (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_SHIP') or \
+                            (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_DISPATCH'):
                         for pickup_order in pickup_bin.pickup.orderedproductbatch_set.all():
                             if pickup_bin.bin.id == pickup_order.bin.id:
                                 put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
@@ -870,7 +871,7 @@ class AuditInventory(object):
     """This class is used for to store data in different models while audit file upload """
 
     @classmethod
-    def audit_exist_batch_id(cls, data, key, value, audit_inventory_obj):
+    def audit_exist_batch_id(cls, data, key, value, audit_inventory_obj, batch_id):
         """
 
         :param data: list of csv data
@@ -880,15 +881,16 @@ class AuditInventory(object):
         :return:
         """
         # filter in Bin inventory table to get batch id for particular sku, warehouse and bin in
-        bin_inv = BinInventory.objects.filter(warehouse=data[0],
-                                              bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                              sku=Product.objects.filter(
-                                                  product_sku=data[1][-17:]).last()).last()
+        # bin_inv = BinInventory.objects.filter(warehouse=data[0],
+        #                                       bin=Bin.objects.filter(bin_id=data[4]).last(),
+        #                                       sku=Product.objects.filter(
+        #                                           product_sku=data[1][-17:]).last()).last()
+
 
         # call function to create and update Bin inventory for specific Inventory Type
         AuditInventory.update_or_create_bin_inventory_for_audit(data[0], data[4],
                                                                 data[1][-17:],
-                                                                bin_inv.batch_id,
+                                                                batch_id,
                                                                 InventoryType.objects.filter(
                                                                     inventory_type=key).last(),
                                                                 value, True)
@@ -900,7 +902,7 @@ class AuditInventory(object):
             InventoryType.objects.filter(inventory_type=key).last(),
             BinInventory.available_qty_with_inventory_type(data[0], Product.objects.filter(
                 product_sku=data[1][-17:]).last().id, InventoryType.objects.filter(
-                inventory_type=key).last().id), True, bin_inv.batch_id, data[4])
+                inventory_type=key).last().id), True, batch_id, data[4])
 
         # call function to create and update Ware House Internal Inventory for specific Inventory Type
         transaction_type = 'audit_adjustment'
@@ -974,7 +976,7 @@ class AuditInventory(object):
                 # get the quantity
                 for in_ware_house in all_ware_house_inventory_obj:
                     all_ware_house_quantity = in_ware_house.quantity + all_ware_house_quantity
-                if all_ware_house_quantity >= ware_house_inventory_obj.quantity:
+                if all_ware_house_quantity > ware_house_inventory_obj.quantity:
                     final_quantity = 0
                     reserved_inv_type_quantity = all_ware_house_quantity - ware_house_inventory_obj.quantity
                     ware_house_inventory_obj.quantity = final_quantity
@@ -1197,53 +1199,37 @@ def common_on_return_and_partial(shipment):
                                                                      defaults={'putaway_quantity': partial_ship_qty})
 
 
-def create_batch_id_from_audit(data):
+def create_batch_id(sku, expiry_date):
+
     """
 
-    :param data: single row of data from csv
-    :return: batch id
-    """
-    try:
-        try:
-            batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d-%m-%y').strftime('%d%m%y'))
-
-        except:
-            try:
-                batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d-%m-%Y').strftime('%d%m%y'))
-            except:
-                try:
-                    batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%Y').strftime('%d%m%y'))
-                except:
-                    batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
-        return batch_id
-    except Exception as e:
-        error_logger.error(e.message)
-
-
-def get_create_batch_id_from_audit(data):
-    """
-
-    :param data: single row of data from csv
-    :return: batch id
+    :param sku: product sku
+    :param expiry_date: expiry date
+    :return:
     """
     try:
         try:
-            batch_id = '{}{}'.format(data[2], datetime.strptime(data[3], '%d-%m-%y').strftime('%d%m%y'))
+            batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d-%m-%y').strftime('%d%m%y'))
 
         except:
             try:
-                batch_id = '{}{}'.format(data[2], datetime.strptime(data[3], '%d-%m-%Y').strftime('%d%m%y'))
+                batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d-%m-%Y').strftime('%d%m%y'))
             except:
                 try:
-                    batch_id = '{}{}'.format(data[2], datetime.strptime(data[3], '%d/%m/%Y').strftime('%d%m%y'))
+                    batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%d%m%y'))
                 except:
-                    batch_id = '{}{}'.format(data[2], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
+                    batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d/%m/%y').strftime('%d%m%y'))
         return batch_id
     except Exception as e:
         error_logger.error(e.message)
 
 
 def get_expiry_date(batch_id):
+    """
+
+    :param batch_id:
+    :return: expiry date
+    """
     if len(batch_id) == 23:
         expiry_date = batch_id[17:19] + '/' + batch_id[19:21] + '/' + '20' + batch_id[21:23]
     else:
@@ -1252,6 +1238,11 @@ def get_expiry_date(batch_id):
 
 
 def set_expiry_date(batch_id):
+    """
+
+    :param batch_id: batch id
+    :return: expiry date
+    """
     if len(batch_id) == 23:
         expiry_date = batch_id[17:19] + '/' + batch_id[19:21] + '/' + batch_id[21:23]
     else:

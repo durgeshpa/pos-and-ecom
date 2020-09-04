@@ -23,7 +23,7 @@ from django.dispatch import receiver
 from django.db import transaction
 from datetime import datetime
 from .common_functions import CommonPickBinInvFunction, common_for_release, CommonPickupFunctions, \
-    create_batch_id_from_audit, get_expiry_date, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, get_create_batch_id_from_audit
+    create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
@@ -496,7 +496,10 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 # get the type of stock
                 stock_correction_type = 'stock_adjustment'
                 # Create data in IN Model
-                batch_id = get_create_batch_id_from_audit(data)
+                sku = data[2]
+                expiry_date = data[3]
+                # create batch id
+                batch_id = create_batch_id(sku, expiry_date)
                 quantity = int(data[6]) + int(data[7]) + int(data[8]) + int(data[9])
                 InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
                                             stock_movement_obj[0].id, Product.objects.get(product_sku=data[2]),
@@ -771,14 +774,6 @@ def audit_download(request):
             for data in upload_data:
                 # get product instance
                 product = Product.objects.filter(product_sku=data[0])
-                # get the expire date for particular product
-                # try:
-                #     expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).first().expiry_date
-                #     if expiry_date is None:
-                #         expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).last().expiry_date
-                # except:
-                #     expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).last().expiry_date
-                # get the product price for particular product
                 try:
                     product_price = ProductPrice.objects.filter(product=product[0])[0].mrp
                 except:
@@ -912,31 +907,28 @@ def audit_upload(request):
             # with transaction.atomic():
             audit_inventory_obj = AuditInventory.create_audit_entry(request.user, request.FILES['file'])
             for row_id, data in enumerate(upload_data):
-                # convert expiry date according to database field type
-                try:
-                    expiry_date = datetime.strptime(data[3], '%d/%m/%Y').strftime('%Y-%m-%d')
-                except:
-                    try:
-                        expiry_date = datetime.strptime(data[3], '%d-%m-%Y').strftime('%Y-%m-%d')
-                    except:
-                        try:
-                            expiry_date = datetime.strptime(data[3], '%d-%m-%y').strftime('%Y-%m-%d')
-                        except:
-                            expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
-
                 # Check SKU and Expiry data is exist or not
-                grn_order_obj = GRNOrderProductMapping.objects.filter(
-                    product__product_sku=data[1][-17:],
-                    expiry_date=expiry_date)
+                sku = data[1][-17:]
+                expiry_date = data[3]
+                # create batch id
+                batch_id = create_batch_id(sku, expiry_date)
+                bin_exp_obj = BinInventory.objects.filter(warehouse=data[0],
+                                                                    bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                                    sku=Product.objects.filter(
+                                                                        product_sku=data[1][-17:]).last(),
+                                                            batch_id=batch_id)
                 # call function to create audit data in Audit Model
-                if grn_order_obj.exists():
+                if bin_exp_obj.exists():
                     # create batch id for SKU and save data in In and Put Away Model
                     bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
                                                                     bin=Bin.objects.filter(bin_id=data[4]).last(),
                                                                     sku=Product.objects.filter(
                                                                         product_sku=data[1][-17:]).last())
                     if not bin_inventory_obj.exists():
-                        batch_id = create_batch_id_from_audit(data)
+                        sku = data[1][-17:]
+                        expiry_date = data[3]
+                        # create batch id
+                        batch_id = create_batch_id(sku, expiry_date)
                         bin_objects_create(data, batch_id)
 
                         bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
@@ -946,7 +938,10 @@ def audit_upload(request):
                                                                         batch_id=batch_id)
 
                 else:
-                    batch_id = create_batch_id_from_audit(data)
+                    sku = data[1][-17:]
+                    expiry_date = data[3]
+                    # create batch id
+                    batch_id = create_batch_id(sku, expiry_date)
                     quantity = int(data[9]) + int(data[10]) + int(data[11]) + int(data[12])
                     InCommonFunctions.create_in(Shop.objects.filter(id=data[0])[0], 'Audit Adjustment',
                                                 audit_inventory_obj[0].id,
@@ -966,7 +961,7 @@ def audit_upload(request):
                 for key, value in inventory_type.items():
                     # call function to create data in different models like:- Bin Inventory, Warehouse Inventory and
                     # Warehouse Internal Inventory Model
-                    AuditInventory.audit_exist_batch_id(data, key, value, audit_inventory_obj)
+                    AuditInventory.audit_exist_batch_id(data, key, value, audit_inventory_obj, batch_id)
                 # pickup_entry_creation_with_cron
             return render(request, 'admin/wms/audit-upload.html', {'form': form,
                                                                    'success': 'Audit CSV uploaded successfully !',
