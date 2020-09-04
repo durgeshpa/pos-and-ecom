@@ -122,7 +122,7 @@ class DailyStock(APIView):
 def discounted_order_cancellation():
     orders = Order.objects.filter(
         ~Q(order_status='CANCELLED'),
-        # created_at__lt=(datetime.now() - timedelta(hours=24)),
+        created_at__lt=(datetime.now() - timedelta(hours=24)),
         ordered_cart__cart_type='DISCOUNTED',
         ordered_cart__approval_status=False)
     if orders.exists():
