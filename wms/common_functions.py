@@ -797,7 +797,8 @@ def cancel_order_with_pick(instance):
                 quantity = 0
                 pick_up_bin_quantity = 0
                 if instance.rt_order_order_product.all():
-                    if instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_SHIP':
+                    if (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_SHIP') or \
+                            (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_DISPATCH'):
                         for pickup_order in pickup_bin.pickup.orderedproductbatch_set.all():
                             if pickup_bin.bin.id == pickup_order.bin.id:
                                 put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
