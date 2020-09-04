@@ -625,7 +625,7 @@ def release_blocking_with_cron():
 
 def pickup_entry_creation_with_cron():
     info_logger.info("POST request while upload the .csv file for Audit file download.")
-    current_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
+    current_time = datetime.now() - datetime.timedelta(minutes=1)
     cart = Cart.objects.filter(rt_order_cart_mapping__order_status='ordered'
                                ,rt_order_cart_mapping__created_at__lt=current_time)
     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
