@@ -15,7 +15,7 @@ from .tasks import approve_product_price
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     if instance.approval_status == sender.APPROVED:
         #approve_product_price.delay(instance.id)
-        update_shop_product_es.delay(
+        update_shop_product_es(
             instance.seller_shop.id, instance.product.id,
             ptr=instance.selling_price, mrp=instance.mrp)
 

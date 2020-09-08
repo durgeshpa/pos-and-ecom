@@ -250,6 +250,7 @@ def get_product_stock(shop, sku):
     """:param shop:
       :param sku:
       :return: """
+
     return WarehouseInventory.objects.filter(
         Q(sku=sku),
         Q(warehouse=shop),
@@ -640,7 +641,7 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
 
                 for i in cart.rt_cart_list.filter(cart_product=prod):
                     qty = WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).last().quantity
-                    WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).update(
+                    WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).update_or_create(
                         quantity=qty - i.no_of_pieces)
             else:
                 for i in cart.rt_cart_list.filter(cart_product=prod):
@@ -650,7 +651,7 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
                 # wim.update(quantity=available_qty+reserved_qty)
                 for i in cart.rt_cart_list.filter(cart_product=prod):
                     qty = WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).last().quantity
-                    WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).update(
+                    WarehouseInventory.objects.filter(id=ordered_id, sku=i.cart_product).update_or_create(
                         quantity=qty - i.no_of_pieces)
                 # WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
             warehouse_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=transaction_id,
