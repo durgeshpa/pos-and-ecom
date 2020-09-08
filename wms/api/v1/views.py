@@ -227,11 +227,24 @@ class PutAwayViewSet(APIView):
                                                        put_away_status, pu)
                         else:
                             if i[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
-                                msg = {'is_success': False,
-                                       'message': 'This product with sku {} and batch_id {} can not be placed in the bin'.format(
-                                           i[:17], i), 'batch_id': i}
-                                lis_data.append(msg)
-                                continue
+                                total = BinInventory.objects.filter(sku=i[:17], bin__bin_id=bin_id,
+                                                            inventory_type=InventoryType.objects.filter(inventory_type='normal').last()).aggregate(total=Sum('quantity'))['total']
+                                if total > 0:
+                                    msg = {'is_success': False,
+                                           'message': 'This product with sku {} and batch_id {} can not be placed in the bin'.format(
+                                               i[:17], i), 'batch_id': i}
+                                    lis_data.append(msg)
+                                    continue
+                                else:
+                                    put_away_status = False
+                                    while len(ids):
+                                        value = update_putaway(ids[0], i, warehouse, int(value), request.user, )
+                                        put_away_status = True
+                                        ids.remove(ids[0])
+                                    updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available',
+                                                               't',
+                                                               val,
+                                                               put_away_status, pu)
 
                             else:
                                 put_away_status = False
