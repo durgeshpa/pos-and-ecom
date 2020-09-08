@@ -1588,19 +1588,23 @@ class NoteAdmin(admin.ModelAdmin):
     list_filter = [('created_at', DateTimeRangeFilter),ShipmentSearch, CreditNoteSearch, ShopSearch]
 
     search_fields = ('credit_note_id','shop__shop_name', 'shipment__invoice__invoice_no')
-
+    list_per_page = 50
     def note_amount(self, obj):
         pp = OrderedProductMapping.objects.filter(ordered_product=obj.shipment.id)
         shipment_cancelled = True if obj.shipment.shipment_status == 'CANCELLED' else False
         products = pp
         sum_amount = 0
-        if shipment_cancelled:
+        if obj.credit_note_type == 'DISCOUNTED':
             for m in products:
-                sum_amount = sum_amount + (int(m.shipped_qty) * (m.price_to_retailer))
-
+                sum_amount = sum_amount + (int(m.delivered_qty) * (m.price_to_retailer-m.discounted_price))
         else:
-            for m in products:
-                sum_amount = sum_amount + (int(m.returned_qty + m.returned_damage_qty) * (m.price_to_retailer))
+            if shipment_cancelled:
+                for m in products:
+                    sum_amount = sum_amount + (int(m.shipped_qty) * (m.price_to_retailer))
+
+            else:
+                for m in products:
+                    sum_amount = sum_amount + (int(m.returned_qty + m.returned_damage_qty) * (m.price_to_retailer))
         return sum_amount
 
     note_amount.short_description = 'Note Amount'
