@@ -308,7 +308,7 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_id', 'bin_id', 'putaway_quantity',
                     'putaway_status', 'created_at')
     actions = ['download_bulk_put_away_bin_inventory_csv']
-    readonly_fields = ['warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway', 'bin', 'putaway_quantity']
+    readonly_fields = ['warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway','putaway_quantity']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin__bin_id')
     list_filter = [
         Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, ('putaway_type', DropdownFilter),
@@ -363,7 +363,7 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     download_bulk_put_away_bin_inventory_csv.short_description = "Download Bulk Data in CSV"
 
     class Media:
-        pass
+        css = {"all": ("admin/css/disable_save_and_continue_editing_button.css",)}
 
     def get_form(self, request, obj=None, **kwargs):
         ModelForm = super(PutawayBinInventoryAdmin, self).get_form(request, obj, **kwargs)
