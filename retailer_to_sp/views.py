@@ -727,7 +727,7 @@ class DownloadPickListPicker(TemplateView, ):
         :return: zip folder which contains the pdf files
         """
         try:
-            template_name = 'admin/download/retailer_sp_picker_pick_list.html'
+            template_name = 'admin/wms/picklist.html'
             # get prefix of file name
             file_prefix = PREFIX_PICK_LIST_FILE_NAME
             # check condition for single pdf download using download invoice link
@@ -807,88 +807,42 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
             shipment = OrderedProduct.objects.get(id=shipment_id)
         else:
             shipment = order_obj.rt_order_order_product.last()
-        if shipment:
-            shipment_products = shipment.rt_order_product_order_product_mapping.all()
-            shipment_product_list = []
-
-            shipment_product_items = shipment_products.values('product')
-            cart_products = order_obj.ordered_cart.rt_cart_list.all()
-            cart_products_remaining = cart_products.exclude(cart_product__in=shipment_product_items)
-
-            for cart_pro in cart_products_remaining:
-                product_list = {
-                    "product_name": cart_pro.cart_product.product_name,
-                    "product_sku": cart_pro.cart_product.product_sku,
-                    "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id,
-                                                                   order_obj.buyer_shop.id).mrp,
-                    "to_be_shipped_qty": int(cart_pro.no_of_pieces),
-                    # "no_of_pieces":cart_pro.no_of_pieces,
+        #if shipment:
+        picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_obj.order_no)
+        data_list = []
+        new_list = []
+        for i in picku_bin_inv:
+            product = i.pickup.sku.product_name
+            sku = i.pickup.sku.product_sku
+            mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
+            qty = i.quantity
+            batch_id = i.batch_id
+            bin_id = i.bin.bin.bin_id
+            prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id,
+                         "bin": bin_id}
+            data_list.append(prod_list)
+        data = {"data_list": data_list,
+                "buyer_shop": order_obj.ordered_cart.buyer_shop.shop_name,
+                "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
+                "buyer_shipping_address": order_obj.shipping_address.address_line1,
+                "buyer_shipping_city": order_obj.shipping_address.city.city_name,
+                "barcode": barcode,
+                "order_obj": order_obj,
                 }
-
-                shipment_product_list.append(product_list)
-
-            for shipment_pro in shipment_products:
-                product_list = {
-                    "product_name": shipment_pro.product.product_name,
-                    "product_sku": shipment_pro.product.product_sku,
-                    "product_mrp": round(shipment_pro.mrp, 2),
-                    # "to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity),
-                }
-                # product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
-                if shipment_id != "0":
-                    #  quantity excluding current
-                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty) - int(
-                        shipment_pro.shipped_qty_exclude_current1)
-                else:
-                    #  quantity including current
-                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty) - int(
-                        shipment_pro.shipped_quantity_including_current)
-                if (product_list["to_be_shipped_qty"] > 0):
-                    shipment_product_list.append(product_list)
-
-        else:
-            cart_products = order_obj.ordered_cart.rt_cart_list.all()
-            cart_product_list = []
-
-            for cart_pro in cart_products:
-                product_list = {
-                    "product_name": cart_pro.cart_product.product_name,
-                    "product_sku": cart_pro.cart_product.product_sku,
-                    "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id,
-                                                                   order_obj.buyer_shop.id).mrp,
-                    # "ordered_qty": int(cart_pro.qty),
-                    "ordered_qty": int(cart_pro.no_of_pieces),
-                    # "no_of_pieces":cart_pro.no_of_pieces,
-                }
-                cart_product_list.append(product_list)
-
-        data = {
-            "order_obj": order_obj,
-            "buyer_shop": order_obj.ordered_cart.buyer_shop.shop_name,
-            "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
-            "buyer_shipping_address": order_obj.shipping_address.address_line1,
-            "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-            "barcode": barcode,
-            "url": request.get_host(), "scheme": request.is_secure() and "https" or "http"
-        }
-        if shipment:
-            data["shipment_products"] = shipment_product_list
-            data["shipment"] = True
-        else:
-            data["cart_products"] = cart_product_list
-            data["shipment"] = False
 
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
-            "footer-center":
-                "[page]/[topage]",
-            "no-stop-slow-scripts": True
+            "javascript-delay": 1000,
+            "footer-center": "[page]/[topage]",
+            "no-stop-slow-scripts": True,
+            "quiet": True
         }
         response = PDFTemplateResponse(
             request=request, template=template_name,
             filename=file_name, context=data,
-            show_content_in_browser=False, cmd_options=cmd_option)
+            show_content_in_browser=False, cmd_options=cmd_option
+        )
         try:
             # save pdf file in pick_list_pdf field
             picklist = order_obj.picker_order.all()[0]
