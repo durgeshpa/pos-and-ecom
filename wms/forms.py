@@ -193,7 +193,11 @@ class PutAwayBinInventoryForm(forms.ModelForm):
 
     def clean(self):
         with transaction.atomic():
-            if self.cleaned_data['bin'] is None:
+            try:
+                if self.cleaned_data['bin'] is None:
+                    raise forms.ValidationError("You can't perform this action, Please select one of the Bin ID from drop"
+                                                "down menu.")
+            except:
                 raise forms.ValidationError("You can't perform this action, Please select one of the Bin ID from drop"
                                             "down menu.")
             if self.cleaned_data['putaway_status'] is False:

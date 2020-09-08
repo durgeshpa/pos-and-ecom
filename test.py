@@ -2,17 +2,21 @@ import datetime
 import os
 import sys
 import django
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'retailer_backend.settings')
 django.setup()
 from retailer_to_sp.models import OrderedProduct
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'retailer_backend.settings')
 django.setup()
-shipment=OrderedProduct.objects.filter(id=101739).last()
-for shipment_product in shipment.rt_order_product_order_product_mapping.all():
-    for shipment_product_batch in shipment_product.rt_ordered_product_mapping.all():
-        putaway_qty = shipment_product_batch.returned_qty + shipment_product_batch.returned_damage_qty
-        if putaway_qty == 0:
-            continue
-        else:
-            print(shipment_product_batch.batch_id)
+from products.models import Product
+from sp_to_gram.tasks import upload_shop_stock
+from shops.models import Shop
+from wms.common_functions import get_product_stock
+
+product_id=792
+shop_id= 1393
+product= Product.objects.filter(id=product_id).last()
+shop = Shop.objects.get(id=shop_id)
+stock=upload_shop_stock(shop_id,product)
+print(stock)
