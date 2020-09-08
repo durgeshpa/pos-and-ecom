@@ -17,6 +17,7 @@ from .common_functions import create_batch_id
 from retailer_to_sp.models import OrderedProduct
 from django.db import transaction
 from .common_functions import cancel_ordered, cancel_shipment, cancel_returned
+from dal import autocomplete
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -175,42 +176,84 @@ class PutAwayBinInventoryForm(forms.ModelForm):
             # self.fields['putaway_quantity'].initial = 0
             if instance.putaway_status is True:
                 self.fields['putaway_status'].disabled = True
+                self.fields['bin'].initial = instance.bin.bin.bin_id
+                self.fields['bin'].disabled = True
+            if instance.putaway_status is False:
+                self.fields['bin'] = forms.ModelChoiceField(queryset=Bin.objects.filter(
+                    warehouse=instance.warehouse).distinct(), widget=autocomplete.ModelSelect2())
+    def clean_bin(self):
+        if self.instance.putaway_status is True:
+            self.fields['putaway_status'].disabled = True
+            self.fields['bin'].initial = self.instance.bin.bin.bin_id
+            self.fields['bin'].disabled = True
+        if self.instance.putaway_status is False:
+            self.fields['bin'] = forms.ModelChoiceField(queryset=Bin.objects.filter(
+                warehouse=self.instance.warehouse).distinct(), widget=autocomplete.ModelSelect2())
+        return BinInventory.objects.filter(bin=Bin.objects.get(bin_id=self.cleaned_data['bin']), warehouse=self.instance.warehouse).last()
 
     def clean(self):
         with transaction.atomic():
+            if self.cleaned_data['bin'] is None:
+                raise forms.ValidationError("You can't perform this action, Please select one of the Bin ID from drop"
+                                            "down menu.")
             if self.cleaned_data['putaway_status'] is False:
-                raise forms.ValidationError("You can't perform this action, Please mark Putaway status is Active.")
+                raise forms.ValidationError("You can't perform this action, Please mark PutAway status is Active.")
             if PutawayBinInventory.objects.filter(id=self.instance.id)[0].putaway_status is True:
                 raise forms.ValidationError("You can't perform this action, PutAway has already done.")
             else:
+                bin_exp_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse,
+                                                          bin=Bin.objects.filter(
+                                                              bin_id=self.cleaned_data['bin'].bin.bin_id).last(),
+                                                          sku=Product.objects.filter(
+                                                              product_sku=self.instance.sku_id).last(),
+                                                          batch_id=self.instance.batch_id)
+                # if combination of expiry date and sku is not exist in GRN Order Product Mapping
+                if not bin_exp_obj.exists():
+                    bin_in_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse,
+                                                             sku=Product.objects.filter(
+                                                                 product_sku=self.instance.sku_id).last())
+                    for bin_in in bin_in_obj:
+                        # sku = self.instance.sku_id
+                        # create batch id
+                        if not (bin_in.batch_id == self.instance.batch_id):
+                            if bin_in.bin.bin_id == self.cleaned_data['bin'].bin.bin_id:
+                                if bin_in.quantity == 0:
+                                    pass
+                                else:
+                                    raise forms.ValidationError(" You can't perform this action,"
+                                                                " Non zero qty of more than one Batch ID of a single"
+                                                                " SKU can’t be saved in the same Bin ID.")
+                bin_id = self.cleaned_data['bin']
                 if self.instance.putaway_type == 'Order_Cancelled':
                     ordered_inventory_state = 'ordered',
                     initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage)
+                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
 
                 elif self.instance.putaway_type == 'Pickup_Cancelled':
                     ordered_inventory_state = 'picked',
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage)
+                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
 
                 elif self.instance.putaway_type == 'Shipment_Cancelled':
                     ordered_inventory_state = 'picked',
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage)
+                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
 
                 elif self.instance.putaway_type == 'PAR_SHIPMENT':
                     ordered_inventory_state = 'picked',
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
                     shipment_obj = OrderedProduct.objects.filter(
                         order__order_no=self.instance.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
-                    cancel_shipment(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_obj)
+                    cancel_shipment(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_obj,
+                                    bin_id)
 
                 elif self.instance.putaway_type == 'RETURNED':
                     ordered_inventory_state = 'shipped',
                     initial_stage = InventoryState.objects.filter(inventory_state='shipped').last(),
                     shipment_obj = OrderedProduct.objects.filter(
                         invoice__invoice_no=self.instance.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
-                    cancel_returned(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_obj)
+                    cancel_returned(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_obj,
+                                    bin_id)
 
 
 class BinInventoryForm(forms.ModelForm):

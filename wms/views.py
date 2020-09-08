@@ -21,7 +21,7 @@ from django.db.models.signals import post_save
 from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction
-from datetime import datetime
+from datetime import datetime,timedelta
 from .common_functions import CommonPickBinInvFunction, common_for_release, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
@@ -625,7 +625,9 @@ def release_blocking_with_cron():
 
 def pickup_entry_creation_with_cron():
     info_logger.info("POST request while upload the .csv file for Audit file download.")
-    cart = Cart.objects.filter(rt_order_cart_mapping__order_status='ordered')
+    current_time = datetime.now() - timedelta(minutes=1)
+    cart = Cart.objects.filter(rt_order_cart_mapping__order_status='ordered'
+                               ,rt_order_cart_mapping__created_at__lt=current_time)
     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
     data_list = []
     with transaction.atomic():
