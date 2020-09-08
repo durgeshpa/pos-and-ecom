@@ -180,7 +180,7 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                 self.fields['bin'].disabled = True
             if instance.putaway_status is False:
                 self.fields['bin'] = forms.ModelChoiceField(queryset=Bin.objects.filter(
-                    warehouse=instance.warehouse).distinct(), widget=autocomplete.ModelSelect2())
+                    warehouse=instance.warehouse, is_active=True).distinct(), widget=autocomplete.ModelSelect2())
     def clean_bin(self):
         if self.instance.putaway_status is True:
             self.fields['putaway_status'].disabled = True
