@@ -324,7 +324,7 @@ WKHTMLTOPDF_CMD_OPTIONS = {
 TEMPUS_DOMINUS_INCLUDE_ASSETS=False
 
 CRONJOBS = [
-    ('*/5 * * * *', 'retailer_backend.cron.discounted_order_cancellation', '>> /tmp/discounted_cancellation.log'),
+    ('*/10 * * * *', 'retailer_backend.cron.discounted_order_cancellation', '>> /tmp/discounted_cancellation.log'),
     ('* * * * *', 'retailer_backend.cron.delete_ordered_reserved_products'),
     ('2 0 * * *', 'analytics.api.v1.views.getStock'),
     ('*/10 * * * *', 'retailer_backend.cron.po_status_change_exceeds_validity_date'),
