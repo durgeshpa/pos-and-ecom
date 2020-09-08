@@ -11,18 +11,26 @@ from elasticsearch import Elasticsearch
 from shops.models import Shop
 from sp_to_gram import models
 from products.models import Product, ProductPrice
-from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF
+from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF, get_product_stock
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
 
-def get_warehouse_stock(shop_id=None):
+def get_warehouse_stock(shop_id=None,product=None):
 	product_dict = None
 	if shop_id:
 		shop = Shop.objects.get(id=shop_id)
-		stock = get_stock(shop).filter(quantity__gt=0).values('sku__id').annotate(available_qty=Sum('quantity'))
-		product_dict = {g['sku__id']:g['available_qty'] for g in stock}
+		if product is None:
+			stock = get_stock(shop).filter(quantity__gt=0,).values('sku__id').annotate(available_qty=Sum('quantity'))
+			product_dict = {g['sku__id']: g['available_qty'] for g in stock}
+		else:
+			stock_p=get_product_stock(shop, product)
+			if stock_p:
+				stock = stock_p.filter(quantity__gt=0, ).values('sku__id').annotate(available_qty=Sum('quantity'))
+				product_dict = {g['sku__id']: g['available_qty'] for g in stock}
+			else:
+				product_dict = {product.id: 0}
 		product_list = product_dict.keys()
 	else:
 		product_list = CWIF.filtered_warehouse_inventory_items().values('sku__id').distinct()
@@ -84,8 +92,8 @@ def get_warehouse_stock(shop_id=None):
 def create_es_index(index):
 	return "{}-{}".format(es_prefix, index)
 
-def upload_shop_stock(shop=None):
-	all_products = get_warehouse_stock(shop)
+def upload_shop_stock(shop=None,product=None):
+	all_products = get_warehouse_stock(shop,product)
 	es_index = shop if shop else 'all_products'
 	for product in all_products:
 		es.index(index=create_es_index(es_index), doc_type='product',id=product['id'], body=product)
@@ -93,7 +101,10 @@ def upload_shop_stock(shop=None):
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
 	try:
-		es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
+		#es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
+		##Changed to use single function for all updates
+		product= Product.objects.filter(id=product_id).last()
+		upload_shop_stock(shop,product)
 	except Exception as e:
 		pass
 		#upload_shop_stock(shop)
