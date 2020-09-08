@@ -189,7 +189,7 @@ class PutAwayBinInventoryForm(forms.ModelForm):
         if self.instance.putaway_status is False:
             self.fields['bin'] = forms.ModelChoiceField(queryset=Bin.objects.filter(
                 warehouse=self.instance.warehouse).distinct(), widget=autocomplete.ModelSelect2())
-        return BinInventory.objects.filter(bin=Bin.objects.get(bin_id=self.cleaned_data['bin']), warehouse=self.instance.warehouse).last()
+        return BinInventory.objects.filter(bin=Bin.objects.filter(bin_id=self.cleaned_data['bin']).last(), warehouse=self.instance.warehouse).last()
 
     def clean(self):
         with transaction.atomic():
@@ -200,6 +200,8 @@ class PutAwayBinInventoryForm(forms.ModelForm):
             except:
                 raise forms.ValidationError("You can't perform this action, Please select one of the Bin ID from drop"
                                             "down menu.")
+            if self.cleaned_data['bin'].bin.bin_id == 'V2VZ01SR001-0001':
+                raise forms.ValidationError("You can't assign this BIN ID, This is a Virtual Bin ID.")
             if self.cleaned_data['putaway_status'] is False:
                 raise forms.ValidationError("You can't perform this action, Please mark PutAway status is Active.")
             if PutawayBinInventory.objects.filter(id=self.instance.id)[0].putaway_status is True:
