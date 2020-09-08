@@ -87,8 +87,20 @@ class BinForm(forms.ModelForm):
         bin_validation, message = bin_id_validation(self.cleaned_data['bin_id'], self.data['bin_type'])
         if bin_validation is False:
             raise ValidationError(_(message))
+        if self.instance.bin_id is None:
+            bin_obj = Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id=self.cleaned_data['bin_id'])
+        else:
+            bin_obj = Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id=self.instance.bin_id)
         if Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id = self.cleaned_data['bin_id']).exists():
-            raise ValidationError(_("Duplicate Data ! Warehouse with same Bin Id is already exists in the system."))
+            if bin_obj[0].bin_id == self.cleaned_data['bin_id']:
+                try:
+                    if int(bin_obj[0].id) == int(self.instance.id):
+                        pass
+                except:
+                    raise ValidationError(
+                        _("Duplicate Data ! Warehouse with same Bin Id is already exists in the system."))
+            else:
+                raise ValidationError(_("Duplicate Data ! Warehouse with same Bin Id is already exists in the system."))
         return self.cleaned_data['bin_id']
 
     def __init__(self, *args, **kwargs):
