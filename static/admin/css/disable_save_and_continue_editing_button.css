@@ -1,0 +1,7 @@
+input[name="_continue"] {
+  display: none;
+}
+
+input[name="_addanother"] {
+  display: none;
+}
