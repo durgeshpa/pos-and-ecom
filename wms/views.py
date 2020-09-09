@@ -709,7 +709,7 @@ def pickup_entry_creation_with_cron():
                                                                                pickup_quantity=None)
                             InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id, i.bin,
                                                                                          type_normal, type_normal,
-                                                                                         "pickup-creation", pickup_obj.pk,
+                                                                                         "pickup_created", pickup_obj.pk,
                                                                                          already_picked)
 
 
