@@ -1299,7 +1299,7 @@ def cancel_ordered(request, obj, ordered_inventory_state, initial_stage, bin_id)
     final_stage = InventoryState.objects.filter(inventory_state='available').last(),
     try:
         initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
-        final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+        final_bin_id = Bin.objects.get(bin_id=bin_id.bin.bin_id, warehouse=obj.warehouse)
     except:
         raise forms.ValidationError("Bin Id is not associate with this Warehouse.")
     quantity = available_quantity
@@ -1368,7 +1368,7 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
     available_inventory_state = 'available',
     try:
         initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
-        final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+        final_bin_id = Bin.objects.get(bin_id=bin_id.bin.bin_id, warehouse=obj.warehouse)
     except:
         raise forms.ValidationError("Bin Id is not associate with this Warehouse.")
     batch_id = obj.batch_id
@@ -1493,7 +1493,7 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
     available_inventory_state = 'available',
     try:
         initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
-        final_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+        final_bin_id = Bin.objects.get(bin_id=bin_id.bin.bin_id, warehouse=obj.warehouse)
     except:
         raise forms.ValidationError("Bin Id is not associate with this Warehouse.")
     batch_id = obj.batch_id
