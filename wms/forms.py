@@ -251,25 +251,18 @@ class PutAwayBinInventoryForm(forms.ModelForm):
             if PutawayBinInventory.objects.filter(id=self.instance.id)[0].putaway_status is True:
                 raise forms.ValidationError("You can't perform this action, PutAway has already done.")
             else:
-                bin_exp_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse,
-                                                          bin=Bin.objects.filter(
-                                                              bin_id=self.cleaned_data['bin'].bin.bin_id).last(),
-                                                          sku=Product.objects.filter(
-                                                              product_sku=self.instance.sku_id).last(),
-                                                          batch_id=self.instance.batch_id)
-                if not bin_exp_obj.exists():
-                    bin_in_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse,
-                                                             sku=Product.objects.filter(
-                                                                 product_sku=self.instance.sku_id).last())
-                    for bin_in in bin_in_obj:
-                        if not (bin_in.batch_id == self.instance.batch_id):
-                            if bin_in.bin.bin_id == self.cleaned_data['bin'].bin.bin_id:
-                                if bin_in.quantity == 0:
-                                    pass
-                                else:
-                                    raise forms.ValidationError(" You can't perform this action,"
-                                                                " Non zero qty of more than one Batch ID of a single"
-                                                                " SKU can’t be saved in the same Bin ID.")
+                bin_in_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse,
+                                                         sku=Product.objects.filter(
+                                                             product_sku=self.instance.sku_id).last())
+                for bin_in in bin_in_obj:
+                    if not (bin_in.batch_id == self.instance.batch_id):
+                        if bin_in.bin.bin_id == self.cleaned_data['bin'].bin.bin_id:
+                            if bin_in.quantity == 0:
+                                pass
+                            else:
+                                raise forms.ValidationError(" You can't perform this action,"
+                                                            " Non zero qty of more than one Batch ID of a single"
+                                                            " SKU can’t be saved in the same Bin ID.")
                 bin_id = self.cleaned_data['bin']
                 if self.instance.putaway_type == 'Order_Cancelled':
                     ordered_inventory_state = 'ordered',
