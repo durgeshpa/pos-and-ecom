@@ -109,5 +109,13 @@ def update_shop_product_es(shop, product_id,**kwargs):
 		pass
 		#upload_shop_stock(shop)
 
+@task
+def update_product_es(shop, product_id,**kwargs):
+	try:
+		es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
+	except Exception as e:
+		pass
+		#upload_shop_stock(shop)
+
 def es_search(index, body):
 	return es.search(index=create_es_index(index), body=body)

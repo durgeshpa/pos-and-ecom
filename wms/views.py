@@ -16,7 +16,7 @@ from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
-from sp_to_gram.tasks import update_shop_product_es
+from sp_to_gram.tasks import update_shop_product_es, update_product_es
 from django.db.models.signals import post_save
 from django.db.models import Sum
 from django.dispatch import receiver
@@ -424,7 +424,7 @@ def commit_updates_to_es(shop, product):
         return False
     if not available_qty:
         status = False
-    update_shop_product_es.delay(shop.id, product.id, available=available_qty, status=status)
+    update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
 
 
 @receiver(post_save, sender=WarehouseInventory)
