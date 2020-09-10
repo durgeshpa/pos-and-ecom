@@ -303,14 +303,14 @@ class OrderManagement(object):
         transaction_type = params['transaction_type']
 
         for prod_id, ordered_qty in products.items():
-            warehouse_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
+            warehouse_reserve_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
                                                               sku=Product.objects.get(id=int(prod_id)),
                                                               inventory_type=InventoryType.objects.filter(
                                                                   inventory_type='normal').last(),
                                                               inventory_state=InventoryState.objects.filter(
                                                                   inventory_state='reserved').last())
-            if warehouse_obj.exists():
-                w_obj = warehouse_obj.last()
+            if warehouse_reserve_obj.exists():
+                w_obj = warehouse_reserve_obj.last()
                 w_obj.quantity = ordered_qty + w_obj.quantity
                 w_obj.save()
             else:
@@ -321,8 +321,16 @@ class OrderManagement(object):
                                                   inventory_state=InventoryState.objects.filter(
                                                       inventory_state='reserved').last(),
                                                   quantity=ordered_qty, in_stock='t')
-            win = WarehouseInventory.objects.filter(sku__id=int(prod_id), quantity__gt=0,
-                                                    inventory_state__inventory_state='available').order_by('created_at')
+            warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
+                                                                      sku=Product.objects.get(id=int(prod_id)),
+                                                                      inventory_type=InventoryType.objects.filter(
+                                                                          inventory_type='normal').last(),
+                                                                      inventory_state=InventoryState.objects.filter(
+                                                                          inventory_state='available').last())
+            if warehouse_available_obj.exists():
+                w_obj = warehouse_available_obj.last()
+                w_obj.quantity = w_obj.quantity - ordered_qty
+                w_obj.save()
             WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
                                                             sku=Product.objects.get(id=int(prod_id)),
                                                             transaction_type=transaction_type,
@@ -340,26 +348,6 @@ class OrderManagement(object):
                                                sku=Product.objects.get(id=int(prod_id)),
                                                warehouse_internal_inventory_reserve=WarehouseInternalInventoryChange.objects.all().last(),
                                                reserved_time=WarehouseInternalInventoryChange.objects.all().last().created_at)
-
-            for k in win:
-                wu = WarehouseInventory.objects.filter(id=k.id)
-                qty = wu.last().quantity
-                if ordered_qty == 0:
-                    break
-                if ordered_qty >= qty:
-                    remain = 0
-                    ordered_qty = ordered_qty - qty
-                    ware_obj = wu.last()
-                    ware_obj.quantity = remain
-                    ware_obj.save()
-                    # wu.update(quantity=remain)
-                else:
-                    qty = qty - ordered_qty
-                    ware_obj = wu.last()
-                    ware_obj.quantity = qty
-                    ware_obj.save()
-                    # wu.update(quantity=qty)
-                    ordered_qty = 0
 
     @classmethod
     @task
