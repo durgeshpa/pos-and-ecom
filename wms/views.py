@@ -610,17 +610,16 @@ def release_blocking_with_cron():
 
     :return:
     """
-    order_reserve_release = OrderReserveRelease.objects.filter(warehouse_internal_inventory_release_id=None)
+    current_time = datetime.now() - timedelta(minutes=8)
+    order_reserve_release = OrderReserveRelease.objects.filter(warehouse_internal_inventory_release_id=None,
+                                                               created_at__lt=current_time)
     sku_id = [p.sku.id for p in order_reserve_release]
     for order_product in order_reserve_release:
-        elapsed_time = datetime.now() - order_product.created_at
-        res_time = divmod(elapsed_time.total_seconds(), 60)[0]
-        if int(res_time) == 8:
-            transaction_id = order_product.transaction_id
-            shop_id = order_product.warehouse.id
-            transaction_type = 'released'
-            order_status = 'available'
-            common_release_for_inventory(sku_id, shop_id, transaction_type, transaction_id, order_status, order_product)
+        transaction_id = order_product.transaction_id
+        shop_id = order_product.warehouse.id
+        transaction_type = 'released'
+        order_status = 'available'
+        common_release_for_inventory(sku_id, shop_id, transaction_type, transaction_id, order_status, order_product)
 
 
 def pickup_entry_creation_with_cron():
