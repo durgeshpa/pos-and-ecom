@@ -306,8 +306,10 @@ class OrderManagement(object):
             reserved = OrderReserveRelease.objects.filter(warehouse=Shop.objects.get(id=shop_id),
                                                           sku=Product.objects.get(id=int(prod_id)),
                                                           transaction_id=transaction_id).last()
-            if reserved.warehouse_internal_inventory_release is None:
-                continue
+
+            if reserved is not None:
+                if reserved.warehouse_internal_inventory_release is None:
+                    continue
             warehouse_reserve_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
                                                                       sku=Product.objects.get(id=int(prod_id)),
                                                                       inventory_type=InventoryType.objects.filter(
