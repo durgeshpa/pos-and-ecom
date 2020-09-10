@@ -23,7 +23,7 @@ from django.dispatch import receiver
 from django.db import transaction
 from datetime import datetime,timedelta
 from .common_functions import CommonPickBinInvFunction, common_for_release, CommonPickupFunctions, \
-    create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions
+    create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, common_for_release_for_cron
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
@@ -606,21 +606,21 @@ def warehouse_inventory_change_data(upload_data, stock_movement_obj):
 
 
 def release_blocking_with_cron():
-    cart = Cart.objects.filter(cart_status='active')
-    for i in cart:
-        item_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=i.order_id,
-                                                                       transaction_type='reserved',
-                                                                       status=True)
-        sku_id = [p.sku.id for p in item_details]
-        for k in item_details:
-            elapsed_time = datetime.now() - k.created_at
-            res_time = divmod(elapsed_time.total_seconds(), 60)[0]
-            if int(res_time) == 8:
-                transaction_id = k.transaction_id
-                shop_id = k.warehouse.id
-                transaction_type = 'released'
-                order_status = 'available'
-                common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
+    """
+
+    :return:
+    """
+    order_reserve_release = OrderReserveRelease.objects.filter(warehouse_internal_inventory_release_id=None)
+    sku_id = [p.sku.id for p in order_reserve_release]
+    for order_product in order_reserve_release:
+        elapsed_time = datetime.now() - order_product.created_at
+        res_time = divmod(elapsed_time.total_seconds(), 60)[0]
+        if int(res_time) == 8:
+            transaction_id = order_product.transaction_id
+            shop_id = order_product.warehouse.id
+            transaction_type = 'released'
+            order_status = 'available'
+            common_for_release_for_cron(sku_id, shop_id, transaction_type, transaction_id, order_status, order_product)
 
 
 def pickup_entry_creation_with_cron():

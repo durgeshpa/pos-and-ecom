@@ -575,11 +575,11 @@ class StockCorrectionChangeAdmin(admin.ModelAdmin):
 
 class OrderReleaseAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'order_number', 'warehouse_internal_inventory_reserve',
+        'warehouse', 'sku', 'transaction_id', 'order_number', 'warehouse_internal_inventory_reserve',
         'warehouse_internal_inventory_release',
         'reserved_time', 'release_time', 'created_at')
     readonly_fields = (
-        'warehouse', 'sku', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release',
+        'warehouse', 'sku', 'transaction_id', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release',
         'reserved_time',
         'release_time', 'created_at')
 

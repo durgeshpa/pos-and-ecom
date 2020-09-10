@@ -353,6 +353,7 @@ class StockCorrectionChange(models.Model):
 class OrderReserveRelease(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
+    transaction_id = models.CharField(max_length=25, null=True, blank=True)
     warehouse_internal_inventory_reserve = models.ForeignKey(WarehouseInternalInventoryChange,
                                                              related_name='internal_inventory_reserve',
                                                              null=True, blank=True, on_delete=models.DO_NOTHING)
