@@ -22,8 +22,8 @@ from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction
 from datetime import datetime,timedelta
-from .common_functions import CommonPickBinInvFunction, common_for_release, CommonPickupFunctions, \
-    create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, common_for_release_for_cron
+from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
+    create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, common_release_for_inventory
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
@@ -620,7 +620,7 @@ def release_blocking_with_cron():
             shop_id = order_product.warehouse.id
             transaction_type = 'released'
             order_status = 'available'
-            common_for_release_for_cron(sku_id, shop_id, transaction_type, transaction_id, order_status, order_product)
+            common_release_for_inventory(sku_id, shop_id, transaction_type, transaction_id, order_status, order_product)
 
 
 def pickup_entry_creation_with_cron():

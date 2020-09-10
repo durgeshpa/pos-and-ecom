@@ -605,12 +605,12 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
     order_reserve_release = OrderReserveRelease.objects.filter(transaction_id=transaction_id,
                                                                warehouse_internal_inventory_release_id=None)
     for order_product in order_reserve_release:
-        # call cron function for release inventory
-        common_for_release_for_cron(prod_list, shop_id, transaction_type, transaction_id, order_status,
+        # call function for release inventory
+        common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status,
                                     order_product)
 
 
-def common_for_release_for_cron(prod_list, shop_id, transaction_type, transaction_id, order_status, order_product):
+def common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status, order_product):
     """
 
     :param prod_list:
