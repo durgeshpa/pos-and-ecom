@@ -99,8 +99,8 @@ def upload_shop_stock(shop=None,product=None):
 	for product in all_products:
 		es.index(index=create_es_index(es_index), doc_type='product',id=product['id'], body=product)
 
-@task(bind=True)
-def update_shop_product_es(shop, product_id):
+@task
+def update_shop_product_es(shop, product_id,**kwargs):
 	try:
 		#es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
 		##Changed to use single function for all updates
@@ -110,13 +110,13 @@ def update_shop_product_es(shop, product_id):
 		pass
 		#upload_shop_stock(shop)
 
-@task(bind=True)
-def update_product_es(self, shop, product_id,**kwargs):
+@task
+def update_product_es(shop, product_id,**kwargs):
 	try:
 		es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
 	except Exception as e:
 		info_logger.info("exception %s",e)
-		raise self.retry(exc=e)
+		pass
 		#upload_shop_stock(shop)
 
 def es_search(index, body):
