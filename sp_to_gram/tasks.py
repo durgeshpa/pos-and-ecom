@@ -13,7 +13,8 @@ from sp_to_gram import models
 from products.models import Product, ProductPrice
 from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF, get_product_stock
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
-
+import logging
+info_logger = logging.getLogger('file-info')
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
 
@@ -98,7 +99,7 @@ def upload_shop_stock(shop=None,product=None):
 	for product in all_products:
 		es.index(index=create_es_index(es_index), doc_type='product',id=product['id'], body=product)
 
-@task
+@task(bind=True)
 def update_shop_product_es(shop, product_id,**kwargs):
 	try:
 		#es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
@@ -109,12 +110,13 @@ def update_shop_product_es(shop, product_id,**kwargs):
 		pass
 		#upload_shop_stock(shop)
 
-@task
-def update_product_es(shop, product_id,**kwargs):
+@task(bind=True)
+def update_product_es(self, shop, product_id,**kwargs):
 	try:
 		es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
 	except Exception as e:
-		pass
+		info_logger.info("exception %s",e)
+		raise self.retry(exc=e)
 		#upload_shop_stock(shop)
 
 def es_search(index, body):
