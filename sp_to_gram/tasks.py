@@ -100,7 +100,7 @@ def upload_shop_stock(shop=None,product=None):
 		es.index(index=create_es_index(es_index), doc_type='product',id=product['id'], body=product)
 
 @task(bind=True)
-def update_shop_product_es(shop, product_id,**kwargs):
+def update_shop_product_es(shop, product_id):
 	try:
 		#es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
 		##Changed to use single function for all updates
