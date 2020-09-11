@@ -16,14 +16,14 @@ from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
-from sp_to_gram.tasks import update_shop_product_es
+from sp_to_gram.tasks import update_shop_product_es, update_product_es
 from django.db.models.signals import post_save
 from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction
 from datetime import datetime,timedelta
-from .common_functions import CommonPickBinInvFunction, common_for_release, CommonPickupFunctions, \
-    create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions
+from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
+    create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, common_release_for_inventory
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
@@ -424,13 +424,13 @@ def commit_updates_to_es(shop, product):
         return False
     if not available_qty:
         status = False
-    update_shop_product_es.delay(shop.id, product.id, available=available_qty, status=status)
+    update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
 
 
 @receiver(post_save, sender=WarehouseInventory)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     if instance.inventory_type.inventory_type == 'normal' and instance.inventory_state.inventory_state == 'available':
-        transaction.on_commit(lambda: commit_updates_to_es(instance.warehouse, instance.sku))
+        commit_updates_to_es(instance.warehouse, instance.sku)
 
 
 def bin_stock_movement_data(upload_data, stock_movement_obj):
@@ -606,21 +606,20 @@ def warehouse_inventory_change_data(upload_data, stock_movement_obj):
 
 
 def release_blocking_with_cron():
-    cart = Cart.objects.filter(cart_status='active')
-    for i in cart:
-        item_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=i.order_id,
-                                                                       transaction_type='reserved',
-                                                                       status=True)
-        sku_id = [p.sku.id for p in item_details]
-        for k in item_details:
-            elapsed_time = datetime.now() - k.created_at
-            res_time = divmod(elapsed_time.total_seconds(), 60)[0]
-            if int(res_time) == 8:
-                transaction_id = k.transaction_id
-                shop_id = k.warehouse.id
-                transaction_type = 'released'
-                order_status = 'available'
-                common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
+    """
+
+    :return:
+    """
+    current_time = datetime.now() - timedelta(minutes=8)
+    order_reserve_release = OrderReserveRelease.objects.filter(warehouse_internal_inventory_release_id=None,
+                                                               created_at__lt=current_time)
+    sku_id = [p.sku.id for p in order_reserve_release]
+    for order_product in order_reserve_release:
+        transaction_id = order_product.transaction_id
+        shop_id = order_product.warehouse.id
+        transaction_type = 'released'
+        order_status = 'available'
+        common_release_for_inventory(sku_id, shop_id, transaction_type, transaction_id, order_status, order_product)
 
 
 def pickup_entry_creation_with_cron():
