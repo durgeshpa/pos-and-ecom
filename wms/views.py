@@ -610,8 +610,9 @@ def release_blocking_with_cron():
 
     :return:
     """
-    #current_time = datetime.now() - timedelta(minutes=8)
-    order_reserve_release = OrderReserveRelease.objects.filter(warehouse_internal_inventory_release_id=None)
+    current_time = datetime.now() - timedelta(minutes=8)
+    order_reserve_release = OrderReserveRelease.objects.filter(warehouse_internal_inventory_release_id=None,
+                                                               created_at__lt=current_time)
     sku_id = [p.sku.id for p in order_reserve_release]
     for order_product in order_reserve_release:
         transaction_id = order_product.transaction_id
