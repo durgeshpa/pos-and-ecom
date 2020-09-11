@@ -424,12 +424,15 @@ def commit_updates_to_es(shop, product):
         return False
     if not available_qty:
         status = False
+    info_logger.info("updating ES %s",available_qty)
     update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
 
 
 @receiver(post_save, sender=WarehouseInventory)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+    info_logger.info("Post save called for Warehouse Inventory")
     if instance.inventory_type.inventory_type == 'normal' and instance.inventory_state.inventory_state == 'available':
+        info_logger.info("Inside if condition of post save Warehouse Inventory")
         commit_updates_to_es(instance.warehouse, instance.sku)
 
 

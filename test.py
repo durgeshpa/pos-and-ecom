@@ -13,10 +13,9 @@ from products.models import Product
 from sp_to_gram.tasks import upload_shop_stock
 from shops.models import Shop
 from wms.common_functions import get_product_stock
+import logging
 
-product_id=792
-shop_id= 1393
-product= Product.objects.filter(id=product_id).last()
-shop = Shop.objects.get(id=shop_id)
-stock=upload_shop_stock(shop_id,product)
-print(stock)
+logger = logging.getLogger('django')
+info_logger = logging.getLogger('file-info')
+logger.info("abcabcabcbbcbbbiuerwuiiwruiwuirui")
+info_logger.info("abcabcabc")

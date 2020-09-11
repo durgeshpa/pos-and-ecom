@@ -439,7 +439,17 @@ LOGGING = {
    'loggers': {
        'django': {
            'handlers': ['file-info','file-error'],
-           'level': 'DEBUG',
+           'level': 'INFO',
+           'propagate': True,
+       },
+        'file-info': {
+                   'handlers': ['file-info'],
+                   'level': 'INFO',
+                   'propagate': True,
+               },
+        'file-error': {
+           'handlers': ['file-error'],
+           'level': 'INFO',
            'propagate': True,
        },
    },
