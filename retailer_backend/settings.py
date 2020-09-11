@@ -333,7 +333,8 @@ CRONJOBS = [
 
     ('*/8 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
     ('*/5 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
-    ('* */6 * * *', 'retailer_backend.cron.sync_es_products')
+    ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
+    ('0 2 * * *', 'wms.views.archive_inventory_cron', '>>/tmp/archive_inventory.log')
 ]
 
 INTERNAL_IPS = ['127.0.0.1','localhost']
