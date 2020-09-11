@@ -2508,12 +2508,14 @@ def assign_update_picker_to_shipment(shipment_id):
 
 def add_to_putaway_on_partail(shipment_id):
     shipment = OrderedProduct.objects.get(pk=shipment_id)
-    common_on_return_and_partial(shipment)
+    flag = "partial_shipment"
+    common_on_return_and_partial(shipment, flag)
 
 
 def add_to_putaway_on_return(shipment_id):
     shipment = OrderedProduct.objects.get(pk=shipment_id)
-    common_on_return_and_partial(shipment)
+    flag = "return"
+    common_on_return_and_partial(shipment, flag)
 
 
 @receiver(post_save, sender=OrderedProduct)

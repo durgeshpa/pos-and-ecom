@@ -1113,7 +1113,7 @@ def create_or_update_bin_inv(batch_id, warehouse, sku, bin_id, inv_type, in_stoc
                                                          inv_type, qty, in_stock)
 
 
-def common_on_return_and_partial(shipment):
+def common_on_return_and_partial(shipment, flag):
     with transaction.atomic():
         putaway_qty = 0
         inv_type = {'E': InventoryType.objects.get(inventory_type='expired'),
@@ -1133,8 +1133,7 @@ def common_on_return_and_partial(shipment):
                     else:
                         bin_id_for_input = shipment_product_batch_bin.bin
                         break
-                if shipment_product_batch.returned_qty > 0 or shipment_product_batch.returned_damage_qty > 0 \
-                        or shipment_product_batch.delivered_qty > 0:
+                if flag == "return":
                     putaway_qty = shipment_product_batch.returned_qty + shipment_product_batch.returned_damage_qty
                     if putaway_qty == 0:
                         continue
@@ -1158,7 +1157,7 @@ def common_on_return_and_partial(shipment):
                                                                      putaway_status=False,
                                                                      defaults={'putaway_quantity': putaway_qty})
 
-                else:
+                elif flag == "partial_shipment":
 
                     # put_away_object = Putaway.objects.filter(putaway_user=shipment.last_modified_by,
                     #                                          warehouse=shipment_product_batch.pickup.warehouse,
@@ -1191,6 +1190,8 @@ def common_on_return_and_partial(shipment):
                                                                      putaway=pu, bin=bin_id_for_input,
                                                                      putaway_status=False,
                                                                      defaults={'putaway_quantity': partial_ship_qty})
+                else:
+                    pass
 
 
 def create_batch_id(sku, expiry_date):
