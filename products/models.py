@@ -121,6 +121,67 @@ class ProductHSN(models.Model):
     def __str__(self):
         return self.product_hsn_code
 
+class ParentProduct(models.Model):
+    parent_id = models.CharField(max_length=255, validators=[ParentIDValidator])
+    name = models.CharField(max_length=255, validators=[ProductNameValidator])
+    parent_slug = models.SlugField(max_length=255)
+    parent_brand = models.ForeignKey(Brand, related_name='parent_brand_product', blank=False, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, related_name='category_parent_category', on_delete=models.CASCADE)
+    product_hsn = models.ForeignKey(ProductHSN, related_name='parent_hsn', blank=False, on_delete=models.CASCADE)
+    GST_CHOICES = (
+        (0, '0 %'),
+        (5, '5 %'),
+        (12, '12 %'),
+        (18, '18 %'),
+        (28, '28 %'),
+    )
+    gst = models.PositiveIntegerField(default=0, choices=GST_CHOICES)
+    CESS_CHOICES = (
+        (0, '0 %'),
+        (12, '12 %'),
+    )
+    cess = models.PositiveIntegerField(default=0, choices=CESS_CHOICES, blank=True)
+    surcharge = models.PositiveIntegerField(default=0, blank=True)
+    brand_case_size = models.PositiveIntegerField(blank=False)
+    inner_case_size = models.PositiveIntegerField(blank=False, default=1)
+    PRODUCT_TYPE_CHOICES = (
+        ('b2b', 'B2B'),
+        ('b2c', 'B2C'),
+        ('both', 'Both B2B and B2C'),
+    )
+    product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES)
+    image = models.ImageField(upload_to='parent_product_image', blank=False)
+    status = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        self.parent_slug = slugify(self.name)
+        super(ParentProduct, self).save(*args, **kwargs)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return "{}-{}".format(self.parent_id, self.name)
+
+class ParentProductSKUGenerator(models.Model):
+    cat_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three characters for SKU")
+    brand_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three characters for SKU")
+    last_auto_increment = models.CharField(max_length=8)
+
+@receiver(pre_save, sender=ParentProduct)
+def create_parent_product_id(sender, instance=None, created=False, **kwargs):
+    cat_sku_code = instance.category.category_sku_part
+    brand_sku_code = instance.parent_brand.brand_code
+    last_sku = ParentProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code).last()
+    if last_sku:
+        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
+    else:
+        last_sku_increment = '0001'
+    ParentProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
+    instance.parent_id = "P%s%s%s"%(cat_sku_code, brand_sku_code, last_sku_increment)
+
 class Product(models.Model):
     product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255)

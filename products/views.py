@@ -23,12 +23,13 @@ from brand.models import Brand, Vendor
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
-    ProductCategoryMappingForm, NewProductPriceUpload
+    ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm
     )
 from products.models import (
     Product, ProductCategory, ProductOption,
     ProductTaxMapping, ProductVendorMapping,
-    ProductImage, ProductHSN, ProductPrice
+    ProductImage, ProductHSN, ProductPrice,
+    ParentProduct
     )
 
 logger = logging.getLogger(__name__)
@@ -778,6 +779,54 @@ def download_all_products(request):
                       i['product_hsn'], '', '', '', '']
                       for i in products_list])
     return response
+
+
+def parent_product_upload(request):
+    if request.method == 'POST':
+        form = UploadParentProductAdminForm(request.POST, request.FILES)
+
+        if form.errors:
+            return render(request, 'admin/products/parent-product-upload.html', {'form': form})
+
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            first_row = next(reader)
+            def gst_mapper(gst):
+                if '0' in gst:
+                    return 0
+                elif '5' in gst:
+                    return 5
+                elif '12' in gst:
+                    return 12
+                elif '18' in gst:
+                    return 18
+                elif '28' in gst:
+                    return 28
+            try:
+                for row in reader:
+                    parent_product = ParentProduct.objects.create(
+                        name=row[0],
+                        parent_brand=Brand.objects.filter(brand_name=row[1]).last(),
+                        category=Category.objects.filter(category_name=row[2]).last(),
+                        product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3]).last(),
+                        gst=gst_mapper(row[4]),
+                        cess=int(row[5]) if row[5] else 0,
+                        surcharge=int(row[6]) if row[6] else 0,
+                        brand_case_size=int(row[7]),
+                        inner_case_size=int(row[8]),
+                        product_type=row[9]
+                    )
+                    parent_product.save()
+            except Exception as e:
+                print(e)
+            return render(request, 'admin/products/parent-product-upload.html', {
+                'form': form,
+                'success': 'Parent Product CSV uploaded successfully !',
+            })
+    else:
+        form = UploadParentProductAdminForm()
+    return render(request, 'admin/products/parent-product-upload.html', {'form': form})
 
 
 class ProductCategoryMapping(View):
