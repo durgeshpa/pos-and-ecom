@@ -70,6 +70,7 @@ class Bin(models.Model):
     bin_id = models.CharField(max_length=20, null=True, blank=True)
     bin_type = models.CharField(max_length=50, choices=BIN_TYPE_CHOICES, default='PA')
     is_active = models.BooleanField()
+    bin_barcode_txt = models.CharField(max_length=20, null=True, blank=True)
     bin_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -78,7 +79,8 @@ class Bin(models.Model):
         return self.bin_id
 
     def save(self, *args, **kwargs):
-        image = barcode_gen(str(self.bin_id))
+        self.bin_barcode_txt = '10'+ str(self.id).zfill(11)
+        image = barcode_gen(str(self.bin_barcode_txt))
         self.bin_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % self.bin_id, 'image/jpeg',
                                                 sys.getsizeof(image), None)
         super(Bin, self).save(*args, **kwargs)
