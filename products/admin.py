@@ -18,12 +18,13 @@ from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
-                    ProductVendorMappingForm, BulkProductTaxUpdateForm)
+                    ProductVendorMappingForm, BulkProductTaxUpdateForm,
+                    ParentProductForm)
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
                         PackageSizeResource, ProductPriceResource,
                         ProductResource, SizeResource, TaxResource,
-                        WeightResource)
+                        WeightResource, ParentProductResource)
 from .views import (CityAutocomplete, MultiPhotoUploadView,
                     PincodeAutocomplete, ProductAutocomplete,
                     ProductCategoryAutocomplete, ProductCategoryMapping,
@@ -35,7 +36,8 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     load_brands, load_cities, load_gf, load_sp_sr,
                     product_category_mapping_sample, products_csv_upload_view,
                     products_export_for_vendor, products_filter_view,
-                    products_price_filter_view, products_vendor_mapping)
+                    products_price_filter_view, products_vendor_mapping,
+                    parent_product_upload)
 from .filters import BulkTaxUpdatedBySearch
 
 
@@ -97,9 +99,33 @@ class BrandFilter(AutocompleteFilter):
     field_name = 'product_brand'  # name of the foreign key field
 
 
+class ParentBrandFilter(AutocompleteFilter):
+    title = 'Brand'  # display title
+    field_name = 'parent_brand'  # name of the foreign key field
+
+
 class CategoryFilter(AutocompleteFilter):
     title = 'Category'  # display title
     field_name = 'category_name'  # name of the foreign key field
+
+
+class ParentCategoryFilter(AutocompleteFilter):
+    title = 'Category'  # display title
+    field_name = 'category'  # name of the foreign key field
+
+
+class ParentIDFilter(InputFilter):
+    title = 'Parent ID'
+    parameter_name = 'parent_id'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            parent_id = self.value()
+            if parent_id is None:
+                return
+            return queryset.filter(
+                Q(parent_id__icontains=parent_id)
+            )
 
 
 class VendorFilter(AutocompleteFilter):
@@ -279,6 +305,37 @@ class ProductTaxMappingAdmin(admin.TabularInline):
 
     class Media:
         pass
+
+
+class ParentProductAdmin(admin.ModelAdmin):
+    resource_class = ParentProductResource
+    form = ParentProductForm
+
+    class Media:
+        pass
+
+    change_list_template = 'admin/products/parent_product_change_list.html'
+
+    list_display = [
+        'parent_id', 'name', 'parent_brand', 'category', 'product_hsn', 'gst', 'image', 'status'
+    ]
+    search_fields = [
+        'parent_id', 'name'
+    ]
+    list_filter = [ParentBrandFilter, ParentCategoryFilter, ParentIDFilter, 'status']
+    autocomplete_fields = ['category', 'product_hsn', 'parent_brand']
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ParentProductAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^parent-product-upload-csv/$',
+                       self.admin_site.admin_view(parent_product_upload),
+                       name="parent-product-upload"
+                   )
+               ] + urls
+        return urls
 
 
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
@@ -653,3 +710,4 @@ admin.site.register(ProductHSN, ProductHSNAdmin)
 admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)
 admin.site.register(BulkProductTaxUpdate, BulkProductTaxUpdateAdmin)
+admin.site.register(ParentProduct, ParentProductAdmin)

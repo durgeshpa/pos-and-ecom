@@ -19,7 +19,8 @@ from categories.models import Category
 from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductCategory, ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax, Weight,
-                             BulkProductTaxUpdate, ProductTaxMapping)
+                             BulkProductTaxUpdate, ProductTaxMapping,
+                             ParentProduct, ProductHSN)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -305,6 +306,83 @@ class ProductPriceNewForm(forms.ModelForm):
         #     )
         #else:
         return cleaned_data
+
+
+class ParentProductForm(forms.ModelForm):
+
+    class Meta:
+        model = ParentProduct
+        fields = ('name', 'parent_brand', 'category', 'product_hsn',
+                  'gst', 'cess', 'surcharge', 'brand_case_size', 'inner_case_size',
+                  'product_type', 'image',)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        return cleaned_data
+
+
+class UploadParentProductAdminForm(forms.Form):
+    """
+      Upload Parent Product Form
+    """
+    file = forms.FileField(label='Upload Parent Product list')
+
+    class Meta:
+        model = ParentProduct
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        for row_id, row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if '' in row:
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
+                    row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                    continue
+            if not row[0]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Parent Name' can not be empty."))
+            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)]*$", row[0]):
+                raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
+            if not row[1]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Brand' can not be empty."))
+            elif not Brand.objects.filter(brand_name=row[1]).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | 'Brand' doesn't exist in the system."))
+            if not row[2]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Category' can not be empty."))
+            elif not Category.objects.filter(category_name=row[2]).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | 'Category' doesn't exist in the system."))
+            if not row[3]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'HSN' can not be empty."))
+            elif not ProductHSN.objects.filter(product_hsn_code=row[3]).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | 'HSN' doesn't exist in the system."))
+            if not row[4]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'GST' can not be empty."))
+            elif not re.match("^([0]|[5]|[1][2]|[1][8]|[2][8])(\s+)?(%)?$", row[4]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'GST' can only be 0, 5, 12, 18, 28."))
+            if row[5] and not re.match("^([0]|[1][2])$", row[5]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'CESS' can only be 0, 12."))
+            if row[6] and not re.match("^\d+$", row[6]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Surcharge' can only be a numeric value."))
+            if not row[7]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Brand Case Size' can not be empty."))
+            elif not re.match("^\d+$", row[7]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Brand Case Size' can only be a numeric value."))
+            if not row[8]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Inner Case Size' can not be empty."))
+            elif not re.match("^\d+$", row[8]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Inner Case Size' can only be a numeric value."))
+            if not row[9]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product Type' can not be empty."))
+            elif row[9].lower() not in ['b2b', 'b2c', 'both', 'both b2b and b2c']:
+                raise ValidationError(_(f"Row {row_id + 1} | 'GST' can only be 'B2B', 'B2C', 'Both B2B and B2C'."))
+        return self.cleaned_data['file']
 
 
 class ProductForm(forms.ModelForm):
