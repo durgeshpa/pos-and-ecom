@@ -13,6 +13,7 @@ from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, Sum
 from django.db import transaction
+from gram_to_brand.models import GRNOrderProductMapping
 import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions,
                                   CommonWarehouseInventoryFunctions as CWIF, CommonInventoryStateFunctions as CISF,
@@ -620,3 +621,54 @@ class PickupComplete(APIView):
 
         msg = {'is_success': True, 'message': 'Pickup Object Does not exist.', 'data': None}
         return Response(msg, status=status.HTTP_404_NOT_FOUND)
+
+class DecodeBarcode(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    def post(self, request):
+        barcode_list = request.data.get('barcode_list')
+        if not barcode_list:
+            msg = {'is_success': False, 'message': 'Barcode list field is empty.', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        barcode_list=list(barcode_list.split(","))
+        if not isinstance(barcode_list, list):
+            msg = {'is_success': False, 'message': 'Format of barcode list is wrong.', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        data = {}
+        for barcode in barcode_list:
+            barcode_length = len(barcode)
+            if barcode_length != 13:
+                data[barcode] = {'is_success': False, 'message': 'Barcode length must be 13 characters', 'data': None}
+                continue;
+            type_identifier = barcode[0]
+            if type_identifier == '1':
+                id = barcode[1:12].lstrip('0')
+                if id is not None:
+                    id = int(id)
+                else:
+                    id=0
+                bin = Bin.objects.filter(pk=id).last()
+                if bin is None:
+                    data[barcode] = {'is_success': False, 'message':'Bin Id not found', 'data': None}
+                else:
+                    bin_id = bin.bin_id
+                    barcode_data = {'type': 'bin', 'id': bin_id}
+                    data[barcode]={'is_success': True, 'message':'', 'data': barcode_data}
+
+            elif type_identifier == '2':
+                id = barcode[0:12]
+                grn_product = GRNOrderProductMapping.objects.filter(barcode_id=id).last()
+
+                if grn_product is None:
+                    data[barcode] = {'is_success': False, 'message': 'Batch Id not found', 'data': None}
+                else:
+                    batch_id = grn_product.batch_id
+                    barcode_data={'type':'batch','id':batch_id}
+                    data[barcode] = {'is_success': True, 'message': '', 'data': barcode_data}
+            else:
+                data[barcode] = {'is_success': False, 'message': 'Barcode type not supported', 'data': None}
+        msg={'is_success': True, 'message': '', 'data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
+
+
+

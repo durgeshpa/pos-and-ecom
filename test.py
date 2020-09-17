@@ -1,21 +1,18 @@
-import datetime
-import os
-import sys
 import django
-
+import os
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'retailer_backend.settings')
 django.setup()
-from retailer_to_sp.models import OrderedProduct
-
+from wms.models import Bin
+from gram_to_brand.models import GRNOrderProductMapping
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'retailer_backend.settings')
 django.setup()
-from products.models import Product
-from sp_to_gram.tasks import upload_shop_stock
-from shops.models import Shop
-from wms.common_functions import get_product_stock
-import logging
 
-logger = logging.getLogger('django')
-info_logger = logging.getLogger('file-info')
-logger.info("abcabcabcbbcbbbiuerwuiiwruiwuirui")
-info_logger.info("abcabcabc")
+bin_list = Bin.objects.all()
+for bin in bin_list:
+    if bin.bin_barcode_txt is None:
+        bin.save()
+
+grnproduct_list= GRNOrderProductMapping.objects.all()
+for grnproduct in grnproduct_list:
+    if grnproduct.barcode_is is None:
+        grnproduct.save()

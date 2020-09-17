@@ -535,7 +535,10 @@ class GRNOrderProductMapping(models.Model):
                 product_id = '0' + str(self.product_id)
             else:
                 product_id = str(self.product_id)
-            expiry_date = datetime.datetime.strptime(str(self.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
+            if self.expiry_date is None:
+                expiry_date = '000000'
+            else:
+                expiry_date = datetime.datetime.strptime(str(self.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
             self.barcode_id = str("2" + product_id + str(expiry_date))
         super(GRNOrderProductMapping, self).save(*args, **kwargs)
 

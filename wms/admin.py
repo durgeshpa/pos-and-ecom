@@ -190,7 +190,7 @@ class BinAdmin(admin.ModelAdmin):
     resource_class = BinResource
     actions = ['download_csv_for_bins', 'download_barcode']
     list_display = (
-        'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode')
+        'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active','bin_barcode_txt', 'download_bin_id_barcode')
     # readonly_fields = ['warehouse', 'bin_id', 'bin_type', 'bin_barcode', 'barcode_image',
     #                    'download_bin_id_barcode', 'download_barcode_image']
     search_fields = ('bin_id',)
