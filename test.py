@@ -14,5 +14,5 @@ for bin in bin_list:
 
 grnproduct_list= GRNOrderProductMapping.objects.all()
 for grnproduct in grnproduct_list:
-    if grnproduct.barcode_is is None:
+    if grnproduct.barcode_id is None:
         grnproduct.save()
