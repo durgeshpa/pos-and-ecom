@@ -1,5 +1,5 @@
 import math
-
+import datetime
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.db.models import F, Sum, Count
@@ -119,11 +119,16 @@ class MergedBarcode(APIView):
         grn_product = GRNOrderProductMapping.objects.filter(pk=pk).last()
         grn_order = grn_product.grn_order
         product_mrp = grn_product.vendor_product
+        barcode_id=grn_product.barcode_id
+        if barcode_id is None:
+            product_id = str(grn_product.product_id).zfill(5)
+            expiry_date = datetime.datetime.strptime(str(grn_product.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
+            barcode_id = str("2" + product_id + str(expiry_date))
         temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(grn_product.vendor_product.case_size)),
                      "data": {"SKU": grn_product.product.product_name,
                               "MRP": product_mrp.product_mrp if product_mrp.product_mrp else ''}}
 
-        bin_id_list[grn_product.batch_id] = temp_data
+        bin_id_list[barcode_id] = temp_data
         return merged_barcode_gen(bin_id_list)
 
 
