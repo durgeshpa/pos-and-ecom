@@ -187,8 +187,8 @@ class GRNOrderProductForm(forms.ModelForm):
     class Meta:
         model = GRNOrderProductMapping
         fields = ('product', 'product_mrp', 'po_product_quantity','po_product_price','already_grned_product','already_returned_product','product_invoice_price','manufacture_date',
-                  'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
-        readonly_fields = ('product','product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product', 'already_returned_product')
+                  'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty', 'barcode_id',)
+        readonly_fields = ('product','product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product', 'already_returned_product', 'barcode_id',)
         autocomplete_fields = ('product',)
 
 
