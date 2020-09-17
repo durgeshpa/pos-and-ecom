@@ -136,7 +136,7 @@ class PutAwayViewSet(APIView):
             msg = {'is_success': False, 'message': "Bin id is not activated.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         bin_ware_obj = Bin.objects.filter(bin_id=bin_id, is_active=True,
-                                     warehouse=request.user.shop_employee.all()[0].shop_id)
+                                          warehouse=request.user.shop_employee.all()[0].shop_id)
         if not bin_ware_obj:
             msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
