@@ -1,4 +1,5 @@
 import logging
+import datetime
 import math
 from django.contrib import messages, admin
 from django.contrib import admin
@@ -214,9 +215,9 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product','already_returned_product',
               'product_invoice_price', 'manufacture_date',
               'expiry_date', 'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty',
-              'returned_qty', 'download_batch_id_barcode')
+              'returned_qty', 'download_batch_id_barcode', 'download_barcode_id',)
     exclude = ('last_modified_by', 'available_qty',)
-    readonly_fields = ('download_batch_id_barcode',)
+    readonly_fields = ('download_batch_id_barcode', 'download_barcode_id')
     extra = 0
     ordering = ['product__product_name']
     template = 'admin/gram_to_brand/grn_order/tabular.html'
@@ -241,6 +242,23 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
             "<a href= '%s' >Download Barcode</a>" %
             (reverse('batch_barcodes',args=[obj.pk]))
         )
+
+    def download_barcode_id(self, obj):
+        if obj.barcode_id is None:
+            if len(str(obj.product_id)) == 1:
+                product_id = '0000' + str(obj.product_id)
+            elif len(str(obj.product_id)) == 2:
+                product_id = '000' + str(obj.product_id)
+            elif len(str(obj.product_id)) == 3:
+                product_id = '00' + str(obj.product_id)
+            elif len(str(obj.product_id)) == 4:
+                product_id = '0' + str(obj.product_id)
+            else:
+                product_id = str(obj.product_id)
+            expiry_date = datetime.datetime.strptime(str(obj.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
+            return str("2" + product_id + str(expiry_date))
+        else:
+            return obj.barcode_id
     # def download_batch_id_barcode(self, obj):
     #     info_logger.info("download bin barcode method has been called.")
     #     if not obj.batch_id:
@@ -250,7 +268,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     #                                                                          batch_id)
     #     )
 
-
+    download_barcode_id.short_description = 'Barcode ID'
     download_batch_id_barcode.short_description = 'Download Batch ID Barcode'
 
 
