@@ -51,9 +51,11 @@ class MergeBarcode(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
-        bin_id = self.kwargs.get('bin_id')
-        bin_id_list = {}
-        bin_id_list[bin_id] = {"qty": 1, "data": None}
+        bin=Bin.objects.filter(pk=self.kwargs.get('id')).last()
+        bin_barcode_txt = bin.bin_barcode_txt
+        if bin_barcode_txt is None:
+            bin_barcode_txt = '1' + str(bin.id).zfill(11)
+        bin_id_list = {bin_barcode_txt: {"qty": 1, "data": {"Bin": bin.bin_id}}}
         return merged_barcode_gen(bin_id_list)
 
 

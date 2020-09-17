@@ -79,7 +79,7 @@ class Bin(models.Model):
         return self.bin_id
 
     def save(self, *args, **kwargs):
-        self.bin_barcode_txt = '10'+ str(self.id).zfill(11)
+        self.bin_barcode_txt = '1'+ str(self.id).zfill(11)
         image = barcode_gen(str(self.bin_barcode_txt))
         self.bin_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % self.bin_id, 'image/jpeg',
                                                 sys.getsizeof(image), None)
