@@ -15,7 +15,6 @@ def generate_order_data():
                                   order_closed=False)  # add check for shipment status
     info_logger.info(
         "WMS Migration : Order data generation : Order State [ordered] : no of orders {}".format(orders.count()))
-    inventory_generated = dict()
     for o in orders:
         if o.order_status == Order.ORDERED:
             cart_products_mapping = CartProductMapping.objects.filter(cart=o.ordered_cart, status=True)
@@ -26,10 +25,6 @@ def generate_order_data():
                 info_logger.info("WMS Migration : Order data generation : product sku {} quantity {}".format(
                     p.cart_product.product_sku, p.qty))
                 create_wms_entry_for_cart_product(o.order_no, o.seller_shop, p.cart_product, p.qty)
-                if inventory_generated.get(p.cart_product.product_sku) is None:
-                    inventory_generated[p.cart_product.product_sku] = 0
-                inventory_generated[p.cart_product.product_sku] += p.qty
-    info_logger.info(inventory_generated)
 
 
 @transaction.atomic
@@ -62,7 +57,8 @@ def create_wms_entry_for_cart_product(order_no, warehouse, sku, quantity):
                                        transaction_id=order_no,
                                        warehouse_internal_inventory_reserve=warehouse_internal_inventory_reserve,
                                        warehouse_internal_inventory_release=warehouse_internal_inventory_release,
-                                       reserved_time=WarehouseInternalInventoryChange.objects.all().last().created_at)
+                                       reserved_time=warehouse_internal_inventory_reserve.created_at,
+                                       release_time=warehouse_internal_inventory_release.created_at)
     info_logger.info("WMS Migration : Order data generation : completed for Order {} Product {}".format(order_no, sku.product_sku))
 
 
