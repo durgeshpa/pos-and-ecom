@@ -402,6 +402,7 @@ class BinInventoryAdmin(admin.ModelAdmin):
             product_mrp = ProductVendorMapping.objects.filter(product=obj.sku).last()
 
             temp_data = {"qty": 1, "data": {"SKU": obj.sku.product_name,
+                                            "Batch":obj.batch_id,
                                             "MRP": product_mrp.product_mrp if product_mrp.product_mrp else ''}}
             product_id = str(obj.sku.id).zfill(5)
             barcode_id = str("2" + product_id + str(obj.batch_id[-6:]))
