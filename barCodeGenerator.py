@@ -8,10 +8,14 @@ from wkhtmltopdf.views import PDFTemplateResponse
 
 
 def barcodeGen(strVal):
+    strVal.isdecimal()
     image_path = "barcode_tmp/" + strVal + ".png"
     image_path_noext = "barcode_tmp/" + strVal
     if not path.exists(image_path):
-        EAN = barcode.get_barcode_class('ean13')
+        if strVal.isdecimal():
+            EAN = barcode.get_barcode_class('ean13')
+        else:
+            EAN = barcode.get_barcode_class('code128')
         ean = EAN(strVal, writer=ImageWriter())
         fullname = ean.save(image_path_noext,{"module_height":9, "font_size": 12, "text_distance": 1, "quiet_zone": 3})
     with open(image_path, 'rb') as fp:
