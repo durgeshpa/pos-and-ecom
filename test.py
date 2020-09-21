@@ -9,8 +9,8 @@ django.setup()
 
 bin_list = Bin.objects.all()
 for bin in bin_list:
-    if bin.bin_barcode_txt is None:
-        bin.save()
+    bin.bin_barcode_txt = '1' + str(bin.id).zfill(11)
+    bin.save()
 
 grnproduct_list= GRNOrderProductMapping.objects.all()
 for grnproduct in grnproduct_list:

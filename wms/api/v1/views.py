@@ -633,11 +633,13 @@ class DecodeBarcode(APIView):
         if not isinstance(barcode_list, list):
             msg = {'is_success': False, 'message': 'Format of barcode list is wrong.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        data = {}
+        data = []
         for barcode in barcode_list:
             barcode_length = len(barcode)
             if barcode_length != 13:
-                data[barcode] = {'is_success': False, 'message': 'Barcode length must be 13 characters', 'data': None}
+                barcode_data = {'type': None, 'id': None , 'barcode':barcode}
+                data_item={'is_success': False, 'message': 'Barcode length must be 13 characters', 'data': barcode_data}
+                data.append(data_item)
                 continue;
             type_identifier = barcode[0]
             if type_identifier == '1':
@@ -648,24 +650,32 @@ class DecodeBarcode(APIView):
                     id=0
                 bin = Bin.objects.filter(pk=id).last()
                 if bin is None:
-                    data[barcode] = {'is_success': False, 'message':'Bin Id not found', 'data': None}
+                    barcode_data = {'type': None, 'id': None, 'barcode': barcode}
+                    data_item = {'is_success': False, 'message':'Bin Id not found', 'data': barcode_data}
+                    data.append(data_item)
                 else:
                     bin_id = bin.bin_id
-                    barcode_data = {'type': 'bin', 'id': bin_id}
-                    data[barcode]={'is_success': True, 'message':'', 'data': barcode_data}
+                    barcode_data = {'type': 'bin', 'id': bin_id, 'barcode':barcode}
+                    data_item={'is_success': True, 'message':'', 'data': barcode_data}
+                    data.append(data_item)
 
             elif type_identifier == '2':
                 id = barcode[0:12]
                 grn_product = GRNOrderProductMapping.objects.filter(barcode_id=id).last()
 
                 if grn_product is None:
-                    data[barcode] = {'is_success': False, 'message': 'Batch Id not found', 'data': None}
+                    barcode_data = {'type': None, 'id': None, 'barcode': barcode}
+                    data_item = {'is_success': False, 'message': 'Batch Id not found', 'data': barcode_data}
+                    data.append(data_item)
                 else:
                     batch_id = grn_product.batch_id
-                    barcode_data={'type':'batch','id':batch_id}
-                    data[barcode] = {'is_success': True, 'message': '', 'data': barcode_data}
+                    barcode_data={'type':'batch','id':batch_id, 'barcode': barcode}
+                    data_item = {'is_success': True, 'message': '', 'data': barcode_data}
+                    data.append(data_item)
             else:
-                data[barcode] = {'is_success': False, 'message': 'Barcode type not supported', 'data': None}
+                barcode_data = {'type': 'batch', 'id': batch_id, 'barcode': barcode}
+                data_item = {'is_success': False, 'message': 'Barcode type not supported', 'data': barcode_data}
+                data.append(data_item)
         msg={'is_success': True, 'message': '', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
 

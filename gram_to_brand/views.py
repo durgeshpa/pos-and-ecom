@@ -126,6 +126,7 @@ class MergedBarcode(APIView):
             barcode_id = str("2" + product_id + str(expiry_date))
         temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(grn_product.vendor_product.case_size)),
                      "data": {"SKU": grn_product.product.product_name,
+                              "Batch":grn_product.batch_id,
                               "MRP": product_mrp.product_mrp if product_mrp.product_mrp else ''}}
 
         bin_id_list[barcode_id] = temp_data

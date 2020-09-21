@@ -79,10 +79,8 @@ class Bin(models.Model):
         return self.bin_id
 
     def save(self, *args, **kwargs):
-        self.bin_barcode_txt = '1'+ str(self.id).zfill(11)
         image = barcode_gen(str(self.bin_barcode_txt))
-        self.bin_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % self.bin_id, 'image/jpeg',
-                                                sys.getsizeof(image), None)
+        self.bin_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % self.bin_id, 'image/jpeg',sys.getsizeof(image), None)
         super(Bin, self).save(*args, **kwargs)
 
     @property
@@ -380,3 +378,9 @@ class Audit(models.Model):
 
     def __str__(self):
         return str(self.id)
+
+@receiver(post_save, sender=Bin)
+def create_order_id(sender, instance=None, created=False, **kwargs):
+    if created:
+        instance.bin_barcode_txt = '1' + str(instance.id).zfill(11)
+        instance.save()
