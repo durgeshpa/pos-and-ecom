@@ -1,5 +1,4 @@
 # This file contains the migration script for production env
-from collections import defaultdict
 
 from retailer_to_sp.models import Order, CartProductMapping
 from wms.models import OrderReserveRelease, WarehouseInternalInventoryChange, WarehouseInventory, InventoryType, \
@@ -16,15 +15,27 @@ def generate_order_data():
     info_logger.info(
         "WMS Migration : Order data generation : Order State [ordered] : no of orders {}".format(orders.count()))
     for o in orders:
-        if o.order_status == Order.ORDERED:
-            cart_products_mapping = CartProductMapping.objects.filter(cart=o.ordered_cart, status=True)
-            info_logger.info(
-                "WMS Migration : Order data generation : Warehouse {}, Order No {} : no of products {}".format(
-                    o.seller_shop, o.order_no, cart_products_mapping.count()))
-            for p in cart_products_mapping:
-                info_logger.info("WMS Migration : Order data generation : product sku {} quantity {}".format(
-                    p.cart_product.product_sku, p.qty))
-                create_wms_entry_for_cart_product(o.order_no, o.seller_shop, p.cart_product, p.qty)
+        generate_order_data_for_order(o)
+
+
+def generate_order_data_by_order_no(order_no):
+    order = Order.objects.filter(order_no=order_no).last()
+    if order.order_closed:
+        info_logger.error(
+            "WMS Migration : Order data generation : Order No {} : order is already closed".format(order_no))
+    if order.order_status == Order.ORDERED:
+        generate_order_data_for_order(order)
+
+
+def generate_order_data_for_order(o):
+    cart_products_mapping = CartProductMapping.objects.filter(cart=o.ordered_cart, status=True)
+    info_logger.info(
+        "WMS Migration : Order data generation : Warehouse {}, Order No {} : no of products {}".format(
+            o.seller_shop, o.order_no, cart_products_mapping.count()))
+    for p in cart_products_mapping:
+        info_logger.info("WMS Migration : Order data generation : product sku {} quantity {}".format(
+            p.cart_product.product_sku, p.qty))
+        create_wms_entry_for_cart_product(o.order_no, o.seller_shop, p.cart_product, p.qty)
 
 
 @transaction.atomic
