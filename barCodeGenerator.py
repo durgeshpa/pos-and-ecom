@@ -11,7 +11,7 @@ def barcodeGen(strVal):
     image_path = "barcode_tmp/" + strVal + ".png"
     image_path_noext = "barcode_tmp/" + strVal
     if not path.exists(image_path):
-        EAN = barcode.get_barcode_class('code128')
+        EAN = barcode.get_barcode_class('ean13')
         ean = EAN(strVal, writer=ImageWriter())
         fullname = ean.save(image_path_noext)
     with open(image_path, 'rb') as fp:
@@ -25,8 +25,8 @@ def makePdf(barcode_list):
 
     request = None
     filename = "barcode"
-    cmd_option = {"margin-top": 1, "margin-left": 0, "margin-right": 0, "margin-bottom": 0, "zoom": 1,
-                  "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 50, "page-width": 90,
+    cmd_option = {"margin-top": 2, "margin-left": 0, "margin-right": 0, "margin-bottom": 0, "zoom": 1,
+                  "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 52, "page-width": 90,
                   "no-stop-slow-scripts": True, "quiet": True}
     pdf_data = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                    context=data, show_content_in_browser=False, cmd_options=cmd_option)
