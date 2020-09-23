@@ -27,6 +27,13 @@ def generate_order_data_by_order_no(order_no):
         generate_order_data_for_order(order)
 
 
+def warehouse_entry_exists(order_no, seller_shop, cart_product, qty):
+    return WarehouseInternalInventoryChange.objects.filter(warehouse=seller_shop,
+                                                           sku=cart_product,
+                                                           transaction_id=order_no,
+                                                           quantity=qty).exists()
+
+
 def generate_order_data_for_order(o):
     cart_products_mapping = CartProductMapping.objects.filter(cart=o.ordered_cart, status=True)
     info_logger.info(
@@ -35,7 +42,14 @@ def generate_order_data_for_order(o):
     for p in cart_products_mapping:
         info_logger.info("WMS Migration : Order data generation : product sku {} quantity {}".format(
             p.cart_product.product_sku, p.qty))
-        create_wms_entry_for_cart_product(o.order_no, o.seller_shop, p.cart_product, p.qty)
+        already_created = warehouse_entry_exists(o.order_no, o.seller_shop, p.cart_product, p.qty)
+        if not already_created:
+            create_wms_entry_for_cart_product(o.order_no, o.seller_shop, p.cart_product, p.qty)
+        else:
+            info_logger.info(
+                "WMS Migration : Order data generation : Warehouse {}, Order No {} : "
+                "product sku {} quantity {} ENTRY ALREADY CREATED".format(
+                    o.seller_shop, o.order_no, p.cart_product.product_sku, p.qty))
 
 
 @transaction.atomic
@@ -70,7 +84,8 @@ def create_wms_entry_for_cart_product(order_no, warehouse, sku, quantity):
                                        warehouse_internal_inventory_release=warehouse_internal_inventory_release,
                                        reserved_time=warehouse_internal_inventory_reserve.created_at,
                                        release_time=warehouse_internal_inventory_release.created_at)
-    info_logger.info("WMS Migration : Order data generation : completed for Order {} Product {}".format(order_no, sku.product_sku))
+    info_logger.info(
+        "WMS Migration : Order data generation : completed for Order {} Product {}".format(order_no, sku.product_sku))
 
 
 def create_inventory(warehouse, sku, inventory_type, inventory_state, quantity):
