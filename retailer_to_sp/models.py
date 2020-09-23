@@ -2699,7 +2699,7 @@ def populate_data_on_qc_pass(order):
 
 @receiver(post_save, sender=OrderedProductBatch)
 def create_putaway(sender, created=False, instance=None, *args, **kwargs):
-    if instance.returned_qty == 0 and instance.delivered_qty == 0:
+    if instance.returned_qty == 0 and instance.delivered_qty == 0 and created==False:
         add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
 
 

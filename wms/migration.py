@@ -2,12 +2,13 @@
 
 from retailer_to_sp.models import Order, CartProductMapping, OrderedProductBatch, OrderedProduct
 from wms.models import OrderReserveRelease, WarehouseInternalInventoryChange, WarehouseInventory, InventoryType, \
-    InventoryState, Pickup, PickupBinInventory, Bin
+    InventoryState, Pickup, PickupBinInventory, Bin, BinInventory
 from django.db import transaction
 import logging
 
 info_logger = logging.getLogger('file-info')
-virtual_bin= Bin.objects.filter(bin_id='V2VZ01SR001-0001').last()
+virtual_bin = Bin.objects.filter(bin_id='V2VZ01SR001-0001').last()
+
 
 def generate_order_data():
     orders = Order.objects.filter(order_status=Order.ORDERED,
@@ -16,6 +17,7 @@ def generate_order_data():
         "WMS Migration : Order data generation : Order State [ordered] : no of orders {}".format(orders.count()))
     for o in orders:
         generate_order_data_for_order(o)
+
 
 def generate_order_data_by_order_no(order_no):
     order = Order.objects.filter(order_no=order_no).last()
@@ -34,7 +36,7 @@ def generate_order_data_for_order(o):
     for p in cart_products_mapping:
         info_logger.info("WMS Migration : Order data generation : product sku {} quantity {}".format(
             p.cart_product.product_sku, p.qty))
-        create_wms_entry_for_cart_product(o.order_no, o.seller_shop, p.cart_product, p.qty)
+        create_wms_entry_for_cart_product(o.order_no, o.seller_shop, p.cart_product, p.no_of_pieces)
 
 
 @transaction.atomic
@@ -69,7 +71,8 @@ def create_wms_entry_for_cart_product(order_no, warehouse, sku, quantity):
                                        warehouse_internal_inventory_release=warehouse_internal_inventory_release,
                                        reserved_time=warehouse_internal_inventory_reserve.created_at,
                                        release_time=warehouse_internal_inventory_release.created_at)
-    info_logger.info("WMS Migration : Order data generation : completed for Order {} Product {}".format(order_no, sku.product_sku))
+    info_logger.info(
+        "WMS Migration : Order data generation : completed for Order {} Product {}".format(order_no, sku.product_sku))
 
 
 def create_inventory(warehouse, sku, inventory_type, inventory_state, quantity):
@@ -83,7 +86,8 @@ def create_inventory(warehouse, sku, inventory_type, inventory_state, quantity):
         inventory.save()
 
 
-def create_inventory_transactions(transaction_id, warehouse, sku, transaction_type, initial_type, initial_stage, final_type,
+def create_inventory_transactions(transaction_id, warehouse, sku, transaction_type, initial_type, initial_stage,
+                                  final_type,
                                   final_stage, quantity):
     return WarehouseInternalInventoryChange.objects.create(warehouse=warehouse,
                                                            sku=sku,
@@ -95,54 +99,79 @@ def create_inventory_transactions(transaction_id, warehouse, sku, transaction_ty
                                                            final_stage=final_stage,
                                                            quantity=quantity)
 
+@transaction.atomic
 def shipment_basic_entry(shipment):
     for shipment_product in shipment.rt_order_product_order_product_mapping.all():
         create_pickup_entry(shipment_product)
 
+
 def create_pickup_entry(shipment_product):
-    quantity = shipment_product.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=shipment_product.product)
+    cartproduct = shipment_product.ordered_product.order.ordered_cart.rt_cart_list.filter(
+        cart_product=shipment_product.product).last()
+    inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+    print(cartproduct.qty)
+    print(cartproduct.no_of_pieces)
     pickup, created = Pickup.objects.get_or_create(warehouse=shipment_product.ordered_product.order.seller_shop,
-                                 pickup_type="Order",
-                                 pickup_type_id=shipment_product.ordered_product.order.order_no,
-                                 sku=shipment_product.product,
-                                 quantity=quantity,
-                                 pickup_quantity=shipment_product.shipped_qty,
-                                 status="picking_complete")
+                                                   pickup_type="Order",
+                                                   pickup_type_id=shipment_product.ordered_product.order.order_no,
+                                                   sku=shipment_product.product,
+                                                   quantity=cartproduct.no_of_pieces,
+                                                   pickup_quantity=shipment_product.shipped_qty,
+                                                   status="picking_complete")
     if created:
-        batch_id = '{}{}'.format(shipment_product.product.product_sku,'31032021')
+        batch_id = '{}{}'.format(shipment_product.product.product_sku, '31032021')
         shipment_batch = create_batch_entry(shipment_product)
-        pickup_bin, created = PickupBinInventory.objects.get_or_create(warehouse=shipment_product.ordered_product.order.seller_shop,
-                                                       pickup=pickup,
-                                                       batch_id=batch_id,
-                                                       bin=virtual_bin,
-                                                       quantity=quantity,
-                                                       pickup_quantity=shipment_product.shipped_qty,
-                                                       shipment_batch= shipment_batch )
+        bin_inventory = BinInventory.objects.filter(warehouse=shipment_product.ordered_product.order.seller_shop,
+                                                    bin=virtual_bin,
+                                                    sku=shipment_product.product,
+                                                    batch_id=batch_id,
+                                                    inventory_type=inventory_type
+                                                    ).last()
+        pickup_bin, created = PickupBinInventory.objects.get_or_create(
+            warehouse=shipment_product.ordered_product.order.seller_shop,
+            pickup=pickup,
+            batch_id=batch_id,
+            bin=bin_inventory,
+            quantity=cartproduct.no_of_pieces,
+            pickup_quantity=shipment_product.shipped_qty,
+            shipment_batch=shipment_batch)
+
 
 def create_batch_entry(shipment_product):
+    print(shipment_product)
+    print(shipment_product.shipped_qty)
     batch_id = '{}{}'.format(shipment_product.product.product_sku, '31032021')
-    ordered_quantity = shipment_product.ordered_product.order.ordered_cart.rt_cart_list.filter(
-        cart_product=shipment_product.product)
-    batch,created = OrderedProductBatch.objects.get_or_create(batch_id=batch_id,ordered_product_mapping=shipment_product,
-                                              bin=virtual_bin,quantity=shipment_product.shipped_qty,
-                                              ordered_pieces=ordered_quantity,pickup_quantity=shipment_product.shipped_qty,
-                                              expiry_date='31/03/2021')
+    cartproduct = shipment_product.ordered_product.order.ordered_cart.rt_cart_list.filter(
+        cart_product=shipment_product.product).last()
+    print(cartproduct)
+    print(cartproduct.no_of_pieces)
+    shipped_qty = shipment_product.shipped_qty
+    if shipped_qty is None:
+        shipped_qty = 0
+    shipment_product.picked_pieces=shipment_product.shipped_qty
+    shipment_product.save()
+    batch = OrderedProductBatch.objects.create(batch_id=batch_id,
+                                               ordered_product_mapping=shipment_product,
+                                               quantity=shipped_qty,
+                                               ordered_pieces=cartproduct.no_of_pieces,
+                                               pickup_quantity=shipped_qty,
+                                               expiry_date='31/03/2021')
     return batch
 
-
+@transaction.atomic
 def shipment_picked_entry(shipment):
     inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
     stage_picked = InventoryState.objects.filter(inventory_state='picked').last()
     stage_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
 
     for shipment_product in shipment.rt_order_product_order_product_mapping.all():
-        pickup=Pickup.objects.filter(warehouse=shipment_product.ordered_product.order.seller_shop,
-                              pickup_type="Order",
-                              pickup_type_id=shipment_product.ordered_product.order.order_no,
-                              sku=shipment_product.product,
-                              status="picking_complete").last()
+        pickup = Pickup.objects.filter(warehouse=shipment_product.ordered_product.order.seller_shop,
+                                       pickup_type="Order",
+                                       pickup_type_id=shipment_product.ordered_product.order.order_no,
+                                       sku=shipment_product.product,
+                                       status="picking_complete").last()
         create_inventory(shipment_product.ordered_product.order.seller_shop, shipment_product.product,
-                         inventory_type, stage_ordered, shipment_product.shipped_qty*-1)
+                         inventory_type, stage_ordered, shipment_product.shipped_qty * -1)
         create_inventory(shipment_product.ordered_product.order.seller_shop, shipment_product.product,
                          inventory_type, stage_picked, shipment_product.shipped_qty)
         create_inventory_transactions(pickup.pk,
@@ -151,7 +180,7 @@ def shipment_picked_entry(shipment):
                                       inventory_type,
                                       stage_picked, shipment_product.shipped_qty)
 
-
+@transaction.atomic
 def shipment_shipped_entry(shipment):
     inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
     stage_picked = InventoryState.objects.filter(inventory_state='picked').last()
@@ -169,14 +198,16 @@ def shipment_shipped_entry(shipment):
                                       stage_shipped, shipment_product.shipped_qty)
 
 
+
 def create_shipment_data_before_delivery():
-    shipment_status = ['SHIPMENT_CREATED','READY_TO_SHIP','READY_TO_DISPATCH','OUT_FOR_DELIVERY']
-    ordered_product_list = OrderedProduct.objects.filter(shipment_status__in = shipment_status)
+    shipment_status = ['SHIPMENT_CREATED']
+    ordered_product_list = OrderedProduct.objects.filter(shipment_status__in=shipment_status)
     for ordered_product in ordered_product_list:
+        print(ordered_product)
+        info_logger.info("WMS Migration : pickup data generation : shipment Id{}".format(ordered_product.id))
         generate_order_data_for_order(ordered_product.order)
         shipment_basic_entry(ordered_product)
         shipment_picked_entry(ordered_product)
-        if ordered_product.shipment_status=='OUT_FOR_DELIVERY':
+        if ordered_product.shipment_status == 'OUT_FOR_DELIVERY':
             shipment_shipped_entry(ordered_product)
-        
-
+        break;
