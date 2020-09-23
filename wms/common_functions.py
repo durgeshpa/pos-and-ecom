@@ -681,50 +681,57 @@ def cancel_order(instance):
     :param instance: order instance
     :return:
     """
-    # get the queryset object form warehouse internal inventory model
-    ware_house_internal = WarehouseInternalInventoryChange.objects.filter(
-        transaction_id=instance.order_no, final_stage=4, transaction_type='ordered')
-    # fetch all sku
-    sku_id = [p.sku.id for p in ware_house_internal]
-    # fetch all quantity
-    quantity = [p.quantity for p in ware_house_internal]
-    # iterate over sku and quantity
-    for prod, qty in zip(sku_id, quantity):
-        # get the queryset from warehouse inventory model for normal and available
-        wim = WarehouseInventory.objects.filter(sku__id=prod,
-                                                inventory_state__inventory_state='available',
-                                                inventory_type__inventory_type='normal')
-        wim_quantity = wim[0].quantity
-        wim.update(quantity=wim_quantity + qty)
+    with transaction.atomic():
+        # get the queryset object form warehouse internal inventory model
+        ware_house_internal = WarehouseInternalInventoryChange.objects.filter(
+            transaction_id=instance.order_no,
+            final_stage=InventoryState.objects.filter(inventory_state='ordered').last(), transaction_type='ordered')
+        # fetch all sku
+        sku_id = [p.sku.id for p in ware_house_internal]
+        # fetch all quantity
+        quantity = [p.quantity for p in ware_house_internal]
+        # iterate over sku and quantity
+        for prod, qty in zip(sku_id, quantity):
+            # get the queryset from warehouse inventory model for normal and available
+            wim = WarehouseInventory.objects.filter(sku__id=prod,
+                                                    inventory_state__inventory_state='available',
+                                                    inventory_type__inventory_type='normal').last()
+            wim_quantity = wim.quantity
+            wim.quantity = wim_quantity + qty
+            wim.save()
+            #wim_quantity = wim[0].quantity
+            #wim.update(quantity=wim_quantity + qty)
 
-        # get the queryset from warehouse inventory model for ordered and normal
-        wim_ordered = WarehouseInventory.objects.filter(sku__id=prod,
-                                                        inventory_state__inventory_state='ordered',
-                                                        inventory_type__inventory_type='normal')
-        wim_ordered_quantity = wim_ordered[0].quantity
-        wim_ordered.update(quantity=wim_ordered_quantity - qty)
-        # initialize the transaction type, initial stage, final stage and inventory type
-        transaction_type = 'canceled'
-        initial_type = 'normal'
-        initial_stage = 'ordered'
-        final_type = 'normal'
-        final_stage = 'available'
-        inventory_type = 'normal'
-        # create the data in Warehouse internal inventory model
-        WarehouseInternalInventoryChange.objects.create(warehouse=wim[0].warehouse,
-                                                        sku=wim[0].sku,
-                                                        transaction_type=transaction_type,
-                                                        transaction_id=ware_house_internal[0].transaction_id,
-                                                        initial_stage=InventoryState.objects.get(
-                                                            inventory_state=initial_stage),
-                                                        final_stage=InventoryState.objects.get(
-                                                            inventory_state=final_stage),
-                                                        initial_type=InventoryType.objects.get(
-                                                            inventory_type=initial_type),
-                                                        final_type=InventoryType.objects.get(inventory_type=final_type),
-                                                        inventory_type=InventoryType.objects.get(
-                                                            inventory_type=inventory_type),
-                                                        quantity=qty)
+            # get the queryset from warehouse inventory model for ordered and normal
+            wim_ordered = WarehouseInventory.objects.filter(sku__id=prod,
+                                                            inventory_state__inventory_state='ordered',
+                                                            inventory_type__inventory_type='normal').last()
+            wim_ordered_quantity = wim_ordered.quantity
+            wim_ordered.quantity = wim_ordered_quantity - qty
+            wim_ordered.save()
+            #wim_ordered.update(quantity=wim_ordered_quantity - qty)
+            # initialize the transaction type, initial stage, final stage and inventory type
+            transaction_type = 'canceled'
+            initial_type = 'normal'
+            initial_stage = 'ordered'
+            final_type = 'normal'
+            final_stage = 'available'
+            inventory_type = 'normal'
+            # create the data in Warehouse internal inventory model
+            WarehouseInternalInventoryChange.objects.create(warehouse=wim.warehouse,
+                                                            sku=wim.sku,
+                                                            transaction_type=transaction_type,
+                                                            transaction_id=ware_house_internal[0].transaction_id,
+                                                            initial_stage=InventoryState.objects.get(
+                                                                inventory_state=initial_stage),
+                                                            final_stage=InventoryState.objects.get(
+                                                                inventory_state=final_stage),
+                                                            initial_type=InventoryType.objects.get(
+                                                                inventory_type=initial_type),
+                                                            final_type=InventoryType.objects.get(inventory_type=final_type),
+                                                            inventory_type=InventoryType.objects.get(
+                                                                inventory_type=inventory_type),
+                                                            quantity=qty)
 
 
 # def cancel_order_for_warehouse(instance):
@@ -1113,7 +1120,7 @@ def create_or_update_bin_inv(batch_id, warehouse, sku, bin_id, inv_type, in_stoc
                                                          inv_type, qty, in_stock)
 
 
-def common_on_return_and_partial(shipment):
+def common_on_return_and_partial(shipment, flag):
     with transaction.atomic():
         putaway_qty = 0
         inv_type = {'E': InventoryType.objects.get(inventory_type='expired'),
@@ -1133,8 +1140,7 @@ def common_on_return_and_partial(shipment):
                     else:
                         bin_id_for_input = shipment_product_batch_bin.bin
                         break
-                if shipment_product_batch.returned_qty > 0 or shipment_product_batch.returned_damage_qty > 0 \
-                        or shipment_product_batch.delivered_qty > 0:
+                if flag == "return":
                     putaway_qty = shipment_product_batch.returned_qty + shipment_product_batch.returned_damage_qty
                     if putaway_qty == 0:
                         continue
@@ -1158,7 +1164,7 @@ def common_on_return_and_partial(shipment):
                                                                      putaway_status=False,
                                                                      defaults={'putaway_quantity': putaway_qty})
 
-                else:
+                elif flag == "partial_shipment":
 
                     # put_away_object = Putaway.objects.filter(putaway_user=shipment.last_modified_by,
                     #                                          warehouse=shipment_product_batch.pickup.warehouse,
@@ -1191,6 +1197,8 @@ def common_on_return_and_partial(shipment):
                                                                      putaway=pu, bin=bin_id_for_input,
                                                                      putaway_status=False,
                                                                      defaults={'putaway_quantity': partial_ship_qty})
+                else:
+                    pass
 
 
 def create_batch_id(sku, expiry_date):

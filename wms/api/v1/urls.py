@@ -1,5 +1,6 @@
 from django.conf.urls import include, url
-from .views import PutAwayViewSet, BinViewSet, PutAwayProduct, PickupList, BinIDList, PickupDetail, PickupComplete, CheckBinID
+from .views import PutAwayViewSet, BinViewSet, PutAwayProduct, PickupList, BinIDList, PickupDetail, PickupComplete, \
+    CheckBinID, DecodeBarcode
 
 urlpatterns = [
     # url(r'^upload-csv/$', bins_upload, name="bins_upload"),
@@ -10,6 +11,7 @@ urlpatterns = [
     url(r'order-bins/$', BinIDList.as_view(), name='order-bins'),
     url(r'pickup-detail/$', PickupDetail.as_view(), name='details'),
     url(r'^pick-complete/$', PickupComplete.as_view(), name='pickup-complete'),
-    url(r'^check-bins/$', CheckBinID.as_view(), name='check-bins')
+    url(r'^check-bins/$', CheckBinID.as_view(), name='check-bins'),
+    url(r'^decode-barcode/$', DecodeBarcode.as_view(), name='decode-barcode')
 
 ]

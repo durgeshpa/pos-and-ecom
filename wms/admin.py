@@ -1,6 +1,7 @@
 # python imports
 import logging
 import csv
+import datetime
 from io import StringIO
 from dal_admin_filters import AutocompleteFilter
 # django imports
@@ -23,6 +24,7 @@ from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinIn
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
 from barCodeGenerator import barcodeGen, merged_barcode_gen
+from gram_to_brand.models import GRNOrderProductMapping
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -190,8 +192,7 @@ class BinAdmin(admin.ModelAdmin):
     resource_class = BinResource
     actions = ['download_csv_for_bins', 'download_barcode']
     list_display = (
-        'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode',
-        'download_barcode_image')
+        'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active','bin_barcode_txt', 'download_bin_id_barcode')
     # readonly_fields = ['warehouse', 'bin_id', 'bin_type', 'bin_barcode', 'barcode_image',
     #                    'download_bin_id_barcode', 'download_barcode_image']
     search_fields = ('bin_id',)
@@ -222,19 +223,10 @@ class BinAdmin(admin.ModelAdmin):
         return urls
 
     def download_bin_id_barcode(self, obj):
-        bin_id = getattr(obj, "bin_id")
+        id = getattr(obj, "id")
         return format_html(
             "<a href= '%s' >Download Barcode</a>" %
-            (reverse('merged_barcodes', args=[bin_id]))
-        )
-
-    def download_barcode_image(self, obj):
-        info_logger.info("download bin barcode method has been called.")
-        if not obj.bin_barcode:
-            return format_html("-")
-        return format_html(
-            "<a href='data:image/png;base64,{}' download='{}'>{}</a>".format(barcodeGen(obj.bin_id), obj.bin_id, obj.
-                                                                             bin_id)
+            (reverse('merged_barcodes', args=[id]))
         )
 
     download_bin_id_barcode.short_description = 'Download Bin ID Barcode'
@@ -267,7 +259,10 @@ class BinAdmin(admin.ModelAdmin):
         info_logger.info("download Barocde List for bin method has been called.")
         bin_id_list = {}
         for obj in queryset:
-            bin_id_list[getattr(obj, "bin_id")] = {"qty": 1, "data": None}
+            bin_barcode_txt = getattr(obj, "bin_barcode_txt")
+            if bin_barcode_txt is None:
+                bin_barcode_txt = '1' + str(getattr(obj, 'id')).zfill(11)
+            bin_id_list[bin_barcode_txt] = {"qty": 1, "data": {"Bin":getattr(obj, 'bin_id')}}
         return merged_barcode_gen(bin_id_list)
 
     download_csv_for_bins.short_description = "Download CSV of selected bins"
@@ -407,8 +402,11 @@ class BinInventoryAdmin(admin.ModelAdmin):
             product_mrp = ProductVendorMapping.objects.filter(product=obj.sku).last()
 
             temp_data = {"qty": 1, "data": {"SKU": obj.sku.product_name,
+                                            "Batch":obj.batch_id,
                                             "MRP": product_mrp.product_mrp if product_mrp.product_mrp else ''}}
-            bin_id_list[obj.batch_id] = temp_data
+            product_id = str(obj.sku.id).zfill(5)
+            barcode_id = str("2" + product_id + str(obj.batch_id[-6:]))
+            bin_id_list[barcode_id] = temp_data
         return merged_barcode_gen(bin_id_list)
 
     download_barcode.short_description = "Download Barcode List"

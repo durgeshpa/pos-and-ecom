@@ -436,6 +436,7 @@ class GRNOrderProductMapping(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order_product', null=True,blank=True, on_delete=models.CASCADE)
     vendor_product = models.ForeignKey(ProductVendorMapping, related_name='vendor_grn_products', null=True, blank=True,on_delete=models.CASCADE)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
+    barcode_id = models.CharField(max_length=15, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -523,6 +524,22 @@ class GRNOrderProductMapping(models.Model):
         if self.expiry_date and not self.batch_id and self.delivered_qty:
             self.batch_id = '{}{}'.format(self.product.product_sku,
                                           self.expiry_date.strftime('%d%m%y'))
+        if self.barcode_id is None:
+            if len(str(self.product_id)) == 1:
+                product_id = '0000' + str(self.product_id)
+            elif len(str(self.product_id)) == 2:
+                product_id = '000' + str(self.product_id)
+            elif len(str(self.product_id)) == 3:
+                product_id = '00' + str(self.product_id)
+            elif len(str(self.product_id)) == 4:
+                product_id = '0' + str(self.product_id)
+            else:
+                product_id = str(self.product_id)
+            if self.expiry_date is None:
+                expiry_date = '000000'
+            else:
+                expiry_date = datetime.datetime.strptime(str(self.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
+            self.barcode_id = str("2" + product_id + str(expiry_date))
         super(GRNOrderProductMapping, self).save(*args, **kwargs)
 
 

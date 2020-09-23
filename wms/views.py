@@ -52,9 +52,11 @@ class MergeBarcode(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
-        bin_id = self.kwargs.get('bin_id')
-        bin_id_list = {}
-        bin_id_list[bin_id] = {"qty": 1, "data": None}
+        bin=Bin.objects.filter(pk=self.kwargs.get('id')).last()
+        bin_barcode_txt = bin.bin_barcode_txt
+        if bin_barcode_txt is None:
+            bin_barcode_txt = '1' + str(bin.id).zfill(11)
+        bin_id_list = {bin_barcode_txt: {"qty": 1, "data": {"Bin": bin.bin_id}}}
         return merged_barcode_gen(bin_id_list)
 
 
@@ -422,15 +424,20 @@ def commit_updates_to_es(shop, product):
     try:
         available_qty = int(int(products_available) / int(product.product_inner_case_size))
     except Exception as e:
+        status = False
+        update_product_es.delay(shop.id, product.id, available=0, status=status)
         return False
     if not available_qty:
         status = False
+    info_logger.info("updating ES %s",available_qty)
     update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
 
 
 @receiver(post_save, sender=WarehouseInventory)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+    info_logger.info("Post save called for Warehouse Inventory")
     if instance.inventory_type.inventory_type == 'normal' and instance.inventory_state.inventory_state == 'available':
+        info_logger.info("Inside if condition of post save Warehouse Inventory")
         commit_updates_to_es(instance.warehouse, instance.sku)
 
 
