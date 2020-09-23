@@ -215,9 +215,9 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product','already_returned_product',
               'product_invoice_price', 'manufacture_date',
               'expiry_date', 'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty',
-              'returned_qty', 'download_batch_id_barcode', 'download_barcode_id',)
+              'returned_qty', 'download_batch_id_barcode', 'show_batch_id',)
     exclude = ('last_modified_by', 'available_qty',)
-    readonly_fields = ('download_batch_id_barcode', 'download_barcode_id')
+    readonly_fields = ('download_batch_id_barcode', 'show_batch_id')
     extra = 0
     ordering = ['product__product_name']
     template = 'admin/gram_to_brand/grn_order/tabular.html'
@@ -236,23 +236,25 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
         return formset
 
     def download_batch_id_barcode(self, obj):
-        if not obj.batch_id:
-            return format_html("-")
-        return format_html(
-            "<a href= '%s' >Download Barcode</a>" %
-            (reverse('batch_barcodes',args=[obj.pk]))
-        )
-
-    def download_barcode_id(self, obj):
         if obj.barcode_id is None:
             product_id = str(obj.product_id).zfill(5)
             expiry_date = datetime.datetime.strptime(str(obj.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
-            return str("2" + product_id + str(expiry_date))
+            barcode_id= str("2" + product_id + str(expiry_date))
         else:
-            return obj.barcode_id
+            barcode_id =  obj.barcode_id
+        return format_html(
+            "<a href= '{0}' >{1}</a>".format(reverse('batch_barcodes',args=[obj.pk]),barcode_id)
+        )
 
-    download_barcode_id.short_description = 'Barcode ID'
-    download_batch_id_barcode.short_description = 'Download Batch ID Barcode'
+    def show_batch_id(self, obj):
+        if obj.batch_id is None:
+            return format_html("-")
+        else:
+            return format_html(obj.batch_id)
+
+
+    show_batch_id.short_description = 'Batch ID'
+    download_batch_id_barcode.short_description = 'Download Barcode'
 
 
 class BrandNoteAdmin(admin.ModelAdmin):
@@ -392,6 +394,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
                     barcode_id = str("2" + product_id + str(expiry_date))
                 temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(product_mrp.last().case_size)),
                              "data": {"SKU": grn_product.product.product_name,
+                                      "Batch": grn_product.batch_id,
                                       "MRP": product_mrp.last().product_mrp if product_mrp.exists() else ''}}
                 bin_id_list[barcode_id] = temp_data
         return merged_barcode_gen(bin_id_list)

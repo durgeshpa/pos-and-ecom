@@ -1,6 +1,7 @@
 # python imports
 import logging
 import csv
+import datetime
 from io import StringIO
 from dal_admin_filters import AutocompleteFilter
 # django imports
@@ -23,6 +24,7 @@ from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinIn
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
 from barCodeGenerator import barcodeGen, merged_barcode_gen
+from gram_to_brand.models import GRNOrderProductMapping
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -400,8 +402,11 @@ class BinInventoryAdmin(admin.ModelAdmin):
             product_mrp = ProductVendorMapping.objects.filter(product=obj.sku).last()
 
             temp_data = {"qty": 1, "data": {"SKU": obj.sku.product_name,
+                                            "Batch":obj.batch_id,
                                             "MRP": product_mrp.product_mrp if product_mrp.product_mrp else ''}}
-            bin_id_list[obj.batch_id] = temp_data
+            product_id = str(obj.sku.id).zfill(5)
+            barcode_id = str("2" + product_id + str(obj.batch_id[-6:]))
+            bin_id_list[barcode_id] = temp_data
         return merged_barcode_gen(bin_id_list)
 
     download_barcode.short_description = "Download Barcode List"
