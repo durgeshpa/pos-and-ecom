@@ -1,5 +1,5 @@
 # This file contains the migration script for production env
-
+from datetime import datetime,timedelta
 from retailer_to_sp.models import Order, CartProductMapping, OrderedProductBatch, OrderedProduct
 from wms.models import OrderReserveRelease, WarehouseInternalInventoryChange, WarehouseInventory, InventoryType, \
     InventoryState, Pickup, PickupBinInventory, Bin, BinInventory
@@ -8,11 +8,13 @@ import logging
 
 info_logger = logging.getLogger('file-info')
 virtual_bin = Bin.objects.filter(bin_id='V2VZ01SR001-0001').last()
+start_time = datetime.now() - timedelta(days=30)
+print(start_time)
 
 
 def generate_order_data():
     orders = Order.objects.filter(order_status=Order.ORDERED,
-                                  order_closed=False)  # add check for shipment status
+                                  order_closed=False, created_at__gt=start_time)  # add check for shipment status
     info_logger.info(
         "WMS Migration : Order data generation : Order State [ordered] : no of orders {}".format(orders.count()))
     for o in orders:
@@ -113,6 +115,7 @@ def create_inventory_transactions(transaction_id, warehouse, sku, transaction_ty
                                                            final_stage=final_stage,
                                                            quantity=quantity)
 
+
 @transaction.atomic
 def shipment_basic_entry(shipment):
     for shipment_product in shipment.rt_order_product_order_product_mapping.all():
@@ -162,7 +165,7 @@ def create_batch_entry(shipment_product):
     shipped_qty = shipment_product.shipped_qty
     if shipped_qty is None:
         shipped_qty = 0
-    shipment_product.picked_pieces=shipment_product.shipped_qty
+    shipment_product.picked_pieces = shipment_product.shipped_qty
     shipment_product.save()
     batch = OrderedProductBatch.objects.create(batch_id=batch_id,
                                                ordered_product_mapping=shipment_product,
@@ -171,6 +174,7 @@ def create_batch_entry(shipment_product):
                                                pickup_quantity=shipped_qty,
                                                expiry_date='31/03/2021')
     return batch
+
 
 @transaction.atomic
 def shipment_picked_entry(shipment):
@@ -194,6 +198,7 @@ def shipment_picked_entry(shipment):
                                       inventory_type,
                                       stage_picked, shipment_product.shipped_qty)
 
+
 @transaction.atomic
 def shipment_shipped_entry(shipment):
     inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
@@ -212,16 +217,19 @@ def shipment_shipped_entry(shipment):
                                       stage_shipped, shipment_product.shipped_qty)
 
 
-
 def create_shipment_data_before_delivery():
-    shipment_status = ['SHIPMENT_CREATED']
-    ordered_product_list = OrderedProduct.objects.filter(shipment_status__in=shipment_status)
+    shipment_status = ['SHIPMENT_CREATED','READY_TO_SHIP','READY_TO_DISPATCH','OUT_FOR_DELIVERY']
+    ordered_product_list = OrderedProduct.objects.filter(shipment_status__in=shipment_status, created_at__gt=start_time)
+    print(ordered_product_list)
+    info_logger.info("WMS Migration : total shipments found {}".format(ordered_product_list.count()))
     for ordered_product in ordered_product_list:
-        print(ordered_product)
-        info_logger.info("WMS Migration : pickup data generation : shipment Id{}".format(ordered_product.id))
-        generate_order_data_for_order(ordered_product.order)
-        shipment_basic_entry(ordered_product)
-        shipment_picked_entry(ordered_product)
-        if ordered_product.shipment_status == 'OUT_FOR_DELIVERY':
-            shipment_shipped_entry(ordered_product)
-        break;
+        already_created = Pickup.objects.filter(warehouse=ordered_product.order.seller_shop,
+                                                pickup_type="Order",
+                                                pickup_type_id=ordered_product.order.order_no).last()
+        if not already_created:
+            info_logger.info("WMS Migration : pickup data generation : shipment Id{}".format(ordered_product.id))
+            generate_order_data_for_order(ordered_product.order)
+            shipment_basic_entry(ordered_product)
+            shipment_picked_entry(ordered_product)
+            if ordered_product.shipment_status == 'OUT_FOR_DELIVERY':
+                shipment_shipped_entry(ordered_product)
