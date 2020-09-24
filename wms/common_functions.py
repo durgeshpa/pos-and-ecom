@@ -1145,18 +1145,18 @@ def common_on_return_and_partial(shipment, flag):
                     if putaway_qty == 0:
                         continue
                     else:
-                        In.objects.create(warehouse=shipment_product_batch.pickup.warehouse, in_type='RETURN',
+                        In.objects.create(warehouse=shipment_product_batch.rt_pickup_batch_mapping.last().warehouse, in_type='RETURN',
                                           in_type_id=shipment.id, sku=shipment_product_batch.pickup.sku,
                                           batch_id=shipment_product_batch.batch_id, quantity=putaway_qty)
                         pu, _ = Putaway.objects.update_or_create(putaway_user=shipment.last_modified_by,
-                                                                 warehouse=shipment_product_batch.pickup.warehouse,
+                                                                 warehouse=shipment_product_batch.rt_pickup_batch_mapping.last().warehouse,
                                                                  putaway_type='RETURNED',
                                                                  putaway_type_id=shipment.invoice_no,
                                                                  sku=shipment_product_batch.pickup.sku,
                                                                  batch_id=shipment_product_batch.batch_id,
                                                                  defaults={'quantity': putaway_qty,
                                                                            'putaway_quantity': 0})
-                        PutawayBinInventory.objects.update_or_create(warehouse=shipment_product_batch.pickup.warehouse,
+                        PutawayBinInventory.objects.update_or_create(warehouse=shipment_product_batch.rt_pickup_batch_mapping.last().warehouse,
                                                                      sku=shipment_product_batch.pickup.sku,
                                                                      batch_id=shipment_product_batch.batch_id,
                                                                      putaway_type='RETURNED',
