@@ -606,9 +606,9 @@ def validation_stock_correction(self):
             raise ValidationError(_('Invalid Missing Quantity at Row number [%(value)s]. It should be numeric.'),
                                   params={'value': row_id + 2}, )
 
-        if int(row[6]) + int(row[7]) + int(row[8]) + int(row[9]) == 0:
-            raise ValidationError(_('Sum of Normal, Damaged, Expired and Missing quantity can not be zero.'),
-                                  params={'value': row_id + 2}, )
+        # if int(row[6]) + int(row[7]) + int(row[8]) + int(row[9]) == 0:
+        #     raise ValidationError(_('Sum of Normal, Damaged, Expired and Missing quantity can not be zero.'),
+        #                           params={'value': row_id + 2}, )
 
         # to get the date format
         try:
