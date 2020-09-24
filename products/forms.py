@@ -312,8 +312,8 @@ class ParentProductForm(forms.ModelForm):
 
     class Meta:
         model = ParentProduct
-        fields = ('name', 'parent_brand', 'category', 'product_hsn',
-                  'gst', 'cess', 'surcharge', 'brand_case_size', 'inner_case_size',
+        fields = ('name', 'parent_brand', 'product_hsn', 'gst', 'cess',
+                  'surcharge', 'brand_case_size', 'inner_case_size',
                   'product_type', 'image',)
 
     def __init__(self, *args, **kwargs):
@@ -356,8 +356,11 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Brand' doesn't exist in the system."))
             if not row[2]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Category' can not be empty."))
-            elif not Category.objects.filter(category_name=row[2]).exists():
-                raise ValidationError(_(f"Row {row_id + 1} | 'Category' doesn't exist in the system."))
+            else:
+                categories = row[2].split(',')
+                for cat in categories:
+                    if not Category.objects.filter(category_name=cat.strip()).exists():
+                        raise ValidationError(_(f"Row {row_id + 1} | 'Category' {cat.strip()} doesn't exist in the system."))
             if not row[3]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'HSN' can not be empty."))
             elif not ProductHSN.objects.filter(product_hsn_code=row[3]).exists():
