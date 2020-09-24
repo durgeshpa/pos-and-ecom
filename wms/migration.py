@@ -136,7 +136,7 @@ def create_pickup_entry(shipment_product):
                                                    pickup_quantity=shipment_product.shipped_qty,
                                                    status="picking_complete")
     if created:
-        batch_id = '{}{}'.format(shipment_product.product.product_sku, '31032021')
+        batch_id = '{}{}'.format(shipment_product.product.product_sku, '310321')
         shipment_batch = create_batch_entry(shipment_product)
         bin_inventory = BinInventory.objects.filter(warehouse=shipment_product.ordered_product.order.seller_shop,
                                                     bin=virtual_bin,
