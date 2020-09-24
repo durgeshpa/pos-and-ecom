@@ -109,9 +109,15 @@ class CategoryFilter(AutocompleteFilter):
     field_name = 'category_name'  # name of the foreign key field
 
 
-class ParentCategoryFilter(AutocompleteFilter):
-    title = 'Category'  # display title
-    field_name = 'category'  # name of the foreign key field
+class ParentCategorySearch(InputFilter):
+    parameter_name = 'category'
+    title = 'Category'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(parent_product_pro_category__category__category_name__icontains=self.value())
+            )
 
 
 class ParentIDFilter(InputFilter):
@@ -307,6 +313,22 @@ class ProductTaxMappingAdmin(admin.TabularInline):
         pass
 
 
+class ParentProductCategoryAdmin(TabularInline):
+    model = ParentProductCategory
+    autocomplete_fields = ['category']
+    formset = RequiredInlineFormSet  # or AtLeastOneFormSet
+
+
+def deactivate_selected_products(modeladmin, request, queryset):
+    queryset.update(status=False)
+deactivate_selected_products.short_description = "Deactivate Selected Products"
+
+
+def approve_selected_products(modeladmin, request, queryset):
+    queryset.update(status=True)
+approve_selected_products.short_description = "Approve Selected Products"
+
+
 class ParentProductAdmin(admin.ModelAdmin):
     resource_class = ParentProductResource
     form = ParentProductForm
@@ -315,15 +337,18 @@ class ParentProductAdmin(admin.ModelAdmin):
         pass
 
     change_list_template = 'admin/products/parent_product_change_list.html'
-
+    actions = [deactivate_selected_products, approve_selected_products]
     list_display = [
-        'parent_id', 'name', 'parent_brand', 'category', 'product_hsn', 'gst', 'image', 'status'
+        'parent_id', 'name', 'parent_brand', 'product_hsn', 'gst', 'image', 'status'
     ]
     search_fields = [
         'parent_id', 'name'
     ]
-    list_filter = [ParentBrandFilter, ParentCategoryFilter, ParentIDFilter, 'status']
-    autocomplete_fields = ['category', 'product_hsn', 'parent_brand']
+    inlines = [
+        ParentProductCategoryAdmin
+    ]
+    list_filter = [ParentBrandFilter, ParentCategorySearch, ParentIDFilter, 'status']
+    autocomplete_fields = ['product_hsn', 'parent_brand']
 
     def get_urls(self):
         from django.conf.urls import url

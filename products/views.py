@@ -29,7 +29,7 @@ from products.models import (
     Product, ProductCategory, ProductOption,
     ProductTaxMapping, ProductVendorMapping,
     ProductImage, ProductHSN, ProductPrice,
-    ParentProduct
+    ParentProduct, ParentProductCategory
     )
 
 logger = logging.getLogger(__name__)
@@ -805,10 +805,16 @@ def parent_product_upload(request):
                     return 28
             try:
                 for row in reader:
+                    if len(row) == 0:
+                        continue
+                    if '' in row:
+                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
+                            row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                            continue
                     parent_product = ParentProduct.objects.create(
                         name=row[0],
                         parent_brand=Brand.objects.filter(brand_name=row[1]).last(),
-                        category=Category.objects.filter(category_name=row[2]).last(),
+                        # category=Category.objects.filter(category_name=row[2]).last(),
                         product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3]).last(),
                         gst=gst_mapper(row[4]),
                         cess=int(row[5]) if row[5] else 0,
@@ -818,6 +824,14 @@ def parent_product_upload(request):
                         product_type=row[9]
                     )
                     parent_product.save()
+                    categories = row[2].split(',')
+                    for cat in categories:
+                        cat = cat.strip()
+                        parent_product_category = ParentProductCategory.objects.create(
+                            parent_product=parent_product,
+                            category=Category.objects.filter(category_name=cat).last()
+                        )
+                        parent_product_category.save()
             except Exception as e:
                 print(e)
             return render(request, 'admin/products/parent-product-upload.html', {
