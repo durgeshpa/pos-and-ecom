@@ -21,9 +21,10 @@ from django.db.models.signals import post_save
 from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction
-from datetime import datetime,timedelta
+from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
-    create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, common_release_for_inventory
+    create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
+    common_release_for_inventory
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
@@ -51,7 +52,7 @@ class MergeBarcode(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
-        bin=Bin.objects.filter(pk=self.kwargs.get('id')).last()
+        bin = Bin.objects.filter(pk=self.kwargs.get('id')).last()
         bin_barcode_txt = bin.bin_barcode_txt
         if bin_barcode_txt is None:
             bin_barcode_txt = '1' + str(bin.id).zfill(11)
@@ -190,10 +191,10 @@ class CreatePickList(APIView):
             sku = i.pickup.sku.product_sku
             cart_product = order.ordered_cart.rt_cart_list.filter(cart_product=i.pickup.sku).last()
             mrp = cart_product.cart_product_price.mrp
-            #mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
+            # mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
             qty = i.quantity
             batch_id = i.batch_id
-            bin_id=i.bin.bin_id
+            bin_id = i.bin.bin.bin_id
             prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id, "bin": bin_id}
             data_list.append(prod_list)
         data = {"data_list": data_list,
@@ -332,8 +333,9 @@ class StockMovementCsvSample(View):
                 f = StringIO()
                 writer = csv.writer(f)
                 # header of csv file
-                writer.writerow(['Warehouse ID', 'Product Name', 'SKU', 'Expiry Date', 'Bin ID', 'Inventory Movement Type',
-                                 'Normal Quantity', 'Damaged Quantity', 'Expired Quantity', 'Missing Quantity'])
+                writer.writerow(
+                    ['Warehouse ID', 'Product Name', 'SKU', 'Expiry Date', 'Bin ID', 'Inventory Movement Type',
+                     'Normal Quantity', 'Damaged Quantity', 'Expired Quantity', 'Missing Quantity'])
                 writer.writerow(['88', 'Complan Kesar Badam Refill, 200 gm', 'HOKBACFRT00000021', '20/08/2020',
                                  'V2VZ01SR001-0001', 'In', '0', '0', '0', '0'])
                 f.seek(0)
@@ -430,7 +432,7 @@ def commit_updates_to_es(shop, product):
         return False
     if not available_qty:
         status = False
-    info_logger.info("updating ES %s",available_qty)
+    info_logger.info("updating ES %s", available_qty)
     update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
 
 
@@ -529,7 +531,8 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
                                                                             Product.objects.get(product_sku=data[2]),
                                                                             batch_id, Bin.objects.get(bin_id=data[4],
-                                                                                                      warehouse=Shop.objects.get(id=data[0])),
+                                                                                                      warehouse=Shop.objects.get(
+                                                                                                          id=data[0])),
                                                                             data[5], quantity, stock_movement_obj[0])
             return
     except Exception as e:
@@ -666,8 +669,9 @@ def pickup_entry_creation_with_cron():
                     pickup_obj = obj
                     qty = obj.quantity
                     bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0,
-                                                              inventory_type__inventory_type='normal').order_by('-batch_id',
-                                                                                                                'quantity')
+                                                              inventory_type__inventory_type='normal').order_by(
+                        '-batch_id',
+                        'quantity')
                     for k in bin_lists:
                         if len(k.batch_id) == 23:
                             bin_inv_dict[k] = str(datetime.strptime(
@@ -702,9 +706,11 @@ def pickup_entry_creation_with_cron():
                             CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, i,
                                                                                quantity=already_picked,
                                                                                pickup_quantity=None)
-                            InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id, i.bin,
+                            InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
+                                                                                         i.bin,
                                                                                          type_normal, type_normal,
-                                                                                         "pickup_created", pickup_obj.pk,
+                                                                                         "pickup_created",
+                                                                                         pickup_obj.pk,
                                                                                          already_picked)
                         else:
                             already_picked = qty_in_bin
@@ -718,9 +724,11 @@ def pickup_entry_creation_with_cron():
                             CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, i,
                                                                                quantity=already_picked,
                                                                                pickup_quantity=None)
-                            InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id, i.bin,
+                            InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
+                                                                                         i.bin,
                                                                                          type_normal, type_normal,
-                                                                                         "pickup_created", pickup_obj.pk,
+                                                                                         "pickup_created",
+                                                                                         pickup_obj.pk,
                                                                                          already_picked)
 
 
@@ -924,10 +932,10 @@ def audit_upload(request):
                 # create batch id
                 batch_id = create_batch_id(sku, expiry_date)
                 bin_exp_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                                    bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                                                    sku=Product.objects.filter(
-                                                                        product_sku=data[1][-17:]).last(),
-                                                            batch_id=batch_id)
+                                                          bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                          sku=Product.objects.filter(
+                                                              product_sku=data[1][-17:]).last(),
+                                                          batch_id=batch_id)
                 # call function to create audit data in Audit Model
                 if bin_exp_obj.exists():
                     # create batch id for SKU and save data in In and Put Away Model
