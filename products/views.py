@@ -781,6 +781,16 @@ def download_all_products(request):
     return response
 
 
+def ParentProductsDownloadSampleCSV(request):
+    filename = "parent_products_sample.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(["Name", "Brand", "Category", "HSN", "GST", "CESS", "Surcharge", "Brand Case Size", "Inner Case Size", "Product Type"])
+    writer.writerow(["testparent2", "Nestle", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100", "10", "10", "b2c"])
+    return response
+
+
 def parent_product_upload(request):
     if request.method == 'POST':
         form = UploadParentProductAdminForm(request.POST, request.FILES)
