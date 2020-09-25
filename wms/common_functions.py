@@ -800,20 +800,19 @@ def cancel_order_with_pick(instance):
                 if instance.rt_order_order_product.all():
                     if (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_SHIP') or \
                             (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_DISPATCH'):
-                        for pickup_order in pickup_bin.pickup.orderedproductbatch_set.all():
-                            if pickup_bin.bin.id == pickup_order.bin.id:
-                                put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
+                        pickup_order = pickup_bin.shipment_batch
+                        put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse,
                                                                          putaway_type='CANCELLED',
                                                                          putaway_type_id=instance.order_no,
                                                                          sku=pickup_bin.bin.sku,
                                                                          batch_id=pickup_bin.batch_id,
                                                                          )
-                                if put_away_object.exists():
-                                    quantity = put_away_object[0].quantity + pickup_order.quantity
-                                    pick_up_bin_quantity = pickup_order.quantity
-                                else:
-                                    quantity = pickup_order.quantity
-                                    pick_up_bin_quantity = pickup_order.quantity
+                        if put_away_object.exists():
+                            quantity = put_away_object[0].quantity + pickup_order.quantity
+                            pick_up_bin_quantity = pickup_order.quantity
+                        else:
+                            quantity = pickup_order.quantity
+                            pick_up_bin_quantity = pickup_order.quantity
                         if quantity == 0 and pick_up_bin_quantity == 0:
                             continue
                         quantity = quantity
@@ -1500,7 +1499,7 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
     batch_id = obj.batch_id
     for i in shipment_obj:
         for shipped_obj in i.rt_ordered_product_mapping.all():
-            if obj.sku_id == shipped_obj.bin.sku.product_sku:
+            if obj.sku_id == shipped_obj.rt_pickup_batch_mapping.last().pickup.sku.product_sku:
                 for pick_bin in shipped_obj.rt_pickup_batch_mapping.all():
                     if pick_bin.bin.bin.bin_id == obj.bin.bin.bin_id:
                         normal_qty = shipped_obj.returned_qty
