@@ -37,7 +37,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     product_category_mapping_sample, products_csv_upload_view,
                     products_export_for_vendor, products_filter_view,
                     products_price_filter_view, products_vendor_mapping,
-                    parent_product_upload)
+                    parent_product_upload, ParentProductsDownloadSampleCSV)
 from .filters import BulkTaxUpdatedBySearch
 
 
@@ -354,12 +354,17 @@ class ParentProductAdmin(admin.ModelAdmin):
         from django.conf.urls import url
         urls = super(ParentProductAdmin, self).get_urls()
         urls = [
-                   url(
-                       r'^parent-product-upload-csv/$',
-                       self.admin_site.admin_view(parent_product_upload),
-                       name="parent-product-upload"
-                   )
-               ] + urls
+            url(
+                r'^parent-product-upload-csv/$',
+                self.admin_site.admin_view(parent_product_upload),
+                name="parent-product-upload"
+            ),
+            url(
+                r'^parent-products-download-sample-csv/$',
+                self.admin_site.admin_view(ParentProductsDownloadSampleCSV),
+                name="parent-products-download-sample-csv"
+            )
+        ] + urls
         return urls
 
 
