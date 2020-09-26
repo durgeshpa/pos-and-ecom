@@ -236,6 +236,10 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
         return formset
 
     def download_batch_id_barcode(self, obj):
+        if obj.batch_id is None:
+            return format_html(
+                "-"
+            )
         if obj.barcode_id is None:
             product_id = str(obj.product_id).zfill(5)
             expiry_date = datetime.datetime.strptime(str(obj.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
@@ -385,6 +389,8 @@ class GRNOrderAdmin(admin.ModelAdmin):
         for obj in queryset:
             grn_product_list = GRNOrderProductMapping.objects.filter(grn_order=obj).all()
             for grn_product in grn_product_list:
+                if grn_product.batch_id is None:
+                    continue
                 product_mrp = ProductVendorMapping.objects.filter(vendor=obj.order.ordered_cart.supplier_name,
                                                                   product=grn_product.product)
                 barcode_id=grn_product.barcode_id
