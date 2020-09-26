@@ -119,6 +119,13 @@ def create_inventory_transactions(transaction_id, warehouse, sku, transaction_ty
 @transaction.atomic
 def shipment_basic_entry(shipment):
     for shipment_product in shipment.rt_order_product_order_product_mapping.all():
+        shipment_status_return = ['FULLY_RETURNED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED', 'READY_TO_DISPATCH',
+                           'FULLY_DELIVERED_AND_COMPLETED']
+        if shipment.shipment_status in shipment_status_return:
+            shipment_product.returned_damage_qty=shipment_product.damaged_qty
+            shipment_product.damaged_qty=0
+        shipment_product.picked_pieces = shipment_product.shipped_qty
+        shipment_product.save()
         create_pickup_entry(shipment_product)
 
 
@@ -165,8 +172,6 @@ def create_batch_entry(shipment_product):
     shipped_qty = shipment_product.shipped_qty
     if shipped_qty is None:
         shipped_qty = 0
-    shipment_product.picked_pieces = shipment_product.shipped_qty
-    shipment_product.save()
     batch = OrderedProductBatch.objects.create(batch_id=batch_id,
                                                ordered_product_mapping=shipment_product,
                                                quantity=shipped_qty,
@@ -233,3 +238,19 @@ def create_shipment_data_before_delivery():
             shipment_picked_entry(ordered_product)
             if ordered_product.shipment_status == 'OUT_FOR_DELIVERY':
                 shipment_shipped_entry(ordered_product)
+
+def create_shipment_data_return():
+    shipment_status = ['FULLY_RETURNED_AND_COMPLETED','PARTIALLY_DELIVERED_AND_COMPLETED','READY_TO_DISPATCH','FULLY_DELIVERED_AND_COMPLETED']
+    ordered_product_list = OrderedProduct.objects.filter(shipment_status__in=shipment_status, created_at__gt=start_time)
+    print(ordered_product_list)
+    info_logger.info("WMS Migration : total shipments found {}".format(ordered_product_list.count()))
+    for ordered_product in ordered_product_list:
+        already_created = Pickup.objects.filter(warehouse=ordered_product.order.seller_shop,
+                                                pickup_type="Order",
+                                                pickup_type_id=ordered_product.order.order_no).last()
+        if not already_created:
+            info_logger.info("WMS Migration : pickup data generation : shipment Id{}".format(ordered_product.id))
+            generate_order_data_for_order(ordered_product.order)
+            shipment_basic_entry(ordered_product)
+            shipment_picked_entry(ordered_product)
+            shipment_shipped_entry(ordered_product)
