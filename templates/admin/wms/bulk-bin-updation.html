@@ -14,7 +14,7 @@
                 {% if error %}
                 <span class="errornote">{{ error|escape }}</span>
             {% endif %}
-           <form method="post" enctype="multipart/form-data">
+           <form method="post" enctype="multipart/form-data" id="bin-upload-form">
 
                   <div>
                      <fieldset class="module aligned ">
@@ -41,7 +41,7 @@
         </li>
     </div>
                      <div class="submit-row">
-                        <input type="submit" value="Save" class="default" name="_save">
+                        <input type="submit" value="Save" class="default" name="_save" id="save">
                      </div>
                   </div>
     </form>
@@ -50,7 +50,12 @@
 
 {% block javascript %}
 <script >
-
+$(document).ready(function() {
+      $("#bin-upload-form").submit(function( event ) {
+      document.getElementById('save').disabled = true;
+<!--      event.preventDefault();-->
+    });
+     });
 </script>
 {% endblock %}
 
