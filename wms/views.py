@@ -546,13 +546,13 @@ def iterate_quantity_type(data):
     :return:
     """
     inventory_type = {}
-    if int(data[6]) > 0:
+    if int(data[6]) >= 0:
         inventory_type.update({'normal': int(data[6])})
-    if int(data[7]) > 0:
+    if int(data[7]) >= 0:
         inventory_type.update({'damaged': int(data[7])})
-    if int(data[8]) > 0:
+    if int(data[8]) >= 0:
         inventory_type.update({'expired': int(data[8])})
-    if int(data[9]) > 0:
+    if int(data[9]) >= 0:
         inventory_type.update({'missing': int(data[9])})
     return inventory_type
 
