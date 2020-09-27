@@ -89,12 +89,12 @@
                 $("input[id$='damaged_qty']").val(0);
                 $("input[id$='damaged_qty']").prop("readonly", true);
                 $("select[id='id_return_reason']").val('');
-                $("select[id='id_return_reason']").attr("disabled", true); 
+                $("select[id='id_return_reason']").attr("disabled", true);
               } else {
                 $("select[id$='rescheduling_reason']").val('');
                 $("input[id$='returned_qty']").prop("readonly", false);
                 $("input[id$='damaged_qty']").prop("readonly", false);
-                $("select[id='id_return_reason']").attr("disabled", false); 
+                $("select[id='id_return_reason']").attr("disabled", false);
 
               }
             });
@@ -103,10 +103,7 @@
   });
 
 
-    if ($('select#id_return_reason').prop('disabled')){
-         $("select[id$='rescheduling_reason']").attr("disabled", true);
-         $("input[id$='rescheduling_date']").prop("readonly", false);
-    }
+
 
     });
 

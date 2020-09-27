@@ -8,8 +8,8 @@ from django.db.models import Sum
 from retailer_backend.messages import ERROR_MESSAGES
 from retailer_to_sp.api.v1.views import release_blocking
 from shops.models import ParentRetailerMapping
-
-from .models import OrderedProduct, PickerDashboard, Order
+from wms.models import PickupBinInventory
+from .models import OrderedProduct, PickerDashboard, Order, OrderedProductBatch
 
 
 # @receiver(post_save, sender=OrderedProduct)
@@ -144,4 +144,10 @@ class ReservedOrder(object):
 			for cart_product in cart_products:
 				self.product_reserved(
 					cart_product.cart_product, int(cart_product.no_of_pieces), cart)
+
+
+
+
+
+
 

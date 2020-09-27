@@ -52,3 +52,8 @@ media/
 .mypy_cache/
 .vscode/
 celerybeat-schedule
+# exclude everything
+barcode_tmp/*
+
+# exception to the rule
+!barcode_tmp/.gitkeep

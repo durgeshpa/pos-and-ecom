@@ -1,14 +1,15 @@
 from django.conf.urls import include, url
 from rest_framework import routers
 
-from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
-    ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
-    DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi,
-    ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
-    CancelOrder, DeliveryBoyTrips,RetailerShopsList, FeedbackData, SellerOrderList,
-    DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
-    ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted, AutoSuggest
-)
+from .views import (ProductsList, GramGRNProductsList, AddToCart, CartDetail,
+                    ReservedOrder, CreateOrder, OrderList, OrderDetail, DownloadInvoiceSP,
+                    DownloadNote, CustomerCareApi, CustomerOrdersList, PaymentApi,
+                    ProductDetail, ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
+                    CancelOrder, DeliveryBoyTrips, RetailerShopsList, FeedbackData, SellerOrderList,
+                    DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
+                    ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
+                    AutoSuggest, RefreshEs
+                    )
 
 router = routers.DefaultRouter()
 router.register(r'ordered-product', OrderedProductViewSet)
@@ -54,6 +55,7 @@ urlpatterns = [
         DownloadCreditNoteDiscounted.as_view(),
         name='discounted_credit_note'),
     url('^autosearch/suggest/$', AutoSuggest.as_view()),
+    url('^refresh-es/$', RefreshEs.as_view()),
 ]
 
 urlpatterns += router.urls

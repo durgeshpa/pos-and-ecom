@@ -10,7 +10,8 @@ from accounts.middlewares import get_current_user
 from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
+
 
 from django.db.models import F, FloatField, Sum, Func, Q, Count, Case, Value, When
 from django.db.models.signals import post_save, pre_save
@@ -30,10 +31,12 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
+from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType, InventoryState
+from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
+    get_expiry_date, OrderManagement
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
-
 from shops.models import Shop, ShopNameDisplay
 
 from .utils import (order_invoices, order_shipment_amount,
@@ -48,7 +51,7 @@ from django.db.models import Sum
 from django.db.models import Q
 from django.urls import reverse
 from retailer_backend import common_function
-
+from wms.models import WarehouseInventory
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
@@ -99,23 +102,23 @@ PAYMENT_MODE = (
     ('INSTANT_PAYMENT', 'Instant_payment'),
 )
 
-def generate_picklist_id(pincode):
 
+def generate_picklist_id(pincode):
     if PickerDashboard.objects.exists():
         last_picking = PickerDashboard.objects.last()
         picklist_id = last_picking.picklist_id
 
-        new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(int(picklist_id.split('/')[2])+1)
+        new_picklist_id = "PIK/" + str(pincode)[-2:] + "/" + str(int(picklist_id.split('/')[2]) + 1)
 
     else:
-        new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(1)
+        new_picklist_id = "PIK/" + str(pincode)[-2:] + "/" + str(1)
 
     return new_picklist_id
+
 
 class RoundAmount(Func):
     function = "ROUND"
     template = "%(function)s(%(expressions)s::numeric, 0)"
-
 
 
 class Cart(models.Model):
@@ -150,18 +153,18 @@ class Cart(models.Model):
     )
     cart_status = models.CharField(
         max_length=200, choices=CART_STATUS,
-        null=True, blank=True,db_index=True
+        null=True, blank=True, db_index=True
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_cart',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    offers = JSONField(null=True,blank=True)
+    offers = JSONField(null=True, blank=True)
     # cart_coupon_error_msg = models.CharField(
     #     max_length=255, null=True,
     #     blank=True, editable=False
     # )
-    approval_status = models.BooleanField(default=False, null = True)
+    approval_status = models.BooleanField(default=False, null=True)
     cart_type = models.CharField(
         max_length=50, choices=BULK_ORDER_STATUS, null=True, default=RETAIL)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -173,11 +176,12 @@ class Cart(models.Model):
     def __str__(self):
         return "{}".format(self.order_id)
 
-
     @property
     def subtotal(self):
         try:
-            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
+            return round(self.rt_cart_list.aggregate(
+                subtotal_sum=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'),
+                                 output_field=FloatField()))['subtotal_sum'], 2)
         except:
             return None
 
@@ -195,7 +199,9 @@ class Cart(models.Model):
     @property
     def mrp_subtotal(self):
         try:
-            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
+            return round(self.rt_cart_list.aggregate(
+                subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'), output_field=FloatField()))[
+                             'subtotal_sum'], 2)
         except:
             return None
 
@@ -209,14 +215,12 @@ class Cart(models.Model):
     def total_sku(self):
         return self.rt_cart_list.count()
 
-
     @property
     def no_of_pieces_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
 
-
     def offers_applied(self):
-        offers_list =[]
+        offers_list = []
         discount_value = 0
         shop = self.seller_shop
         cart_products = self.rt_cart_list.all()
@@ -227,62 +231,102 @@ class Cart(models.Model):
         buyer_shop = self.buyer_shop
         if cart_products:
             for m in cart_products:
-                if m.cart_product.get_current_shop_price(shop, buyer_shop)==None:
+                if m.cart_product.get_current_shop_price(shop, buyer_shop) == None:
                     CartProductMapping.objects.filter(cart__id=self.id, cart_product__id=m.cart_product.id).delete()
                     continue
                 parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
-                brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = m.cart_product.product_brand.id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
-                b_list  =  [x.coupon_name for x in brand_coupons]
-                cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('rule__cart_qualifying_min_sku_value')
+                brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True,
+                                                      expiry_date__gte=date).filter(
+                    Q(rule__brand_ruleset__brand=m.cart_product.product_brand.id) | Q(
+                        rule__brand_ruleset__brand=parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
+                b_list = [x.coupon_name for x in brand_coupons]
+                cart_coupons = Coupon.objects.filter(coupon_type='cart', is_active=True,
+                                                     expiry_date__gte=date).order_by(
+                    'rule__cart_qualifying_min_sku_value')
                 c_list = [x.coupon_name for x in cart_coupons]
                 sku_qty = int(m.qty)
                 sku_no_of_pieces = int(m.cart_product.product_inner_case_size) * int(m.qty)
                 price = m.cart_product.get_current_shop_price(shop, buyer_shop)
                 sku_ptr = float(price.selling_price) if price else False
-                coupon_times_used = CusotmerCouponUsage.objects.filter(shop = buyer_shop, product = m.cart_product, created_at__date = date.date()).count() if CusotmerCouponUsage.objects.filter(shop = buyer_shop, product = m.cart_product, created_at__date = date.date()) else 0
-                for n in m.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date ):
-                    for o in n.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
+                coupon_times_used = CusotmerCouponUsage.objects.filter(shop=buyer_shop, product=m.cart_product,
+                                                                       created_at__date=date.date()).count() if CusotmerCouponUsage.objects.filter(
+                    shop=buyer_shop, product=m.cart_product, created_at__date=date.date()) else 0
+                for n in m.cart_product.purchased_product_coupon.filter(rule__is_active=True,
+                                                                        rule__expiry_date__gte=date):
+                    for o in n.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte=date):
                         if o.limit_per_user_per_day > coupon_times_used:
                             if n.rule.discount_qty_amount > 0:
                                 if sku_qty >= n.rule.discount_qty_step:
                                     free_item = n.free_product.product_name
-                                    discount_qty_step_multiple = int((sku_qty)/n.rule.discount_qty_step)
+                                    discount_qty_step_multiple = int((sku_qty) / n.rule.discount_qty_step)
                                     free_item_amount = int((n.rule.discount_qty_amount) * discount_qty_step_multiple)
                                     sum += (sku_ptr * sku_no_of_pieces)
-                                    offers_list.append({'type':'free', 'sub_type':'discount_on_product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'discount_value':0, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog', 'discounted_product_subtotal':(sku_ptr * sku_no_of_pieces), 'discounted_product_subtotal_after_sku_discount':(sku_ptr * sku_no_of_pieces), 'brand_id':m.cart_product.product_brand.id, 'applicable_brand_coupons':b_list, 'applicable_cart_coupons':c_list})
-                            elif (n.rule.discount_qty_step >=1) and (n.rule.discount != None):
+                                    offers_list.append(
+                                        {'type': 'free', 'sub_type': 'discount_on_product', 'coupon_id': o.id,
+                                         'coupon': o.coupon_name, 'discount_value': 0, 'coupon_code': o.coupon_code,
+                                         'item': m.cart_product.product_name, 'item_sku': m.cart_product.product_sku,
+                                         'item_id': m.cart_product.id, 'free_item': free_item,
+                                         'free_item_amount': free_item_amount, 'coupon_type': 'catalog',
+                                         'discounted_product_subtotal': (sku_ptr * sku_no_of_pieces),
+                                         'discounted_product_subtotal_after_sku_discount': (sku_ptr * sku_no_of_pieces),
+                                         'brand_id': m.cart_product.product_brand.id,
+                                         'applicable_brand_coupons': b_list, 'applicable_cart_coupons': c_list})
+                            elif (n.rule.discount_qty_step >= 1) and (n.rule.discount != None):
                                 if sku_qty >= n.rule.discount_qty_step:
                                     if n.rule.discount.is_percentage == False:
                                         discount_value = n.rule.discount.discount_value
                                     elif n.rule.discount.is_percentage == True and (n.rule.discount.max_discount == 0):
-                                        discount_value = round(((n.rule.discount.discount_value/100)* sku_no_of_pieces * sku_ptr), 2)
-                                    elif n.rule.discount.is_percentage == True and (n.rule.discount.max_discount > ((n.rule.discount.discount_value/100)* (sku_no_of_pieces * sku_ptr))):
-                                        discount_value = round(((n.rule.discount.discount_value/100)* sku_no_of_pieces * sku_ptr), 2)
-                                    elif n.rule.discount.is_percentage == True and (n.rule.discount.max_discount < ((n.rule.discount.discount_value/100)* (sku_no_of_pieces * sku_ptr))) :
+                                        discount_value = round(
+                                            ((n.rule.discount.discount_value / 100) * sku_no_of_pieces * sku_ptr), 2)
+                                    elif n.rule.discount.is_percentage == True and (n.rule.discount.max_discount > (
+                                            (n.rule.discount.discount_value / 100) * (sku_no_of_pieces * sku_ptr))):
+                                        discount_value = round(
+                                            ((n.rule.discount.discount_value / 100) * sku_no_of_pieces * sku_ptr), 2)
+                                    elif n.rule.discount.is_percentage == True and (n.rule.discount.max_discount < (
+                                            (n.rule.discount.discount_value / 100) * (sku_no_of_pieces * sku_ptr))):
                                         discount_value = n.rule.discount.max_discount
                                     discount_sum_sku += round(discount_value, 2)
-                                    discounted_product_subtotal = round((sku_no_of_pieces * sku_ptr) - discount_value, 2)
+                                    discounted_product_subtotal = round((sku_no_of_pieces * sku_ptr) - discount_value,
+                                                                        2)
                                     sum += discounted_product_subtotal
-                                    offers_list.append({'type':'discount', 'sub_type':'discount_on_product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'discount_value':discount_value, 'discount_total_sku':discount_sum_sku, 'coupon_type':'catalog', 'discounted_product_subtotal':discounted_product_subtotal, 'discounted_product_subtotal_after_sku_discount':discounted_product_subtotal, 'brand_id':m.cart_product.product_brand.id, 'applicable_brand_coupons':b_list, 'applicable_cart_coupons':c_list})
+                                    offers_list.append(
+                                        {'type': 'discount', 'sub_type': 'discount_on_product', 'coupon_id': o.id,
+                                         'coupon': o.coupon_name, 'coupon_code': o.coupon_code,
+                                         'item': m.cart_product.product_name, 'item_sku': m.cart_product.product_sku,
+                                         'item_id': m.cart_product.id, 'discount_value': discount_value,
+                                         'discount_total_sku': discount_sum_sku, 'coupon_type': 'catalog',
+                                         'discounted_product_subtotal': discounted_product_subtotal,
+                                         'discounted_product_subtotal_after_sku_discount': discounted_product_subtotal,
+                                         'brand_id': m.cart_product.product_brand.id,
+                                         'applicable_brand_coupons': b_list, 'applicable_cart_coupons': c_list})
                 if not any(d['item_id'] == m.cart_product.id for d in offers_list):
-                    offers_list.append({'type':'no offer', 'sub_type':'no offer', 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'discount_value':0, 'discount_total_sku':discount_sum_sku, 'coupon_type':'catalog', 'discounted_product_subtotal':round((sku_ptr * sku_no_of_pieces), 2), 'discounted_product_subtotal_after_sku_discount':round((sku_ptr * sku_no_of_pieces), 2), 'brand_id':m.cart_product.product_brand.id,'cart_or_brand_level_discount':0, 'applicable_brand_coupons':b_list, 'applicable_cart_coupons':c_list})
-            brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
+                    offers_list.append({'type': 'no offer', 'sub_type': 'no offer', 'item': m.cart_product.product_name,
+                                        'item_sku': m.cart_product.product_sku, 'item_id': m.cart_product.id,
+                                        'discount_value': 0, 'discount_total_sku': discount_sum_sku,
+                                        'coupon_type': 'catalog',
+                                        'discounted_product_subtotal': round((sku_ptr * sku_no_of_pieces), 2),
+                                        'discounted_product_subtotal_after_sku_discount': round(
+                                            (sku_ptr * sku_no_of_pieces), 2),
+                                        'brand_id': m.cart_product.product_brand.id, 'cart_or_brand_level_discount': 0,
+                                        'applicable_brand_coupons': b_list, 'applicable_cart_coupons': c_list})
+            brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True, expiry_date__gte=date).order_by(
+                '-rule__cart_qualifying_min_sku_value')
             array = list(filter(lambda d: d['coupon_type'] in 'catalog', offers_list))
             discount_value_brand = 0
             brands_specific_list = []
             for brand_coupon in brand_coupons:
                 brands_list = []
-                brand_product_subtotals= 0
-                for brand in brand_coupon.rule.brand_ruleset.filter(rule__is_active = True, rule__expiry_date__gte = date ):
+                brand_product_subtotals = 0
+                for brand in brand_coupon.rule.brand_ruleset.filter(rule__is_active=True, rule__expiry_date__gte=date):
                     brands_list = []
-                    brand_product_subtotals= 0
+                    brand_product_subtotals = 0
                     offer_brand = brand.brand
                     offer_brand_id = brand.brand.id
                     if offer_brand_id in brands_specific_list:
                         continue
                     brands_list.append(offer_brand_id)
                     brands_specific_list.append(offer_brand_id)
-                    sub_brands_list = Brand.objects.filter(brand_parent_id = offer_brand_id)
+                    sub_brands_list = Brand.objects.filter(brand_parent_id=offer_brand_id)
                     if sub_brands_list:
                         for sub_brands in sub_brands_list:
                             brands_list.append(sub_brands.id)
@@ -293,50 +337,96 @@ class Cart(models.Model):
                         if brand_product_subtotals >= brand_coupon.rule.cart_qualifying_min_sku_value:
                             if brand_coupon.rule.discount.is_percentage == False:
                                 discount_value_brand = brand_coupon.rule.discount.discount_value
-                                discount_sum_brand+= round(brand_coupon.rule.discount.discount_value, 2)
-                                offers_list.append({'type':'discount', 'sub_type':'discount_on_brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'brand_id':offer_brand.id, 'discount_value':discount_value_brand, 'coupon_type':'brand', 'brand_product_subtotals':brand_product_subtotals, 'discount_sum_brand':discount_sum_brand})
-                            elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount == 0):
-                                discount_value_brand = round((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals, 2)
-                                discount_sum_brand+= round(discount_value_brand, 2)
-                                offers_list.append({'type':'discount', 'sub_type':'discount_on_brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'brand_id':offer_brand.id, 'discount_value':discount_value_brand, 'coupon_type':'brand', 'brand_product_subtotals':brand_product_subtotals, 'discount_sum_brand':discount_sum_brand})
-                            elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount < ((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals)) :
+                                discount_sum_brand += round(brand_coupon.rule.discount.discount_value, 2)
+                                offers_list.append(
+                                    {'type': 'discount', 'sub_type': 'discount_on_brand', 'coupon_id': brand_coupon.id,
+                                     'coupon': brand_coupon.coupon_name, 'coupon_code': brand_coupon.coupon_code,
+                                     'brand_name': offer_brand.brand_name, 'brand_id': offer_brand.id,
+                                     'discount_value': discount_value_brand, 'coupon_type': 'brand',
+                                     'brand_product_subtotals': brand_product_subtotals,
+                                     'discount_sum_brand': discount_sum_brand})
+                            elif brand_coupon.rule.discount.is_percentage == True and (
+                                    brand_coupon.rule.discount.max_discount == 0):
+                                discount_value_brand = round(
+                                    (brand_coupon.rule.discount.discount_value / 100) * brand_product_subtotals, 2)
+                                discount_sum_brand += round(discount_value_brand, 2)
+                                offers_list.append(
+                                    {'type': 'discount', 'sub_type': 'discount_on_brand', 'coupon_id': brand_coupon.id,
+                                     'coupon': brand_coupon.coupon_name, 'coupon_code': brand_coupon.coupon_code,
+                                     'brand_name': offer_brand.brand_name, 'brand_id': offer_brand.id,
+                                     'discount_value': discount_value_brand, 'coupon_type': 'brand',
+                                     'brand_product_subtotals': brand_product_subtotals,
+                                     'discount_sum_brand': discount_sum_brand})
+                            elif brand_coupon.rule.discount.is_percentage == True and (
+                                    brand_coupon.rule.discount.max_discount < (
+                                    (brand_coupon.rule.discount.discount_value / 100) * brand_product_subtotals)):
                                 discount_value_brand = brand_coupon.rule.discount.max_discount
-                                discount_sum_brand+= round(brand_coupon.rule.discount.max_discount, 2)
-                                offers_list.append({'type':'discount', 'sub_type':'discount_on_brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'brand_id':offer_brand.id, 'discount_value':discount_value_brand, 'coupon_type':'brand', 'brand_product_subtotals':brand_product_subtotals, 'discount_sum_brand':discount_sum_brand})
+                                discount_sum_brand += round(brand_coupon.rule.discount.max_discount, 2)
+                                offers_list.append(
+                                    {'type': 'discount', 'sub_type': 'discount_on_brand', 'coupon_id': brand_coupon.id,
+                                     'coupon': brand_coupon.coupon_name, 'coupon_code': brand_coupon.coupon_code,
+                                     'brand_name': offer_brand.brand_name, 'brand_id': offer_brand.id,
+                                     'discount_value': discount_value_brand, 'coupon_type': 'brand',
+                                     'brand_product_subtotals': brand_product_subtotals,
+                                     'discount_sum_brand': discount_sum_brand})
                         else:
                             brands_specific_list.pop()
             array1 = list(filter(lambda d: d['coupon_type'] in 'brand', offers_list))
             discount_value_cart = 0
-            cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
+            cart_coupons = Coupon.objects.filter(coupon_type='cart', is_active=True, expiry_date__gte=date).order_by(
+                '-rule__cart_qualifying_min_sku_value')
             cart_coupon_list = []
             i = 0
             coupon_applied = False
             if self.cart_status in ['active', 'pending']:
                 cart_value = 0
                 for product in self.rt_cart_list.all():
-                    cart_value += float(product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop).selling_price * product.no_of_pieces) if product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop) else 0
+                    cart_value += float(product.cart_product.get_current_shop_price(self.seller_shop,
+                                                                                    self.buyer_shop).selling_price * product.no_of_pieces) if product.cart_product.get_current_shop_price(
+                        self.seller_shop, self.buyer_shop) else 0
                 cart_value -= discount_sum_sku
             if self.cart_status in ['ordered']:
-                cart_value = (self.rt_cart_list.aggregate(value=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'),output_field=FloatField()))['value']) - discount_sum_sku
+                cart_value = (self.rt_cart_list.aggregate(
+                    value=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'), output_field=FloatField()))[
+                    'value']) - discount_sum_sku
             cart_items_count = self.rt_cart_list.count()
             for cart_coupon in cart_coupons:
                 if cart_coupon.rule.cart_qualifying_min_sku_value and not cart_coupon.rule.cart_qualifying_min_sku_item:
                     cart_coupon_list.append(cart_coupon)
-                    i+=1
-                    if cart_value >=cart_coupon.rule.cart_qualifying_min_sku_value:
+                    i += 1
+                    if cart_value >= cart_coupon.rule.cart_qualifying_min_sku_value:
                         coupon_applied = True
                         if cart_coupon.rule.discount.is_percentage == False:
                             discount_value_cart = cart_coupon.rule.discount.discount_value
-                            offers_list.append({'type':'discount', 'sub_type':'discount_on_cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value_cart, 'coupon_type':'cart'})
-                        elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount == 0):
-                            discount_value_cart = round((cart_coupon.rule.discount.discount_value/100)* cart_value, 2)
-                            offers_list.append({'type':'discount', 'sub_type':'discount_on_cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value_cart, 'coupon_type':'cart'})
-                        elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount > ((cart_coupon.rule.discount.discount_value/100)* cart_value)):
-                            discount_value_cart = round((cart_coupon.rule.discount.discount_value/100)* cart_value, 2)
-                            offers_list.append({'type':'discount', 'sub_type':'discount_on_cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value_cart, 'coupon_type':'cart'})
-                        elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount < ((cart_coupon.rule.discount.discount_value/100)* cart_value)) :
+                            offers_list.append(
+                                {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
+                                 'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
+                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
+                        elif cart_coupon.rule.discount.is_percentage == True and (
+                                cart_coupon.rule.discount.max_discount == 0):
+                            discount_value_cart = round((cart_coupon.rule.discount.discount_value / 100) * cart_value,
+                                                        2)
+                            offers_list.append(
+                                {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
+                                 'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
+                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
+                        elif cart_coupon.rule.discount.is_percentage == True and (
+                                cart_coupon.rule.discount.max_discount > (
+                                (cart_coupon.rule.discount.discount_value / 100) * cart_value)):
+                            discount_value_cart = round((cart_coupon.rule.discount.discount_value / 100) * cart_value,
+                                                        2)
+                            offers_list.append(
+                                {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
+                                 'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
+                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
+                        elif cart_coupon.rule.discount.is_percentage == True and (
+                                cart_coupon.rule.discount.max_discount < (
+                                (cart_coupon.rule.discount.discount_value / 100) * cart_value)):
                             discount_value_cart = cart_coupon.rule.discount.max_discount
-                            offers_list.append({'type':'discount', 'sub_type':'discount_on_cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value_cart,  'coupon_type':'cart'})
+                            offers_list.append(
+                                {'type': 'discount', 'sub_type': 'discount_on_cart', 'coupon_id': cart_coupon.id,
+                                 'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
+                                 'discount_value': discount_value_cart, 'coupon_type': 'cart'})
                         break
 
             entice_text = ''
@@ -345,42 +435,62 @@ class Cart(models.Model):
             else:
                 next_index = 1
             if i > 1:
-                next_cart_coupon_min_value = cart_coupon_list[i-next_index].rule.cart_qualifying_min_sku_value
-                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value + discount_value_cart,2)
-                next_cart_coupon_discount = cart_coupon_list[i-next_index].rule.discount.discount_value if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else (str(cart_coupon_list[i-next_index].rule.discount.discount_value) + '%')
-                entice_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount)
-                offers_list.append({'entice_text':entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
-            elif i==1 and  not coupon_applied:
-                next_cart_coupon_min_value = cart_coupon_list[i-next_index].rule.cart_qualifying_min_sku_value
-                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value,2)
-                next_cart_coupon_discount = cart_coupon_list[i-next_index].rule.discount.discount_value if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else (str(cart_coupon_list[i-next_index].rule.discount.discount_value) + '%')
-                entice_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount)
-                offers_list.append({'entice_text':entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
+                next_cart_coupon_min_value = cart_coupon_list[i - next_index].rule.cart_qualifying_min_sku_value
+                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value + discount_value_cart,
+                                                        2)
+                next_cart_coupon_discount = cart_coupon_list[i - next_index].rule.discount.discount_value if \
+                    cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
+                        str(cart_coupon_list[i - next_index].rule.discount.discount_value) + '%')
+                entice_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (
+                    next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[
+                                                                                       i - next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (
+                    next_cart_coupon_min_value_diff, next_cart_coupon_discount)
+                offers_list.append(
+                    {'entice_text': entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type': 'none'})
+            elif i == 1 and not coupon_applied:
+                next_cart_coupon_min_value = cart_coupon_list[i - next_index].rule.cart_qualifying_min_sku_value
+                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value, 2)
+                next_cart_coupon_discount = cart_coupon_list[i - next_index].rule.discount.discount_value if \
+                    cart_coupon_list[i - next_index].rule.discount.is_percentage == False else (
+                        str(cart_coupon_list[i - next_index].rule.discount.discount_value) + '%')
+                entice_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (
+                    next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[
+                                                                                       i - next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (
+                    next_cart_coupon_min_value_diff, next_cart_coupon_discount)
+                offers_list.append(
+                    {'entice_text': entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type': 'none'})
             else:
                 entice_text = ''
-                offers_list.append({'entice_text':entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
+                offers_list.append(
+                    {'entice_text': entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type': 'none'})
 
             if discount_sum_brand < discount_value_cart:
                 for product in cart_products:
                     for i in array:
                         if product.cart_product.id == i['item_id']:
-                            discounted_price_subtotal = round(((i['discounted_product_subtotal'] / cart_value) * discount_value_cart), 2)
-                            i.update({'cart_or_brand_level_discount':discounted_price_subtotal})
-                            discounted_product_subtotal = round(i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
-                            i.update({'discounted_product_subtotal':discounted_product_subtotal})
+                            discounted_price_subtotal = round(
+                                ((i['discounted_product_subtotal'] / cart_value) * discount_value_cart), 2)
+                            i.update({'cart_or_brand_level_discount': discounted_price_subtotal})
+                            discounted_product_subtotal = round(
+                                i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
+                            i.update({'discounted_product_subtotal': discounted_product_subtotal})
                             offers_list[:] = [coupon for coupon in offers_list if coupon.get('coupon_type') != 'brand']
             else:
                 for product in cart_products:
                     for i in array:
                         for j in array1:
                             brand_parent = product.cart_product.product_brand.brand_parent.id if product.cart_product.product_brand.brand_parent else None
-                            if product.cart_product.id == i['item_id'] and product.cart_product.product_brand.id == j['brand_id'] or product.cart_product.id == i['item_id'] and brand_parent == j['brand_id']:
-                                discounted_price_subtotal = round(((i['discounted_product_subtotal'] / j['brand_product_subtotals']) * j['discount_value']), 2)
-                                i.update({'cart_or_brand_level_discount':discounted_price_subtotal})
-                                discounted_product_subtotal = round(i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
-                                i.update({'discounted_product_subtotal':discounted_product_subtotal})
-                                offers_list[:] = [coupon for coupon in offers_list if coupon.get('coupon_type') != 'cart']
-
+                            if product.cart_product.id == i['item_id'] and product.cart_product.product_brand.id == j[
+                                'brand_id'] or product.cart_product.id == i['item_id'] and brand_parent == j[
+                                'brand_id']:
+                                discounted_price_subtotal = round(((i['discounted_product_subtotal'] / j[
+                                    'brand_product_subtotals']) * j['discount_value']), 2)
+                                i.update({'cart_or_brand_level_discount': discounted_price_subtotal})
+                                discounted_product_subtotal = round(
+                                    i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
+                                i.update({'discounted_product_subtotal': discounted_product_subtotal})
+                                offers_list[:] = [coupon for coupon in offers_list if
+                                                  coupon.get('coupon_type') != 'cart']
 
         return offers_list
 
@@ -409,9 +519,9 @@ class Cart(models.Model):
 
 
 class BulkOrder(models.Model):
-    cart = models.OneToOneField(Cart, related_name='rt_bulk_cart_list',null=True,
-                             on_delete=models.DO_NOTHING
-    )
+    cart = models.OneToOneField(Cart, related_name='rt_bulk_cart_list', null=True,
+                                on_delete=models.DO_NOTHING
+                                )
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_bulk_seller_shop_cart',
         null=True, blank=True, on_delete=models.DO_NOTHING
@@ -428,7 +538,7 @@ class BulkOrder(models.Model):
         Address, related_name='rt_shipping_address_bulk_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    order_type = models.CharField(max_length=50,choices=BULK_ORDER_STATUS[1:], null = True)
+    order_type = models.CharField(max_length=50, choices=BULK_ORDER_STATUS[1:], null=True)
     cart_products_csv = models.FileField(
         upload_to='retailer/sp/cart_products_csv',
         null=True, blank=False
@@ -436,15 +546,14 @@ class BulkOrder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-
     def __str__(self):
         return self.cart.order_id
 
     @property
     def cart_products_sample_file(self):
         if (
-            self.cart_products_csv
-            and hasattr(self.cart_products_csv, 'url')
+                self.cart_products_csv
+                and hasattr(self.cart_products_csv, 'url')
         ):
             url = """<h3><a href="%s" target="_blank">
                     Download Products List</a></h3>""" % \
@@ -470,157 +579,205 @@ class BulkOrder(models.Model):
                     product_ids.append(Product.objects.get(product_sku=sku).id)
                 else:
                     raise ValidationError("The SKU %s is invalid" % (sku))
-            from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
-            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-            shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
+            shop_products_available = WarehouseInventory.objects.filter(
+                    sku__product_sku__in=product_skus, quantity__gte=0,
+                inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+            inventory_state=InventoryState.objects.filter(inventory_state='available').last()).values('sku_id').annotate(
+                    quantity=Sum('quantity'))
+            shop_products_dict = {g['sku_id']: int(g['quantity']) for g in shop_products_available}
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
             headers = next(reader, None)
             duplicate_products = []
             count = 0
-            for id,row in enumerate(reader):
+            for id, row in enumerate(reader):
                 if not row[0]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product SKU cannot be empty")
+                    raise ValidationError(
+                        "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | Product SKU cannot be empty")
 
                 try:
                     product = Product.objects.get(product_sku=row[0])
                 except:
-                    raise ValidationError("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRODUCT_SKU'])
+                    raise ValidationError(
+                        "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
+                            'INVALID_PRODUCT_SKU'])
                 if not row[2] or not re.match("^[\d\,]*$", row[2]):
-                    raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
-                    'EMPTY']%("qty"))
+                    raise ValidationError(
+                        "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
+                            'EMPTY'] % ("qty"))
 
                 if self.order_type == 'DISCOUNTED':
                     if not row[3] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[3]):
-                        raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
-                        'EMPTY']%("discounted_price"))
+                        raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " +
+                                              VALIDATION_ERROR_MESSAGES[
+                                                  'EMPTY'] % ("discounted_price"))
                 if row[0]:
                     product = Product.objects.get(product_sku=row[0])
                     if product in duplicate_products:
-                        raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Duplicate entries of this product has been uploaded"))
+                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                            0] + " | Duplicate entries of this product has been uploaded"))
                     duplicate_products.append(product)
                     product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
                     if not product_price:
-                        raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Price Not Available"))
+                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                            0] + " | Product Price Not Available"))
                     if row[3] and self.order_type == 'DISCOUNTED':
                         discounted_price = float(row[3])
                         if product_price.selling_price < discounted_price:
-                            raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Discounted Price can't be more than Product Price."))
-                    product_id = product.id
-                    ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
+                            raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                                0] + " | Discounted Price can't be more than Product Price."))
+                    # product_id = product.id
+                    #ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
                     ordered_qty = int(row[2])
-                    product_availability = shop_products_dict.get(product.id, 0)
-                    product_available = int(int(shop_products_dict.get(product.id, 0))/int(product.product_inner_case_size))
+                    # product_availability = shop_products_dict.get(sku, 0)
+                    available_quantity = WarehouseInventory.objects.filter(
+                        sku__product_sku=row[0],
+                        inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+                        inventory_state=InventoryState.objects.filter(inventory_state='available').last())[0].quantity
+                    # product_available = int(
+                    #     int(shop_products_dict.get(product.id, 0)) / int(product.product_inner_case_size))
+                    product_available = int(
+                         int(available_quantity) / int(product.product_inner_case_size))
                     if product_available >= ordered_qty:
-                        count+=1
+                        count += 1
             if count == 0:
-                raise ValidationError(_("Order can't be placed as none of the products uploaded are in stock."))
+                raise ValidationError(_("Ordered Quantity is more than Available quantity."))
 
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
 
     def save(self, *args, **kwargs):
         if self.pk is None:
-            self.cart = Cart.objects.create(seller_shop=self.seller_shop, buyer_shop=self.buyer_shop, cart_status = 'ordered', cart_type = self.order_type)
+            self.cart = Cart.objects.create(seller_shop=self.seller_shop, buyer_shop=self.buyer_shop,
+                                            cart_status='ordered', cart_type=self.order_type)
             super().save(*args, **kwargs)
+
 
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
         if instance.cart_type == 'RETAIL':
             instance.order_id = order_id_pattern(
-                                        sender, 'order_id', instance.pk,
-                                        instance.seller_shop.
-                                        shop_name_address_mapping.filter(
-                                            address_type='billing').last().pk)
+                sender, 'order_id', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk)
         elif instance.cart_type == 'BULK':
             instance.order_id = order_id_pattern_bulk(
-                                        sender, 'order_id', instance.pk,
-                                        instance.seller_shop.
-                                        shop_name_address_mapping.filter(
-                                            address_type='billing').last().pk)
+                sender, 'order_id', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk)
         elif instance.cart_type == 'DISCOUNTED':
             instance.order_id = order_id_pattern_discounted(
-                                        sender, 'order_id', instance.pk,
-                                        instance.seller_shop.
-                                        shop_name_address_mapping.filter(
-                                            address_type='billing').last().pk)
+                sender, 'order_id', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk)
         instance.save()
+
 
 @receiver(post_save, sender=BulkOrder)
 def create_bulk_order(sender, instance=None, created=False, **kwargs):
-    if created:
-        products_available = {}
-        if instance.cart_products_csv:
-            product_skus = []
-            product_ids = []
-            reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
-            headers = next(reader, None)
-            product_skus = [x[0] for x in reader if x]
-            for sku in product_skus:
-                product_ids.append(Product.objects.get(product_sku=sku).id)
-            from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
-            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(instance.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-            shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
-            reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
-            for id,row in enumerate(reader):
-                for row in reader:
-                    if row[0]:
-                        product = Product.objects.get(product_sku=row[0])
-                        product_id = product.id
-                        product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
-                        ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
-                        ordered_qty = int(row[2])
-                        product_availability = shop_products_dict.get(product.id, 0)
-                        product_available = int(int(shop_products_dict.get(product.id, 0))/int(product.product_inner_case_size))
-                        if product_available >= ordered_qty:
-                            products_available[product_id] = ordered_pieces
-                            if instance.order_type == 'DISCOUNTED':
-                                CartProductMapping.objects.create(cart=instance.cart,cart_product_id = product_id,
-                                 qty = int(row[2]),
-                                 no_of_pieces = int(row[2]) * int(product.product_inner_case_size),
-                                 cart_product_price=product_price,
-                                 discounted_price = float(row[3]))
-                            else:
-                                CartProductMapping.objects.create(cart=instance.cart,cart_product_id = product_id,
-                                 qty = int(row[2]),
-                                 no_of_pieces = int(row[2]) * int(product.product_inner_case_size),
-                                 cart_product_price=product_price,
-                                 discounted_price = 0)
-        from retailer_to_sp.tasks import create_reserved_order
+    with transaction.atomic():
+        if created:
+            products_available = {}
+            if instance.cart_products_csv:
+                product_skus = []
+                product_ids = []
+                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+                headers = next(reader, None)
+                product_skus = [x[0] for x in reader if x]
+                for sku in product_skus:
+                    product_ids.append(Product.objects.get(product_sku=sku).id)
+                from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
+                shop_products_available = WarehouseInventory.objects.filter(
+                        sku__product_sku__in=product_skus, quantity__gte=0,
+                    inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+                inventory_state=InventoryState.objects.filter(inventory_state='available').last()).values('sku_id').annotate(
+                        quantity=Sum('quantity'))
+                shop_products_dict = {g['sku_id']: int(g['quantity']) for g in shop_products_available}
+                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+                for id, row in enumerate(reader):
+                    for row in reader:
+                        if row[0]:
+                            product = Product.objects.get(product_sku=row[0])
+                            product_id = product.id
+                            product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
+                            ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
+                            ordered_qty = int(row[2])
+                            available_quantity = WarehouseInventory.objects.filter(
+                                sku__product_sku=row[0],
+                                inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+                                inventory_state=InventoryState.objects.filter(inventory_state='available').last())[
+                                0].quantity
+                            #product_availability = shop_products_dict.get(product.id, 0)
+                            product_available = int(
+                                int(available_quantity) / int(product.product_inner_case_size))
+                            if product_available >= ordered_qty:
+                                products_available[product_id] = ordered_pieces
+                                if instance.order_type == 'DISCOUNTED':
+                                    cart_obj = CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
+                                                                      qty=int(row[2]),
+                                                                      no_of_pieces=int(row[2]) * int(
+                                                                          product.product_inner_case_size),
+                                                                      cart_product_price=product_price,
+                                                                      discounted_price=float(row[3]))
+                                else:
+                                    cart_obj = CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
+                                                                      qty=int(row[2]),
+                                                                      no_of_pieces=int(row[2]) * int(
+                                                                          product.product_inner_case_size),
+                                                                      cart_product_price=product_price,
+                                                                      discounted_price=0)
+            #from retailer_to_sp.tasks import create_reserved_order
+            # reserved_args = json.dumps({
+            #     'shop_id': instance.seller_shop.id,
+            #     'cart_id': instance.cart.id,
+            #     'products': products_available
+            # })
+            reserved_args = json.dumps({
+                'shop_id': instance.seller_shop.id,
+                'transaction_id': instance.cart.order_id,
+                'products': products_available,
+                'transaction_type': 'reserved'
+            })
+            OrderManagement.create_reserved_order(reserved_args)
+        order, _ = Order.objects.get_or_create(ordered_cart=instance.cart)
+        order.order_no = instance.cart.order_id
+        order.ordered_cart = instance.cart
+        order.seller_shop = instance.seller_shop
+        order.buyer_shop = instance.buyer_shop
+        order.billing_address = instance.billing_address
+        order.shipping_address = instance.shipping_address
+        user = get_current_user()
+        order.ordered_by = user
+        order.last_modified_by = user
+        order.received_by = user
+        order.order_status = 'ordered'
+        order.save()
+        # from sp_to_gram.models import OrderedProductReserved
+        # for ordered_reserve in OrderedProductReserved.objects.filter(cart=instance.cart,
+        #                                                              reserve_status=OrderedProductReserved.RESERVED):
+        #     ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
+        #     ordered_reserve.order_product_reserved.save()
+        #     ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
+        #     ordered_reserve.save()
         reserved_args = json.dumps({
             'shop_id': instance.seller_shop.id,
-            'cart_id': instance.cart.id,
-            'products': products_available
-            })
-        create_reserved_order(reserved_args)
-    order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
-    order.order_no = instance.cart.order_id
-    order.ordered_cart = instance.cart
-    order.seller_shop = instance.seller_shop
-    order.buyer_shop = instance.buyer_shop
-    order.billing_address = instance.billing_address
-    order.shipping_address = instance.shipping_address
-    user = get_current_user()
-    order.ordered_by = user
-    order.last_modified_by = user
-    order.received_by = user
-    order.order_status = 'ordered'
-    order.save()
-    from sp_to_gram.models import OrderedProductReserved
-    for ordered_reserve in OrderedProductReserved.objects.filter(cart=instance.cart, reserve_status=OrderedProductReserved.RESERVED):
-        ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
-        ordered_reserve.order_product_reserved.save()
-        ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
-        ordered_reserve.save()
+            'transaction_id': instance.cart.order_id,
+            'transaction_type': 'ordered',
+            'order_status': order.order_status
+        })
+        sku_id = [i.cart_product.id for i in instance.cart.rt_cart_list.all()]
+        OrderManagement.release_blocking(reserved_args, sku_id)
 
 
 class CartProductMapping(models.Model):
-    cart = models.ForeignKey(Cart, related_name='rt_cart_list',null=True,
+    cart = models.ForeignKey(Cart, related_name='rt_cart_list', null=True,
                              on_delete=models.DO_NOTHING
-    )
+                             )
     cart_product = models.ForeignKey(
-        Product, related_name='rt_cart_product_mapping',null=True,
+        Product, related_name='rt_cart_product_mapping', null=True,
         on_delete=models.DO_NOTHING
     )
     cart_product_price = models.ForeignKey(
@@ -638,7 +795,7 @@ class CartProductMapping(models.Model):
         blank=True, editable=False
     )
     effective_price = models.FloatField(default=0)
-    discounted_price = models.FloatField(default = 0)
+    discounted_price = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -670,16 +827,15 @@ class CartProductMapping(models.Model):
                 array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
                 for i in array:
                     if self.cart_product.id == i['item_id']:
-                        item_effective_price = (i.get('discounted_product_subtotal',0)) / self.no_of_pieces
+                        item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
             else:
                 item_effective_price = float(self.cart_product_price.selling_price)
         except:
             logger.exception("Cart product price not found")
         return item_effective_price
 
-
     def set_cart_product_price(self, seller_shop_id, buyer_shop_id):
-        self.cart_product_price = self.cart_product.\
+        self.cart_product_price = self.cart_product. \
             get_current_shop_price(seller_shop_id, buyer_shop_id)
         self.save()
 
@@ -704,6 +860,7 @@ class CartProductMapping(models.Model):
     #
     #     super().save(*args, **kwargs)
 
+
 class Order(models.Model):
     ACTIVE = 'active'
     PENDING = 'pending'
@@ -725,10 +882,13 @@ class Order(models.Model):
     COMPLETED = 'completed'
     READY_TO_DISPATCH = 'ready_to_dispatch'
     CANCELLED = 'CANCELLED'
+    PICKING_COMPLETE = 'picking_complete'
+    PICKING_ASSIGNED = 'PICKING_ASSIGNED'
+    PICKUP_CREATED = 'PICKUP_CREATED'
 
     ORDER_STATUS = (
-        (ORDERED, 'Order Placed'), #1
-        (DISPATCH_PENDING, 'Dispatch Pending'), #2
+        (ORDERED, 'Order Placed'),  # 1
+        (DISPATCH_PENDING, 'Dispatch Pending'),  # 2
         (ACTIVE, "Active"),
         (PENDING, "Pending"),
         (DELETED, "Deleted"),
@@ -738,8 +898,8 @@ class Order(models.Model):
         (CLOSED, "Closed"),
         (PDAP, "Payment Done Approval Pending"),
         (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending"),
-        ('PARTIALLY_SHIPPED', 'Partially Shipped'), #3
-        ('SHIPPED', 'Shipped'), #4
+        ('PARTIALLY_SHIPPED', 'Partially Shipped'),  # 3
+        ('SHIPPED', 'Shipped'),  # 4
         (CANCELLED, 'Cancelled'),
         ('DENIED', 'Denied'),
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
@@ -749,7 +909,10 @@ class Order(models.Model):
         (PARTIAL_SHIPMENT_CREATED, 'Partial Shipment Created'),
         (FULL_SHIPMENT_CREATED, 'Full Shipment Created'),
         (READY_TO_DISPATCH, 'Ready to Dispatch'),
-        (COMPLETED, 'Completed')
+        (COMPLETED, 'Completed'),
+        (PICKING_COMPLETE, 'Picking Complete'),
+        (PICKING_ASSIGNED, 'Picking Assigned'),
+        (PICKUP_CREATED, 'Pickup Created'),
     )
 
     CASH_NOT_AVAILABLE = 'cna'
@@ -792,18 +955,18 @@ class Order(models.Model):
         (SHORT, 'Item short')
     )
 
-    #Todo Remove
+    # Todo Remove
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    #Todo Remove
+    # Todo Remove
     buyer_shop = models.ForeignKey(
         Shop, related_name='rt_buyer_shop_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
     ordered_cart = models.OneToOneField(
-        Cart, related_name='rt_order_cart_mapping',null=True,
+        Cart, related_name='rt_order_cart_mapping', null=True,
         on_delete=models.DO_NOTHING
     )
     order_no = models.CharField(max_length=255, null=True, blank=True)
@@ -818,7 +981,7 @@ class Order(models.Model):
     total_mrp = models.FloatField(default=0)
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
-    order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
+    order_status = models.CharField(max_length=50, choices=ORDER_STATUS)
     cancellation_reason = models.CharField(
         max_length=50, choices=CANCELLATION_REASON,
         null=True, blank=True, verbose_name='Reason for Cancellation',
@@ -862,7 +1025,7 @@ class Order(models.Model):
 
     @property
     def total_final_amount(self):
-            return self.ordered_cart.order_amount
+        return self.ordered_cart.order_amount
 
     @property
     def total_mrp_amount(self):
@@ -992,7 +1155,6 @@ class Order(models.Model):
 
 
 class Trip(models.Model):
-
     READY = 'READY'
     CANCELLED = 'CANCELLED'
     STARTED = 'STARTED'
@@ -1025,15 +1187,20 @@ class Trip(models.Model):
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
     received_amount = models.DecimalField(blank=True, null=True,
-                                    max_digits=19, decimal_places=2)
-    opening_kms = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Vehicle Opening Trip(Kms)")
-    closing_kms = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Vehicle Closing Trip(Kms)")
+                                          max_digits=19, decimal_places=2)
+    opening_kms = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                              verbose_name="Vehicle Opening Trip(Kms)")
+    closing_kms = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                              verbose_name="Vehicle Closing Trip(Kms)")
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total crates shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total packets shipped")
     no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total sacks shipped")
-    no_of_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total crates collected")
-    no_of_packets_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total packets collected")
-    no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Total sacks collected")
+    no_of_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                     verbose_name="Total crates collected")
+    no_of_packets_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                      verbose_name="Total packets collected")
+    no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                    verbose_name="Total sacks collected")
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -1094,8 +1261,8 @@ class Trip(models.Model):
         else:
             dispatch_attempt = 1
         final_dispatch_no = "%s/%s/%s" % (
-                                        'DIS', shop_id_date,
-                                        dispatch_attempt)
+            'DIS', shop_id_date,
+            dispatch_attempt)
         self.dispatch_no = final_dispatch_no
 
     def cash_to_be_collected(self):
@@ -1118,43 +1285,47 @@ class Trip(models.Model):
 
     def total_paid_amount(self):
         from payments.models import ShipmentPayment
-        trip_shipments = self.rt_invoice_trip.exclude(shipment_payment__parent_order_payment__parent_payment__payment_status='cancelled')
-        total_amount  = cash_amount = online_amount = 0
+        trip_shipments = self.rt_invoice_trip.exclude(
+            shipment_payment__parent_order_payment__parent_payment__payment_status='cancelled')
+        total_amount = cash_amount = online_amount = 0
         if trip_shipments.exists():
-            shipment_payment_data = ShipmentPayment.objects.filter(shipment__in=trip_shipments)\
+            shipment_payment_data = ShipmentPayment.objects.filter(shipment__in=trip_shipments) \
                 .aggregate(Sum('paid_amount'))
-            shipment_payment_cash = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_mode_name="cash_payment")\
+            shipment_payment_cash = ShipmentPayment.objects.filter(shipment__in=trip_shipments,
+                                                                   parent_order_payment__parent_payment__payment_mode_name="cash_payment") \
                 .aggregate(Sum('paid_amount'))
-            shipment_payment_online = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_mode_name="online_payment")\
+            shipment_payment_online = ShipmentPayment.objects.filter(shipment__in=trip_shipments,
+                                                                     parent_order_payment__parent_payment__payment_mode_name="online_payment") \
                 .aggregate(Sum('paid_amount'))
 
             if shipment_payment_data['paid_amount__sum']:
-                total_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+                total_amount = round(shipment_payment_data['paid_amount__sum'], 2)  # sum_paid_amount
             if shipment_payment_cash['paid_amount__sum']:
-                cash_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+                cash_amount = round(shipment_payment_data['paid_amount__sum'], 2)  # sum_paid_amount
             if shipment_payment_online['paid_amount__sum']:
-                online_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+                online_amount = round(shipment_payment_data['paid_amount__sum'], 2)  # sum_paid_amount
         return total_amount, cash_amount, online_amount
 
     @property
     def trip_amount(self):
-        return self.rt_invoice_trip.all()\
-        .annotate(invoice_amount=RoundAmount(Sum(F('rt_order_product_order_product_mapping__effective_price')*F('rt_order_product_order_product_mapping__shipped_qty'))))\
-        .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
+        return self.rt_invoice_trip.all() \
+            .annotate(invoice_amount=RoundAmount(Sum(F('rt_order_product_order_product_mapping__effective_price') * F(
+            'rt_order_product_order_product_mapping__shipped_qty')))) \
+            .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
 
     @property
     def total_received_amount(self):
-        total_payment, _c , _o = self.total_paid_amount()
+        total_payment, _c, _o = self.total_paid_amount()
         return total_payment
 
     @property
     def received_cash_amount(self):
-        _t , cash_payment, _o = self.total_paid_amount()
+        _t, cash_payment, _o = self.total_paid_amount()
         return cash_payment
 
     @property
     def received_online_amount(self):
-        _t, _c, online_payment= self.total_paid_amount()
+        _t, _c, online_payment = self.total_paid_amount()
         return online_payment
 
     @property
@@ -1172,11 +1343,11 @@ class Trip(models.Model):
     # @property
     def trip_weight(self):
         queryset = self.rt_invoice_trip.all()
-        weight = sum([item.shipment_weight for item in queryset]) # Definitely takes more memory.
-        #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
+        weight = sum([item.shipment_weight for item in queryset])  # Definitely takes more memory.
+        # weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
         if weight != 0:
             weight /= 1000
-        weight = round(weight,2)
+        weight = round(weight, 2)
         return str(weight) + " Kg"
 
     __trip_status = None
@@ -1220,7 +1391,7 @@ class Trip(models.Model):
         return self.rt_invoice_trip.all().count()
 
 
-class OrderedProduct(models.Model): #Shipment
+class OrderedProduct(models.Model):  # Shipment
     CLOSED = "closed"
     READY_TO_SHIP = "READY_TO_SHIP"
     RESCHEDULED = "RESCHEDULED"
@@ -1232,6 +1403,9 @@ class OrderedProduct(models.Model): #Shipment
         ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
         ('PARTIALLY_DELIVERED_AND_COMPLETED', 'Partially Delivered and Completed'),
         ('FULLY_DELIVERED_AND_COMPLETED', 'Fully Delivered and Completed'),
+        ('FULLY_RETURNED_AND_VERIFIED', 'Fully Returned and Verified'),
+        ('PARTIALLY_DELIVERED_AND_VERIFIED', 'Partially Delivered and Verified'),
+        ('FULLY_DELIVERED_AND_VERIFIED', 'Fully Delivered and Verified'),
         ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
         ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
         ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
@@ -1277,7 +1451,7 @@ class OrderedProduct(models.Model): #Shipment
         (CLEANLINESS, 'Item not clean'),
         (CUSOTMER_CANCEL, 'Cancelled by customer'),
         (CUSTOMER_UNAVAILABLE, 'Customer not available'),
-        (MANUFACTURING_DEFECT,'Manufacturing Defect'),
+        (MANUFACTURING_DEFECT, 'Manufacturing Defect'),
         (SHORT, 'Item short'),
         (REASON_NOT_ENTERED_BY_DELIVERY_BOY, 'Reason not entered by Delivery Boy')
     )
@@ -1310,9 +1484,12 @@ class OrderedProduct(models.Model): #Shipment
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
     no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks Shipped")
-    no_of_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Collected")
-    no_of_packets_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Collected")
-    no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks Collected")
+    no_of_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                     verbose_name="No. Of Crates Collected")
+    no_of_packets_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                      verbose_name="No. Of Packets Collected")
+    no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True,
+                                                    verbose_name="No. Of Sacks Collected")
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
@@ -1327,17 +1504,21 @@ class OrderedProduct(models.Model): #Shipment
         super(OrderedProduct, self).clean()
         if self.no_of_crates_check:
             if self.no_of_crates_check != self.no_of_crates:
-                raise ValidationError(_("The number of crates must be equal to the number of crates shipped during shipment"))
+                raise ValidationError(
+                    _("The number of crates must be equal to the number of crates shipped during shipment"))
 
     @property
     def invoice_amount(self):
-        return self.rt_order_product_order_product_mapping.all()\
-        .aggregate(inv_amt= RoundAmount(Sum(F('effective_price')*F('shipped_qty')),output_field=FloatField()) ).get('inv_amt')
+        return self.rt_order_product_order_product_mapping.all() \
+            .aggregate(
+            inv_amt=RoundAmount(Sum(F('effective_price') * F('shipped_qty')), output_field=FloatField())).get('inv_amt')
 
     @property
     def credit_note_amount(self):
-        credit_note_amount = self.rt_order_product_order_product_mapping.all()\
-        .aggregate(cn_amt=RoundAmount(Sum(F('effective_price')* (F('shipped_qty')-F('delivered_qty')),output_field=FloatField()))).get('cn_amt')
+        credit_note_amount = self.rt_order_product_order_product_mapping.all() \
+            .aggregate(cn_amt=RoundAmount(
+            Sum(F('effective_price') * (F('shipped_qty') - F('delivered_qty')), output_field=FloatField()))).get(
+            'cn_amt')
         if credit_note_amount:
             return credit_note_amount
         else:
@@ -1346,8 +1527,10 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def shipment_weight(self):
         try:
-            total_weight = self.rt_order_product_order_product_mapping.all()\
-            .aggregate(total_weight=Sum(F('product__weight_value')* F('shipped_qty'),output_field=FloatField())).get('total_weight')
+            total_weight = self.rt_order_product_order_product_mapping.all() \
+                .aggregate(
+                total_weight=Sum(F('product__weight_value') * F('shipped_qty'), output_field=FloatField())).get(
+                'total_weight')
             if not total_weight:
                 return 0
             return total_weight
@@ -1368,7 +1551,8 @@ class OrderedProduct(models.Model): #Shipment
         if not self.shipment_payment.all().exists():
             return "-"
 
-        non_approved_payment = self.shipment_payment.exclude(parent_order_payment__parent_payment__payment_approval_status='approved_and_verified').first()
+        non_approved_payment = self.shipment_payment.exclude(
+            parent_order_payment__parent_payment__payment_approval_status='approved_and_verified').first()
         if non_approved_payment:
             return non_approved_payment.parent_order_payment.parent_payment.payment_approval_status
 
@@ -1383,39 +1567,43 @@ class OrderedProduct(models.Model): #Shipment
         if not payments.exists():
             return "-"
         return format_html_join(
-                "","<a href='/admin/payments/paymentapproval/{}/change/' target='_blank'>{} - {}</a><br><br>",
-                        ((s.get('payment_id'), s.get('reference_no'), s.get('payment_approval_status')
-                        ) for s in payments)
-                )
+            "", "<a href='/admin/payments/paymentapproval/{}/change/' target='_blank'>{} - {}</a><br><br>",
+            ((s.get('payment_id'), s.get('reference_no'), s.get('payment_approval_status')
+              ) for s in payments)
+        )
 
     def total_payment(self):
-        shipment_payment = self.shipment_payment.exclude(parent_order_payment__parent_payment__payment_status='cancelled')
+        shipment_payment = self.shipment_payment.exclude(
+            parent_order_payment__parent_payment__payment_status='cancelled')
         total_payment = cash_payment = online_payment = 0
         if shipment_payment.exists():
-            shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount'))
-            shipment_payment_cash = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="cash_payment").aggregate(Sum('paid_amount'))
-            shipment_payment_online = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="online_payment").aggregate(Sum('paid_amount'))
+            shipment_payment_data = shipment_payment.aggregate(
+                Sum('paid_amount'))  # annotate(sum_paid_amount=Sum('paid_amount'))
+            shipment_payment_cash = shipment_payment.filter(
+                parent_order_payment__parent_payment__payment_mode_name="cash_payment").aggregate(Sum('paid_amount'))
+            shipment_payment_online = shipment_payment.filter(
+                parent_order_payment__parent_payment__payment_mode_name="online_payment").aggregate(Sum('paid_amount'))
             if shipment_payment_data['paid_amount__sum']:
-                total_payment = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+                total_payment = round(shipment_payment_data['paid_amount__sum'], 2)  # sum_paid_amount
             if shipment_payment_cash['paid_amount__sum']:
-                cash_payment = round(shipment_payment_cash['paid_amount__sum'], 2) #sum_paid_amount
+                cash_payment = round(shipment_payment_cash['paid_amount__sum'], 2)  # sum_paid_amount
             if shipment_payment_online['paid_amount__sum']:
-                online_payment = round(shipment_payment_online['paid_amount__sum'], 2) #sum_paid_amount
+                online_payment = round(shipment_payment_online['paid_amount__sum'], 2)  # sum_paid_amount
         return total_payment, cash_payment, online_payment
 
     @property
     def total_paid_amount(self):
-        total_payment, _c , _o = self.total_payment()
+        total_payment, _c, _o = self.total_payment()
         return total_payment
 
     @property
     def cash_payment(self):
-        _t , cash_payment, _o = self.total_payment()
+        _t, cash_payment, _o = self.total_payment()
         return cash_payment
 
     @property
     def online_payment(self):
-        _t, _c, online_payment= self.total_payment()
+        _t, _c, online_payment = self.total_payment()
         return online_payment
 
     @property
@@ -1431,19 +1619,22 @@ class OrderedProduct(models.Model): #Shipment
             else:
                 return 0
         else:
-            invoice_amount = self.rt_order_product_order_product_mapping.all()\
-            .aggregate(inv_amt= RoundAmount(Sum(F('discounted_price')*F('shipped_qty')),output_field=FloatField()) ).get('inv_amt')
-            credit_note_amount = self.rt_order_product_order_product_mapping.all()\
-            .aggregate(cn_amt=RoundAmount(Sum(F('discounted_price')* (F('shipped_qty')-F('delivered_qty')),output_field=FloatField()))).get('cn_amt')
+            invoice_amount = self.rt_order_product_order_product_mapping.all() \
+                .aggregate(
+                inv_amt=RoundAmount(Sum(F('discounted_price') * F('shipped_qty')), output_field=FloatField())).get(
+                'inv_amt')
+            credit_note_amount = self.rt_order_product_order_product_mapping.all() \
+                .aggregate(cn_amt=RoundAmount(
+                Sum(F('discounted_price') * (F('shipped_qty') - F('delivered_qty')), output_field=FloatField()))).get(
+                'cn_amt')
             if self.invoice_amount:
                 return (invoice_amount - credit_note_amount)
             else:
                 return 0
 
-
     def total_shipped_pieces(self):
-        return self.rt_order_product_order_product_mapping.all()\
-        .aggregate(cn_amt=Sum(F('shipped_qty'))).get('cn_amt')
+        return self.rt_order_product_order_product_mapping.all() \
+            .aggregate(cn_amt=Sum(F('shipped_qty'))).get('cn_amt')
 
     def sum_amount_tax(self):
         return sum([item.product_tax_amount for item in self.rt_order_product_order_product_mapping.all()])
@@ -1452,12 +1643,13 @@ class OrderedProduct(models.Model): #Shipment
         return sum([item.product_tax_json() for item in self.rt_order_product_order_product_mapping.all()])
 
     def sum_cgst(self):
-        return self.rt_order_product_order_product_mapping.all()\
-        .aggregate(cn_amt=RoundAmount(Sum(F('effective_price')* (F('shipped_qty')-F('delivered_qty'))))).get('cn_amt')
+        return self.rt_order_product_order_product_mapping.all() \
+            .aggregate(cn_amt=RoundAmount(Sum(F('effective_price') * (F('shipped_qty') - F('delivered_qty'))))).get(
+            'cn_amt')
 
     def sum_sgst(self):
-        return sum([item.product_tax_json.get('6',{}).get("CESS - 12") for item in self.rt_order_product_order_product_mapping.all()])
-
+        return sum([item.product_tax_json.get('6', {}).get("CESS - 12") for item in
+                    self.rt_order_product_order_product_mapping.all()])
 
     @property
     def invoice_no(self):
@@ -1476,11 +1668,11 @@ class OrderedProduct(models.Model): #Shipment
             picker_data = self.picker_shipment.last()
             return [picker_data.get_picking_status_display(), picker_data.picker_boy, picker_data.picklist_id]
         else:
-            return ["","",""]
+            return ["", "", ""]
 
     @property
     def picking_status(self):
-        return self.picking_data()[0] #picking_statuses(self.picker_shipment())
+        return self.picking_data()[0]  # picking_statuses(self.picker_shipment())
 
     @property
     def picker_boy(self):
@@ -1490,10 +1682,9 @@ class OrderedProduct(models.Model): #Shipment
     def picklist_id(self):
         return self.picking_data()[2]
 
-
     def damaged_amount(self):
-        return self.rt_order_product_order_product_mapping.all()\
-        .aggregate(cn_amt=Sum(F('effective_price')* F('damaged_qty'))).get('cn_amt')
+        return self.rt_order_product_order_product_mapping.all() \
+            .aggregate(cn_amt=Sum(F('effective_price') * F('damaged_qty'))).get('cn_amt')
 
     def clean(self):
         super(OrderedProduct, self).clean()
@@ -1506,18 +1697,22 @@ class OrderedProduct(models.Model): #Shipment
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+                # populate_data_on_qc_pass(self.order)
+
         elif self.order.ordered_cart.cart_type == 'DISCOUNTED':
             if self.shipment_status == OrderedProduct.READY_TO_SHIP:
                 CommonFunction.generate_invoice_number_discounted_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+                # populate_data_on_qc_pass(self.order)
         elif self.order.ordered_cart.cart_type == 'BULK':
             if self.shipment_status == OrderedProduct.READY_TO_SHIP:
                 CommonFunction.generate_invoice_number_bulk_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+                # populate_data_on_qc_pass(self.order)
 
         if self.no_of_crates == None:
             self.no_of_crates = 0
@@ -1564,7 +1759,9 @@ class Invoice(models.Model):
     @property
     def invoice_amount(self):
         try:
-            inv_amount = self.shipment.rt_order_product_order_product_mapping.annotate(item_amount=F('effective_price')*F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get('invoice_amount')
+            inv_amount = self.shipment.rt_order_product_order_product_mapping.annotate(
+                item_amount=F('effective_price') * F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get(
+                'invoice_amount')
         except:
             inv_amount = self.shipment.invoice_amount
         return inv_amount
@@ -1578,15 +1775,17 @@ class PickerDashboard(models.Model):
         (PICKING_ASSIGNED, 'Picking Assigned'),
         ('picking_in_progress', 'Picking In Progress'),
         ('picking_complete', 'Picking Complete'),
+        ('picking_cancelled', 'Picking Cancelled'),
+
     )
 
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
     shipment = models.ForeignKey(
         OrderedProduct, related_name="picker_shipment",
         on_delete=models.DO_NOTHING, null=True, blank=True)
-    picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
-    #make unique to picklist id
-    picklist_id = models.CharField(max_length=255, null=True, blank=True)#unique=True)
+    picking_status = models.CharField(max_length=50, choices=PICKING_STATUS, default='picking_pending')
+    # make unique to picklist id
+    picklist_id = models.CharField(max_length=255, null=True, blank=True)  # unique=True)
     picker_boy = models.ForeignKey(
         UserWithName, related_name='picker_user',
         on_delete=models.DO_NOTHING, verbose_name='Picker Boy',
@@ -1598,12 +1797,15 @@ class PickerDashboard(models.Model):
 
     def save(self, *args, **kwargs):
         super(PickerDashboard, self).save(*args, **kwargs)
+        if self.picking_status == 'picking_assigned':
+            Pickup.objects.filter(pickup_type_id=self.order.order_no).update(status='picking_assigned')
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
 
     # class Meta:
     #     unique_together = (('shipment'),('order', 'picking_status'),)
+
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
@@ -1618,33 +1820,37 @@ class OrderedProductMapping(models.Model):
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
+    returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
+    expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
         null=True, on_delete=models.DO_NOTHING
     )
-    product_tax_json = JSONField(null=True,blank=True)
+    product_tax_json = JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     effective_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
-    discounted_price = models.DecimalField(default = 0, max_digits=10, decimal_places=2, null=True, blank=False)
+    discounted_price = models.DecimalField(default=0, max_digits=10, decimal_places=2, null=True, blank=False)
+    cancellation_date = models.DateTimeField(null=True, blank=True)
+    picked_pieces = models.PositiveIntegerField(default=0)
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
 
-        if self.returned_qty > 0 or self.damaged_qty > 0:
-            already_shipped_qty = int(self.shipped_qty)
-            if sum([returned_qty, damaged_qty]) > already_shipped_qty:
-                raise ValidationError(
-                    _('Sum of returned and damaged pieces should be '
-                      'less than no. of pieces to ship'),
-                )
+        # if self.returned_qty > 0 or self.damaged_qty > 0:
+        #     already_shipped_qty = int(self.shipped_qty)
+        #     if sum([returned_qty, damaged_qty]) > already_shipped_qty:
+        #         raise ValidationError(
+        #             _('Sum of returned and damaged pieces should be '
+        #               'less than no. of pieces to ship'),
+        #         )
 
     @property
     def product_weight(self):
         if self.product.weight_value:
-            weight = self.product.weight_value*self.shipped_qty
+            weight = self.product.weight_value * self.shipped_qty
             return weight
         else:
             return 0
@@ -1657,6 +1863,7 @@ class OrderedProductMapping(models.Model):
             no_of_pieces = no_of_pieces.first().get('no_of_pieces')
             return str(no_of_pieces)
         return str("-")
+
     ordered_qty.fget.short_description = "Ordered Pieces"
 
     @property
@@ -1666,11 +1873,13 @@ class OrderedProductMapping(models.Model):
             product=self.product).aggregate(
             Sum('delivered_qty')).get('delivered_qty__sum', 0)
         return already_shipped_qty if already_shipped_qty else 0
+
     already_shipped_qty.fget.short_description = "Delivered Qty"
 
     @property
     def shipped_quantity_including_current(self):
-        all_ordered_product = self.ordered_product.order.rt_order_order_product.filter(created_at__lte=self.ordered_product.created_at)#all()
+        all_ordered_product = self.ordered_product.order.rt_order_order_product.filter(
+            created_at__lte=self.ordered_product.created_at)  # all()
         qty = OrderedProductMapping.objects.filter(
             ordered_product__in=all_ordered_product,
             product=self.product)
@@ -1690,12 +1899,13 @@ class OrderedProductMapping(models.Model):
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
         to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
         return to_be_shipped_qty
-    to_be_shipped_qty.fget.short_description = "Already Shipped Qty"
 
+    to_be_shipped_qty.fget.short_description = "Already Shipped Qty"
 
     @property
     def shipped_qty_exclude_current1(self):
-        all_ordered_product = self.ordered_product.order.rt_order_order_product.filter(created_at__lt=self.created_at)#all()
+        all_ordered_product = self.ordered_product.order.rt_order_order_product.filter(
+            created_at__lt=self.created_at)  # all()
         all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
         to_be_shipped_qty = OrderedProductMapping.objects.filter(
             ordered_product__in=all_ordered_product_exclude_current,
@@ -1703,8 +1913,6 @@ class OrderedProductMapping(models.Model):
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
         to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
         return to_be_shipped_qty
-
-
 
     @property
     def shipped_qty_exclude_current(self):
@@ -1726,24 +1934,24 @@ class OrderedProductMapping(models.Model):
 
     @property
     def mrp(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list\
+        return self.ordered_product.order.ordered_cart.rt_cart_list \
             .get(cart_product=self.product).cart_product_price.mrp
 
     @property
     def price_to_retailer(self):
         if self.ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
-            ptr = self.ordered_product.order.ordered_cart.rt_cart_list\
+            ptr = self.ordered_product.order.ordered_cart.rt_cart_list \
                 .get(cart_product=self.product).cart_product_price.selling_price
             return ptr
         else:
             if self.effective_price:
                 return self.effective_price
-            return self.ordered_product.order.ordered_cart.rt_cart_list\
+            return self.ordered_product.order.ordered_cart.rt_cart_list \
                 .get(cart_product=self.product).item_effective_prices
 
     def set_effective_price(self):
         try:
-            effective_price = self.ordered_product.order.ordered_cart.rt_cart_list\
+            effective_price = self.ordered_product.order.ordered_cart.rt_cart_list \
                 .get(cart_product=self.product).item_effective_prices
             OrderedProductMapping.objects.filter(id=self.id).update(effective_price=effective_price)
         except:
@@ -1751,26 +1959,25 @@ class OrderedProductMapping(models.Model):
 
     def set_discounted_price(self):
         try:
-            discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list\
+            discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list \
                 .get(cart_product=self.product).discounted_price
             OrderedProductMapping.objects.filter(id=self.id).update(discounted_price=discounted_price)
         except:
             pass
 
-
     @property
     def cash_discount(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list\
+        return self.ordered_product.order.ordered_cart.rt_cart_list \
             .get(cart_product=self.product).cart_product_price.cash_discount
 
     @property
     def loyalty_incentive(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list\
+        return self.ordered_product.order.ordered_cart.rt_cart_list \
             .get(cart_product=self.product).cart_product_price.loyalty_incentive
 
     @property
     def margin(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list\
+        return self.ordered_product.order.ordered_cart.rt_cart_list \
             .get(cart_product=self.product).cart_product_price.margin
 
     @property
@@ -1785,13 +1992,13 @@ class OrderedProductMapping(models.Model):
     def basic_rate(self):
         get_tax_val = self.get_product_tax_json() / 100
         basic_rate = (float(self.effective_price)) / (float(get_tax_val) + 1)
-        return round(basic_rate,2)
+        return round(basic_rate, 2)
 
     @property
     def basic_rate_discounted(self):
         get_tax_val = self.get_product_tax_json() / 100
         basic_rate = (float(self.effective_price - self.discounted_price)) / (float(get_tax_val) + 1)
-        return round(basic_rate,2)
+        return round(basic_rate, 2)
 
     @property
     def base_price(self):
@@ -1800,12 +2007,11 @@ class OrderedProductMapping(models.Model):
     @property
     def product_tax_amount(self):
         get_tax_val = self.get_product_tax_json() / 100
-        return round(float(self.base_price) * float(get_tax_val),2)
+        return round(float(self.base_price) * float(get_tax_val), 2)
 
     @property
     def product_sub_total(self):
-        return round(self.effective_price * self.shipped_qty,2)
-
+        return round(self.effective_price * self.shipped_qty, 2)
 
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
@@ -1820,7 +2026,7 @@ class OrderedProductMapping(models.Model):
 
     def set_product_tax_json(self):
         product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
-                                                                    'tax__tax_percentage')
+                                                                'tax__tax_percentage')
         product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
         product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
         self.product_tax_json = product_tax
@@ -1829,25 +2035,26 @@ class OrderedProductMapping(models.Model):
     # def product_taxes(self):
     #     for tax in self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name','tax__tax_percentage'):
 
-
     def get_product_tax_json(self):
         if not self.product_tax_json:
             self.set_product_tax_json()
         return self.product_tax_json.get('tax_sum')
 
     def get_effective_price(self):
-        return round(self.effective_price,2)
+        return round(self.effective_price, 2)
 
     def get_discounted_price(self):
-        return round(self.discounted_price,2)
+        return round(self.discounted_price, 2)
 
     def save(self, *args, **kwargs):
-        if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
-            raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
-        else:
-            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
-            self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().discounted_price
-            super().save(*args, **kwargs)
+        # if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty, self.returned_qty]):
+        #     raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
+        # else:
+        self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+            cart_product=self.product).last().item_effective_prices
+        self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+            cart_product=self.product).last().discounted_price
+        super().save(*args, **kwargs)
 
 
 class Dispatch(OrderedProduct):
@@ -1869,8 +2076,37 @@ class Shipment(OrderedProduct):
         verbose_name_plural = _("Plan Shipment")
 
 
-class ShipmentProductMapping(OrderedProductMapping):
+class OrderedProductBatch(models.Model):
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
+    bin_ids = models.CharField(max_length=17, null=True, blank=True, verbose_name='bin_id')
+    pickup_inventory = models.ForeignKey(PickupBinInventory, null=True, related_name='rt_pickup_bin_inv',
+                                         on_delete=models.DO_NOTHING)
+    ordered_product_mapping = models.ForeignKey(OrderedProductMapping, null=True,
+                                                related_name='rt_ordered_product_mapping', on_delete=models.DO_NOTHING)
+    pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
+    bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField(default=0, verbose_name='NO. OF PIECES TO SHIP')
+    ordered_pieces = models.CharField(max_length=10, null=True, blank=True)
+    delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
+    already_shipped_qty = models.PositiveIntegerField(default=0)
+    expiry_date = models.CharField(max_length=30, null=True, blank=True)
+    returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
+    damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
+    returned_damage_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Return")
+    pickup_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked pieces")
+    expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
+    # def save(self, *args, **kwargs):
+    #     if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.pickup_quantity != sum(
+    #             [self.quantity, self.damaged_qty, self.expired_qty]):
+    #         raise ValidationError(_('Picked quantity sum mismatched with picked pieces'))
+    #     else:
+    #         super().save(*args, **kwargs)
+
+
+class ShipmentProductMapping(OrderedProductMapping):
     class Meta:
         proxy = True
         verbose_name = _("To be Ship product")
@@ -1883,7 +2119,7 @@ class ShipmentProductMapping(OrderedProductMapping):
         if max_qty_allowed < shipped_qty:
             raise ValidationError(
                 _('Max. allowed Qty: %s') % max_qty_allowed,
-                )
+            )
 
 
 ShipmentProductMapping._meta.get_field('shipped_qty').verbose_name = 'No. of Pieces to Ship'
@@ -1940,16 +2176,27 @@ class Commercial(Trip):
         verbose_name = _("Commercial")
         verbose_name_plural = _("Commercial")
 
+    def clean(self):
+        pass
+        # shipment_status_list = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
+        #                         'FULLY_DELIVERED_AND_VERIFIED']
+        # super(Commercial, self).clean()
+        # for shipment in self.rt_invoice_trip:
+        #     if shipment.shipment_status not in shipment_status_list:
+        #         raise ValidationError(_("Some shipments are not in Verified stage. Please verify them before closing "
+        #                                 "the trip"))
+        #         break
+
     def change_shipment_status(self):
         self.rt_invoice_trip.update(
             shipment_status=Case(
-            When(shipment_status='FULLY_RETURNED_AND_COMPLETED',
-                 then=Value('FULLY_RETURNED_AND_CLOSED')),
-            When(shipment_status='PARTIALLY_DELIVERED_AND_COMPLETED',
-                 then=Value('PARTIALLY_DELIVERED_AND_CLOSED')),
-            When(shipment_status='FULLY_DELIVERED_AND_COMPLETED',
-                 then=Value('FULLY_DELIVERED_AND_CLOSED')),
-            default=F('shipment_status')))
+                When(shipment_status='FULLY_RETURNED_AND_VERIFIED',
+                     then=Value('FULLY_RETURNED_AND_CLOSED')),
+                When(shipment_status='PARTIALLY_DELIVERED_AND_VERIFIED',
+                     then=Value('PARTIALLY_DELIVERED_AND_CLOSED')),
+                When(shipment_status='FULLY_DELIVERED_AND_VERIFIED',
+                     then=Value('FULLY_DELIVERED_AND_CLOSED')),
+                default=F('shipment_status')))
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -1961,7 +2208,7 @@ class CustomerCare(models.Model):
     order_id = models.ForeignKey(
         Order, on_delete=models.DO_NOTHING, null=True, blank=True
     )
-    phone_number = models.CharField( max_length=10, blank=True, null=True)
+    phone_number = models.CharField(max_length=10, blank=True, null=True)
     complaint_id = models.CharField(max_length=255, null=True, blank=True)
     email_us = models.URLField(default='help@gramfactory.com')
     issue_date = models.DateTimeField(auto_now_add=True)
@@ -2001,26 +2248,28 @@ class CustomerCare(models.Model):
                 if self.order_id.buyer_shop.shop_owner.first_name:
                     return self.order_id.buyer_shop.shop_owner.first_name
         if self.phone_number:
-            if User.objects.filter(phone_number = self.phone_number).exists():
-                username = User.objects.get(phone_number = self.phone_number).first_name
+            if User.objects.filter(phone_number=self.phone_number).exists():
+                username = User.objects.get(phone_number=self.phone_number).first_name
                 return username
 
     @property
     def comment_display(self):
         return format_html_join(
-        "","{}<br><br>",
-                ((c.comment,
-                ) for c in self.customer_care_comments.all())
+            "", "{}<br><br>",
+            ((c.comment,
+              ) for c in self.customer_care_comments.all())
         )
+
     comment_display.fget.short_description = 'Comments'
 
     @property
     def comment_date_display(self):
         return format_html_join(
-        "","{}<br><br>",
-                ((c.created_at,
-                ) for c in self.customer_care_comments.all())
+            "", "{}<br><br>",
+            ((c.created_at,
+              ) for c in self.customer_care_comments.all())
         )
+
     comment_date_display.fget.short_description = 'Comment Date'
 
     def save(self, *args, **kwargs):
@@ -2028,14 +2277,17 @@ class CustomerCare(models.Model):
         self.complaint_id = "CustomerCare/Message/%s" % self.pk
         super(CustomerCare, self).save()
 
+
 class ResponseComment(models.Model):
-    customer_care = models.ForeignKey(CustomerCare,related_name='customer_care_comments', null=True, blank=True, on_delete=models.DO_NOTHING)
+    customer_care = models.ForeignKey(CustomerCare, related_name='customer_care_comments', null=True, blank=True,
+                                      on_delete=models.DO_NOTHING)
     comment = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Comment Date")
 
     def __str__(self):
         return ''
+
 
 class Payment(models.Model):
     PAYMENT_DONE_APPROVAL_PENDING = "payment_done_approval_pending"
@@ -2053,17 +2305,19 @@ class Payment(models.Model):
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
-    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES,default='cash_on_delivery')
-    neft_reference_number = models.CharField(max_length=255, null=True,blank=True)
+    payment_choice = models.CharField(verbose_name="Payment Mode", max_length=30, choices=PAYMENT_MODE_CHOICES,
+                                      default='cash_on_delivery')
+    neft_reference_number = models.CharField(max_length=255, null=True, blank=True)
     imei_no = models.CharField(max_length=100, null=True, blank=True)
-    payment_status = models.CharField(max_length=50, null=True, blank=True,choices=PAYMENT_STATUS, default=PAYMENT_DONE_APPROVAL_PENDING)
+    payment_status = models.CharField(max_length=50, null=True, blank=True, choices=PAYMENT_STATUS,
+                                      default=PAYMENT_DONE_APPROVAL_PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
 
-    def save(self, *args,**kwargs):
+    def save(self, *args, **kwargs):
         super(Payment, self).save()
         self.name = "Payment/%s" % self.pk
         super(Payment, self).save()
@@ -2150,6 +2404,7 @@ class ReturnProductMapping(models.Model):
             tax__tax_type='cess'
         )
 
+
 class Note(models.Model):
     RETURN = 'RETURN'
     DISCOUNTED = 'DISCOUNTED'
@@ -2160,7 +2415,8 @@ class Note(models.Model):
     )
     shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.DO_NOTHING)
     credit_note_id = models.CharField(max_length=255, null=True, blank=True)
-    shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='credit_note')
+    shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.DO_NOTHING,
+                                 related_name='credit_note')
     note_type = models.CharField(
         max_length=255, choices=NOTE_TYPE_CHOICES, default='credit_note'
     )
@@ -2169,7 +2425,7 @@ class Note(models.Model):
         get_user_model(), related_name='rt_last_modified_user_note',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    credit_note_type = models.CharField(max_length=50,choices=CREDIT_NOTE_CHOICES, null =True)
+    credit_note_type = models.CharField(max_length=50, choices=CREDIT_NOTE_CHOICES, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
@@ -2190,7 +2446,6 @@ class Note(models.Model):
     def note_amount(self):
         if self.shipment:
             return round(self.amount)
-
 
 
 class Feedback(models.Model):
@@ -2223,9 +2478,9 @@ class Feedback(models.Model):
 
 
 def update_full_part_order_status(shipment):
-    shipment_products_dict = shipment.order.rt_order_order_product\
+    shipment_products_dict = shipment.order.rt_order_order_product \
         .aggregate(shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty'))
-    cart_products_dict = shipment.order.ordered_cart.rt_cart_list\
+    cart_products_dict = shipment.order.ordered_cart.rt_cart_list \
         .aggregate(total_no_of_pieces=Sum('no_of_pieces'))
     total_shipped_qty = shipment_products_dict.get('shipped_qty')
     ordered_qty = cart_products_dict.get('total_no_of_pieces')
@@ -2239,15 +2494,28 @@ def update_full_part_order_status(shipment):
 
 @task
 def assign_update_picker_to_shipment(shipment_id):
-   shipment = OrderedProduct.objects.get(pk=shipment_id)
-   if shipment.shipment_status == "SHIPMENT_CREATED":
-       # assign shipment to picklist
-       # tbd : if manual(by searching relevant picklist id) or automated
-       if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
-           picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
-   elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
-       if shipment.picker_shipment.all().exists():
-           shipment.picker_shipment.all().update(picking_status="picking_complete")
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    if shipment.shipment_status == "SHIPMENT_CREATED":
+        # assign shipment to picklist
+        # tbd : if manual(by searching relevant picklist id) or automated
+        if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
+            picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned",
+                                                              shipment__isnull=True).update(shipment=shipment)
+        elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if shipment.picker_shipment.all().exists():
+                shipment.picker_shipment.all().update(picking_status="picking_complete")
+
+
+def add_to_putaway_on_partail(shipment_id):
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    flag = "partial_shipment"
+    common_on_return_and_partial(shipment, flag)
+
+
+def add_to_putaway_on_return(shipment_id):
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    flag = "return"
+    common_on_return_and_partial(shipment, flag)
 
 
 @receiver(post_save, sender=OrderedProduct)
@@ -2255,26 +2523,27 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status
     '''
-    #assign_update_picker_to_shipment.delay(instance.id)
+    # assign_update_picker_to_shipment.delay(instance.id)
     assign_update_picker_to_shipment(instance.id)
 
-@receiver(post_save, sender=Order)
-def assign_picklist(sender, instance=None, created=False, **kwargs):
-    '''
-    Method to update picking status
-    '''
-    #assign shipment to picklist once SHIPMENT_CREATED
-    if created:
-        # assign piclist to order
-        try:
-            pincode = "00" #instance.shipping_address.pincode
-        except:
-            pincode = "00"
-        PickerDashboard.objects.create(
-            order=instance,
-            picking_status="picking_pending",
-            picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
-            )
+
+# @receiver(post_save, sender=Order)
+# def assign_picklist(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update picking status
+#     '''
+#     #assign shipment to picklist once SHIPMENT_CREATED
+#     if created:
+#         # assign piclist to order
+#         try:
+#             pincode = "00" #instance.shipping_address.pincode
+#         except:
+#             pincode = "00"
+#         PickerDashboard.objects.create(
+#             order=instance,
+#             picking_status="picking_pending",
+#             picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
+#             )
 
 
 # post_save.connect(get_order_report, sender=Order)
@@ -2284,27 +2553,27 @@ def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
         if instance.cart_type == 'RETAIL':
             instance.order_id = common_function.order_id_pattern(
-                                        sender, 'order_id', instance.pk,
-                                        instance.seller_shop.
-                                        shop_name_address_mapping.filter(
-                                            address_type='billing').last().pk)
+                sender, 'order_id', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk)
         elif instance.cart_type == 'BULK':
             instance.order_id = common_function.order_id_pattern_bulk(
-                                        sender, 'order_id', instance.pk,
-                                        instance.seller_shop.
-                                        shop_name_address_mapping.filter(
-                                            address_type='billing').last().pk)
+                sender, 'order_id', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk)
         elif instance.cart_type == 'DISCOUNTED':
             instance.order_id = common_function.order_id_pattern_discounted(
-                                        sender, 'order_id', instance.pk,
-                                        instance.seller_shop.
-                                        shop_name_address_mapping.filter(
-                                            address_type='billing').last().pk)
+                sender, 'order_id', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk)
         instance.save()
+
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
-
     if created:
         if instance.order_id.buyer_shop.shop_owner.first_name:
             username = instance.order_id.buyer_shop.shop_owner.first_name
@@ -2330,14 +2599,12 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         # send_notification(user_id=user_id, activity_type=template, data=data)
         try:
             message = SendSms(phone=instance.order_id.buyer_shop.shop_owner.phone_number,
-                             body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
-                                " Thanks," \
-                                " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
+                              body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items." \
+                                   " Thanks," \
+                                   " Team GramFactory" % (username, order_no, items_count, total_amount, shop_name))
             message.send()
         except Exception as e:
             logger.exception("Unable to send SMS for order : {}".format(order_no))
-
-
 
 
 @receiver(post_save, sender=CartProductMapping)
@@ -2345,7 +2612,9 @@ def create_offers(sender, instance=None, created=False, **kwargs):
     if instance.qty and instance.no_of_pieces and instance.cart.cart_type != 'DISCOUNTED':
         Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 
+
 from django.db.models.signals import post_delete
+
 
 @receiver(post_delete, sender=CartProductMapping)
 def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
@@ -2356,7 +2625,7 @@ def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=PickerDashboard)
 def update_order_status_from_picker(sender, instance=None, created=False, **kwargs):
     if instance.picking_status == PickerDashboard.PICKING_ASSIGNED:
-        instance.order.order_status = Order.DISPATCH_PENDING
+        instance.order.order_status = Order.PICKING_ASSIGNED
         instance.order.save()
 
 
@@ -2390,3 +2659,62 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
         instance.order.save()
     if instance.shipment_status == OrderedProduct.RESCHEDULED:
         update_full_part_order_status(instance)
+
+
+def populate_data_on_qc_pass(order):
+    pick_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
+    for i in pick_bin_inv:
+        try:
+            ordered_product_mapping = order.rt_order_order_product.all().last().rt_order_product_order_product_mapping.filter(
+                product__id=i.pickup.sku.id).first()
+            if OrderedProductBatch.objects.filter(batch_id=i.batch_id,
+                                                  ordered_product_mapping=ordered_product_mapping).exists():
+                shipment_product_batch = OrderedProductBatch.objects.filter(batch_id=i.batch_id,
+                                                                            ordered_product_mapping=ordered_product_mapping).last()
+                quantity = shipment_product_batch.quantity + i.pickup_quantity
+                ordered_pieces = int(shipment_product_batch.ordered_pieces) + i.quantity
+                shipment_product_batch.quantity = quantity
+                shipment_product_batch.pickup_quantity = quantity
+                shipment_product_batch.ordered_pieces = ordered_pieces
+                shipment_product_batch.save()
+            else:
+                shipment_product_batch = OrderedProductBatch.objects.create(
+                    batch_id=i.batch_id,
+                    bin_ids=i.bin.bin.bin_id,
+                    pickup_inventory=i,
+                    ordered_product_mapping=ordered_product_mapping,
+                    pickup=i.pickup,
+                    bin=i.bin,  # redundant
+                    quantity=i.pickup_quantity,
+                    pickup_quantity=i.pickup_quantity,
+                    expiry_date=get_expiry_date(i.batch_id),
+                    delivered_qty=ordered_product_mapping.delivered_qty,
+                    ordered_pieces=i.quantity
+                )
+            i.shipment_batch = shipment_product_batch
+            i.save()
+        except Exception as e:
+            pass
+
+
+@receiver(post_save, sender=OrderedProductBatch)
+def create_putaway(sender, created=False, instance=None, *args, **kwargs):
+    if instance.returned_qty == 0 and instance.delivered_qty == 0 and created==False:
+        add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
+
+
+@receiver(post_save, sender=OrderedProductBatch)
+def return_putaway(sender, created=False, instance=None, *args, **kwargs):
+    complete_shipment_status = ['FULLY_RETURNED_AND_VERIFIED', 'PARTIALLY_DELIVERED_AND_VERIFIED',
+                                'FULLY_DELIVERED_AND_VERIFIED']
+    if instance.ordered_product_mapping.ordered_product.shipment_status in complete_shipment_status:
+        add_to_putaway_on_return(instance.ordered_product_mapping.ordered_product.id)
+
+
+# post save method to check the pickup status is cancelled and after that update status cancelled in
+# Picker Dashboard Model
+@receiver(post_save, sender=Pickup)
+def cancel_status_picker_dashboard(sender, instance=None, created=False, *args, **kwargs):
+    if instance.status == 'picking_cancelled':
+        picker_dashboard = PickerDashboard.objects.filter(order__order_no=instance.pickup_type_id)
+        picker_dashboard.update(picking_status='picking_cancelled')
