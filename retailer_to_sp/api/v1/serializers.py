@@ -1085,7 +1085,7 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
         model = RetailerOrderedProductMapping
         fields = ('ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp','price_to_retailer',
                   #'cash_discount', 'loyalty_incentive', 'margin',
-                  'shipped_qty',  'returned_qty','damaged_qty', 'product_image')
+                  'shipped_qty',  'returned_qty','returned_damage_qty', 'product_image')
 
 class TripSerializer(serializers.ModelSerializer):
     trip_id = serializers.ReadOnlyField()

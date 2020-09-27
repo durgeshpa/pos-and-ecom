@@ -1,0 +1,39 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block content %}
+
+
+<form method="post" enctype="multipart/form-data">
+
+                  <div>
+                     <fieldset class="module aligned ">
+                        {% csrf_token %}
+<hr>
+      <br>
+
+      {% if ordered_form.errors %}
+            {% for field in ordered_form %}
+                {% for error in field.errors %}
+                <p class="errornote">{{ error|escape }}</p>
+            {% endfor %}
+                {% endfor %}
+          {% for error in ordered_form.non_field_errors %}
+            <p class="errornote">{{ error|escape }}</p>
+          {% endfor %}
+      {% endif %}
+
+                  {% if messages %}
+                {% for message in messages %}
+                <p class="errornote">{{ message|escape }}</p>
+                {% endfor %}
+            {% endif %}
+                        {{form.as_p}}
+        </fieldset>
+                     <div class="submit-row">
+                        <input type="submit" value="Save" class="default" name="_save">
+                     </div>
+                  </div>
+    </form>
+
+{% endblock %}

@@ -39,6 +39,7 @@ class OrderedProductMappingForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='ordered-product-autocomplete', forward=('order',))
     )
+    batch_id = forms.CharField(disabled=True)
 
     class Meta:
         model = OrderedProductMapping

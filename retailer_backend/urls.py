@@ -21,7 +21,7 @@ from rest_framework.documentation import include_docs_urls
 from rest_framework_swagger.views import get_swagger_view
 from decouple import config, Csv
 from django.conf import settings
-from retailer_backend.cron import CronToDeleteOrderedProductReserved,cron_to_delete_ordered_product_reserved, DailyStock
+from retailer_backend.cron import CronToDeleteOrderedProductReserved, DailyStock
 from accounts.views import (terms_and_conditions, privacy_policy)
 from shops.views import ShopMappedProduct
 
@@ -59,13 +59,14 @@ urlpatterns = [
     url('^terms-and-conditions/$', terms_and_conditions, name='terms_and_conditions'),
     url('^privacy-policy/$', privacy_policy, name='privacy_policy'),
 
-    url('^delete-ordered-product-reserved1/$', cron_to_delete_ordered_product_reserved, name='delete_ordered_product_reserved'),
     url('^daily-stock/$', DailyStock.as_view(), name='daily_stock'),
     # url(r'^jet/dashboard/', include('jet.dashboard.urls', 'jet-dashboard')),  # Django JET dashboard URLS
     # url(r'^jet/', include('jet.urls', 'jet')),
     path('admin/', admin.site.urls),
     url(r'^ses/bounce/$', csrf_exempt(handle_bounce)),
     url(r'^analytics/', include('analytics.urls')),
+    url(r'^wms/', include('wms.urls')),
+    url(r'^nested_admin/', include('nested_admin.urls')),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
