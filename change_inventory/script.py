@@ -1,25 +1,36 @@
 import csv
 
-
 with open('input.csv', 'r') as inputfile:
-    with open('output.csv', 'w') as outputfile:
-        reader = csv.reader(inputfile)
-        writer = csv.writer(outputfile)
-        next(reader)
-        header_row = ['Warehouse ID','Product Name','SKU','Expiry Date','Bin ID','Inventory Movement Type','Normal Quantity',
-                      'Damaged Quantity','Expired Quantity','Missing Quantity']
-        writer.writerow(header_row)
-        count = 0
-        for row in reader:
+    reader = csv.reader(inputfile)
+    next(reader)
 
-            print(row)
-            if int(row[3])+int(row[4])+int(row[5]) == 0:
-                continue
-            if int(row[3])==0:
-                writer_row = [32154,row[1],row[2],'31/03/21','V2VZ01SR001-0001','In',
-                              1,0,0,0]
-            # count += 1
-            #
-            # if count < 2000:
-            #     continue
-                writer.writerow(writer_row)
+    count = 0
+
+
+    for row in reader:
+
+        if count % 1000 == 0:
+            output_file = 'output_' + str(int(count / 1000))+'.csv'
+            print(count)
+            print(output_file)
+            with open(output_file, 'w') as outputfile:
+                writer = csv.writer(outputfile)
+                header_row = ['Warehouse ID', 'Product Name', 'SKU', 'Expiry Date', 'Bin ID', 'Inventory Movement Type',
+                               'Normal Quantity',
+                               'Damaged Quantity', 'Expired Quantity', 'Missing Quantity']
+                writer.writerow(header_row)
+                temp_count=0
+                reader1 = reader
+                print(reader1)
+                break;
+                # for row1 in reader1:
+                #     if temp_count < count:
+                #         temp_count+=1
+                #         continue
+                #     if temp_count > count+1000:
+                #         break
+                #     writer_row = [32154, row1[1], row1[2], '31/03/21', 'V2VZ01SR001-0001', 'In',
+                #                       row1[3], row1[4], row1[5], 0]
+                #     writer.writerow(writer_row)
+                #     temp_count += 1
+        count += 1
