@@ -114,13 +114,17 @@ class PickupSerializer(DynamicFieldsModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     picker_status = serializers.SerializerMethodField('picker_status_dt')
+    order_create_date = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'picker_status')
+        fields = ('id', 'order_no', 'picker_status', 'order_create_date')
 
     def picker_status_dt(self, obj):
         return str(obj.order_status).lower()
+
+    def get_order_create_date(self, obj):
+        return obj.created_at.strftime("%Y-%m-%d")
 
 
 class BinSerializer(DynamicFieldsModelSerializer):
