@@ -853,6 +853,18 @@ def parent_product_upload(request):
     return render(request, 'admin/products/parent-product-upload.html', {'form': form})
 
 
+def FetchDefaultChildDdetails(request):
+    parent_product = request.GET.get('parent')
+    def_child = Product.objects.filter(parent_product=parent, reason_for_child='default').last()
+    data = {}
+    if def_child:
+        data = {
+            ''
+        }
+
+    return JsonResponse(data)
+
+
 class ProductCategoryMapping(View):
 
     def validate_row(self, first_row, row):
