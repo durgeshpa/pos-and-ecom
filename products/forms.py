@@ -310,11 +310,18 @@ class ProductPriceNewForm(forms.ModelForm):
 
 class ParentProductForm(forms.ModelForm):
 
+    parent_brand = forms.ModelChoiceField(
+        queryset=Brand.objects.all(),
+        empty_label='Not Specified',
+        widget=forms.Select(attrs={"onChange":'getCity()'})
+    )
+
     class Meta:
         model = ParentProduct
-        fields = ('name', 'parent_brand', 'product_hsn', 'gst', 'cess',
+        fields = ('parent_brand', 'name', 'product_hsn', 'gst', 'cess',
                   'surcharge', 'brand_case_size', 'inner_case_size',
                   'product_type', 'image',)
+    
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

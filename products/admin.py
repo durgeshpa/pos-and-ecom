@@ -334,7 +334,10 @@ class ParentProductAdmin(admin.ModelAdmin):
     form = ParentProductForm
 
     class Media:
-        pass
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            'child_script.js'
+        )
 
     change_list_template = 'admin/products/parent_product_change_list.html'
     actions = [deactivate_selected_products, approve_selected_products]
