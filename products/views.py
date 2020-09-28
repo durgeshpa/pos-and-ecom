@@ -23,7 +23,8 @@ from brand.models import Brand, Vendor
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
-    ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm
+    ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
+    UploadChildProductAdminForm
     )
 from products.models import (
     Product, ProductCategory, ProductOption,
@@ -853,13 +854,86 @@ def parent_product_upload(request):
     return render(request, 'admin/products/parent-product-upload.html', {'form': form})
 
 
+def ChildProductsDownloadSampleCSV(request):
+    filename = "child_products_sample.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(["Parent Product ID", "Reason for Child SKU", "Product Name", "Product EAN Code", "Product MRP", "Weight Value", "Weight Unit"])
+    writer.writerow(["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram"])
+    return response
+
+
+def product_csv_upload(request):
+    if request.method == 'POST':
+        form = UploadChildProductAdminForm(request.POST, request.FILES)
+
+        if form.errors:
+            return render(request, 'admin/products/child-product-upload.html', {'form': form})
+
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            first_row = next(reader)
+            def reason_for_child_sku_mapper(reason):
+                reason = reason.lower()
+                if 'default' in reason:
+                    return 'default'
+                elif 'mrp' in reason:
+                    return 'different_mrp'
+                elif 'weight' in reason:
+                    return 'different_weight'
+                elif 'ean' in reason:
+                    return 'different_ean'
+                elif 'other' in reason:
+                    return 'other'
+            try:
+                for row in reader:
+                    if len(row) == 0:
+                        continue
+                    if '' in row:
+                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                            continue
+                    product = Product.objects.create(
+                        parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
+                        reason_for_child_sku=reason_for_child_sku_mapper(row[1]),
+                        product_name=row[2],
+                        product_ean_code=row[3],
+                        product_mrp=float(row[4]),
+                        weight_value=float(row[5]),
+                        weight_unit='gm' if 'gram' in row[6].lower() else 'gm'
+                    )
+                    product.save()
+            except Exception as e:
+                print(e)
+            return render(request, 'admin/products/child-product-upload.html', {
+                'form': form,
+                'success': 'Child Product CSV uploaded successfully !',
+            })
+    else:
+        form = UploadChildProductAdminForm()
+    return render(request, 'admin/products/child-product-upload.html', {'form': form})
+
+
 def FetchDefaultChildDdetails(request):
-    parent_product = request.GET.get('parent')
-    def_child = Product.objects.filter(parent_product=parent, reason_for_child='default').last()
-    data = {}
+    parent_product_id = request.GET.get('parent')
+    data = {
+        'found': False
+    }
+    if not parent_product_id:
+        return JsonResponse(data)
+    def_child = Product.objects.filter(parent_product=parent_product_id, reason_for_child_sku='default').last()
     if def_child:
         data = {
-            ''
+            'found': True,
+            'product_name': def_child.product_name,
+            'product_ean_code': def_child.product_ean_code,
+            'product_mrp': def_child.product_mrp,
+            'weight_value': def_child.weight_value,
+            'weight_unit': {
+                'option': def_child.weight_unit,
+                'text': 'Gram'
+            }
         }
 
     return JsonResponse(data)

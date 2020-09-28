@@ -197,22 +197,37 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
     parent_product.save()
 
 class Product(models.Model):
-    product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    product_slug = models.SlugField(max_length=255)
-    product_short_description = models.CharField(max_length=255,validators=[ProductNameValidator], null=True, blank=True)
-    product_long_description = models.TextField(null=True,blank=True)
+    product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
+    product_slug = models.SlugField(max_length=255, blank=True)
+    # product_short_description = models.CharField(max_length=255, validators=[ProductNameValidator], null=True, blank=True)
+    # product_long_description = models.TextField(null=True, blank=True)
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
-    product_gf_code = models.CharField(max_length=255, blank=False, unique=True)
+    # product_gf_code = models.CharField(max_length=255, blank=False, unique=True)
     product_ean_code = models.CharField(max_length=255, blank=True)
-    product_hsn = models.ForeignKey(ProductHSN,related_name='product_hsn',null=True,blank=True,on_delete=models.CASCADE)
-    product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',blank=False,on_delete=models.CASCADE)
-    product_inner_case_size = models.CharField(max_length=255,blank=False, default=1)
-    product_case_size = models.CharField(max_length=255,blank=False)
-    weight_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator],choices=WEIGHT_UNIT_CHOICES, default = 'gm')
+    # product_hsn = models.ForeignKey(ProductHSN, related_name='product_hsn', null=True, blank=True, on_delete=models.CASCADE)
+    # product_brand = models.ForeignKey(Brand, related_name='prodcut_brand_product', blank=False, on_delete=models.CASCADE)
+    product_inner_case_size = models.CharField(max_length=255, null=True)
+    # product_case_size = models.CharField(max_length=255, blank=False)
+    product_mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
+    weight_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
+    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=WEIGHT_UNIT_CHOICES, default='gm')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+    STATUS_CHOICES = (
+        ('pending_approval', 'Pending Approval'),
+        ('active', 'Active'),
+        ('deactivated', 'Deactivated'),
+    )
+    status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False)
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product', null=True, blank=False, on_delete=models.DO_NOTHING)
+    REASON_FOR_NEW_CHILD_CHOICES = (
+        ('default', 'Default'),
+        ('different_mrp', 'Different MRP'),
+        ('different_weight', 'Different Weight'),
+        ('different_ean', 'Different EAN'),
+        ('other', 'Other'),
+    )
+    reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
@@ -223,6 +238,38 @@ class Product(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+    @property
+    def product_brand(self):
+        return self.parent_product.parent_brand if self.parent_product else ''
+
+    @property
+    def product_hsn(self):
+        return self.parent_product.product_hsn if self.parent_product else ''
+
+    @property
+    def product_gst(self):
+        return self.parent_product.gst if self.parent_product else ''
+
+    @property
+    def product_cess(self):
+        return self.parent_product.cess if self.parent_product else ''
+
+    @property
+    def product_surcharge(self):
+        return self.parent_product.surcharge if self.parent_product else ''
+
+    @property
+    def product_case_size(self):
+        return self.parent_product.brand_case_size if self.parent_product else ''
+    
+    @property
+    def parent_name(self):
+        return self.parent_product.name if self.parent_product else ''
+
+    # @property
+    # def product_inner_case_size(self):
+    #     return self.parent_product.inner_case_size
 
     def get_current_shop_price(self, seller_shop_id, buyer_shop_id):
         '''
@@ -620,21 +667,24 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
         ProductVendorMapping.objects.bulk_create(product_mapping)
         #ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
 
-@receiver(pre_save, sender=ProductCategory)
+@receiver(pre_save, sender=Product)
 def create_product_sku(sender, instance=None, created=False, **kwargs):
-    product = Product.objects.get(pk=instance.product_id)
-    if not product.product_sku:
-        cat_sku_code = instance.category.category_sku_part
-        parent_cat_sku_code = instance.category.category_parent.category_sku_part if instance.category.category_parent else cat_sku_code
-        brand_sku_code = instance.product.product_brand.brand_code
-        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code).last()
+    # product = Product.objects.get(pk=instance.product_id)
+    # if not product.product_sku:
+    if not instance.product_sku:
+        # cat_sku_code = instance.category.category_sku_part
+        parent_product_category = ParentProductCategory.objects.filter(parent_product=instance.parent_product).last().category
+        cat_sku_code = parent_product_category.category_sku_part
+        parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
+        brand_sku_code = instance.product_brand.brand_code
+        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code).last()
         if last_sku:
             last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
         else:
             last_sku_increment = '00000001'
-        ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
-        product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
-        product.save()
+        ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
+        instance.product_sku = "%s%s%s%s"%(cat_sku_code, parent_cat_sku_code,brand_sku_code, last_sku_increment)
+        # product.save()
 
 class ProductCapping(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_capping',

@@ -310,12 +310,6 @@ class ProductPriceNewForm(forms.ModelForm):
 
 class ParentProductForm(forms.ModelForm):
 
-    parent_brand = forms.ModelChoiceField(
-        queryset=Brand.objects.all(),
-        empty_label='Not Specified',
-        widget=forms.Select(attrs={"onChange":'getCity()'})
-    )
-
     class Meta:
         model = ParentProduct
         fields = ('parent_brand', 'name', 'product_hsn', 'gst', 'cess',
@@ -397,16 +391,75 @@ class UploadParentProductAdminForm(forms.Form):
 
 class ProductForm(forms.ModelForm):
     product_name = forms.CharField(required=True)
-    product_short_description = forms.CharField(required=True)
-    product_slug = forms.CharField(required=True)
-    product_gf_code = forms.CharField(required=True)
+    # product_short_description = forms.CharField(required=True)
+    # product_slug = forms.CharField(required=True)
+    # product_gf_code = forms.CharField(required=True)
     product_ean_code = forms.CharField(required=True)
+    parent_product = forms.ModelChoiceField(
+        queryset=ParentProduct.objects.all(),
+        empty_label='Not Specified',
+        widget=forms.Select(attrs={"onChange":'getDefaultChildDetails()'})
+    )
 
     class Meta:
         model = Product
-        fields = ('product_name','product_slug','product_short_description', 'product_long_description',
-                  'product_gf_code', 'product_ean_code', 'product_hsn','product_brand', 'product_inner_case_size',
-                  'product_case_size','weight_value', 'weight_unit', 'status',)
+        # fields = ('product_name','product_slug','product_short_description', 'product_long_description',
+        #           'product_gf_code', 'product_ean_code', 'product_hsn','product_brand', 'product_inner_case_size',
+        #           'product_case_size','weight_value', 'weight_unit', 'status',)
+        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'status',)
+
+
+class UploadChildProductAdminForm(forms.Form):
+    """
+      Upload Child Product Form
+    """
+    file = forms.FileField(label='Upload Child Product list')
+
+    class Meta:
+        model = ParentProduct
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        for row_id, row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if '' in row:
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                    continue
+            if not row[0]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Parent Product ID' can not be empty."))
+            elif not ParentProduct.objects.filter(parent_id=row[0]).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | 'Parent Product' doesn't exist in the system."))
+            if not row[1]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can not be empty."))
+            elif row[1].lower() not in ['default', 'different mrp', 'different weight', 'different ean', 'other']:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can only be 'Default', 'Different MRP', 'Different Weight', 'Different EAN', 'Other'."))
+            if not row[2]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product Name' can not be empty."))
+            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)]*$", row[2]):
+                raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
+            if not row[3]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product EAN Code' can not be empty."))
+            elif not re.match("^[a-zA-Z]*$", row[3]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product EAN Code' can only contain alphabets."))
+            if not row[4]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product MRP' can not be empty."))
+            elif not re.match("^\d+[.]?[\d]{0,2}$", row[4]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product MRP' can only be a numeric value."))
+            if not row[5]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Weight Value' can not be empty."))
+            elif not re.match("^\d+[.]?[\d]{0,2}$", row[5]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Weight Value' can only be a numeric value."))
+            if not row[6]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can not be empty."))
+            elif row[6].lower() not in ['gram']:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can only be 'Gram'."))
+        return self.cleaned_data['file']
+
 
 
 class ProductsFilterForm(forms.Form):
