@@ -38,7 +38,7 @@ class GetSlotBannerListView(APIView):
                 buyer_shop = retailer_mapping.retailer
                 buyer_shop_address = buyer_shop.shop_name_address_mapping.filter(address_type='shipping')
                 if buyer_shop_address.exists():
-                    banner_slot = BannerPosition.objects.filter(shop=parent.id, buyer_shop__in=[buyer_shop])
+                    banner_slot = BannerPosition.objects.filter(shop=parent.id, buyer_shop=buyer_shop)
                     if banner_slot.count()==0:
                         banner_slot = BannerPosition.objects.filter(shop=parent.id, pincode__in=[buyer_shop_address.last().pincode_link])
                     if banner_slot.count()==0:
