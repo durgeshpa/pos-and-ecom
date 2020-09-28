@@ -37,7 +37,8 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     product_category_mapping_sample, products_csv_upload_view,
                     products_export_for_vendor, products_filter_view,
                     products_price_filter_view, products_vendor_mapping,
-                    parent_product_upload, ParentProductsDownloadSampleCSV)
+                    parent_product_upload, ParentProductsDownloadSampleCSV,
+                    product_csv_upload, ChildProductsDownloadSampleCSV)
 from .filters import BulkTaxUpdatedBySearch
 
 
@@ -312,7 +313,6 @@ class ProductTaxMappingAdmin(admin.TabularInline):
     class Media:
         pass
 
-
 class ParentProductCategoryAdmin(TabularInline):
     model = ParentProductCategory
     autocomplete_fields = ['category']
@@ -334,10 +334,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     form = ParentProductForm
 
     class Media:
-        js = (
-            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
-            'child_script.js'
-        )
+        pass
 
     change_list_template = 'admin/products/parent_product_change_list.html'
     actions = [deactivate_selected_products, approve_selected_products]
@@ -376,13 +373,30 @@ class ParentProductAdmin(admin.ModelAdmin):
         return urls
 
 
+def deactivate_selected_child_products(modeladmin, request, queryset):
+    queryset.update(status='deactivated')
+deactivate_selected_products.short_description = "Deactivate Selected Products"
+
+
+def approve_selected_child_products(modeladmin, request, queryset):
+    queryset.update(status='active')
+approve_selected_products.short_description = "Approve Selected Products"
+
+
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductResource
     form = ProductForm
 
     class Media:
-            pass
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            'admin/js/child_product_form.js'
+        )
+
     exclude = ('product_sku',)
+
+    change_list_template = 'admin/products/product_change_list.html'
+    change_form_template = 'admin/products/product_change_form.html'
 
     def get_urls(self):
         from django.conf.urls import url
@@ -518,27 +532,48 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(PincodeAutocomplete.as_view()),
                 name="pincode_autocomplete"
             ),
+            url(
+                r'^product-csv-upload/$',
+                self.admin_site.admin_view(product_csv_upload),
+                name="product-csv-upload"
+            ),
+            url(
+                r'^chld-products-download-sample-csv/$',
+                self.admin_site.admin_view(ChildProductsDownloadSampleCSV),
+                name="child-products-download-sample-csv"
+            )
         ] + urls
         return urls
 
-    actions = ['export_as_csv']
+    actions = [deactivate_selected_child_products, approve_selected_child_products, 'export_as_csv']
+    # list_display = [
+    #     'product_sku', 'product_name', 'product_short_description',
+    #     'product_brand', 'product_gf_code', 'product_images'
+    # ]
+    # list_display = [
+    #     'product_sku', 'product_name',
+    #     'product_brand', 'product_images'
+    # ]
     list_display = [
-        'product_sku', 'product_name', 'product_short_description',
-        'product_brand', 'product_gf_code','product_images'
+        'product_sku', 'product_name', 'parent_product', 'parent_name',
+        'product_brand', 'product_ean_code', 'product_mrp',
+        'product_hsn', 'product_gst', 'status'
     ]
     search_fields = ['product_name', 'id', 'product_gf_code']
-    list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
-    prepopulated_fields = {'product_slug': ('product_name',)}
-    inlines = [
-        ProductCategoryAdmin, ProductOptionAdmin,
-        ProductImageAdmin, ProductTaxMappingAdmin
-    ]
-    autocomplete_fields = ['product_hsn', 'product_brand']
+    # list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
+    list_filter = [CategorySearch, ProductSearch, 'status']
+    # prepopulated_fields = {'product_slug': ('product_name',)}
+    # inlines = [
+    #     ProductCategoryAdmin, ProductOptionAdmin,
+    #     ProductImageAdmin, ProductTaxMappingAdmin
+    # ]
+    # autocomplete_fields = ['product_hsn', 'product_brand']
+    autocomplete_fields = ['parent_product']
 
     def product_images(self,obj):
         if obj.product_pro_image.exists():
             return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
-                             format(obj.product_pro_image.last().image.url,obj.product_pro_image.last().image_alt_text,
+                             format(obj.product_pro_image.last().image.url, obj.product_pro_image.last().image_alt_text,
                                     obj.product_pro_image.last().image.url))
 
     product_images.short_description = 'Product Image'

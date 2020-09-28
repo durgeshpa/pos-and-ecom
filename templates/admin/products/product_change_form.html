@@ -1,0 +1,11 @@
+{% extends "admin/change_form.html" %} {% load i18n %} 
+
+{% block content %}
+    {{ block.super }}
+    <script>
+        $(document).ready(function(jQuery) {
+            var parent_product_div = document.getElementsByClassName("field-parent_product");
+            parent_product_div[0].getElementsByTagName('div')[0].innerHTML += `<a href="/admin/products/parentproduct/add/" class="button">Add</a>`;
+        });
+    </script>
+{% endblock %}

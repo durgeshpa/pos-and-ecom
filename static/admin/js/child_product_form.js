@@ -1,0 +1,27 @@
+function getDefaultChildDetails() {
+    val = document.getElementById("id_parent_product").value;
+    ajax_url = "/product/fetch-default-child-details/";
+    $.ajax({
+        url: ajax_url,
+        type : 'GET',
+        data: { 'parent': val },
+        contentType: "application/json; charset=utf-8",
+        success: function (data) {
+            if(data.found === true){
+                document.getElementById('id_product_name').value = data.product_name;
+                document.getElementById('id_product_ean_code').value = data.product_ean_code;
+                document.getElementById('id_product_mrp').value = data.product_mrp;
+                document.getElementById('id_weight_value').value = data.weight_value;
+                $('select[id=id_weight_unit]').find('option').remove();
+                $('select[id=id_weight_unit]').append($('<option value="'+data.weight_unit.option+'">'+data.weight_unit.text+'</option>'));
+            }
+            return true;
+        },
+        error: function (data) {
+            console.log("ERROR");
+            console.error(data);
+            return true;
+        },
+        cache: false
+    });
+}
