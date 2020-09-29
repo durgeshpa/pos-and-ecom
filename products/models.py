@@ -206,7 +206,7 @@ class Product(models.Model):
     product_ean_code = models.CharField(max_length=255, blank=True)
     # product_hsn = models.ForeignKey(ProductHSN, related_name='product_hsn', null=True, blank=True, on_delete=models.CASCADE)
     # product_brand = models.ForeignKey(Brand, related_name='prodcut_brand_product', blank=False, on_delete=models.CASCADE)
-    product_inner_case_size = models.CharField(max_length=255, null=True)
+    # product_inner_case_size = models.CharField(max_length=255, null=True)
     # product_case_size = models.CharField(max_length=255, blank=False)
     product_mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     weight_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
@@ -262,14 +262,26 @@ class Product(models.Model):
     @property
     def product_case_size(self):
         return self.parent_product.brand_case_size if self.parent_product else ''
-    
+
     @property
     def parent_name(self):
         return self.parent_product.name if self.parent_product else ''
 
-    # @property
-    # def product_inner_case_size(self):
-    #     return self.parent_product.inner_case_size
+    @property
+    def product_inner_case_size(self):
+        return self.parent_product.inner_case_size if self.parent_product else ''
+
+    @property
+    def product_short_description(self):
+        return ''
+
+    @property
+    def product_long_description(self):
+        return ''
+
+    @property
+    def product_gf_code(self):
+        return ''
 
     def get_current_shop_price(self, seller_shop_id, buyer_shop_id):
         '''
@@ -683,7 +695,7 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         else:
             last_sku_increment = '00000001'
         ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
-        instance.product_sku = "%s%s%s%s"%(cat_sku_code, parent_cat_sku_code,brand_sku_code, last_sku_increment)
+        instance.product_sku = "%s%s%s%s"%(cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
         # product.save()
 
 class ProductCapping(models.Model):
