@@ -40,7 +40,7 @@ from .common_functions import InternalInventoryChange, CommonBinInventoryFunctio
     InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV, \
     InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory
 from barCodeGenerator import barcodeGen, merged_barcode_gen
-from services.models import WarehouseInventoryHistoric, BinInventoryHistoric
+from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -1151,12 +1151,17 @@ def shipment_out_inventory_change(shipment_list, final_status):
             pass
 
 
-def archive_inventory_cron():
+def archive_inventory_cron(request):
     info_logger.info("WMS : Archiving warehouse inventory data started at {}".format(datetime.now()))
+    today = datetime.today()
+    archive_entry = InventoryArchiveMaster.objects.create(archive_date=today,
+                                                          inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.WAREHOUSE)
     warehouse_inventory_list = WarehouseInventory.objects.all()
+
     # info_logger.info("WMS : Archiving warehouse inventory : total items {}".format(warehouse_inventory_list.count()))
     for inventory in warehouse_inventory_list:
-        historic_entry = WarehouseInventoryHistoric(warehouse=inventory.warehouse,
+        historic_entry = WarehouseInventoryHistoric(archive_entry=archive_entry,
+                                                    warehouse=inventory.warehouse,
                                                     sku=inventory.sku,
                                                     inventory_type=inventory.inventory_type,
                                                     inventory_state=inventory.inventory_state,
@@ -1166,10 +1171,13 @@ def archive_inventory_cron():
                                                     modified_at=inventory.modified_at)
         historic_entry.save()
     info_logger.info("WMS : Archiving bin inventory data started at {}".format(datetime.now()))
+    archive_entry = InventoryArchiveMaster.objects.create(archive_date=today,
+                                                           inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.BIN)
     bin_inventory_list = BinInventory.objects.all()
     # info_logger.info("WMS : Archiving bin inventory : total items {}".format(bin_inventory_list.count()))
     for inventory in bin_inventory_list:
-        historic_entry = BinInventoryHistoric(warehouse=inventory.warehouse,
+        historic_entry = BinInventoryHistoric(archive_entry=archive_entry,
+                                              warehouse=inventory.warehouse,
                                               sku=inventory.sku,
                                               bin=inventory.bin,
                                               batch_id=inventory.batch_id,

@@ -1,6 +1,7 @@
 from django.db import models
 from datetime import datetime
 
+from model_utils import Choices
 
 from products.models import Product
 from shops.models import Shop
@@ -309,7 +310,18 @@ class CartProductMappingData(models.Model):
         return "%s"%(self.cart)
 
 
+class InventoryArchiveMaster(models.Model):
+    ARCHIVE_INVENTORY_CHOICES = Choices(('WAREHOUSE', 'wms_warehouse_inventory'), ('BIN', 'wms_bin_inventory'))
+    archive_date = models.DateField()
+    inventory_type = models.CharField(max_length=20, choices=ARCHIVE_INVENTORY_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "wms_archive_inventory_master"
+
+
 class WarehouseInventoryHistoric(models.Model):
+    archive_entry = models.ForeignKey(InventoryArchiveMaster, null=False, on_delete=models.DO_NOTHING)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -325,6 +337,7 @@ class WarehouseInventoryHistoric(models.Model):
 
 
 class BinInventoryHistoric(models.Model):
+    archive_entry = models.ForeignKey(InventoryArchiveMaster, null=False, on_delete=models.DO_NOTHING)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     bin = models.ForeignKey(Bin, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
