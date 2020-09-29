@@ -445,97 +445,98 @@ def trip_planning_change(request, pk):
 
     if request.method == 'POST':
         form = TripForm(request.user, request.POST, instance=trip_instance)
-        if trip_status in (Trip.READY, Trip.STARTED, Trip.COMPLETED):
-            if form.is_valid():
-                trip = form.save()
-                current_trip_status = trip.trip_status
-                selected_shipment_ids = form.cleaned_data.get('selected_id', None)
+        with transaction.atomic():
+            if trip_status in (Trip.READY, Trip.STARTED, Trip.COMPLETED):
+                if form.is_valid():
+                    trip = form.save()
+                    current_trip_status = trip.trip_status
+                    selected_shipment_ids = form.cleaned_data.get('selected_id', None)
 
-                if trip_status == Trip.STARTED:
-                    if current_trip_status == Trip.COMPLETED:
-                        trip_shipments = trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY')
+                    if trip_status == Trip.STARTED:
+                        if current_trip_status == Trip.COMPLETED:
+                            trip_shipments = trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY')
 
-                        OrderedProductMapping.objects \
-                            .filter(ordered_product__in=trip_shipments) \
-                            .update(delivered_qty=(F('shipped_qty') - (F('returned_damage_qty') + F('returned_qty'))))
+                            OrderedProductMapping.objects \
+                                .filter(ordered_product__in=trip_shipments) \
+                                .update(delivered_qty=(F('shipped_qty') - (F('returned_damage_qty') + F('returned_qty'))))
 
-                        # updating return reason for shiments having return and damaged qty but not return reason
-                        trip_shipments.annotate(
-                            sum=Sum(F('rt_order_product_order_product_mapping__returned_qty') + F(
-                                'rt_order_product_order_product_mapping__returned_damage_qty'))
-                        ).filter(sum__gt=0, return_reason=None).update(
-                            return_reason=OrderedProduct.REASON_NOT_ENTERED_BY_DELIVERY_BOY)
+                            # updating return reason for shiments having return and damaged qty but not return reason
+                            trip_shipments.annotate(
+                                sum=Sum(F('rt_order_product_order_product_mapping__returned_qty') + F(
+                                    'rt_order_product_order_product_mapping__returned_damage_qty'))
+                            ).filter(sum__gt=0, return_reason=None).update(
+                                return_reason=OrderedProduct.REASON_NOT_ENTERED_BY_DELIVERY_BOY)
 
-                        trip_shipments = trip_shipments \
-                            .annotate(
-                            delivered_sum=Sum('rt_order_product_order_product_mapping__delivered_qty'),
-                            shipped_sum=Sum('rt_order_product_order_product_mapping__shipped_qty'),
-                            returned_sum=Sum('rt_order_product_order_product_mapping__returned_qty'),
-                            damaged_sum=Sum('rt_order_product_order_product_mapping__returned_damage_qty'))
+                            trip_shipments = trip_shipments \
+                                .annotate(
+                                delivered_sum=Sum('rt_order_product_order_product_mapping__delivered_qty'),
+                                shipped_sum=Sum('rt_order_product_order_product_mapping__shipped_qty'),
+                                returned_sum=Sum('rt_order_product_order_product_mapping__returned_qty'),
+                                damaged_sum=Sum('rt_order_product_order_product_mapping__returned_damage_qty'))
 
-                        for shipment in trip_shipments:
-                            if shipment.shipped_sum == (shipment.returned_sum + shipment.damaged_sum):
-                                shipment.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
+                            for shipment in trip_shipments:
+                                if shipment.shipped_sum == (shipment.returned_sum + shipment.damaged_sum):
+                                    shipment.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
 
-                            elif shipment.delivered_sum == shipment.shipped_sum:
-                                shipment.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
+                                elif shipment.delivered_sum == shipment.shipped_sum:
+                                    shipment.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
 
-                            elif shipment.shipped_sum > (shipment.returned_sum + shipment.damaged_sum):
-                                shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
-                            shipment.save()
-                        # updating order status to completed
+                                elif shipment.shipped_sum > (shipment.returned_sum + shipment.damaged_sum):
+                                    shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
+                                shipment.save()
+                            # updating order status to completed
+                            trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
+                            Order.objects.filter(rt_order_order_product__id__in=trip_shipments).update(
+                                order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
+
+                        else:
+                            trip_instance.rt_invoice_trip.all().update(
+                                shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                        return redirect('/admin/retailer_to_sp/trip/')
+
+                    if trip_status == Trip.READY:
+                        # updating order status for shipments removed from Trip
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
-                        Order.objects.filter(rt_order_order_product__id__in=trip_shipments).update(
-                            order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
+                        for shipment in trip_shipments:
+                            update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
 
-                    else:
+                        trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='READY_TO_SHIP')
+
+                    if current_trip_status == Trip.CANCELLED:
                         trip_instance.rt_invoice_trip.all().update(
-                            shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                            shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
+
+                        # updating order status for shipments when trip is cancelled
+                        trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
+                        for shipment in trip_shipments:
+                            update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
+
+                        return redirect('/admin/retailer_to_sp/trip/')
+
+                    # if current_trip_status == Trip.RETURN_VERIFIED:
+                    #     for i in trip_instance.rt_invoice_trip.all():
+                    #         add_to_putaway_on_return(i.id)
+                    #     return redirect('/admin/retailer_to_sp/trip/')
+
+                    if selected_shipment_ids:
+                        selected_shipment_list = selected_shipment_ids.split(',')
+                        selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
+                                                                     pk__in=selected_shipment_list)
+
+                        shipment_out_inventory_change(selected_shipments, TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                        if current_trip_status not in ['COMPLETED', 'CLOSED']:
+                            selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],
+                                                      trip=trip_instance)
+
+                        # updating order status for shipments with respect to trip status
+                        if current_trip_status in TRIP_ORDER_STATUS_MAP.keys():
+                            Order.objects.filter(rt_order_order_product__in=selected_shipment_list).update(
+                                order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
+
                     return redirect('/admin/retailer_to_sp/trip/')
-
-                if trip_status == Trip.READY:
-                    # updating order status for shipments removed from Trip
-                    trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
-                    for shipment in trip_shipments:
-                        update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
-
-                    trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='READY_TO_SHIP')
-
-                if current_trip_status == Trip.CANCELLED:
-                    trip_instance.rt_invoice_trip.all().update(
-                        shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
-
-                    # updating order status for shipments when trip is cancelled
-                    trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
-                    for shipment in trip_shipments:
-                        update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
-
-                    return redirect('/admin/retailer_to_sp/trip/')
-
-                # if current_trip_status == Trip.RETURN_VERIFIED:
-                #     for i in trip_instance.rt_invoice_trip.all():
-                #         add_to_putaway_on_return(i.id)
-                #     return redirect('/admin/retailer_to_sp/trip/')
-
-                if selected_shipment_ids:
-                    selected_shipment_list = selected_shipment_ids.split(',')
-                    selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
-                                                                 pk__in=selected_shipment_list)
-
-                    shipment_out_inventory_change(selected_shipments, TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
-                    if current_trip_status not in ['COMPLETED', 'CLOSED']:
-                        selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],
-                                                  trip=trip_instance)
-
-                    # updating order status for shipments with respect to trip status
-                    if current_trip_status in TRIP_ORDER_STATUS_MAP.keys():
-                        Order.objects.filter(rt_order_order_product__in=selected_shipment_list).update(
-                            order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
-
-                return redirect('/admin/retailer_to_sp/trip/')
-            else:
-                pass
-                # form = TripForm(request.user, request.POST, instance=trip_instance)
+                else:
+                    pass
+                    # form = TripForm(request.user, request.POST, instance=trip_instance)
     else:
         form = TripForm(request.user, instance=trip_instance)
     # error = None
