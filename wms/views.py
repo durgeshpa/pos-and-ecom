@@ -522,12 +522,12 @@ def stock_correction_data(upload_data, stock_movement_obj):
                                                                                             id=data[0]))
                     transaction_type = 'stock_correction_out_type'
                 else:
-                    InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
+                    in_obj = InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
                                                 stock_movement_obj[0].id, Product.objects.get(product_sku=data[2]),
                                                 batch_id, quantity, 0)
-                    transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id,
-                                                                                        warehouse=Shop.objects.get(
-                                                                                            id=data[0]))
+                    transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(warehouse=in_obj.warehouse, putaway_type=in_obj.in_type,
+                                                                                        putaway_type_id=in_obj.id, sku=in_obj.sku,
+                                                  batch_id=in_obj.batch_id, quantity=in_obj.quantity)
                     transaction_type = 'stock_correction_in_type'
 
                 # Create date in BinInventory, Put Away BinInventory and WarehouseInventory
