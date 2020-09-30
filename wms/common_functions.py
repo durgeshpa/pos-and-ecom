@@ -595,7 +595,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
     initial_type = InventoryType.objects.filter(inventory_type='new').last(),
     final_type = InventoryType.objects.filter(inventory_type=inv_type).last(),
     transaction_type = 'put_away_type'
-    transaction_id = put_away[0].id
+    transaction_id = put_away.last().id
     quantity = val
     InternalInventoryChange.create_bin_internal_inventory_change(sh, pu[0].sku, batch_id, final_bin_id, initial_type[0],
                                                                  final_type[0], transaction_type,
