@@ -26,7 +26,7 @@ from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
     common_release_for_inventory
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
-from .models import Bin, WarehouseInventory, PickupBinInventory
+from .models import Bin, WarehouseInventory, PickupBinInventory, Out
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
     OrderedProduct, OrderedProductMapping
@@ -39,7 +39,7 @@ from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadA
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV, \
-    InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory
+    InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory, inventory_in_and_out
 from barCodeGenerator import barcodeGen, merged_barcode_gen
 
 # Logger
@@ -512,9 +512,23 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 # create batch id
                 batch_id = create_batch_id(sku, expiry_date)
                 quantity = int(data[6]) + int(data[7]) + int(data[8]) + int(data[9])
-                InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
-                                            stock_movement_obj[0].id, Product.objects.get(product_sku=data[2]),
-                                            batch_id, quantity, 0)
+                if data[5] == 'Out':
+                    Out.objects.create(warehouse=Shop.objects.get(id=data[0]),
+                                                                     out_type='stock_correction_out_type',
+                                                                     out_type_id=stock_movement_obj[0].id,
+                                                                     sku=Product.objects.get(product_sku=data[2]),
+                                                                     batch_id=batch_id, quantity=quantity)
+                    transaction_type_obj = Out.objects.filter(batch_id=batch_id, warehouse=Shop.objects.get(
+                                                                                            id=data[0]))
+                    transaction_type = 'stock_correction_out_type'
+                else:
+                    InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
+                                                stock_movement_obj[0].id, Product.objects.get(product_sku=data[2]),
+                                                batch_id, quantity, 0)
+                    transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id,
+                                                                                        warehouse=Shop.objects.get(
+                                                                                            id=data[0]))
+                    transaction_type = 'stock_correction_in_type'
 
                 # Create date in BinInventory, Put Away BinInventory and WarehouseInventory
                 # inventory_type = 'normal'
@@ -522,10 +536,9 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 status = True
                 iter_list = iterate_quantity_type(data)
                 for key, value in iter_list.items():
-                    put_away_obj = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id,
-                                                                                warehouse=Shop.objects.get(id=data[0]))
-                    updating_tables_on_putaway(Shop.objects.get(id=data[0]), data[4], put_away_obj, batch_id, key,
-                                               inventory_state, status, value, status, put_away_obj)
+                    inventory_in_and_out(Shop.objects.get(id=data[0]), data[4], Product.objects.get(product_sku=data[2]), batch_id, key,
+                                         inventory_state, status, value, status, transaction_type_obj,
+                                         transaction_type, data[5])
 
                     # Create data in Stock Correction change Model
                 InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
