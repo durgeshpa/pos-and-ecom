@@ -1659,7 +1659,7 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
         else:
             PutawayBinInventory.objects.create(warehouse=sh, putaway=transaction_type_obj.last(),
                                                bin=BinInventory.objects.filter(bin__bin_id=bin_id).last(),
-                                               putaway_quantity=val, putaway_status=True,
+                                               putaway_quantity=val, putaway_status=False,
                                                sku=sku, batch_id=transaction_type_obj[0].batch_id,
                                                putaway_type=transaction_type_obj[0].putaway_type)
 
