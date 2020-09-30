@@ -419,44 +419,42 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         # condition to check past day
         previous_day_date = datetime.today() - timedelta(days=1)
         base_query = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
+        child_query = ExecutiveFeedback.objects.exclude(executive_feedback=5)
         if self._context['report'] is '1':
             date_beat_planning = base_query.filter(next_plan_date=previous_day_date.date())
-            feedback_query = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning,
-                                                                         feedback_date=previous_day_date)
-            shop_map_count = feedback_query.count()
-            shop_visit_count = feedback_query.exclude(executive_feedback=5).count()
+            feedback_query = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+            shop_visit_count = child_query.filter(day_beat_plan__in=date_beat_planning,
+                                                  feedback_date=previous_day_date
+                                                  ).count()
             if shop_visit_count != 0:
-                productivity = str(round(shop_visit_count / shop_map_count, 4) * 100) + '%'
+                productivity = "{:.2f}%".format(float(shop_visit_count / feedback_query) * 100)
             else:
                 productivity = str(00.00) + '%'
         # condition to check past week
         elif self._context['report'] is '2':
             week_end_date = previous_day_date - timedelta(7)
             date_beat_planning = base_query.filter(next_plan_date__range=(week_end_date, previous_day_date))
-
-            feedback_query = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning,
-                                                              feedback_date__range=(week_end_date,
-                                                                   previous_day_date))
-            shop_map_count = feedback_query.count()
-            shop_visit_count = feedback_query.exclude(executive_feedback=5).count()
+            feedback_query = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+            shop_visit_count = child_query.filter(day_beat_plan__in=date_beat_planning,
+                                                  feedback_date__range=(week_end_date,
+                                                                        previous_day_date)
+                                                  ).count()
             if shop_visit_count != 0:
-                productivity = str(round(shop_visit_count / shop_map_count, 4) * 100) + '%'
+                productivity = "{:.2f}%".format(float(shop_visit_count / feedback_query) * 100)
             else:
                 productivity = str(00.00) + '%'
         # condition to check past month
         else:
             week_end_date = previous_day_date - timedelta(30)
             date_beat_planning = base_query.filter(next_plan_date__range=(week_end_date, previous_day_date))
-
-            feedback_query = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning,
-                                                              feedback_date__range=(week_end_date,
-                                                                                    previous_day_date)
-                                                              )
-            shop_map_count = feedback_query.count()
-            shop_visit_count = feedback_query.exclude(executive_feedback=5).count()
+            feedback_query = ExecutiveFeedback.objects.filter(day_beat_plan__in=date_beat_planning).count()
+            shop_visit_count = child_query.filter(day_beat_plan__in=date_beat_planning,
+                                                  feedback_date__range=(
+                                                      week_end_date, previous_day_date)
+                                                  ).count()
 
             if shop_visit_count != 0:
-                productivity = str(round(shop_visit_count / shop_map_count, 4) * 100) + '%'
+                productivity = "{:.2f}%".format(float(shop_visit_count / feedback_query) * 100)
             else:
                 productivity = str(00.00) + '%'
         return productivity
