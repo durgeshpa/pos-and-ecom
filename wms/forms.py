@@ -714,7 +714,7 @@ def validation_stock_correction(self):
                                                     product_sku=row[2]).last(),
                                                 batch_id=batch_id,
                                                 inventory_type__id=InventoryType.objects.filter(inventory_type='expired')[0].id)
-                    if expired_bin_obj[0].quanity < int(row[8]):
+                    if expired_bin_obj[0].quantity < int(row[8]):
                         raise ValidationError(_(
                             "Issue in Row" + " " + str(row_id + 2) + "," + "Expired Quantity is greater than Available Expired Quantity in Bin Inventory,"
                                                                            "You can't allow to do Out Inventory."))
@@ -725,7 +725,7 @@ def validation_stock_correction(self):
                                                     product_sku=row[2]).last(),
                                                 batch_id=batch_id,
                                                 inventory_type__id=InventoryType.objects.filter(inventory_type='missing')[0].id)
-                    if missing_bin_obj[0].quanity < int(row[9]):
+                    if missing_bin_obj[0].quantity < int(row[9]):
                         raise ValidationError(_(
                             "Issue in Row" + " " + str(row_id + 2) + "," + "Missing Quantity is greater than Available Missing Quantity in Bin Inventory,"
                                                                            "You can't allow to do Out Inventory."))
