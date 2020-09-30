@@ -582,10 +582,10 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
                                            putaway_type=pu[0].putaway_type)
 
     transaction_type = 'put_away_type'
-    transaction_id = put_away[0].id
+    transaction_id = put_away.last().id
     initial_type = InventoryType.objects.filter(inventory_type='new').last(),
     initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
-    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
+    final_type = InventoryType.objects.filter(inventory_type=inv_type).last(),
     final_stage = InventoryState.objects.filter(inventory_state='available').last(),
     WareHouseInternalInventoryChange.create_warehouse_inventory_change(sh, pu[0].sku, transaction_type, transaction_id,
                                                                        initial_type[0], initial_stage[0],
