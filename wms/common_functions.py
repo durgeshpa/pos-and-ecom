@@ -582,10 +582,10 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
                                            putaway_type=pu[0].putaway_type)
 
     transaction_type = 'put_away_type'
-    transaction_id = put_away.last().id
+    transaction_id = put_away[0].id
     initial_type = InventoryType.objects.filter(inventory_type='new').last(),
     initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
-    final_type = InventoryType.objects.filter(inventory_type=inv_type).last(),
+    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
     final_stage = InventoryState.objects.filter(inventory_state='available').last(),
     WareHouseInternalInventoryChange.create_warehouse_inventory_change(sh, pu[0].sku, transaction_type, transaction_id,
                                                                        initial_type[0], initial_stage[0],
@@ -593,9 +593,9 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
 
     final_bin_id = bin_id
     initial_type = InventoryType.objects.filter(inventory_type='new').last(),
-    final_type = InventoryType.objects.filter(inventory_type=inv_type).last(),
+    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
     transaction_type = 'put_away_type'
-    transaction_id = put_away.last().id
+    transaction_id = put_away[0].id
     quantity = val
     InternalInventoryChange.create_bin_internal_inventory_change(sh, pu[0].sku, batch_id, final_bin_id, initial_type[0],
                                                                  final_type[0], transaction_type,
@@ -1605,3 +1605,80 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
                         pass
             else:
                 pass
+
+
+def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val, put_away_status, transaction_type_obj,
+                         transaction_type, inventory_movement_type):
+    """
+
+    :param sh:
+    :param bin_id:
+    :param put_away:
+    :param batch_id:
+    :param inv_type:
+    :param inv_state:
+    :param t:
+    :param val:
+    :param put_away_status:
+    :param pu:
+    :return:
+    """
+    bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(
+        bin_id=bin_id).last(),
+                                                                               sku=sku,
+                                                                               batch_id=batch_id,
+                                                                               inventory_type=InventoryType.objects.filter(
+                                                                                   inventory_type=inv_type).last(),
+                                                                               in_stock=t)
+    if bin_inventory_obj.exists():
+        bin_inventory_obj = bin_inventory_obj.last()
+        bin_quantity = val + bin_inventory_obj.quantity
+        bin_inventory_obj.quantity = bin_quantity
+        bin_inventory_obj.save()
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, sku, inv_type, inv_state, val,
+                                                                     True)
+    else:
+        BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(), sku=sku,
+                                    batch_id=batch_id, inventory_type=InventoryType.objects.filter(
+                inventory_type=inv_type).last(), quantity=val, in_stock=t)
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, sku, inv_type, inv_state, val,
+                                                                     True)
+    if val < 0:
+        val = -(int(val))
+    else:
+        val = val
+    if inventory_movement_type == 'Out':
+        pass
+    else:
+        if put_away_status is True:
+            PutawayBinInventory.objects.create(warehouse=sh, putaway=transaction_type_obj.last(),
+                                               bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
+                                               putaway_quantity=val, putaway_status=True,
+                                               sku=sku, batch_id=transaction_type_obj[0].batch_id,
+                                               putaway_type=transaction_type_obj[0].putaway_type)
+        else:
+            PutawayBinInventory.objects.create(warehouse=sh, putaway=transaction_type_obj.last(),
+                                               bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
+                                               putaway_quantity=val, putaway_status=False,
+                                               sku=sku, batch_id=transaction_type_obj[0].batch_id,
+                                               putaway_type=transaction_type_obj[0].putaway_type)
+
+    transaction_type = transaction_type
+    transaction_id = transaction_type_obj.last().id
+    initial_type = InventoryType.objects.filter(inventory_type='new').last(),
+    initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
+    final_type = InventoryType.objects.filter(inventory_type=inv_type).last(),
+    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+    WareHouseInternalInventoryChange.create_warehouse_inventory_change(sh, sku, transaction_type, transaction_id,
+                                                                       initial_type[0], initial_stage[0],
+                                                                       final_type[0], final_stage[0], val)
+
+    final_bin_id = bin_id
+    initial_type = InventoryType.objects.filter(inventory_type='new').last(),
+    final_type = InventoryType.objects.filter(inventory_type=inv_type).last(),
+    transaction_type = transaction_type
+    transaction_id = transaction_type_obj.last().id
+    quantity = val
+    InternalInventoryChange.create_bin_internal_inventory_change(sh, transaction_type_obj[0].sku, batch_id, final_bin_id, initial_type[0],
+                                                                 final_type[0], transaction_type,
+                                                                 transaction_id, quantity)

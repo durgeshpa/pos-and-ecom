@@ -585,7 +585,7 @@ def validation_stock_correction(self):
         # validate for bin id exist or not
         if not Bin.objects.filter(bin_id=row[4], is_active=True, warehouse=Shop.objects.filter(pk=row[0]).last()).exists():
             raise ValidationError(_('Invalid Bin Id at Row number [%(value)s]. '
-                                    'Bin Id does not exists in the system.Please re-verify at your end.'),
+                                    'Bin Id is not associated with Warehouse .Please re-verify at your end.'),
                                   params={'value': row_id + 2}, )
 
         # validate for In/out type
