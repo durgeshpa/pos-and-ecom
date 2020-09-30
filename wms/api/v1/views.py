@@ -316,7 +316,7 @@ class PickupList(APIView):
         orders = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
                                       Q(picker_order__picking_status__in=['picking_assigned', 'picking_complete']),
                                       Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete']),
-                                      Q(picker_order__picker_assigned_date__startswith=date.date()))
+                                      Q(picker_order__picker_assigned_date__startswith=date.date())).order_by('-created_at')
 
         if not orders:
             msg = {'is_success': False, 'message': 'No data found.', 'data': None}
