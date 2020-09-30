@@ -172,6 +172,7 @@ def run_bin_level_audit(audit_run):
 
 
 def run_bin_warehouse_integrated_audit(audit_run):
+    type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
     stage_available = InventoryState.objects.filter(inventory_state='available').last()
     stage_reserved = InventoryState.objects.filter(inventory_state='reserved').last()
     stage_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
@@ -179,7 +180,9 @@ def run_bin_warehouse_integrated_audit(audit_run):
     current_bin_inventory = BinInventory.objects.values('sku_id', 'inventory_type_id') \
                                                 .filter(warehouse=audit_run.warehouse) \
                                                 .annotate(quantity=Sum('quantity'))
-
+    pickup_blocked_inventory = Pickup.objects.filter(status__in=['pickup_creation','pickup_assigned'])\
+                                             .values('sku_id').annotate(qty=Sum('quantity'))
+    pickup_dict = {g['sku_id']: g['qty'] for g in pickup_blocked_inventory}
     for item in current_bin_inventory:
         warehouse_quantity = WarehouseInventory.objects.filter(Q(warehouse__id=audit_run.warehouse.id),
                                                                Q(sku_id=item['sku_id']),
@@ -188,13 +191,16 @@ def run_bin_warehouse_integrated_audit(audit_run):
                                                                                          stage_reserved,
                                                                                          stage_ordered])) \
                                                        .aggregate(total=Sum('quantity')).get('total')
+        bin_quantity = item['quantity']
+        if item['inventory_type_id'] == type_normal:
+            bin_quantity += (pickup_dict[item['sku_id']] if pickup_dict.get(item['sku_id']) else 0)
         audit_item_status = AUDIT_STATUS_CHOICES.DIRTY
-        if warehouse_quantity == item['quantity']:
+        if warehouse_quantity == bin_quantity:
             audit_item_status = AUDIT_STATUS_CHOICES.CLEAN
         audit_item = AuditRunItem.objects.create(warehouse=audit_run.warehouse, audit_run=audit_run,
                                                  sku_id=item['sku_id'],
                                                  inventory_type_id=item['inventory_type_id'],
-                                                 qty_expected=item['quantity'],
+                                                 qty_expected=bin_quantity,
                                                  qty_calculated=warehouse_quantity,
                                                  status=audit_item_status)
         if audit_item_status == AUDIT_STATUS_CHOICES.DIRTY:
@@ -205,7 +211,7 @@ def run_bin_warehouse_integrated_audit(audit_run):
                                                 inventory_type_id=item['inventory_type_id'],
                                                 qty_expected_type=AuditTicket.QTY_TYPE_IDENTIFIER.BIN,
                                                 qty_calculated_type=AuditTicket.QTY_TYPE_IDENTIFIER.WAREHOUSE,
-                                                qty_expected=item['quantity'],
+                                                qty_expected=bin_quantity,
                                                 qty_calculated=warehouse_quantity,
                                                 status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
             # AuditTicketHistory.objects.create(audit_ticket=ticket, comment="Created")
