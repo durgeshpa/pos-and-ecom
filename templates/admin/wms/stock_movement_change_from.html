@@ -58,7 +58,6 @@
                     $('#message').html(data.message);
                     $("#id_file").val("");
                     $('#message').css('color','green');
-                    $("#message").delay(6000).hide("slow");
                     return true;
                 },
                 error: function (data) {
@@ -66,7 +65,6 @@
                     $('#message').html(data.responseJSON.message);
                     $("#id_file").val("");
                     $('#message').css('color','red');
-                    $("#message").delay(6000).hide("slow");
                     return true;
                 },
                 cache: false,
