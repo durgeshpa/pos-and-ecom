@@ -174,6 +174,7 @@ class PutAwayForm(forms.ModelForm):
 class PutAwayBinInventoryForm(forms.ModelForm):
     info_logger.info("Put Away Bin Inventory Form has been called.")
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+    bin_id = forms.CharField()
 
     class Meta:
         model = PutawayBinInventory
@@ -188,17 +189,25 @@ class PutAwayBinInventoryForm(forms.ModelForm):
             # self.fields['putaway_quantity'].initial = 0
             if instance.putaway_status is True:
                 self.fields['putaway_status'].disabled = True
+                self.fields['bin_id'].initial = instance.bin.bin.bin_id
+                self.fields['bin_id'].disabled = True
                 self.fields['bin'].initial = instance.bin.bin.bin_id
                 self.fields['bin'].disabled = True
             if instance.putaway_status is False:
+                self.fields['bin_id'].initial = instance.bin.bin.bin_id
+                self.fields['bin_id'].disabled = True
                 self.fields['bin'] = forms.ModelChoiceField(queryset=Bin.objects.filter(
                     warehouse=instance.warehouse, is_active=True).distinct(), widget=autocomplete.ModelSelect2())
     def clean_bin(self):
         if self.instance.putaway_status is True:
             self.fields['putaway_status'].disabled = True
+            self.fields['bin_id'].initial = self.instance.bin.bin.bin_id
+            self.fields['bin_id'].disabled = True
             self.fields['bin'].initial = self.instance.bin.bin.bin_id
             self.fields['bin'].disabled = True
         if self.instance.putaway_status is False:
+            self.fields['bin_id'].initial = self.instance.bin.bin.bin_id
+            self.fields['bin_id'].disabled = True
             self.fields['bin'] = forms.ModelChoiceField(queryset=Bin.objects.filter(
                 warehouse=self.instance.warehouse).distinct(), widget=autocomplete.ModelSelect2())
         bin_obj = BinInventory.objects.filter(bin=Bin.objects.filter(bin_id=self.cleaned_data['bin']).last(), warehouse=self.instance.warehouse).last()
