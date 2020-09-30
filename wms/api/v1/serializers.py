@@ -124,7 +124,7 @@ class OrderSerializer(serializers.ModelSerializer):
         return str(obj.order_status).lower()
 
     def get_order_create_date(self, obj):
-        return obj.created_at.strftime("%Y-%m-%d")
+        return obj.created_at.strftime("%d-%m-%Y")
 
 
 class BinSerializer(DynamicFieldsModelSerializer):
