@@ -124,13 +124,13 @@ class AuditTicket(BaseTimestampModel):
     def audit_type(self):
         return AUDIT_RUN_TYPE_CHOICES[self.audit_run.audit.audit_type]
 
-
-class AuditTicketHistory(models.Model):
-    audit_ticket = models.ForeignKey(AuditTicket, null=False, on_delete=models.CASCADE)
-    comment = models.CharField(max_length=255, null=False, blank=False)
-    assigned_to = models.PositiveSmallIntegerField(null=True)
-    user = models.ForeignKey(get_user_model(), related_name='audit_ticket_comments', null=True, on_delete=models.DO_NOTHING)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = "wms_audit_tickets_history"
+#
+# class AuditTicketHistory(models.Model):
+#     audit_ticket = models.ForeignKey(AuditTicket, null=False, on_delete=models.CASCADE)
+#     comment = models.CharField(max_length=255, null=False, blank=False)
+#     assigned_to = models.PositiveSmallIntegerField(null=True)
+#     user = models.ForeignKey(get_user_model(), related_name='audit_ticket_comments', null=True, on_delete=models.DO_NOTHING)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#
+#     class Meta:
+#         db_table = "wms_audit_tickets_history"

@@ -45,6 +45,7 @@ class AuditDetailAdmin(admin.ModelAdmin):
 @admin.register(AuditTicket)
 class AuditTicketAdmin(admin.ModelAdmin):
     list_display = ('audit_run_id', 'audit_type', 'audit_inventory_type',  'sku', 'batch_id', 'bin_id',
+                    'inventory_type', 'inventory_state',
                     'qty_expected_type', 'qty_expected', 'qty_calculated_type', 'qty_calculated', 'created_at',
                     'status', 'assigned_user')
 

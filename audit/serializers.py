@@ -1,6 +1,5 @@
 
 from rest_framework import serializers
-
 from wms.models import WarehouseInternalInventoryChange, WarehouseInventory, BinInventory, BinInternalInventoryChange
 
 
@@ -62,7 +61,6 @@ class BinInventorySerializer(serializers.ModelSerializer):
 
     def bin_id(self, obj):
         return obj.bin.bin_id
-
 
 
 class BinInventoryTransactionSerializer(serializers.ModelSerializer):
