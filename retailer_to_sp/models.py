@@ -1792,12 +1792,14 @@ class PickerDashboard(models.Model):
         null=True, blank=True
     )
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/picker/', null=True, blank=True)
+    picker_assigned_date = models.DateTimeField(null=True, blank=True, default="2020-09-29")
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
         super(PickerDashboard, self).save(*args, **kwargs)
         if self.picking_status == 'picking_assigned':
+            PickerDashboard.objects.filter(id=self.id).update(picker_assigned_date=datetime.datetime.now())
             Pickup.objects.filter(pickup_type_id=self.order.order_no).update(status='picking_assigned')
 
     def __str__(self):
@@ -2699,7 +2701,7 @@ def populate_data_on_qc_pass(order):
 
 @receiver(post_save, sender=OrderedProductBatch)
 def create_putaway(sender, created=False, instance=None, *args, **kwargs):
-    if instance.returned_qty == 0 and instance.delivered_qty == 0:
+    if instance.returned_qty == 0 and instance.delivered_qty == 0 and created==False:
         add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
 
 

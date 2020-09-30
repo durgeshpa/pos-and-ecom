@@ -206,7 +206,7 @@ class PutawayBinInventory(models.Model):
 
 class Out(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
-    out_type = models.CharField(max_length=20, null=True, blank=True)
+    out_type = models.CharField(max_length=50, null=True, blank=True)
     out_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
@@ -286,7 +286,9 @@ class WarehouseInternalInventoryChange(models.Model):
         ('put_away_type', 'Put Away'),
         ('pickup_created', 'Pickup Created'),
         ('pickup_complete', 'Pickup Complete'),
-        ('shipped_out', 'Shipped Out')
+        ('shipped_out', 'Shipped Out'),
+        ('stock_correction_in_type', 'stock_correction_in_type'),
+        ('stock_correction_out_type', 'stock_correction_out_type'),
 
     )
 
@@ -326,7 +328,9 @@ class BinInternalInventoryChange(models.Model):
         ('audit_adjustment', 'Audit Adjustment'),
         ('put_away_type', 'Put Away'),
         ('pickup_created', 'Pickup Created'),
-        ('pickup_complete', 'Pickup Complete')
+        ('pickup_complete', 'Pickup Complete'),
+        ('stock_correction_in_type', 'stock_correction_in_type'),
+        ('stock_correction_out_type', 'stock_correction_out_type'),
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)

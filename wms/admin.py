@@ -331,7 +331,7 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
                              putaway_bin_inventory.sku.product_name + '-' + putaway_bin_inventory.sku.product_sku,
                              putaway_bin_inventory.batch_id, putaway_bin_inventory.putaway_type,
                              putaway_bin_inventory.putaway_id,
-                             putaway_bin_inventory.bin_id,
+                             putaway_bin_inventory.bin.bin.bin_id,
                              putaway_bin_inventory.putaway_quantity,
                              putaway_bin_inventory.putaway_status])
 
