@@ -593,7 +593,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
 
     final_bin_id = bin_id
     initial_type = InventoryType.objects.filter(inventory_type='new').last(),
-    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
+    final_type = InventoryType.objects.filter(inventory_type=inv_type).last(),
     transaction_type = 'put_away_type'
     transaction_id = put_away[0].id
     quantity = val
