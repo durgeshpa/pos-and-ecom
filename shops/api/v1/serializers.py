@@ -501,7 +501,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             try:
                 payment_object = Payment.objects.filter(order_id__in=order_object)
                 if payment_object.exists():
-                    total_amount = payment_object.aggregate(Sum('paid_amount'))['paid_amount__sum']
+                    total_amount = round(payment_object.aggregate(Sum('paid_amount'))['paid_amount__sum'])
                 else:
                     total_amount = 0
             except:
@@ -517,7 +517,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             try:
                 payment_object = Payment.objects.filter(order_id__in=order_object)
                 if payment_object.exists():
-                    total_amount = payment_object.aggregate(Sum('paid_amount'))['paid_amount__sum']
+                    total_amount = round(payment_object.aggregate(Sum('paid_amount'))['paid_amount__sum'])
                 else:
                     total_amount = 0
             except:
@@ -533,7 +533,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             try:
                 payment_object = Payment.objects.filter(order_id__in=order_object)
                 if payment_object.exists():
-                    total_amount = payment_object.aggregate(Sum('paid_amount'))['paid_amount__sum']
+                    total_amount = round(payment_object.aggregate(Sum('paid_amount'))['paid_amount__sum'])
                 else:
                     total_amount = 0
             except:
