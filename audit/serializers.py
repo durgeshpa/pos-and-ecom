@@ -57,7 +57,8 @@ class BinInventorySerializer(serializers.ModelSerializer):
         fields = ('sku_id', 'bin', 'batch_id', 'inventory_type', 'quantity')
 
     def get_type(self, obj):
-        return obj.inventory_type.inventory_type
+        if obj.inventory_type:
+            return obj.inventory_type.inventory_type
 
     def bin_id(self, obj):
         return obj.bin.bin_id
@@ -79,12 +80,14 @@ class BinInventoryTransactionSerializer(serializers.ModelSerializer):
             return obj.initial_inventory_type.inventory_type
 
     def final_type(self, obj):
-        return obj.final_inventory_type.inventory_type
+        if obj.final_inventory_type:
+            return obj.final_inventory_type.inventory_type
 
     def start_bin(self, obj):
         if obj.initial_bin:
             return obj.initial_bin.bin_id
 
     def end_bin(self, obj):
-        return obj.final_bin.bin_id
+        if obj.final_bin:
+            return obj.final_bin.bin_id
 

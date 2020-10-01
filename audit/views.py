@@ -219,7 +219,7 @@ def run_bin_warehouse_integrated_audit(audit_run):
             # AuditTicketHistory.objects.create(audit_ticket=ticket, comment="Created")
 
 
-def run_stock_audit(audit_run):
+def run_audit_for_daily_operations(audit_run):
     audit_started = audit_run.created_at
     prev_day = audit_started.date() - datetime.timedelta(1)
     type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
@@ -342,8 +342,8 @@ def run_audit(audit_run, inventory_choice):
         run_bin_level_audit(audit_run)
     if inventory_choice == AUDIT_INVENTORY_CHOICES.INTEGRATED:
         run_bin_warehouse_integrated_audit(audit_run)
-    if inventory_choice == AUDIT_INVENTORY_CHOICES.STOCK:
-        run_stock_audit(audit_run)
+    if inventory_choice == AUDIT_INVENTORY_CHOICES.DAILY_OPERATIONS:
+        run_audit_for_daily_operations(audit_run)
 
 
 def start_automated_inventory_audit():
