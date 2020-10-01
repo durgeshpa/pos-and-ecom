@@ -348,7 +348,7 @@ class UploadParentProductAdminForm(forms.Form):
                     continue
             if not row[0]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Parent Name' can not be empty."))
-            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)]*$", row[0]):
+            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[0]):
                 raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
             if not row[1]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Brand' can not be empty."))
@@ -357,13 +357,14 @@ class UploadParentProductAdminForm(forms.Form):
             if not row[2]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Category' can not be empty."))
             else:
-                categories = row[2].split(',')
-                for cat in categories:
-                    if not Category.objects.filter(category_name=cat.strip()).exists():
-                        raise ValidationError(_(f"Row {row_id + 1} | 'Category' {cat.strip()} doesn't exist in the system."))
+                if not Category.objects.filter(category_name=row[2]).exists():
+                    categories = row[2].split(',')
+                    for cat in categories:
+                        if not Category.objects.filter(category_name=cat.strip()).exists():
+                            raise ValidationError(_(f"Row {row_id + 1} | 'Category' {cat.strip()} doesn't exist in the system."))
             if not row[3]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'HSN' can not be empty."))
-            elif not ProductHSN.objects.filter(product_hsn_code=row[3]).exists():
+            elif not ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | 'HSN' doesn't exist in the system."))
             if not row[4]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'GST' can not be empty."))
