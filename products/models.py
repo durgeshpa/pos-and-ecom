@@ -228,6 +228,8 @@ class Product(models.Model):
         ('other', 'Other'),
     )
     reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
+    use_parent_image = models.BooleanField(default=False)
+    child_product_image = models.ImageField(upload_to='child_product_image', blank=True, null=True)
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
@@ -282,6 +284,12 @@ class Product(models.Model):
     @property
     def product_gf_code(self):
         return ''
+
+    @property
+    def product_image(self):
+        if self.use_parent_image:
+            return self.parent_product.image
+        return self.child_product_image
 
     def get_current_shop_price(self, seller_shop_id, buyer_shop_id):
         '''
