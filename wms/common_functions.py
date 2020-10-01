@@ -564,10 +564,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
                 inventory_type=inv_type).last(), quantity=val, in_stock=t)
         CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, pu[0].sku, inv_type, inv_state, val,
                                                                      True)
-    if val < 0:
-        val = -(int(val))
-    else:
-        val = val
+
     if put_away_status is True:
         PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
                                            bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
