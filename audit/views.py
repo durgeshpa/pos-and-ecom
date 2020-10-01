@@ -191,6 +191,8 @@ def run_bin_warehouse_integrated_audit(audit_run):
                                                                                          stage_reserved,
                                                                                          stage_ordered])) \
                                                        .aggregate(total=Sum('quantity')).get('total')
+        if not warehouse_quantity:
+            warehouse_quantity = 0
         bin_quantity = item['quantity']
         if item['inventory_type_id'] == type_normal:
             bin_quantity += (pickup_dict[item['sku_id']] if pickup_dict.get(item['sku_id']) else 0)
@@ -364,6 +366,10 @@ def start_automated_inventory_audit():
         audit_run.status = AUDIT_RUN_STATUS_CHOICES.COMPLETED
         audit_run.completed_at = datetime.datetime.now()
         audit_run.save()
+
+
+def run_audit_manually(request):
+    return HttpResponse(start_automated_inventory_audit())
 
 
 class BaseListAPIView(ListCreateAPIView):

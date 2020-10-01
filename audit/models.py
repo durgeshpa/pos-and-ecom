@@ -13,7 +13,7 @@ from products.models import Product
 
 AUDIT_DETAIL_STATUS_CHOICES = Choices((0, 'INACTIVE', 'inactive'), (1, 'ACTIVE', 'active'))
 AUDIT_INVENTORY_CHOICES = Choices((1, 'WAREHOUSE', 'warehouse'), (2, 'BIN', 'bin'), (3, 'INTEGRATED', 'bin-warehouse'),
-                                  (4, 'STOCK', 'stock'))
+                                  (4, 'DAILY_OPERATIONS', 'daily operations'))
 AUDIT_SCHEDULE_STATUS_CHOICES = Choices((0, 'CREATED', 'created'), (1, 'ACTIVE', 'active'), (2, 'QUEUED', 'queued'),
                                         (3, 'DISABLED', 'disabled'))
 AUDIT_RUN_TYPE_CHOICES = Choices(# (0, 'MANUAL', 'manual'), (1, 'SCHEDULED', 'scheduled'),

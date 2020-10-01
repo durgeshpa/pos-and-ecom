@@ -1187,7 +1187,7 @@ def shipment_out_inventory_change(shipment_list, final_status):
             pass
 
 
-def archive_inventory_cron(request):
+def archive_inventory_cron():
     info_logger.info("WMS : Archiving warehouse inventory data started at {}".format(datetime.now()))
     today = datetime.today()
     archive_entry = InventoryArchiveMaster.objects.create(archive_date=today,
@@ -1208,7 +1208,7 @@ def archive_inventory_cron(request):
         historic_entry.save()
     info_logger.info("WMS : Archiving bin inventory data started at {}".format(datetime.now()))
     archive_entry = InventoryArchiveMaster.objects.create(archive_date=today,
-                                                           inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.BIN)
+                                                          inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.BIN)
     bin_inventory_list = BinInventory.objects.all()
     # info_logger.info("WMS : Archiving bin inventory : total items {}".format(bin_inventory_list.count()))
     for inventory in bin_inventory_list:

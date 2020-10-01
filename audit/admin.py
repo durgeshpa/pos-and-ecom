@@ -44,12 +44,12 @@ class AuditDetailAdmin(admin.ModelAdmin):
 
 @admin.register(AuditTicket)
 class AuditTicketAdmin(admin.ModelAdmin):
-    list_display = ('audit_run_id', 'audit_type', 'audit_inventory_type',  'sku', 'batch_id', 'bin_id',
+    list_display = ('audit_run_id', 'audit_type', 'audit_inventory_type',  'sku_id', 'batch_id', 'bin',
                     'inventory_type', 'inventory_state',
                     'qty_expected_type', 'qty_expected', 'qty_calculated_type', 'qty_calculated', 'created_at',
                     'status', 'assigned_user')
 
-    fields = ['sku', 'batch_id', 'bin_id', 'qty_expected', 'qty_calculated',
+    fields = ['sku_id', 'batch_id', 'bin', 'qty_expected', 'qty_calculated',
               'created_at',  'updated_at',  'status', 'assigned_user']
     readonly_fields = ('sku', 'batch_id', 'bin_id', 'qty_expected', 'qty_calculated', 'created_at', 'updated_at')
     list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'status']
