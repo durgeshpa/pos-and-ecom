@@ -50,7 +50,7 @@ class AuditDetail(BaseTimestampModel):
         return "%s - %s Audit - ID %s" % (AUDIT_RUN_TYPE_CHOICES[self.audit_type], AUDIT_INVENTORY_CHOICES[self.audit_inventory_type], self.id)
 
     def save(self, *args, **kwargs):
-        if not self.user:
+        if not self.id:
             self.user = get_current_user()
         super(AuditDetail, self).save(*args, **kwargs)
 #
