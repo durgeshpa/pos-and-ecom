@@ -825,7 +825,7 @@ def parent_product_upload(request):
                         name=row[0],
                         parent_brand=Brand.objects.filter(brand_name=row[1]).last(),
                         # category=Category.objects.filter(category_name=row[2]).last(),
-                        product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3]).last(),
+                        product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
                         gst=gst_mapper(row[4]),
                         cess=int(row[5]) if row[5] else 0,
                         surcharge=int(row[6]) if row[6] else 0,
@@ -834,14 +834,21 @@ def parent_product_upload(request):
                         product_type=row[9]
                     )
                     parent_product.save()
-                    categories = row[2].split(',')
-                    for cat in categories:
-                        cat = cat.strip()
+                    if Category.objects.filter(category_name=row[2]).exists():
                         parent_product_category = ParentProductCategory.objects.create(
                             parent_product=parent_product,
-                            category=Category.objects.filter(category_name=cat).last()
+                            category=Category.objects.filter(category_name=row[2]).last()
                         )
                         parent_product_category.save()
+                    else:
+                        categories = row[2].split(',')
+                        for cat in categories:
+                            cat = cat.strip()
+                            parent_product_category = ParentProductCategory.objects.create(
+                                parent_product=parent_product,
+                                category=Category.objects.filter(category_name=cat).last()
+                            )
+                            parent_product_category.save()
             except Exception as e:
                 print(e)
             return render(request, 'admin/products/parent-product-upload.html', {

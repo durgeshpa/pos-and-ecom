@@ -339,7 +339,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     change_list_template = 'admin/products/parent_product_change_list.html'
     actions = [deactivate_selected_products, approve_selected_products]
     list_display = [
-        'parent_id', 'name', 'parent_brand', 'product_hsn', 'gst', 'image', 'status'
+        'parent_id', 'name', 'parent_brand', 'product_hsn', 'gst', 'product_image', 'status'
     ]
     search_fields = [
         'parent_id', 'name'
@@ -349,6 +349,11 @@ class ParentProductAdmin(admin.ModelAdmin):
     ]
     list_filter = [ParentBrandFilter, ParentCategorySearch, ParentIDFilter, 'status']
     autocomplete_fields = ['product_hsn', 'parent_brand']
+
+    def product_image(self, obj):
+        if not obj.image:
+            return ''
+        return format_html('<a href="{url}"><img alt="Product Image" src="{url}" height="50px" width="50px"/></a>', url=obj.image.url)
 
     def get_urls(self):
         from django.conf.urls import url
