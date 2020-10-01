@@ -13,5 +13,6 @@ urlpatterns = [
      url(r'^bin_transactions/$', views.BinInventoryTransactionView.as_view(), name="bin-transaction"),
      url(r'^bin_inventory/$', views.BinInventoryView.as_view(), name="bin-inventory"),
      url(r'^bin_history/$', views.BinInventoryHistoryView.as_view(), name="bin-historic"),
+     url(r'^pickup-blocked-inventory/$', views.PickupBlockedQuantityView.as_view(), name="pickup-blocked"),
      url(r'^run-audit/$', views.run_audit_manually, name="run-audit"),
 ]

@@ -1,6 +1,7 @@
 
 from rest_framework import serializers
-from wms.models import WarehouseInternalInventoryChange, WarehouseInventory, BinInventory, BinInternalInventoryChange
+from wms.models import WarehouseInternalInventoryChange, WarehouseInventory, BinInventory, BinInternalInventoryChange, \
+    Pickup
 
 
 class WarehouseInventorySerializer(serializers.ModelSerializer):
@@ -91,3 +92,8 @@ class BinInventoryTransactionSerializer(serializers.ModelSerializer):
         if obj.final_bin:
             return obj.final_bin.bin_id
 
+
+class PickupBlockedQuantitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Pickup
+        fields = ('warehouse', 'pickup_type_id', 'status', 'sku_id', 'quantity')

@@ -26,7 +26,7 @@ from products.models import Product
 import datetime
 
 from .serializers import WarehouseInventoryTransactionSerializer, WarehouseInventorySerializer, \
-    BinInventoryTransactionSerializer, BinInventorySerializer
+    BinInventoryTransactionSerializer, BinInventorySerializer, PickupBlockedQuantitySerializer
 
 info_logger = logging.getLogger('file-info')
 
@@ -390,7 +390,8 @@ class WarehouseInventoryHistoryView(BaseListAPIView):
     serializer_class = WarehouseInventorySerializer
 
     def get_queryset(self):
-        return WarehouseInventoryHistoric.objects.filter(sku_id=self.request.data.get('sku_id'),
+        return WarehouseInventoryHistoric.objects.filter(warehouse=self.request.data.get('shop_id'),
+                                                         sku_id=self.request.data.get('sku_id'),
                                                          archived_at__date=self.request.data.get('archive_date'))
 
 
@@ -402,7 +403,8 @@ class WarehouseInventoryTransactionView(BaseListAPIView):
         start_date = data.get('start_date')
         end_date = data.get('end_date')
         sku_id = data.get('sku_id')
-        return WarehouseInternalInventoryChange.objects.filter(sku_id=Product.objects.only('id').get(product_sku=sku_id).id,
+        return WarehouseInternalInventoryChange.objects.filter(warehouse=self.request.data.get('shop_id'),
+                                                               sku_id=Product.objects.only('id').get(product_sku=sku_id).id,
                                                                created_at__gte=start_date,
                                                                created_at__lte=end_date)
 
@@ -411,7 +413,8 @@ class WarehouseInventoryView(BaseListAPIView):
     serializer_class = WarehouseInventorySerializer
 
     def get_queryset(self):
-        return WarehouseInventory.objects.filter(sku_id=self.request.data.get('sku_id'))
+        return WarehouseInventory.objects.filter(warehouse=self.request.data.get('shop_id'),
+                                                 sku_id=self.request.data.get('sku_id'))
 
 
 class BinInventoryTransactionView(BaseListAPIView):
@@ -422,7 +425,8 @@ class BinInventoryTransactionView(BaseListAPIView):
         start_date = data.get('start_date')
         end_date = data.get('end_date')
         sku_id = data.get('sku_id')
-        return BinInternalInventoryChange.objects.filter(sku_id=sku_id,
+        return BinInternalInventoryChange.objects.filter(warehouse=self.request.data.get('shop_id'),
+                                                         sku_id=sku_id,
                                                          created_at__gte=start_date,
                                                          created_at__lte=end_date)
 
@@ -431,13 +435,24 @@ class BinInventoryView(BaseListAPIView):
     serializer_class = BinInventorySerializer
 
     def get_queryset(self):
-        return BinInventory.objects.filter(sku_id=self.request.data.get('sku_id'))
+        return BinInventory.objects.filter(warehouse=self.request.data.get('shop_id'),
+                                           sku_id=self.request.data.get('sku_id'))
 
 
 class BinInventoryHistoryView(BaseListAPIView):
     serializer_class = BinInventorySerializer
 
     def get_queryset(self):
-        return BinInventoryHistoric.objects.filter(sku_id=self.request.data.get('sku_id'),
+        return BinInventoryHistoric.objects.filter(warehouse=self.request.data.get('shop_id'),
+                                                   sku_id=self.request.data.get('sku_id'),
                                                    archived_at__date=self.request.data.get('archive_date')
                                                    )
+
+
+class PickupBlockedQuantityView(BaseListAPIView):
+    serializer_class = PickupBlockedQuantitySerializer
+    def get_queryset(self):
+        return Pickup.objects.filter(warehouse=self.request.data.get('shop_id'),
+                                     sku_id=self.request.data.get('sku_id'),
+                                     status__in=['pickup_creation', 'pickup_assigned'])
+
