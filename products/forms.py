@@ -399,7 +399,10 @@ class ProductForm(forms.ModelForm):
     parent_product = forms.ModelChoiceField(
         queryset=ParentProduct.objects.all(),
         empty_label='Not Specified',
-        widget=forms.Select(attrs={"onChange":'getDefaultChildDetails()'})
+        widget=autocomplete.ModelSelect2(
+            url='parent-product-autocomplete',
+            attrs={"onChange":'getDefaultChildDetails()'}
+        )
     )
 
     class Meta:
@@ -407,7 +410,7 @@ class ProductForm(forms.ModelForm):
         # fields = ('product_name','product_slug','product_short_description', 'product_long_description',
         #           'product_gf_code', 'product_ean_code', 'product_hsn','product_brand', 'product_inner_case_size',
         #           'product_case_size','weight_value', 'weight_unit', 'status',)
-        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'status',)
+        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'child_product_image', 'status',)
 
 
 class UploadChildProductAdminForm(forms.Form):
@@ -441,12 +444,12 @@ class UploadChildProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can only be 'Default', 'Different MRP', 'Different Weight', 'Different EAN', 'Other'."))
             if not row[2]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Product Name' can not be empty."))
-            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)]*$", row[2]):
+            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[2]):
                 raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
             if not row[3]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Product EAN Code' can not be empty."))
-            elif not re.match("^[a-zA-Z]*$", row[3]):
-                raise ValidationError(_(f"Row {row_id + 1} | 'Product EAN Code' can only contain alphabets."))
+            elif not re.match("^[a-zA-Z0-9\+\.\-]*$", row[3].replace("'", '')):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product EAN Code' can only contain alphanumeric input."))
             if not row[4]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Product MRP' can not be empty."))
             elif not re.match("^\d+[.]?[\d]{0,2}$", row[4]):

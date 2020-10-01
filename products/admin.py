@@ -38,7 +38,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     products_export_for_vendor, products_filter_view,
                     products_price_filter_view, products_vendor_mapping,
                     parent_product_upload, ParentProductsDownloadSampleCSV,
-                    product_csv_upload, ChildProductsDownloadSampleCSV)
+                    product_csv_upload, ChildProductsDownloadSampleCSV, ParentProductAutocomplete)
 from .filters import BulkTaxUpdatedBySearch
 
 
@@ -541,7 +541,12 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^chld-products-download-sample-csv/$',
                 self.admin_site.admin_view(ChildProductsDownloadSampleCSV),
                 name="child-products-download-sample-csv"
-            )
+            ),
+            url(
+                r'^parent-product-autocomplete/$',
+                self.admin_site.admin_view(ParentProductAutocomplete.as_view()),
+                name='parent-product-autocomplete',
+            ),
         ] + urls
         return urls
 
@@ -557,8 +562,10 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
         'product_brand', 'product_ean_code', 'product_mrp',
-        'product_hsn', 'product_gst', 'status'
+        'product_hsn', 'product_gst', 'products_image', 'status'
     ]
+    def products_image(self, obj):
+        return format_html("<a href='https://nonprodimages.gramfactory.com/media/{url}'>{url}</a>", url=obj.product_image)
     search_fields = ['product_name', 'id', 'product_gf_code']
     # list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
     list_filter = [CategorySearch, ProductSearch, 'status']

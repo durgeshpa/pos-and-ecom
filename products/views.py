@@ -861,6 +861,16 @@ def parent_product_upload(request):
     return render(request, 'admin/products/parent-product-upload.html', {'form': form})
 
 
+class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = ParentProduct.objects.all()
+
+        if self.q:
+            qs = qs.filter(name__istartswith=self.q)
+
+        return qs
+
+
 def ChildProductsDownloadSampleCSV(request):
     filename = "child_products_sample.csv"
     response = HttpResponse(content_type='text/csv')
@@ -905,7 +915,7 @@ def product_csv_upload(request):
                         parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
                         reason_for_child_sku=reason_for_child_sku_mapper(row[1]),
                         product_name=row[2],
-                        product_ean_code=row[3],
+                        product_ean_code=row[3].replace("'", ''),
                         product_mrp=float(row[4]),
                         weight_value=float(row[5]),
                         weight_unit='gm' if 'gram' in row[6].lower() else 'gm'
