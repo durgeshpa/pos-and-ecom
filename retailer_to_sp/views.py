@@ -334,7 +334,8 @@ def assign_picker(request, shop_id=None):
                 selected_orders = PickerDashboard.objects.filter(
                     pk__in=selected_orders)
                 selected_orders.update(picker_boy=picker_boy,
-                                       picking_status='picking_assigned')
+                                       picking_status='picking_assigned',
+                                       picker_assigned_date=datetime.datetime.now())
                 # updating order status
                 Order.objects.filter(picker_order__in=selected_orders) \
                     .update(order_status=Order.PICKING_ASSIGNED)

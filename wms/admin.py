@@ -5,7 +5,7 @@ import datetime
 from io import StringIO
 from dal_admin_filters import AutocompleteFilter
 # django imports
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.http import HttpResponse
 from django.utils.html import format_html
 from django.urls import reverse
@@ -15,7 +15,7 @@ from rangefilter.filter import DateTimeRangeFilter
 from products.models import ProductVendorMapping
 from retailer_backend.admin import InputFilter
 # app imports
-from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload
+from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
 from import_export import resources
 from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
                      PickupBinInventory,
@@ -302,7 +302,7 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     form = PutAwayBinInventoryForm
     list_display = ('warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_id', 'bin_id', 'putaway_quantity',
                     'putaway_status', 'created_at')
-    actions = ['download_bulk_put_away_bin_inventory_csv']
+    actions = ['download_bulk_put_away_bin_inventory_csv', 'bulk_approval_for_putaway']
     readonly_fields = ['warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway','putaway_quantity']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin__bin_id')
     list_filter = [
@@ -340,6 +340,29 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
         response['Content-Disposition'] = 'attachment; filename=putaway_bin_inventory_download.csv'
         return response
 
+    def bulk_approval_for_putaway(self, request, queryset):
+        argument_list = []
+        for query in queryset:
+            if query.putaway_status is True:
+                pass
+            else:
+                argument_list.append(query)
+            if len(argument_list) == 0:
+                response = messages.error(request, "Please select at least one Deactivate PutAway Bin Inventory for Bulk Approval.")
+                return response
+        try:
+            response = bulk_putaway(self, request, argument_list)
+            if response[1] is True:
+                messages.success(request, response[0])
+                return response
+            else:
+                messages.error(request, response[0])
+                return response
+        except Exception as e:
+            error_logger.error(e)
+            messages.error(request, "Something went wrong, Please try again!!")
+            return response
+
     def putaway_id(self, obj):
         return obj.putaway_id
 
@@ -356,6 +379,7 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
 
     # download bulk invoice short description
     download_bulk_put_away_bin_inventory_csv.short_description = "Download Bulk Data in CSV"
+    bulk_approval_for_putaway.short_description = "Bulk Approval for Put Away"
 
     class Media:
         css = {"all": ("admin/css/disable_save_and_continue_editing_button.css",)}

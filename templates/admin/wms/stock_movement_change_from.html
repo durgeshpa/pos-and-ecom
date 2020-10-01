@@ -56,12 +56,14 @@
                 success: function (data) {
                     $("#message").show();
                     $('#message').html(data.message);
+                    $("#id_file").val("");
                     $('#message').css('color','green');
                     return true;
                 },
                 error: function (data) {
                     $("#message").show();
                     $('#message').html(data.responseJSON.message);
+                    $("#id_file").val("");
                     $('#message').css('color','red');
                     return true;
                 },

@@ -24,9 +24,9 @@ from django.db import transaction
 from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
-    common_release_for_inventory
+    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
-from .models import Bin, WarehouseInventory, PickupBinInventory
+from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
     OrderedProduct, OrderedProductMapping
@@ -39,7 +39,7 @@ from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadA
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV, \
-    InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory
+    InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory, inventory_in_and_out
 from barCodeGenerator import barcodeGen, merged_barcode_gen
 
 # Logger
@@ -512,9 +512,23 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 # create batch id
                 batch_id = create_batch_id(sku, expiry_date)
                 quantity = int(data[6]) + int(data[7]) + int(data[8]) + int(data[9])
-                InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
-                                            stock_movement_obj[0].id, Product.objects.get(product_sku=data[2]),
-                                            batch_id, quantity, 0)
+                if data[5] == 'Out':
+                    Out.objects.create(warehouse=Shop.objects.get(id=data[0]),
+                                                                     out_type='stock_correction_out_type',
+                                                                     out_type_id=stock_movement_obj[0].id,
+                                                                     sku=Product.objects.get(product_sku=data[2]),
+                                                                     batch_id=batch_id, quantity=quantity)
+                    transaction_type_obj = Out.objects.filter(batch_id=batch_id, warehouse=Shop.objects.get(
+                                                                                            id=data[0]))
+                    transaction_type = 'stock_correction_out_type'
+                else:
+                    in_obj = InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
+                                                stock_movement_obj[0].id, Product.objects.get(product_sku=data[2]),
+                                                batch_id, quantity, 0)
+                    transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(warehouse=in_obj.warehouse, putaway_type=in_obj.in_type,
+                                                                                        putaway_type_id=in_obj.id, sku=in_obj.sku,
+                                                  batch_id=in_obj.batch_id, quantity=in_obj.quantity)
+                    transaction_type = 'stock_correction_in_type'
 
                 # Create date in BinInventory, Put Away BinInventory and WarehouseInventory
                 # inventory_type = 'normal'
@@ -522,10 +536,9 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 status = True
                 iter_list = iterate_quantity_type(data)
                 for key, value in iter_list.items():
-                    put_away_obj = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id,
-                                                                                warehouse=Shop.objects.get(id=data[0]))
-                    updating_tables_on_putaway(Shop.objects.get(id=data[0]), data[4], put_away_obj, batch_id, key,
-                                               inventory_state, status, value, status, put_away_obj)
+                    inventory_in_and_out(Shop.objects.get(id=data[0]), data[4], Product.objects.get(product_sku=data[2]), batch_id, key,
+                                         inventory_state, status, value, status, transaction_type_obj,
+                                         transaction_type, data[5])
 
                     # Create data in Stock Correction change Model
                 InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
@@ -546,14 +559,24 @@ def iterate_quantity_type(data):
     :return:
     """
     inventory_type = {}
-    if int(data[6]) >= 0:
-        inventory_type.update({'normal': int(data[6])})
-    if int(data[7]) >= 0:
-        inventory_type.update({'damaged': int(data[7])})
-    if int(data[8]) >= 0:
-        inventory_type.update({'expired': int(data[8])})
-    if int(data[9]) >= 0:
-        inventory_type.update({'missing': int(data[9])})
+    if data[5] == 'Out':
+        if int(data[6]) >= 0:
+            inventory_type.update({'normal': -int(data[6])})
+        if int(data[7]) >= 0:
+            inventory_type.update({'damaged': -int(data[7])})
+        if int(data[8]) >= 0:
+            inventory_type.update({'expired': -int(data[8])})
+        if int(data[9]) >= 0:
+            inventory_type.update({'missing': -int(data[9])})
+    else:
+        if int(data[6]) >= 0:
+            inventory_type.update({'normal': int(data[6])})
+        if int(data[7]) >= 0:
+            inventory_type.update({'damaged': int(data[7])})
+        if int(data[8]) >= 0:
+            inventory_type.update({'expired': int(data[8])})
+        if int(data[9]) >= 0:
+            inventory_type.update({'missing': int(data[9])})
     return inventory_type
 
 
@@ -1161,3 +1184,65 @@ def shipment_out_inventory_change(shipment_list, final_status):
 
         else:
             pass
+
+
+def bulk_putaway(self, request, argument_list):
+    with transaction.atomic():
+        for obj in argument_list:
+            try:
+                if obj.bin.bin.bin_id is None:
+                    message = "You can't Perform this action, Bin Id is None."
+                    return message, False
+            except:
+                message = "You can't Perform this action, Bin Id is None."
+                return message, False
+            if obj.bin.bin.bin_id == 'V2VZ01SR001-0001':
+                message = "You can't assign this BIN ID, This is a Virtual Bin ID."
+                return message, False
+            else:
+                bin_in_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
+                                                         sku=Product.objects.filter(
+                                                             product_sku=obj.sku_id).last())
+                for bin_in in bin_in_obj:
+                    if not (bin_in.batch_id == obj.batch_id):
+                        if bin_in.bin.bin_id == obj.bin.bin.bin_id:
+                            if bin_in.quantity == 0:
+                                pass
+                            else:
+                                message = "You can't perform this action, Non zero qty of more than one Batch ID of a" \
+                                           " single SKU can’t be saved in the same Bin ID."
+                                return message, False
+                bin_id = obj.bin
+                if obj.putaway_type == 'Order_Cancelled':
+                    ordered_inventory_state = 'ordered',
+                    initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
+                    cancel_ordered(request.user, obj, ordered_inventory_state, initial_stage, bin_id)
+
+                elif obj.putaway_type == 'Pickup_Cancelled':
+                    ordered_inventory_state = 'picked',
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    cancel_ordered(request.user, obj, ordered_inventory_state, initial_stage, bin_id)
+
+                elif obj.putaway_type == 'Shipment_Cancelled':
+                    ordered_inventory_state = 'picked',
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    cancel_ordered(self.request.user, obj, ordered_inventory_state, initial_stage, bin_id)
+
+                elif obj.putaway_type == 'PAR_SHIPMENT':
+                    ordered_inventory_state = 'picked',
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    shipment_obj = OrderedProduct.objects.filter(
+                        order__order_no=obj.putaway.putaway_type_id)[
+                        0].rt_order_product_order_product_mapping.all()
+                    cancel_shipment(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id)
+
+                elif obj.putaway_type == 'RETURNED':
+                    ordered_inventory_state = 'shipped',
+                    initial_stage = InventoryState.objects.filter(inventory_state='shipped').last(),
+                    shipment_obj = OrderedProduct.objects.filter(
+                        invoice__invoice_no=obj.putaway.putaway_type_id)[
+                        0].rt_order_product_order_product_mapping.all()
+                    cancel_returned(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id)
+
+        message = "Bulk Approval for Put Away has been done successfully."
+        return message, True
