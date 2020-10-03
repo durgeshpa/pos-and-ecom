@@ -569,7 +569,6 @@ class BulkOrder(models.Model):
 
     def clean(self, *args, **kwargs):
         if self.cart_products_csv:
-            product_skus = []
             product_ids = []
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
             headers = next(reader, None)
@@ -579,12 +578,6 @@ class BulkOrder(models.Model):
                     product_ids.append(Product.objects.get(product_sku=sku).id)
                 else:
                     raise ValidationError("The SKU %s is invalid" % (sku))
-            shop_products_available = WarehouseInventory.objects.filter(
-                    sku__product_sku__in=product_skus, quantity__gte=0,
-                inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-            inventory_state=InventoryState.objects.filter(inventory_state='available').last()).values('sku_id').annotate(
-                    quantity=Sum('quantity'))
-            shop_products_dict = {g['sku_id']: int(g['quantity']) for g in shop_products_available}
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
             headers = next(reader, None)
             duplicate_products = []
@@ -595,7 +588,7 @@ class BulkOrder(models.Model):
                         "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | Product SKU cannot be empty")
 
                 try:
-                    product = Product.objects.get(product_sku=row[0])
+                    Product.objects.get(product_sku=row[0])
                 except:
                     raise ValidationError(
                         "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
@@ -625,22 +618,22 @@ class BulkOrder(models.Model):
                         if product_price.selling_price < discounted_price:
                             raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                                 0] + " | Discounted Price can't be more than Product Price."))
-                    # product_id = product.id
-                    #ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
                     ordered_qty = int(row[2])
-                    # product_availability = shop_products_dict.get(sku, 0)
-                    available_quantity = WarehouseInventory.objects.filter(
+                    warehouse_obj = WarehouseInventory.objects.filter(
                         sku__product_sku=row[0],
                         inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                        inventory_state=InventoryState.objects.filter(inventory_state='available').last())[0].quantity
-                    # product_available = int(
-                    #     int(shop_products_dict.get(product.id, 0)) / int(product.product_inner_case_size))
+                        inventory_state=InventoryState.objects.filter(inventory_state='available').last())
+                    if warehouse_obj.exists():
+                        available_quantity = warehouse_obj[0].quantity
+                    else:
+                        continue
                     product_available = int(
                          int(available_quantity) / int(product.product_inner_case_size))
                     if product_available >= ordered_qty:
                         count += 1
-            if count == 0:
-                raise ValidationError(_("Ordered Quantity is more than Available quantity."))
+                    if count == 0:
+                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                            0] + " | Ordered Quantity is more than Available quantity."))
 
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
@@ -682,20 +675,12 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
         if created:
             products_available = {}
             if instance.cart_products_csv:
-                product_skus = []
                 product_ids = []
                 reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
                 headers = next(reader, None)
                 product_skus = [x[0] for x in reader if x]
                 for sku in product_skus:
                     product_ids.append(Product.objects.get(product_sku=sku).id)
-                from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
-                shop_products_available = WarehouseInventory.objects.filter(
-                        sku__product_sku__in=product_skus, quantity__gte=0,
-                    inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                inventory_state=InventoryState.objects.filter(inventory_state='available').last()).values('sku_id').annotate(
-                        quantity=Sum('quantity'))
-                shop_products_dict = {g['sku_id']: int(g['quantity']) for g in shop_products_available}
                 reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
                 for id, row in enumerate(reader):
                     for row in reader:
@@ -705,36 +690,32 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                             product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
                             ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
                             ordered_qty = int(row[2])
-                            available_quantity = WarehouseInventory.objects.filter(
-                                sku__product_sku=row[0],
-                                inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                                inventory_state=InventoryState.objects.filter(inventory_state='available').last())[
-                                0].quantity
-                            #product_availability = shop_products_dict.get(product.id, 0)
+                            try:
+                                available_quantity = WarehouseInventory.objects.filter(
+                                    sku__product_sku=row[0],
+                                    inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+                                    inventory_state=InventoryState.objects.filter(inventory_state='available').last())[
+                                    0].quantity
+                            except:
+                                continue
                             product_available = int(
                                 int(available_quantity) / int(product.product_inner_case_size))
                             if product_available >= ordered_qty:
                                 products_available[product_id] = ordered_pieces
                                 if instance.order_type == 'DISCOUNTED':
-                                    cart_obj = CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
+                                    CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
                                                                       qty=int(row[2]),
                                                                       no_of_pieces=int(row[2]) * int(
                                                                           product.product_inner_case_size),
                                                                       cart_product_price=product_price,
                                                                       discounted_price=float(row[3]))
                                 else:
-                                    cart_obj = CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
+                                    CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
                                                                       qty=int(row[2]),
                                                                       no_of_pieces=int(row[2]) * int(
                                                                           product.product_inner_case_size),
                                                                       cart_product_price=product_price,
                                                                       discounted_price=0)
-            #from retailer_to_sp.tasks import create_reserved_order
-            # reserved_args = json.dumps({
-            #     'shop_id': instance.seller_shop.id,
-            #     'cart_id': instance.cart.id,
-            #     'products': products_available
-            # })
             reserved_args = json.dumps({
                 'shop_id': instance.seller_shop.id,
                 'transaction_id': instance.cart.order_id,
@@ -755,13 +736,6 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
         order.received_by = user
         order.order_status = 'ordered'
         order.save()
-        # from sp_to_gram.models import OrderedProductReserved
-        # for ordered_reserve in OrderedProductReserved.objects.filter(cart=instance.cart,
-        #                                                              reserve_status=OrderedProductReserved.RESERVED):
-        #     ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
-        #     ordered_reserve.order_product_reserved.save()
-        #     ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
-        #     ordered_reserve.save()
         reserved_args = json.dumps({
             'shop_id': instance.seller_shop.id,
             'transaction_id': instance.cart.order_id,
