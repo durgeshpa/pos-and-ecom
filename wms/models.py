@@ -16,6 +16,8 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db.models import Sum, Q
 from django.contrib.auth import get_user_model
+from django.db.models import query, manager
+from django.utils import timezone
 
 BIN_TYPE_CHOICES = (
     ('PA', 'Pallet'),
@@ -44,6 +46,16 @@ INVENTORY_STATE_CHOICES = (
     ('new', 'New')
 )
 
+
+class BaseQuerySet(query.QuerySet):
+
+    def update(self, **kwargs):
+        kwargs['modified_at'] = timezone.now()
+        super().update(**kwargs)
+
+
+class Manager(manager.BaseManager.from_queryset(BaseQuerySet)):
+    pass
 
 class InventoryType(models.Model):
     inventory_type = models.CharField(max_length=20, choices=INVENTORY_TYPE_CHOICES, null=True, blank=True)
@@ -204,6 +216,8 @@ class Out(models.Model):
 
 
 class Pickup(models.Model):
+
+    objects = Manager()
     pickup_status_choices = (
         ('pickup_creation', 'PickUp Creation'),
         ('picking_assigned', 'Pickup Assigned'),
