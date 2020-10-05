@@ -24,9 +24,9 @@ from django.db import transaction
 from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
-    common_release_for_inventory
+    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
-from .models import Bin, WarehouseInventory, PickupBinInventory, Out
+from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
     OrderedProduct, OrderedProductMapping
@@ -523,12 +523,12 @@ def stock_correction_data(upload_data, stock_movement_obj):
                                                                                             id=data[0]))
                     transaction_type = 'stock_correction_out_type'
                 else:
-                    InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
+                    in_obj = InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
                                                 stock_movement_obj[0].id, Product.objects.get(product_sku=data[2]),
                                                 batch_id, quantity, 0)
-                    transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id,
-                                                                                        warehouse=Shop.objects.get(
-                                                                                            id=data[0]))
+                    transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(warehouse=in_obj.warehouse, putaway_type=in_obj.in_type,
+                                                                                        putaway_type_id=in_obj.id, sku=in_obj.sku,
+                                                  batch_id=in_obj.batch_id, quantity=in_obj.quantity)
                     transaction_type = 'stock_correction_in_type'
 
                 # Create date in BinInventory, Put Away BinInventory and WarehouseInventory
@@ -1225,3 +1225,67 @@ def archive_inventory_cron():
         historic_entry.save()
 
     info_logger.info("WMS : Archiving inventory data ended at {}".format(datetime.now()))
+
+
+def bulk_putaway(self, request, argument_list):
+    with transaction.atomic():
+        for obj in argument_list:
+            try:
+                if obj.bin.bin.bin_id is None:
+                    message = "You can't Perform this action, Bin Id is None."
+                    return message, False
+            except:
+                message = "You can't Perform this action, Bin Id is None."
+                return message, False
+            if obj.bin.bin.bin_id == 'V2VZ01SR001-0001':
+                message = "You can't assign this BIN ID, This is a Virtual Bin ID."
+                return message, False
+            else:
+                bin_in_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
+                                                         sku=Product.objects.filter(
+                                                             product_sku=obj.sku_id).last())
+                for bin_in in bin_in_obj:
+                    if not (bin_in.batch_id == obj.batch_id):
+                        if bin_in.bin.bin_id == obj.bin.bin.bin_id:
+                            if bin_in.quantity == 0:
+                                pass
+                            else:
+                                message = "You can't perform this action, Non zero qty of more than one Batch ID of a" \
+                                           " single SKU can’t be saved in the same Bin ID."
+                                return message, False
+                bin_id = obj.bin
+                if obj.putaway_type == 'Order_Cancelled':
+                    ordered_inventory_state = 'ordered',
+                    initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
+                    cancel_ordered(request.user, obj, ordered_inventory_state, initial_stage, bin_id)
+
+                elif obj.putaway_type == 'Pickup_Cancelled':
+                    ordered_inventory_state = 'picked',
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    cancel_ordered(request.user, obj, ordered_inventory_state, initial_stage, bin_id)
+
+                elif obj.putaway_type == 'Shipment_Cancelled':
+                    ordered_inventory_state = 'picked',
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    cancel_ordered(self.request.user, obj, ordered_inventory_state, initial_stage, bin_id)
+
+                elif obj.putaway_type == 'PAR_SHIPMENT':
+                    ordered_inventory_state = 'picked',
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    shipment_obj = OrderedProduct.objects.filter(
+                        order__order_no=obj.putaway.putaway_type_id)[
+                        0].rt_order_product_order_product_mapping.all()
+                    cancel_shipment(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id)
+
+                elif obj.putaway_type == 'RETURNED':
+                    ordered_inventory_state = 'shipped',
+                    initial_stage = InventoryState.objects.filter(inventory_state='shipped').last(),
+                    shipment_obj = OrderedProduct.objects.filter(
+                        invoice__invoice_no=obj.putaway.putaway_type_id)[
+                        0].rt_order_product_order_product_mapping.all()
+                    cancel_returned(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id)
+
+        message = "Bulk Approval for Put Away has been done successfully."
+        return message, True
+
+    
