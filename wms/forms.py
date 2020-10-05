@@ -681,9 +681,7 @@ def validation_stock_correction(self):
                                                       batch_id=batch_id)
             if not bin_exp_obj.exists():
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 2) + "," + "Bin with Same SKU and Expiry date is not "
-                                                                   "exist in the system, Please re-verify the data in"
-                                                                   "Bin Inventory Dashboard."))
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Selected SKU with given expiry date does not exist in the given Bin."))
             else:
                 if int(row[6]) > 0:
                     normal_bin_obj = BinInventory.objects.filter(warehouse=row[0],

@@ -1,9 +1,10 @@
 from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
+from django_filters import BooleanFilter
 from rangefilter.filter import DateTimeRangeFilter
 
 from django.contrib import admin
-from django.contrib.admin import TabularInline
+from django.contrib.admin import TabularInline, SimpleListFilter
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.forms.models import BaseInlineFormSet
@@ -73,9 +74,20 @@ class ExportCsvMixin:
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
-        writer.writerow(field_names)
+        if self.model._meta.db_table=='products_product':
+            field_names_temp = field_names.copy()
+            field_names_temp.append('image')
+            writer.writerow(field_names_temp)
+        else:
+            writer.writerow(field_names)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in field_names])
+            items= [getattr(obj, field) for field in field_names]
+            if self.model._meta.db_table == 'products_product':
+                if obj.product_pro_image.last():
+                    items.append(obj.product_pro_image.last().image.url)
+                else:
+                    items.append('-')
+            row = writer.writerow(items)
         return response
     export_as_csv.short_description = "Download CSV of Selected Objects"
 
@@ -112,8 +124,8 @@ class ExportProductVendor:
 class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
     actions = ["export_as_csv_product_vendormapping", ]
     fields = ('vendor', 'product', 'product_price','product_mrp','case_size')
-    list_display = ('vendor', 'product','product_price','product_mrp','case_size','created_at','status')
-    list_filter = [VendorFilter,ProductFilter,]
+    list_display = ('vendor', 'product','product_price','product_mrp','case_size','created_at','status','product_status')
+    list_filter = [VendorFilter,ProductFilter,'product__status']
     form = ProductVendorMappingForm
 
     def get_urls(self):
@@ -128,6 +140,9 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
         ] + urls
         return urls
 
+    def product_status(self, obj):
+        return  obj.product.status
+    product_status.boolean = True
 
     class Media:
         pass
