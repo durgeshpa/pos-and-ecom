@@ -654,7 +654,9 @@ def release_blocking_with_cron():
         shop_id = order_product.warehouse.id
         transaction_type = 'released'
         order_status = 'available'
-        common_release_for_inventory(sku_id, shop_id, transaction_type, transaction_id, order_status, order_product)
+        release_type = 'cron'
+        common_release_for_inventory(sku_id, shop_id, transaction_type, transaction_id, order_status, order_product,
+                                     release_type)
 
 
 def pickup_entry_creation_with_cron():
