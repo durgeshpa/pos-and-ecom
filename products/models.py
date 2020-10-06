@@ -427,8 +427,8 @@ class ProductPrice(models.Model):
     )
     product = models.ForeignKey(Product, related_name='product_pro_price',
                                 on_delete=models.CASCADE)
-    # mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True,
-    #                           blank=False)
+    mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True,
+                              blank=True)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2,
                                         null=True, blank=False)
     seller_shop = models.ForeignKey(Shop, related_name='shop_product_price',
@@ -530,9 +530,9 @@ class ProductPrice(models.Model):
     def sku_code(self):
         return self.product.product_sku
 
-    @property
-    def mrp(self):
-        return self.product.product_mrp
+    # @property
+    # def mrp(self):
+    #     return self.product.product_mrp
 
 
 class ProductCategory(models.Model):
