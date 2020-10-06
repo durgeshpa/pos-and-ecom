@@ -180,7 +180,8 @@ def run_bin_warehouse_integrated_audit(audit_run):
     current_bin_inventory = BinInventory.objects.values('sku_id', 'inventory_type_id') \
                                                 .filter(warehouse=audit_run.warehouse) \
                                                 .annotate(quantity=Sum('quantity'))
-    pickup_blocked_inventory = Pickup.objects.filter(status__in=['pickup_creation','pickup_assigned'])\
+    pickup_blocked_inventory = Pickup.objects.filter(warehouse=audit_run.warehouse,
+                                                     status__in=['pickup_creation','pickup_assigned'])\
                                              .values('sku_id').annotate(qty=Sum('quantity'))
     pickup_dict = {g['sku_id']: g['qty'] for g in pickup_blocked_inventory}
     for item in current_bin_inventory:
