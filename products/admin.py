@@ -337,6 +337,7 @@ class ParentProductAdmin(admin.ModelAdmin):
         pass
 
     change_list_template = 'admin/products/parent_product_change_list.html'
+    change_form_template = 'admin/products/parent_product_change_form.html'
     actions = [deactivate_selected_products, approve_selected_products]
     list_display = [
         'parent_id', 'name', 'parent_brand', 'product_hsn', 'gst', 'product_image', 'status'
