@@ -427,8 +427,8 @@ class ProductPrice(models.Model):
     )
     product = models.ForeignKey(Product, related_name='product_pro_price',
                                 on_delete=models.CASCADE)
-    mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True,
-                              blank=False)
+    # mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True,
+    #                           blank=False)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2,
                                         null=True, blank=False)
     seller_shop = models.ForeignKey(Shop, related_name='shop_product_price',
@@ -455,8 +455,8 @@ class ProductPrice(models.Model):
         return "%s - %s" % (self.product.product_name, self.selling_price)
 
     def validate(self, exception_type):
-        if not self.mrp:
-            raise ValidationError(_('Please enter valid Mrp price.'))
+        # if not self.mrp:
+        #     raise ValidationError(_('Please enter valid Mrp price.'))
         if not self.selling_price:
             print(self.selling_price)
             raise ValidationError(_('Please enter valid Selling price.'))
@@ -529,6 +529,10 @@ class ProductPrice(models.Model):
     @property
     def sku_code(self):
         return self.product.product_sku
+
+    @property
+    def mrp(self):
+        return self.product.product_mrp
 
 
 class ProductCategory(models.Model):

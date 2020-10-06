@@ -25,3 +25,26 @@ function getDefaultChildDetails() {
         cache: false
     });
 }
+
+function getProductDetails() {
+    val = document.getElementById("id_product").value;
+    ajax_url = "/product/fetch-product-details/";
+    $.ajax({
+        url: ajax_url,
+        type : 'GET',
+        data: { 'product': val },
+        contentType: "application/json; charset=utf-8",
+        success: function (data) {
+            if(data.found === true){
+                document.getElementById('id_mrp').value = data.product_mrp;
+            }
+            return true;
+        },
+        error: function (data) {
+            console.log("ERROR");
+            console.error(data);
+            return true;
+        },
+        cache: false
+    });
+}

@@ -565,8 +565,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         'product_hsn', 'product_gst', 'products_image', 'status'
     ]
     def products_image(self, obj):
-        return format_html("<a href='https://nonprodimages.gramfactory.com/media/{url}'>{url}</a>", url=obj.product_image)
-    search_fields = ['product_name', 'id', 'product_gf_code']
+        if not obj.product_image:
+            return ''
+        return format_html('<a href="{url}"><img alt="Product Image" src="{url}" height="50px" width="50px"/></a>', url=obj.product_image.url)
+    # search_fields = ['product_name', 'id', 'product_gf_code']
+    search_fields = ['product_name', 'id']
     # list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
     list_filter = [CategorySearch, ProductSearch, 'status']
     # prepopulated_fields = {'product_slug': ('product_name',)}
@@ -644,7 +647,10 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
               'start_date', 'end_date', 'approval_status')
 
     class Media:
-        pass
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            'admin/js/child_product_form.js'
+        )
 
     def get_readonly_fields(self, request, obj=None):
         if not request.user.is_superuser:

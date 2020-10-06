@@ -871,6 +871,17 @@ class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
+class ProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Product.objects.all()
+
+        if self.q:
+            qs = qs.filter(name__istartswith=self.q)
+
+        return qs
+
+
+
 def ChildProductsDownloadSampleCSV(request):
     filename = "child_products_sample.csv"
     response = HttpResponse(content_type='text/csv')
@@ -951,6 +962,25 @@ def FetchDefaultChildDdetails(request):
                 'option': def_child.weight_unit,
                 'text': 'Gram'
             }
+        }
+
+    return JsonResponse(data)
+
+
+def FetchProductDdetails(request):
+    product_id = request.GET.get('product')
+    data = {
+        'found': False
+    }
+    print(product_id)
+    if not product_id:
+        return JsonResponse(data)
+    def_product = Product.objects.filter(pk=product_id).last()
+    print(def_product)
+    if def_product:
+        data = {
+            'found': True,
+            'product_mrp': def_product.product_mrp
         }
 
     return JsonResponse(data)

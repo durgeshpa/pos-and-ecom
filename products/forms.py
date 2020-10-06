@@ -278,6 +278,15 @@ class ProductPriceNewForm(forms.ModelForm):
             forward=('city', 'buyer_shop')),
         required=False
     )
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='product-autocomplete',
+            attrs={"onChange":'getProductDetails()'}
+        )
+    )
+    mrp = forms.DecimalField(required=False)
 
     class Meta:
         model = ProductPrice
@@ -289,12 +298,13 @@ class ProductPriceNewForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # self.fields['start_date'].required = True
         # self.fields['end_date'].required = True
+        self.fields['mrp'].disabled = True
         if 'approval_status' in self.fields:
             self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        mrp = int(self.cleaned_data.get('mrp', '0'))
+        # mrp = int(self.cleaned_data.get('mrp', '0'))
         selling_price = int(self.cleaned_data.get('selling_price', '0'))
         # if not mrp:
         #     raise forms.ValidationError(
@@ -625,7 +635,7 @@ class ProductPriceAddPerm(forms.ModelForm):
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+        fields = ('product', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
                   'start_date', 'end_date', 'approval_status')
 
@@ -651,7 +661,7 @@ class ProductPriceChangePerm(forms.ModelForm):
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+        fields = ('product', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
                   'start_date', 'end_date', 'approval_status')
 
