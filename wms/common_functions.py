@@ -201,9 +201,9 @@ class CommonWarehouseInventoryFunctions(object):
 class CommonPickBinInvFunction(object):
 
     @classmethod
-    def create_pick_bin_inventory(cls, warehouse, pickup, batch_id, bin, quantity, pickup_quantity):
+    def create_pick_bin_inventory(cls, warehouse, pickup, batch_id, bin, quantity, bin_quantity, pickup_quantity):
         PickupBinInventory.objects.create(warehouse=warehouse, pickup=pickup, batch_id=batch_id, bin=bin,
-                                          quantity=quantity, pickup_quantity=pickup_quantity)
+                                          quantity=quantity, pickup_quantity=pickup_quantity, bin_quantity=bin_quantity)
 
     @classmethod
     def get_filtered_pick_bin_inv(cls, **kwargs):
