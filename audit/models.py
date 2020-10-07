@@ -86,7 +86,7 @@ class AuditRunItem(BaseTimestampModel):
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     inventory_state = models.ForeignKey(InventoryState, null=True, blank=True, on_delete=models.DO_NOTHING)
     qty_expected = models.PositiveIntegerField()
-    qty_calculated = models.PositiveIntegerField()
+    qty_calculated = models.IntegerField()
     status = models.PositiveSmallIntegerField(choices=AUDIT_STATUS_CHOICES)
 
     class Meta:
@@ -110,7 +110,7 @@ class AuditTicket(BaseTimestampModel):
     qty_expected_type = models.PositiveIntegerField(choices=QTY_TYPE_IDENTIFIER)
     qty_calculated_type = models.PositiveIntegerField(choices=QTY_TYPE_IDENTIFIER)
     qty_expected = models.PositiveIntegerField()
-    qty_calculated = models.PositiveIntegerField()
+    qty_calculated = models.IntegerField()
     status = models.PositiveSmallIntegerField(choices=AUDIT_TICKET_STATUS_CHOICES)
     assigned_user = models.ForeignKey(get_user_model(), related_name='audit_tickets_assigned',
                                       null=True, on_delete=models.DO_NOTHING)
