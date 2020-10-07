@@ -57,6 +57,7 @@ class BaseQuerySet(query.QuerySet):
 class Manager(manager.BaseManager.from_queryset(BaseQuerySet)):
     pass
 
+
 class InventoryType(models.Model):
     inventory_type = models.CharField(max_length=20, choices=INVENTORY_TYPE_CHOICES, null=True, blank=True)
 

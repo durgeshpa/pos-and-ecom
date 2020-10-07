@@ -17,7 +17,7 @@ from retailer_to_sp.models import Order, CartProductMapping, OrderedProduct, Tri
 from shops.models import Shop
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
-                     AUDIT_RUN_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES
+                     AUDIT_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES
                      )
 from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
 from wms.models import WarehouseInventory, WarehouseInternalInventoryChange, InventoryType, InventoryState, \
@@ -182,7 +182,12 @@ def run_bin_warehouse_integrated_audit(audit_run):
                                                 .annotate(quantity=Sum('quantity'))
     pickup_blocked_inventory = Pickup.objects.filter(status__in=['pickup_creation','pickup_assigned'])\
                                              .values('sku_id').annotate(qty=Sum('quantity'))
+
     pickup_dict = {g['sku_id']: g['qty'] for g in pickup_blocked_inventory}
+    pickup_cancelled_inventory = Putaway.objects.filter(status__in=['pickup_cancelled'],
+                                                       putaway_quantity=0)\
+                                               .values('sku_id').annotate(qty=Sum('quantity'))
+
     for item in current_bin_inventory:
         warehouse_quantity = WarehouseInventory.objects.filter(Q(warehouse__id=audit_run.warehouse.id),
                                                                Q(sku_id=item['sku_id']),
@@ -347,7 +352,7 @@ def run_audit(audit_run, inventory_choice):
 
 
 def start_automated_inventory_audit():
-    audits_to_perform = AuditDetail.objects.filter(audit_type=AUDIT_RUN_TYPE_CHOICES.AUTOMATED,
+    audits_to_perform = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.AUTOMATED,
                                                    status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
     for audit in audits_to_perform:
         audit_run = AuditRun.objects.filter(audit=audit, status=AUDIT_RUN_STATUS_CHOICES.IN_PROGRESS)
