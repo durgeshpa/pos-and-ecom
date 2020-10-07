@@ -137,7 +137,7 @@ class PutAwayViewSet(APIView):
             msg = {'is_success': False, 'message': "Bin id is not activated.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         bin_ware_obj = Bin.objects.filter(bin_id=bin_id, is_active=True,
-                                     warehouse=request.user.shop_employee.all()[0].shop_id)
+                                          warehouse=request.user.shop_employee.all()[0].shop_id)
         if not bin_ware_obj:
             msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
@@ -229,7 +229,9 @@ class PutAwayViewSet(APIView):
                         else:
                             if i[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
                                 total = BinInventory.objects.filter(sku=i[:17], bin__bin_id=bin_id,
-                                                            inventory_type=InventoryType.objects.filter(inventory_type='normal').last()).aggregate(total=Sum('quantity'))['total']
+                                                                    inventory_type=InventoryType.objects.filter(
+                                                                        inventory_type='normal').last()).aggregate(
+                                    total=Sum('quantity'))['total']
                                 if total > 0:
                                     msg = {'is_success': False,
                                            'message': 'This product with sku {} and batch_id {} can not be placed in the bin'.format(
@@ -316,7 +318,8 @@ class PickupList(APIView):
         orders = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
                                       Q(picker_order__picking_status__in=['picking_assigned', 'picking_complete']),
                                       Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete']),
-                                      Q(picker_order__picker_assigned_date__startswith=date.date())).order_by('-created_at')
+                                      Q(picker_order__picker_assigned_date__startswith=date.date())).order_by(
+            '-created_at')
 
         if not orders:
             msg = {'is_success': False, 'message': 'No data found.', 'data': None}
@@ -622,14 +625,16 @@ class PickupComplete(APIView):
         msg = {'is_success': True, 'message': 'Pickup Object Does not exist.', 'data': None}
         return Response(msg, status=status.HTTP_404_NOT_FOUND)
 
+
 class DecodeBarcode(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
+
     def post(self, request):
         barcode_list = request.data.get('barcode_list')
         if not barcode_list:
             msg = {'is_success': False, 'message': 'Barcode list field is empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        barcode_list=list(barcode_list.split(","))
+        barcode_list = list(barcode_list.split(","))
         if not isinstance(barcode_list, list):
             msg = {'is_success': False, 'message': 'Format of barcode list is wrong.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
@@ -637,8 +642,9 @@ class DecodeBarcode(APIView):
         for barcode in barcode_list:
             barcode_length = len(barcode)
             if barcode_length != 13:
-                barcode_data = {'type': None, 'id': None , 'barcode':barcode}
-                data_item={'is_success': False, 'message': 'Barcode length must be 13 characters', 'data': barcode_data}
+                barcode_data = {'type': None, 'id': None, 'barcode': barcode}
+                data_item = {'is_success': False, 'message': 'Barcode length must be 13 characters',
+                             'data': barcode_data}
                 data.append(data_item)
                 continue;
             type_identifier = barcode[0]
@@ -647,21 +653,21 @@ class DecodeBarcode(APIView):
                 if id is not None:
                     id = int(id)
                 else:
-                    id=0
+                    id = 0
                 bin = Bin.objects.filter(pk=id).last()
                 if bin is None:
                     barcode_data = {'type': None, 'id': None, 'barcode': barcode}
-                    data_item = {'is_success': False, 'message':'Bin Id not found', 'data': barcode_data}
+                    data_item = {'is_success': False, 'message': 'Bin Id not found', 'data': barcode_data}
                     data.append(data_item)
                 else:
                     bin_id = bin.bin_id
-                    barcode_data = {'type': 'bin', 'id': bin_id, 'barcode':barcode}
-                    data_item={'is_success': True, 'message':'', 'data': barcode_data}
+                    barcode_data = {'type': 'bin', 'id': bin_id, 'barcode': barcode}
+                    data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
 
             elif type_identifier == '2':
                 id = barcode[0:12]
-                grn_product = GRNOrderProductMapping.objects.filter(barcode_id=id).last()
+                grn_product = GRNOrderProductMapping.objects.filter(barcode_id=id, batch_id__isnull=False).last()
 
                 if grn_product is None:
                     barcode_data = {'type': None, 'id': None, 'barcode': barcode}
@@ -669,16 +675,12 @@ class DecodeBarcode(APIView):
                     data.append(data_item)
                 else:
                     batch_id = grn_product.batch_id
-                    barcode_data={'type':'batch','id':batch_id, 'barcode': barcode}
+                    barcode_data = {'type': 'batch', 'id': batch_id, 'barcode': barcode}
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
             else:
                 barcode_data = {'type': 'batch', 'id': batch_id, 'barcode': barcode}
                 data_item = {'is_success': False, 'message': 'Barcode type not supported', 'data': barcode_data}
                 data.append(data_item)
-        msg={'is_success': True, 'message': '', 'data': data}
+        msg = {'is_success': True, 'message': '', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
-
-
-
-

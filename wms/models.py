@@ -276,6 +276,7 @@ class WarehouseInternalInventoryChange(models.Model):
         ('shipped_out', 'Shipped Out'),
         ('stock_correction_in_type', 'stock_correction_in_type'),
         ('stock_correction_out_type', 'stock_correction_out_type'),
+        ('reschedule', 'Reschedule'),
 
     )
 

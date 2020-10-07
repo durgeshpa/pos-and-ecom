@@ -50,7 +50,7 @@ from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOA
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
-from wms.views import shipment_out_inventory_change
+from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
 
 logger = logging.getLogger('django')
 
@@ -1280,13 +1280,15 @@ def commercial_shipment_details(request, pk):
 
 
 def reshedule_update_shipment(shipment, shipment_proudcts_formset):
-    shipment.shipment_status = OrderedProduct.RESCHEDULED
-    shipment.trip = None
-    shipment.save()
+    with transaction.atomic():
+        shipment.shipment_status = OrderedProduct.RESCHEDULED
+        shipment.trip = None
+        shipment.save()
+        shipment_reschedule_inventory_change([shipment])
 
-    for inline_form in shipment_proudcts_formset:
-        instance = getattr(inline_form, 'instance', None)
-        update_delivered_qty(instance, inline_form)
+        for inline_form in shipment_proudcts_formset:
+            instance = getattr(inline_form, 'instance', None)
+            update_delivered_qty(instance, inline_form)
 
 
 class RetailerCart(APIView):
