@@ -1,6 +1,6 @@
 # This file contains the migration script for production env
 from datetime import datetime,timedelta
-from retailer_to_sp.models import Order, CartProductMapping, OrderedProductBatch, OrderedProduct
+from retailer_to_sp.models import Order, CartProductMapping, OrderedProductBatch, OrderedProduct, Cart
 from wms.models import OrderReserveRelease, WarehouseInternalInventoryChange, WarehouseInventory, InventoryType, \
     InventoryState, Pickup, PickupBinInventory, Bin, BinInventory
 from django.db import transaction
@@ -266,7 +266,9 @@ def order_reserve_release_script():
         for obj in order_reserve_release:
             if not obj.transaction_id is None:
                 if obj.transaction_id != obj.warehouse_internal_inventory_release.transaction_id:
-                    if obj.warehouse_internal_inventory_release.transaction_type == 'ordered':
+                    # transaction_id= 'POR2001080000235'
+                    cart_object = Cart.objects.filter(order_id=obj.transaction_id)
+                    if Order.objects.filter(ordered_cart=cart_object[0]).exists():
                         warehouse_product_reserved = WarehouseInventory.objects.filter(
                             warehouse=Shop.objects.get(id=obj.warehouse.id),
                             sku__id=obj.sku.id,
@@ -290,7 +292,7 @@ def order_reserve_release_script():
                                                               sku=Product.objects.get(id=obj.sku.id),
                                                               inventory_state=InventoryState.objects.filter(
                                                                   inventory_state='ordered').last(),
-                                                              quantity=reserved_qty, in_stock=True,
+                                                              quantity=obj.warehouse_internal_inventory_reserve.quantity, in_stock=True,
                                                               inventory_type=InventoryType.objects.filter(
                                                                   inventory_type='normal').last())
                         WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=obj.warehouse.id),
@@ -314,7 +316,7 @@ def order_reserve_release_script():
                             warehouse_internal_inventory_release=WarehouseInternalInventoryChange.objects.filter(
                                 transaction_id=obj.transaction_id, transaction_type='ordered').last(),
                             release_time=datetime.now())
-                    elif obj.warehouse_internal_inventory_release.transaction_type == 'released':
+                    else:
                         warehouse_product_reserved = WarehouseInventory.objects.filter(
                             warehouse=Shop.objects.get(id=obj.warehouse.id),
                             sku__id=obj.sku.id,
