@@ -45,7 +45,6 @@ def run_warehouse_level_audit(audit_run):
                                                   .values('sku_id', 'inventory_type_id',
                                                           'inventory_state_id', 'quantity')
 
-
     last_archived = InventoryArchiveMaster.objects.filter(
                         inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.WAREHOUSE).latest('archive_date')
     audit_run.archive_entry = last_archived
@@ -80,17 +79,15 @@ def run_warehouse_level_audit(audit_run):
         if item['quantity'] == qty_calculated:
             audit_status = AUDIT_STATUS_CHOICES.CLEAN
         AuditRunItem.objects.create(warehouse=audit_run.warehouse,
-                                                 audit_run=audit_run,
-                                                 sku_id=item['sku_id'],
-                                                 inventory_type_id=item['inventory_type_id'],
-                                                 inventory_state_id=item['inventory_state_id'],
-                                                 qty_expected=item['quantity'],
-                                                 qty_calculated=qty_calculated,
-                                                 status=audit_status)
+                                    audit_run=audit_run,
+                                    sku_id=item['sku_id'],
+                                    inventory_type_id=item['inventory_type_id'],
+                                    inventory_state_id=item['inventory_state_id'],
+                                    qty_expected=item['quantity'],
+                                    qty_calculated=qty_calculated,
+                                    status=audit_status)
         if audit_status == AUDIT_STATUS_CHOICES.DIRTY:
             ticket = AuditTicket.objects.create(warehouse=audit_run.warehouse, audit_run=audit_run,
-                                                # audit_type=audit_run.audit.audit_type,
-                                                # audit_inventory_type=audit_run.audit.audit_inventory_type,
                                                 sku_id=item['sku_id'],
                                                 inventory_type_id=item['inventory_type_id'],
                                                 inventory_state_id=item['inventory_state_id'],
@@ -100,6 +97,18 @@ def run_warehouse_level_audit(audit_run):
                                                 qty_calculated=qty_calculated,
                                                 status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
             # AuditTicketHistory.objects.create(audit_ticket=ticket, comment="Created")
+
+
+def bin_transaction_type_switch(tr_type):
+    tr_type_in_out = {
+        'audit_adjustment': 1,
+        'put_away_type': 1,
+        'pickup_created': -1,
+        'pickup_complete': 1,
+        'stock_correction_in_type': 1,
+        'stock_correction_out_type': -1
+    }
+    return tr_type_in_out.get(tr_type, 1)
 
 
 def run_bin_level_audit(audit_run):
@@ -131,14 +140,10 @@ def run_bin_level_audit(audit_run):
                                                                       created_at__lte=audit_started)
 
     for tr in last_day_transactions:
-        if isinstance(inventory_calculated[tr.sku][tr.batch_id][tr.initial_bin_id][tr.initial_type_id], dict):
-            inventory_calculated[tr.sku][tr.batch_id][tr.initial_bin_id][tr.initial_type_id] = 0
-
-        if isinstance(inventory_calculated[tr.sku][tr.batch_id][tr.final_bin_id][tr.final_type_id], dict):
-            inventory_calculated[tr.sku][tr.batch_id][tr.final_bin_id][tr.final_type_id] = 0
-
-        inventory_calculated[tr.sku][tr.batch_id][tr.initial_bin_id][tr.initial_type_id] -= tr.quantity
-        inventory_calculated[tr.sku][tr.batch_id][tr.final_bin_id][tr.final_type_id] += tr.quantity
+        if isinstance(inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id], dict):
+            inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id] = 0
+        quantity = bin_transaction_type_switch(tr.transaction_type)*tr.quantity
+        inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id] += quantity
 
     for item in current_inventory:
         if isinstance(inventory_calculated[item['sku_id']][item['batch_id']][item['bin_id']][item['inventory_type_id']], dict):
@@ -230,8 +235,6 @@ def run_audit_for_daily_operations(audit_run):
     stage_picked = InventoryState.objects.only('id').get(inventory_state='picked').id
     stage_shipped = InventoryState.objects.only('id').get(inventory_state='shipped').id
 
-    inventory_calculated = initialize_dict()
-
     last_archived = InventoryArchiveMaster.objects.filter(
                         inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.WAREHOUSE).latest('archive_date')
     audit_run.archive_entry = last_archived
@@ -268,6 +271,8 @@ def run_audit_for_daily_operations(audit_run):
     for item in reserved_sku:
         if isinstance(inventory_calculated[item['sku_id']][type_normal][stage_reserved], dict):
             inventory_calculated[item['sku_id']][type_normal][stage_reserved] = 0
+        if isinstance(inventory_calculated[item['sku_id']][type_normal][stage_available], dict):
+            inventory_calculated[item['sku_id']][type_normal][stage_available] = 0
 
         inventory_calculated[item['sku_id']][type_normal][stage_reserved] += item['qty']
         inventory_calculated[item['sku_id']][type_normal][stage_available] -= item['qty']
@@ -278,6 +283,8 @@ def run_audit_for_daily_operations(audit_run):
         for item in ordered_sku:
             if isinstance(inventory_calculated[item['cart_product__product_sku']][type_normal][stage_ordered], dict):
                 inventory_calculated[item['cart_product__product_sku']][type_normal][stage_ordered] = 0
+            if isinstance(inventory_calculated[item['cart_product__product_sku']][type_normal][stage_available], dict):
+                inventory_calculated[item['cart_product__product_sku']][type_normal][stage_available] = 0
 
             inventory_calculated[item['cart_product__product_sku']][type_normal][stage_ordered] += item['qty']
             inventory_calculated[item['cart_product__product_sku']][type_normal][stage_available] -= item['qty']
@@ -288,6 +295,10 @@ def run_audit_for_daily_operations(audit_run):
     for item in pickups:
         if isinstance(inventory_calculated[item['pickup__sku_id']][type_normal][stage_picked], dict):
             inventory_calculated[item['pickup__sku_id']][type_normal][stage_picked] = 0
+        if isinstance(inventory_calculated[item['pickup__sku_id']][type_normal][stage_ordered], dict):
+            inventory_calculated[item['pickup__sku_id']][type_normal][stage_ordered] = 0
+        if isinstance(inventory_calculated[item['pickup__sku_id']][type_normal][stage_available], dict):
+                inventory_calculated[item['pickup__sku_id']][type_normal][stage_available] = 0
 
         inventory_calculated[item['pickup__sku_id']][type_normal][stage_picked] += item['pickup_qty']
         inventory_calculated[item['pickup__sku_id']][type_normal][stage_ordered] -= item['qty']
@@ -302,6 +313,9 @@ def run_audit_for_daily_operations(audit_run):
             for item in shipment_sku:
                 if isinstance(inventory_calculated[item['product__product_sku']][type_normal][stage_shipped], dict):
                     inventory_calculated[item['product__product_sku']][type_normal][stage_shipped] = 0
+                if isinstance(inventory_calculated[item['product__product_sku']][type_normal][stage_picked], dict):
+                    inventory_calculated[item['product__product_sku']][type_normal][stage_picked] = 0
+
                 inventory_calculated[item['product__product_sku']][type_normal][stage_shipped] += item['qty']
                 inventory_calculated[item['product__product_sku']][type_normal][stage_picked] -= item['qty']
 
@@ -363,7 +377,6 @@ def start_automated_inventory_audit():
             info_logger.error(e)
             audit_run.status = AUDIT_RUN_STATUS_CHOICES.ABORTED
             audit_run.save()
-            raise
         audit_run.status = AUDIT_RUN_STATUS_CHOICES.COMPLETED
         audit_run.completed_at = datetime.datetime.now()
         audit_run.save()
