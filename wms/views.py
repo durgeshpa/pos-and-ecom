@@ -20,7 +20,7 @@ from sp_to_gram.tasks import update_shop_product_es, update_product_es
 from django.db.models.signals import post_save
 from django.db.models import Sum
 from django.dispatch import receiver
-from django.db import transaction
+from django.db import transaction, DatabaseError
 from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
@@ -514,20 +514,24 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 quantity = int(data[6]) + int(data[7]) + int(data[8]) + int(data[9])
                 if data[5] == 'Out':
                     Out.objects.create(warehouse=Shop.objects.get(id=data[0]),
-                                                                     out_type='stock_correction_out_type',
-                                                                     out_type_id=stock_movement_obj[0].id,
-                                                                     sku=Product.objects.get(product_sku=data[2]),
-                                                                     batch_id=batch_id, quantity=quantity)
+                                       out_type='stock_correction_out_type',
+                                       out_type_id=stock_movement_obj[0].id,
+                                       sku=Product.objects.get(product_sku=data[2]),
+                                       batch_id=batch_id, quantity=quantity)
                     transaction_type_obj = Out.objects.filter(batch_id=batch_id, warehouse=Shop.objects.get(
-                                                                                            id=data[0]))
+                        id=data[0]))
                     transaction_type = 'stock_correction_out_type'
                 else:
                     in_obj = InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
-                                                stock_movement_obj[0].id, Product.objects.get(product_sku=data[2]),
-                                                batch_id, quantity, 0)
-                    transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(warehouse=in_obj.warehouse, putaway_type=in_obj.in_type,
-                                                                                        putaway_type_id=in_obj.id, sku=in_obj.sku,
-                                                  batch_id=in_obj.batch_id, quantity=in_obj.quantity)
+                                                         stock_movement_obj[0].id,
+                                                         Product.objects.get(product_sku=data[2]),
+                                                         batch_id, quantity, 0)
+                    transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(warehouse=in_obj.warehouse,
+                                                                                        putaway_type=in_obj.in_type,
+                                                                                        putaway_type_id=in_obj.id,
+                                                                                        sku=in_obj.sku,
+                                                                                        batch_id=in_obj.batch_id,
+                                                                                        quantity=in_obj.quantity)
                     transaction_type = 'stock_correction_in_type'
 
                 # Create date in BinInventory, Put Away BinInventory and WarehouseInventory
@@ -536,7 +540,8 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 status = True
                 iter_list = iterate_quantity_type(data)
                 for key, value in iter_list.items():
-                    inventory_in_and_out(Shop.objects.get(id=data[0]), data[4], Product.objects.get(product_sku=data[2]), batch_id, key,
+                    inventory_in_and_out(Shop.objects.get(id=data[0]), data[4],
+                                         Product.objects.get(product_sku=data[2]), batch_id, key,
                                          inventory_state, status, value, status, transaction_type_obj,
                                          transaction_type, data[5])
 
@@ -662,9 +667,9 @@ def pickup_entry_creation_with_cron():
     current_time = datetime.now() - timedelta(minutes=1)
     start_time = datetime.now() - timedelta(days=30)
     order_obj = Order.objects.filter(order_status='ordered',
-                               order_closed=False,
-                               created_at__lt=current_time,
-                               created_at__gt=start_time)
+                                     order_closed=False,
+                                     created_at__lt=current_time,
+                                     created_at__gt=start_time)
     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
     data_list = []
     with transaction.atomic():
@@ -679,7 +684,8 @@ def pickup_entry_creation_with_cron():
                 order_obj.update(order_status='PICKUP_CREATED')
                 shop = Shop.objects.filter(id=order.seller_shop.id).last()
                 for order_product in order.ordered_cart.rt_cart_list.all():
-                    CommonPickupFunctions.create_pickup_entry(shop, 'Order', order.order_no, order_product.cart_product, order_product.no_of_pieces,
+                    CommonPickupFunctions.create_pickup_entry(shop, 'Order', order.order_no, order_product.cart_product,
+                                                              order_product.no_of_pieces,
                                                               'pickup_creation')
                 pu = Pickup.objects.filter(pickup_type_id=order.order_no)
                 for obj in pu:
@@ -721,7 +727,8 @@ def pickup_entry_creation_with_cron():
                                          "batch_id": batch_id, "bin": bin_id}
                             data_list.append(prod_list)
                             CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
-                                                                               quantity=already_picked, bin_quantity=qty_in_bin,
+                                                                               quantity=already_picked,
+                                                                               bin_quantity=qty_in_bin,
                                                                                pickup_quantity=None)
                             InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
                                                                                          bin_inv.bin,
@@ -739,7 +746,8 @@ def pickup_entry_creation_with_cron():
                                          "batch_id": batch_id, "bin": bin_id}
                             data_list.append(prod_list)
                             CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
-                                                                               quantity=already_picked, bin_quantity=qty_in_bin,
+                                                                               quantity=already_picked,
+                                                                               bin_quantity=qty_in_bin,
                                                                                pickup_quantity=None)
                             InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
                                                                                          bin_inv.bin,
@@ -1204,7 +1212,7 @@ def bulk_putaway(self, request, argument_list):
                                 pass
                             else:
                                 message = "You can't perform this action, Non zero qty of more than one Batch ID of a" \
-                                           " single SKU can’t be saved in the same Bin ID."
+                                          " single SKU can’t be saved in the same Bin ID."
                                 return message, False
                 bin_id = obj.bin
                 if obj.putaway_type == 'Order_Cancelled':
@@ -1240,3 +1248,37 @@ def bulk_putaway(self, request, argument_list):
 
         message = "Bulk Approval for Put Away has been done successfully."
         return message, True
+
+
+def shipment_reschedule_inventory_change(shipment_list):
+    for shipment in shipment_list:
+        type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+        state_picked = InventoryState.objects.filter(inventory_state="picked").last()
+        state_shipped = InventoryState.objects.filter(inventory_state="shipped").last()
+        shipment_item_list = OrderedProductMapping.objects.filter(ordered_product=shipment).all()
+        with transaction.atomic():
+            try:
+                for shipment_item in shipment_item_list:
+                    shipment_batch_list = OrderedProductBatch.objects.filter(ordered_product_mapping=shipment_item).all()
+                    for shipment_batch in shipment_batch_list:
+                        InCommonFunctions.create_only_in(shipment.order.seller_shop, 'reschedule', shipment.pk,
+                                                     shipment_item.product, shipment_batch.batch_id,shipment_batch.quantity)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
+                                                                                 shipment_item.product,
+                                                                                 "normal", "shipped",
+                                                                                 shipment_item.shipped_qty * -1,
+                                                                                 True)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
+                                                                                 shipment_item.product,
+                                                                                 "normal", "picked",
+                                                                                 shipment_item.shipped_qty,
+                                                                                 True)
+
+                    InternalWarehouseChange.create_warehouse_inventory_change(shipment.order.seller_shop,
+                                                                              shipment_item.product, "reschedule",
+                                                                              shipment.pk, type_normal, state_shipped,
+                                                                              type_normal, state_picked,
+                                                                              shipment_item.shipped_qty, None)
+
+            except DatabaseError as e:
+                print(e)
