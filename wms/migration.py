@@ -258,7 +258,7 @@ def create_shipment_data_return():
             shipment_shipped_entry(ordered_product)
 
 
-def order_reserve_release():
+def order_reserve_release_script():
     """This script is for creating an entry in Warehosue and Warehouse internal inventory if
     Order reserve release transaction id and order number is not same"""
     with transaction.atomic():
