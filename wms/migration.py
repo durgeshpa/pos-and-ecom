@@ -4,6 +4,8 @@ from retailer_to_sp.models import Order, CartProductMapping, OrderedProductBatch
 from wms.models import OrderReserveRelease, WarehouseInternalInventoryChange, WarehouseInventory, InventoryType, \
     InventoryState, Pickup, PickupBinInventory, Bin, BinInventory
 from django.db import transaction
+from shops.models import Shop
+from products.models import Product
 import logging
 
 info_logger = logging.getLogger('file-info')
@@ -254,3 +256,63 @@ def create_shipment_data_return():
             shipment_basic_entry(ordered_product)
             shipment_picked_entry(ordered_product)
             shipment_shipped_entry(ordered_product)
+
+
+def order_reserve_release():
+    """This script is for creating an entry in Warehosue and Warehouse internal inventory if
+    Order reserve release transaction id and order number is not same"""
+    with transaction.atomic():
+        order_reserve_release = OrderReserveRelease.objects.all()
+        for obj in order_reserve_release:
+            if not obj.transaction_id is None:
+                if obj.transaction_id != obj.warehouse_internal_inventory_release.transaction_id:
+                    warehouse_product_reserved = WarehouseInventory.objects.filter(
+                        warehouse=Shop.objects.get(id=obj.warehouse.id),
+                        sku__id=obj.sku.id,
+                        inventory_state__inventory_state='reserved').last()
+                    if warehouse_product_reserved:
+                        reserved_qty = warehouse_product_reserved.quantity
+                        warehouse_product_reserved.quantity = reserved_qty - obj.warehouse_internal_inventory_reserve.quantity
+                        warehouse_product_reserved.save()
+
+                    warehouse_product_ordered = WarehouseInventory.objects.filter(
+                        warehouse=Shop.objects.get(id=obj.warehouse.id),
+                        sku__id=obj.sku.id,
+                        inventory_type__inventory_type='normal',
+                        inventory_state__inventory_state='ordered').last()
+                    if warehouse_product_ordered:
+                        available_qty = warehouse_product_ordered.quantity
+                        warehouse_product_ordered.quantity = available_qty + obj.warehouse_internal_inventory_reserve.quantity
+                        warehouse_product_ordered.save()
+                    else:
+                        WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=obj.warehouse.id),
+                                                          sku=Product.objects.get(id=obj.sku.id),
+                                                          inventory_state=InventoryState.objects.filter(
+                                                              inventory_state='ordered').last(),
+                                                          quantity=reserved_qty, in_stock=True,
+                                                          inventory_type=InventoryType.objects.filter(
+                                                              inventory_type='normal').last())
+                    WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=obj.warehouse.id),
+                                                                    sku=Product.objects.get(id=obj.sku.id),
+                                                                    transaction_type='ordered',
+                                                                    transaction_id=obj.transaction_id,
+                                                                    initial_type=InventoryType.objects.filter(
+                                                                        inventory_type='normal').last(),
+                                                                    final_type=InventoryType.objects.filter(
+                                                                        inventory_type='normal').last(),
+                                                                    initial_stage=InventoryState.objects.filter(
+                                                                        inventory_state='reserved').last(),
+                                                                    final_stage=InventoryState.objects.filter(
+                                                                        inventory_state='ordered').last(),
+                                                                    quantity=obj.warehouse_internal_inventory_reserve.quantity)
+                    order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=Shop.objects.get(id=obj.warehouse.id),
+                                                                           sku=Product.objects.get(
+                                                                               id=obj.sku.id),
+                                                                           transaction_id=obj.transaction_id)
+                    order_reserve_obj.update(
+                        warehouse_internal_inventory_release=WarehouseInternalInventoryChange.objects.filter(
+                            transaction_id=obj.transaction_id, transaction_type='ordered').last(),
+                        release_time=datetime.now())
+
+
+
