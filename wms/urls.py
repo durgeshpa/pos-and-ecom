@@ -21,6 +21,7 @@ urlpatterns = [
     url(r'^final-stage-autocomplete/$', InventoryStateFilter.as_view(), name='final-stage-autocomplete'),
     url(r'^putaway-user-autocomplete/$', PutawayUserFilter.as_view(), name='putaway-user-autocomplete'),
     url(r'^merged_barcode/(?P<id>[\w-]+)/$', MergeBarcode.as_view(), name='merged_barcodes'),
+    url(r'^archive/$', wms.views.archive_inventory_cron, name='archive'),
 
 
 ]

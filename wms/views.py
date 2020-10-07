@@ -41,6 +41,7 @@ from .common_functions import InternalInventoryChange, CommonBinInventoryFunctio
     InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV, \
     InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory, inventory_in_and_out
 from barCodeGenerator import barcodeGen, merged_barcode_gen
+from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -1206,6 +1207,46 @@ def shipment_out_inventory_change(shipment_list, final_status):
             pass
 
 
+def archive_inventory_cron():
+    info_logger.info("WMS : Archiving warehouse inventory data started at {}".format(datetime.now()))
+    today = datetime.today()
+    archive_entry = InventoryArchiveMaster.objects.create(archive_date=today,
+                                                          inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.WAREHOUSE)
+    warehouse_inventory_list = WarehouseInventory.objects.all()
+
+    # info_logger.info("WMS : Archiving warehouse inventory : total items {}".format(warehouse_inventory_list.count()))
+    for inventory in warehouse_inventory_list:
+        historic_entry = WarehouseInventoryHistoric(archive_entry=archive_entry,
+                                                    warehouse=inventory.warehouse,
+                                                    sku=inventory.sku,
+                                                    inventory_type=inventory.inventory_type,
+                                                    inventory_state=inventory.inventory_state,
+                                                    quantity=inventory.quantity,
+                                                    in_stock=inventory.in_stock,
+                                                    created_at=inventory.created_at,
+                                                    modified_at=inventory.modified_at)
+        historic_entry.save()
+    info_logger.info("WMS : Archiving bin inventory data started at {}".format(datetime.now()))
+    archive_entry = InventoryArchiveMaster.objects.create(archive_date=today,
+                                                          inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.BIN)
+    bin_inventory_list = BinInventory.objects.all()
+    # info_logger.info("WMS : Archiving bin inventory : total items {}".format(bin_inventory_list.count()))
+    for inventory in bin_inventory_list:
+        historic_entry = BinInventoryHistoric(archive_entry=archive_entry,
+                                              warehouse=inventory.warehouse,
+                                              sku=inventory.sku,
+                                              bin=inventory.bin,
+                                              batch_id=inventory.batch_id,
+                                              inventory_type=inventory.inventory_type,
+                                              quantity=inventory.quantity,
+                                              in_stock=inventory.in_stock,
+                                              created_at=inventory.created_at,
+                                              modified_at=inventory.modified_at)
+        historic_entry.save()
+
+    info_logger.info("WMS : Archiving inventory data ended at {}".format(datetime.now()))
+
+
 def bulk_putaway(self, request, argument_list):
     with transaction.atomic():
         for obj in argument_list:
@@ -1267,7 +1308,6 @@ def bulk_putaway(self, request, argument_list):
         message = "Bulk Approval for Put Away has been done successfully."
         return message, True
 
-
 def shipment_reschedule_inventory_change(shipment_list):
     for shipment in shipment_list:
         type_normal = InventoryType.objects.filter(inventory_type="normal").last()
@@ -1300,3 +1340,4 @@ def shipment_reschedule_inventory_change(shipment_list):
 
             except DatabaseError as e:
                 print(e)
+
