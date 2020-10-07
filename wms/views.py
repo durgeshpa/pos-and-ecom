@@ -692,14 +692,30 @@ def pickup_entry_creation_with_cron():
                                                               inventory_type__inventory_type='normal').order_by(
                         '-batch_id',
                         'quantity')
-                    for k in bin_lists:
-                        if len(k.batch_id) == 23:
-                            bin_inv_dict[k] = str(datetime.strptime(
-                                k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],
-                                "%d-%m-%Y"))
+                    if bin_lists.exists():
+                        for k in bin_lists:
+                            if len(k.batch_id) == 23:
+                                bin_inv_dict[k] = str(datetime.strptime(
+                                    k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],
+                                    "%d-%m-%Y"))
+                            else:
+                                bin_inv_dict[k] = str(
+                                    datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
+                                                      "%d-%m-%Y"))
+                    else:
+                        bin_lists = obj.sku.rt_product_sku.filter(quantity=0,
+                                                                  inventory_type__inventory_type='normal').order_by(
+                            '-batch_id',
+                            'quantity').last()
+                        if len(bin_lists.batch_id) == 23:
+                            bin_inv_dict[bin_lists] = str(datetime.strptime(
+                                    bin_lists.batch_id[17:19] + '-' + bin_lists.batch_id[19:21] + '-' + '20' + bin_lists.batch_id[21:23],
+                                    "%d-%m-%Y"))
                         else:
-                            bin_inv_dict[k] = str(
-                                datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21], "%d-%m-%Y"))
+                            bin_inv_dict[bin_lists] = str(
+                                datetime.strptime('30-' + bin_lists.batch_id[17:19] + '-20' + bin_lists.batch_id[19:21],
+                                                  "%d-%m-%Y"))
+
                     bin_inv_list = list(bin_inv_dict.items())
                     bin_inv_dict = dict(sorted(dict(bin_inv_list).items(), key=lambda x: x[1]))
                     product = obj.sku.product_name
