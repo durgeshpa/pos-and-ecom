@@ -27,6 +27,8 @@ from num2words import num2words
 import collections
 from django.core.files.base import ContentFile
 from django.shortcuts import redirect
+
+from wms.views import shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, GramGRNProductsSearchSerializer,
                           CartProductMappingSerializer, CartSerializer, OrderSerializer,
                           CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
@@ -2057,6 +2059,7 @@ class RescheduleReason(generics.ListCreateAPIView):
         shipment.shipment_status = OrderedProduct.RESCHEDULED
         shipment.trip = None
         shipment.save()
+        shipment_reschedule_inventory_change([shipment])
 
 
 def update_trip_status(trip_id):
