@@ -97,6 +97,12 @@ class InCommonFunctions(object):
             return in_obj
 
     @classmethod
+    def create_only_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity):
+        if warehouse.shop_type.shop_type == 'sp':
+            in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
+                                       batch_id=batch_id, quantity=quantity)
+
+    @classmethod
     def get_filtered_in(cls, **kwargs):
         in_data = In.objects.filter(**kwargs)
         return in_data
@@ -201,9 +207,9 @@ class CommonWarehouseInventoryFunctions(object):
 class CommonPickBinInvFunction(object):
 
     @classmethod
-    def create_pick_bin_inventory(cls, warehouse, pickup, batch_id, bin, quantity, pickup_quantity):
+    def create_pick_bin_inventory(cls, warehouse, pickup, batch_id, bin, quantity, bin_quantity, pickup_quantity):
         PickupBinInventory.objects.create(warehouse=warehouse, pickup=pickup, batch_id=batch_id, bin=bin,
-                                          quantity=quantity, pickup_quantity=pickup_quantity)
+                                          quantity=quantity, pickup_quantity=pickup_quantity, bin_quantity=bin_quantity)
 
     @classmethod
     def get_filtered_pick_bin_inv(cls, **kwargs):
@@ -613,11 +619,12 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
                                                                warehouse_internal_inventory_release_id=None)
     for order_product in order_reserve_release:
         # call function for release inventory
+        release_type = 'manual'
         common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status,
-                                     order_product)
+                                     order_product, release_type)
 
 
-def common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status, order_product):
+def common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status, order_product, release_type):
     """
 
     :param prod_list:
@@ -669,10 +676,13 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
                                                         quantity=order_product.warehouse_internal_inventory_reserve.quantity)
         order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=Shop.objects.get(id=shop_id),
                                                                sku=Product.objects.get(id=order_product.sku.id),
-                                                               warehouse_internal_inventory_release=None)
+                                                               warehouse_internal_inventory_release=None,
+                                                               transaction_id=transaction_id)
         order_reserve_obj.update(
-            warehouse_internal_inventory_release=WarehouseInternalInventoryChange.objects.all().last(),
-            release_time=datetime.now())
+            warehouse_internal_inventory_release=WarehouseInternalInventoryChange.objects.filter(
+                transaction_id=transaction_id).last(),
+            release_time=datetime.now(), release_type=release_type,
+            ordered_quantity=order_product.warehouse_internal_inventory_reserve.quantity)
 
 
 def cancel_order(instance):

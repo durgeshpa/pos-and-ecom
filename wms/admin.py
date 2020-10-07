@@ -476,9 +476,9 @@ class PickupAdmin(admin.ModelAdmin):
 class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'quantity', 'pickup_quantity', 'created_at')
+    list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity', 'created_at')
     list_select_related = ('warehouse', 'pickup', 'bin')
-    readonly_fields = ('quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin', 'created_at')
+    readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin', 'created_at')
     search_fields = ('batch_id', 'bin__bin__bin_id')
     list_filter = [Warehouse, BatchIdFilter, BinIDFilterForPickupBinInventory, ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
@@ -597,11 +597,11 @@ class StockCorrectionChangeAdmin(admin.ModelAdmin):
 
 class OrderReleaseAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'transaction_id', 'order_number', 'warehouse_internal_inventory_reserve',
+        'warehouse', 'sku', 'release_type', 'ordered_quantity', 'transaction_id', 'order_number', 'warehouse_internal_inventory_reserve',
         'warehouse_internal_inventory_release',
         'reserved_time', 'release_time', 'created_at')
     readonly_fields = (
-        'warehouse', 'sku', 'transaction_id', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release',
+        'warehouse', 'sku','release_type', 'ordered_quantity', 'transaction_id', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release',
         'reserved_time',
         'release_time', 'created_at')
 

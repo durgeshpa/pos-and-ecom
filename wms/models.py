@@ -244,6 +244,7 @@ class PickupBinInventory(models.Model):
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField(null=True, default=None)
+    bin_quantity = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     shipment_batch = models.ForeignKey('retailer_to_sp.OrderedProductBatch', null=True, related_name='rt_pickup_batch_mapping',
@@ -289,6 +290,7 @@ class WarehouseInternalInventoryChange(models.Model):
         ('shipped_out', 'Shipped Out'),
         ('stock_correction_in_type', 'stock_correction_in_type'),
         ('stock_correction_out_type', 'stock_correction_out_type'),
+        ('reschedule', 'Reschedule'),
 
     )
 
@@ -369,6 +371,10 @@ class StockCorrectionChange(models.Model):
 
 
 class OrderReserveRelease(models.Model):
+    release_type = (
+        ('cron', "CRON"),
+        ('manual', "Manual"),
+    )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
@@ -378,6 +384,8 @@ class OrderReserveRelease(models.Model):
     warehouse_internal_inventory_release = models.ForeignKey(WarehouseInternalInventoryChange,
                                                              related_name='internal_inventory_release',
                                                              null=True, blank=True, on_delete=models.DO_NOTHING)
+    release_type = models.CharField(max_length=25, choices=release_type, null=True, blank=True)
+    ordered_quantity = models.PositiveIntegerField(null=True, blank=True)
     reserved_time = models.DateTimeField(null=True, blank=True)
     release_time = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
