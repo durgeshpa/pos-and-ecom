@@ -1,4 +1,4 @@
-from admin_auto_filters.filters import AutocompleteFilter, AutocompleteFilterFactory
+from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django_filters import BooleanFilter
 from rangefilter.filter import DateTimeRangeFilter
@@ -346,7 +346,10 @@ class ParentProductAdmin(admin.ModelAdmin):
     form = ParentProductForm
 
     class Media:
-        pass
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            'admin/js/child_product_form.js'
+        )
 
     change_list_template = 'admin/products/parent_product_change_list.html'
     change_form_template = 'admin/products/parent_product_change_form.html'

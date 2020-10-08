@@ -179,7 +179,7 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT'),
-	},
+    },
     'readonly': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': config('DB_NAME'),
@@ -247,7 +247,7 @@ REST_FRAMEWORK = {
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE =  'Asia/Kolkata'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
@@ -267,7 +267,7 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'
 STATIC_URL = '/static/'
 #STATIC_ROOT = os.path.join(BASE_DIR, "static/")
 STATIC_ROOT = os.path.join(BASE_DIR, "static_root")
-STATICFILES_DIRS = ( os.path.join(BASE_DIR, "static"),)
+STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = '/media/'
@@ -307,7 +307,7 @@ AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
 AWS_S3_CUSTOM_DOMAIN = config('AWS_S3_CUSTOM_DOMAIN')
 AWS_S3_CUSTOM_DOMAIN_ORIG = config('AWS_S3_CUSTOM_DOMAIN_ORIG')
 AWS_S3_OBJECT_PARAMETERS = {
-  'CacheControl': 'max-age=86400',
+    'CacheControl': 'max-age=86400',
 }
 MEDIAFILES_LOCATION = 'media'
 DEFAULT_FILE_STORAGE = 'retailer_backend.storage.MediaStorage'
@@ -321,7 +321,7 @@ WKHTMLTOPDF_CMD_OPTIONS = {
     'quiet': True,
 }
 
-TEMPUS_DOMINUS_INCLUDE_ASSETS=False
+TEMPUS_DOMINUS_INCLUDE_ASSETS = False
 
 CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.discounted_order_cancellation', '>> /tmp/discounted_cancellation.log'),
@@ -336,7 +336,7 @@ CRONJOBS = [
     ('* */6 * * *', 'retailer_backend.cron.sync_es_products')
 ]
 
-INTERNAL_IPS = ['127.0.0.1','localhost']
+INTERNAL_IPS = ['127.0.0.1', 'localhost']
 
 DEBUG_TOOLBAR_CONFIG = {
     'SHOW_TOOLBAR_CALLBACK': lambda x: True
@@ -345,11 +345,11 @@ DEBUG_TOOLBAR_CONFIG = {
 DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
-if ENVIRONMENT.lower() in ["production","stage", "qa", "qa1","qa3"]:
+if ENVIRONMENT.lower() in ["production", "stage", "qa", "qa1", "qa3"]:
     from sentry_sdk.integrations.celery import CeleryIntegration
     sentry_sdk.init(
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
-        integrations=[DjangoIntegration(),CeleryIntegration()],
+        integrations=[DjangoIntegration(), CeleryIntegration()],
         environment=ENVIRONMENT.lower()
     )
 
@@ -416,7 +416,7 @@ CELERY_ROUTES = {
 
 # ElasticSearch
 ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')
-ELASTICSEARCH_DSL={
+ELASTICSEARCH_DSL = {
     'default': {
         'hosts': '35.154.13.198:9200'
     },
@@ -434,57 +434,57 @@ CACHES = {
 }
 #DataFlair #Logging Information
 LOGGING = {
-   'version': 1,
-   'disable_existing_loggers': False,
-   'loggers': {
-       'django': {
-           'handlers': ['file-info','file-error'],
-           'level': 'INFO',
-           'propagate': True,
-       },
+    'version': 1,
+    'disable_existing_loggers': False,
+    'loggers': {
+        'django': {
+            'handlers': ['file-info', 'file-error'],
+            'level': 'INFO',
+            'propagate': True,
+        },
         'file-info': {
-                   'handlers': ['file-info'],
-                   'level': 'INFO',
-                   'propagate': True,
-               },
+            'handlers': ['file-info'],
+            'level': 'INFO',
+            'propagate': True,
+        },
         'file-error': {
-           'handlers': ['file-error'],
-           'level': 'INFO',
-           'propagate': True,
-       },
-   },
-   'handlers': {
-       # 'file-debug': {
-       #     'level': 'DEBUG',
-       #     'class': 'logging.FileHandler',
-       #     'filename': '/var/log/retailer-backend/debug.log',
-       #     'formatter': 'verbose',
-       # },
-       'file-info': {
-           'level': 'INFO',
-           'class': 'logging.FileHandler',
-           'filename': '/var/log/retailer-backend/info.log',
-           'formatter': 'verbose',
-       },
-       'file-error': {
-           'level': 'ERROR',
-           'class': 'logging.FileHandler',
-           'filename': '/var/log/retailer-backend/error.log',
-           'formatter': 'verbose',
-       },
-       # 'console': {
-       #     'class': 'logging.StreamHandler',
-       #     'formatter': 'simple',
-       # },
+            'handlers': ['file-error'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+    'handlers': {
+        # 'file-debug': {
+        #     'level': 'DEBUG',
+        #     'class': 'logging.FileHandler',
+        #     'filename': '/var/log/retailer-backend/debug.log',
+        #     'formatter': 'verbose',
+        # },
+        'file-info': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/retailer-backend/info.log',
+            'formatter': 'verbose',
+        },
+        'file-error': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/retailer-backend/error.log',
+            'formatter': 'verbose',
+        },
+        # 'console': {
+        #     'class': 'logging.StreamHandler',
+        #     'formatter': 'simple',
+        # },
 
-   },
-   'formatters': {
-       'verbose': {
-           'format': '%(levelname)s|%(asctime)s|%(module)s|%(process)d|%(thread)d|%(message)s',
-           'datefmt' : "%d/%b/%Y %H:%M:%S"
-       },
-       'simple': {
-           'format': '%(levelname)s|%(message)s'
-       },
-   },
+    },
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s|%(asctime)s|%(module)s|%(process)d|%(thread)d|%(message)s',
+            'datefmt' : "%d/%b/%Y %H:%M:%S"
+        },
+        'simple': {
+            'format': '%(levelname)s|%(message)s'
+        },
+    },
 }
