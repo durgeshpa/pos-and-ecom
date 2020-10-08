@@ -422,6 +422,12 @@ class ProductForm(forms.ModelForm):
         #           'product_case_size','weight_value', 'weight_unit', 'status',)
         fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'child_product_image', 'status',)
 
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        if not cleaned_data.get('use_parent_image'):
+            raise forms.ValidationError("Sorry! Must provide child image when not using Parent Image.")
+        return cleaned_data
+
 
 class UploadChildProductAdminForm(forms.Form):
     """

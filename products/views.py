@@ -13,6 +13,7 @@ from django.views import View
 from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import permission_required
+from admin_auto_filters.views import AutocompleteJsonView
 
 from decimal import Decimal
 
@@ -950,7 +951,7 @@ def FetchDefaultChildDdetails(request):
     }
     if not parent_product_id:
         return JsonResponse(data)
-    def_child = Product.objects.filter(parent_product=parent_product_id, reason_for_child_sku='default').last()
+    def_child = Product.objects.filter(parent_product=parent_product_id, reason_for_child_sku__icontains='default').last()
     if def_child:
         data = {
             'found': True,
@@ -961,10 +962,30 @@ def FetchDefaultChildDdetails(request):
             'weight_unit': {
                 'option': def_child.weight_unit,
                 'text': 'Gram'
-            }
+            },
+            'enable_use_parent_image_check': True if def_child.parent_product.image else False
         }
 
     return JsonResponse(data)
+
+
+class ParentProductsAutocompleteView(AutocompleteJsonView):
+    def get_queryset(self):
+        queryset = ParentProduct.objects.all().order_by('name')
+
+        if self.term:
+            queryset = queryset.filter(name__icontains=self.term)
+
+        return queryset
+
+
+def FetchAllParentCategories(request):
+    data = { 'categories': [] }
+    categories = Category.objects.all()
+    for category in categories:
+        data['categories'].append(category.category_name)
+
+    return JsonResponse(data, safe=False)
 
 
 def FetchProductDdetails(request):
@@ -972,11 +993,9 @@ def FetchProductDdetails(request):
     data = {
         'found': False
     }
-    print(product_id)
     if not product_id:
         return JsonResponse(data)
     def_product = Product.objects.filter(pk=product_id).last()
-    print(def_product)
     if def_product:
         data = {
             'found': True,

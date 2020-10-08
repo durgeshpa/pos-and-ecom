@@ -1,4 +1,4 @@
-from admin_auto_filters.filters import AutocompleteFilter
+from admin_auto_filters.filters import AutocompleteFilter, AutocompleteFilterFactory
 from daterange_filter.filter import DateRangeFilter
 from django_filters import BooleanFilter
 from rangefilter.filter import DateTimeRangeFilter
@@ -13,7 +13,7 @@ from django.conf.urls import url
 from django.urls import reverse
 from django.utils.html import format_html
 
-from retailer_backend.admin import InputFilter
+from retailer_backend.admin import InputFilter, SelectInputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
@@ -38,7 +38,8 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     products_export_for_vendor, products_filter_view,
                     products_price_filter_view, products_vendor_mapping,
                     parent_product_upload, ParentProductsDownloadSampleCSV,
-                    product_csv_upload, ChildProductsDownloadSampleCSV, ParentProductAutocomplete)
+                    product_csv_upload, ChildProductsDownloadSampleCSV,
+                    ParentProductAutocomplete, ParentProductsAutocompleteView)
 from .filters import BulkTaxUpdatedBySearch
 
 
@@ -100,6 +101,14 @@ class BrandFilter(AutocompleteFilter):
     field_name = 'product_brand'  # name of the foreign key field
 
 
+class ChildParentIDFilter(AutocompleteFilter):
+    title = 'Parent ID'  # display title
+    field_name = 'parent_product'  # name of the foreign key field
+
+    def get_autocomplete_url(self, request, model_admin):
+        return reverse('admin:parent-product-list-filter-autocomplete')
+
+
 class ParentBrandFilter(AutocompleteFilter):
     title = 'Brand'  # display title
     field_name = 'parent_brand'  # name of the foreign key field
@@ -110,7 +119,7 @@ class CategoryFilter(AutocompleteFilter):
     field_name = 'category_name'  # name of the foreign key field
 
 
-class ParentCategorySearch(InputFilter):
+class ParentCategorySearch(SelectInputFilter):
     parameter_name = 'category'
     title = 'Category'
 
@@ -321,6 +330,9 @@ class ParentProductCategoryAdmin(TabularInline):
 
 def deactivate_selected_products(modeladmin, request, queryset):
     queryset.update(status=False)
+    for record in queryset:
+        child_skus = Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='deactivated')
+
 deactivate_selected_products.short_description = "Deactivate Selected Products"
 
 
@@ -340,7 +352,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     change_form_template = 'admin/products/parent_product_change_form.html'
     actions = [deactivate_selected_products, approve_selected_products]
     list_display = [
-        'parent_id', 'name', 'parent_brand', 'product_hsn', 'gst', 'product_image', 'status'
+        'parent_id', 'name', 'parent_brand', 'product_hsn', 'product_gst', 'product_image', 'status'
     ]
     search_fields = [
         'parent_id', 'name'
@@ -348,13 +360,18 @@ class ParentProductAdmin(admin.ModelAdmin):
     inlines = [
         ParentProductCategoryAdmin
     ]
-    list_filter = [ParentBrandFilter, ParentCategorySearch, ParentIDFilter, 'status']
+    list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
     autocomplete_fields = ['product_hsn', 'parent_brand']
 
     def product_image(self, obj):
         if not obj.image:
             return ''
         return format_html('<a href="{url}"><img alt="Product Image" src="{url}" height="50px" width="50px"/></a>', url=obj.image.url)
+
+    def product_gst(self, obj):
+        if obj.gst:
+            return "{} %".format(obj.gst)
+        return ''
 
     def get_urls(self):
         from django.conf.urls import url
@@ -548,6 +565,13 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(ParentProductAutocomplete.as_view()),
                 name='parent-product-autocomplete',
             ),
+            url(
+                r'^parent-product-list-filter-autocomplete/$',
+                self.admin_site.admin_view(ParentProductsAutocompleteView.as_view(model_admin=self)),
+                name='parent-product-list-filter-autocomplete',
+            ),
+            # url('custom_search/', self.admin_site.admin_view(CustomSearchView.as_view(model_admin=self)),
+            #      name='custom_search'),
         ] + urls
         return urls
 
@@ -565,14 +589,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         'product_brand', 'product_ean_code', 'product_mrp',
         'product_hsn', 'product_gst', 'products_image', 'status'
     ]
-    def products_image(self, obj):
-        if not obj.product_image:
-            return ''
-        return format_html('<a href="{url}"><img alt="Product Image" src="{url}" height="50px" width="50px"/></a>', url=obj.product_image.url)
+
     # search_fields = ['product_name', 'id', 'product_gf_code']
     search_fields = ['product_name', 'id']
     # list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
-    list_filter = [CategorySearch, ProductSearch, 'status']
+    list_filter = [CategorySearch, ProductSearch, ChildParentIDFilter, 'status']
     # prepopulated_fields = {'product_slug': ('product_name',)}
     # inlines = [
     #     ProductCategoryAdmin, ProductOptionAdmin,
@@ -588,6 +609,25 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                                     obj.product_pro_image.last().image.url))
 
     product_images.short_description = 'Product Image'
+
+    def products_image(self, obj):
+        if not obj.product_image:
+            return ''
+        return format_html('<a href="{url}"><img alt="Product Image" src="{url}" height="50px" width="50px"/></a>', url=obj.product_image.url)
+
+    def product_gst(self, obj):
+        if obj.product_gst:
+            return "{} %".format(obj.product_gst)
+        return ''
+    product_gst.short_description = 'Product GST'
+
+    def get_changeform_initial_data(self, request):
+        if request.GET.get('product'):
+            product_details = Product.objects.filter(pk=int(request.GET.get('product'))).last()
+            return {
+                'parent_product': product_details.parent_product
+            }
+        return super().get_changeform_initial_data(request)
 
 
 class MRPSearch(InputFilter):
@@ -624,11 +664,11 @@ class ExportProductPrice:
 class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
-    actions = ['export_as_csv_productprice', 'approve_product_price','disapprove_product_price']
+    actions = ['export_as_csv_productprice', 'approve_product_price', 'disapprove_product_price']
     list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
                            'pincode')
     list_display = [
-        'product', 'product_sku', 'product_gf_code', 'mrp', 'selling_price',
+        'product', 'product_sku', 'product_gf_code', 'product_mrp', 'selling_price',
         'seller_shop', 'buyer_shop', 'city', 'pincode',
         'start_date', 'end_date', 'approval_status', 'status'
     ]
@@ -666,6 +706,13 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         return obj.product.product_sku
 
     product_sku.short_description = 'Product SKU'
+
+    def product_mrp(self, obj):
+        if obj.product.product_mrp:
+            return obj.product.product_mrp
+        elif obj.mrp:
+            return obj.mrp
+        return ''
 
     def product_gf_code(self, obj):
         return obj.product.product_gf_code

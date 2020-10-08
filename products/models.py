@@ -219,7 +219,7 @@ class Product(models.Model):
         ('deactivated', 'Deactivated'),
     )
     status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False)
-    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product', null=True, blank=False, on_delete=models.DO_NOTHING)
+    parent_product = models.ForeignKey(ParentProduct, related_name='product_parent_product', null=True, blank=False, on_delete=models.DO_NOTHING)
     REASON_FOR_NEW_CHILD_CHOICES = (
         ('default', 'Default'),
         ('different_mrp', 'Different MRP'),
@@ -240,6 +240,8 @@ class Product(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        verbose_name = 'Child Product'
+        verbose_name_plural = 'Child Products'
 
     @property
     def product_brand(self):
