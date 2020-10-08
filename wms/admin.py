@@ -73,6 +73,28 @@ class BinIDFilterForBinInventory(InputFilter):
         return queryset
 
 
+class InitialBinIDFilter(InputFilter):
+    title = 'Initial Bin ID'
+    parameter_name = 'initial_bin'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(initial_bin__bin_id=value)
+        return queryset
+
+
+class FinalBinIDFilter(InputFilter):
+    title = 'Final Bin ID'
+    parameter_name = 'final_bin'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(final_bin__bin_id=value)
+        return queryset
+
+
 class BatchIdFilter(InputFilter):
     title = 'Batch ID'
     parameter_name = 'batch_id'
@@ -104,6 +126,18 @@ class Warehouse(AutocompleteFilter):
 class InventoryTypeFilter(AutocompleteFilter):
     title = 'Inventory Type'
     field_name = 'inventory_type'
+    autocomplete_url = 'inventory-type-autocomplete'
+
+
+class InitialInventoryTypeFilter(AutocompleteFilter):
+    title = 'Initial Inventory Type'
+    field_name = 'initial_inventory_type'
+    autocomplete_url = 'inventory-type-autocomplete'
+
+
+class FinalInventoryTypeFilter(AutocompleteFilter):
+    title = 'Final Inventory Type'
+    field_name = 'final_inventory_type'
     autocomplete_url = 'inventory-type-autocomplete'
 
 
@@ -155,6 +189,28 @@ class TransactionIDFilter(InputFilter):
         value = self.value()
         if value:
             return queryset.filter(transaction_id=value)
+        return queryset
+
+
+class OrderNumberFilterForOrderRelease(InputFilter):
+    title = 'Order Number'
+    parameter_name = 'warehouse_internal_inventory_release'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(warehouse_internal_inventory_release__transaction_id=value)
+        return queryset
+
+
+class OrderNumberFilterForPickupBinInventory(InputFilter):
+    title = 'Order Number'
+    parameter_name = 'pickup'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(pickup__pickup_type_id=value)
         return queryset
 
 
@@ -296,6 +352,7 @@ class PutAwayAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
 
 class PutawayBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Bin Inventory Admin has been called.")
@@ -480,7 +537,7 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin', 'created_at')
     search_fields = ('batch_id', 'bin__bin__bin_id')
-    list_filter = [Warehouse, BatchIdFilter, BinIDFilterForPickupBinInventory, ('created_at', DateTimeRangeFilter)]
+    list_filter = [Warehouse, BatchIdFilter, BinIDFilterForPickupBinInventory, OrderNumberFilterForPickupBinInventory, ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
 
     def order_number(self, obj):
@@ -584,7 +641,14 @@ class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'initial_inventory_type', 'final_inventory_type', 'initial_bin',
                     'final_bin', 'transaction_type', 'transaction_id',
                     'quantity', 'created_at', 'modified_at', 'inventory_csv')
+    list_filter = [Warehouse, SKUFilter, BatchIdFilter, InitialInventoryTypeFilter, FinalInventoryTypeFilter,
+                   InitialBinIDFilter, FinalBinIDFilter, ('transaction_type', DropdownFilter),
+                   TransactionIDFilter]
+
     list_per_page = 50
+
+    class Media:
+        pass
 
 
 class StockCorrectionChangeAdmin(admin.ModelAdmin):
@@ -606,7 +670,7 @@ class OrderReleaseAdmin(admin.ModelAdmin):
         'release_time', 'created_at')
 
     search_fields = ('sku__product_sku',)
-    list_filter = [Warehouse, SKUFilter]
+    list_filter = [Warehouse, SKUFilter, TransactionIDFilter, OrderNumberFilterForOrderRelease, 'release_type']
     list_per_page = 50
 
     def order_number(self, obj):
