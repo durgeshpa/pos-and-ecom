@@ -1,5 +1,6 @@
+from products.models import ProductVendorMapping
 from retailer_backend.admin import InputFilter
-
+from dal import autocomplete
 
 class BulkTaxUpdatedBySearch(InputFilter):
     parameter_name = 'updated_by'

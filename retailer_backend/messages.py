@@ -59,11 +59,13 @@ ERROR_MESSAGES = {
     "4010": "Issue in DateField.",
     "4011": "Executive has already submitted the feedback for same date.",
     "4012": "Report param is missing.",
-    "4013": ("Please put the correct value in report parameters to get day, monthly and"
-             " weekly report.param values are 1, 2 & 3."),
+    "4013": "No Reports available for selected options.",
     "4014": "No Beat Plan available for selected date.",
     "4015": "No Shop associated with Sales Manager.",
     "4016": "No Executive associated with Sales Manager.",
     "4017": "Feedback Submission is allowed only for the Current Date.",
     "4018": "Request Param value is not correct, Please re-verify at your end.",
+    "1001": "Selected records are exceeding system capacity, please keep max records at 50.",
+    "1002": "Selected file status is QC pending, you can't download this file.",
+    "1003": "More than 1 GRN selected. 1 GRN is allowed at a time to download Barcode"
 }

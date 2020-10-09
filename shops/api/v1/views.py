@@ -730,7 +730,7 @@ class SellerShopListView(generics.ListAPIView):
 
     def get_queryset(self):
         shop_mapped = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type='r', status=True).values('shop')
-        shop_list = Address.objects.filter(shop_name__in=shop_mapped,address_type='shipping').order_by('created_at')
+        shop_list = Address.objects.filter(id__in=shop_mapped,address_type='shipping').order_by('created_at')
         if self.request.query_params.get('mobile_no'):
             shop_list = shop_list.filter(shop_name__shop_owner__phone_number__icontains=self.request.query_params.get('mobile_no'))
         if self.request.query_params.get('shop_name'):
@@ -769,12 +769,14 @@ class CheckUser(generics.ListAPIView):
     def get(self, *args, **kwargs):
         all_user = ShopUserMapping.objects.filter(employee=self.request.user,status=True)
         if not all_user.exists():
-            msg = {'is_success': False, 'message': ["Sorry you are not authorised"], 'response_data': None, 'is_sales': False,'is_sales_manager': False, 'is_delivery_boy': False}
+            msg = {'is_success': False, 'message': ["Sorry you are not authorised"], 'response_data': None, 'is_sales': False,'is_sales_manager': False, 'is_delivery_boy': False, 'is_picker': False, 'is_putaway': False}
         else:
             is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop',shop__shop_type__shop_type='r', status=True).exists() else False
             is_sales_manager = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_manager_add_shop',shop__shop_type__shop_type='sp', status=True).exists() else False
             is_delivery_boy = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='is_delivery_boy', status=True).exists() else False
-            msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager, 'is_delivery_boy': is_delivery_boy}
+            is_picker = True if 'Picker Boy' in self.request.user.groups.values_list('name', flat=True) else False
+            is_putaway = True if 'Putaway' in self.request.user.groups.values_list('name', flat=True) else False
+            msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager, 'is_delivery_boy': is_delivery_boy, 'is_picker':is_picker, 'is_putaway': is_putaway}
         return Response(msg, status=status.HTTP_200_OK)
 
 
@@ -859,6 +861,10 @@ class DayBeatPlan(viewsets.ModelViewSet):
                     return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
                                      'is_success': True},
                                     status=status.HTTP_200_OK)
+                else:
+                    return Response({"detail": messages.ERROR_MESSAGES["4014"],
+                                     'is_success': True, "data": []},
+                                    status=status.HTTP_200_OK)
             else:
                 try:
                     queryset = BeatPlanning.objects.filter(status=True)
@@ -870,8 +876,8 @@ class DayBeatPlan(viewsets.ModelViewSet):
                                                                        'next_plan_date'])
                 except Exception as error:
                     logger.exception(error)
-                    return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date'],
-                                     'is_success': False},
+                    return Response({"detail": messages.ERROR_MESSAGES["4014"],
+                                     'is_success': True, "data": []},
                                     status=status.HTTP_200_OK)
                 beat_plan_serializer = self.serializer_class(beat_user_obj, many=True)
                 if beat_plan_serializer.data.__len__() <= 0:
@@ -953,7 +959,7 @@ class ExecutiveReport(viewsets.ModelViewSet):
                                      'is_success': True}, status=status.HTTP_200_OK)
             else:
                 return Response({"detail": messages.ERROR_MESSAGES["4013"],
-                                 'is_success': False}, status=status.HTTP_200_OK)
+                                 'is_success': True}, status=status.HTTP_200_OK)
         except Exception as error:
             logger.exception(error)
             if error.args[0] == 'report':

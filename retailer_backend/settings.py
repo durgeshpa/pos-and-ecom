@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'dal',
     'dal_select2',
     'dal_admin_filters',
+    'nested_admin',
     # 'jet.dashboard',
     # 'jet',
     'django.contrib.admin',
@@ -100,6 +101,8 @@ INSTALLED_APPS = [
     'celerybeat_status',
     'django_elasticsearch_dsl',
     'mathfilters'
+    'wms',
+    'audit'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -323,12 +326,7 @@ WKHTMLTOPDF_CMD_OPTIONS = {
 
 TEMPUS_DOMINUS_INCLUDE_ASSETS=False
 
-# CRONJOBS = [
-#     ('* * * * *', 'retailer_backend.cron.cron_to_delete_ordered_product_reserved')
-# ]
-
 CRONJOBS = [
-    ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log'),
     ('* * * * *', 'retailer_backend.cron.discounted_order_cancellation', '>> /tmp/discounted_cancellation.log'),
     ('* * * * *', 'retailer_backend.cron.delete_ordered_reserved_products'),
     ('2 0 * * *', 'analytics.api.v1.views.getStock'),
@@ -336,6 +334,11 @@ CRONJOBS = [
     ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
     ('30 21 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
 
+    ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
+    ('*/5 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
+    ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
+    ('0 2 * * *', 'wms.views.archive_inventory_cron'),
+    ('0 1 * * *', 'audit.views.start_automated_inventory_audit')
 ]
 
 INTERNAL_IPS = ['127.0.0.1','localhost']
@@ -435,48 +438,58 @@ CACHES = {
     }
 }
 #DataFlair #Logging Information
-# LOGGING = {
-#    'version': 1,
-#    'disable_existing_loggers': False,
-#    'loggers': {
-#        'django': {
-#            'handlers': ['file-info','file-error'],
-#            'level': 'DEBUG',
-#            'propagate': True,
-#        },
-#    },
-#    'handlers': {
-#        # 'file-debug': {
-#        #     'level': 'DEBUG',
-#        #     'class': 'logging.FileHandler',
-#        #     'filename': '/var/log/retailer-backend/debug.log',
-#        #     'formatter': 'verbose',
-#        # },
-#        'file-info': {
-#            'level': 'INFO',
-#            'class': 'logging.FileHandler',
-#            'filename': '/var/log/retailer-backend/info.log',
-#            'formatter': 'verbose',
-#        },
-#        'file-error': {
-#            'level': 'ERROR',
-#            'class': 'logging.FileHandler',
-#            'filename': '/var/log/retailer-backend/error.log',
-#            'formatter': 'verbose',
-#        },
-#        # 'console': {
-#        #     'class': 'logging.StreamHandler',
-#        #     'formatter': 'simple',
-#        # },
-#
-#    },
-#    'formatters': {
-#        'verbose': {
-#            'format': '%(levelname)s|%(asctime)s|%(module)s|%(process)d|%(thread)d|%(message)s',
-#            'datefmt' : "%d/%b/%Y %H:%M:%S"
-#        },
-#        'simple': {
-#            'format': '%(levelname)s|%(message)s'
-#        },
-#    },
-# }
+LOGGING = {
+   'version': 1,
+   'disable_existing_loggers': False,
+   'loggers': {
+       'django': {
+           'handlers': ['file-info','file-error'],
+           'level': 'INFO',
+           'propagate': True,
+       },
+        'file-info': {
+                   'handlers': ['file-info'],
+                   'level': 'INFO',
+                   'propagate': True,
+               },
+        'file-error': {
+           'handlers': ['file-error'],
+           'level': 'INFO',
+           'propagate': True,
+       },
+   },
+   'handlers': {
+       # 'file-debug': {
+       #     'level': 'DEBUG',
+       #     'class': 'logging.FileHandler',
+       #     'filename': '/var/log/retailer-backend/debug.log',
+       #     'formatter': 'verbose',
+       # },
+       'file-info': {
+           'level': 'INFO',
+           'class': 'logging.FileHandler',
+           'filename': '/var/log/retailer-backend/info.log',
+           'formatter': 'verbose',
+       },
+       'file-error': {
+           'level': 'ERROR',
+           'class': 'logging.FileHandler',
+           'filename': '/var/log/retailer-backend/error.log',
+           'formatter': 'verbose',
+       },
+       # 'console': {
+       #     'class': 'logging.StreamHandler',
+       #     'formatter': 'simple',
+       # },
+
+   },
+   'formatters': {
+       'verbose': {
+           'format': '%(levelname)s|%(asctime)s|%(module)s|%(process)d|%(thread)d|%(message)s',
+           'datefmt' : "%d/%b/%Y %H:%M:%S"
+       },
+       'simple': {
+           'format': '%(levelname)s|%(message)s'
+       },
+   },
+}

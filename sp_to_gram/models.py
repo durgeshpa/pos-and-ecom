@@ -209,6 +209,7 @@ class OrderedProductMapping(models.Model): #GRN Product
     shipped_qty = models.PositiveIntegerField(default=0)
     available_qty = models.PositiveIntegerField(default=0)
     ordered_qty = models.PositiveIntegerField(default=0)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     delivered_qty = models.PositiveIntegerField(default=0)
     returned_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
@@ -399,7 +400,7 @@ class StockAdjustmentMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
 def commit_updates_to_es(shop, product):
-    status = True
+    status = product.status
     db_available_products = OrderedProductMapping.get_product_availability(shop, product)
     products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
     if products_available is None:
@@ -456,7 +457,7 @@ def create_credit_note_on_trip_close(trip_id):
     for shipment in shipments:
         if(shipment.rt_order_product_order_product_mapping.last() and
         shipment.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or
-        shipment.rt_order_product_order_product_mapping.all().aggregate(Sum('damaged_qty')).get('damaged_qty__sum')>0):
+        shipment.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_damage_qty')).get('returned_damage_qty__sum')>0):
             invoice_prefix = shipment.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
             last_credit_note = CreditNote.objects.filter(shop=shipment.order.seller_shop, status=True).order_by('credit_note_id').last()
             if last_credit_note:
@@ -503,7 +504,7 @@ def create_credit_note_on_trip_close(trip_id):
                     product=item.product,
                     shipped_qty=item.returned_qty,
                     available_qty=item.returned_qty,
-                    damaged_qty=item.damaged_qty,
+                    damaged_qty=item.returned_damage_qty,
                     ordered_qty = item.returned_qty,
                     delivered_qty = item.returned_qty,
                     manufacture_date= reserved_order.order_product_reserved.manufacture_date if reserved_order else manufacture_date,
@@ -512,7 +513,7 @@ def create_credit_note_on_trip_close(trip_id):
                 grn_item.save()
                 try:
                     cart_product_map = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-                    credit_amount += ((item.returned_qty + item.damaged_qty) * cart_product_map.item_effective_prices)
+                    credit_amount += ((item.returned_qty + item.returned_damage_qty) * cart_product_map.item_effective_prices)
                 except Exception as e:
                     logger.exception("Product price not found for {} -- {}".format(item.product, e))
                     credit_amount += Decimal(item.returned_qty) * item.product.product_pro_price.filter(
@@ -558,7 +559,7 @@ def create_credit_note_on_trip_close(trip_id):
 @receiver(post_save, sender=Trip)
 def create_offers(sender, instance=None, created=False, **kwargs):
     if instance.trip_status == Trip.RETURN_VERIFIED:
-        create_credit_note_on_trip_close.delay(instance.id)
+        create_credit_note_on_trip_close(instance.id)
 
 
 # @receiver(post_save, sender=RetailerShipment)
@@ -595,7 +596,7 @@ def create_credit_note(instance=None, created=False, **kwargs):
                 status=True)
         for item in instance.rt_order_product_order_product_mapping.all():
             cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-            credit_amount += ((cart_product_map.item_effective_prices - cart_product_map.discounted_price) * (item.returned_qty + item.damaged_qty))
+            credit_amount += ((cart_product_map.item_effective_prices - cart_product_map.discounted_price) * (item.returned_qty + item.returned_damage_qty))
         credit_note.amount = credit_amount
         credit_note.save()
         # if(instance.rt_order_product_order_product_mapping.last() and

@@ -137,7 +137,7 @@ class Product(models.Model):
     weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator],choices=WEIGHT_UNIT_CHOICES, default = 'gm')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+    status = models.BooleanField(default=True,verbose_name='Product Status')
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
