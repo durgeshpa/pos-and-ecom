@@ -690,9 +690,11 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
               'buyer_shop', 'city', 'pincode',
               'start_date', 'end_date', 'approval_status')
 
+    change_form_template = 'admin/products/product_price_change_form.html'
+
     class Media:
         js = (
-            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
             'admin/js/child_product_form.js'
         )
 

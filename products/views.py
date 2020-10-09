@@ -974,7 +974,7 @@ class ParentProductsAutocompleteView(AutocompleteJsonView):
         queryset = ParentProduct.objects.all().order_by('name')
 
         if self.term:
-            queryset = queryset.filter(name__icontains=self.term)
+            queryset = queryset.filter(Q(name__icontains=self.term) | Q(parent_id__icontains=self.term))
 
         return queryset
 

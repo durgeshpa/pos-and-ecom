@@ -32,6 +32,9 @@ function getDefaultChildDetails() {
 }
 
 function getProductDetails() {
+    if (!$) {
+        $ = django.jQuery;
+    }
     val = document.getElementById("id_product").value;
     ajax_url = "/product/fetch-product-details/";
     $.ajax({
