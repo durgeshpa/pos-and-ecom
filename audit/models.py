@@ -26,6 +26,7 @@ AUDIT_RUN_STATUS_CHOICES = Choices((0, 'IN_PROGRESS', 'in_progress'), (1, 'ABORT
 AUDIT_STATUS_CHOICES = Choices((0, 'DIRTY', 'dirty'), (1, 'CLEAN', 'clean'))
 AUDIT_TICKET_STATUS_CHOICES = Choices((0, 'OPENED', 'opened'), (1, 'ASSIGNED', 'assigned'), (2, 'CLOSED', 'closed'))
 AUDIT_LEVEL_CHOICES = Choices((0, 'BIN', 'bin'), (1, 'PRODUCT', 'product'))
+AUDIT_PRODUCT_STATUS = Choices((0, 'RELEASED', 'released'), (1, 'BLOCKED', 'blocked'), )
 
 
 class BaseTimestampModel(models.Model):
@@ -43,7 +44,7 @@ class AuditDetail(BaseTimestampModel):
     audit_level = models.PositiveSmallIntegerField(choices=AUDIT_LEVEL_CHOICES, null=True, blank=True,)
     warehouse = models.ForeignKey(Shop, null=False, blank=False, on_delete=models.DO_NOTHING)
     bin = models.ManyToManyField(Bin, null=True, blank=True, related_name='audit_bin_mapping')
-    sku = models.ManyToManyField(Product, null=True, blank=True, related_name='audit_product_mapping')
+    sku = models.ForeignKey(Product, to_field='product_sku', null=True, blank=True,  on_delete=models.DO_NOTHING)
     status = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATUS_CHOICES)
     state = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATE_CHOICES,
                                              default=AUDIT_DETAIL_STATE_CHOICES.CREATED)
@@ -56,36 +57,11 @@ class AuditDetail(BaseTimestampModel):
         super(AuditDetail, self).save(*args, **kwargs)
 
     def __str__(self):
-        return self.id
+        return "Audit ID - {}".format(self.id)
 
     class Meta:
         db_table = "wms_audit_details"
         verbose_name_plural = "Audit Details"
-
-#
-# @receiver(post_save, sender=AuditDetail)
-# def create_audit_no(sender, instance=None, created=False, **kwargs):
-#     if created:
-#         audit_no = "A"
-#         if instance.audit_type == AUDIT_TYPE_CHOICES.MANUAL:
-#             audit_no = audit_no + 'M'
-#             if instance.audit_level == AUDIT_LEVEL_CHOICES.BIN:
-#                 audit_no = audit_no + 'B'
-#             elif instance.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
-#                 audit_no = audit_no + 'P'
-#         elif instance.audit_type == AUDIT_TYPE_CHOICES.AUTOMATED:
-#             audit_no = audit_no + 'A'
-#             if instance.audit_inventory_type == AUDIT_INVENTORY_CHOICES.BIN:
-#                 audit_no = audit_no + 'B'
-#             elif instance.audit_inventory_type == AUDIT_INVENTORY_CHOICES.WAREHOUSE:
-#                 audit_no = audit_no + 'W'
-#             elif instance.audit_inventory_type == AUDIT_INVENTORY_CHOICES.INTEGRATED:
-#                 audit_no = audit_no + 'I'
-#             elif instance.audit_inventory_type == AUDIT_INVENTORY_CHOICES.DAILY_OPERATIONS:
-#                 audit_no = audit_no + 'O'
-#         audit_no = audit_no + str(instance.id)
-#         instance.audit_no = audit_no
-#         instance.save()
 
 
 class AuditRun(BaseTimestampModel):
@@ -122,8 +98,6 @@ class AuditTicket(BaseTimestampModel):
                                   (2, 'WAREHOUSE', 'warehouse'),
                                   (3, 'WAREHOUSE_CALCULATED', 'warehouse-calculated'))
     warehouse = models.ForeignKey(Shop, null=False, on_delete=models.DO_NOTHING)
-    # audit_type = models.PositiveSmallIntegerField(choices=AUDIT_RUN_TYPE_CHOICES)
-    # audit_inventory_type = models.PositiveSmallIntegerField(choices=AUDIT_INVENTORY_CHOICES)
     audit_run = models.ForeignKey(AuditRun, null=False, on_delete=models.CASCADE)
     sku = models.ForeignKey(Product, null=False, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True)
@@ -147,13 +121,12 @@ class AuditTicket(BaseTimestampModel):
     def audit_type(self):
         return AUDIT_TYPE_CHOICES[self.audit_run.audit.audit_type]
 
-#
-# class AuditTicketHistory(models.Model):
-#     audit_ticket = models.ForeignKey(AuditTicket, null=False, on_delete=models.CASCADE)
-#     comment = models.CharField(max_length=255, null=False, blank=False)
-#     assigned_to = models.PositiveSmallIntegerField(null=True)
-#     user = models.ForeignKey(get_user_model(), related_name='audit_ticket_comments', null=True, on_delete=models.DO_NOTHING)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#
-#     class Meta:
-#         db_table = "wms_audit_tickets_history"
+
+class AuditProduct(models.Model):
+    warehouse = models.ForeignKey(Shop, null=False, on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, null=False, to_field='product_sku', on_delete=models.DO_NOTHING)
+    status = models.PositiveSmallIntegerField(choices=AUDIT_PRODUCT_STATUS)
+    es_status = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "wms_audit_products"

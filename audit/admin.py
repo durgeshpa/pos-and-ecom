@@ -71,9 +71,7 @@ class AuditTicketAdmin(admin.ModelAdmin):
                     'qty_expected_type', 'qty_expected', 'qty_calculated_type', 'qty_calculated', 'created_at',
                     'status', 'assigned_user')
 
-    fields = ['sku_id', 'batch_id', 'bin', 'qty_expected', 'qty_calculated',
-              'created_at',  'updated_at',  'status', 'assigned_user']
-    readonly_fields = ('sku', 'batch_id', 'bin_id', 'qty_expected', 'qty_calculated', 'created_at', 'updated_at')
+    readonly_fields = ('sku', 'batch_id', 'bin', 'qty_expected', 'qty_calculated', 'created_at', 'updated_at')
     list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'status', ('created_at', DateRangeFilter)]
     date_hierarchy = 'created_at'
     actions_on_top = False

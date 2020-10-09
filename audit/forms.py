@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 
 from accounts.middlewares import get_current_user
 from accounts.models import User
-from audit.models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES
+from audit.models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOICES
 from products.models import Product
 from shops.models import Shop
 from wms.models import Bin
@@ -16,12 +16,12 @@ class AuditCreationForm(forms.ModelForm):
     bin = forms.ModelMultipleChoiceField(
         required=False,
         queryset=Bin.objects.all(),
-        widget=autocomplete.ModelSelect2Multiple(url='bin-autocomplete')
-    )
-    sku = forms.ModelMultipleChoiceField(
+        widget=autocomplete.ModelSelect2Multiple(url='bin-autocomplete',
+                                                 forward=('warehouse',)))
+    sku = forms.ModelChoiceField(
         required=False,
         queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2Multiple(url='sku-autocomplete')
+        widget=autocomplete.ModelSelect2(url='sku-autocomplete')
     )
 
     auditor = forms.ModelChoiceField(
@@ -30,8 +30,15 @@ class AuditCreationForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='assigned-user-autocomplete')
     )
 
+    def __init__(self, *args, **kwargs):
+        super(AuditCreationForm, self).__init__(*args, **kwargs)
+        # assign a (computed, I assume) default value to the choice field
+        self.initial['audit_type'] = 0 # AUDIT_TYPE_CHOICES.MANUAL
+
     def clean(self):
         data = self.cleaned_data
+        if self.instance.id:
+            return
         audit_type = data.get('audit_type')
         if audit_type is None:
             raise ValidationError('Please select Audit Type!!')
@@ -46,7 +53,7 @@ class AuditCreationForm(forms.ModelForm):
                 if audit_bins.count() == 0:
                     raise ValidationError('Please select bins to audit!')
             elif audit_level == 1:
-                if audit_product.count() == 0:
+                if audit_product is None:
                     raise ValidationError('Please select product to audit!')
             if auditor is None:
                 raise ValidationError('Please select an auditor!')

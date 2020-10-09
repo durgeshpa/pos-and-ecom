@@ -78,14 +78,19 @@
 
         var bin = $('.field-bin'),
             sku = $('.field-sku');
-
-            manual.hide();
-            automated.hide();
-            bin.hide();
-            sku.hide();
+//
+//            manual.hide();
+//            automated.hide();
+//            bin.hide();
+//            sku.hide();
 
         function toggleAuditType(value) {
-            if (value != '' && value == 0) {
+            if (value != ''){
+                manual.hide();
+                automated.hide();
+            }else if (value == 0) {
+                alert("value is zero");
+
                 manual.show();
                 automated.hide();
             } else if(value == 2){
@@ -94,7 +99,10 @@
             }
         }
         function toggleAuditLevel(value) {
-            if (value != '' && value == 0) {
+            if (value == ''){
+                sku.hide();
+                bin.hide();
+            } else if(value == 0) {
                 sku.hide();
                 bin.show();
             } else if(value == 1){
@@ -102,8 +110,8 @@
                 bin.hide();
             }
         }
-        toggleAuditLevel($('#id_audit_level').val())
         toggleAuditType($('#id_audit_type').val())
+        toggleAuditLevel($('#id_audit_level').val())
 
         $('#id_audit_type').change(function() {
             toggleAuditType($(this).val());

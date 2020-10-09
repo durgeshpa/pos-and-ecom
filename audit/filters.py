@@ -48,7 +48,8 @@ class BinComplete(autocomplete.Select2QuerySetView):
             return Bin.objects.none()
 
         qs = Bin.objects.all()
-
+        warehouse = self.forwarded.get('warehouse', None)
+        qs = qs.filter(warehouse=warehouse)
         if self.q:
             qs = qs.filter(bin_id__istartswith=self.q)
         return qs

@@ -4,6 +4,8 @@ import json
 import jsonpickle
 from num2words import num2words
 from datetime import datetime, timedelta
+
+from audit.views import is_product_blocked_for_audit
 from barCodeGenerator import barcodeGen
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Sum, Q
@@ -467,6 +469,11 @@ class AddToCart(APIView):
                 return Response(msg, status=status.HTTP_200_OK)
             if qty is None or qty == '':
                 msg['message'] = ["Qty not Found"]
+                return Response(msg, status=status.HTTP_200_OK)
+            # Check if product blocked for audit
+            is_blocked_for_audit = is_product_blocked_for_audit(Product.objects.get(id=cart_product), shop_id)
+            if is_blocked_for_audit:
+                msg['message'] = ERROR_MESSAGES['4019'].format(Product.objects.get(id=cart_product))
                 return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
             available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
@@ -996,6 +1003,12 @@ class CreateOrder(APIView):
                                         id=cart_id)
                 orderitems = []
                 for i in cart.rt_cart_list.all():
+                    # Check if product blocked for audit
+                    is_blocked_for_audit = is_product_blocked_for_audit(i.cart_product, shop_id)
+                    if is_blocked_for_audit:
+                        msg['message'] = ERROR_MESSAGES['4019'].format(i.cart_product)
+                        return Response(msg, status=status.HTTP_200_OK)
+
                     orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
                 if None in orderitems:
                     CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
