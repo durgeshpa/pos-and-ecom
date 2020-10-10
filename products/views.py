@@ -988,6 +988,15 @@ def FetchAllParentCategories(request):
     return JsonResponse(data, safe=False)
 
 
+def FetchAllProductBrands(request):
+    data = { 'brands': [] }
+    brands = Brand.objects.all()
+    for brand in brands:
+        data['brands'].append(brand.brand_name)
+
+    return JsonResponse(data, safe=False)
+
+
 def FetchProductDdetails(request):
     product_id = request.GET.get('product')
     data = {

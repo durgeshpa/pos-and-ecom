@@ -3,7 +3,7 @@ from daterange_filter.filter import DateRangeFilter
 from django_filters import BooleanFilter
 from rangefilter.filter import DateTimeRangeFilter
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.admin import TabularInline, SimpleListFilter
 from django.core.exceptions import ValidationError
 from django.db.models import Q
@@ -119,7 +119,7 @@ class CategoryFilter(AutocompleteFilter):
     field_name = 'category_name'  # name of the foreign key field
 
 
-class ParentCategorySearch(SelectInputFilter):
+class ParentCategorySearch(admin.SimpleListFilter):
     parameter_name = 'category'
     title = 'Category'
 
@@ -128,6 +128,52 @@ class ParentCategorySearch(SelectInputFilter):
             return queryset.filter(
                 Q(parent_product_pro_category__category__category_name__icontains=self.value())
             )
+
+    template = 'admin/parent_category_select_input_filter.html'
+
+    def lookups(self, request, model_admin):
+        # Dummy, required to show the filter.
+        return ((),)
+
+    def choices(self, changelist):
+        # Grab only the "all" option.
+        all_choice = next(super().choices(changelist))
+        all_choice['query_parts'] = (
+            (k, v)
+            for k, v in changelist.get_filters_params().items()
+            if k != self.parameter_name
+        )
+        yield all_choice
+
+
+class ProductBrandSearch(admin.SimpleListFilter):
+    parameter_name = 'brand'
+    title = 'Brand'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            # return queryset.filter(
+            #     Q(parent_brand_product__brand__brand_name__icontains=self.value())
+            # )
+            return queryset.filter(
+                Q(parent_product__parent_brand__brand_name__icontains=self.value())
+            )
+
+    template = 'admin/product_brand_select_input_filter.html'
+
+    def lookups(self, request, model_admin):
+        # Dummy, required to show the filter.
+        return ((),)
+
+    def choices(self, changelist):
+        # Grab only the "all" option.
+        all_choice = next(super().choices(changelist))
+        all_choice['query_parts'] = (
+            (k, v)
+            for k, v in changelist.get_filters_params().items()
+            if k != self.parameter_name
+        )
+        yield all_choice
 
 
 class ParentIDFilter(InputFilter):
@@ -400,7 +446,23 @@ deactivate_selected_products.short_description = "Deactivate Selected Products"
 
 
 def approve_selected_child_products(modeladmin, request, queryset):
-    queryset.update(status='active')
+    fail_skus = []
+    success_skus = []
+    for record in queryset:
+        parent_sku = ParentProduct.objects.filter(parent_id=record.parent_product.parent_id).last()
+        if parent_sku.status:
+            record.status = 'active'
+            record.save()
+            success_skus.append(record.product_sku)
+        else:
+            fail_skus.append(record.product_sku)
+    if fail_skus:
+        if success_skus:
+            modeladmin.message_user(request, "These selected SKUs failed to be approved since their Parent SKU is deactivated {}".format(fail_skus), level=messages.WARNING)
+        else:
+            modeladmin.message_user(request, "All selected Child SKUs failed to be approved since their Parent SKU is deactivated {}".format(fail_skus), level=messages.ERROR)
+    else:
+        modeladmin.message_user(request, "All selected Child SKUs were successfully approved", level=messages.SUCCESS)
 approve_selected_products.short_description = "Approve Selected Products"
 
 
@@ -596,7 +658,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     # search_fields = ['product_name', 'id', 'product_gf_code']
     search_fields = ['product_name', 'id']
     # list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
-    list_filter = [CategorySearch, ProductSearch, ChildParentIDFilter, 'status']
+    list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status']
     # prepopulated_fields = {'product_slug': ('product_name',)}
     # inlines = [
     #     ProductCategoryAdmin, ProductOptionAdmin,
