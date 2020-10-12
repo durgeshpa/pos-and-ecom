@@ -54,7 +54,7 @@ class AuditStartView(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request):
+    def post(self, request, format=None):
         info_logger.info("AuditUpdateView called.")
 
         audit_no = request.POST.get('audit_no')
