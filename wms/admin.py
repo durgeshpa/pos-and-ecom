@@ -369,7 +369,8 @@ class PutAwayAdmin(admin.ModelAdmin):
             # get object from queryset
             writer.writerow([putaway.putaway_user, putaway.warehouse_id,
                              putaway.putaway_type, putaway.putaway_type_id,
-                             putaway.sku.product_name, putaway.batch_id,
+                             putaway.sku.product_name + '-' + putaway.sku.product_sku,
+                             putaway.batch_id,
                              putaway.quantity, putaway.putaway_quantity])
 
         f.seek(0)
