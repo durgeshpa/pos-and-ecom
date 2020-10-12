@@ -211,39 +211,22 @@ class CommonWarehouseInventoryFunctions(object):
         :param in_stock:
         :return:
         """
-        if int(quantity) < 0:
-            ware_house_inventory_obj = WarehouseInventory.objects.filter(
-                warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
-                    inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
-                    inventory_type=inventory_type).last(), in_stock=in_stock).last()
 
-            if ware_house_inventory_obj:
-                ware_house_quantity = quantity + ware_house_inventory_obj.quantity
-                ware_house_inventory_obj.quantity = ware_house_quantity
-                ware_house_inventory_obj.save()
-            else:
-                WarehouseInventory.objects.get_or_create(
-                    warehouse=warehouse,
-                    sku=sku,
-                    inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
-                    inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
-                    in_stock=in_stock, quantity=quantity)
+        ware_house_inventory_obj = WarehouseInventory.objects.filter(
+            warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
+                inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
+                inventory_type=inventory_type).last(), in_stock=in_stock).last()
+
+        if ware_house_inventory_obj:
+            ware_house_inventory_obj.quantity = quantity
+            ware_house_inventory_obj.save()
         else:
-            ware_house_inventory_obj = WarehouseInventory.objects.filter(
-                warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
-                    inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
-                    inventory_type=inventory_type).last(), in_stock=in_stock).last()
-
-            if ware_house_inventory_obj:
-                ware_house_inventory_obj.quantity = quantity
-                ware_house_inventory_obj.save()
-            else:
-                WarehouseInventory.objects.get_or_create(
-                    warehouse=warehouse,
-                    sku=sku,
-                    inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
-                    inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
-                    in_stock=in_stock, quantity=quantity)
+            WarehouseInventory.objects.get_or_create(
+                warehouse=warehouse,
+                sku=sku,
+                inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
+                inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
+                in_stock=in_stock, quantity=quantity)
 
     @classmethod
     def filtered_warehouse_inventory_items(cls, **kwargs):
@@ -1677,49 +1660,24 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
     :param pu:
     :return:
     """
-    if int(val) < 0:
-        bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(
-            bin_id=bin_id).last(),
-                                                                                   sku=sku,
-                                                                                   batch_id=batch_id,
-                                                                                   inventory_type=InventoryType.objects.filter(
-                                                                                       inventory_type=inv_type).last(),
-                                                                                   in_stock=t)
-        if bin_inventory_obj.exists():
-            bin_inventory_obj = bin_inventory_obj.last()
-            bin_quantity = val + bin_inventory_obj.quantity
-            bin_inventory_obj.quantity = bin_quantity
-            bin_inventory_obj.save()
-        else:
-            BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(), sku=sku,
-                                        batch_id=batch_id, inventory_type=InventoryType.objects.filter(
-                    inventory_type=inv_type).last(), quantity=val, in_stock=t)
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory_stock_correction(sh, sku, inv_type, inv_state, val,
-                                                                     True)
+    bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(
+        bin_id=bin_id).last(),
+                                                                               sku=sku,
+                                                                               batch_id=batch_id,
+                                                                               inventory_type=InventoryType.objects.filter(
+                                                                                   inventory_type=inv_type).last(),
+                                                                               in_stock=t)
+    if bin_inventory_obj.exists():
+        bin_inventory_obj = bin_inventory_obj.last()
+        bin_inventory_obj.quantity = val
+        bin_inventory_obj.save()
     else:
-        bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(
-            bin_id=bin_id).last(),
-                                                                                   sku=sku,
-                                                                                   batch_id=batch_id,
-                                                                                   inventory_type=InventoryType.objects.filter(
-                                                                                       inventory_type=inv_type).last(),
-                                                                                   in_stock=t)
-        if bin_inventory_obj.exists():
-            bin_inventory_obj = bin_inventory_obj.last()
-            bin_inventory_obj.quantity = val
-            bin_inventory_obj.save()
-        else:
-            BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(), sku=sku,
-                                        batch_id=batch_id, inventory_type=InventoryType.objects.filter(
-                    inventory_type=inv_type).last(), quantity=val, in_stock=t)
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory_stock_correction(sh, sku, inv_type, inv_state, val,
-                                                                     True)
-
-    if val < 0:
-        val = -(int(val))
-    else:
-        val = val
-    if inventory_movement_type == 'Out':
+        BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(), sku=sku,
+                                    batch_id=batch_id, inventory_type=InventoryType.objects.filter(
+                inventory_type=inv_type).last(), quantity=val, in_stock=t)
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_stock_correction(sh, sku, inv_type, inv_state, val,
+                                                                 True)
+    if transaction_type == 'stock_correction_out_type':
         pass
     else:
         if put_away_status is True:

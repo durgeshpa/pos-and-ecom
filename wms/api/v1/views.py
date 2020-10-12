@@ -322,11 +322,13 @@ class PickupList(APIView):
             '-created_at')
 
         if not orders:
-            msg = {'is_success': False, 'message': 'No data found.', 'data': None}
+            order_count = 0
+            msg = {'is_success': False, 'message': 'No data found.', 'data': None, 'order_count':order_count}
             return Response(msg, status=status.HTTP_200_OK)
         else:
             serializer = OrderSerializer(orders, many=True)
-            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
+            order_count = orders.count()
+            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data, 'order_count' : order_count}
             return Response(msg, status=status.HTTP_200_OK)
 
 

@@ -2,22 +2,21 @@ import json
 from collections import defaultdict
 
 from django.db.models import Sum, Q
+from django.db.models.signals import post_save, m2m_changed
+from django.dispatch import receiver
 from django.http import HttpResponse
-from django.shortcuts import render
 import logging
 
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework import status, authentication, permissions, generics
-from rest_framework.decorators import api_view
+from rest_framework import status, authentication, permissions
 from rest_framework.generics import ListCreateAPIView
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
-from retailer_to_sp.models import Order, CartProductMapping, OrderedProduct, Trip
-from shops.models import Shop
+from sp_to_gram.tasks import update_product_es, es_mget_by_ids
+from retailer_to_sp.models import Order, Trip
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
-                     AUDIT_RUN_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES
+                     AUDIT_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES, AuditProduct,
+                     AUDIT_PRODUCT_STATUS
                      )
 from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
 from wms.models import WarehouseInventory, WarehouseInternalInventoryChange, InventoryType, InventoryState, \
@@ -188,7 +187,12 @@ def run_bin_warehouse_integrated_audit(audit_run):
     pickup_blocked_inventory = Pickup.objects.filter(warehouse=audit_run.warehouse,
                                                      status__in=['pickup_creation','pickup_assigned'])\
                                              .values('sku_id').annotate(qty=Sum('quantity'))
+
     pickup_dict = {g['sku_id']: g['qty'] for g in pickup_blocked_inventory}
+    pickup_cancelled_inventory = Putaway.objects.filter(status__in=['pickup_cancelled'],
+                                                       putaway_quantity=0)\
+                                               .values('sku_id').annotate(qty=Sum('quantity'))
+
     for item in current_bin_inventory:
         warehouse_quantity = WarehouseInventory.objects.filter(Q(warehouse__id=audit_run.warehouse.id),
                                                                Q(sku_id=item['sku_id']),
@@ -362,7 +366,7 @@ def run_audit(audit_run, inventory_choice):
 
 
 def start_automated_inventory_audit():
-    audits_to_perform = AuditDetail.objects.filter(audit_type=AUDIT_RUN_TYPE_CHOICES.AUTOMATED,
+    audits_to_perform = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.AUTOMATED,
                                                    status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
     for audit in audits_to_perform:
         audit_run = AuditRun.objects.filter(audit=audit, status=AUDIT_RUN_STATUS_CHOICES.IN_PROGRESS)
@@ -470,3 +474,75 @@ class PickupBlockedQuantityView(BaseListAPIView):
                                      sku_id=self.request.data.get('sku_id'),
                                      status__in=['pickup_creation', 'pickup_assigned'])
 
+
+def get_product_by_bin(warehouse, bins):
+    bin_inventory = BinInventory.objects.filter(warehouse=warehouse, bin_id__in=bins)
+    product_list = []
+    for b in bin_inventory:
+        product_list.append(b.sku)
+    return product_list
+
+
+def is_product_blocked_for_audit(product, warehouse):
+    return AuditProduct.objects.filter(warehouse=warehouse, sku=product, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists()
+
+
+def get_product_ids(product_list):
+    product_id_list = []
+    for p in product_list:
+        product_id_list.append(p.id)
+    return product_id_list
+
+
+def block_product_during_audit(product_list, warehouse):
+    es_product_status = get_es_status(product_list, warehouse)
+    for p in product_list:
+        update_product_es.delay(warehouse.id, p.id, status=False)
+        AuditProduct.objects.update_or_create(warehouse=warehouse, sku=p,
+                                              defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED,
+                                                        'es_status': es_product_status[p.id]})
+
+
+def get_es_status(product_list, warehouse):
+    es_products = es_mget_by_ids(warehouse.id, {'ids': get_product_ids(product_list)})
+    es_product_status = {}
+    for p in es_products['docs']:
+        es_product_status[int(p['_id'])] = p['_source']['status'] if p['found'] else False
+    return es_product_status
+
+
+def unblock_product_after_audit(product, warehouse):
+    audit_product = AuditProduct.objects.get(warehouse=warehouse, sku=product)
+    update_product_es.delay(warehouse.id, product.id, status=audit_product.es_status)
+    audit_product.status = AUDIT_PRODUCT_STATUS.RELEASED
+    audit_product.save()
+
+
+@receiver(post_save, sender=AuditDetail)
+def disable_audit_product(sender, instance=None, created=False, **kwargs):
+    if instance.status == AUDIT_DETAIL_STATUS_CHOICES.INACTIVE:
+        return
+
+    products_to_disable = []
+    if instance.audit_type == AUDIT_TYPE_CHOICES.MANUAL:
+        if instance.audit_level == 1:
+            products_to_disable.append(instance.sku)
+    if len(products_to_disable) > 0:
+        block_product_during_audit(products_to_disable, instance.warehouse)
+
+
+def disable_audit_products(sender, instance, action, *args, **kwargs):
+    if action != 'post_add':
+        return
+    products_to_disable = []
+    if instance.status == AUDIT_DETAIL_STATUS_CHOICES.INACTIVE:
+        return
+    if instance.audit_type == AUDIT_TYPE_CHOICES.MANUAL:
+        if instance.audit_level == 0:
+            if instance.bin.count() != 0:
+                products_to_disable.extend(get_product_by_bin(instance.warehouse, instance.bin.all()))
+    if len(products_to_disable) > 0:
+        block_product_during_audit(products_to_disable, instance.warehouse)
+
+
+m2m_changed.connect(disable_audit_products, sender=AuditDetail.bin.through)
