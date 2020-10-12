@@ -1,3 +1,4 @@
+from django.utils.safestring import mark_safe
 from rest_framework import serializers
 from wms.models import Bin, Putaway, Out, Pickup, BinInventory, PickupBinInventory
 from retailer_to_sp.models import Order
@@ -111,14 +112,14 @@ class PickupSerializer(DynamicFieldsModelSerializer):
         return True
 
 
-
 class OrderSerializer(serializers.ModelSerializer):
     picker_status = serializers.SerializerMethodField('picker_status_dt')
     order_create_date = serializers.SerializerMethodField()
+    delivery_location = serializers.SerializerMethodField('m_delivery_location')
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'picker_status', 'order_create_date')
+        fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location', )
 
     def picker_status_dt(self, obj):
         return str(obj.order_status).lower()
@@ -126,6 +127,8 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_order_create_date(self, obj):
         return obj.created_at.strftime("%d-%m-%Y")
 
+    def m_delivery_location(self, obj):
+        return obj.shipping_address.city.city_name
 
 class BinSerializer(DynamicFieldsModelSerializer):
     warehouse = ShopSerializer()
@@ -150,11 +153,13 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
     batch_id_with_sku = serializers.SerializerMethodField('batch_sku')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     is_success = serializers.SerializerMethodField('is_success_dt')
+    product_images = serializers.SerializerMethodField('m_product_images')
     # bin_id = serializers.SerializerMethodField('bin_id_dt')
 
     class Meta:
         model = PickupBinInventory
-        fields = ('is_success', 'id', 'quantity','pickup_quantity','product_mrp','batch_id_with_sku','sku_id')
+        fields = ('is_success', 'id', 'quantity','pickup_quantity','product_mrp','batch_id_with_sku','sku_id',
+                  'product_images')
 
     def sku_id_dt(self, obj):
         sku_id = obj.pickup.sku.id
@@ -175,6 +180,13 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
 
     def is_success_dt(self, obj):
         return True
+
+    def m_product_images(self,obj):
+        if obj.pickup.sku.product_pro_image.exists():
+            return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
+                             format(obj.pickup.sku.product_pro_image.last().image.url,obj.pickup.sku.product_pro_image.last().image_alt_text,
+                                    obj.pickup.sku.product_pro_image.last().image.url))
+
 
     # def bin_id_dt(self, obj):
     #     return obj.bin.bin.bin_id
