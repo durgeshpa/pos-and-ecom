@@ -78,7 +78,7 @@ class AuditStartView(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         if self.can_start_audit(audit):
             msg = {'is_success': False,
-                   'message': ERROR_MESSAGES['INVALID_STATE_TRANSITION'],
+                   'message': ERROR_MESSAGES['INVALID_STATE_TRANSITION'] % AUDIT_DETAIL_STATE_CHOICES[AUDIT_DETAIL_STATE_CHOICES.INITIATED],
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         self.initiate_audit(audit)
