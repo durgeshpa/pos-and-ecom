@@ -466,13 +466,13 @@ LOGGING = {
        'file-info': {
            'level': 'INFO',
            'class': 'logging.FileHandler',
-           'filename': '/var/log/retailer-backend/info.log',
+           'filename': 'info.log',
            'formatter': 'verbose',
        },
        'file-error': {
            'level': 'ERROR',
            'class': 'logging.FileHandler',
-           'filename': '/var/log/retailer-backend/error.log',
+           'filename': 'error.log',
            'formatter': 'verbose',
        },
        # 'console': {

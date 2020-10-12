@@ -599,3 +599,19 @@ class BulkProductTaxUpdate(models.Model):
     def __str__(self):
         return "Product Tax Mapping updated at %s by %s" % (self.created_at,
                                                             self.updated_by)
+
+
+class BulkUploadForGSTChange(models.Model):
+    file = models.FileField(upload_to='products/bulkuploadforgstchange/')
+    updated_by = models.ForeignKey(
+        get_user_model(), default=True, related_name='bulk_product_gst_change',
+        on_delete=models.DO_NOTHING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Bulk Upload For GST Change'
+
+    def __str__(self):
+        return f"BulkUpload updated at {self.created_at} by {self.updated_by}"
