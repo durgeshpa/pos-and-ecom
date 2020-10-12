@@ -1308,6 +1308,7 @@ def bulk_putaway(self, request, argument_list):
         message = "Bulk Approval for Put Away has been done successfully."
         return message, True
 
+
 def shipment_reschedule_inventory_change(shipment_list):
     for shipment in shipment_list:
         type_normal = InventoryType.objects.filter(inventory_type="normal").last()
@@ -1340,4 +1341,3 @@ def shipment_reschedule_inventory_change(shipment_list):
 
             except DatabaseError as e:
                 print(e)
-

@@ -119,5 +119,12 @@ def update_product_es(shop, product_id,**kwargs):
 		pass
 		#upload_shop_stock(shop)
 
+
 def es_search(index, body):
 	return es.search(index=create_es_index(index), body=body)
+
+
+def es_mget_by_ids(index, body):
+	return es.mget(index=create_es_index(index), body=body)
+
+
