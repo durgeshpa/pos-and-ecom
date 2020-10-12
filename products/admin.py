@@ -640,7 +640,7 @@ class BulkProductTaxUpdateAdmin(admin.ModelAdmin):
 
 class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     form = BulkUploadForGSTChangeForm
-    list_display = ('file', 'created_at', 'modified_at', )
+    list_display = ('created_at', 'updated_by', 'file',)
     fields = ('download_sample_file', 'file')
     readonly_fields = ('download_sample_file', )
 

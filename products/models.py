@@ -606,6 +606,10 @@ class BulkProductTaxUpdate(models.Model):
 
 class BulkUploadForGSTChange(models.Model):
     file = models.FileField(upload_to='products/bulkuploadforgstchange/')
+    updated_by = models.ForeignKey(
+        get_user_model(), default=True, related_name='bulk_product_gst_change',
+        on_delete=models.DO_NOTHING
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
