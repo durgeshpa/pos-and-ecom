@@ -1,10 +1,11 @@
 from django.conf.urls import url
-from django.urls import path
+from django.urls import path, include
 
 from . import views
 from .filters import AssignedUserFilter, WareHouseComplete, SKUComplete, BinComplete
 
 urlpatterns = [
+    url(r'^api/', include('audit.api.urls')),
      url(r'^warehouse-autocomplete/$', WareHouseComplete.as_view(), name='warehouse-autocomplete'),
      url(r'^assigned-user-autocomplete/$', AssignedUserFilter.as_view(), name='assigned-user-autocomplete'),
      url(r'^sku-autocomplete/$', SKUComplete.as_view(), name='sku-autocomplete'),

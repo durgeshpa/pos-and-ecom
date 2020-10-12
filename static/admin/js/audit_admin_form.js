@@ -85,12 +85,10 @@
 //            sku.hide();
 
         function toggleAuditType(value) {
-            if (value != ''){
+            if (value == ''){
                 manual.hide();
                 automated.hide();
             }else if (value == 0) {
-                alert("value is zero");
-
                 manual.show();
                 automated.hide();
             } else if(value == 2){

@@ -1,12 +1,9 @@
 from django.db import models
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 from model_utils import Choices
 
 from accounts.middlewares import get_current_user
 from services.models import InventoryArchiveMaster
 from shops.models import Shop
-from categories.models import Category
 from wms.models import Bin, InventoryState, InventoryType
 from django.contrib.auth import get_user_model
 from products.models import Product
@@ -14,9 +11,9 @@ from products.models import Product
 # Create your models here.
 
 AUDIT_DETAIL_STATUS_CHOICES = Choices((0, 'INACTIVE', 'inactive'), (1, 'ACTIVE', 'active'))
-AUDIT_DETAIL_STATE_CHOICES = Choices((1, 'CREATED', 'created'), (2, 'INITIATED', 'initiated'),
-                                     (3, 'PASS', 'pass'), (4, 'FAIL', 'fail'),
-                                     (5, 'TICKET_RAISED', 'ticket_raised'),(6, 'TICKET_CLOSED', 'ticket_closed'))
+AUDIT_DETAIL_STATE_CHOICES = Choices((1, 'CREATED', 'created'), (2, 'INITIATED', 'initiated'),(3, 'ENDED', 'ended'),
+                                     (4, 'PASS', 'pass'), (5, 'FAIL', 'fail'),
+                                     (6, 'TICKET_RAISED', 'ticket_raised'),(7, 'TICKET_CLOSED', 'ticket_closed'))
 AUDIT_INVENTORY_CHOICES = Choices((1, 'WAREHOUSE', 'warehouse'), (2, 'BIN', 'bin'), (3, 'INTEGRATED', 'bin-warehouse'),
                                   (4, 'DAILY_OPERATIONS', 'daily operations'))
 AUDIT_TYPE_CHOICES = Choices((0, 'MANUAL', 'manual'),  #(1, 'SCHEDULED', 'scheduled'),
@@ -39,16 +36,20 @@ class BaseTimestampModel(models.Model):
 
 class AuditDetail(BaseTimestampModel):
     # audit_no = models.CharField(max_length=10)
-    audit_type = models.PositiveSmallIntegerField(choices=AUDIT_TYPE_CHOICES)
-    audit_inventory_type = models.PositiveSmallIntegerField(choices=AUDIT_INVENTORY_CHOICES, null=True, blank=True,)
-    audit_level = models.PositiveSmallIntegerField(choices=AUDIT_LEVEL_CHOICES, null=True, blank=True,)
+    audit_type = models.PositiveSmallIntegerField(choices=AUDIT_TYPE_CHOICES, verbose_name='Audit Type')
+    audit_inventory_type = models.PositiveSmallIntegerField(choices=AUDIT_INVENTORY_CHOICES, null=True,
+                                                            blank=True,verbose_name='Audit Inventory Type')
+    audit_level = models.PositiveSmallIntegerField(choices=AUDIT_LEVEL_CHOICES, null=True, blank=True,
+                                                   verbose_name='Audit Level')
     warehouse = models.ForeignKey(Shop, null=False, blank=False, on_delete=models.DO_NOTHING)
     bin = models.ManyToManyField(Bin, null=True, blank=True, related_name='audit_bin_mapping')
     sku = models.ForeignKey(Product, to_field='product_sku', null=True, blank=True,  on_delete=models.DO_NOTHING)
-    status = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATUS_CHOICES)
+    status = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATUS_CHOICES, verbose_name='Audit Status')
     state = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATE_CHOICES,
-                                             default=AUDIT_DETAIL_STATE_CHOICES.CREATED)
-    user = models.ForeignKey(get_user_model(), related_name='audits_created', on_delete=models.DO_NOTHING)
+                                             default=AUDIT_DETAIL_STATE_CHOICES.CREATED,
+                                             verbose_name='Audit State')
+    user = models.ForeignKey(get_user_model(), related_name='audits_created', on_delete=models.DO_NOTHING,
+                             verbose_name='Created By')
     auditor = models.ForeignKey(get_user_model(), related_name='audits_assigned', null=True, on_delete=models.DO_NOTHING)
 
     def save(self, *args, **kwargs):

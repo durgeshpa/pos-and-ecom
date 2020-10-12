@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 
 from accounts.middlewares import get_current_user
 from accounts.models import User
-from audit.models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOICES
+from audit.models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES
 from products.models import Product
 from shops.models import Shop
 from wms.models import Bin
@@ -29,16 +29,18 @@ class AuditCreationForm(forms.ModelForm):
         queryset=User.objects.all(),
         widget=autocomplete.ModelSelect2(url='assigned-user-autocomplete')
     )
-
-    def __init__(self, *args, **kwargs):
-        super(AuditCreationForm, self).__init__(*args, **kwargs)
-        # assign a (computed, I assume) default value to the choice field
-        self.initial['audit_type'] = 0 # AUDIT_TYPE_CHOICES.MANUAL
+    #
+    # def __init__(self, *args, **kwargs):
+    #     super(AuditCreationForm, self).__init__(*args, **kwargs)
+    #     # assign a (computed, I assume) default value to the choice field
+    #     self.initial['audit_type'] = 0 # AUDIT_TYPE_CHOICES.MANUAL
 
     def clean(self):
         data = self.cleaned_data
         if self.instance.id:
-            return
+            if self.instance.state != AUDIT_DETAIL_STATE_CHOICES.CREATED:
+                raise ValidationError('Audit update is not allowed once audit is initiated!!')
+            return self.cleaned_data
         audit_type = data.get('audit_type')
         if audit_type is None:
             raise ValidationError('Please select Audit Type!!')
@@ -63,7 +65,6 @@ class AuditCreationForm(forms.ModelForm):
                 raise ValidationError('Please select Audit Inventory Type!')
             if AuditDetail.objects.filter(audit_type=audit_type,
                                           audit_inventory_type=audit_inventory_type,
-                                          warehouse=data['warehouse'],
-                                          status=data['status']).exists():
+                                          warehouse=data['warehouse']).exists():
                 raise ValidationError('An active automated audit already exists for this combination!!')
         return self.cleaned_data

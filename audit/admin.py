@@ -34,11 +34,12 @@ class AssignedUserFilter(AutocompleteFilter):
 
 @admin.register(AuditDetail)
 class AuditDetailAdmin(admin.ModelAdmin):
-    list_display = ('id', 'warehouse', 'audit_type', 'audit_inventory_type', 'audit_level', 'state', 'status', 'user', 'auditor')
+    list_display = ('id', 'warehouse', 'audit_type', 'audit_inventory_type', 'audit_level',
+                    'state', 'status', 'user', 'auditor')
 
     fieldsets = (
         ('Basic', {
-            'fields': ('warehouse', 'audit_type','status'),
+            'fields': ('warehouse', 'audit_type', 'status'),
             'classes': ('required',)
         }),
         ('Automated Audit', {
@@ -50,14 +51,15 @@ class AuditDetailAdmin(admin.ModelAdmin):
             'classes': ('manual',)
         }),
     )
-    list_filter = [Warehouse, 'audit_type']
+
+    list_filter = [Warehouse, 'audit_type', 'state', 'audit_level', 'status']
     form = AuditCreationForm
     actions_on_top = False
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
-            return self.readonly_fields + ( 'warehouse', 'audit_type', 'audit_inventory_type', 'audit_level',
-                                            'bin', 'sku', 'user', 'auditor')
+            return self.readonly_fields + ('warehouse', 'audit_type', 'audit_inventory_type', 'audit_level',
+                                           'bin', 'sku', 'user', 'auditor')
         return self.readonly_fields
 
     class Media:
@@ -72,7 +74,8 @@ class AuditTicketAdmin(admin.ModelAdmin):
                     'status', 'assigned_user')
 
     readonly_fields = ('sku', 'batch_id', 'bin', 'qty_expected', 'qty_calculated', 'created_at', 'updated_at')
-    list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'status', ('created_at', DateRangeFilter)]
+    list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'audit_run__audit__audit_type',
+                   'audit_run__audit__audit_inventory_type', 'status', ('created_at', DateRangeFilter)]
     date_hierarchy = 'created_at'
     actions_on_top = False
 
