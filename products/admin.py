@@ -377,13 +377,15 @@ class ParentProductCategoryAdmin(TabularInline):
 def deactivate_selected_products(modeladmin, request, queryset):
     queryset.update(status=False)
     for record in queryset:
-        child_skus = Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='deactivated')
+        Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='deactivated')
 
 deactivate_selected_products.short_description = "Deactivate Selected Products"
 
 
 def approve_selected_products(modeladmin, request, queryset):
     queryset.update(status=True)
+    for record in queryset:
+        Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='active')
 approve_selected_products.short_description = "Approve Selected Products"
 
 
@@ -455,12 +457,17 @@ def approve_selected_child_products(modeladmin, request, queryset):
             record.save()
             success_skus.append(record.product_sku)
         else:
+            parent_sku.status = True
+            parent_sku.save()
+            record.status = 'active'
+            record.save()
             fail_skus.append(record.product_sku)
     if fail_skus:
-        if success_skus:
-            modeladmin.message_user(request, "These selected SKUs failed to be approved since their Parent SKU is deactivated {}".format(fail_skus), level=messages.WARNING)
-        else:
-            modeladmin.message_user(request, "All selected Child SKUs failed to be approved since their Parent SKU is deactivated {}".format(fail_skus), level=messages.ERROR)
+        modeladmin.message_user(
+            request,
+            "All selected Child SKUs were successfully approved along with their Parent SKU activation where required",
+            level=messages.SUCCESS
+        )
     else:
         modeladmin.message_user(request, "All selected Child SKUs were successfully approved", level=messages.SUCCESS)
 approve_selected_products.short_description = "Approve Selected Products"

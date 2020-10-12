@@ -277,7 +277,7 @@ class Product(models.Model):
 
     @property
     def product_short_description(self):
-        return ''
+        return self.product_name
 
     @property
     def product_long_description(self):

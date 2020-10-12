@@ -1,8 +1,8 @@
 import math
 import datetime
 from django.shortcuts import render
-from django.http import HttpResponse
-from django.db.models import F, Sum, Count
+from django.http import HttpResponse, JsonResponse
+from django.db.models import F, Sum, Count, Subquery
 from django.views.generic import View, ListView, UpdateView
 from django.urls import reverse_lazy
 from django.db.models import Q
@@ -25,7 +25,7 @@ from brand.models import Brand
 from .serializers import CartProductMappingSerializer
 from gram_to_brand.models import Order, CartProductMapping
 from brand.models import Vendor
-from products.models import ProductVendorMapping
+from products.models import ProductVendorMapping, ParentProduct
 
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
@@ -92,6 +92,16 @@ class OrderAutocomplete(autocomplete.Select2QuerySetView):
         )
         if self.q:
             qs = qs.filter(order_no__icontains=self.q)
+        return qs
+
+
+class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = ParentProduct.objects.all()
+
+        if self.q:
+            qs = qs.filter(Q(name__istartswith=self.q) | Q(parent_id__istartswith=self.q))
+
         return qs
 
 
@@ -301,8 +311,13 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = None
         supplier_id = self.forwarded.get('supplier_name', None)
+        parent_product_pk = self.forwarded.get('cart_parent_product', None)
+        # print(parent_product_pk)
+        # grn_pks = [x.get('pk') for x in list(GRNOrderProductMapping.objects.filter(product__parent_product__pk=parent_product_pk).distinct('product').values('pk'))]
+        # products_by_grn_date = GRNOrderProductMapping.objects.filter(pk__in=grn_pks).order_by('-created_at').values('created_at', 'product', 'product__product_sku')
+        # print(products_by_grn_date)
         if supplier_id:
-            qs = Product.objects.all()
+            qs = Product.objects.filter(parent_product__pk=parent_product_pk)
             product_id = ProductVendorMapping.objects \
                 .filter(vendor__id=supplier_id, case_size__gt=0, status=True).values('product')
             qs = qs.filter(id__in=[product_id])
@@ -312,6 +327,25 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
                     Q(product_sku__iexact=self.q)
                 )
         return qs
+
+
+def FetchLastGRNProduct(request):
+    data = {
+        'found': False
+    }
+    parent_product_pk = request.GET.get('parent_product', None)
+    if parent_product_pk:
+        products = GRNOrderProductMapping.objects.filter(product__parent_product__pk=parent_product_pk).order_by('-created_at').values('created_at', 'product__id', 'product__product_name', 'product__product_sku')
+        if products:
+            product = products[0]
+            if product:
+                data = {
+                    'found': True,
+                    'product_id': product.get('product__id'),
+                    'product_name': "{}-{}".format(product.get('product__product_name'), product.get('product__product_sku'))
+                }
+
+    return JsonResponse(data, safe=False)
 
 
 class VendorProductPrice(APIView):
