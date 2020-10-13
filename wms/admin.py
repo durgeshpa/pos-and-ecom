@@ -12,6 +12,8 @@ from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
 from rangefilter.filter import DateTimeRangeFilter
 
+from retailer_to_sp.models import Invoice, Trip
+from gram_to_brand.models import GRNOrder
 from products.models import ProductVendorMapping
 from retailer_backend.admin import InputFilter
 # app imports
@@ -342,13 +344,61 @@ class PutAwayAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Admin has been called.")
     form = PutAwayForm
     list_display = (
-        'putaway_user', 'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity',
-        'putaway_quantity')
+        'putaway_user', 'warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_type_id', 'grn_id', 'trip_id', 'quantity',
+        'putaway_quantity', 'created_at',)
+    actions = ['download_bulk_put_away_csv']
     readonly_fields = (
     'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity', 'putaway_quantity',)
     search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
-    list_filter = [Warehouse, BatchIdFilter, SKUFilter, ('putaway_type', DropdownFilter), PutawayuserFilter]
+    list_filter = [Warehouse, BatchIdFilter, SKUFilter, ('putaway_type', DropdownFilter), PutawayuserFilter,
+                   ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
+
+    def grn_id(self, obj):
+        if obj.putaway_type == 'GRN':
+            in_type_id = In.objects.filter(id=obj.putaway_type_id).last().in_type_id
+            grn_id = GRNOrder.objects.filter(grn_id=in_type_id).last().id
+            return format_html("<a href='/admin/gram_to_brand/grnorder/%s/change/'> %s </a>" % (str(grn_id), str(in_type_id)))
+        else:
+            return '-'
+
+    def trip_id(self, obj):
+        if obj.putaway_type == 'RETURNED':
+            invoice_number = Invoice.objects.filter(invoice_no=obj.putaway_type_id).last().shipment.trip.dispatch_no
+            trip_id = Trip.objects.filter(dispatch_no=invoice_number).last().id
+            return format_html(
+                "<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'> %s </a>" % (str(trip_id), str(invoice_number)))
+        else:
+            return '-'
+
+    def download_bulk_put_away_csv(self, request, queryset):
+        """
+        :param request: get request
+        :param queryset: Put Away queryset
+        :return: csv file
+        """
+        f = StringIO()
+        writer = csv.writer(f)
+        # set the header name
+        writer.writerow(["Put Away User", "Warehouse", "Put Away Type", "Put Away Type ID", "SKU", "Batch ID",
+                         "Quantity", "Put Away Quantity"])
+
+        for query in queryset:
+            # iteration for selected id from Admin Dashboard and get the instance
+            putaway = Putaway.objects.get(id=query.id)
+            # get object from queryset
+            writer.writerow([putaway.putaway_user, putaway.warehouse_id,
+                             putaway.putaway_type, putaway.putaway_type_id,
+                             putaway.sku.product_name + '-' + putaway.sku.product_sku,
+                             putaway.batch_id,
+                             putaway.quantity, putaway.putaway_quantity])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=putaway_download.csv'
+        return response
+
+    download_bulk_put_away_csv.short_description = "Download Bulk Put Away Data in CSV"
 
     class Media:
         pass
@@ -519,7 +569,8 @@ class OutAdmin(admin.ModelAdmin):
 class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
-    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status')
+    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status',
+                    'completed_at')
     readonly_fields = (
     'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status', 'out',)
     search_fields = ('pickup_type_id', 'sku__product_sku',)
@@ -533,9 +584,11 @@ class PickupAdmin(admin.ModelAdmin):
 class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity', 'created_at')
+    list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity',
+                    'created_at', 'last_picked_at', 'remarks')
     list_select_related = ('warehouse', 'pickup', 'bin')
-    readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin', 'created_at')
+    readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin',
+                       'created_at', 'last_picked_at', 'remarks')
     search_fields = ('batch_id', 'bin__bin__bin_id')
     list_filter = [Warehouse, BatchIdFilter, BinIDFilterForPickupBinInventory, OrderNumberFilterForPickupBinInventory, ('created_at', DateTimeRangeFilter)]
     list_per_page = 50

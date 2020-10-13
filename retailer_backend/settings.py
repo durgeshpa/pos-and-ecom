@@ -100,6 +100,7 @@ INSTALLED_APPS = [
     'offer',
     'celerybeat_status',
     'django_elasticsearch_dsl',
+    'mathfilters',
     'wms',
     'audit'
 ]

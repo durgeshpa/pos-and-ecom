@@ -465,6 +465,9 @@ class ProductTaxMapping(models.Model):
 
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
+
+    def get_products_gst_surcharge(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='surcharge')
 # class ProductSurcharge(models.Model):
 #     product = models.ForeignKey(Product, related_name='product_pro_surcharge',on_delete=models.CASCADE)
 #     surcharge_name = models.CharField(max_length=255, validators=[NameValidator])

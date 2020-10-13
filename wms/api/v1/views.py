@@ -1,4 +1,7 @@
 import logging
+
+from django.utils import timezone
+
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
     PickupBinInventory, StockMovementCSVUpload
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
@@ -322,13 +325,25 @@ class PickupList(APIView):
             '-created_at')
 
         if not orders:
-            order_count = 0
-            msg = {'is_success': False, 'message': 'No data found.', 'data': None, 'order_count':order_count}
+            picking_complete = 0
+            picking_assigned = 0
+            msg = {'is_success': False, 'message': 'No data found.', 'data': None, 'picking_complete': picking_complete,
+                   'picking_assigned':picking_assigned}
             return Response(msg, status=status.HTTP_200_OK)
         else:
             serializer = OrderSerializer(orders, many=True)
-            order_count = orders.count()
-            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data, 'order_count' : order_count}
+            picking_complete = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
+                                      Q(picker_order__picking_status__in=['picking_complete']),
+                                      Q(order_status__in=['picking_complete']),
+                                      Q(picker_order__picker_assigned_date__startswith=date.date())).order_by(
+            '-created_at').count()
+            picking_assigned = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
+                                      Q(picker_order__picking_status__in=['picking_assigned']),
+                                      Q(order_status__in=['PICKING_ASSIGNED']),
+                                      Q(picker_order__picker_assigned_date__startswith=date.date())).order_by(
+            '-created_at').count()
+            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data, 'picking_complete': picking_complete,
+                   'picking_assigned':picking_assigned}
             return Response(msg, status=status.HTTP_200_OK)
 
 
@@ -493,6 +508,7 @@ class PickupDetail(APIView):
                              'message': 'The number of sku ids entered should be equal to number of pickup qty entered.',
                              'data': None}, status=status.HTTP_200_OK)
         diction = {i[1]: i[0] for i in zip(pickup_quantity, sku_id)}
+        remarks = request.data.get('remarks')
         data_list = []
         with transaction.atomic():
             for j, i in diction.items():
@@ -511,7 +527,8 @@ class PickupDetail(APIView):
                                               'message': "Can add only {} more items".format(abs(qty - pick_qty))})
                         continue
                     else:
-                        picking_details.update(pickup_quantity=i + pick_qty)
+                        picking_details.update(pickup_quantity=i + pick_qty, last_picked_at=timezone.now(),
+                                               remarks=remarks)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                         pickup__sku__id=j)
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
@@ -565,7 +582,8 @@ class PickupComplete(APIView):
                     order_obj = Order.objects.filter(order_no=order_no)
                     Order.objects.filter(order_no=order_no).update(order_status='picking_complete')
                     PickerDashboard.objects.filter(order=order_obj[0]).update(picking_status='picking_complete')
-                    pick_obj.update(status='picking_complete')
+                    #pick_obj.update(status='picking_complete')
+                    pick_obj.update(status='picking_complete', completed_at=timezone.now())
 
                     for pickup in pick_obj:
                         pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)

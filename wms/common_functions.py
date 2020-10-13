@@ -217,7 +217,14 @@ class CommonWarehouseInventoryFunctions(object):
                 inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
                 inventory_type=inventory_type).last(), in_stock=in_stock).last()
 
+        quantity = BinInventory.objects.filter(Q(warehouse=warehouse),
+                                              Q(sku=sku),
+                                              Q(inventory_type__id=
+                                                InventoryType.objects.filter(inventory_type=inventory_type)[0].id),
+                                              Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
         if ware_house_inventory_obj:
+            if quantity is None:
+                quantity = 0
             ware_house_inventory_obj.quantity = quantity
             ware_house_inventory_obj.save()
         else:
