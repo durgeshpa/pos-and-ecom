@@ -344,11 +344,41 @@ class PutAwayAdmin(admin.ModelAdmin):
     list_display = (
         'putaway_user', 'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity',
         'putaway_quantity')
+    actions = ['download_bulk_put_away_csv']
     readonly_fields = (
     'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity', 'putaway_quantity',)
     search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
     list_filter = [Warehouse, BatchIdFilter, SKUFilter, ('putaway_type', DropdownFilter), PutawayuserFilter]
     list_per_page = 50
+
+    def download_bulk_put_away_csv(self, request, queryset):
+        """
+        :param request: get request
+        :param queryset: Put Away queryset
+        :return: csv file
+        """
+        f = StringIO()
+        writer = csv.writer(f)
+        # set the header name
+        writer.writerow(["Put Away User", "Warehouse", "Put Away Type", "Put Away Type ID", "SKU", "Batch ID",
+                         "Quantity", "Put Away Quantity"])
+
+        for query in queryset:
+            # iteration for selected id from Admin Dashboard and get the instance
+            putaway = Putaway.objects.get(id=query.id)
+            # get object from queryset
+            writer.writerow([putaway.putaway_user, putaway.warehouse_id,
+                             putaway.putaway_type, putaway.putaway_type_id,
+                             putaway.sku.product_name + '-' + putaway.sku.product_sku,
+                             putaway.batch_id,
+                             putaway.quantity, putaway.putaway_quantity])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=putaway_download.csv'
+        return response
+
+    download_bulk_put_away_csv.short_description = "Download Bulk Put Away Data in CSV"
 
     class Media:
         pass

@@ -199,6 +199,43 @@ class CommonWarehouseInventoryFunctions(object):
                 in_stock=in_stock, quantity=quantity)
 
     @classmethod
+    def create_warehouse_inventory_stock_correction(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
+        # This function is only used for update warehouse inventory while stock correction change method
+        """
+
+        :param warehouse:
+        :param sku:
+        :param inventory_type:
+        :param inventory_state:
+        :param quantity:
+        :param in_stock:
+        :return:
+        """
+
+        ware_house_inventory_obj = WarehouseInventory.objects.filter(
+            warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
+                inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
+                inventory_type=inventory_type).last(), in_stock=in_stock).last()
+
+        quantity = BinInventory.objects.filter(Q(warehouse=warehouse),
+                                              Q(sku=sku),
+                                              Q(inventory_type__id=
+                                                InventoryType.objects.filter(inventory_type=inventory_type)[0].id),
+                                              Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
+        if ware_house_inventory_obj:
+            if quantity is None:
+                quantity = 0
+            ware_house_inventory_obj.quantity = quantity
+            ware_house_inventory_obj.save()
+        else:
+            WarehouseInventory.objects.get_or_create(
+                warehouse=warehouse,
+                sku=sku,
+                inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
+                inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
+                in_stock=in_stock, quantity=quantity)
+
+    @classmethod
     def filtered_warehouse_inventory_items(cls, **kwargs):
         inven_items = WarehouseInventory.objects.filter(**kwargs)
         return inven_items
@@ -1639,22 +1676,15 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
                                                                                in_stock=t)
     if bin_inventory_obj.exists():
         bin_inventory_obj = bin_inventory_obj.last()
-        bin_quantity = val + bin_inventory_obj.quantity
-        bin_inventory_obj.quantity = bin_quantity
+        bin_inventory_obj.quantity = val
         bin_inventory_obj.save()
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, sku, inv_type, inv_state, val,
-                                                                     True)
     else:
         BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(), sku=sku,
                                     batch_id=batch_id, inventory_type=InventoryType.objects.filter(
                 inventory_type=inv_type).last(), quantity=val, in_stock=t)
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, sku, inv_type, inv_state, val,
-                                                                     True)
-    if val < 0:
-        val = -(int(val))
-    else:
-        val = val
-    if inventory_movement_type == 'Out':
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_stock_correction(sh, sku, inv_type, inv_state, val,
+                                                                 True)
+    if transaction_type == 'stock_correction_out_type':
         pass
     else:
         if put_away_status is True:
