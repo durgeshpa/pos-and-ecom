@@ -624,7 +624,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                             inventory_type='missing').last())
                     in_quantity = in_quantity + int(data[8])
 
-                if in_quantity > 0:
+                if in_quantity >= 0:
                     InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
                                                          stock_movement_obj[0].id,
                                                          Product.objects.get(product_sku=data[2]),
@@ -639,7 +639,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                                                                                                     id=data[0])),
                                                                                 'In', in_quantity,
                                                                                 stock_movement_obj[0])
-                if out_quantity > 0:
+                if out_quantity >= 0:
                     Out.objects.create(warehouse=Shop.objects.get(id=data[0]),
                                        out_type='stock_correction_out_type',
                                        out_type_id=stock_movement_obj[0].id,
