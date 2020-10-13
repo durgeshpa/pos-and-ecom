@@ -12,6 +12,7 @@ from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
 from rangefilter.filter import DateTimeRangeFilter
 
+from retailer_to_sp.models import Invoice
 from products.models import ProductVendorMapping
 from retailer_backend.admin import InputFilter
 # app imports
@@ -342,14 +343,27 @@ class PutAwayAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Admin has been called.")
     form = PutAwayForm
     list_display = (
-        'putaway_user', 'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity',
-        'putaway_quantity')
+        'putaway_user', 'warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_type_id', 'grn_id', 'trip_id', 'quantity',
+        'putaway_quantity', 'created_at',)
     actions = ['download_bulk_put_away_csv']
     readonly_fields = (
     'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity', 'putaway_quantity',)
     search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
-    list_filter = [Warehouse, BatchIdFilter, SKUFilter, ('putaway_type', DropdownFilter), PutawayuserFilter]
+    list_filter = [Warehouse, BatchIdFilter, SKUFilter, ('putaway_type', DropdownFilter), PutawayuserFilter,
+                   ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
+
+    def grn_id(self, obj):
+        if obj.putaway_type == 'GRN':
+            return In.objects.filter(id=obj.putaway_type_id).last().in_type_id
+        else:
+            return '-'
+
+    def trip_id(self, obj):
+        if obj.putaway_type == 'RETURNED':
+            return Invoice.objects.filter(invoice_no=obj.putaway_type_id).last().shipment.trip.dispatch_no
+        else:
+            return '-'
 
     def download_bulk_put_away_csv(self, request, queryset):
         """
