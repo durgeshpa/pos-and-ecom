@@ -963,7 +963,7 @@ def FetchDefaultChildDdetails(request):
                 'option': def_child.weight_unit,
                 'text': 'Gram'
             },
-            'enable_use_parent_image_check': True if def_child.parent_product.image else False
+            'enable_use_parent_image_check': True if def_child.parent_product.parent_product_pro_image.exists() else False
         }
 
     return JsonResponse(data)

@@ -12,9 +12,11 @@
     </style>
     <script>
         $(document).ready(function(jQuery) {
-            var parent_product_category_inline = document.getElementsByClassName("tabular inline-related last-related");
-            var parent_product_category_fieldset = parent_product_category_inline[0].getElementsByTagName('fieldset');
+            var inline_admins = document.getElementsByClassName("tabular inline-related");
+            var parent_product_category_fieldset = inline_admins[0].getElementsByTagName('fieldset');
             parent_product_category_fieldset[0].getElementsByTagName('h2')[0].className = 'required_field_red';
+            var parent_product_image_fieldset = inline_admins[1].getElementsByTagName('fieldset');
+            parent_product_image_fieldset[0].getElementsByTagName('h2')[0].className = 'required_field_red';
         });
     </script>
 {% endblock %}

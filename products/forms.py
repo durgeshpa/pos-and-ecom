@@ -324,7 +324,7 @@ class ParentProductForm(forms.ModelForm):
         model = ParentProduct
         fields = ('parent_brand', 'name', 'product_hsn', 'gst', 'cess',
                   'surcharge', 'brand_case_size', 'inner_case_size',
-                  'product_type', 'image',)
+                  'product_type',)
     
 
     def __init__(self, *args, **kwargs):
@@ -420,12 +420,10 @@ class ProductForm(forms.ModelForm):
         # fields = ('product_name','product_slug','product_short_description', 'product_long_description',
         #           'product_gf_code', 'product_ean_code', 'product_hsn','product_brand', 'product_inner_case_size',
         #           'product_case_size','weight_value', 'weight_unit', 'status',)
-        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'child_product_image', 'status',)
+        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status',)
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        if not cleaned_data.get('use_parent_image'):
-            raise forms.ValidationError("Sorry! Must provide child image when not using Parent Image.")
         return cleaned_data
 
 

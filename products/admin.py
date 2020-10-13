@@ -389,6 +389,10 @@ def approve_selected_products(modeladmin, request, queryset):
 approve_selected_products.short_description = "Approve Selected Products"
 
 
+class ParentProductImageAdmin(admin.TabularInline):
+    model = ParentProductImage
+
+
 class ParentProductAdmin(admin.ModelAdmin):
     resource_class = ParentProductResource
     form = ParentProductForm
@@ -409,15 +413,19 @@ class ParentProductAdmin(admin.ModelAdmin):
         'parent_id', 'name'
     ]
     inlines = [
-        ParentProductCategoryAdmin
+        ParentProductCategoryAdmin, ParentProductImageAdmin
     ]
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
     autocomplete_fields = ['product_hsn', 'parent_brand']
 
     def product_image(self, obj):
-        if not obj.image:
-            return ''
-        return format_html('<a href="{url}"><img alt="Product Image" src="{url}" height="50px" width="50px"/></a>', url=obj.image.url)
+        if obj.parent_product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.parent_product_pro_image.last().image.url,
+                (obj.parent_product_pro_image.last().image_alt_text or obj.parent_product_pro_image.last().image_name),
+                obj.parent_product_pro_image.last().image.url
+            ))
+        return '-'
 
     def product_gst(self, obj):
         if obj.gst:
@@ -471,6 +479,10 @@ def approve_selected_child_products(modeladmin, request, queryset):
     else:
         modeladmin.message_user(request, "All selected Child SKUs were successfully approved", level=messages.SUCCESS)
 approve_selected_products.short_description = "Approve Selected Products"
+
+
+class ChildProductImageAdmin(admin.TabularInline):
+    model = ChildProductImage
 
 
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
@@ -671,6 +683,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     #     ProductCategoryAdmin, ProductOptionAdmin,
     #     ProductImageAdmin, ProductTaxMappingAdmin
     # ]
+    inlines = [ChildProductImageAdmin]
     # autocomplete_fields = ['product_hsn', 'product_brand']
     autocomplete_fields = ['parent_product']
 
@@ -683,9 +696,19 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     product_images.short_description = 'Product Image'
 
     def products_image(self, obj):
-        if not obj.product_image:
-            return ''
-        return format_html('<a href="{url}"><img alt="Product Image" src="{url}" height="50px" width="50px"/></a>', url=obj.product_image.url)
+        if obj.use_parent_image and obj.parent_product.parent_product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.parent_product.parent_product_pro_image.last().image.url,
+                (obj.parent_product.parent_product_pro_image.last().image_alt_text or obj.parent_product.parent_product_pro_image.last().image_name),
+                obj.parent_product.parent_product_pro_image.last().image.url
+            ))
+        elif not obj.use_parent_image and obj.child_product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.child_product_pro_image.last().image.url,
+                (obj.child_product_pro_image.last().image_alt_text or obj.child_product_pro_image.last().image_name),
+                obj.child_product_pro_image.last().image.url
+            ))
+        return '-'
 
     def product_gst(self, obj):
         if obj.product_gst:

@@ -150,7 +150,7 @@ class ParentProduct(models.Model):
         ('both', 'Both B2B and B2C'),
     )
     product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES)
-    image = models.ImageField(upload_to='parent_product_image', blank=False)
+    # image = models.ImageField(upload_to='parent_product_image', blank=False)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -180,6 +180,27 @@ class ParentProductCategory(models.Model):
     class Meta:
         verbose_name = _("Parent Product Category")
         verbose_name_plural = _("Parent Product Categories")
+
+
+class ParentProductImage(models.Model):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_image', on_delete=models.CASCADE)
+    image_name = models.CharField(max_length=255, validators=[ProductNameValidator])
+    image_alt_text = models.CharField(max_length=255, null=True, blank=True, validators=[NameValidator])
+    image = models.ImageField(upload_to='parent_product_image')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    # status = models.BooleanField(default=True)
+
+    def image_thumbnail(self):
+        return mark_safe('<img src="{url}" width="{width}" height={height} />'.format(
+            url = self.image.url,
+            width='500px',
+            height='500px',
+            )
+    )
+
+    def __str__(self):
+        return self.image.name
 
 
 @receiver(pre_save, sender=ParentProductCategory)
@@ -229,7 +250,7 @@ class Product(models.Model):
     )
     reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
     use_parent_image = models.BooleanField(default=False)
-    child_product_image = models.ImageField(upload_to='child_product_image', blank=True, null=True)
+    # child_product_image = models.ImageField(upload_to='child_product_image', blank=True, null=True)
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
@@ -395,6 +416,27 @@ class ProductSKUGenerator(models.Model):
     cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
     brand_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
     last_auto_increment = models.CharField(max_length=8)
+
+
+class ChildProductImage(models.Model):
+    product = models.ForeignKey(Product, related_name='child_product_pro_image', blank=True, on_delete=models.CASCADE)
+    image_name = models.CharField(max_length=255, blank=True, validators=[ProductNameValidator])
+    image_alt_text = models.CharField(max_length=255, null=True, blank=True, validators=[NameValidator])
+    image = models.ImageField(upload_to='child_product_image', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    # status = models.BooleanField(default=True)
+
+    def image_thumbnail(self):
+        return mark_safe('<img src="{url}" width="{width}" height={height} />'.format(
+            url=self.image.url,
+            width='500px',
+            height='500px',
+        ))
+
+    def __str__(self):
+        return self.image.name
+
 
 class ProductOption(models.Model):
     product = models.ForeignKey(Product, related_name='product_opt_product', on_delete=models.CASCADE)

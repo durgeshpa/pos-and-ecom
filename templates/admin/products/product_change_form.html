@@ -2,12 +2,23 @@
 
 {% block content %}
     {{ block.super }}
+    <style>
+        .required_field_red::after {
+            content: "*";
+            color: red;
+            margin-left: 2px;
+        }
+    </style>
     <script>
         $(document).ready(function(jQuery) {
             var parent_product_div = document.getElementsByClassName("field-parent_product");
             parent_product_div[0].getElementsByTagName('div')[0].innerHTML += `<a href="/admin/products/parentproduct/add/"><img src="/static/admin/img/icon-addlink.svg" alt="Add"></a>`;
             document.getElementById('id_use_parent_image').onchange = function() {
-                document.getElementById('id_child_product_image').disabled = this.checked;
+                if ($('#id_use_parent_image').is(":checked")) {
+                    $(".tabular.inline-related").first().children('fieldset').children('h2').removeClass('required_field_red');
+                } else {
+                    $(".tabular.inline-related").first().children('fieldset').children('h2').addClass('required_field_red');
+                }
             };
         });
     </script>

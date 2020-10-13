@@ -15,9 +15,9 @@ function getDefaultChildDetails() {
                 $('select[id=id_weight_unit]').find('option').remove();
                 $('select[id=id_weight_unit]').append($('<option value="'+data.weight_unit.option+'">'+data.weight_unit.text+'</option>'));
                 if(!data.enable_use_parent_image_check) {
+                    $("#id_use_parent_image").prop('checked', false);
                     document.getElementById('id_use_parent_image').disabled = true;
                     $("label[for='id_use_parent_image']").text("Use parent image (Parent Image Not Available)");
-                    document.getElementById('id_child_product_image').required = true;
                 }
             }
             return true;
