@@ -12,7 +12,8 @@ from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
 from rangefilter.filter import DateTimeRangeFilter
 
-from retailer_to_sp.models import Invoice
+from retailer_to_sp.models import Invoice, Trip
+from gram_to_brand.models import GRNOrder
 from products.models import ProductVendorMapping
 from retailer_backend.admin import InputFilter
 # app imports
@@ -355,13 +356,18 @@ class PutAwayAdmin(admin.ModelAdmin):
 
     def grn_id(self, obj):
         if obj.putaway_type == 'GRN':
-            return In.objects.filter(id=obj.putaway_type_id).last().in_type_id
+            in_type_id = In.objects.filter(id=obj.putaway_type_id).last().in_type_id
+            grn_id = GRNOrder.objects.filter(grn_id=in_type_id).last().id
+            return format_html("<a href='/admin/gram_to_brand/grnorder/%s/change/'> %s </a>" % (str(grn_id), str(in_type_id)))
         else:
             return '-'
 
     def trip_id(self, obj):
         if obj.putaway_type == 'RETURNED':
-            return Invoice.objects.filter(invoice_no=obj.putaway_type_id).last().shipment.trip.dispatch_no
+            invoice_number = Invoice.objects.filter(invoice_no=obj.putaway_type_id).last().shipment.trip.dispatch_no
+            trip_id = Trip.objects.filter(dispatch_no=invoice_number).last().id
+            return format_html(
+                "<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'> %s </a>" % (str(trip_id), str(invoice_number)))
         else:
             return '-'
 
