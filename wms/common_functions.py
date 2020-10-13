@@ -228,6 +228,8 @@ class CommonWarehouseInventoryFunctions(object):
             ware_house_inventory_obj.quantity = quantity
             ware_house_inventory_obj.save()
         else:
+            if quantity is None:
+                quantity = 0
             WarehouseInventory.objects.get_or_create(
                 warehouse=warehouse,
                 sku=sku,
