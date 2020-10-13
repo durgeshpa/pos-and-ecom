@@ -153,13 +153,13 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
     batch_id_with_sku = serializers.SerializerMethodField('batch_sku')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     is_success = serializers.SerializerMethodField('is_success_dt')
-    product_images = serializers.SerializerMethodField('m_product_images')
+    product_image = serializers.SerializerMethodField('m_product_image')
     # bin_id = serializers.SerializerMethodField('bin_id_dt')
 
     class Meta:
         model = PickupBinInventory
         fields = ('is_success', 'id', 'quantity','pickup_quantity','product_mrp','batch_id_with_sku','sku_id',
-                  'product_images')
+                  'product_image')
 
     def sku_id_dt(self, obj):
         sku_id = obj.pickup.sku.id
@@ -181,11 +181,9 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
     def is_success_dt(self, obj):
         return True
 
-    def m_product_images(self,obj):
+    def m_product_image(self,obj):
         if obj.pickup.sku.product_pro_image.exists():
-            return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
-                             format(obj.pickup.sku.product_pro_image.last().image.url,obj.pickup.sku.product_pro_image.last().image_alt_text,
-                                    obj.pickup.sku.product_pro_image.last().image.url))
+            return obj.pickup.sku.product_pro_image.last().image.url
 
 
     # def bin_id_dt(self, obj):
