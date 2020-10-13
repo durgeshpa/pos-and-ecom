@@ -40,6 +40,10 @@ SUCCESS_MESSAGES = {
 }
 
 ERROR_MESSAGES = {
+    'EMPTY': '%s can\'t be empty',
+    'INVALID_AUDIT_STATE': "This audit is not in %s state.",
+    'INVALID_STATE_TRANSITION': "This audit can not be %s at the moment.",
+    'NO_RECORD': 'No %s record found',
     'AVAILABLE_QUANTITY': 'Available Qty : {0}',
     'AVAILABLE_PRODUCT': 'Available No of Pieces : {0}',
     'INVALID_PRICE_UPLOAD': "You cannot upload Selling Price greater than MRP",
@@ -65,6 +69,7 @@ ERROR_MESSAGES = {
     "4016": "No Executive associated with Sales Manager.",
     "4017": "Feedback Submission is allowed only for the Current Date.",
     "4018": "Request Param value is not correct, Please re-verify at your end.",
+    "4019": "Product - [{}] is not available for order at the moment, please try after some time.",
     "1001": "Selected records are exceeding system capacity, please keep max records at 50.",
     "1002": "Selected file status is QC pending, you can't download this file.",
     "1003": "More than 1 GRN selected. 1 GRN is allowed at a time to download Barcode"

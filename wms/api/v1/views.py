@@ -1,4 +1,7 @@
 import logging
+
+from django.utils import timezone
+
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
     PickupBinInventory, StockMovementCSVUpload
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
@@ -493,6 +496,7 @@ class PickupDetail(APIView):
                              'message': 'The number of sku ids entered should be equal to number of pickup qty entered.',
                              'data': None}, status=status.HTTP_200_OK)
         diction = {i[1]: i[0] for i in zip(pickup_quantity, sku_id)}
+        remarks = request.data.get('remarks')
         data_list = []
         with transaction.atomic():
             for j, i in diction.items():
@@ -511,7 +515,8 @@ class PickupDetail(APIView):
                                               'message': "Can add only {} more items".format(abs(qty - pick_qty))})
                         continue
                     else:
-                        picking_details.update(pickup_quantity=i + pick_qty)
+                        picking_details.update(pickup_quantity=i + pick_qty, last_picked_at=timezone.now(),
+                                               remarks=remarks)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                         pickup__sku__id=j)
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
@@ -565,7 +570,8 @@ class PickupComplete(APIView):
                     order_obj = Order.objects.filter(order_no=order_no)
                     Order.objects.filter(order_no=order_no).update(order_status='picking_complete')
                     PickerDashboard.objects.filter(order=order_obj[0]).update(picking_status='picking_complete')
-                    pick_obj.update(status='picking_complete')
+                    #pick_obj.update(status='picking_complete')
+                    pick_obj.update(status='picking_complete', completed_at=timezone.now())
 
                     for pickup in pick_obj:
                         pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)

@@ -63,11 +63,11 @@ class ShopMappedProduct(TemplateView):
             for myproduct in products:
                 if myproduct.sku.product_sku in product_list:
                     product_temp = product_list[myproduct.sku.product_sku]
-                    product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
+                    product_temp[myproduct.audit_inventory_type.audit_inventory_type] = myproduct.quantity
                 else:
                     product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop_obj, approval_status=2)
                     product_temp = {'sku': myproduct.sku.product_sku, 'name': myproduct.sku.product_name,
-                                    myproduct.inventory_type.inventory_type: myproduct.quantity,
+                                    myproduct.audit_inventory_type.audit_inventory_type: myproduct.quantity,
                                     'mrp': product_mrp.last().mrp if product_mrp.exists() else ''}
 
                 product_list[myproduct.sku.product_sku] = product_temp
@@ -114,11 +114,11 @@ def shop_stock_download(request, shop_id):
     for myproduct in products:
         if myproduct.sku.product_sku in product_list:
             product_temp = product_list[myproduct.sku.product_sku]
-            product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
+            product_temp[myproduct.audit_inventory_type.audit_inventory_type] = myproduct.quantity
         else:
             product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop, approval_status=2)
             product_temp = {'sku': myproduct.sku.product_sku, 'name': myproduct.sku.product_name,
-                            myproduct.inventory_type.inventory_type: myproduct.quantity,
+                            myproduct.audit_inventory_type.audit_inventory_type: myproduct.quantity,
                             'mrp': product_mrp.last().mrp if product_mrp.exists() else ''}
 
         product_list[myproduct.sku.product_sku] = product_temp

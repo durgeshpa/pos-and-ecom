@@ -236,6 +236,7 @@ class Pickup(models.Model):
     status = models.CharField(max_length=21, null=True, blank=True, choices=pickup_status_choices)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True)
 
 
 class PickupBinInventory(models.Model):
@@ -250,6 +251,8 @@ class PickupBinInventory(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     shipment_batch = models.ForeignKey('retailer_to_sp.OrderedProductBatch', null=True, related_name='rt_pickup_batch_mapping',
                                        default=None,on_delete=models.DO_NOTHING)
+    last_picked_at = models.DateTimeField(null=True)
+    remarks = models.TextField(null=True)
 
     class Meta:
         db_table = "wms_pickup_bin_inventory"
