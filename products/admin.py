@@ -641,8 +641,8 @@ class BulkProductTaxUpdateAdmin(admin.ModelAdmin):
 class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     form = BulkUploadForGSTChangeForm
     list_display = ('created_at', 'updated_by', 'file',)
-    fields = ('download_sample_file', 'file')
-    readonly_fields = ('download_sample_file', )
+    fields = ('download_sample_file', 'file', 'updated_by')
+    readonly_fields = ('updated_by', 'download_sample_file', )
 
     def get_urls(self):
         urls = super().get_urls()
@@ -654,6 +654,12 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
             )
         ] + urls
         return urls
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super().get_readonly_fields(request, obj)
+        if obj:
+            readonly_fields = readonly_fields + ('file',)
+        return readonly_fields
 
     def download_sample_file(self, obj):
         return format_html(
