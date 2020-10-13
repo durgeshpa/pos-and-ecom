@@ -43,6 +43,7 @@ ERROR_MESSAGES = {
     'EMPTY': '%s can\'t be empty',
     'INVALID_AUDIT_STATE': "This audit is not in %s state.",
     'INVALID_STATE_TRANSITION': "This audit can not be %s at the moment.",
+    'FAILED_STATE_CHANGE': "Audit state could not be changed",
     'NO_RECORD': 'No %s record found',
     'AVAILABLE_QUANTITY': 'Available Qty : {0}',
     'AVAILABLE_PRODUCT': 'Available No of Pieces : {0}',
