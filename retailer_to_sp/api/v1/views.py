@@ -1254,6 +1254,7 @@ class DownloadInvoiceSP(APIView):
         return response
 
 
+
 # @task
 def pdf_generation(request, ordered_product):
     """
@@ -1326,6 +1327,7 @@ def pdf_generation(request, ordered_product):
         open_time = '-'
         close_time = '-'
         sum_qty = 0
+        sum_basic_amount = 0
         shop_name_gram = 'GFDN SERVICES PVT LTD'
         nick_name_gram = '-'
         address_line1_gram = '-'
@@ -1335,6 +1337,7 @@ def pdf_generation(request, ordered_product):
         cin = '-'
         for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             sum_qty += m.shipped_qty
+            sum_basic_amount += m.base_price
             # New Code For Product Listing Start
             tax_sum = 0
             basic_rate = 0
@@ -1395,7 +1398,7 @@ def pdf_generation(request, ordered_product):
 
             # sum_qty += int(m.shipped_qty)
             # sum_amount += int(m.shipped_qty) * product_pro_price_ptr
-            # inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
+            inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
 
             for n in m.product.product_pro_tax.all():
                 divisor = (1 + (n.tax.tax_percentage / 100))
@@ -1419,19 +1422,28 @@ def pdf_generation(request, ordered_product):
 
         total_amount = ordered_product.invoice_amount
         total_amount_int = total_amount
+
+        total_tax_amount = ordered_product.sum_amount_tax()
+        total_tax_amount_int = round(total_tax_amount)
+
         amt = [num2words(i) for i in str(total_amount).split('.')]
         rupees = amt[0]
+
+        tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
+        tax_rupees = tax_amt[0]
+
         logger.info("createing invoice pdf")
         logger.info(template_name)
         logger.info(request.get_host())
+
         data = {"shipment": ordered_product, "order": ordered_product.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
                 "igst": igst, "cgst": cgst, "sgst": sgst, "cess": cess, "surcharge": surcharge,
                 "total_amount": total_amount,
-                "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
+                "barcode": barcode, "product_listing": product_listing, "rupees": rupees, "tax_rupees": tax_rupees,
                 "seller_shop_gistin": seller_shop_gistin, "buyer_shop_gistin": buyer_shop_gistin,
-                "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty, "shop_name_gram": shop_name_gram,
-                "nick_name_gram": nick_name_gram,
+                "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty, "sum_basic_amount": sum_basic_amount,
+                "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin, }
 

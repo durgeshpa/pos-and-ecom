@@ -3,6 +3,7 @@
 {% load staticfiles %}
 {% load app_filters_credit_note %}
 {% load humanize %}
+{% load mathfilters %}
 
 <html>
 
@@ -170,7 +171,7 @@
                                     <td class="text-center"></td>
 
 
-                                    <td class="text-center">{% addition m.returned_qty m.returned_damage_qty %}</td>
+                                    <td class="text-center">{% addition m.returned_qty m.damaged_qty %}</td>
                                     <div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
 <!--                                    <td class="text-center">{% addMultiplication m.product.product_inner_case_size m.returned_qty m.damaged_qty %}</td>-->
                                     <td class="text-center"></td>
@@ -181,7 +182,7 @@
                                            <div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
                        <div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
 <!--                    {% with h=m.price_to_retailer %}-->
-                                    <td class="text-right">{% addMultiplication m.price_to_retailer m.returned_qty m.returned_damage_qty %}/</td>
+                                    <td class="text-right">{% addMultiplication m.price_to_retailer m.returned_qty m.damaged_qty %}</td>
 <!--                                        {% endwith %}-->
                                 </tr>
                                     {% endfor %}
@@ -321,7 +322,120 @@
                                 </tr>
     						</tbody>
     					</table>
+						<table class="table table-condensed">
+							<thead>
+								<tr>
+									<td class="text-center"><strong>HSN/SAC</strong></td>
+									<td class="text-center"><strong>Taxable</strong></td>
+									{% if shop.shipment.order.shipping_address.state == state_gram %}
+										<td colspan="2" class="text-center"><strong>CGST</strong></td>
+										<td colspan="2" class="text-center"><strong>SGST</strong></td>
+									{% else %}
+										<td colspan="2" class="text-center"><strong>IGST</strong></td>
+									{% endif %}
+									<td colspan="2" class="text-center"><strong>CESS</strong></td>
+									<td colspan="2" class="text-center"><strong>SURCHARGE</strong></td>
+									<td class="text-center"><strong>Total</strong></td>
+								</tr>
+								<tr>
+									<td class="text-center"></td>
+									<td class="text-center"><strong>Value</strong></td>
 
+									{% if shop.shipment.order.shipping_address.state == state_gram %}
+										<td class="text-center"><strong>Rate</strong></td>
+										<td class="text-center"><strong>Amount</strong></td>
+
+										<td class="text-center"><strong>Rate</strong></td>
+										<td class="text-center"><strong>Amount</strong></td>
+									{% else %}
+										<td class="text-center"><strong>Rate</strong></td>
+										<td class="text-center"><strong>Amount</strong></td>
+									{% endif %}
+
+									<td class="text-center"><strong>Rate</strong></td>
+									<td class="text-center"><strong>Amount</strong></td>
+
+									<td class="text-center"><strong>Rate</strong></td>
+									<td class="text-center"><strong>Amount</strong></td>
+
+									<td class="text-center"><strong>Tax Amount</strong></td>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									{% for m in products %}
+										<td class="text-center">{{ m.product.product_hsn }}</td>
+										{% if shop.shipment.shipment_status == 'CANCELLED' %}
+											<td class="text-center">{{ m.base_price |floatformat:2 | intcomma }}</td>
+											{% if shop.shipment.order.shipping_address.state == state_gram %}
+												<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>
+												<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>
+
+												<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>
+												<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>
+											{% else %}
+												<td class="text-center">{{ m.get_products_gst }}%</td>
+												<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:100|floatformat:2 }}</td>
+											{% endif %}
+											<td class="text-center">{{ m.get_products_gst_cess_tax }}%</td>
+											<td class="text-center">{{ m.base_price|mul:m.get_products_gst_cess_tax|div:100|floatformat:2 }}</td>
+
+											<td class="text-center">{{ m.get_products_gst_surcharge }}%</td>
+											<td class="text-center">{{ m.base_price|mul:m.get_products_gst_surcharge|div:100|floatformat:2 }}</td>
+
+											<td class="text-center">{{m.product_tax_amount |floatformat:2 | intcomma}}</td>
+										{% else %}
+											<td class="text-center">{{ m.returned_qty|add:m.damaged_qty|mul:m.basic_rate |floatformat:2 | intcomma }}</td>
+											{% if shop.shipment.order.shipping_address.state == state_gram %}
+												<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>
+												<td class="text-center">{{ m.returned_qty|add:m.damaged_qty|mul:m.basic_rate|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>
+
+												<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>
+												<td class="text-center">{{ m.returned_qty|add:m.damaged_qty|mul:m.basic_rate|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>
+											{% else %}
+												<td class="text-center">{{ m.get_products_gst }}%</td>
+												<td class="text-center">{{ m.returned_qty|add:m.damaged_qty|mul:m.basic_rate|mul:m.get_products_gst|div:100|floatformat:2 }}</td>
+											{% endif %}
+											<td class="text-center">{{ m.get_products_gst_cess_tax }}%</td>
+											<td class="text-center">{{ m.returned_qty|add:m.damaged_qty|mul:m.basic_rate|mul:m.get_products_gst_cess_tax|div:100|floatformat:2 }}</td>
+
+											<td class="text-center">{{ m.get_products_gst_surcharge }}%</td>
+											<td class="text-center">{{ m.returned_qty|add:m.damaged_qty|mul:m.basic_rate|mul:m.get_products_gst_surcharge|div:100|floatformat:2 }}</td>
+
+											<td class="text-center">{{m.product_tax_return_amount |floatformat:2 | intcomma}}</td>
+										{% endif %}
+								</tr>
+								{% endfor %}
+								<tr>
+									<td class="thick-line text-center"><strong>TOTAL</strong></td>
+									<td class="thick-line text-center"><strong>₹{{ sum_basic_amount|floatformat:2 | intcomma }}</strong></td>
+									{% if shop.shipment.order.shipping_address.state == state_gram %}
+										<td class="thick-line text-center"></td>
+										<td class="thick-line text-center"><strong>{{ cgst | floatformat:2 }}</strong></td>
+
+										<td class="thick-line text-center"></td>
+										<td class="thick-line text-center"><strong>{{ sgst | floatformat:2 }}</strong></td>
+
+									{% else %}
+
+									<td class="thick-line text-center"></td>
+									<td class="thick-line text-center"><strong>{{ igst | floatformat:2 }}</strong></td>
+
+									{% endif %}
+
+									<td class="thick-line text-center"></td>
+									<td class="thick-line text-center"><strong>{{ cess | floatformat:2 }}</strong></td>
+
+									<td class="thick-line text-center"></td>
+									<td class="thick-line text-center"><strong>{{ surcharge | floatformat:2 }}</strong></td>
+									<td class="thick-line text-center"><strong>₹{{ total_product_tax_amount| floatformat:2 | intcomma }}/-</strong></td></td>
+								</tr>
+								<tr>
+									<td class="no-line"><strong>Tax Amount (in words): </strong></td>
+									<td class="no-line"><strong>INR {{tax_rupees}} only</strong></td>
+								</tr>
+							</tbody>
+						</table>
     				</div>
 
     				<div class="table">
