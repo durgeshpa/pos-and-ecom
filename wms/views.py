@@ -389,11 +389,15 @@ class StockMovementCsvView(FormView):
                         if request.POST['inventory_movement_type'] == '2':
                             bin_stock_movement_data(upload_data, stock_movement_obj)
                         elif request.POST['inventory_movement_type'] == '3':
-                            stock_correction_data(upload_data, stock_movement_obj)
+                            stock_correction = stock_correction_data(upload_data, stock_movement_obj)
+                            if stock_correction is True:
+                                result = {'message': 'CSV uploaded successfully.'}
+                                status = '200'
+                            else:
+                                result = {'message': stock_correction.args[0]}
+                                status = '400'
                         else:
                             warehouse_inventory_change_data(upload_data, stock_movement_obj)
-                        result = {'message': 'CSV uploaded successfully.'}
-                        status = '200'
                     except Exception as e:
                         error_logger.exception(e)
                         result = {'message': 'Something went wrong! Please verify the data.'}
@@ -670,9 +674,9 @@ def stock_correction_data(upload_data, stock_movement_obj):
                                          inventory_state, status, value, status, transaction_type_obj,
                                          transaction_type, data[5])
 
-            return
+            return True
     except Exception as e:
-        error_logger.error(e)
+        return e
 
 
 def check_transaction_type(key, value, data, stock_movement_obj, stock_correction_type, in_quantity, out_quantity):
