@@ -1045,6 +1045,12 @@ class Order(models.Model):
         return picklist_ids(self.picker_dashboards())
 
     @property
+    def pickup_completed_at(self):
+        pickup_object = Pickup.objects.filter(pickup_type_id=self.order_no)
+        if pickup_object.exists():
+            return Pickup.objects.filter(pickup_type_id=self.order_no).last().completed_at
+
+    @property
     def invoice_no(self):
         return order_invoices(self.shipments())
 
