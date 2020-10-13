@@ -775,7 +775,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     )
     list_display = (
         'picklist', 'picking_status', 'picker_boy',
-        'created_at', 'download_pick_list', 'order_number', 'order_date'
+        'created_at', 'picker_assigned_date', 'download_pick_list', 'order_number', 'order_date'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
