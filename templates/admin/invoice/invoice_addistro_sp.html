@@ -350,30 +350,53 @@
 								</tr>
 							</thead>
 							<tbody>
-								<tr>
-									{% for m in shipment.rt_order_product_order_product_mapping.all %}
-										<td class="text-center">{{ m.product.product_hsn }}</td>
-										<td class="text-center">{{ m.base_price |floatformat:2 | intcomma }}</td>
+<!--								<tr>-->
+<!--									{% for m in shipment.rt_order_product_order_product_mapping.all %}-->
+<!--										<td class="text-center">{{ m.product.product_hsn }}</td>-->
+<!--										<td class="text-center">{{ m.base_price |floatformat:2 | intcomma }}</td>-->
+<!--										{% if shipment.order.shipping_address.state == state_gram %}-->
+<!--											<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>-->
+<!--											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>-->
+
+<!--											<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>-->
+<!--											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>-->
+<!--										{% else %}-->
+<!--											<td class="text-center">{{ m.get_products_gst }}%</td>-->
+<!--											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:100|floatformat:2 }}</td>-->
+<!--										{% endif %}-->
+
+<!--										<td class="text-center">{{ m.get_products_gst_cess_tax}}%</td>-->
+<!--										<td class="text-center">{{ m.base_price|mul:m.get_products_gst_cess_tax|div:100|floatformat:2 }}</td>-->
+
+<!--										<td class="text-center">{{ m.get_products_gst_surcharge }}%</td>-->
+<!--										<td class="text-center">{{ m.base_price|mul:m.get_products_gst_surcharge|div:100|floatformat:2 }}</td>-->
+
+<!--										<td class="text-center">{{m.product_tax_amount |floatformat:2 | intcomma}}</td>-->
+<!--								</tr>-->
+<!--								{% endfor %}-->
+								{% for m in hsn_list %}
+										<td class="text-center">{{ m.hsn }}</td>
+										<td class="text-center">{{ m.taxable_value |floatformat:2 | intcomma}}
 										{% if shipment.order.shipping_address.state == state_gram %}
-											<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>
-											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>
+											<td class="text-center">{{ m.cgst_rate }}%</td>
+											<td class="text-center">{{ m.cgst | floatformat:2 }}</td>
 
-											<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>
-											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>
+											<td class="text-center">{{ m.sgst_rate }}%</td>
+											<td class="text-center">{{ m.sgst | floatformat:2 }}</td>
 										{% else %}
-											<td class="text-center">{{ m.get_products_gst }}%</td>
-											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:100|floatformat:2 }}</td>
+											<td class="text-center">{{ m.igst_rate }}%</td>
+											<td class="text-center">{{ m.igst | floatformat:2 }}</td>
 										{% endif %}
+										<td class="text-center">{{ m.cess_rate }}%</td>
+										<td class="text-center">{{ m.cess | floatformat:2 }}</td>
 
-										<td class="text-center">{{ m.get_products_gst_cess_tax}}%</td>
-										<td class="text-center">{{ m.base_price|mul:m.get_products_gst_cess_tax|div:100|floatformat:2 }}</td>
+										<td class="text-center">{{ m.surcharge_rate }}%</td>
+										<td class="text-center">{{ m.surcharge | floatformat:2 }}</td>
 
-										<td class="text-center">{{ m.get_products_gst_surcharge }}%</td>
-										<td class="text-center">{{ m.base_price|mul:m.get_products_gst_surcharge|div:100|floatformat:2 }}</td>
-
-										<td class="text-center">{{m.product_tax_amount |floatformat:2 | intcomma}}</td>
+										<td class="text-center">{{ m.total |floatformat:2 | intcomma}}</td>
 								</tr>
-								{% endfor %}
+									{% endfor %}
+
 								<tr>
 									<td class="thick-line text-center"><strong>TOTAL</strong></td>
 									<td class="thick-line text-center"><strong>₹{{ sum_basic_amount|floatformat:2 | intcomma }}</strong></td>
