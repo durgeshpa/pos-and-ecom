@@ -1,6 +1,8 @@
+import json
 import logging
 
 from django.utils import timezone
+from model_utils import Choices
 
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
     PickupBinInventory, StockMovementCSVUpload
@@ -333,6 +335,18 @@ class PickupList(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
 
+class PickupRemarksList(APIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        pickup_remarks = dict(PickupBinInventory.PICKUP_REMARKS_CHOICES)
+        # serializer = PickupRemarksSerializer(PICKUP_REMARKS_CHOICES, many=True)
+        msg = {'is_success': True, 'message': 'OK', 'data': {'pickup_remarks':pickup_remarks}}
+        return Response(msg, status=status.HTTP_200_OK)
+
+
 class BinIDList(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -495,6 +509,12 @@ class PickupDetail(APIView):
                              'data': None}, status=status.HTTP_200_OK)
         diction = {i[1]: i[0] for i in zip(pickup_quantity, sku_id)}
         remarks = request.data.get('remarks')
+        if remarks:
+            if remarks not in PickupBinInventory.PICKUP_REMARKS_CHOICES:
+                return Response({'is_success': False,
+                                 'message': 'Remarks not valid.',
+                                 'data': None}, status=status.HTTP_200_OK)
+
         data_list = []
         with transaction.atomic():
             for j, i in diction.items():
@@ -514,7 +534,7 @@ class PickupDetail(APIView):
                         continue
                     else:
                         picking_details.update(pickup_quantity=i + pick_qty, last_picked_at=timezone.now(),
-                                               remarks=remarks)
+                                               remarks=PickupBinInventory.PICKUP_REMARKS_CHOICES[remarks])
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                         pickup__sku__id=j)
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
