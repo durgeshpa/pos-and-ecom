@@ -1,4 +1,5 @@
 from django.db import models
+from model_utils import Choices
 
 import retailer_to_sp
 from products.models import Product
@@ -240,6 +241,12 @@ class Pickup(models.Model):
 
 
 class PickupBinInventory(models.Model):
+    PICKUP_REMARKS_CHOICES = Choices((1,'EXPIRED', 'Near Expiry / Expired'),
+                                     (2, 'DAMAGED', 'Damaged'),
+                                     (3, 'NOT_FOUND', 'Item not found'),
+                                     (4, 'MRP_DIFF', 'Different MRP'),
+                                     (5, 'GRAMMAGE_DIFF', 'Different Grammage'),
+                                     (6, 'NOT_CLEAN', 'Item not clean') )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
@@ -252,7 +259,7 @@ class PickupBinInventory(models.Model):
     shipment_batch = models.ForeignKey('retailer_to_sp.OrderedProductBatch', null=True, related_name='rt_pickup_batch_mapping',
                                        default=None,on_delete=models.DO_NOTHING)
     last_picked_at = models.DateTimeField(null=True)
-    remarks = models.TextField(null=True)
+    remarks = models.CharField(choices=PICKUP_REMARKS_CHOICES, max_length=100, null=True)
 
     class Meta:
         db_table = "wms_pickup_bin_inventory"

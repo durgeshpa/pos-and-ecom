@@ -190,6 +190,3 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
     #     return obj.bin.bin.bin_id
 
 
-
-
-

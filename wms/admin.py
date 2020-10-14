@@ -579,10 +579,10 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
     list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity',
-                    'created_at', 'last_picked_at', 'remarks')
+                    'created_at', 'last_picked_at', 'pickup_remarks')
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin',
-                       'created_at', 'last_picked_at', 'remarks')
+                       'created_at', 'last_picked_at', 'pickup_remarks')
     search_fields = ('batch_id', 'bin__bin__bin_id')
     list_filter = [Warehouse, BatchIdFilter, BinIDFilterForPickupBinInventory, OrderNumberFilterForPickupBinInventory, ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
@@ -592,6 +592,9 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
 
     def bin_id(self, obj):
         return obj.bin.bin.bin_id
+
+    def pickup_remarks(self,obj):
+        return obj.remarks;
 
     class Media:
         pass
