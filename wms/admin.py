@@ -1,8 +1,9 @@
 # python imports
 import logging
 import csv
-import datetime
 from io import StringIO
+from datetime import datetime
+
 from dal_admin_filters import AutocompleteFilter
 # django imports
 from django.contrib import admin, messages
@@ -10,13 +11,15 @@ from django.http import HttpResponse
 from django.utils.html import format_html
 from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
-from rangefilter.filter import DateTimeRangeFilter
+from rangefilter.filter import DateTimeRangeFilter, DateRangeFilter
 
 from retailer_to_sp.models import Invoice, Trip
 from gram_to_brand.models import GRNOrder
 from products.models import ProductVendorMapping
 from retailer_backend.admin import InputFilter
 # app imports
+from .common_functions import get_expiry_date
+from .filters import ExpiryDateFilter
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
 from import_export import resources
 from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
@@ -510,15 +513,19 @@ class BinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
     actions = ['download_barcode']
-    list_display = (
-    'batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at', 'modified_at')
+    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at',
+                    'modified_at', 'expiry_date')
     readonly_fields = ['warehouse', 'bin', 'sku', 'batch_id', 'inventory_type', 'quantity', 'in_stock']
-    search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at')
-    list_filter = [BinIDFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter]
+    search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at',)
+    list_filter = [BinIDFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter,
+                   ExpiryDateFilter]
     list_per_page = 50
 
     class Media:
         js = ('admin/js/picker.js',)
+
+    def expiry_date(self, obj):
+        return get_expiry_date(obj.batch_id)
 
     def download_barcode(self, request, queryset):
         """

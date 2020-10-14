@@ -3,7 +3,7 @@ import logging
 from dal_admin_filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django.contrib import admin
-
+from rangefilter.filter import DateRangeFilter
 from audit.forms import AuditCreationForm
 from audit.models import AuditDetail, AuditTicket
 from retailer_backend.admin import InputFilter
