@@ -509,12 +509,13 @@ class PickupDetail(APIView):
                              'data': None}, status=status.HTTP_200_OK)
         diction = {i[1]: i[0] for i in zip(pickup_quantity, sku_id)}
         remarks = request.data.get('remarks')
-        if remarks:
+        remarks_text = ''
+        if remarks is not None:
             if remarks not in PickupBinInventory.PICKUP_REMARKS_CHOICES:
                 return Response({'is_success': False,
                                  'message': 'Remarks not valid.',
                                  'data': None}, status=status.HTTP_200_OK)
-
+            remarks_text = PickupBinInventory.PICKUP_REMARKS_CHOICES[remarks]
         data_list = []
         with transaction.atomic():
             for j, i in diction.items():
@@ -534,7 +535,7 @@ class PickupDetail(APIView):
                         continue
                     else:
                         picking_details.update(pickup_quantity=i + pick_qty, last_picked_at=timezone.now(),
-                                               remarks=PickupBinInventory.PICKUP_REMARKS_CHOICES[remarks])
+                                               remarks=remarks_text)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                         pickup__sku__id=j)
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
