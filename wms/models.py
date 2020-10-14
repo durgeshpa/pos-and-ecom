@@ -155,6 +155,7 @@ class In(models.Model):
     quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    expiry_date = models.DateField(null=True)
 
 
 class Putaway(models.Model):

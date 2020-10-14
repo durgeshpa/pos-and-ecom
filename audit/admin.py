@@ -2,6 +2,8 @@ import logging
 
 from dal_admin_filters import AutocompleteFilter
 from django.contrib import admin
+from rangefilter.filter import DateRangeFilter
+
 from audit.forms import AuditCreationForm
 from audit.models import AuditDetail, AuditTicket
 from retailer_backend.admin import InputFilter
@@ -49,10 +51,10 @@ class AuditTicketAdmin(admin.ModelAdmin):
                     'qty_expected_type', 'qty_expected', 'qty_calculated_type', 'qty_calculated', 'created_at',
                     'status', 'assigned_user')
 
-    fields = ['sku_id', 'batch_id', 'bin', 'qty_expected', 'qty_calculated',
-              'created_at',  'updated_at',  'status', 'assigned_user']
-    readonly_fields = ('sku', 'batch_id', 'bin_id', 'qty_expected', 'qty_calculated', 'created_at', 'updated_at')
-    list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'status']
+    readonly_fields = ('sku', 'batch_id', 'bin', 'qty_expected', 'qty_calculated', 'created_at', 'updated_at')
+    list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'audit_run__audit__audit_type',
+                   'audit_run__audit__audit_inventory_type', 'status', ('created_at', DateRangeFilter)]
+
     date_hierarchy = 'created_at'
     actions_on_top = False
 
