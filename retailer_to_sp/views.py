@@ -181,11 +181,11 @@ class DownloadCreditNote(APIView):
                 if len(list1) > 0:
                     for i in list1:
                         if i["hsn"] == m.product.product_hsn:
-                            i["taxable_value"] = i["taxable_value"] + m.base_price
-                            i["cgst"] = i["cgst"] + (m.base_price * m.get_products_gst()) / 200
-                            i["sgst"] = i["sgst"] + (m.base_price * m.get_products_gst()) / 200
-                            i["igst"] = i["igst"] + (m.base_price * m.get_products_gst()) / 100
-                            i["cess"] = i["cess"] + (m.base_price * m.get_products_gst_cess_tax()) / 100
+                            i["taxable_value"] = i["taxable_value"] + m.basic_rate * (m.returned_qty + m.damaged_qty)
+                            i["cgst"] = i["cgst"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 200
+                            i["sgst"] = i["sgst"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 200
+                            i["igst"] = i["igst"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 100
+                            i["cess"] = i["cess"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_cess_tax()) / 100
                             i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
                             i["total"] = i["total"] + m.product_tax_amount
                             flag = 1
