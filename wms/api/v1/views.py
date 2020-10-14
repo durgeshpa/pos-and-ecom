@@ -341,9 +341,11 @@ class PickupRemarksList(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        pickup_remarks = dict(PickupBinInventory.PICKUP_REMARKS_CHOICES)
+        pickup_remarks = []
+        for p in dict(PickupBinInventory.PICKUP_REMARKS_CHOICES):
+            pickup_remarks.append({'key':PickupBinInventory.PICKUP_REMARKS_CHOICES[p], 'value':p})
         # serializer = PickupRemarksSerializer(PICKUP_REMARKS_CHOICES, many=True)
-        msg = {'is_success': True, 'message': 'OK', 'data': {'pickup_remarks':pickup_remarks}}
+        msg = {'is_success': True, 'message': 'OK', 'data': {'pickup_remarks': pickup_remarks}}
         return Response(msg, status=status.HTTP_200_OK)
 
 
