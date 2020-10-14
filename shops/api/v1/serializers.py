@@ -156,10 +156,10 @@ class ShopDocumentSerializer(serializers.ModelSerializer):
             'shop_name': {'required': True},
         }
 
-    def validate_shop_document_number(self, data):
-        if ShopDocument.objects.filter(shop_name_id=self.context.get('request').POST.get('shop_name')).exists():
-            raise serializers.ValidationError('Document number is already registered')
-        return data
+    # def validate_shop_document_number(self, data):
+    #     if ShopDocument.objects.filter(~Q(shop_name_id=self.context.get('request').POST.get('shop_name')), shop_document_number=data).exists():
+    #         raise serializers.ValidationError('Document number is already registered')
+    #     return data
 
     def validate(self, data):
         if data.get('shop_document_type') == ShopDocument.GSTIN:
