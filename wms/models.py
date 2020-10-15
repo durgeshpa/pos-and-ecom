@@ -242,7 +242,8 @@ class Pickup(models.Model):
 
 
 class PickupBinInventory(models.Model):
-    PICKUP_REMARKS_CHOICES = Choices((1,'EXPIRED', 'Near Expiry / Expired'),
+    PICKUP_REMARKS_CHOICES = Choices((0, '--', '--'),
+                                     (1, 'EXPIRED', 'Near Expiry / Expired'),
                                      (2, 'DAMAGED', 'Damaged'),
                                      (3, 'NOT_FOUND', 'Item not found'),
                                      (4, 'MRP_DIFF', 'Different MRP'),
