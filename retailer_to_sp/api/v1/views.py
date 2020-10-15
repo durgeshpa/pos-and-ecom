@@ -1528,7 +1528,7 @@ class DownloadCreditNoteDiscounted(APIView):
                         i["cess"] = i["cess"] + (m.delivered_qty * m.basic_rate * m.get_products_gst_cess_tax()) / 100
                         i["surcharge"] = i["surcharge"] + (
                                     m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
-                        i["total"] = i["total"] + m.product_tax_amount
+                        i["total"] = i["total"] + m.product_tax_discount_amount
                         flag = 1
 
             if flag == 0:
@@ -1544,12 +1544,12 @@ class DownloadCreditNoteDiscounted(APIView):
                 dict1["cess_rate"] = m.get_products_gst_cess_tax()
                 dict1["surcharge"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_surcharge()) / 100
                 dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
-                dict1["total"] = m.product_tax_return_amount
+                dict1["total"] = m.product_tax_discount_amount
                 list1.append(dict1)
 
             sum_qty = sum_qty + (int(m.delivered_qty))
             sum_basic_amount += m.basic_rate * (m.delivered_qty)
-            sum_amount = sum_amount + (int(m.delivered_qty) * (m.price_to_retailer))
+            sum_amount = sum_amount + (int(m.delivered_qty) * (m.price_to_retailer - m.discounted_price))
             inline_sum_amount = (int(m.delivered_qty) * (m.price_to_retailer))
             gst_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
             total_product_tax_amount += m.product_tax_discount_amount
@@ -1579,7 +1579,7 @@ class DownloadCreditNoteDiscounted(APIView):
         total_amount_int = total_amount
         total_product_tax_amount_int = round(total_product_tax_amount)
 
-        amt = [num2words(i) for i in str(total_amount).split('.')]
+        amt = [num2words(i) for i in str(sum_amount).split('.')]
         rupees = amt[0]
 
         prdct_tax_amt = [num2words(i) for i in str(total_product_tax_amount_int).split('.')]
@@ -1587,7 +1587,7 @@ class DownloadCreditNoteDiscounted(APIView):
 
         data = {
             "object": credit_note, "products": products, "shop": credit_note, "total_amount_int": total_amount_int,
-            "sum_qty": sum_qty, "sum_amount": total_amount, "total_product_tax_amount": total_product_tax_amount,
+            "sum_qty": sum_qty, "sum_amount": sum_amount, "total_product_tax_amount": total_product_tax_amount,
             "tax_rupees": tax_rupees, "sum_basic_amount": sum_basic_amount,
             "url": request.get_host(), "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
             "sgst": sgst, "cess": cess, "surcharge": surcharge,
