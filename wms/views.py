@@ -24,8 +24,10 @@ from django.db import transaction, DatabaseError
 from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
-    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned
-from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In
+    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, WareHouseInternalInventoryChange, \
+    get_expiry_date_db
+from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
+    BinInternalInventoryChange, ExpiredInventoryMovement
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -1496,23 +1498,146 @@ def shipment_reschedule_inventory_change(shipment_list):
             except DatabaseError as e:
                 print(e)
 
-def get_expiry_date(batch_id):
-    expiry_date_db = None
-    try:
-        if batch_id is not None:
-            if len(batch_id) == 23:
-                expiry_date = batch_id[17:19] + '/' + batch_id[19:21] + '/' + '20' + batch_id[21:23]
-            else:
-                expiry_date = batch_id[-6:-4] + '/' + batch_id[-4:-2] + '/20' + batch_id[-2:]
-            expiry_date_db = datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%Y-%m-%d')
-    except Exception as e:
-        error_logger.error(e)
-    return expiry_date_db
-
 
 def populate_expiry_date(request):
+    """
+    One time activity
+    This function populates the expiry_date in IN table.
+    Expiry date is calculated based on the batch Id.
+    """
     for i in In.objects.all():
-        i.expiry_date = get_expiry_date(i.batch_id)
+        i.expiry_date = get_expiry_date_db(i.batch_id)
         i.save()
 
+
+class InventoryMovement(object):
+    """
+    Get all the batch ids expiring on a given date
+    Date format to be YYYY-MM-DD
+    """
+    @classmethod
+    def get_inventory_expiring_by_date(cls, date):
+        expiring_batch_id_list = In.objects.filter(expiry_date__lte=date).values_list('batch_id', flat=True)
+        info_logger.info('InventoryMovement|get_inventory_expiring_by_date| {} batches expiring on {}'
+                         .format(expiring_batch_id_list.count(), date))
+        return expiring_batch_id_list
+
+    """
+    Get all the Bin inventories to move by batch id list
+    batch_ids : list of batch ids
+    inventory_type_list : list of inventory types to move e.g. normal, damaged etc
+    """
+    @classmethod
+    def get_bin_inventory_to_move(cls, batch_ids, inventory_type):
+        bin_inventory = BinInventory.objects.filter(batch_id__in=batch_ids,
+                                                    inventory_type=inventory_type,
+                                                    quantity__gt=0)
+        info_logger.info('InventoryMovement|get_bin_inventory_to_move| {} bin inventories returned'
+                         .format(bin_inventory.count()))
+        return bin_inventory
+
+    @classmethod
+    def move_bin_inventory(cls, tr_type, tr_id, bin_inventory, inventory_type_to):
+        info_logger.info('InventoryMovement|move_bin_inventory| warehouse {}, bin {}, batch {},'
+                          'inventory_type_from {}, inventory_type_to {}, quantity {}'
+                          .format(bin_inventory.warehouse, bin_inventory.bin, bin_inventory.batch_id,
+                                  bin_inventory.inventory_type, inventory_type_to, bin_inventory.quantity))
+        qty = bin_inventory.quantity
+        inventory_obj, created = BinInventory.objects.get_or_create(warehouse=bin_inventory.warehouse,
+                                                                    bin=bin_inventory.bin,
+                                                                    sku=bin_inventory.sku,
+                                                                    batch_id=bin_inventory.batch_id,
+                                                                    inventory_type=inventory_type_to,
+                                                                    defaults={'quantity':bin_inventory.quantity,
+                                                                              'in_stock':True})
+        bin_inventory.quantity = 0
+        bin_inventory.save()
+        if not created:
+            inventory_obj.quantity = inventory_obj.quantity + qty
+            inventory_obj.save()
+
+        BinInternalInventoryChange.objects.create(warehouse_id=bin_inventory.warehouse.id, sku=bin_inventory.sku,
+                                                  batch_id=bin_inventory.batch_id,
+                                                  initial_bin=bin_inventory.bin,
+                                                  final_bin=bin_inventory.bin,
+                                                  initial_inventory_type=bin_inventory.inventory_type,
+                                                  final_inventory_type=inventory_type_to,
+                                                  transaction_type=tr_type,
+                                                  transaction_id=tr_id,
+                                                  quantity=qty)
+        info_logger.info('InventoryMovement|move_bin_inventory| Inventory movement done.')
+
+    @classmethod
+    def move_warehouse_inventory(cls, tr_type, tr_id, warehouse, sku, inventory_state, inventory_type_from,
+                                 inventory_type_to, quantity):
+        info_logger.info('InventoryMovement|move_warehouse_inventory| warehouse {}, sku {}, inventory_state{},'
+                          'inventory_type_from {}, inventory_type_to {}, quantity {}'
+                          .format(warehouse, sku, inventory_state, inventory_type_from, inventory_type_to, quantity))
+        warehouse_inventory = WarehouseInventory.objects.filter(warehouse=warehouse,
+                                                                sku=sku,
+                                                                inventory_state=inventory_state,
+                                                                inventory_type=inventory_type_from)
+        if warehouse_inventory.count() == 0:
+            info_logger.error('InventoryMovement|move_warehouse_inventory| warehouse inventory not found.')
+            return False
+        if warehouse_inventory.count() > 1:
+            info_logger.error('InventoryMovement|move_warehouse_inventory| '
+                              'multiple records found in warehouse inventory')
+            return False
+        warehouse_inventory = warehouse_inventory.last()
+        qty_to_move = warehouse_inventory.quantity if quantity > warehouse_inventory.quantity else quantity
+        warehouse_inventory_to, created = WarehouseInventory.objects.get_or_create(warehouse=warehouse,
+                                                                          sku=sku,
+                                                                          inventory_state=inventory_state,
+                                                                          inventory_type=inventory_type_to,
+                                                                          defaults={'quantity': qty_to_move,
+                                                                                    'in_stock':True})
+        warehouse_inventory.quantity = warehouse_inventory.quantity-qty_to_move
+        warehouse_inventory.save()
+        if not created:
+            warehouse_inventory_to.quantity = warehouse_inventory_to.quantity + qty_to_move
+            warehouse_inventory_to.save()
+
+        WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, tr_type, tr_id,
+                                                                           inventory_type_from, inventory_state,
+                                                                           inventory_type_to, inventory_state, qty_to_move)
+
+        info_logger.info('InventoryMovement|move_warehouse_inventory| moved successfully')
+
+
+def move_expired_inventory_cron():
+    today = datetime.today()
+    info_logger.info('move_expired_inventory_cron started at {}'.format(today))
+    transaction_type = 'expired'
+    type_normal = InventoryType.objects.get(inventory_type='normal')
+    type_expired = InventoryType.objects.get(inventory_type='expired')
+    stage_available = InventoryState.objects.get(inventory_state='available')
+
+    expired_batch_ids = InventoryMovement.get_inventory_expiring_by_date(today)
+    bin_inventory_list = InventoryMovement.get_bin_inventory_to_move(expired_batch_ids, type_normal)
+    for b in bin_inventory_list:
+        try:
+            with transaction.atomic():
+                quantity_to_move = b.quantity
+                product_price = ProductPrice.objects.filter(product=b.sku, approval_status=ProductPrice.APPROVED)
+                product_mrp = None
+                if product_price.exists():
+                    product_mrp = product_price.last().mrp
+                ex_inventory = ExpiredInventoryMovement.objects.create(warehouse=b.warehouse, sku=b.sku,
+                                                                       batch_id=b.batch_id, bin=b.bin,
+                                                                       mrp=product_mrp,
+                                                                       inventory_type=b.inventory_type,
+                                                                       quantity=quantity_to_move,
+                                                                       expiry_date=get_expiry_date_db(b.batch_id))
+                InventoryMovement.move_bin_inventory(transaction_type, ex_inventory.id, b, type_expired)
+                InventoryMovement.move_warehouse_inventory(transaction_type, ex_inventory.id, b.warehouse, b.sku,
+                                                           stage_available, type_normal, type_expired, quantity_to_move)
+                commit_updates_to_es(b.warehouse, b.sku)
+        except Exception as e:
+            error_logger.error(e)
+            info_logger.error('move_expired_inventory_cron|Exception while moving expired inventory for bin {} batch {}'
+                              .format(b.bin, b.batch_id))
+
+def move_expired_inventory_manual(request):
+    move_expired_inventory_cron()
     return HttpResponse("Done")

@@ -16,6 +16,7 @@ from rangefilter.filter import DateTimeRangeFilter, DateRangeFilter
 from retailer_to_sp.models import Invoice, Trip
 from gram_to_brand.models import GRNOrder
 from products.models import ProductVendorMapping
+from products.models import ProductVendorMapping, ProductPrice
 from retailer_backend.admin import InputFilter
 # app imports
 from .common_functions import get_expiry_date
@@ -25,7 +26,8 @@ from import_export import resources
 from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
                      PickupBinInventory,
                      WarehouseInventory, InventoryState, WarehouseInternalInventoryChange, StockMovementCSVUpload,
-                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit)
+                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
+                     ExpiredInventoryMovement)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
 from barCodeGenerator import barcodeGen, merged_barcode_gen
@@ -788,6 +790,46 @@ class AuditAdmin(admin.ModelAdmin):
         return qs
 
 
+class ExpiredInventoryMovementAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'sku', 'batch_id', 'bin', 'mrp', 'quantity', 'expiry_date',
+                    'status', 'created_at',)
+    readonly_fields = ('warehouse', 'sku', 'batch_id', 'bin', 'mrp', 'inventory_type', 'quantity', 'expiry_date',
+                       'created_at')
+    list_filter = [SKUFilter, BatchIdFilter, BinIDFilterForBinInventory, ('created_at', DateRangeFilter)]
+    list_per_page = 50
+    actions = ['download_tickets', 'close_tickets']
+    date_hierarchy = 'created_at'
+
+    def download_tickets(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        # set the header name
+        writer.writerow(["warehouse", "sku", "batch_id", "bin", "quantity", "expiry_date",
+                         "status", "created_at",])
+
+        for query in queryset:
+            ticket = ExpiredInventoryMovement.objects.get(id=query.id)
+            writer.writerow([ticket.warehouse, ticket.sku, ticket.batch_id, ticket.bin, ticket.quantity,
+                             ticket.expiry_date, ticket.status, ticket.created_at])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=expired-inventory-movement.csv'
+        return response
+
+    def close_tickets(self, request, queryset):
+
+        for query in queryset:
+            ticket = ExpiredInventoryMovement.objects.get(id=query.id,
+                                                          status=ExpiredInventoryMovement.STATUS_CHOICE.OPEN)
+            if ticket:
+                ticket.status = ExpiredInventoryMovement.STATUS_CHOICE.CLOSED
+                ticket.save()
+
+    close_tickets.short_description = "Close selected tickets"
+    download_tickets.short_description = "Download selected items as CSV"
+
+
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
 admin.site.register(InventoryType, InventoryTypeAdmin)
@@ -805,3 +847,4 @@ admin.site.register(BinInternalInventoryChange, BinInternalInventoryChangeAdmin)
 admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)
 admin.site.register(OrderReserveRelease, OrderReleaseAdmin)
 admin.site.register(Audit, AuditAdmin)
+admin.site.register(ExpiredInventoryMovement, ExpiredInventoryMovementAdmin)
