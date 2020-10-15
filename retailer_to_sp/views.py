@@ -1350,8 +1350,10 @@ def reshedule_update_shipment(shipment, shipment_proudcts_formset):
 
         for inline_form in shipment_proudcts_formset:
             instance = getattr(inline_form, 'instance', None)
-            update_delivered_qty(instance, inline_form)
-
+            instance.delivered_qty = 0
+            instance.returned_qty = 0
+            instance.returned_damage_qty = 0
+            instance.save()
 
 class RetailerCart(APIView):
     permission_classes = (AllowAny,)
