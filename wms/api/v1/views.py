@@ -343,7 +343,7 @@ class PickupRemarksList(APIView):
     def get(self, request):
         pickup_remarks = []
         for p in dict(PickupBinInventory.PICKUP_REMARKS_CHOICES):
-            pickup_remarks.append({'key':PickupBinInventory.PICKUP_REMARKS_CHOICES[p], 'value':p})
+            pickup_remarks.append({'key': PickupBinInventory.PICKUP_REMARKS_CHOICES[p], 'value': p})
         # serializer = PickupRemarksSerializer(PICKUP_REMARKS_CHOICES, many=True)
         msg = {'is_success': True, 'message': 'OK', 'data': {'pickup_remarks': pickup_remarks}}
         return Response(msg, status=status.HTTP_200_OK)
@@ -511,13 +511,19 @@ class PickupDetail(APIView):
                              'data': None}, status=status.HTTP_200_OK)
         diction = {i[1]: i[0] for i in zip(pickup_quantity, sku_id)}
         remarks = request.data.get('remarks')
-        remarks_text = ''
+        remarks_dict = {}
         if remarks is not None:
-            if remarks not in PickupBinInventory.PICKUP_REMARKS_CHOICES:
+            if len(sku_id) != len(remarks):
                 return Response({'is_success': False,
-                                 'message': 'Remarks not valid.',
+                                 'message': 'The number of remarks entered should be equal to number of sku ids entered.',
                                  'data': None}, status=status.HTTP_200_OK)
-            remarks_text = PickupBinInventory.PICKUP_REMARKS_CHOICES[remarks]
+            for r in remarks:
+                if r not in PickupBinInventory.PICKUP_REMARKS_CHOICES:
+                    return Response({'is_success': False,
+                                     'message': 'Remarks not valid.',
+                                     'data': None}, status=status.HTTP_200_OK)
+
+            remarks_dict = {i[1]: i[0] for i in zip(remarks, sku_id)}
         data_list = []
         with transaction.atomic():
             for j, i in diction.items():
@@ -536,6 +542,9 @@ class PickupDetail(APIView):
                                               'message': "Can add only {} more items".format(abs(qty - pick_qty))})
                         continue
                     else:
+                        remarks_text = ''
+                        if remarks_dict.get(j) is not None:
+                            remarks_text = PickupBinInventory.PICKUP_REMARKS_CHOICES[remarks_dict.get(j)]
                         picking_details.update(pickup_quantity=i + pick_qty, last_picked_at=timezone.now(),
                                                remarks=remarks_text)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
