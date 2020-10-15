@@ -1449,6 +1449,7 @@ class InventoryMovement(object):
 
         info_logger.info('InventoryMovement|move_warehouse_inventory| moved successfully')
 
+
 def move_expired_inventory_cron():
     today = datetime.today()
     info_logger.info('move_expired_inventory_cron started at {}'.format(today))
@@ -1463,11 +1464,16 @@ def move_expired_inventory_cron():
         try:
             with transaction.atomic():
                 quantity_to_move = b.quantity
+                product_price = ProductPrice.objects.filter(product=b.sku, approval_status=ProductPrice.APPROVED)
+                product_mrp = None
+                if product_price.exists():
+                    product_mrp = product_price.last().mrp
                 ex_inventory = ExpiredInventoryMovement.objects.create(warehouse=b.warehouse, sku=b.sku,
                                                                        batch_id=b.batch_id, bin=b.bin,
+                                                                       mrp=product_mrp,
                                                                        inventory_type=b.inventory_type,
                                                                        quantity=quantity_to_move,
-                                                                       expiry_date=get_expiry_date(b.batch_id))
+                                                                       expiry_date=get_expiry_date_db(b.batch_id))
                 InventoryMovement.move_bin_inventory(transaction_type, ex_inventory.id, b, type_expired)
                 InventoryMovement.move_warehouse_inventory(transaction_type, ex_inventory.id, b.warehouse, b.sku,
                                                            stage_available, type_normal, type_expired, quantity_to_move)

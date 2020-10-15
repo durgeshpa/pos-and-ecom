@@ -13,7 +13,7 @@ from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
 from rangefilter.filter import DateTimeRangeFilter, DateRangeFilter
 
-from products.models import ProductVendorMapping
+from products.models import ProductVendorMapping, ProductPrice
 from retailer_backend.admin import InputFilter
 # app imports
 from .common_functions import get_expiry_date
@@ -770,14 +770,15 @@ class AuditAdmin(admin.ModelAdmin):
 
 
 class ExpiredInventoryMovementAdmin(admin.ModelAdmin):
-    list_display = ('warehouse', 'sku', 'batch_id', 'bin', 'quantity', 'expiry_date',
+    list_display = ('warehouse', 'sku', 'batch_id', 'bin', 'mrp', 'quantity', 'expiry_date',
                     'status', 'created_at',)
-    readonly_fields = ('warehouse', 'sku', 'batch_id', 'bin', 'inventory_type', 'quantity', 'expiry_date',
+    readonly_fields = ('warehouse', 'sku', 'batch_id', 'bin', 'mrp', 'inventory_type', 'quantity', 'expiry_date',
                        'created_at')
     list_filter = [SKUFilter, BatchIdFilter, BinIDFilterForBinInventory, ('created_at', DateRangeFilter)]
     list_per_page = 50
     actions = ['download_tickets', 'close_tickets']
     date_hierarchy = 'created_at'
+
     def download_tickets(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)

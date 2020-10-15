@@ -433,6 +433,7 @@ class ExpiredInventoryMovement(models.Model):
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     bin = models.ForeignKey(Bin, null=True, blank=True, on_delete=models.DO_NOTHING)
+    mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True, blank=True)
     expiry_date = models.DateField()
