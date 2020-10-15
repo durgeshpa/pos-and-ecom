@@ -333,10 +333,11 @@ class BinAdmin(admin.ModelAdmin):
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
-    list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'quantity',)
-    readonly_fields = ('warehouse', 'in_type', 'in_type_id', 'sku', 'batch_id', 'quantity',)
+    list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'quantity', 'expiry_date')
+    readonly_fields = ('warehouse', 'in_type', 'in_type_id', 'sku', 'batch_id', 'quantity', 'expiry_date')
     search_fields = ('batch_id', 'in_type_id', 'sku__product_sku',)
-    list_filter = [Warehouse, BatchIdFilter, SKUFilter, InTypeIDFilter, 'in_type']
+    list_filter = [Warehouse, BatchIdFilter, SKUFilter, InTypeIDFilter, 'in_type',
+                   ('expiry_date', DateRangeFilter)]
     list_per_page = 50
 
     class Media:
