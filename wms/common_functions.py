@@ -19,7 +19,7 @@ from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, Wa
 import retailer_to_sp.models
 
 from shops.models import Shop
-from products.models import Product
+from products.models import Product, ParentProduct
 
 # Logger
 
@@ -259,6 +259,51 @@ def get_product_stock(shop, sku):
         Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
         Q(in_stock='t')
     )
+
+
+def get_visibility_changes(shop, product):
+    child_siblings = Product.objects.filter(
+        parent_product=ParentProduct.objects.filter(id=product.parent_product.id).last(),
+    )
+    visibility_changes = {}
+    min_exp_date_data = {
+        'id': '',
+        'exp': None
+    }
+    for child in child_siblings:
+        if child.reason_for_child_sku == 'offer':
+            visibility_changes[child.id] = True
+            continue
+        warehouse_entries = WarehouseInventory.objects.filter(
+            Q(sku=child),
+            Q(warehouse=shop),
+            Q(quantity__gt=0),
+            Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
+            Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
+            Q(in_stock='t')
+        )
+        if not warehouse_entries:
+            continue
+        sum_qty_warehouse_entries = warehouse_entries.aggregate(Sum('quantity'))['quantity__sum']
+        if sum_qty_warehouse_entries <= 2*(int(child.product_inner_case_size)):
+            visibility_changes[child.id] = True
+            continue
+        bin_data = Bin.objects.filter(
+            Q(warehouse=shop),
+            Q(sku=child),
+            Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
+        )
+        for data in bin_data:
+            exp_date_str = get_expiry_date(batch_id=data.batch_id)
+            exp_date = datetime.strptime(exp_date_str, format="%d/%m/%Y")
+            if (not min_exp_date_data.get('exp', None)) or (exp_date < min_exp_date_data.get('exp')):
+                min_exp_date_data['exp'] = exp_date
+                min_exp_date_data['id'] = data.sku.id
+            else:
+                visibility_changes[child.id] = False
+    if min_exp_date_data.get('id'):
+        visibility_changes[min_exp_date_data[id]] = True
+    return visibility_changes
 
 
 def get_warehouse_product_availability(sku_id, shop_id=False):

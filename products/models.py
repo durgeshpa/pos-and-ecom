@@ -246,7 +246,7 @@ class Product(models.Model):
         ('different_mrp', 'Different MRP'),
         ('different_weight', 'Different Weight'),
         ('different_ean', 'Different EAN'),
-        ('other', 'Other'),
+        ('offer', 'Offer'),
     )
     reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
     use_parent_image = models.BooleanField(default=False)

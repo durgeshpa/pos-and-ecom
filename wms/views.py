@@ -24,7 +24,7 @@ from django.db import transaction
 from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
-    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned
+    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, get_visibility_changes
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
@@ -424,6 +424,7 @@ def commit_updates_to_es(shop, product):
     status = True
     db_available_products = get_product_stock(shop, product)
     products_available = db_available_products.aggregate(Sum('quantity'))['quantity__sum']
+    visibility_changes = get_visibility_changes(shop, product)
     try:
         available_qty = int(int(products_available) / int(product.product_inner_case_size))
     except Exception as e:
@@ -434,6 +435,10 @@ def commit_updates_to_es(shop, product):
         status = False
     info_logger.info("updating ES %s", available_qty)
     update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
+    if visibility_changes:
+        for prod_id, visibility in visibility_changes.items():
+            update_product_es.delay(shop.id, prod_id, visible=visibility)
+
 
 
 @receiver(post_save, sender=WarehouseInventory)
