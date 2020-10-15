@@ -566,10 +566,18 @@ def trip_planning_change(request, pk):
 
                         return redirect('/admin/retailer_to_sp/trip/')
 
-                    # if current_trip_status == Trip.RETURN_VERIFIED:
-                    #     for i in trip_instance.rt_invoice_trip.all():
-                    #         add_to_putaway_on_return(i.id)
-                    #     return redirect('/admin/retailer_to_sp/trip/')
+                    if current_trip_status == Trip.RETURN_VERIFIED:
+                        for shipment in trip_instance.rt_invoice_trip.all():
+                            if shipment.shipment_status=='FULLY_DELIVERED_AND_COMPLETED':
+                                with transaction.atomic():
+                                    for shipment_product in shipment.rt_order_product_order_product_mapping.all():
+                                        for shipment_product_batch in shipment_product.rt_ordered_product_mapping.all():
+                                            shipment_product_batch.delivered_qty=shipment_product_batch.pickup_quantity
+                                            shipment_product_batch.save()
+                                    shipment.shipment_status='FULLY_RETURNED_AND_VERIFIED'
+                                    shipment.save()
+
+                        return redirect('/admin/retailer_to_sp/trip/')
 
                     if selected_shipment_ids:
                         selected_shipment_list = selected_shipment_ids.split(',')
