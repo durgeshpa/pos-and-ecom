@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned
-from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
+from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -1341,3 +1341,25 @@ def shipment_reschedule_inventory_change(shipment_list):
             except DatabaseError as e:
                 print(e)
 
+
+
+def get_expiry_date(batch_id):
+    expiry_date_db = None
+    try:
+        if batch_id is not None:
+            if len(batch_id) == 23:
+                expiry_date = batch_id[17:19] + '/' + batch_id[19:21] + '/' + '20' + batch_id[21:23]
+            else:
+                expiry_date = batch_id[-6:-4] + '/' + batch_id[-4:-2] + '/20' + batch_id[-2:]
+            expiry_date_db = datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%Y-%m-%d')
+    except Exception as e:
+        error_logger.error(e)
+    return expiry_date_db
+
+
+def populate_expiry_date(request):
+    for i in In.objects.all():
+        i.expiry_date = get_expiry_date(i.batch_id)
+        i.save()
+
+    return HttpResponse("Done")
