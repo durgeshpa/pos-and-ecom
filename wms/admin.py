@@ -771,11 +771,41 @@ class AuditAdmin(admin.ModelAdmin):
 
 class ExpiredInventoryMovementAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'bin', 'quantity', 'expiry_date',
-                    'status','created_at',)
-    readonly_fields = ('warehouse', 'sku', 'batch_id', 'bin', 'quantity', 'expiry_date',
+                    'status', 'created_at',)
+    readonly_fields = ('warehouse', 'sku', 'batch_id', 'bin', 'inventory_type', 'quantity', 'expiry_date',
                        'created_at')
     list_filter = [SKUFilter, BatchIdFilter, BinIDFilterForBinInventory, ('created_at', DateRangeFilter)]
     list_per_page = 50
+    actions = ['download_tickets', 'close_tickets']
+    date_hierarchy = 'created_at'
+    def download_tickets(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        # set the header name
+        writer.writerow(["warehouse", "sku", "batch_id", "bin", "quantity", "expiry_date",
+                         "status", "created_at",])
+
+        for query in queryset:
+            ticket = ExpiredInventoryMovement.objects.get(id=query.id)
+            writer.writerow([ticket.warehouse, ticket.sku, ticket.batch_id, ticket.bin, ticket.quantity,
+                             ticket.expiry_date, ticket.status, ticket.created_at])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=expired-inventory-movement.csv'
+        return response
+
+    def close_tickets(self, request, queryset):
+
+        for query in queryset:
+            ticket = ExpiredInventoryMovement.objects.get(id=query.id,
+                                                          status=ExpiredInventoryMovement.STATUS_CHOICE.OPEN)
+            if ticket:
+                ticket.status = ExpiredInventoryMovement.STATUS_CHOICE.CLOSED
+                ticket.save()
+
+    close_tickets.short_description = "Close selected tickets"
+    download_tickets.short_description = "Download selected items as CSV"
 
 
 admin.site.register(Bin, BinAdmin)
