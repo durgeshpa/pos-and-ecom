@@ -1297,11 +1297,11 @@ def get_expiry_date(batch_id):
 
 
 def get_expiry_date_db(batch_id):
-    if len(batch_id) == 23:
-        expiry_date = batch_id[17:19] + '/' + batch_id[19:21] + '/' + '20' + batch_id[21:23]
-    else:
-        expiry_date = batch_id[17:19] + '/' + batch_id[19:21]+'/2020'
-    return datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%Y-%m-%d')
+    expiry_date_db=None
+    if batch_id is not None:
+        expiry_date = batch_id[-6:-4] + '/' + batch_id[-4:-2] + '/20' + batch_id[-2:]
+        expiry_date_db = datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%Y-%m-%d')
+    return expiry_date_db
 
 
 
@@ -1765,3 +1765,4 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
     InternalInventoryChange.create_bin_internal_inventory_change(sh, transaction_type_obj[0].sku, batch_id, final_bin_id, initial_type[0],
                                                                  final_type[0], transaction_type,
                                                                  transaction_id, quantity)
+

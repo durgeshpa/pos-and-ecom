@@ -23,7 +23,8 @@ from import_export import resources
 from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
                      PickupBinInventory,
                      WarehouseInventory, InventoryState, WarehouseInternalInventoryChange, StockMovementCSVUpload,
-                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit)
+                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
+                     ExpiredInventoryMovement)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
 from barCodeGenerator import barcodeGen, merged_barcode_gen
@@ -768,6 +769,15 @@ class AuditAdmin(admin.ModelAdmin):
         return qs
 
 
+class ExpiredInventoryMovementAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'sku', 'batch_id', 'bin', 'quantity', 'expiry_date',
+                    'status','created_at',)
+    readonly_fields = ('warehouse', 'sku', 'batch_id', 'bin', 'quantity', 'expiry_date',
+                       'created_at')
+    list_filter = [SKUFilter, BatchIdFilter, BinIDFilterForBinInventory, ('created_at', DateRangeFilter)]
+    list_per_page = 50
+
+
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
 admin.site.register(InventoryType, InventoryTypeAdmin)
@@ -785,3 +795,4 @@ admin.site.register(BinInternalInventoryChange, BinInternalInventoryChangeAdmin)
 admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)
 admin.site.register(OrderReserveRelease, OrderReleaseAdmin)
 admin.site.register(Audit, AuditAdmin)
+admin.site.register(ExpiredInventoryMovement, ExpiredInventoryMovementAdmin)
