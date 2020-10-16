@@ -339,11 +339,7 @@ class PickupList(APIView):
                                       Q(order_status__in=['picking_complete']),
                                       Q(picker_order__picker_assigned_date__startswith=date.date())).order_by(
             '-created_at').count()
-            picking_assigned = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
-                                      Q(picker_order__picking_status__in=['picking_assigned']),
-                                      Q(order_status__in=['PICKING_ASSIGNED']),
-                                      Q(picker_order__picker_assigned_date__startswith=date.date())).order_by(
-            '-created_at').count()
+            picking_assigned = orders.count()
             msg = {'is_success': True, 'message': 'OK', 'data': serializer.data, 'picking_complete': picking_complete,
                    'picking_assigned':picking_assigned}
             return Response(msg, status=status.HTTP_200_OK)
