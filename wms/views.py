@@ -47,6 +47,7 @@ from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, In
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron')
 
 
 class MergeBarcode(APIView):
@@ -823,6 +824,13 @@ def release_blocking_with_cron():
                                      release_type)
 
 
+def pickup_entry_exists_for_order(order_id):
+    pd_obj = PickerDashboard.objects.filter(order_id=order_id)
+    if pd_obj.exists():
+        return True
+    return False
+
+
 def pickup_entry_creation_with_cron():
     info_logger.info("POST request while upload the .csv file for Audit file download.")
     current_time = datetime.now() - timedelta(minutes=1)
@@ -837,6 +845,8 @@ def pickup_entry_creation_with_cron():
         if order_obj.exists():
             for order in order_obj:
                 pincode = "00"
+                if pickup_entry_exists_for_order(order.id):
+                    continue;
                 PickerDashboard.objects.create(
                     order=order,
                     picking_status="picking_pending",
