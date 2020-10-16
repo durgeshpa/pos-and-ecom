@@ -456,6 +456,11 @@ LOGGING = {
            'level': 'INFO',
            'propagate': True,
        },
+       'cron_log': {
+            'handlers': ['cron_log_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
    },
    'handlers': {
        # 'file-debug': {
@@ -480,6 +485,12 @@ LOGGING = {
        #     'class': 'logging.StreamHandler',
        #     'formatter': 'simple',
        # },
+        'cron_log_file': {
+             'level': 'INFO',
+             'class': 'logging.FileHandler',
+             'filename': '/var/log/retailer-backend/scheduled_jobs.log',
+             'formatter': 'verbose'
+         },
 
    },
    'formatters': {

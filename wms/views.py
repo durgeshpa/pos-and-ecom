@@ -49,6 +49,7 @@ from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, In
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron_log')
 
 
 class MergeBarcode(APIView):
@@ -1363,7 +1364,7 @@ class InventoryMovement(object):
     @classmethod
     def get_inventory_expiring_by_date(cls, date):
         expiring_batch_id_list = In.objects.filter(expiry_date__lte=date).values_list('batch_id', flat=True)
-        info_logger.info('InventoryMovement|get_inventory_expiring_by_date| {} batches expiring on {}'
+        cron_logger.info('InventoryMovement|get_inventory_expiring_by_date| {} batches expiring on {}'
                          .format(expiring_batch_id_list.count(), date))
         return expiring_batch_id_list
 
@@ -1377,13 +1378,13 @@ class InventoryMovement(object):
         bin_inventory = BinInventory.objects.filter(batch_id__in=batch_ids,
                                                     inventory_type=inventory_type,
                                                     quantity__gt=0)
-        info_logger.info('InventoryMovement|get_bin_inventory_to_move| {} bin inventories returned'
+        cron_logger.info('InventoryMovement|get_bin_inventory_to_move| {} bin inventories returned'
                          .format(bin_inventory.count()))
         return bin_inventory
 
     @classmethod
     def move_bin_inventory(cls, tr_type, tr_id, bin_inventory, inventory_type_to):
-        info_logger.info('InventoryMovement|move_bin_inventory| warehouse {}, bin {}, batch {},'
+        cron_logger.info('InventoryMovement|move_bin_inventory| warehouse {}, bin {}, batch {},'
                           'inventory_type_from {}, inventory_type_to {}, quantity {}'
                           .format(bin_inventory.warehouse, bin_inventory.bin, bin_inventory.batch_id,
                                   bin_inventory.inventory_type, inventory_type_to, bin_inventory.quantity))
@@ -1410,12 +1411,12 @@ class InventoryMovement(object):
                                                   transaction_type=tr_type,
                                                   transaction_id=tr_id,
                                                   quantity=qty)
-        info_logger.info('InventoryMovement|move_bin_inventory| Inventory movement done.')
+        cron_logger.info('InventoryMovement|move_bin_inventory| Inventory movement done.')
 
     @classmethod
     def move_warehouse_inventory(cls, tr_type, tr_id, warehouse, sku, inventory_state, inventory_type_from,
                                  inventory_type_to, quantity):
-        info_logger.info('InventoryMovement|move_warehouse_inventory| warehouse {}, sku {}, inventory_state{},'
+        cron_logger.info('InventoryMovement|move_warehouse_inventory| warehouse {}, sku {}, inventory_state{},'
                           'inventory_type_from {}, inventory_type_to {}, quantity {}'
                           .format(warehouse, sku, inventory_state, inventory_type_from, inventory_type_to, quantity))
         warehouse_inventory = WarehouseInventory.objects.filter(warehouse=warehouse,
@@ -1447,12 +1448,12 @@ class InventoryMovement(object):
                                                                            inventory_type_from, inventory_state,
                                                                            inventory_type_to, inventory_state, qty_to_move)
 
-        info_logger.info('InventoryMovement|move_warehouse_inventory| moved successfully')
+        cron_logger.info('InventoryMovement|move_warehouse_inventory| moved successfully')
 
 
 def move_expired_inventory_cron():
     today = datetime.today()
-    info_logger.info('move_expired_inventory_cron started at {}'.format(today))
+    cron_logger.info('move_expired_inventory_cron started at {}'.format(datetime.now()))
     transaction_type = 'expired'
     type_normal = InventoryType.objects.get(inventory_type='normal')
     type_expired = InventoryType.objects.get(inventory_type='expired')
@@ -1479,9 +1480,10 @@ def move_expired_inventory_cron():
                                                            stage_available, type_normal, type_expired, quantity_to_move)
                 commit_updates_to_es(b.warehouse, b.sku)
         except Exception as e:
-            error_logger.error(e)
-            info_logger.error('move_expired_inventory_cron|Exception while moving expired inventory for bin {} batch {}'
+            cron_logger.error(e)
+            cron_logger.error('move_expired_inventory_cron|Exception while moving expired inventory for bin {} batch {}'
                               .format(b.bin, b.batch_id))
+    cron_logger.info('move_expired_inventory_cron ended at {}'.format(datetime.now()))
 
 def move_expired_inventory_manual(request):
     move_expired_inventory_cron()
