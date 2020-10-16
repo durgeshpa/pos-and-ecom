@@ -357,7 +357,8 @@ class PickupRemarksList(APIView):
     def get(self, request):
         pickup_remarks = []
         for p in dict(PickupBinInventory.PICKUP_REMARKS_CHOICES):
-            pickup_remarks.append({'key': PickupBinInventory.PICKUP_REMARKS_CHOICES[p], 'value': p})
+            pickup_remarks.append({'key': 'Select Remark' if p == 0 else PickupBinInventory.PICKUP_REMARKS_CHOICES[p],
+                                   'value': p})
         # serializer = PickupRemarksSerializer(PICKUP_REMARKS_CHOICES, many=True)
         msg = {'is_success': True, 'message': 'OK', 'data': {'pickup_remarks': pickup_remarks}}
         return Response(msg, status=status.HTTP_200_OK)
