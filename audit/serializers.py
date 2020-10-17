@@ -13,7 +13,7 @@ class WarehouseInventorySerializer(serializers.ModelSerializer):
         fields = ('sku_id', 'inventory_type', 'inventory_state', 'quantity')
 
     def get_type(self, obj):
-        return obj.inventory_type.inventory_type
+        return obj.audit_inventory_type.audit_inventory_type
 
     def get_state(self, obj):
         return obj.inventory_state.inventory_state
@@ -36,10 +36,10 @@ class WarehouseInventoryTransactionSerializer(serializers.ModelSerializer):
         return sku_id
 
     def initial_type(self, obj):
-        return obj.initial_type.inventory_type
+        return obj.initial_type.audit_inventory_type
 
     def final_type(self, obj):
-        return obj.final_type.inventory_type
+        return obj.final_type.audit_inventory_type
 
     def initial_stage(self, obj):
         return obj.initial_stage.inventory_state
@@ -58,8 +58,8 @@ class BinInventorySerializer(serializers.ModelSerializer):
         fields = ('sku_id', 'bin', 'batch_id', 'inventory_type', 'quantity')
 
     def get_type(self, obj):
-        if obj.inventory_type:
-            return obj.inventory_type.inventory_type
+        if obj.audit_inventory_type:
+            return obj.audit_inventory_type.audit_inventory_type
 
     def bin_id(self, obj):
         return obj.bin.bin_id
@@ -78,11 +78,11 @@ class BinInventoryTransactionSerializer(serializers.ModelSerializer):
 
     def initial_type(self, obj):
         if obj.initial_inventory_type:
-            return obj.initial_inventory_type.inventory_type
+            return obj.initial_inventory_type.audit_inventory_type
 
     def final_type(self, obj):
         if obj.final_inventory_type:
-            return obj.final_inventory_type.inventory_type
+            return obj.final_inventory_type.audit_inventory_type
 
     def start_bin(self, obj):
         if obj.initial_bin:
