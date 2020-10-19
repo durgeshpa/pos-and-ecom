@@ -32,18 +32,32 @@ class AuditListView(APIView):
     def get(self, request):
         info_logger.info("Audit detail GET API called.")
 
-        warehouse = request.GET.get('warehouse')
-        auditor = request.GET.get('auditor')
+        # warehouse = request.GET.get('warehouse')
+        # if not warehouse:
+        #     msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'warehouse', 'data': None}
+        #     return Response(msg, status=status.HTTP_200_OK)
 
-        if not warehouse:
-            msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'warehouse', 'data': None}
+        in_date = request.GET.get('date')
+        if not in_date:
+            msg = {'is_success': False,
+                   'message': ERROR_MESSAGES['EMPTY'] % 'date',
+                   'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        audits = AuditDetail.objects.filter(warehouse=warehouse, auditor=request.user,
+        try:
+            date = datetime.strptime(in_date, "%Y-%m-%d")
+        except Exception as e:
+            error_logger.error(e)
+            msg = {'is_success': False, 'message': 'date format is not correct, It should be YYYY-mm-dd format.',
+                   'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+
+        audits = AuditDetail.objects.filter(auditor=request.user,
                                             audit_type=AUDIT_TYPE_CHOICES.MANUAL,
                                             state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
                                                        AUDIT_DETAIL_STATE_CHOICES.INITIATED],
-                                            status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
+                                            status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
+                                            created_at__date=date)
         count = audits.count()
         if count == 0:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['NO_RECORD'] % 'audit', 'data': None}
