@@ -106,9 +106,18 @@ class PutAwayViewSet(APIView):
     def get(self, request):
         info_logger.info("Put Away View GET api called.")
         batch_id = request.GET.get('batch_id')
+        try:
+            warehouse = request.user.shop_employee.all().last().shop_id
+
+        except Exception as e:
+            error_logger.error(e)
+            return Response({'is_success': False,
+                             'message': 'User is not mapped with associated Warehouse.',
+                             'data': None}, status=status.HTTP_200_OK)
 
         if batch_id:
-            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id)
+            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse).order_by(
+                'created_at')
             if put_away.exists():
                 serializer = PutAwaySerializer(put_away.last(), fields=(
                     'is_success', 'product_sku', 'batch_id', 'product_name', 'putaway_quantity', 'max_putaway_qty'))
@@ -142,12 +151,12 @@ class PutAwayViewSet(APIView):
             msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         try:
-            warehouse = request.user.shop_employee.all()[0].shop_id
+            warehouse = request.user.shop_employee.all().last().shop_id
 
         except Exception as e:
             error_logger.error(e)
             return Response({'is_success': False,
-                             'message': 'Bin id does not exist.',
+                             'message': 'User is not mapped with associated Warehouse.',
                              'data': None}, status=status.HTTP_200_OK)
         put_away_quantity = self.request.data.get('put_away_quantity')
         if not put_away_quantity:
