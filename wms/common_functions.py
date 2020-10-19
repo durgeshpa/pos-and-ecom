@@ -91,7 +91,7 @@ class InCommonFunctions(object):
     def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity):
         if warehouse.shop_type.shop_type == 'sp':
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
-                                       batch_id=batch_id, quantity=quantity)
+                                       batch_id=batch_id, quantity=quantity, expiry_date=get_expiry_date_db(batch_id))
             PutawayCommonFunctions.create_putaway(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku,
                                                   in_obj.batch_id, in_obj.quantity, putaway_quantity)
             return in_obj
@@ -100,7 +100,7 @@ class InCommonFunctions(object):
     def create_only_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity):
         if warehouse.shop_type.shop_type == 'sp':
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
-                                       batch_id=batch_id, quantity=quantity)
+                                       batch_id=batch_id, quantity=quantity, expiry_date=get_expiry_date_db(batch_id))
 
     @classmethod
     def get_filtered_in(cls, **kwargs):
@@ -1195,7 +1195,9 @@ def common_on_return_and_partial(shipment, flag):
                     else:
                         iin,create=In.objects.get_or_create(warehouse=shipment_product_batch.rt_pickup_batch_mapping.last().warehouse, in_type='RETURN',
                                           in_type_id=shipment.id, sku=shipment_product_batch.ordered_product_mapping.product,
-                                          batch_id=shipment_product_batch.batch_id, defaults={'quantity':putaway_qty})
+                                          batch_id=shipment_product_batch.batch_id,
+                                                            defaults={'quantity': putaway_qty,
+                                                                      'expiry_date': get_expiry_date_db(shipment_product_batch.batch_id)})
                         pu, _ = Putaway.objects.update_or_create(putaway_user=shipment.last_modified_by,
                                                                  warehouse=shipment_product_batch.rt_pickup_batch_mapping.last().warehouse,
                                                                  putaway_type='RETURNED',
@@ -1284,6 +1286,15 @@ def get_expiry_date(batch_id):
     else:
         expiry_date = '30/' + batch_id[17:19] + '/20' + batch_id[19:21]
     return expiry_date
+
+
+def get_expiry_date_db(batch_id):
+    expiry_date_db=None
+    if batch_id is not None:
+        expiry_date = batch_id[-6:-4] + '/' + batch_id[-4:-2] + '/20' + batch_id[-2:]
+        expiry_date_db = datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%Y-%m-%d')
+    return expiry_date_db
+
 
 
 def set_expiry_date(batch_id):
@@ -1721,3 +1732,4 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
     InternalInventoryChange.create_bin_internal_inventory_change(sh, transaction_type_obj[0].sku, batch_id, final_bin_id, initial_type[0],
                                                                  final_type[0], transaction_type,
                                                                  transaction_id, quantity)
+

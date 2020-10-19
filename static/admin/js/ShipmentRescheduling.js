@@ -11,10 +11,9 @@
 
 (function($) {
   $(document).ready(function() {
-
-    if ($('select#id_shipment_status').val()!="OUT_FOR_DELIVERY"){
-//         $("select[id$='rescheduling_reason']").attr("readonly", true);
-//         $("input[id$='rescheduling_date']").attr("readonly", true);
+    shipment_status = ['OUT_FOR_DELIVERY','PARTIALLY_DELIVERED_AND_COMPLETED',
+    'FULLY_RETURNED_AND_COMPLETED','FULLY_DELIVERED_AND_COMPLETED']
+    if ($.inArray($('select#id_shipment_status').val(), shipment_status) == -1){
            $("select[id$='rescheduling_reason']").css('pointer-events','none');
            $("input[id$='rescheduling_date']").css('pointer-events','none');
 

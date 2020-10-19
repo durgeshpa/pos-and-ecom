@@ -47,6 +47,7 @@ django-import-export==1.1.0
 django-jet==1.0.8
 django-js-asset==1.1.0
 django-material==1.4.3
+django-mathfilters==1.0.0
 django-mptt==0.9.1
 django-multidb-router==0.9
 django-nested-admin==3.3.2

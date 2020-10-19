@@ -1045,6 +1045,12 @@ class Order(models.Model):
         return picklist_ids(self.picker_dashboards())
 
     @property
+    def pickup_completed_at(self):
+        pickup_object = Pickup.objects.filter(pickup_type_id=self.order_no)
+        if pickup_object.exists():
+            return Pickup.objects.filter(pickup_type_id=self.order_no).last().completed_at
+
+    @property
     def invoice_no(self):
         return order_invoices(self.shipments())
 
@@ -1986,6 +1992,16 @@ class OrderedProductMapping(models.Model):
         return round(float(self.base_price) * float(get_tax_val), 2)
 
     @property
+    def product_tax_return_amount(self):
+        get_tax_val = self.get_product_tax_json() / 100
+        return round(float(self.basic_rate * (self.returned_qty + self.damaged_qty)) * float(get_tax_val), 2)
+
+    @property
+    def product_tax_discount_amount(self):
+        get_tax_val = self.get_product_tax_json() / 100
+        return round(float(self.basic_rate * self.delivered_qty) * float(get_tax_val), 2)
+
+    @property
     def product_sub_total(self):
         return round(self.effective_price * self.shipped_qty, 2)
 
@@ -1999,6 +2015,27 @@ class OrderedProductMapping(models.Model):
 
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
+
+    def get_products_gst(self):
+        queryset = self.product.product_pro_tax.filter(tax__tax_type='gst')
+        if queryset.exists():
+            return queryset.values_list('tax__tax_percentage', flat=True).first()
+        else:
+            return 0
+
+    def get_products_gst_cess_tax(self):
+        queryset = self.product.product_pro_tax.filter(tax__tax_type='cess')
+        if queryset.exists():
+            return queryset.values_list('tax__tax_percentage', flat=True).first()
+        else:
+            return 0
+
+    def get_products_gst_surcharge(self):
+        queryset = self.product.product_pro_tax.filter(tax__tax_type='surcharge')
+        if queryset.exists():
+            return queryset.values_list('tax__tax_percentage', flat=True).first()
+        else:
+            return 0
 
     def set_product_tax_json(self):
         product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
