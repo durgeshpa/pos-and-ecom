@@ -1,4 +1,9 @@
+import json
 import logging
+
+from django.utils import timezone
+from model_utils import Choices
+
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
     PickupBinInventory, StockMovementCSVUpload
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
@@ -322,12 +327,37 @@ class PickupList(APIView):
             '-created_at')
 
         if not orders:
-            msg = {'is_success': False, 'message': 'No data found.', 'data': None}
+            picking_complete = 0
+            picking_assigned = 0
+            msg = {'is_success': False, 'message': 'No data found.', 'data': None, 'picking_complete': picking_complete,
+                   'picking_assigned':picking_assigned}
             return Response(msg, status=status.HTTP_200_OK)
         else:
             serializer = OrderSerializer(orders, many=True)
-            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
+            picking_complete = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
+                                      Q(picker_order__picking_status__in=['picking_complete']),
+                                      Q(order_status__in=['picking_complete']),
+                                      Q(picker_order__picker_assigned_date__startswith=date.date())).order_by(
+            '-created_at').count()
+            picking_assigned = orders.count()
+            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data, 'picking_complete': picking_complete,
+                   'picking_assigned':picking_assigned}
             return Response(msg, status=status.HTTP_200_OK)
+
+
+class PickupRemarksList(APIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        pickup_remarks = []
+        for p in dict(PickupBinInventory.PICKUP_REMARKS_CHOICES):
+            pickup_remarks.append({'key': 'Select Remark' if p == 0 else PickupBinInventory.PICKUP_REMARKS_CHOICES[p],
+                                   'value': p})
+        # serializer = PickupRemarksSerializer(PICKUP_REMARKS_CHOICES, many=True)
+        msg = {'is_success': True, 'message': 'OK', 'data': {'pickup_remarks': pickup_remarks}}
+        return Response(msg, status=status.HTTP_200_OK)
 
 
 class BinIDList(APIView):
@@ -491,6 +521,20 @@ class PickupDetail(APIView):
                              'message': 'The number of sku ids entered should be equal to number of pickup qty entered.',
                              'data': None}, status=status.HTTP_200_OK)
         diction = {i[1]: i[0] for i in zip(pickup_quantity, sku_id)}
+        remarks = request.data.get('remarks')
+        remarks_dict = {}
+        if remarks is not None:
+            if len(sku_id) != len(remarks):
+                return Response({'is_success': False,
+                                 'message': 'The number of remarks entered should be equal to number of sku ids entered.',
+                                 'data': None}, status=status.HTTP_200_OK)
+            for r in remarks:
+                if r not in PickupBinInventory.PICKUP_REMARKS_CHOICES:
+                    return Response({'is_success': False,
+                                     'message': 'Remarks not valid.',
+                                     'data': None}, status=status.HTTP_200_OK)
+
+            remarks_dict = {i[1]: i[0] for i in zip(remarks, sku_id)}
         data_list = []
         with transaction.atomic():
             for j, i in diction.items():
@@ -509,7 +553,11 @@ class PickupDetail(APIView):
                                               'message': "Can add only {} more items".format(abs(qty - pick_qty))})
                         continue
                     else:
-                        picking_details.update(pickup_quantity=i + pick_qty)
+                        remarks_text = ''
+                        if remarks_dict.get(j) is not None:
+                            remarks_text = PickupBinInventory.PICKUP_REMARKS_CHOICES[remarks_dict.get(j)]
+                        picking_details.update(pickup_quantity=i + pick_qty, last_picked_at=timezone.now(),
+                                               remarks=remarks_text)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                         pickup__sku__id=j)
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
@@ -563,7 +611,8 @@ class PickupComplete(APIView):
                     order_obj = Order.objects.filter(order_no=order_no)
                     Order.objects.filter(order_no=order_no).update(order_status='picking_complete')
                     PickerDashboard.objects.filter(order=order_obj[0]).update(picking_status='picking_complete')
-                    pick_obj.update(status='picking_complete')
+                    #pick_obj.update(status='picking_complete')
+                    pick_obj.update(status='picking_complete', completed_at=timezone.now())
 
                     for pickup in pick_obj:
                         pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)
