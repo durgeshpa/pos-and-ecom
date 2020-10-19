@@ -1254,6 +1254,7 @@ class DownloadInvoiceSP(APIView):
         return response
 
 
+
 # @task
 def pdf_generation(request, ordered_product):
     """
@@ -1326,6 +1327,7 @@ def pdf_generation(request, ordered_product):
         open_time = '-'
         close_time = '-'
         sum_qty = 0
+        sum_basic_amount = 0
         shop_name_gram = 'GFDN SERVICES PVT LTD'
         nick_name_gram = '-'
         address_line1_gram = '-'
@@ -1333,9 +1335,41 @@ def pdf_generation(request, ordered_product):
         state_gram = '-'
         pincode_gram = '-'
         cin = '-'
+        list1 = []
         for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
+            dict1 = {}
+            flag = 0
+            if len(list1) > 0 :
+                for i in list1:
+                    if i["hsn"] == m.product.product_hsn:
+                        i["taxable_value"] = i["taxable_value"] + m.base_price
+                        i["cgst"] = i["cgst"] + (m.base_price * m.get_products_gst()) / 200
+                        i["sgst"] = i["sgst"] + (m.base_price * m.get_products_gst()) / 200
+                        i["igst"] = i["igst"] + (m.base_price * m.get_products_gst()) / 100
+                        i["cess"] = i["cess"] + (m.base_price * m.get_products_gst_cess_tax()) / 100
+                        i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
+                        i["total"] = i["total"] + m.product_tax_amount
+                        flag = 1
+
+            if flag==0 :
+                dict1["hsn"] = m.product.product_hsn
+                dict1["taxable_value"] = m.base_price
+                dict1["cgst"] = (m.base_price * m.get_products_gst()) / 200
+                dict1["cgst_rate"] = m.get_products_gst() / 2
+                dict1["sgst"] = (m.base_price * m.get_products_gst()) / 200
+                dict1["sgst_rate"] = m.get_products_gst() / 2
+                dict1["igst"] = (m.base_price * m.get_products_gst()) / 100
+                dict1["igst_rate"] = m.get_products_gst()
+                dict1["cess"] = (m.base_price * m.get_products_gst_cess_tax()) / 100
+                dict1["cess_rate"] = m.get_products_gst_cess_tax()
+                dict1["surcharge"] = (m.base_price * m.get_products_gst_surcharge()) / 100
+                dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                dict1["total"] = m.product_tax_amount
+                list1.append(dict1)
+
+
             sum_qty += m.shipped_qty
-            # New Code For Product Listing Start
+            sum_basic_amount += m.base_price
             tax_sum = 0
             basic_rate = 0
             product_tax_amount = 0
@@ -1395,45 +1429,42 @@ def pdf_generation(request, ordered_product):
 
             # sum_qty += int(m.shipped_qty)
             # sum_amount += int(m.shipped_qty) * product_pro_price_ptr
-            # inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
-
-            for n in m.product.product_pro_tax.all():
-                divisor = (1 + (n.tax.tax_percentage / 100))
-                original_amount = (inline_sum_amount / divisor)
-                tax_amount = inline_sum_amount - original_amount
-                if n.tax.tax_type == 'gst':
-                    gst_tax_list.append(tax_amount)
-                if n.tax.tax_type == 'cess':
-                    cess_tax_list.append(tax_amount)
-                if n.tax.tax_type == 'surcharge':
-                    surcharge_tax_list.append(tax_amount)
-
-                taxes_list.append(tax_amount)
-                igst = sum(gst_tax_list)
-                cgst = (sum(gst_tax_list)) / 2
-                sgst = (sum(gst_tax_list)) / 2
-                cess = sum(cess_tax_list)
-                surcharge = sum(surcharge_tax_list)
-                # tax_inline = tax_inline + (inline_sum_amount - original_amount)
-                # tax_inline1 =(tax_inline / 2)
+            inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
+            gst_tax = (m.base_price * m.get_products_gst()) / 100
+            cess_tax = (m.base_price * m.get_products_gst_cess_tax()) / 100
+            surcharge_tax = (m.base_price * m.get_products_gst_surcharge()) / 100
+            gst_tax_list.append(gst_tax)
+            cess_tax_list.append(cess_tax)
+            surcharge_tax_list.append(surcharge_tax)
+            igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(
+                cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = ordered_product.invoice_amount
         total_amount_int = total_amount
+
+        total_tax_amount = ordered_product.sum_amount_tax()
+        total_tax_amount_int = round(total_tax_amount)
+
         amt = [num2words(i) for i in str(total_amount).split('.')]
         rupees = amt[0]
+
+        tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
+        tax_rupees = tax_amt[0]
+
         logger.info("createing invoice pdf")
         logger.info(template_name)
         logger.info(request.get_host())
+
         data = {"shipment": ordered_product, "order": ordered_product.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
                 "igst": igst, "cgst": cgst, "sgst": sgst, "cess": cess, "surcharge": surcharge,
                 "total_amount": total_amount,
-                "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
+                "barcode": barcode, "product_listing": product_listing, "rupees": rupees, "tax_rupees": tax_rupees,
                 "seller_shop_gistin": seller_shop_gistin, "buyer_shop_gistin": buyer_shop_gistin,
-                "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty, "shop_name_gram": shop_name_gram,
-                "nick_name_gram": nick_name_gram,
+                "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty, "sum_basic_amount": sum_basic_amount,
+                "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
-                "pincode_gram": pincode_gram, "cin": cin, }
+                "pincode_gram": pincode_gram, "cin": cin, "hsn_list": list1}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -1474,9 +1505,10 @@ class DownloadCreditNoteDiscounted(APIView):
         products = credit_note.shipment.rt_order_product_order_product_mapping.all()
         # reason = 'Retuned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
         order_id = credit_note.shipment.order.order_no
-        sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
+        sum_qty, sum_amount, tax_inline, sum_basic_amount, product_tax_amount, total_product_tax_amount = 0, 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
+        list1 = []
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
             pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
             cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
@@ -1484,36 +1516,87 @@ class DownloadCreditNoteDiscounted(APIView):
             nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
             city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
         for m in products:
+            dict1 = {}
+            flag = 0
+            if len(list1) > 0:
+                for i in list1:
+                    if i["hsn"] == m.product.product_hsn:
+                        i["taxable_value"] = i["taxable_value"] + m.basic_rate * m.delivered_qty
+                        i["cgst"] = i["cgst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 200
+                        i["sgst"] = i["sgst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 200
+                        i["igst"] = i["igst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
+                        i["cess"] = i["cess"] + (m.delivered_qty * m.basic_rate * m.get_products_gst_cess_tax()) / 100
+                        i["surcharge"] = i["surcharge"] + (
+                                    m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
+                        i["total"] = i["total"] + m.product_tax_discount_amount
+                        flag = 1
+
+            if flag == 0:
+                dict1["hsn"] = m.product.product_hsn
+                dict1["taxable_value"] = m.basic_rate * m.delivered_qty
+                dict1["cgst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 200
+                dict1["cgst_rate"] = m.get_products_gst() / 2
+                dict1["sgst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 200
+                dict1["sgst_rate"] = m.get_products_gst() / 2
+                dict1["igst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 100
+                dict1["igst_rate"] = m.get_products_gst()
+                dict1["cess"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_cess_tax()) / 100
+                dict1["cess_rate"] = m.get_products_gst_cess_tax()
+                dict1["surcharge"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_surcharge()) / 100
+                dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                dict1["total"] = m.product_tax_discount_amount
+                list1.append(dict1)
+
             sum_qty = sum_qty + (int(m.delivered_qty))
-            sum_amount = sum_amount + (int(m.delivered_qty) * (m.price_to_retailer))
+            sum_basic_amount += m.basic_rate * (m.delivered_qty)
+            sum_amount = sum_amount + (int(m.delivered_qty) * (m.price_to_retailer - m.discounted_price))
             inline_sum_amount = (int(m.delivered_qty) * (m.price_to_retailer))
-            for n in m.get_products_gst_tax():
-                divisor = (1 + (n.tax.tax_percentage / 100))
-                original_amount = (float(inline_sum_amount) / divisor)
-                tax_amount = float(inline_sum_amount) - original_amount
-                if n.tax.tax_type == 'gst':
-                    gst_tax_list.append(tax_amount)
-                if n.tax.tax_type == 'cess':
-                    cess_tax_list.append(tax_amount)
-                if n.tax.tax_type == 'surcharge':
-                    surcharge_tax_list.append(tax_amount)
-                taxes_list.append(tax_amount)
-                igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
-                    sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
+            gst_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
+            total_product_tax_amount += m.product_tax_discount_amount
+            cess_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst_cess_tax()) / 100
+            surcharge_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
+            gst_tax_list.append(gst_tax)
+            cess_tax_list.append(cess_tax)
+            surcharge_tax_list.append(surcharge_tax)
+            igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
+                sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
+
+            # for n in m.get_products_gst_tax():
+            #     divisor = (1 + (n.tax.tax_percentage / 100))
+            #     original_amount = (float(inline_sum_amount) / divisor)
+            #     tax_amount = float(inline_sum_amount) - original_amount
+            #     if n.tax.tax_type == 'gst':
+            #         gst_tax_list.append(tax_amount)
+            #     if n.tax.tax_type == 'cess':
+            #         cess_tax_list.append(tax_amount)
+            #     if n.tax.tax_type == 'surcharge':
+            #         surcharge_tax_list.append(tax_amount)
+            #     taxes_list.append(tax_amount)
+            #     igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
+            #         sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
+
         total_amount = round(credit_note.note_amount)
         total_amount_int = total_amount
-        amt = [num2words(i) for i in str(total_amount).split('.')]
+        total_product_tax_amount_int = round(total_product_tax_amount)
+
+        amt = [num2words(i) for i in str(sum_amount).split('.')]
         rupees = amt[0]
+
+        prdct_tax_amt = [num2words(i) for i in str(total_product_tax_amount_int).split('.')]
+        tax_rupees = prdct_tax_amt[0]
+
         data = {
             "object": credit_note, "products": products, "shop": credit_note, "total_amount_int": total_amount_int,
-            "sum_qty": sum_qty, "sum_amount": total_amount,
+            "sum_qty": sum_qty, "sum_amount": sum_amount, "total_product_tax_amount": total_product_tax_amount,
+            "tax_rupees": tax_rupees, "sum_basic_amount": sum_basic_amount,
             "url": request.get_host(), "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
             "sgst": sgst, "cess": cess, "surcharge": surcharge,
             "total_amount": round(total_amount, 2), "order_id": order_id, "shop_name_gram": shop_name_gram,
             "nick_name_gram": nick_name_gram, "city_gram": city_gram,
             "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
             "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
-            "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_no, "cin": cin, }
+            "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_no, "cin": cin,
+            "hsn_list": list1}
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
