@@ -56,14 +56,14 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
         return Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('quantity'))['total']
 
     def putaway_quantity_dt(self, obj):
-        return Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('putaway_quantity'))['total']
+        return Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('putaway_quantity'))['total']
 
     def product_name_dt(self, obj):
         return obj.sku.product_name
 
     def max_putaway_qty_dt(self, obj):
-        qty = Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('quantity'))['total']
-        updated_qty = qty - Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('putaway_quantity'))['total']
+        qty = Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('quantity'))['total']
+        updated_qty = qty - Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('putaway_quantity'))['total']
         return updated_qty
 
 
