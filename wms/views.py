@@ -1522,7 +1522,7 @@ class InventoryMovement(object):
     """
     @classmethod
     def get_inventory_expiring_by_date(cls, date):
-        expiring_batch_id_list = In.objects.filter(expiry_date__lte=date).values_list('batch_id', flat=True)
+        expiring_batch_id_list = In.objects.filter(expiry_date__lt=date).values_list('batch_id', flat=True)
         cron_logger.info('InventoryMovement|get_inventory_expiring_by_date| {} batches expiring on {}'
                          .format(expiring_batch_id_list.count(), date))
         return expiring_batch_id_list
@@ -1530,7 +1530,7 @@ class InventoryMovement(object):
     """
     Get all the Bin inventories to move by batch id list
     batch_ids : list of batch ids
-    inventory_type_list : list of inventory types to move e.g. normal, damaged etc
+    inventory_type : inventory types to move e.g. normal, damaged etc
     """
     @classmethod
     def get_bin_inventory_to_move(cls, batch_ids, inventory_type):
