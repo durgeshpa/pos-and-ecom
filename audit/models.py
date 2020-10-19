@@ -4,7 +4,6 @@ from model_utils import Choices
 from accounts.middlewares import get_current_user
 from services.models import InventoryArchiveMaster
 from shops.models import Shop
-from categories.models import Category
 from wms.models import Bin, InventoryState, InventoryType
 from django.contrib.auth import get_user_model
 from products.models import Product
@@ -12,16 +11,19 @@ from products.models import Product
 # Create your models here.
 
 AUDIT_DETAIL_STATUS_CHOICES = Choices((0, 'INACTIVE', 'inactive'), (1, 'ACTIVE', 'active'))
+AUDIT_DETAIL_STATE_CHOICES = Choices((1, 'CREATED', 'created'), (2, 'INITIATED', 'initiated'),(3, 'ENDED', 'ended'),
+                                     (4, 'PASS', 'pass'), (5, 'FAIL', 'fail'),
+                                     (6, 'TICKET_RAISED', 'ticket_raised'),(7, 'TICKET_CLOSED', 'ticket_closed'))
 AUDIT_INVENTORY_CHOICES = Choices((1, 'WAREHOUSE', 'warehouse'), (2, 'BIN', 'bin'), (3, 'INTEGRATED', 'bin-warehouse'),
                                   (4, 'DAILY_OPERATIONS', 'daily operations'))
-AUDIT_SCHEDULE_STATUS_CHOICES = Choices((0, 'CREATED', 'created'), (1, 'ACTIVE', 'active'), (2, 'QUEUED', 'queued'),
-                                        (3, 'DISABLED', 'disabled'))
-AUDIT_RUN_TYPE_CHOICES = Choices(# (0, 'MANUAL', 'manual'), (1, 'SCHEDULED', 'scheduled'),
-                                 (2, 'AUTOMATED', 'automated'))
+AUDIT_TYPE_CHOICES = Choices((0, 'MANUAL', 'manual'),  #(1, 'SCHEDULED', 'scheduled'),
+                             (2, 'AUTOMATED', 'automated'))
 AUDIT_RUN_STATUS_CHOICES = Choices((0, 'IN_PROGRESS', 'in_progress'), (1, 'ABORTED', 'aborted'),
                                    (2, 'COMPLETED', 'completed'))
 AUDIT_STATUS_CHOICES = Choices((0, 'DIRTY', 'dirty'), (1, 'CLEAN', 'clean'))
 AUDIT_TICKET_STATUS_CHOICES = Choices((0, 'OPENED', 'opened'), (1, 'ASSIGNED', 'assigned'), (2, 'CLOSED', 'closed'))
+AUDIT_LEVEL_CHOICES = Choices((0, 'BIN', 'bin'), (1, 'PRODUCT', 'product'))
+AUDIT_PRODUCT_STATUS = Choices((0, 'RELEASED', 'released'), (1, 'BLOCKED', 'blocked'), )
 
 
 class BaseTimestampModel(models.Model):
@@ -33,36 +35,34 @@ class BaseTimestampModel(models.Model):
 
 
 class AuditDetail(BaseTimestampModel):
-    audit_type = models.PositiveSmallIntegerField(choices=AUDIT_RUN_TYPE_CHOICES)
-    audit_inventory_type = models.PositiveSmallIntegerField(choices=AUDIT_INVENTORY_CHOICES)
+    # audit_no = models.CharField(max_length=10)
+    audit_type = models.PositiveSmallIntegerField(choices=AUDIT_TYPE_CHOICES, verbose_name='Audit Type')
+    audit_inventory_type = models.PositiveSmallIntegerField(choices=AUDIT_INVENTORY_CHOICES, null=True,
+                                                            blank=True,verbose_name='Audit Inventory Type')
+    audit_level = models.PositiveSmallIntegerField(choices=AUDIT_LEVEL_CHOICES, null=True, blank=True,
+                                                   verbose_name='Audit Level')
     warehouse = models.ForeignKey(Shop, null=False, blank=False, on_delete=models.DO_NOTHING)
-    # category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.DO_NOTHING)
-    # batch_id = models.CharField(max_length=50, null=True, blank=True)
-    # bin = models.ForeignKey(Bin, null=True, blank=True, on_delete=models.DO_NOTHING)
-    status = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATUS_CHOICES)
-    user = models.ForeignKey(get_user_model(), related_name='audits_created', on_delete=models.DO_NOTHING)
-
-    class Meta:
-        db_table = "wms_audit_details"
-        verbose_name_plural = "Audit Details"
-
-    def __str__(self):
-        return "%s - %s Audit - ID %s" % (AUDIT_RUN_TYPE_CHOICES[self.audit_type], AUDIT_INVENTORY_CHOICES[self.audit_inventory_type], self.id)
+    bin = models.ManyToManyField(Bin, null=True, blank=True, related_name='audit_bin_mapping')
+    sku = models.ForeignKey(Product, to_field='product_sku', null=True, blank=True,  on_delete=models.DO_NOTHING)
+    status = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATUS_CHOICES, verbose_name='Audit Status')
+    state = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATE_CHOICES,
+                                             default=AUDIT_DETAIL_STATE_CHOICES.CREATED,
+                                             verbose_name='Audit State')
+    user = models.ForeignKey(get_user_model(), related_name='audits_created', on_delete=models.DO_NOTHING,
+                             verbose_name='Created By')
+    auditor = models.ForeignKey(get_user_model(), related_name='audits_assigned', null=True, on_delete=models.DO_NOTHING)
 
     def save(self, *args, **kwargs):
         if not self.id:
             self.user = get_current_user()
         super(AuditDetail, self).save(*args, **kwargs)
-#
-# class AuditSchedule(BaseTimestampModel):
-#     warehouse = models.ForeignKey(Shop, null=False, blank=False, on_delete=models.DO_NOTHING)
-#     audit = models.ForeignKey(AuditDetail, null=False, blank=False, on_delete=models.CASCADE)
-#     user = models.ForeignKey(get_user_model(), related_name='audit_schedules', on_delete=models.DO_NOTHING)
-#     status = models.PositiveSmallIntegerField(choices=AUDIT_SCHEDULE_STATUS_CHOICES)
-#     scheduled_time = models.DateTimeField()
-#
-#     class Meta:
-#         db_table = "wms_audit_schedule"
+
+    def __str__(self):
+        return "Audit ID - {}".format(self.id)
+
+    class Meta:
+        db_table = "wms_audit_details"
+        verbose_name_plural = "Audit Details"
 
 
 class AuditRun(BaseTimestampModel):
@@ -99,8 +99,6 @@ class AuditTicket(BaseTimestampModel):
                                   (2, 'WAREHOUSE', 'warehouse'),
                                   (3, 'WAREHOUSE_CALCULATED', 'warehouse-calculated'))
     warehouse = models.ForeignKey(Shop, null=False, on_delete=models.DO_NOTHING)
-    # audit_type = models.PositiveSmallIntegerField(choices=AUDIT_RUN_TYPE_CHOICES)
-    # audit_inventory_type = models.PositiveSmallIntegerField(choices=AUDIT_INVENTORY_CHOICES)
     audit_run = models.ForeignKey(AuditRun, null=False, on_delete=models.CASCADE)
     sku = models.ForeignKey(Product, null=False, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True)
@@ -122,15 +120,14 @@ class AuditTicket(BaseTimestampModel):
         return AUDIT_INVENTORY_CHOICES[self.audit_run.audit.audit_inventory_type]
 
     def audit_type(self):
-        return AUDIT_RUN_TYPE_CHOICES[self.audit_run.audit.audit_type]
+        return AUDIT_TYPE_CHOICES[self.audit_run.audit.audit_type]
 
-#
-# class AuditTicketHistory(models.Model):
-#     audit_ticket = models.ForeignKey(AuditTicket, null=False, on_delete=models.CASCADE)
-#     comment = models.CharField(max_length=255, null=False, blank=False)
-#     assigned_to = models.PositiveSmallIntegerField(null=True)
-#     user = models.ForeignKey(get_user_model(), related_name='audit_ticket_comments', null=True, on_delete=models.DO_NOTHING)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#
-#     class Meta:
-#         db_table = "wms_audit_tickets_history"
+
+class AuditProduct(models.Model):
+    warehouse = models.ForeignKey(Shop, null=False, on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, null=False, to_field='product_sku', on_delete=models.DO_NOTHING)
+    status = models.PositiveSmallIntegerField(choices=AUDIT_PRODUCT_STATUS)
+    es_status = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "wms_audit_products"

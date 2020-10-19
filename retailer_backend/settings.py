@@ -100,6 +100,7 @@ INSTALLED_APPS = [
     'offer',
     'celerybeat_status',
     'django_elasticsearch_dsl',
+    'mathfilters',
     'wms',
     'audit'
 ]
@@ -336,7 +337,8 @@ CRONJOBS = [
     ('*/5 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
     ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
-    ('0 1 * * *', 'audit.views.start_automated_inventory_audit')
+    ('0 1 * * *', 'audit.views.start_automated_inventory_audit'),
+    ('0 3 * * *', 'wms.views.move_expired_inventory_cron')
 ]
 
 INTERNAL_IPS = ['127.0.0.1','localhost']
@@ -455,6 +457,11 @@ LOGGING = {
            'level': 'INFO',
            'propagate': True,
        },
+       'cron_log': {
+            'handlers': ['cron_log_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
    },
    'handlers': {
        # 'file-debug': {
@@ -479,6 +486,12 @@ LOGGING = {
        #     'class': 'logging.StreamHandler',
        #     'formatter': 'simple',
        # },
+        'cron_log_file': {
+             'level': 'INFO',
+             'class': 'logging.FileHandler',
+             'filename': '/var/log/retailer-backend/scheduled_jobs.log',
+             'formatter': 'verbose'
+         },
 
    },
    'formatters': {

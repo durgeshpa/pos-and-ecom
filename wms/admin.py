@@ -1,8 +1,9 @@
 # python imports
 import logging
 import csv
-import datetime
 from io import StringIO
+from datetime import datetime
+
 from dal_admin_filters import AutocompleteFilter
 # django imports
 from django.contrib import admin, messages
@@ -10,17 +11,23 @@ from django.http import HttpResponse
 from django.utils.html import format_html
 from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
-from rangefilter.filter import DateTimeRangeFilter
+from rangefilter.filter import DateTimeRangeFilter, DateRangeFilter
 
+from retailer_to_sp.models import Invoice, Trip
+from gram_to_brand.models import GRNOrder
 from products.models import ProductVendorMapping
+from products.models import ProductVendorMapping, ProductPrice
 from retailer_backend.admin import InputFilter
 # app imports
+from .common_functions import get_expiry_date
+from .filters import ExpiryDateFilter
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
 from import_export import resources
 from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
                      PickupBinInventory,
                      WarehouseInventory, InventoryState, WarehouseInternalInventoryChange, StockMovementCSVUpload,
-                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit)
+                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit,
+                     ExpiredInventoryMovement)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
 from barCodeGenerator import barcodeGen, merged_barcode_gen
@@ -328,10 +335,11 @@ class BinAdmin(admin.ModelAdmin):
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
-    list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'quantity',)
-    readonly_fields = ('warehouse', 'in_type', 'in_type_id', 'sku', 'batch_id', 'quantity',)
+    list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'quantity', 'expiry_date')
+    readonly_fields = ('warehouse', 'in_type', 'in_type_id', 'sku', 'batch_id', 'quantity', 'expiry_date')
     search_fields = ('batch_id', 'in_type_id', 'sku__product_sku',)
-    list_filter = [Warehouse, BatchIdFilter, SKUFilter, InTypeIDFilter, 'in_type']
+    list_filter = [Warehouse, BatchIdFilter, SKUFilter, InTypeIDFilter, 'in_type',
+                   ('expiry_date', DateRangeFilter)]
     list_per_page = 50
 
     class Media:
@@ -342,14 +350,32 @@ class PutAwayAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Admin has been called.")
     form = PutAwayForm
     list_display = (
-        'putaway_user', 'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity',
-        'putaway_quantity')
+        'putaway_user', 'warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_type_id', 'grn_id', 'trip_id', 'quantity',
+        'putaway_quantity', 'created_at',)
     actions = ['download_bulk_put_away_csv']
     readonly_fields = (
     'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity', 'putaway_quantity',)
     search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
-    list_filter = [Warehouse, BatchIdFilter, SKUFilter, ('putaway_type', DropdownFilter), PutawayuserFilter]
+    list_filter = [Warehouse, BatchIdFilter, SKUFilter, ('putaway_type', DropdownFilter), PutawayuserFilter,
+                   ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
+
+    def grn_id(self, obj):
+        if obj.putaway_type == 'GRN':
+            in_type_id = In.objects.filter(id=obj.putaway_type_id).last().in_type_id
+            grn_id = GRNOrder.objects.filter(grn_id=in_type_id).last().id
+            return format_html("<a href='/admin/gram_to_brand/grnorder/%s/change/'> %s </a>" % (str(grn_id), str(in_type_id)))
+        else:
+            return '-'
+
+    def trip_id(self, obj):
+        if obj.putaway_type == 'RETURNED':
+            invoice_number = Invoice.objects.filter(invoice_no=obj.putaway_type_id).last().shipment.trip.dispatch_no
+            trip_id = Trip.objects.filter(dispatch_no=invoice_number).last().id
+            return format_html(
+                "<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'> %s </a>" % (str(trip_id), str(invoice_number)))
+        else:
+            return '-'
 
     def download_bulk_put_away_csv(self, request, queryset):
         """
@@ -490,15 +516,19 @@ class BinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
     actions = ['download_barcode']
-    list_display = (
-    'batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at', 'modified_at')
+    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at',
+                    'modified_at', 'expiry_date')
     readonly_fields = ['warehouse', 'bin', 'sku', 'batch_id', 'inventory_type', 'quantity', 'in_stock']
-    search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at')
-    list_filter = [BinIDFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter]
+    search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at',)
+    list_filter = [BinIDFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter,
+                   ExpiryDateFilter]
     list_per_page = 50
 
     class Media:
         js = ('admin/js/picker.js',)
+
+    def expiry_date(self, obj):
+        return get_expiry_date(obj.batch_id)
 
     def download_barcode(self, request, queryset):
         """
@@ -549,7 +579,8 @@ class OutAdmin(admin.ModelAdmin):
 class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
-    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status')
+    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status',
+                    'completed_at')
     readonly_fields = (
     'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status', 'out',)
     search_fields = ('pickup_type_id', 'sku__product_sku',)
@@ -563,9 +594,11 @@ class PickupAdmin(admin.ModelAdmin):
 class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity', 'created_at')
+    list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity',
+                    'created_at', 'last_picked_at', 'pickup_remarks')
     list_select_related = ('warehouse', 'pickup', 'bin')
-    readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin', 'created_at')
+    readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin',
+                       'created_at', 'last_picked_at', 'pickup_remarks')
     search_fields = ('batch_id', 'bin__bin__bin_id')
     list_filter = [Warehouse, BatchIdFilter, BinIDFilterForPickupBinInventory, OrderNumberFilterForPickupBinInventory, ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
@@ -575,6 +608,9 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
 
     def bin_id(self, obj):
         return obj.bin.bin.bin_id
+
+    def pickup_remarks(self,obj):
+        return obj.remarks;
 
     class Media:
         pass
@@ -754,6 +790,46 @@ class AuditAdmin(admin.ModelAdmin):
         return qs
 
 
+class ExpiredInventoryMovementAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'sku', 'batch_id', 'bin', 'mrp', 'quantity', 'expiry_date',
+                    'status', 'created_at',)
+    readonly_fields = ('warehouse', 'sku', 'batch_id', 'bin', 'mrp', 'inventory_type', 'quantity', 'expiry_date',
+                       'created_at')
+    list_filter = [SKUFilter, BatchIdFilter, BinIDFilterForBinInventory, ('created_at', DateRangeFilter)]
+    list_per_page = 50
+    actions = ['download_tickets', 'close_tickets']
+    date_hierarchy = 'created_at'
+
+    def download_tickets(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        # set the header name
+        writer.writerow(["warehouse", "sku", "batch_id", "bin", "quantity", "expiry_date",
+                         "status", "created_at",])
+
+        for query in queryset:
+            ticket = ExpiredInventoryMovement.objects.get(id=query.id)
+            writer.writerow([ticket.warehouse, ticket.sku, ticket.batch_id, ticket.bin, ticket.quantity,
+                             ticket.expiry_date, ticket.status, ticket.created_at])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=expired-inventory-movement.csv'
+        return response
+
+    def close_tickets(self, request, queryset):
+
+        for query in queryset:
+            ticket = ExpiredInventoryMovement.objects.get(id=query.id,
+                                                          status=ExpiredInventoryMovement.STATUS_CHOICE.OPEN)
+            if ticket:
+                ticket.status = ExpiredInventoryMovement.STATUS_CHOICE.CLOSED
+                ticket.save()
+
+    close_tickets.short_description = "Close selected tickets"
+    download_tickets.short_description = "Download selected items as CSV"
+
+
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
 admin.site.register(InventoryType, InventoryTypeAdmin)
@@ -771,3 +847,4 @@ admin.site.register(BinInternalInventoryChange, BinInternalInventoryChangeAdmin)
 admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)
 admin.site.register(OrderReserveRelease, OrderReleaseAdmin)
 admin.site.register(Audit, AuditAdmin)
+admin.site.register(ExpiredInventoryMovement, ExpiredInventoryMovementAdmin)

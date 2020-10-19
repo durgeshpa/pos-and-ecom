@@ -1,6 +1,10 @@
+from datetime import datetime, timedelta
+
 from dal import autocomplete
+from django.contrib.admin import SimpleListFilter
+
 from shops.models import Shop
-from wms.models import InventoryType, InventoryState
+from wms.models import InventoryType, InventoryState, In
 from accounts.models import User
 
 
@@ -53,3 +57,28 @@ class PutawayUserFilter(autocomplete.Select2QuerySetView):
         return qs
 
 
+class ExpiryDateFilter(SimpleListFilter):
+    title = 'expiry_date'
+    parameter_name = 'expiry_date'
+
+    def lookups(self, request, model_admin):
+        return ( (0, 'Expired' ), (1, 'Expiring in 7 days'), (2, 'Expiring after 7 days'), )
+
+    def queryset(self, request, queryset):
+        if self.value() == '0':
+            subquery = In.objects.filter(expiry_date__lte=datetime.now()).values_list('batch_id', flat=True)
+            queryset = queryset.filter(batch_id__in=subquery)
+            return queryset
+        elif self.value() == '1':
+            subquery = In.objects.filter(expiry_date__gt=datetime.now(),
+                                         expiry_date__lte=datetime.now()+timedelta(7))\
+                                 .values_list('batch_id', flat=True)
+            queryset = queryset.filter(batch_id__in=subquery)
+            return queryset
+        elif self.value() == '2':
+            subquery = In.objects.filter(expiry_date__gt=datetime.now() + timedelta(7)) \
+                                 .values_list('batch_id', flat=True)
+            queryset = queryset.filter(batch_id__in=subquery)
+            return queryset
+        else:
+            return queryset
