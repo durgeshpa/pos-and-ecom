@@ -1597,17 +1597,15 @@ class NoteAdmin(admin.ModelAdmin):
         if obj.credit_note_type == 'DISCOUNTED':
             for m in products:
                 sum_amount = sum_amount + (int(m.delivered_qty) * (m.price_to_retailer-m.discounted_price))
-            return sum_amount
         else:
             if shipment_cancelled:
                 for m in products:
                     sum_amount = sum_amount + (int(m.shipped_qty) * (m.price_to_retailer))
-                return sum_amount
 
             else:
                 for m in products:
-                    sum_amount = sum_amount + (int(m.returned_qty + m.returned_damage_qty) * (m.price_to_retailer))
-                return sum_amount
+                    sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) * (m.price_to_retailer))
+            return sum_amount
 
     note_amount.short_description = 'Note Amount'
 
