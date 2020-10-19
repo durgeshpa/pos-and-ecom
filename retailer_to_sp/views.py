@@ -574,7 +574,7 @@ def trip_planning_change(request, pk):
                                         for shipment_product_batch in shipment_product.rt_ordered_product_mapping.all():
                                             shipment_product_batch.delivered_qty=shipment_product_batch.pickup_quantity
                                             shipment_product_batch.save()
-                                    shipment.shipment_status='FULLY_RETURNED_AND_VERIFIED'
+                                    shipment.shipment_status='FULLY_DELIVERED_AND_VERIFIED'
                                     shipment.save()
 
                         return redirect('/admin/retailer_to_sp/trip/')
