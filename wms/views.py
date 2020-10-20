@@ -6,6 +6,9 @@ import itertools
 import openpyxl
 import re
 import logging
+
+from django.db.models.functions import Length
+
 from barCodeGenerator import barcodeGen
 # django imports
 from django.http import HttpResponse
@@ -27,7 +30,7 @@ from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, WareHouseInternalInventoryChange, \
     get_expiry_date_db
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
-    BinInternalInventoryChange, ExpiredInventoryMovement
+    BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
@@ -1664,3 +1667,45 @@ def move_expired_inventory_cron():
 def move_expired_inventory_manual(request):
     move_expired_inventory_cron()
     return HttpResponse("Done")
+
+
+def rectify_batch_ids(request):
+    info_logger.info('WMS: rectify_batch_ids started')
+    batch_ids_to_correct = get_25_char_batch_ids()
+    info_logger.info('WMS: rectify_batch_ids, total batch ids found - {}'.format(len(batch_ids_to_correct)))
+    batch_dict = get_correct_batch_ids(batch_ids_to_correct)
+    info_logger.info('WMS: rectify_batch_ids, correct batch_ids count - {}'.format(len(batch_dict)))
+    for b_25, b_23 in batch_dict.items():
+        with transaction.atomic():
+            info_logger.info('WMS: rectify_batch_ids, replacing batch_id - {} with {}'.format(b_25, b_23))
+            opb_entries_to_update = OrderedProductBatch.objects.select_for_update().filter(batch_id=b_25)
+            opb_entries_to_update.update(batch_id=b_23)
+
+            info_logger.info('WMS: rectify_batch_ids, updated OrderedProductBatch')
+            in_entries_to_update = In.objects.select_for_update().filter(batch_id=b_25)
+            in_entries_to_update.update(batch_id=b_23)
+            info_logger.info('WMS: rectify_batch_ids, updated In')
+
+            pa_entries_to_update = Putaway.objects.select_for_update().filter(batch_id=b_25)
+            pa_entries_to_update.update(batch_id=b_23)
+            info_logger.info('WMS: rectify_batch_ids, updated Putaway')
+
+            pabi_entries_to_update = PutawayBinInventory.objects.select_for_update().filter(batch_id=b_25)
+            pabi_entries_to_update.update(batch_id=b_23)
+            info_logger.info('WMS: rectify_batch_ids, updated PutawayBinInventory')
+
+    info_logger.info('WMS: rectify_batch_ids ended')
+    return HttpResponse("Done")
+
+
+def get_25_char_batch_ids():
+    return OrderedProductBatch.objects.annotate(length=Length('batch_id')).filter(length=25)\
+                                      .values_list('batch_id', flat=True)
+
+
+def get_correct_batch_ids(batch_ids_to_correct):
+    batch_dict = {}
+    for b in batch_ids_to_correct:
+        correct_batch_id = b[:21] + b[23:25]
+        batch_dict[b] = correct_batch_id
+    return batch_dict
