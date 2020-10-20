@@ -668,7 +668,7 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
     list_select_related = ('warehouse', 'inventory_type', 'inventory_state', 'sku')
 
     readonly_fields = (
-    'warehouse', 'sku', 'inventory_type', 'inventory_state', 'in_stock', 'created_at', 'modified_at',)
+    'warehouse', 'sku', 'inventory_type', 'inventory_state', 'in_stock', 'created_at', 'modified_at', 'quantity',)
     search_fields = ('sku__product_sku',)
     list_filter = [Warehouse, SKUFilter, InventoryTypeFilter, InventoryStateFilter, ('created_at', DateTimeRangeFilter),
                    ('modified_at', DateTimeRangeFilter)]
