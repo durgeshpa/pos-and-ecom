@@ -412,6 +412,17 @@ class OrderManagement(object):
         order_status = params['order_status']
         common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
 
+    @classmethod
+    def release_blocking_from_order(cls, reserved_args, sku_id=False):
+        params = json.loads(reserved_args)
+        transaction_id = params['transaction_id']
+        shop_id = params['shop_id']
+        transaction_type = params['transaction_type']
+        order_status = params['order_status']
+        result = common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
+        if result is False:
+            return False
+
 
 class InternalInventoryChange(object):
     @classmethod
@@ -656,11 +667,17 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
     """
     order_reserve_release = OrderReserveRelease.objects.filter(transaction_id=transaction_id,
                                                                warehouse_internal_inventory_release_id=None)
-    for order_product in order_reserve_release:
-        # call function for release inventory
-        release_type = 'manual'
-        common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status,
-                                     order_product, release_type)
+    if order_reserve_release.exists():
+
+        for order_product in order_reserve_release:
+            # call function for release inventory
+            release_type = 'manual'
+            result = common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status,
+                                         order_product, release_type)
+            if result is False:
+                return False
+    else:
+        return False
 
 
 def common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status, order_product, release_type):
@@ -681,6 +698,8 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
                                                                        inventory_state__inventory_state='reserved').last()
         if warehouse_product_reserved:
             reserved_qty = warehouse_product_reserved.quantity
+            if reserved_qty == 0:
+                return False
             warehouse_product_reserved.quantity = reserved_qty - order_product.warehouse_internal_inventory_reserve.quantity
             warehouse_product_reserved.save()
 

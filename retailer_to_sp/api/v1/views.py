@@ -1049,11 +1049,10 @@ class CreateOrder(APIView):
                             'transaction_type': 'ordered',
                             'order_status': order.order_status
                         })
-                        try:
-                            OrderManagement.release_blocking(reserved_args, sku_id)
-                        except:
+                        order_result = OrderManagement.release_blocking_from_order(reserved_args, sku_id)
+                        if order_result is False:
                             order.delete()
-                            msg = {'is_success': False, 'message': ['reserved_qty is none'], 'response_data': None}
+                            msg = {'is_success': False, 'message': ['No item in this cart.'], 'response_data': None}
                             return Response(msg, status=status.HTTP_200_OK)
                         serializer = OrderSerializer(order,
                                                      context={'parent_mapping_id': parent_mapping.parent.id,
@@ -1810,12 +1809,6 @@ class ReleaseBlocking(APIView):
             })
 
             OrderManagement.release_blocking(reserved_args, sku_id)
-            # if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
-            #     for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
-            #         ordered_reserve.order_product_reserved.available_qty = int(
-            #             ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
-            #         ordered_reserve.order_product_reserved.save()
-            #         ordered_reserve.delete()
             if CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).exists():
                 CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).delete()
 
