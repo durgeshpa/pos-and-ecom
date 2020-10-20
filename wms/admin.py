@@ -419,7 +419,7 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     readonly_fields = ['warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway','putaway_quantity']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin__bin_id')
     list_filter = [
-        Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, ('putaway_type', DropdownFilter),
+        Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, ('putaway_type', DropdownFilter), 'putaway_status',
         ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
 
