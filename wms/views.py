@@ -826,8 +826,15 @@ def release_blocking_with_cron():
                                      release_type)
 
 
+def pickup_entry_exists_for_order(order_id):
+    pd_obj = PickerDashboard.objects.filter(order_id=order_id)
+    if pd_obj.exists():
+        return True
+    return False
+
+
 def pickup_entry_creation_with_cron():
-    info_logger.info("POST request while upload the .csv file for Audit file download.")
+    cron_logger.info("pickup_entry_creation_with_cron started")
     current_time = datetime.now() - timedelta(minutes=1)
     start_time = datetime.now() - timedelta(days=30)
     order_obj = Order.objects.filter(order_status='ordered',
@@ -840,18 +847,26 @@ def pickup_entry_creation_with_cron():
         if order_obj.exists():
             for order in order_obj:
                 pincode = "00"
+                if pickup_entry_exists_for_order(order.id):
+                    cron_logger.info('pickup extry exists for order {}'.format(order.id))
+                    continue
                 PickerDashboard.objects.create(
                     order=order,
                     picking_status="picking_pending",
                     picklist_id=generate_picklist_id(pincode),
                 )
                 order_obj.update(order_status='PICKUP_CREATED')
+                cron_logger.info('picker dashboard entry created for order {}, order status updated to {}'
+                                 .format(order.id, order.PICKUP_CREATED))
                 shop = Shop.objects.filter(id=order.seller_shop.id).last()
                 for order_product in order.ordered_cart.rt_cart_list.all():
                     CommonPickupFunctions.create_pickup_entry(shop, 'Order', order.order_no, order_product.cart_product,
                                                               order_product.no_of_pieces,
                                                               'pickup_creation')
+                    cron_logger.info('pickup entry created for order {}, order_product {}'
+                                     .format(order.id, order_product.cart_product))
                 pu = Pickup.objects.filter(pickup_type_id=order.order_no)
+
                 for obj in pu:
                     bin_inv_dict = {}
                     pickup_obj = obj
@@ -935,6 +950,8 @@ def pickup_entry_creation_with_cron():
                                                                                          "pickup_created",
                                                                                          pickup_obj.pk,
                                                                                          already_picked)
+
+                    cron_logger.info('pickup bin inventory created for order {}, sku {}, '.format(order.id, obj.sku))
 
 
 class DownloadBinCSV(View):
