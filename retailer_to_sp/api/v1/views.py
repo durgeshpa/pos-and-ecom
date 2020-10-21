@@ -405,7 +405,7 @@ class GramGRNProductsList(APIView):
                                 for i in (array3 + array2):
                                     if j['coupon_code'] == i['coupon_code']:
                                         j['is_applied'] = True
-                        user_selected_qty = c_p.qty
+                        user_selected_qty = c_p.qty or 0
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
                         p["_source"]["no_of_pieces"] = no_of_pieces
