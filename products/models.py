@@ -404,7 +404,11 @@ class Product(models.Model):
         for rules in self.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
             for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
                 product_coupons.append(rule.coupon_code)
-        parent_brand = self.parent_product.parent_brand.brand_parent.id if self.parent_product else None
+        parent_product_brand = self.parent_product.parent_brand if self.parent_product else None
+        if parent_product_brand:
+            parent_brand = parent_product_brand.brand_parent.id if parent_product_brand.brand_parent else None
+        else:
+            parent_brand = None
         # parent_brand = self.product_brand.brand_parent.id if self.product_brand.brand_parent else None
         product_brand_id = self.parent_product.parent_brand.id if self.parent_product else None
         brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')

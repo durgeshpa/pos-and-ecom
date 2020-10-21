@@ -130,7 +130,9 @@ def shop_stock_download(request, shop_id):
                 myproduct.inventory_type.inventory_type: myproduct.quantity,
                 'mrp': myproduct.sku.product_mrp,
                 'parent_id': myproduct.sku.parent_product.parent_id,
-                'parent_name': myproduct.sku.parent_product.name
+                'parent_name': myproduct.sku.parent_product.name,
+                'product_ean_code': myproduct.sku.product_ean_code,
+                'weight': f'{myproduct.sku.weight_value} {myproduct.sku.weight_unit}'
                 # 'mrp': product_mrp.last().mrp if product_mrp.exists() else ''
             }
 
@@ -139,7 +141,7 @@ def shop_stock_download(request, shop_id):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['SKU Id', 'Product Name', 'MRP', 'Parent ID', 'Parent Name', 'Normal Qty', 'Damaged Qty', 'Expired Qty', 'Missing Qty'])
+    writer.writerow(['SKU Id', 'Product Name', 'MRP', 'Parent ID', 'Parent Name', 'EAN', 'Weight', 'Normal Qty', 'Damaged Qty', 'Expired Qty', 'Missing Qty'])
     for key, value in product_list.items():
         if 'damaged' not in value:
             value['damaged'] = 0
@@ -149,7 +151,7 @@ def shop_stock_download(request, shop_id):
             value['missing'] = 0
 
         writer.writerow(
-            [value['sku'], value['name'], value['mrp'], value['parent_id'], value['parent_name'], value['normal'], value['damaged'], value['expired']
+            [value['sku'], value['name'], value['mrp'], value['parent_id'], value['parent_name'], value['product_ean_code'], value['weight'], value['normal'], value['damaged'], value['expired']
                 , value['missing']])
     return response
 

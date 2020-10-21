@@ -354,6 +354,9 @@ class GramGRNProductsList(APIView):
             }
             products_list = es_search(index="all_products", body=body)
         for p in products_list['hits']['hits']:
+            if not Product.objects.filter(id=p["_source"]["id"]).exists():
+                print("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
+                continue
             if is_store_active:
                 product = Product.objects.get(id=p["_source"]["id"])
                 product_coupons = product.getProductCoupons()
