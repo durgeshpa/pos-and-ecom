@@ -294,7 +294,7 @@ class Product(models.Model):
 
     @property
     def product_inner_case_size(self):
-        return self.parent_product.inner_case_size if self.parent_product else ''
+        return self.parent_product.inner_case_size if self.parent_product else '0'
 
     @property
     def product_short_description(self):
