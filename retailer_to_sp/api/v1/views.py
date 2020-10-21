@@ -29,6 +29,7 @@ from num2words import num2words
 import collections
 from django.core.files.base import ContentFile
 from django.shortcuts import redirect
+from django.db import transaction
 
 from wms.views import shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, GramGRNProductsSearchSerializer,
@@ -999,78 +1000,77 @@ class CreateOrder(APIView):
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             # self.sp_mapping_order_reserve()
-            if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
-                                   id=cart_id).exists():
-                cart = Cart.objects.get(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
-                                        id=cart_id)
-                orderitems = []
-                for i in cart.rt_cart_list.all():
-                    # Check if product blocked for audit
-                    is_blocked_for_audit = is_product_blocked_for_audit(i.cart_product, shop_id)
-                    if is_blocked_for_audit:
-                        msg['message'] = ERROR_MESSAGES['4019'].format(i.cart_product)
+            with transaction.atomic():
+                if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
+                                       id=cart_id).exists():
+                    cart = Cart.objects.get(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
+                                            id=cart_id)
+                    orderitems = []
+                    for i in cart.rt_cart_list.all():
+                        orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
+                    if None in orderitems:
+                        CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
+                        for cart_price in cart.rt_cart_list.all():
+                            cart_price.cart_product_price = None
+                            cart_price.save()
+                        msg['message'] = [
+                            "Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
+                        return Response(msg, status=status.HTTP_200_OK)
+                    else:
+                        cart.cart_status = 'ordered'
+                        cart.buyer_shop = shop
+                        cart.seller_shop = parent_mapping.parent
+                        cart.save()
+
+                    if WarehouseInternalInventoryChange.objects.filter(
+                            transaction_id=cart.order_id, transaction_type='reserved').exists():
+                        order, _ = Order.objects.get_or_create(last_modified_by=request.user, ordered_by=request.user,
+                                                               ordered_cart=cart, order_no=cart.order_id)
+
+                        order.billing_address = billing_address
+                        order.shipping_address = shipping_address
+                        order.buyer_shop = shop
+                        order.seller_shop = parent_mapping.parent
+                        order.total_tax_amount = float(total_tax_amount)
+                        order.order_status = Order.ORDERED
+                        order.save()
+
+                        # Changes OrderedProductReserved Status
+                        for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart,
+                                                                                     reserve_status=OrderedProductReserved.RESERVED):
+                            ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
+                            ordered_reserve.order_product_reserved.save()
+                            ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
+                            ordered_reserve.save()
+                        sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
+                        reserved_args = json.dumps({
+                            'shop_id': parent_mapping.parent.id,
+                            'transaction_id': cart.order_id,
+                            'transaction_type': 'ordered',
+                            'order_status': order.order_status
+                        })
+                        order_result = OrderManagement.release_blocking_from_order(reserved_args, sku_id)
+                        if order_result is False:
+                            order.delete()
+                            msg = {'is_success': False, 'message': ['No item in this cart.'], 'response_data': None}
+                            return Response(msg, status=status.HTTP_200_OK)
+                        serializer = OrderSerializer(order,
+                                                     context={'parent_mapping_id': parent_mapping.parent.id,
+                                                              'buyer_shop_id': shop_id,
+                                                              'current_url': current_url})
+                        msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                        try:
+                            request = jsonpickle.encode(request, unpicklable=False)
+                            order = jsonpickle.encode(order, unpicklable=False)
+                            pick_list_download.delay(request, order)
+                        except:
+                            msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'], 'response_data': None}
+                            return Response(msg, status=status.HTTP_200_OK)
+                    else:
+                        msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
 
-                    orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
-                if None in orderitems:
-                    CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
-                    for cart_price in cart.rt_cart_list.all():
-                        cart_price.cart_product_price = None
-                        cart_price.save()
-                    msg['message'] = [
-                        "Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
-                    return Response(msg, status=status.HTTP_200_OK)
-                else:
-                    cart.cart_status = 'ordered'
-                    cart.buyer_shop = shop
-                    cart.seller_shop = parent_mapping.parent
-                    cart.save()
-
-                if WarehouseInternalInventoryChange.objects.filter(
-                        transaction_id=cart.order_id, transaction_type='reserved').exists():
-                    order, _ = Order.objects.get_or_create(last_modified_by=request.user, ordered_by=request.user,
-                                                           ordered_cart=cart, order_no=cart.order_id)
-
-                    order.billing_address = billing_address
-                    order.shipping_address = shipping_address
-                    order.buyer_shop = shop
-                    order.seller_shop = parent_mapping.parent
-                    order.total_tax_amount = float(total_tax_amount)
-                    order.order_status = Order.ORDERED
-                    order.save()
-
-                    # Changes OrderedProductReserved Status
-                    for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart,
-                                                                                 reserve_status=OrderedProductReserved.RESERVED):
-                        ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
-                        ordered_reserve.order_product_reserved.save()
-                        ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
-                        ordered_reserve.save()
-                    sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
-                    reserved_args = json.dumps({
-                        'shop_id': parent_mapping.parent.id,
-                        'transaction_id': cart.order_id,
-                        'transaction_type': 'ordered',
-                        'order_status': order.order_status
-                    })
-                    OrderManagement.release_blocking(reserved_args, sku_id)
-                    serializer = OrderSerializer(order,
-                                                 context={'parent_mapping_id': parent_mapping.parent.id,
-                                                          'buyer_shop_id': shop_id,
-                                                          'current_url': current_url})
-                    msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
-                    try:
-                        request = jsonpickle.encode(request, unpicklable=False)
-                        order = jsonpickle.encode(order, unpicklable=False)
-                        pick_list_download.delay(request, order)
-                    except:
-                        msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'], 'response_data': None}
-                        return Response(msg, status=status.HTTP_200_OK)
-                else:
-                    msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
-                    return Response(msg, status=status.HTTP_200_OK)
-
-            return Response(msg, status=status.HTTP_200_OK)
+                return Response(msg, status=status.HTTP_200_OK)
 
 
         # if shop mapped with gf
@@ -1809,12 +1809,6 @@ class ReleaseBlocking(APIView):
             })
 
             OrderManagement.release_blocking(reserved_args, sku_id)
-            # if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
-            #     for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
-            #         ordered_reserve.order_product_reserved.available_qty = int(
-            #             ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
-            #         ordered_reserve.order_product_reserved.save()
-            #         ordered_reserve.delete()
             if CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).exists():
                 CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).delete()
 

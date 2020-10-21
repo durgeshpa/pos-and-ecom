@@ -24,6 +24,8 @@ urlpatterns = [
     url(r'^archive/$', wms.views.archive_inventory_cron, name='archive'),
     url(r'^populate-expiry-date/$', wms.views.populate_expiry_date, name="populate-expiry-date"),
     url(r'^move-expired-inventory/$', wms.views.move_expired_inventory_manual, name="move-expired-inventory"),
+    url(r'^rectify-batch-ids/$', wms.views.rectify_batch_ids, name="rectify-batch-ids"),
+
 
 
 ]
