@@ -775,7 +775,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     )
     list_display = (
         'picklist', 'picking_status', 'picker_boy',
-        'created_at', 'download_pick_list', 'order_number', 'order_date'
+        'created_at', 'picker_assigned_date', 'download_pick_list', 'order_number', 'order_date'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
@@ -934,7 +934,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'pincode', 'city', 'total_final_amount', 'order_status', 'created_at',
                     'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
-                    'picking_status', 'picklist_id', 'picker_boy',#'damaged_amount',
+                    'picking_status', 'picklist_id', 'picker_boy', 'pickup_completed_at' #'damaged_amount',
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1604,8 +1604,8 @@ class NoteAdmin(admin.ModelAdmin):
 
             else:
                 for m in products:
-                    sum_amount = sum_amount + (int(m.returned_qty + m.returned_damage_qty) * (m.price_to_retailer))
-        return sum_amount
+                    sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) * (m.price_to_retailer))
+            return sum_amount
 
     note_amount.short_description = 'Note Amount'
 

@@ -50,7 +50,7 @@ from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOA
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
-from wms.views import shipment_out_inventory_change
+from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
 
 logger = logging.getLogger('django')
 
@@ -113,13 +113,14 @@ class DownloadCreditNote(APIView):
                                                                                             i.returned_damage_qty > 0] else 'Returned and Damaged'
 
         order_id = credit_note.shipment.order.order_no
-        sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
+        sum_qty, sum_basic_amount, sum_amount, tax_inline, total_product_tax_amount = 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
         taxes_list = []
         gst_tax_list = []
         cess_tax_list = []
         surcharge_tax_list = []
+        list1 = []
 
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
             pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
@@ -131,61 +132,113 @@ class DownloadCreditNote(APIView):
         # if shipment status is Cancelled
         if shipment_cancelled:
             for m in products:
+                dict1 = {}
+                flag = 0
+                if len(list1) > 0:
+                    for i in list1:
+                        if i["hsn"] == m.product.product_hsn:
+                            i["taxable_value"] = i["taxable_value"] + m.base_price
+                            i["cgst"] = i["cgst"] + (m.base_price * m.get_products_gst()) / 200
+                            i["sgst"] = i["sgst"] + (m.base_price * m.get_products_gst()) / 200
+                            i["igst"] = i["igst"] + (m.base_price * m.get_products_gst()) / 100
+                            i["cess"] = i["cess"] + (m.base_price * m.get_products_gst_cess_tax()) / 100
+                            i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
+                            i["total"] = i["total"] + m.product_tax_amount
+                            flag = 1
+
+                if flag == 0:
+                    dict1["hsn"] = m.product.product_hsn
+                    dict1["taxable_value"] = m.base_price
+                    dict1["cgst"] = (m.base_price * m.get_products_gst()) / 200
+                    dict1["cgst_rate"] = m.get_products_gst() / 2
+                    dict1["sgst"] = (m.base_price * m.get_products_gst()) / 200
+                    dict1["sgst_rate"] = m.get_products_gst() / 2
+                    dict1["igst"] = (m.base_price * m.get_products_gst()) / 100
+                    dict1["igst_rate"] = m.get_products_gst()
+                    dict1["cess"] = (m.base_price * m.get_products_gst_cess_tax()) / 100
+                    dict1["cess_rate"] = m.get_products_gst_cess_tax()
+                    dict1["surcharge"] = (m.base_price * m.get_products_gst_surcharge()) / 100
+                    dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                    dict1["total"] = m.product_tax_amount
+                    list1.append(dict1)
+
                 sum_qty = sum_qty + (int(m.shipped_qty))
-                sum_amount = sum_amount + (int(m.shipped_qty) * (m.price_to_retailer))
-                inline_sum_amount = (int(m.shipped_qty) * (m.price_to_retailer))
-                for n in m.get_products_gst_tax():
-                    divisor = (1 + (n.tax.tax_percentage / 100))
-                    original_amount = (float(inline_sum_amount) / divisor)
-                    tax_amount = float(inline_sum_amount) - original_amount
-                    if n.tax.tax_type == 'gst':
-                        gst_tax_list.append(tax_amount)
-                    if n.tax.tax_type == 'cess':
-                        cess_tax_list.append(tax_amount)
-                    if n.tax.tax_type == 'surcharge':
-                        surcharge_tax_list.append(tax_amount)
-
-                    taxes_list.append(tax_amount)
-                    igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
-                        sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
-
+                sum_basic_amount += m.base_price
+                sum_amount = sum_amount + (int(m.shipped_qty) * m.price_to_retailer)
+                inline_sum_amount = (int(m.shipped_qty) * m.price_to_retailer)
+                total_product_tax_amount += m.product_tax_amount
+                gst_tax = (m.base_price * m.get_products_gst()) / 100
+                cess_tax = (m.base_price * m.get_products_gst_cess_tax()) / 100
+                surcharge_tax = (m.base_price * m.get_products_gst_surcharge()) / 100
+                gst_tax_list.append(gst_tax)
+                cess_tax_list.append(cess_tax)
+                surcharge_tax_list.append(surcharge_tax)
+                igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
         else:
             for m in products:
-                sum_qty = sum_qty + (int(m.returned_qty + m.returned_damage_qty))
-                sum_amount = sum_amount + (int(m.returned_qty + m.returned_damage_qty) * (m.price_to_retailer))
-                inline_sum_amount = (int(m.returned_qty + m.returned_damage_qty) * (m.price_to_retailer))
-                for n in m.get_products_gst_tax():
-                    divisor = (1 + (n.tax.tax_percentage / 100))
-                    original_amount = (float(inline_sum_amount) / divisor)
-                    tax_amount = float(inline_sum_amount) - original_amount
-                    if n.tax.tax_type == 'gst':
-                        gst_tax_list.append(tax_amount)
-                    if n.tax.tax_type == 'cess':
-                        cess_tax_list.append(tax_amount)
-                    if n.tax.tax_type == 'surcharge':
-                        surcharge_tax_list.append(tax_amount)
+                dict1 = {}
+                flag = 0
+                if len(list1) > 0:
+                    for i in list1:
+                        if i["hsn"] == m.product.product_hsn:
+                            i["taxable_value"] = i["taxable_value"] + m.basic_rate * (m.returned_qty + m.damaged_qty)
+                            i["cgst"] = i["cgst"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 200
+                            i["sgst"] = i["sgst"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 200
+                            i["igst"] = i["igst"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 100
+                            i["cess"] = i["cess"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_cess_tax()) / 100
+                            i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
+                            i["total"] = i["total"] + m.product_tax_amount
+                            flag = 1
 
-                    taxes_list.append(tax_amount)
-                    igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
-                        sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
+                if flag == 0:
+                    dict1["hsn"] = m.product.product_hsn
+                    dict1["taxable_value"] = m.basic_rate * (m.returned_qty + m.damaged_qty)
+                    dict1["cgst"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 200
+                    dict1["cgst_rate"] = m.get_products_gst() / 2
+                    dict1["sgst"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 200
+                    dict1["sgst_rate"] = m.get_products_gst() / 2
+                    dict1["igst"] = (m.basic_rate * (m.returned_qty + m.damaged_qty)* m.get_products_gst()) / 100
+                    dict1["igst_rate"] = m.get_products_gst()
+                    dict1["cess"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_cess_tax()) / 100
+                    dict1["cess_rate"] = m.get_products_gst_cess_tax()
+                    dict1["surcharge"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_surcharge()) / 100
+                    dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                    dict1["total"] = m.product_tax_return_amount
+                    list1.append(dict1)
+                sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
+                sum_basic_amount += m.basic_rate * (m.returned_qty + m.damaged_qty)
+                sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) * m.price_to_retailer)
+                inline_sum_amount = (int(m.returned_qty + m.damaged_qty) * m.price_to_retailer)
+                total_product_tax_amount += m.product_tax_return_amount
+                gst_tax = ((m.returned_qty + m.damaged_qty) * m.basic_rate * m.get_products_gst())/100
+                cess_tax = ((m.returned_qty + m.damaged_qty) * m.basic_rate * m.get_products_gst_cess_tax())/100
+                surcharge_tax = ((m.returned_qty + m.damaged_qty) * m.basic_rate * m.get_products_gst_surcharge())/100
+                gst_tax_list.append(gst_tax)
+                cess_tax_list.append(cess_tax)
+                surcharge_tax_list.append(surcharge_tax)
+                igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = round(credit_note.note_amount)
         total_amount_int = total_amount
+        total_product_tax_amount_int = round(total_product_tax_amount)
+
         amt = [num2words(i) for i in str(sum_amount).split('.')]
         rupees = amt[0]
 
+        prdct_tax_amt = [num2words(i) for i in str(total_product_tax_amount_int).split('.')]
+        tax_rupees = prdct_tax_amt[0]
+
         data = {
             "object": credit_note, "products": products, "shop": credit_note, "total_amount_int": total_amount_int,
-            "sum_qty": sum_qty, "sum_amount": sum_amount,
-            "url": request.get_host(), "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
-            "sgst": sgst, "cess": cess, "surcharge": surcharge,
-            "total_amount": round(total_amount, 2), "order_id": order_id, "shop_name_gram": shop_name_gram,
-            "nick_name_gram": nick_name_gram, "city_gram": city_gram,
-            "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
-            "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
-            "gstinn3": gstinn3, "reason": reason, "rupees": rupees, "cin": cin, "pan_no": pan_no,
-            'shipment_cancelled': shipment_cancelled}
-
+            "total_product_tax_amount": total_product_tax_amount, "sum_qty": sum_qty, "sum_amount": sum_amount,
+            "sum_basic_amount": sum_basic_amount, "url": request.get_host(),
+            "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
+            "sgst": sgst, "cess": cess, "surcharge": surcharge, "total_amount": round(total_amount, 2),
+            "order_id": order_id, "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
+            "city_gram": city_gram, "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram,
+            "state_gram": state_gram,"amount":amount, "gstinn1": gstinn1, "gstinn2": gstinn2, "gstinn3": gstinn3,
+            "reason": reason, "rupees": rupees, "tax_rupees": tax_rupees, "cin": cin, "pan_no": pan_no,
+            'shipment_cancelled': shipment_cancelled, "hsn_list": list1}
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
@@ -513,10 +566,18 @@ def trip_planning_change(request, pk):
 
                         return redirect('/admin/retailer_to_sp/trip/')
 
-                    # if current_trip_status == Trip.RETURN_VERIFIED:
-                    #     for i in trip_instance.rt_invoice_trip.all():
-                    #         add_to_putaway_on_return(i.id)
-                    #     return redirect('/admin/retailer_to_sp/trip/')
+                    if current_trip_status == Trip.RETURN_VERIFIED:
+                        for shipment in trip_instance.rt_invoice_trip.all():
+                            if shipment.shipment_status=='FULLY_DELIVERED_AND_COMPLETED':
+                                with transaction.atomic():
+                                    for shipment_product in shipment.rt_order_product_order_product_mapping.all():
+                                        for shipment_product_batch in shipment_product.rt_ordered_product_mapping.all():
+                                            shipment_product_batch.delivered_qty=shipment_product_batch.pickup_quantity
+                                            shipment_product_batch.save()
+                                    shipment.shipment_status='FULLY_DELIVERED_AND_VERIFIED'
+                                    shipment.save()
+
+                        return redirect('/admin/retailer_to_sp/trip/')
 
                     if selected_shipment_ids:
                         selected_shipment_list = selected_shipment_ids.split(',')
@@ -1280,14 +1341,18 @@ def commercial_shipment_details(request, pk):
 
 
 def reshedule_update_shipment(shipment, shipment_proudcts_formset):
-    shipment.shipment_status = OrderedProduct.RESCHEDULED
-    shipment.trip = None
-    shipment.save()
+    with transaction.atomic():
+        shipment.shipment_status = OrderedProduct.RESCHEDULED
+        shipment.trip = None
+        shipment.save()
+        shipment_reschedule_inventory_change([shipment])
 
-    for inline_form in shipment_proudcts_formset:
-        instance = getattr(inline_form, 'instance', None)
-        update_delivered_qty(instance, inline_form)
-
+        for inline_form in shipment_proudcts_formset:
+            instance = getattr(inline_form, 'instance', None)
+            instance.delivered_qty = 0
+            instance.returned_qty = 0
+            instance.returned_damage_qty = 0
+            instance.save()
 
 class RetailerCart(APIView):
     permission_classes = (AllowAny,)

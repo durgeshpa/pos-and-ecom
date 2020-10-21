@@ -67,6 +67,7 @@ urlpatterns = [
     url(r'^analytics/', include('analytics.urls')),
     url(r'^wms/', include('wms.urls')),
     url(r'^nested_admin/', include('nested_admin.urls')),
+    url(r'^audit/', include('audit.urls')),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

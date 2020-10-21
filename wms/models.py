@@ -1,4 +1,5 @@
 from django.db import models
+from model_utils import Choices
 
 import retailer_to_sp
 from products.models import Product
@@ -16,6 +17,8 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db.models import Sum, Q
 from django.contrib.auth import get_user_model
+from django.db.models import query, manager
+from django.utils import timezone
 
 BIN_TYPE_CHOICES = (
     ('PA', 'Pallet'),
@@ -43,6 +46,17 @@ INVENTORY_STATE_CHOICES = (
     ('canceled', 'Canceled'),  # Inventory Canceled
     ('new', 'New')
 )
+
+
+class BaseQuerySet(query.QuerySet):
+
+    def update(self, **kwargs):
+        kwargs['modified_at'] = timezone.now()
+        super().update(**kwargs)
+
+
+class Manager(manager.BaseManager.from_queryset(BaseQuerySet)):
+    pass
 
 
 class InventoryType(models.Model):
@@ -142,6 +156,7 @@ class In(models.Model):
     quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    expiry_date = models.DateField(null=True)
 
 
 class Putaway(models.Model):
@@ -205,6 +220,8 @@ class Out(models.Model):
 
 
 class Pickup(models.Model):
+
+    objects = Manager()
     pickup_status_choices = (
         ('pickup_creation', 'PickUp Creation'),
         ('picking_assigned', 'Pickup Assigned'),
@@ -222,19 +239,30 @@ class Pickup(models.Model):
     status = models.CharField(max_length=21, null=True, blank=True, choices=pickup_status_choices)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True)
 
 
 class PickupBinInventory(models.Model):
+    PICKUP_REMARKS_CHOICES = Choices((0, '--', '--'),
+                                     (1, 'EXPIRED', 'Near Expiry / Expired'),
+                                     (2, 'DAMAGED', 'Damaged'),
+                                     (3, 'NOT_FOUND', 'Item not found'),
+                                     (4, 'MRP_DIFF', 'Different MRP'),
+                                     (5, 'GRAMMAGE_DIFF', 'Different Grammage'),
+                                     (6, 'NOT_CLEAN', 'Item not clean') )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField(null=True, default=None)
+    bin_quantity = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     shipment_batch = models.ForeignKey('retailer_to_sp.OrderedProductBatch', null=True, related_name='rt_pickup_batch_mapping',
                                        default=None,on_delete=models.DO_NOTHING)
+    last_picked_at = models.DateTimeField(null=True)
+    remarks = models.CharField(choices=PICKUP_REMARKS_CHOICES, max_length=100, null=True)
 
     class Meta:
         db_table = "wms_pickup_bin_inventory"
@@ -276,6 +304,8 @@ class WarehouseInternalInventoryChange(models.Model):
         ('shipped_out', 'Shipped Out'),
         ('stock_correction_in_type', 'stock_correction_in_type'),
         ('stock_correction_out_type', 'stock_correction_out_type'),
+        ('reschedule', 'Reschedule'),
+        ('expired', 'Expired'),
 
     )
 
@@ -318,6 +348,7 @@ class BinInternalInventoryChange(models.Model):
         ('pickup_complete', 'Pickup Complete'),
         ('stock_correction_in_type', 'stock_correction_in_type'),
         ('stock_correction_out_type', 'stock_correction_out_type'),
+        ('expired', 'expired'),
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -356,6 +387,10 @@ class StockCorrectionChange(models.Model):
 
 
 class OrderReserveRelease(models.Model):
+    release_type = (
+        ('cron', "CRON"),
+        ('manual', "Manual"),
+    )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
@@ -365,6 +400,8 @@ class OrderReserveRelease(models.Model):
     warehouse_internal_inventory_release = models.ForeignKey(WarehouseInternalInventoryChange,
                                                              related_name='internal_inventory_release',
                                                              null=True, blank=True, on_delete=models.DO_NOTHING)
+    release_type = models.CharField(max_length=25, choices=release_type, null=True, blank=True)
+    ordered_quantity = models.PositiveIntegerField(null=True, blank=True)
     reserved_time = models.DateTimeField(null=True, blank=True)
     release_time = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -389,3 +426,18 @@ def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
         instance.bin_barcode_txt = '1' + str(instance.id).zfill(11)
         instance.save()
+
+
+class ExpiredInventoryMovement(models.Model):
+    STATUS_CHOICE = Choices((0,'OPEN','open'),(1,'CLOSED','closed'))
+    warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
+    bin = models.ForeignKey(Bin, null=True, blank=True, on_delete=models.DO_NOTHING)
+    mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField(null=True, blank=True)
+    expiry_date = models.DateField()
+    status = models.PositiveSmallIntegerField(choices=STATUS_CHOICE, default=STATUS_CHOICE.OPEN)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)

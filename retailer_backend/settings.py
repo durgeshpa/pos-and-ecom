@@ -100,7 +100,9 @@ INSTALLED_APPS = [
     'offer',
     'celerybeat_status',
     'django_elasticsearch_dsl',
+    'mathfilters',
     'wms',
+    'audit'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -333,7 +335,10 @@ CRONJOBS = [
 
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
     ('*/5 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
-    ('* */6 * * *', 'retailer_backend.cron.sync_es_products')
+    ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
+    ('0 2 * * *', 'wms.views.archive_inventory_cron'),
+    ('0 1 * * *', 'audit.views.start_automated_inventory_audit'),
+    ('0 3 * * *', 'wms.views.move_expired_inventory_cron')
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
@@ -448,34 +453,45 @@ LOGGING = {
             'propagate': True,
         },
         'file-error': {
-            'handlers': ['file-error'],
+           'handlers': ['file-error'],
+           'level': 'INFO',
+           'propagate': True,
+       },
+       'cron_log': {
+            'handlers': ['cron_log_file'],
             'level': 'INFO',
             'propagate': True,
         },
-    },
-    'handlers': {
-        # 'file-debug': {
-        #     'level': 'DEBUG',
-        #     'class': 'logging.FileHandler',
-        #     'filename': '/var/log/retailer-backend/debug.log',
-        #     'formatter': 'verbose',
-        # },
-        'file-info': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': 'info.log',
-            'formatter': 'verbose',
-        },
-        'file-error': {
-            'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': 'error.log',
-            'formatter': 'verbose',
-        },
-        # 'console': {
-        #     'class': 'logging.StreamHandler',
-        #     'formatter': 'simple',
-        # },
+   },
+   'handlers': {
+       # 'file-debug': {
+       #     'level': 'DEBUG',
+       #     'class': 'logging.FileHandler',
+       #     'filename': '/var/log/retailer-backend/debug.log',
+       #     'formatter': 'verbose',
+       # },
+       'file-info': {
+           'level': 'INFO',
+           'class': 'logging.FileHandler',
+           'filename': '/var/log/retailer-backend/info.log',
+           'formatter': 'verbose',
+       },
+       'file-error': {
+           'level': 'ERROR',
+           'class': 'logging.FileHandler',
+           'filename': '/var/log/retailer-backend/error.log',
+           'formatter': 'verbose',
+       },
+       # 'console': {
+       #     'class': 'logging.StreamHandler',
+       #     'formatter': 'simple',
+       # },
+        'cron_log_file': {
+             'level': 'INFO',
+             'class': 'logging.FileHandler',
+             'filename': '/var/log/retailer-backend/scheduled_jobs.log',
+             'formatter': 'verbose'
+         },
 
     },
     'formatters': {

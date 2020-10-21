@@ -19,7 +19,7 @@ from categories.models import Category
 from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductCategory, ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax, Weight,
-                             BulkProductTaxUpdate, ProductTaxMapping,
+                             BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              ParentProduct, ProductHSN)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
@@ -325,7 +325,7 @@ class ParentProductForm(forms.ModelForm):
         fields = ('parent_brand', 'name', 'product_hsn', 'gst', 'cess',
                   'surcharge', 'brand_case_size', 'inner_case_size',
                   'product_type',)
-    
+
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -783,6 +783,121 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
 
     def sample_file(self):
         filename = "bulk_product_tax_update_sample.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(['SKU No.', 'GST', 'Cess'])
+        return response
+
+    def validate_row(self, columns, row, row_id, file):
+        row_errors = []
+        # check SKU No.
+        if not row[0]:
+            row_errors.append(('Please enter SKU No. at row %s') % (row_id))
+        else:
+            try:
+                product = Product.objects.values('id').get(product_sku=row[0])
+            except:
+                row_errors.append(('Please enter valid SKU No. at row %s') %
+                                  (row_id))
+            else:
+                product_id = product.get('id')
+                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                csv_columns = next(csv_reader)
+                for reader_id, reader_row in enumerate(csv_reader):
+                    if (reader_id + 2 != row_id) and row[0] == reader_row[0]:
+                        row_errors.append(
+                            ('Duplicate entry for SKU %s exists at row %s') %
+                            (row[0], reader_id + 2))
+        # check GST
+        if not row[1]:
+            row_errors.append(
+                ("Please enter GST percentage at row %s for SKU No. %s") %
+                (row_id, row[0]))
+        else:
+            if row[1].isdigit() and int(row[1]) in [0, 5, 12, 18, 28]:
+                try:
+                    gst_tax = Tax.objects.values('id')\
+                        .get(tax_type='gst', tax_percentage=float(row[1]))
+                except:
+                    row_errors.append(
+                        ('Tax with type GST and percentage %s does not exists at row %s for SKU No. %s') %
+                        (float(row[1]), row_id, row[0]))
+                else:
+                    gst_tax_id = gst_tax.get('id')
+            else:
+                row_errors.append(
+                    ('Please enter a valid GST percentage at row %s for SKU No. %s') %
+                    (row_id, row[0]))
+        # check Cess
+        if row[2]:
+            if row[2].isdigit() and int(row[2]) in [0, 12]:
+                try:
+                    cess_tax = Tax.objects.values('id')\
+                        .get(tax_type='cess', tax_percentage=float(row[2]))
+                except:
+                    row_errors.append(
+                        ('Tax with type Cess and percentage %s does not exists at row %s for SKU No. %s') %
+                        (float(row[2]), row_id, row[0]))
+                else:
+                    cess_tax_id = cess_tax.get('id')
+            else:
+                row_errors.append(('Please enter a valid Cess percentage at row %s for SKU No. %s') %
+                                  (row_id, row[0]))
+        else:
+            cess_tax_id = None
+        # if file errors
+        if row_errors:
+            raise ValidationError(
+                [ValidationError(_(error)) for error in row_errors]
+            )
+        else:
+            self.product_tax_details[product_id] = {'gst_tax_id': gst_tax_id,
+                                                    'cess_tax_id': cess_tax_id}
+
+    def read_file(self, file):
+        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+        columns = next(reader)
+        for row_id, row in enumerate(reader):
+            self.validate_row(columns, row, row_id + 2, file)
+
+    def update_products_tax(self, file):
+        for product_id, taxes in self.product_tax_details.items():
+            queryset = ProductTaxMapping.objects.filter(product_id=product_id)
+            if queryset.exists():
+                queryset.filter(tax__tax_type='gst').update(tax_id=taxes['gst_tax_id'])
+                if taxes['cess_tax_id']:
+                    product_cess_tax = queryset.filter(tax__tax_type='cess')
+                    if product_cess_tax.exists():
+                        product_cess_tax.update(tax_id=taxes['cess_tax_id'])
+                    else:
+                        ProductTaxMapping.objects.create(
+                            product_id=product_id, tax_id=taxes['cess_tax_id'])
+
+    def clean(self):
+        if self.cleaned_data.get('file'):
+            if not self.cleaned_data.get('file').name[-4:] in ('.csv'):
+                raise forms.ValidationError("Sorry! Only csv file accepted")
+            self.product_tax_details = {}
+            self.read_file(self.cleaned_data.get('file'))
+            try:
+                with transaction.atomic():
+                    self.update_products_tax(self.cleaned_data.get('file'))
+            except Exception as e:
+                raise ValidationError(e)
+            return self.cleaned_data
+        else:
+            raise forms.ValidationError("CSV file is required!")
+
+
+class BulkUploadForGSTChangeForm(forms.ModelForm):
+
+    class Meta:
+        model = BulkUploadForGSTChange
+        fields = ('file', )
+
+    def sample_file1(self):
+        filename = "bulk_upload_for_gst_change_sample.csv"
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
         writer = csv.writer(response)

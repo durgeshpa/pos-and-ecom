@@ -4,6 +4,8 @@ import json
 import jsonpickle
 from num2words import num2words
 from datetime import datetime, timedelta
+
+from audit.views import is_product_blocked_for_audit
 from barCodeGenerator import barcodeGen
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Sum, Q
@@ -27,6 +29,9 @@ from num2words import num2words
 import collections
 from django.core.files.base import ContentFile
 from django.shortcuts import redirect
+from django.db import transaction
+
+from wms.views import shipment_reschedule_inventory_change
 from .serializers import (ProductsSearchSerializer, GramGRNProductsSearchSerializer,
                           CartProductMappingSerializer, CartSerializer, OrderSerializer,
                           CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
@@ -490,6 +495,11 @@ class AddToCart(APIView):
                 return Response(msg, status=status.HTTP_200_OK)
             if qty is None or qty == '':
                 msg['message'] = ["Qty not Found"]
+                return Response(msg, status=status.HTTP_200_OK)
+            # Check if product blocked for audit
+            is_blocked_for_audit = is_product_blocked_for_audit(Product.objects.get(id=cart_product), shop_id)
+            if is_blocked_for_audit:
+                msg['message'] = ERROR_MESSAGES['4019'].format(Product.objects.get(id=cart_product))
                 return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
             available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
@@ -1013,72 +1023,77 @@ class CreateOrder(APIView):
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             # self.sp_mapping_order_reserve()
-            if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
-                                   id=cart_id).exists():
-                cart = Cart.objects.get(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
-                                        id=cart_id)
-                orderitems = []
-                for i in cart.rt_cart_list.all():
-                    orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
-                if None in orderitems:
-                    CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
-                    for cart_price in cart.rt_cart_list.all():
-                        cart_price.cart_product_price = None
-                        cart_price.save()
-                    msg['message'] = [
-                        "Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
-                    return Response(msg, status=status.HTTP_200_OK)
-                else:
-                    cart.cart_status = 'ordered'
-                    cart.buyer_shop = shop
-                    cart.seller_shop = parent_mapping.parent
-                    cart.save()
-
-                if WarehouseInternalInventoryChange.objects.filter(
-                        transaction_id=cart.order_id, transaction_type='reserved').exists():
-                    order, _ = Order.objects.get_or_create(last_modified_by=request.user, ordered_by=request.user,
-                                                           ordered_cart=cart, order_no=cart.order_id)
-
-                    order.billing_address = billing_address
-                    order.shipping_address = shipping_address
-                    order.buyer_shop = shop
-                    order.seller_shop = parent_mapping.parent
-                    order.total_tax_amount = float(total_tax_amount)
-                    order.order_status = Order.ORDERED
-                    order.save()
-
-                    # Changes OrderedProductReserved Status
-                    for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart,
-                                                                                 reserve_status=OrderedProductReserved.RESERVED):
-                        ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
-                        ordered_reserve.order_product_reserved.save()
-                        ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
-                        ordered_reserve.save()
-                    sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
-                    reserved_args = json.dumps({
-                        'shop_id': parent_mapping.parent.id,
-                        'transaction_id': cart.order_id,
-                        'transaction_type': 'ordered',
-                        'order_status': order.order_status
-                    })
-                    OrderManagement.release_blocking(reserved_args, sku_id)
-                    serializer = OrderSerializer(order,
-                                                 context={'parent_mapping_id': parent_mapping.parent.id,
-                                                          'buyer_shop_id': shop_id,
-                                                          'current_url': current_url})
-                    msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
-                    try:
-                        request = jsonpickle.encode(request, unpicklable=False)
-                        order = jsonpickle.encode(order, unpicklable=False)
-                        pick_list_download.delay(request, order)
-                    except:
-                        msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'], 'response_data': None}
+            with transaction.atomic():
+                if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
+                                       id=cart_id).exists():
+                    cart = Cart.objects.get(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
+                                            id=cart_id)
+                    orderitems = []
+                    for i in cart.rt_cart_list.all():
+                        orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
+                    if None in orderitems:
+                        CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
+                        for cart_price in cart.rt_cart_list.all():
+                            cart_price.cart_product_price = None
+                            cart_price.save()
+                        msg['message'] = [
+                            "Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
                         return Response(msg, status=status.HTTP_200_OK)
-                else:
-                    msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
-                    return Response(msg, status=status.HTTP_200_OK)
+                    else:
+                        cart.cart_status = 'ordered'
+                        cart.buyer_shop = shop
+                        cart.seller_shop = parent_mapping.parent
+                        cart.save()
 
-            return Response(msg, status=status.HTTP_200_OK)
+                    if WarehouseInternalInventoryChange.objects.filter(
+                            transaction_id=cart.order_id, transaction_type='reserved').exists():
+                        order, _ = Order.objects.get_or_create(last_modified_by=request.user, ordered_by=request.user,
+                                                               ordered_cart=cart, order_no=cart.order_id)
+
+                        order.billing_address = billing_address
+                        order.shipping_address = shipping_address
+                        order.buyer_shop = shop
+                        order.seller_shop = parent_mapping.parent
+                        order.total_tax_amount = float(total_tax_amount)
+                        order.order_status = Order.ORDERED
+                        order.save()
+
+                        # Changes OrderedProductReserved Status
+                        for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart,
+                                                                                     reserve_status=OrderedProductReserved.RESERVED):
+                            ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
+                            ordered_reserve.order_product_reserved.save()
+                            ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
+                            ordered_reserve.save()
+                        sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
+                        reserved_args = json.dumps({
+                            'shop_id': parent_mapping.parent.id,
+                            'transaction_id': cart.order_id,
+                            'transaction_type': 'ordered',
+                            'order_status': order.order_status
+                        })
+                        order_result = OrderManagement.release_blocking_from_order(reserved_args, sku_id)
+                        if order_result is False:
+                            order.delete()
+                            msg = {'is_success': False, 'message': ['No item in this cart.'], 'response_data': None}
+                            return Response(msg, status=status.HTTP_200_OK)
+                        serializer = OrderSerializer(order,
+                                                     context={'parent_mapping_id': parent_mapping.parent.id,
+                                                              'buyer_shop_id': shop_id,
+                                                              'current_url': current_url})
+                        msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                        try:
+                            request = jsonpickle.encode(request, unpicklable=False)
+                            order = jsonpickle.encode(order, unpicklable=False)
+                            pick_list_download.delay(request, order)
+                        except:
+                            msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'], 'response_data': None}
+                            return Response(msg, status=status.HTTP_200_OK)
+                    else:
+                        msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
+                        return Response(msg, status=status.HTTP_200_OK)
+
+                return Response(msg, status=status.HTTP_200_OK)
 
 
         # if shop mapped with gf
@@ -1262,6 +1277,7 @@ class DownloadInvoiceSP(APIView):
         return response
 
 
+
 # @task
 def pdf_generation(request, ordered_product):
     """
@@ -1334,6 +1350,7 @@ def pdf_generation(request, ordered_product):
         open_time = '-'
         close_time = '-'
         sum_qty = 0
+        sum_basic_amount = 0
         shop_name_gram = 'GFDN SERVICES PVT LTD'
         nick_name_gram = '-'
         address_line1_gram = '-'
@@ -1341,9 +1358,41 @@ def pdf_generation(request, ordered_product):
         state_gram = '-'
         pincode_gram = '-'
         cin = '-'
+        list1 = []
         for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
+            dict1 = {}
+            flag = 0
+            if len(list1) > 0 :
+                for i in list1:
+                    if i["hsn"] == m.product.product_hsn:
+                        i["taxable_value"] = i["taxable_value"] + m.base_price
+                        i["cgst"] = i["cgst"] + (m.base_price * m.get_products_gst()) / 200
+                        i["sgst"] = i["sgst"] + (m.base_price * m.get_products_gst()) / 200
+                        i["igst"] = i["igst"] + (m.base_price * m.get_products_gst()) / 100
+                        i["cess"] = i["cess"] + (m.base_price * m.get_products_gst_cess_tax()) / 100
+                        i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
+                        i["total"] = i["total"] + m.product_tax_amount
+                        flag = 1
+
+            if flag==0 :
+                dict1["hsn"] = m.product.product_hsn
+                dict1["taxable_value"] = m.base_price
+                dict1["cgst"] = (m.base_price * m.get_products_gst()) / 200
+                dict1["cgst_rate"] = m.get_products_gst() / 2
+                dict1["sgst"] = (m.base_price * m.get_products_gst()) / 200
+                dict1["sgst_rate"] = m.get_products_gst() / 2
+                dict1["igst"] = (m.base_price * m.get_products_gst()) / 100
+                dict1["igst_rate"] = m.get_products_gst()
+                dict1["cess"] = (m.base_price * m.get_products_gst_cess_tax()) / 100
+                dict1["cess_rate"] = m.get_products_gst_cess_tax()
+                dict1["surcharge"] = (m.base_price * m.get_products_gst_surcharge()) / 100
+                dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                dict1["total"] = m.product_tax_amount
+                list1.append(dict1)
+
+
             sum_qty += m.shipped_qty
-            # New Code For Product Listing Start
+            sum_basic_amount += m.base_price
             tax_sum = 0
             basic_rate = 0
             product_tax_amount = 0
@@ -1403,45 +1452,42 @@ def pdf_generation(request, ordered_product):
 
             # sum_qty += int(m.shipped_qty)
             # sum_amount += int(m.shipped_qty) * product_pro_price_ptr
-            # inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
-
-            for n in m.product.product_pro_tax.all():
-                divisor = (1 + (n.tax.tax_percentage / 100))
-                original_amount = (inline_sum_amount / divisor)
-                tax_amount = inline_sum_amount - original_amount
-                if n.tax.tax_type == 'gst':
-                    gst_tax_list.append(tax_amount)
-                if n.tax.tax_type == 'cess':
-                    cess_tax_list.append(tax_amount)
-                if n.tax.tax_type == 'surcharge':
-                    surcharge_tax_list.append(tax_amount)
-
-                taxes_list.append(tax_amount)
-                igst = sum(gst_tax_list)
-                cgst = (sum(gst_tax_list)) / 2
-                sgst = (sum(gst_tax_list)) / 2
-                cess = sum(cess_tax_list)
-                surcharge = sum(surcharge_tax_list)
-                # tax_inline = tax_inline + (inline_sum_amount - original_amount)
-                # tax_inline1 =(tax_inline / 2)
+            inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
+            gst_tax = (m.base_price * m.get_products_gst()) / 100
+            cess_tax = (m.base_price * m.get_products_gst_cess_tax()) / 100
+            surcharge_tax = (m.base_price * m.get_products_gst_surcharge()) / 100
+            gst_tax_list.append(gst_tax)
+            cess_tax_list.append(cess_tax)
+            surcharge_tax_list.append(surcharge_tax)
+            igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(
+                cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = ordered_product.invoice_amount
         total_amount_int = total_amount
+
+        total_tax_amount = ordered_product.sum_amount_tax()
+        total_tax_amount_int = round(total_tax_amount)
+
         amt = [num2words(i) for i in str(total_amount).split('.')]
         rupees = amt[0]
+
+        tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
+        tax_rupees = tax_amt[0]
+
         logger.info("createing invoice pdf")
         logger.info(template_name)
         logger.info(request.get_host())
+
         data = {"shipment": ordered_product, "order": ordered_product.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
                 "igst": igst, "cgst": cgst, "sgst": sgst, "cess": cess, "surcharge": surcharge,
                 "total_amount": total_amount,
-                "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
+                "barcode": barcode, "product_listing": product_listing, "rupees": rupees, "tax_rupees": tax_rupees,
                 "seller_shop_gistin": seller_shop_gistin, "buyer_shop_gistin": buyer_shop_gistin,
-                "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty, "shop_name_gram": shop_name_gram,
-                "nick_name_gram": nick_name_gram,
+                "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty, "sum_basic_amount": sum_basic_amount,
+                "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
-                "pincode_gram": pincode_gram, "cin": cin, }
+                "pincode_gram": pincode_gram, "cin": cin, "hsn_list": list1}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -1482,9 +1528,10 @@ class DownloadCreditNoteDiscounted(APIView):
         products = credit_note.shipment.rt_order_product_order_product_mapping.all()
         # reason = 'Retuned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
         order_id = credit_note.shipment.order.order_no
-        sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
+        sum_qty, sum_amount, tax_inline, sum_basic_amount, product_tax_amount, total_product_tax_amount = 0, 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
+        list1 = []
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
             pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
             cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
@@ -1492,36 +1539,87 @@ class DownloadCreditNoteDiscounted(APIView):
             nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
             city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
         for m in products:
+            dict1 = {}
+            flag = 0
+            if len(list1) > 0:
+                for i in list1:
+                    if i["hsn"] == m.product.product_hsn:
+                        i["taxable_value"] = i["taxable_value"] + m.basic_rate * m.delivered_qty
+                        i["cgst"] = i["cgst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 200
+                        i["sgst"] = i["sgst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 200
+                        i["igst"] = i["igst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
+                        i["cess"] = i["cess"] + (m.delivered_qty * m.basic_rate * m.get_products_gst_cess_tax()) / 100
+                        i["surcharge"] = i["surcharge"] + (
+                                    m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
+                        i["total"] = i["total"] + m.product_tax_discount_amount
+                        flag = 1
+
+            if flag == 0:
+                dict1["hsn"] = m.product.product_hsn
+                dict1["taxable_value"] = m.basic_rate * m.delivered_qty
+                dict1["cgst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 200
+                dict1["cgst_rate"] = m.get_products_gst() / 2
+                dict1["sgst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 200
+                dict1["sgst_rate"] = m.get_products_gst() / 2
+                dict1["igst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 100
+                dict1["igst_rate"] = m.get_products_gst()
+                dict1["cess"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_cess_tax()) / 100
+                dict1["cess_rate"] = m.get_products_gst_cess_tax()
+                dict1["surcharge"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_surcharge()) / 100
+                dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                dict1["total"] = m.product_tax_discount_amount
+                list1.append(dict1)
+
             sum_qty = sum_qty + (int(m.delivered_qty))
-            sum_amount = sum_amount + (int(m.delivered_qty) * (m.price_to_retailer))
+            sum_basic_amount += m.basic_rate * (m.delivered_qty)
+            sum_amount = sum_amount + (int(m.delivered_qty) * (m.price_to_retailer - m.discounted_price))
             inline_sum_amount = (int(m.delivered_qty) * (m.price_to_retailer))
-            for n in m.get_products_gst_tax():
-                divisor = (1 + (n.tax.tax_percentage / 100))
-                original_amount = (float(inline_sum_amount) / divisor)
-                tax_amount = float(inline_sum_amount) - original_amount
-                if n.tax.tax_type == 'gst':
-                    gst_tax_list.append(tax_amount)
-                if n.tax.tax_type == 'cess':
-                    cess_tax_list.append(tax_amount)
-                if n.tax.tax_type == 'surcharge':
-                    surcharge_tax_list.append(tax_amount)
-                taxes_list.append(tax_amount)
-                igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
-                    sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
+            gst_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
+            total_product_tax_amount += m.product_tax_discount_amount
+            cess_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst_cess_tax()) / 100
+            surcharge_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
+            gst_tax_list.append(gst_tax)
+            cess_tax_list.append(cess_tax)
+            surcharge_tax_list.append(surcharge_tax)
+            igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
+                sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
+
+            # for n in m.get_products_gst_tax():
+            #     divisor = (1 + (n.tax.tax_percentage / 100))
+            #     original_amount = (float(inline_sum_amount) / divisor)
+            #     tax_amount = float(inline_sum_amount) - original_amount
+            #     if n.tax.tax_type == 'gst':
+            #         gst_tax_list.append(tax_amount)
+            #     if n.tax.tax_type == 'cess':
+            #         cess_tax_list.append(tax_amount)
+            #     if n.tax.tax_type == 'surcharge':
+            #         surcharge_tax_list.append(tax_amount)
+            #     taxes_list.append(tax_amount)
+            #     igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
+            #         sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
+
         total_amount = round(credit_note.note_amount)
         total_amount_int = total_amount
-        amt = [num2words(i) for i in str(total_amount).split('.')]
+        total_product_tax_amount_int = round(total_product_tax_amount)
+
+        amt = [num2words(i) for i in str(sum_amount).split('.')]
         rupees = amt[0]
+
+        prdct_tax_amt = [num2words(i) for i in str(total_product_tax_amount_int).split('.')]
+        tax_rupees = prdct_tax_amt[0]
+
         data = {
             "object": credit_note, "products": products, "shop": credit_note, "total_amount_int": total_amount_int,
-            "sum_qty": sum_qty, "sum_amount": total_amount,
+            "sum_qty": sum_qty, "sum_amount": sum_amount, "total_product_tax_amount": total_product_tax_amount,
+            "tax_rupees": tax_rupees, "sum_basic_amount": sum_basic_amount,
             "url": request.get_host(), "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
             "sgst": sgst, "cess": cess, "surcharge": surcharge,
             "total_amount": round(total_amount, 2), "order_id": order_id, "shop_name_gram": shop_name_gram,
             "nick_name_gram": nick_name_gram, "city_gram": city_gram,
             "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
             "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
-            "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_no, "cin": cin, }
+            "gstinn3": gstinn3, "rupees": rupees, "credit_note_type": credit_note_type, "pan_no": pan_no, "cin": cin,
+            "hsn_list": list1}
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
@@ -1734,12 +1832,6 @@ class ReleaseBlocking(APIView):
             })
 
             OrderManagement.release_blocking(reserved_args, sku_id)
-            # if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
-            #     for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
-            #         ordered_reserve.order_product_reserved.available_qty = int(
-            #             ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
-            #         ordered_reserve.order_product_reserved.save()
-            #         ordered_reserve.delete()
             if CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).exists():
                 CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).delete()
 
@@ -2080,6 +2172,7 @@ class RescheduleReason(generics.ListCreateAPIView):
         shipment.shipment_status = OrderedProduct.RESCHEDULED
         shipment.trip = None
         shipment.save()
+        shipment_reschedule_inventory_change([shipment])
 
 
 def update_trip_status(trip_id):

@@ -18,7 +18,7 @@ from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
-                    ProductVendorMappingForm, BulkProductTaxUpdateForm,
+                    ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
                     ParentProductForm)
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -926,6 +926,37 @@ class BulkProductTaxUpdateAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
+class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
+    form = BulkUploadForGSTChangeForm
+    list_display = ('created_at', 'updated_by', 'file',)
+    fields = ('download_sample_file', 'file', 'updated_by')
+    readonly_fields = ('updated_by', 'download_sample_file', )
+
+    def get_urls(self):
+        urls = super().get_urls()
+        urls = [
+            url(
+                r'^sample-file1/$',
+                self.admin_site.admin_view(self.form.sample_file1),
+                name="bulk-upload-for-gst-change-sample-file"
+            )
+        ] + urls
+        return urls
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super().get_readonly_fields(request, obj)
+        if obj:
+            readonly_fields = readonly_fields + ('file',)
+        return readonly_fields
+
+    def download_sample_file(self, obj):
+        return format_html(
+            "<a href= '%s' >bulk_upload_for_gst_change_sample.csv</a>" %
+            (reverse('admin:bulk-upload-for-gst-change-sample-file'))
+        )
+    download_sample_file.short_description = 'Download Sample File'
+
+
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 admin.site.register(Size, SizeAdmin)
@@ -942,3 +973,4 @@ admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)
 admin.site.register(BulkProductTaxUpdate, BulkProductTaxUpdateAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)
+admin.site.register(BulkUploadForGSTChange, BulkUploadForGSTChangeAdmin)

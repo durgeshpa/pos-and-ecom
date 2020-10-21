@@ -493,7 +493,7 @@ def validation_stock_correction(self):
     for row_id, row in enumerate(reader):
         if '' in row:
             if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
-                    row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                    row[5] == '' and row[6] == '' and row[7] == '' and row[8] == ''):
                 continue
         # validation for shop id, it should be numeric.
         if not row[0] or not re.match("^[\d]*$", row[0]):
@@ -511,12 +511,6 @@ def validation_stock_correction(self):
             raise ValidationError(_('Product Name can not be blank at Row number [%(value)s].'),
                                   params={'value': row_id + 2}, )
 
-        # validate for product name is exist or not
-        if not Product.objects.filter(product_name=row[1]).exists():
-            raise ValidationError(_('Invalid Product Name at Row number [%(value)s].'
-                                    'Product Name does not exists in the system.Please re-verify at your end.'),
-                                  params={'value': row_id + 2}, )
-
         # validate for product sku
         if not row[2]:
             raise ValidationError(_('Product SKU can not be blank at Row number [%(value)s].'),
@@ -527,12 +521,6 @@ def validation_stock_correction(self):
             raise ValidationError(_('Invalid Product SKU at Row number [%(value)s].'
                                     'Product SKU does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 2}, )
-
-        # validate for product sku with product name exist or not
-        # if not Product.objects.filter(product_sku=row[2], product_name=row[1]).exists():
-        #     raise ValidationError(_('Invalid Product Name with SKU at Row number [%(value)s].'
-        #                             'Product Name with SKU does not exists in the system.Please re-verify at your end.'),
-        #                           params={'value': row_id + 2}, )
 
         # validate for expiry_date
         if not row[3]:
@@ -578,9 +566,6 @@ def validation_stock_correction(self):
             raise ValidationError(_('Bin Id can not be blank at Row number [%(value)s].'),
                                   params={'value': row_id + 2}, )
 
-        # if not row[4] == 'V2VZ01SR001-0001':
-        #     raise ValidationError(_('Bin Id is not allowed for Stock correction at Row number [%(value)s].'),
-        #                           params={'value': row_id + 2}, )
 
         # validate for bin id exist or not
         if not Bin.objects.filter(bin_id=row[4], is_active=True, warehouse=Shop.objects.filter(pk=row[0]).last()).exists():
@@ -588,44 +573,33 @@ def validation_stock_correction(self):
                                     'Bin Id is not associated with Warehouse .Please re-verify at your end.'),
                                   params={'value': row_id + 2}, )
 
-        # validate for In/out type
-        if not row[5]:
-            raise ValidationError(_('In/Out can not be blank at Row number [%(value)s].'),
-                                  params={'value': row_id + 2},)
-
-        # validate for In/out type is exist or not
-        if not row[5] in ['In', 'Out']:
-            raise ValidationError(_('Invalid options for Inventory Movement Type at Row number [%(value)s].'
-                                    'It should be In and Out type. Please re-verify at your end.'),
-                                  params={'value': row_id + 2},)
-
         # validation for quantity
-        if not row[6] or not re.match("^[\d]*$", row[6]):
+        if not row[5] or not re.match("^[\d]*$", row[5]):
             raise ValidationError(_('Invalid Normal Quantity at Row number [%(value)s]. It should be numeric.'),
                                   params={'value': row_id + 2}, )
 
-        if not row[7] or not re.match("^[\d]*$", row[7]):
+        if not row[6] or not re.match("^[\d]*$", row[6]):
             raise ValidationError(_('Invalid Damaged Quantity at Row number [%(value)s]. It should be numeric.'),
                                   params={'value': row_id + 2}, )
 
-        if not row[8] or not re.match("^[\d]*$", row[8]):
+        if not row[7] or not re.match("^[\d]*$", row[7]):
             raise ValidationError(_('Invalid Expired Quantity at Row number [%(value)s]. It should be numeric.'),
                                   params={'value': row_id + 2}, )
 
-        if not row[9] or not re.match("^[\d]*$", row[9]):
+        if not row[8] or not re.match("^[\d]*$", row[8]):
             raise ValidationError(_('Invalid Missing Quantity at Row number [%(value)s]. It should be numeric.'),
                                   params={'value': row_id + 2}, )
 
-        if int(row[6]) < 0:
+        if int(row[5]) < 0:
             raise ValidationError(_('Invalid Normal Quantity at Row number [%(value)s]. It should be greater then 0.'),
                                   params={'value': row_id + 2}, )
-        if int(row[7]) < 0:
+        if int(row[6]) < 0:
             raise ValidationError(_('Invalid Damaged Quantity at Row number [%(value)s]. It should be greater then 0.'),
                                   params={'value': row_id + 2}, )
-        if int(row[8]) < 0:
+        if int(row[7]) < 0:
             raise ValidationError(_('Invalid Expired Quantity at Row number [%(value)s]. It should be greater then 0.'),
                                   params={'value': row_id + 2}, )
-        if int(row[9]) < 0:
+        if int(row[8]) < 0:
             raise ValidationError(_('Invalid Missing Quantity at Row number [%(value)s]. It should be greater then 0.'),
                                   params={'value': row_id + 2}, )
 
@@ -642,13 +616,8 @@ def validation_stock_correction(self):
                     expiry_date = datetime.strptime(row[3], '%d/%m/%y').strftime('%Y-%m-%d')
 
         # to validate normal qty for past expired date
-        # if expiry_date <= datetime.today().strftime("%Y-%m-%d"):
-        #     raise ValidationError(_('Expiry date can not be Past Date. It should be Future date.'),
-        #                           params={'value': row_id + 2}, )
-
-        # to validate normal qty for past expired date
         if expiry_date < datetime.today().strftime("%Y-%m-%d"):
-            if int(row[6]) > 0:
+            if int(row[5]) > 0:
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(
                         row_id + 2) + "," + "For Past expiry date, the normal qty (final)"
@@ -656,7 +625,7 @@ def validation_stock_correction(self):
 
         # to validate normal qty for past damaged date
         if expiry_date < datetime.today().strftime("%Y-%m-%d"):
-            if int(row[7]) > 0:
+            if int(row[6]) > 0:
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(
                         row_id + 2) + "," + "For Past expiry date, the damaged qty (final)"
@@ -664,7 +633,7 @@ def validation_stock_correction(self):
 
         # to validate expired qty for future expired date
         if expiry_date > datetime.today().strftime("%Y-%m-%d"):
-            if int(row[8]) > 0:
+            if int(row[7]) > 0:
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 2) + "," + "For Future expiry date, the expired qty "
                                                                    " should be 0."))
@@ -673,66 +642,11 @@ def validation_stock_correction(self):
         sku = row[2]
         # create batch id
         batch_id = create_batch_id(sku, row[3])
-        if row[5] == 'Out':
-            bin_exp_obj = BinInventory.objects.filter(warehouse=row[0],
-                                                      bin=Bin.objects.filter(bin_id=row[4]).last(),
-                                                      sku=Product.objects.filter(
-                                                          product_sku=row[2]).last(),
-                                                      batch_id=batch_id)
-            if not bin_exp_obj.exists():
-                raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 2) + "," + "Selected SKU with given expiry date does not exist in the given Bin."))
-            else:
-                if int(row[6]) > 0:
-                    normal_bin_obj = BinInventory.objects.filter(warehouse=row[0],
-                                                bin=Bin.objects.filter(bin_id=row[4]).last(),
-                                                sku=Product.objects.filter(
-                                                    product_sku=row[2]).last(),
-                                                batch_id=batch_id,
-                                                inventory_type__id=InventoryType.objects.filter(inventory_type='normal')[0].id)
-                    if normal_bin_obj[0].quantity < int(row[6]):
-                        raise ValidationError(_(
-                            "Issue in Row" + " " + str(row_id + 2) + "," + "Normal Quantity is greater than Available Normal Quantity in Bin Inventory,"
-                                                                           "You can't allow to do Out Inventory."))
-                if int(row[7]) > 0:
-                    damaged_bin_obj = BinInventory.objects.filter(warehouse=row[0],
-                                                bin=Bin.objects.filter(bin_id=row[4]).last(),
-                                                sku=Product.objects.filter(
-                                                    product_sku=row[2]).last(),
-                                                batch_id=batch_id,
-                                                inventory_type__id=InventoryType.objects.filter(inventory_type='damaged')[0].id)
-                    if damaged_bin_obj[0].quantity < int(row[7]):
-                        raise ValidationError(_(
-                            "Issue in Row" + " " + str(row_id + 2) + "," + "Damaged Quantity is greater than Available Damaged Quantity in Bin Inventory,"
-                                                                           "You can't allow to do Out Inventory."))
-                if int(row[8]) > 0:
-                    expired_bin_obj = BinInventory.objects.filter(warehouse=row[0],
-                                                bin=Bin.objects.filter(bin_id=row[4]).last(),
-                                                sku=Product.objects.filter(
-                                                    product_sku=row[2]).last(),
-                                                batch_id=batch_id,
-                                                inventory_type__id=InventoryType.objects.filter(inventory_type='expired')[0].id)
-                    if expired_bin_obj[0].quantity < int(row[8]):
-                        raise ValidationError(_(
-                            "Issue in Row" + " " + str(row_id + 2) + "," + "Expired Quantity is greater than Available Expired Quantity in Bin Inventory,"
-                                                                           "You can't allow to do Out Inventory."))
-                if int(row[9]) > 0:
-                    missing_bin_obj = BinInventory.objects.filter(warehouse=row[0],
-                                                bin=Bin.objects.filter(bin_id=row[4]).last(),
-                                                sku=Product.objects.filter(
-                                                    product_sku=row[2]).last(),
-                                                batch_id=batch_id,
-                                                inventory_type__id=InventoryType.objects.filter(inventory_type='missing')[0].id)
-                    if missing_bin_obj[0].quantity < int(row[9]):
-                        raise ValidationError(_(
-                            "Issue in Row" + " " + str(row_id + 2) + "," + "Missing Quantity is greater than Available Missing Quantity in Bin Inventory,"
-                                                                           "You can't allow to do Out Inventory."))
-        else:
-            bin_exp_obj = BinInventory.objects.filter(warehouse=row[0],
-                                                      bin=Bin.objects.filter(bin_id=row[4]).last(),
-                                                      sku=Product.objects.filter(
-                                                          product_sku=row[2]).last(),
-                                                      batch_id=batch_id)
+        bin_exp_obj = BinInventory.objects.filter(warehouse=row[0],
+                                                  bin=Bin.objects.filter(bin_id=row[4]).last(),
+                                                  sku=Product.objects.filter(
+                                                      product_sku=row[2]).last(),
+                                                  batch_id=batch_id)
         # if combination of expiry date and sku is not exist in GRN Order Product Mapping
         if not bin_exp_obj.exists():
             bin_in_obj = BinInventory.objects.filter(
@@ -752,7 +666,7 @@ def validation_stock_correction(self):
 
 
         form_data_list.append(row)
-        unique_data_list.append(row[0] + row[2] + row[3] + row[4] + row[5])
+        unique_data_list.append(row[0] + row[2] + row[3] + row[4])
     duplicate_data_list = ([item for item, count in collections.Counter(unique_data_list).items() if count > 1])
     if len(duplicate_data_list) > 0:
         raise ValidationError(_(
