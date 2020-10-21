@@ -333,21 +333,21 @@ def get_visibility_changes(shop, product):
         if sum_qty_warehouse_entries <= 2*(int(child.product_inner_case_size)):
             visibility_changes[child.id] = True
             continue
-        bin_data = Bin.objects.filter(
+        bin_data = BinInventory.objects.filter(
             Q(warehouse=shop),
             Q(sku=child),
             Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
         )
         for data in bin_data:
             exp_date_str = get_expiry_date(batch_id=data.batch_id)
-            exp_date = datetime.strptime(exp_date_str, format="%d/%m/%Y")
+            exp_date = datetime.strptime(exp_date_str, "%d/%m/%Y")
             if (not min_exp_date_data.get('exp', None)) or (exp_date < min_exp_date_data.get('exp')):
                 min_exp_date_data['exp'] = exp_date
                 min_exp_date_data['id'] = data.sku.id
             else:
                 visibility_changes[child.id] = False
     if min_exp_date_data.get('id'):
-        visibility_changes[min_exp_date_data[id]] = True
+        visibility_changes[min_exp_date_data['id']] = True
     return visibility_changes
 
 
