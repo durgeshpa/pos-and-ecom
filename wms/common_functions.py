@@ -191,7 +191,7 @@ class CommonWarehouseInventoryFunctions(object):
             ware_house_inventory_obj.quantity = ware_house_quantity
             ware_house_inventory_obj.save()
         else:
-            WarehouseInventory.objects.get_or_create(
+            WarehouseInventory.objects.create(
                 warehouse=warehouse,
                 sku=sku,
                 inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
