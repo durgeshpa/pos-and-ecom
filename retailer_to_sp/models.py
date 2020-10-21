@@ -240,9 +240,10 @@ class Cart(models.Model):
                 else:
                     parent_brand = None
                 # parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
+                product_brand_id = self.parent_product.parent_brand.id if self.parent_product else None
                 brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True,
                                                       expiry_date__gte=date).filter(
-                    Q(rule__brand_ruleset__brand=m.cart_product.product_brand.id) | Q(
+                    Q(rule__brand_ruleset__brand=product_brand_id) | Q(
                         rule__brand_ruleset__brand=parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
                 b_list = [x.coupon_name for x in brand_coupons]
                 cart_coupons = Coupon.objects.filter(coupon_type='cart', is_active=True,

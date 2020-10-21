@@ -381,9 +381,10 @@ class GramGRNProductsList(APIView):
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
                 if not check_price:
                     continue
+                check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp 
                 p["_source"]["ptr"] = check_price.selling_price
-                p["_source"]["mrp"] = check_price.mrp
-                p["_source"]["margin"] = (((check_price.mrp - check_price.selling_price) / check_price.mrp) * 100)
+                p["_source"]["mrp"] = check_price_mrp
+                p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
                 loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
                 cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
@@ -398,8 +399,8 @@ class GramGRNProductsList(APIView):
                                 if i['item_sku'] == c_p.cart_product.product_sku:
                                     discounted_product_subtotal = i['discounted_product_subtotal']
                                     p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
-                            p["_source"]["margin"] = (((float(check_price.mrp) - c_p.item_effective_prices) / float(
-                                check_price.mrp)) * 100)
+                            p["_source"]["margin"] = (((float(check_price_mrp) - c_p.item_effective_prices) / float(
+                                check_price_mrp)) * 100)
                             array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet2))
                             for j in coupons:
                                 for i in (array3 + array2):
