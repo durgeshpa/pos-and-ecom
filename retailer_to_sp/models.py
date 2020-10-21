@@ -234,7 +234,12 @@ class Cart(models.Model):
                 if m.cart_product.get_current_shop_price(shop, buyer_shop) == None:
                     CartProductMapping.objects.filter(cart__id=self.id, cart_product__id=m.cart_product.id).delete()
                     continue
-                parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
+                parent_product_brand = m.cart_product.parent_product.parent_brand if m.cart_product.parent_product else None
+                if parent_product_brand:
+                    parent_brand = parent_product_brand.brand_parent.id if parent_product_brand.brand_parent else None
+                else:
+                    parent_brand = None
+                # parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
                 brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True,
                                                       expiry_date__gte=date).filter(
                     Q(rule__brand_ruleset__brand=m.cart_product.product_brand.id) | Q(
