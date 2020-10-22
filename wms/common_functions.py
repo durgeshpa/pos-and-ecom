@@ -341,7 +341,11 @@ def get_visibility_changes(shop, product):
         for data in bin_data:
             exp_date_str = get_expiry_date(batch_id=data.batch_id)
             exp_date = datetime.strptime(exp_date_str, "%d/%m/%Y")
-            if (not min_exp_date_data.get('exp', None)) or (exp_date < min_exp_date_data.get('exp')):
+            if not min_exp_date_data.get('exp', None):
+                min_exp_date_data['exp'] = exp_date
+                min_exp_date_data['id'] = data.sku.id
+            elif exp_date < min_exp_date_data.get('exp'):
+                visibility_changes[min_exp_date_data['id']] = False
                 min_exp_date_data['exp'] = exp_date
                 min_exp_date_data['id'] = data.sku.id
             else:

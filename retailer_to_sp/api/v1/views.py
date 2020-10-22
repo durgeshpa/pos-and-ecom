@@ -357,6 +357,10 @@ class GramGRNProductsList(APIView):
             if not Product.objects.filter(id=p["_source"]["id"]).exists():
                 print("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
                 continue
+            visible_flag = p["_source"].get('visible', None)
+            if visible_flag is not None and not visible_flag:
+                print("visible flag false for {}".format(p["_source"]))
+                continue
             if is_store_active:
                 product = Product.objects.get(id=p["_source"]["id"])
                 product_coupons = product.getProductCoupons()
