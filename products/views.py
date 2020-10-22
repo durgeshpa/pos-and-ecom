@@ -1133,6 +1133,16 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
+class SourceProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Product.objects.filter(repackaging_type='source')
+        if self.q:
+            qs = qs.filter(Q(product_name__icontains=self.q) |
+                           Q(product_gf_code__icontains=self.q) |
+                           Q(product_sku__icontains=self.q))
+        return qs
+
+
 class PincodeAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         city = self.forwarded.get('city', None)
