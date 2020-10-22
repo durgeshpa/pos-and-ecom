@@ -251,6 +251,12 @@ class Product(models.Model):
     reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
     use_parent_image = models.BooleanField(default=False)
     # child_product_image = models.ImageField(upload_to='child_product_image', blank=True, null=True)
+    REASON_FOR_NEW_CHILD_CHOICES = (
+        ('none', 'None'),
+        ('source', 'Source'),
+        ('destination', 'Destination'),
+    )
+    repackaging_type = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='none')
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
@@ -438,6 +444,18 @@ class ChildProductImage(models.Model):
 
     def __str__(self):
         return self.image.name
+
+
+class ProductSourceMapping(models.Model):
+    destination_sku = models.ForeignKey(Product, related_name='destination_product_pro', blank=True, on_delete=models.DO_NOTHING)
+    source_sku = models.ForeignKey(Product, related_name='source_product_pro', blank=True, on_delete=models.DO_NOTHING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Product Source Mapping")
+        verbose_name_plural = _("Product Source Mappings")
 
 
 class ProductOption(models.Model):

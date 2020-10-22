@@ -20,6 +20,13 @@
                     $(".tabular.inline-related").first().children('fieldset').children('h2').addClass('required_field_red');
                 }
             };
+            document.getElementById('id_repackaging_type').onchange = function() {
+                if ($('#id_repackaging_type').val() == 'destination') {
+                    $(".tabular.inline-related").last().children('fieldset').children('h2').addClass('required_field_red');
+                } else {
+                    $(".tabular.inline-related").last().children('fieldset').children('h2').removeClass('required_field_red');
+                }
+            };
         });
     </script>
 {% endblock %}

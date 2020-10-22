@@ -20,7 +20,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductCategory, ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax, Weight,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
-                             ParentProduct, ProductHSN)
+                             ParentProduct, ProductHSN, ProductSourceMapping)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -420,12 +420,25 @@ class ProductForm(forms.ModelForm):
         # fields = ('product_name','product_slug','product_short_description', 'product_long_description',
         #           'product_gf_code', 'product_ean_code', 'product_hsn','product_brand', 'product_inner_case_size',
         #           'product_case_size','weight_value', 'weight_unit', 'status',)
-        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status',)
+        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status', 'repackaging_type')
 
     def clean(self):
         cleaned_data = self.cleaned_data
         return cleaned_data
 
+
+class ProductSourceMappingForm(forms.ModelForm):
+    source_sku = forms.ModelChoiceField(
+        queryset=Product.objects.filter(repackaging_type='source'),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='source-product-autocomplete'
+        )
+    )
+
+    class Meta:
+        model = ProductSourceMapping
+        fields = ('source_sku', 'status')
 
 class UploadChildProductAdminForm(forms.Form):
     """

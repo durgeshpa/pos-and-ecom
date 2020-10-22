@@ -19,7 +19,7 @@ from retailer_backend.filters import CityFilter, ProductCategoryFilter
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
-                    ParentProductForm)
+                    ParentProductForm, ProductSourceMappingForm)
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
                         PackageSizeResource, ProductPriceResource,
@@ -481,6 +481,24 @@ def approve_selected_child_products(modeladmin, request, queryset):
 approve_selected_products.short_description = "Approve Selected Products"
 
 
+class ProductSourceMappingAdmin(admin.TabularInline):
+    model = ProductSourceMapping
+    fk_name = "destination_sku"
+    form = ProductSourceMappingForm
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ProductSourceMappingAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^source-product-autocomplete/$',
+                self.admin_site.admin_view(SourceProductAutocomplete.as_view()),
+                name='source-product-autocomplete',
+            ),
+        ] + urls
+        return urls
+
+
 class ChildProductImageAdmin(admin.TabularInline):
     model = ChildProductImage
 
@@ -683,7 +701,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     #     ProductCategoryAdmin, ProductOptionAdmin,
     #     ProductImageAdmin, ProductTaxMappingAdmin
     # ]
-    inlines = [ChildProductImageAdmin]
+    inlines = [ChildProductImageAdmin, ProductSourceMappingAdmin]
     # autocomplete_fields = ['product_hsn', 'product_brand']
     autocomplete_fields = ['parent_product']
 
