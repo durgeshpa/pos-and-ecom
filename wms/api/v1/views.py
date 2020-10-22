@@ -549,6 +549,10 @@ class PickupDetail(APIView):
             for j, i in diction.items():
                 picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                     bin__bin__bin_id=bin_id, pickup__sku__id=j)
+                if picking_details.count() == 0:
+                    return Response({'is_success': False,
+                                     'message': 'Picking details not found, please check the details entered.',
+                                     'data': None}, status=status.HTTP_200_OK)
                 if picking_details.exists():
                     pick_qty = picking_details.last().pickup_quantity
                     if pick_qty is None:
@@ -599,7 +603,14 @@ class PickupComplete(APIView):
         if not order_no:
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        pick_obj = Pickup.objects.filter(pickup_type_id=order_no)
+        order_qs = Order.objects.filter(order_no=order_no)
+        order_obj = order_qs.last()
+        pd_obj = PickerDashboard.objects.filter(order_id=order_obj)
+        if pd_obj.count() > 1:
+            msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        pick_obj = Pickup.objects.filter(pickup_type_id=order_no, status='picking_assigned')
+
         if pick_obj.exists():
             for pickup in pick_obj:
                 pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)
@@ -612,39 +623,26 @@ class PickupComplete(APIView):
 
             else:
                 with transaction.atomic():
-                    csv_instance = StockMovementCSVUpload.objects.filter(pk=1).last()
+                    # csv_instance = StockMovementCSVUpload.objects.filter(pk=1).last()
                     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
                     state_available = InventoryState.objects.filter(inventory_state="available").last()
                     state_picked = InventoryState.objects.filter(inventory_state="picked").last()
                     state_ordered = InventoryState.objects.filter(inventory_state="ordered").last()
-                    order_obj = Order.objects.filter(order_no=order_no)
-                    Order.objects.filter(order_no=order_no).update(order_status='picking_complete')
-                    PickerDashboard.objects.filter(order=order_obj[0]).update(picking_status='picking_complete')
-                    #pick_obj.update(status='picking_complete')
+
+                    order_qs.update(order_status='picking_complete')
+                    pd_obj.update(picking_status='picking_complete')
                     pick_obj.update(status='picking_complete', completed_at=timezone.now())
 
                     for pickup in pick_obj:
+                        info_logger.info("PickupComplete : Starting to complete pickup for - {}".format(pickup))
                         pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)
                         for pickup_bin in pickup_bin_list:
                             if pickup_bin.pickup_quantity is None:
                                 pickup_bin.pickup_quantity = 0
                             reverse_quantity = pickup_bin.quantity - pickup_bin.pickup_quantity
-                            # Entry in bin table
-                            if reverse_quantity != 0:
-                                CommonBinInventoryFunctions.update_or_create_bin_inventory(pickup_bin.warehouse,
-                                                                                           pickup_bin.bin.bin,
-                                                                                           pickup_bin.pickup.sku
-                                                                                           , pickup_bin.batch_id,
-                                                                                           type_normal,
-                                                                                           reverse_quantity, True)
-                                InternalInventoryChange.create_bin_internal_inventory_change(pickup_bin.warehouse,
-                                                                                             pickup_bin.pickup.sku,
-                                                                                             pickup_bin.batch_id,
-                                                                                             pickup_bin.bin.bin,
-                                                                                             type_normal, type_normal,
-                                                                                             "pickup_complete",
-                                                                                             pickup.pk,
-                                                                                             reverse_quantity)
+                            info_logger.info("PickupComplete : reverse quantity for SKU {} - {}"
+                                             .format(pickup.sku, reverse_quantity))
+
                             # Entry in warehouse Table
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
                                                                                          pickup_bin.pickup.sku,
@@ -664,6 +662,22 @@ class PickupComplete(APIView):
                                                                                       type_normal, state_picked,
                                                                                       pickup_bin.pickup_quantity, None)
                             if reverse_quantity != 0:
+                                # Entry in bin table
+                                CommonBinInventoryFunctions.update_or_create_bin_inventory(pickup_bin.warehouse,
+                                                                                           pickup_bin.bin.bin,
+                                                                                           pickup_bin.pickup.sku
+                                                                                           , pickup_bin.batch_id,
+                                                                                           type_normal,
+                                                                                           reverse_quantity, True)
+                                InternalInventoryChange.create_bin_internal_inventory_change(pickup_bin.warehouse,
+                                                                                             pickup_bin.pickup.sku,
+                                                                                             pickup_bin.batch_id,
+                                                                                             pickup_bin.bin.bin,
+                                                                                             type_normal, type_normal,
+                                                                                             "pickup_complete",
+                                                                                             pickup.pk,
+                                                                                             reverse_quantity)
+                                # Entry in warehouse table
                                 CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
                                                                                              pickup_bin.pickup.sku,
                                                                                              "normal", "available",
@@ -677,6 +691,7 @@ class PickupComplete(APIView):
                                                                                           type_normal, state_available,
                                                                                           reverse_quantity, None)
 
+                        info_logger.info("PickupComplete : Pickup completed for - {}".format(pickup))
                 return Response({'is_success': True,
                                  'message': "Pickup complete for all the items"})
 
