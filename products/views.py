@@ -20,6 +20,7 @@ from shops.models import Shop, ShopType
 from addresses.models import City, State, Address, Pincode
 from categories.models import Category
 from brand.models import Brand, Vendor
+from wms.models import InventoryType, WarehouseInventory
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
@@ -985,3 +986,49 @@ class VendorAutocomplete(autocomplete.Select2QuerySetView):
                 Q(vendor_name__icontains=self.q)
             )
         return qs
+
+
+class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
+
+    def get_queryset(self, *args, **kwargs):
+        seller_shop = self.forwarded.get('seller_shop', None)
+        pp = ProductPrice.objects.filter(seller_shop_id=seller_shop).values('product_id')
+        qs = Product.objects.all()
+        if seller_shop:
+            qs = qs.filter(id__in=pp)
+        return qs
+
+
+class SourceRepackageDetail(View):
+
+    def get(self, *args, **kwargs):
+        product_id = self.request.GET.get('sku_id')
+        product_obj = Product.objects.values('weight_value', 'product_sku').get(id=product_id)
+
+        if product_obj['weight_value'] is None:
+            return JsonResponse({"success": False, "error": "Source SKU Weight Value Not Found"})
+
+        inventory_id = InventoryType.objects.values('id').get(inventory_type='normal')
+
+        try:
+            source_quantity = WarehouseInventory.objects.values('quantity').get(sku_id=product_obj['product_sku'],
+                                                                                    inventory_type_id=inventory_id[
+                                                                                        'id'])
+        except Exception as e:
+            return JsonResponse({"success": False, "error": "Warehouse Inventory Does Not Exist"})
+
+        return JsonResponse({
+            "source_sku_weight": product_obj['weight_value'],
+            "available_source_quantity": source_quantity['quantity'],
+            "success": True})
+
+
+class DestinationRepackageDetail(View):
+
+    def get(self, *args, **kwargs):
+        product_id = self.request.GET.get('sku_id')
+        product_obj = Product.objects.values('weight_value', 'product_sku').get(id=product_id)
+        if product_obj['weight_value'] is None:
+            return JsonResponse({"success": False, "error": "Destination SKU Weight Value Not Found"})
+
+        return JsonResponse({"destination_sku_weight": product_obj['weight_value'], "success": True})

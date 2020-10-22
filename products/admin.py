@@ -18,7 +18,8 @@ from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
-                    ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm)
+                    ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
+                    RepackagingForm, RepackagingCostForm)
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
                         PackageSizeResource, ProductPriceResource,
@@ -35,7 +36,9 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     load_brands, load_cities, load_gf, load_sp_sr,
                     product_category_mapping_sample, products_csv_upload_view,
                     products_export_for_vendor, products_filter_view,
-                    products_price_filter_view, products_vendor_mapping)
+                    products_price_filter_view, products_vendor_mapping,
+                    ProductShopAutocomplete, SourceRepackageDetail,
+                    DestinationRepackageDetail)
 from .filters import BulkTaxUpdatedBySearch
 
 
@@ -423,6 +426,21 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(PincodeAutocomplete.as_view()),
                 name="pincode_autocomplete"
             ),
+            url(
+                r'^product-shop-autocomplete/$',
+                self.admin_site.admin_view(ProductShopAutocomplete.as_view()),
+                name="product-shop-autocomplete"
+            ),
+            url(
+                r'^source-repackage-detail/$',
+                self.admin_site.admin_view(SourceRepackageDetail.as_view()),
+                name="source-repackage-detail"
+            ),
+            url(
+                r'^destination-repackage-detail/$',
+                self.admin_site.admin_view(DestinationRepackageDetail.as_view()),
+                name="destination-repackage-detail"
+            ),
         ] + urls
         return urls
 
@@ -669,6 +687,33 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     download_sample_file.short_description = 'Download Sample File'
 
 
+class RepackagingCostInLine(admin.TabularInline):
+    form = RepackagingCostForm
+    model = RepackagingCost
+    verbose_name = ""
+    verbose_name_plural = "Cost"
+    extra = 1
+
+    def has_change_permission(self, request, obj=None):
+        if obj:
+            return False
+
+
+class RepackagingAdmin(admin.ModelAdmin, ExportCsvMixin):
+    form = RepackagingForm
+    list_display = ('source_sku_name', 'source_product_sku', 'destination_sku_name',
+                    'destination_product_sku', 'destination_sku_quantity')
+    actions = ["export_as_csv"]
+    inlines = [RepackagingCostInLine]
+
+    class Media:
+        js = ("admin/js/repackaging.js",)
+
+    def has_change_permission(self, request, obj=None):
+        if obj:
+            return False
+
+
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 admin.site.register(Size, SizeAdmin)
@@ -685,3 +730,4 @@ admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)
 admin.site.register(BulkProductTaxUpdate, BulkProductTaxUpdateAdmin)
 admin.site.register(BulkUploadForGSTChange, BulkUploadForGSTChangeAdmin)
+admin.site.register(Repackaging, RepackagingAdmin)

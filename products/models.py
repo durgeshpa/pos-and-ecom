@@ -618,3 +618,52 @@ class BulkUploadForGSTChange(models.Model):
 
     def __str__(self):
         return f"BulkUpload updated at {self.created_at} by {self.updated_by}"
+
+
+class Repackaging(models.Model):
+    seller_shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+    source_sku = models.ForeignKey(Product, related_name='source_sku_repackaging', on_delete=models.CASCADE, null=True)
+    destination_sku = models.ForeignKey(Product, related_name='destination_sku_repackaging', on_delete=models.CASCADE, null=True)
+    repackage_weight = models.FloatField(default=0, blank=True, verbose_name='Weight Of Source SKU To Be Repackaged', validators=[WeightValidator])
+    available_source_weight = models.FloatField(default=0, blank=True, verbose_name='Available Source SKU Weight')
+    available_source_quantity = models.PositiveIntegerField(default=0, blank=True, verbose_name='Available Source SKU Qty(pcs)')
+    destination_sku_quantity = models.PositiveIntegerField(default=0, blank=True, verbose_name='Created Destination SKU Qty (pcs)')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def source_sku_name(self):
+        return self.source_sku.product_name
+
+    def destination_sku_name(self):
+        return self.destination_sku.product_name
+
+    def source_product_sku(self):
+        return self.source_sku.product_sku
+
+    def destination_product_sku(self):
+        return self.destination_sku.product_sku
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            super().save(*args, **kwargs)
+
+
+class RepackagingCost(models.Model):
+    repackaging = models.ForeignKey(Repackaging, on_delete=models.CASCADE)
+    particular = models.PositiveIntegerField(default=1, verbose_name='PARTICULAR (KG)')
+    raw_material = models.FloatField(default=0, validators=[PriceValidator])
+    wastage = models.FloatField(default=0, validators=[PriceValidator])
+    fumigation = models.FloatField(default=0, validators=[PriceValidator])
+    label_printing = models.FloatField(default=0, validators=[PriceValidator])
+    packing_labour = models.FloatField(default=0, validators=[PriceValidator])
+    primary_pm_cost = models.FloatField(default=0, validators=[PriceValidator])
+    secondary_pm_cost = models.FloatField(default=0, validators=[PriceValidator])
+    final_fg_cost = models.FloatField(default=0, validators=[PriceValidator])
+    conversion_cost = models.FloatField(default=0, validators=[PriceValidator])
+
+    def __str__(self):
+        return ""
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            super().save(*args, **kwargs)

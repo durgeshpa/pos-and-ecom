@@ -19,7 +19,8 @@ from categories.models import Category
 from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductCategory, ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax, Weight,
-                             BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange)
+                             BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
+                             Repackaging, RepackagingCost)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -844,3 +845,57 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
             return self.cleaned_data
         else:
             raise forms.ValidationError("CSV file is required!")
+
+
+class RepackagingForm(forms.ModelForm):
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete'),
+    )
+
+    source_sku = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-shop-autocomplete', forward=['seller_shop']),
+    )
+
+    destination_sku = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete', )
+    )
+
+    class Meta:
+        model = Repackaging
+        fields = ('seller_shop', 'source_sku', 'destination_sku', 'repackage_weight',
+                  "destination_sku_quantity", "available_source_quantity", "available_source_weight")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        readonly = ['destination_sku_quantity', 'available_source_weight', 'available_source_quantity']
+        for key in readonly:
+            if key in self.fields:
+                self.fields[key].widget.attrs['readonly'] = True
+        labels = {'seller_shop': "Seller Shop", 'source_sku': 'Source SKU', 'destination_sku': 'Destination SKU'}
+        for key in labels:
+            self.fields[key].label = labels[key]
+
+
+class RepackagingCostForm(forms.ModelForm):
+    class Meta:
+        model = RepackagingCost
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['style'] = 'width:100px'
+
+        add_fields = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost']
+        for name in add_fields:
+            self.fields[name].widget.attrs['oninput'] = "add_cost(this)";
+
+        self.fields['final_fg_cost'].widget.attrs['readonly'] = True
+        self.fields['conversion_cost'].widget.attrs['readonly'] = True
+        self.fields['final_fg_cost'].required = False
+        self.fields['conversion_cost'].required = False
