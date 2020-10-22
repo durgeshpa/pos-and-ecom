@@ -63,7 +63,13 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
 
     def max_putaway_qty_dt(self, obj):
         qty = Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('quantity'))['total']
+        print(qty)
+        print(obj.batch_id)
+        print(obj.warehouse_id)
+        print(Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).values("putaway_quantity"))
+        # print(obj.batch_id)
         updated_qty = qty - Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('putaway_quantity'))['total']
+        print(updated_qty)
         return updated_qty
 
 
