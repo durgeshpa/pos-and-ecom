@@ -47,13 +47,13 @@ def get_warehouse_stock(shop_id=None,product=None):
 		sub_total = None
 		available_qty = 0 if shop_id else 1
 		name = p.product.product_name
-		mrp = p.mrp
+		mrp = p.mrp if p.mrp else p.product.product_mrp
 		ptr = p.selling_price
 		try:
-			margin = (((p.mrp - p.selling_price) / p.mrp) * 100)
+			margin = (((mrp - p.selling_price) / mrp) * 100)
 		except:
 			margin = 0
-		status = p.product.status
+		status = True if (p.product.status in ['active', True]) else False
 		product_opt = p.product.product_opt_product.all()
 		weight_value = None
 		weight_unit = None
@@ -75,6 +75,10 @@ def get_warehouse_stock(shop_id=None,product=None):
 		except:
 			weight_value = None
 			weight_unit = None
+		if weight_unit is None:
+			weight_unit = p.product.weight_unit
+		if weight_value is None:
+			weight_value = p.product.weight_value
 		product_img = p.product.product_pro_image.all()
 		product_images = [
 			{
@@ -84,10 +88,38 @@ def get_warehouse_stock(shop_id=None,product=None):
 			}
 			for p_i in product_img
 		]
+		if not product_images:
+			product_images = [
+				{
+					"image_name": p_i.image_name,
+					"image_alt": p_i.image_alt_text,
+					"image_url": p_i.image.url
+				}
+				for p_i in p.product.child_product_pro_image.all()
+			]
 		category = [str(c.category) for c in p.product.product_pro_category.filter(status=True)]
-		product_details = {"name":p.product.product_name,"name_lower":p.product.product_name.lower(),"brand":str(p.product.product_brand),"brand_lower":str(p.product.product_brand).lower(),"category": category, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id,
-						   "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty, "pack_size":pack_size,
-						   "margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total, "available": available_qty}
+		product_categories = [str(c.category) for c in p.product.parent_product.parent_product_pro_category.filter(status=True)]
+		product_details = {
+			"name":p.product.product_name,
+			"name_lower":p.product.product_name.lower(),
+			"brand":str(p.product.product_brand),
+			"brand_lower":str(p.product.product_brand).lower(),
+			"category": product_categories,
+			"mrp":mrp,
+			"ptr":ptr,
+			"status":status,
+			"pack_size":pack_size,
+			"id":p.product_id,
+			"weight_value":weight_value,
+			"weight_unit":weight_unit,
+			"product_images":product_images,
+			"user_selected_qty":user_selected_qty,
+			"pack_size":pack_size,
+			"margin":margin,
+			"no_of_pieces":no_of_pieces,
+			"sub_total":sub_total,
+			"available": available_qty
+		}
 		yield(product_details)
 
 def create_es_index(index):

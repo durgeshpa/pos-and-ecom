@@ -302,8 +302,14 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         for rules in obj.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
             for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
                 product_coupons.append(rule.coupon_code)
-        parent_brand = obj.cart_product.product_brand.brand_parent.id if obj.cart_product.product_brand.brand_parent else None
-        brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = obj.cart_product.product_brand.id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
+        parent_product_brand = obj.cart_product.parent_product.parent_brand if obj.cart_product.parent_product else None
+        if parent_product_brand:
+            parent_brand = parent_product_brand.brand_parent.id if parent_product_brand.brand_parent else None
+        else:
+            parent_brand = None
+        product_brand_id = obj.cart_product.parent_product.parent_brand.id if obj.cart_product.parent_product else None
+        # parent_brand = obj.cart_product.product_brand.brand_parent.id if obj.cart_product.product_brand.brand_parent else None
+        brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
         for x in brand_coupons:
             product_coupons.append(x.coupon_code)
         if product_coupons:
@@ -335,9 +341,10 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                              self.context.get('buyer_shop_id'))
         keyValList2 = ['discount_on_product']
         if product_price:
-            margin = (((product_price.mrp - product_price.selling_price) / product_price.mrp) * 100)
+            product_mrp = product_price.mrp if product_price.mrp else obj.cart_product.product_mrp
+            margin = (((product_mrp - product_price.selling_price) / product_mrp) * 100)
             if obj.cart.offers:
-                margin = (((float(product_price.mrp) - obj.item_effective_prices) / float(product_price.mrp)) * 100)
+                margin = (((float(product_mrp) - obj.item_effective_prices) / float(product_mrp)) * 100)
             return margin
         return False
 
