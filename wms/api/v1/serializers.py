@@ -5,7 +5,9 @@ from retailer_to_sp.models import Order
 from shops.api.v1.serializers import ShopSerializer
 from retailer_to_sp.api.v1.serializers import ProductSerializer
 from django.db.models import Sum
+import logging
 
+info_logger = logging.getLogger('file-info')
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 
@@ -63,13 +65,14 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
 
     def max_putaway_qty_dt(self, obj):
         qty = Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('quantity'))['total']
-        print(qty)
-        print(obj.batch_id)
-        print(obj.warehouse_id)
-        print(Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).values("putaway_quantity"))
+        info_logger.info("Putawaya beinganognaongonag")
+        info_logger.info(qty)
+        info_logger.info(obj.batch_id)
+        info_logger.info(obj.warehouse_id)
+        info_logger.info(Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).values("putaway_quantity"))
         # print(obj.batch_id)
         updated_qty = qty - Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('putaway_quantity'))['total']
-        print(updated_qty)
+        info_logger.info(updated_qty)
         return updated_qty
 
 
