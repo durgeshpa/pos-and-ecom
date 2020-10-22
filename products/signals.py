@@ -59,14 +59,35 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
     logger.error("updating product to elastic search")
     # for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product', 'product__product_name', 'product__product_inner_case_size', 'product__status'):
     product_categories = [str(c.category) for c in instance.parent_product.parent_product_pro_category.filter(status=True)]
+    product_images = []
+    if instance.use_parent_image:
+        product_images = [
+            {
+                "image_name": p_i.image_name,
+                "image_alt": p_i.image_alt_text,
+                "image_url": p_i.image.url
+            }
+            for p_i in instance.parent_product.parent_product_pro_image.all()
+        ]
     for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product', 'product__product_name', 'product__status'):
-        update_shop_product_es.delay(
-            prod_price['seller_shop'],
-            prod_price['product'],
-            name=prod_price['product__product_name'],
-            pack_size=instance.product_inner_case_size,
-            status=True if (prod_price['product__status'] in ['active', True]) else False,
-            category=product_categories
-        )
+        if not product_images:
+            update_shop_product_es.delay(
+                prod_price['seller_shop'],
+                prod_price['product'],
+                name=prod_price['product__product_name'],
+                pack_size=instance.product_inner_case_size,
+                status=True if (prod_price['product__status'] in ['active', True]) else False,
+                category=product_categories
+            )
+        else:
+            update_shop_product_es.delay(
+                prod_price['seller_shop'],
+                prod_price['product'],
+                name=prod_price['product__product_name'],
+                pack_size=instance.product_inner_case_size,
+                status=True if (prod_price['product__status'] in ['active', True]) else False,
+                category=product_categories,
+                product_images=product_images
+            )
 
 post_save.connect(get_category_product_report, sender=Product)

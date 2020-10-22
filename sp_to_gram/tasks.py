@@ -89,14 +89,24 @@ def get_warehouse_stock(shop_id=None,product=None):
 			for p_i in product_img
 		]
 		if not product_images:
-			product_images = [
-				{
-					"image_name": p_i.image_name,
-					"image_alt": p_i.image_alt_text,
-					"image_url": p_i.image.url
-				}
-				for p_i in p.product.child_product_pro_image.all()
-			]
+			if not p.product.use_parent_image:
+				product_images = [
+					{
+						"image_name": p_i.image_name,
+						"image_alt": p_i.image_alt_text,
+						"image_url": p_i.image.url
+					}
+					for p_i in p.product.child_product_pro_image.all()
+				]
+			else:
+				product_images = [
+					{
+						"image_name": p_i.image_name,
+						"image_alt": p_i.image_alt_text,
+						"image_url": p_i.image.url
+					}
+					for p_i in p.product.parent_product.parent_product_pro_image.all()
+				]
 		category = [str(c.category) for c in p.product.product_pro_category.filter(status=True)]
 		product_categories = [str(c.category) for c in p.product.parent_product.parent_product_pro_category.filter(status=True)]
 		product_details = {
