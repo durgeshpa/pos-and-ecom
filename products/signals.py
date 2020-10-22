@@ -22,9 +22,9 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=ProductCategory)
 def update_category_elasticsearch(sender, instance=None, created=False, **kwargs):
-	category = [str(c.category) for c in instance.product.product_pro_category.filter(status=True)]
-	for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-		update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], category=category)
+    category = [str(c.category) for c in instance.product.product_pro_category.filter(status=True)]
+    for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
+        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], category=category)
 
 
 
@@ -36,7 +36,7 @@ def update_product_image_elasticsearch(sender, instance=None, created=False, **k
                         "image_url":instance.image.url
                        }]
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-	    update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], product_images=product_images)
+        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], product_images=product_images)
 
 
 @receiver(post_save, sender=Product)
@@ -47,4 +47,3 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
         update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], name=prod_price['product__product_name'], pack_size=instance.product_inner_case_size, status=prod_price['product__status'])
 
 post_save.connect(get_category_product_report, sender=Product)
-

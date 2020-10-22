@@ -300,7 +300,7 @@ class GramGRNProductsList(APIView):
         self.keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
         offset = int(request.data.get('offset', 0))
-        page_size = int(request.data.get('pro_count', 20))
+        page_size = int(request.data.get('pro_count', 50))
         grn_dict = None
         cart_check = False
         is_store_active = True
@@ -381,7 +381,7 @@ class GramGRNProductsList(APIView):
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
                 if not check_price:
                     continue
-                check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp 
+                check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
                 p["_source"]["ptr"] = check_price.selling_price
                 p["_source"]["mrp"] = check_price_mrp
                 p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
