@@ -20,4 +20,3 @@ class AuditDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditDetail
         fields = ('audit_no', 'audit_level', 'audit_state', 'created_at')
-

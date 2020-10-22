@@ -592,7 +592,7 @@ class PickupDetail(APIView):
 
 class PickupComplete(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated, )
 
     def post(self, request):
         order_no = request.data.get('order_no')
