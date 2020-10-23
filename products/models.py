@@ -862,7 +862,7 @@ class Repackaging(models.Model):
 
 
 class RepackagingCost(models.Model):
-    repackaging = models.ForeignKey(Repackaging, on_delete=models.CASCADE)
+    repackaging = models.ForeignKey(Repackaging, related_name='repackaging_fk', on_delete=models.CASCADE)
     particular = models.PositiveIntegerField(default=1, verbose_name='PARTICULAR (KG)')
     raw_material = models.FloatField(default=0, validators=[PriceValidator])
     wastage = models.FloatField(default=0, validators=[PriceValidator])

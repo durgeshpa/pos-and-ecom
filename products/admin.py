@@ -1000,6 +1000,62 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     download_sample_file.short_description = 'Download Sample File'
 
 
+class SourceSKUSearch(InputFilter):
+    parameter_name = 'source_sku'
+    title = 'Source SKU ID'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            source_sku = self.value()
+            if source_sku is None:
+                return
+            return queryset.filter(
+                Q(source_sku__product_sku__icontains=source_sku)
+            )
+
+
+class SourceSKUName(InputFilter):
+    parameter_name = 'source_sku_name'
+    title = 'Source SKU Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            source_sku_name = self.value()
+            if source_sku_name is None:
+                return
+            return queryset.filter(
+                Q(source_sku__product_name__icontains=source_sku_name)
+            )
+
+
+class DestinationSKUName(InputFilter):
+    parameter_name = 'destination_sku_name'
+    title = 'Destination SKU Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            destination_sku_name = self.value()
+            if destination_sku_name is None:
+                return
+            return queryset.filter(
+                Q(destination_sku__product_name__icontains=destination_sku_name)
+            )
+
+
+class DestinationSKUSearch(InputFilter):
+    parameter_name = 'destination_sku'
+    title = 'Destination SKU ID'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            destination_sku = self.value()
+            if destination_sku is None:
+                return
+            return queryset.filter(
+                Q(destination_sku__product_name__icontains=destination_sku)
+            )
+
+
 class RepackagingCostInLine(admin.TabularInline):
     form = RepackagingCostForm
     model = RepackagingCost
@@ -1013,11 +1069,25 @@ class RepackagingCostInLine(admin.TabularInline):
 
 
 class RepackagingAdmin(admin.ModelAdmin, ExportCsvMixin):
+    inlines = [RepackagingCostInLine]
+
     form = RepackagingForm
     list_display = ('source_sku_name', 'source_product_sku', 'destination_sku_name',
-                    'destination_product_sku', 'destination_sku_quantity')
+                     'destination_product_sku', 'destination_sku_quantity', 'final_fg_cost', 'conversion_cost')
     actions = ["export_as_csv"]
-    inlines = [RepackagingCostInLine]
+
+    def get_queryset(self, obj):
+        qs = super(RepackagingAdmin, self).get_queryset(obj)
+        return qs.prefetch_related('repackaging_fk')
+
+    def final_fg_cost(self, obj):
+        return ", ".join([str(k.final_fg_cost) for k in obj.repackaging_fk.all()])
+
+    def conversion_cost(self, obj):
+        return ", ".join([str(k.conversion_cost) for k in obj.repackaging_fk.all()])
+
+    list_filter = [SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName, ('created_at', DateTimeRangeFilter)]
+    list_per_page = 10
 
     class Media:
         js = ("admin/js/repackaging.js",)
