@@ -16,7 +16,7 @@ from django.db import models
 from django.db.models import Sum
 
 from shops.models import Shop, ParentRetailerMapping
-from products.models import Product, ProductVendorMapping
+from products.models import Product, ProductVendorMapping, ParentProduct
 from brand.models import Brand, Vendor
 from addresses.models import Address, City, State
 from retailer_to_gram.models import (
@@ -193,6 +193,7 @@ class Cart(BaseCart):
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
+    cart_parent_product = models.ForeignKey(ParentProduct, related_name='cart_parent_product_mapping', on_delete=models.CASCADE, default=None, null=True)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
     _tax_percentage = models.FloatField(db_column="tax_percentage", null=True)
     #Todo Remove

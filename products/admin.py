@@ -3,7 +3,7 @@ from daterange_filter.filter import DateRangeFilter
 from django_filters import BooleanFilter
 from rangefilter.filter import DateTimeRangeFilter
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.admin import TabularInline, SimpleListFilter
 from django.core.exceptions import ValidationError
 from django.db.models import Q
@@ -13,18 +13,20 @@ from django.conf.urls import url
 from django.urls import reverse
 from django.utils.html import format_html
 
-from retailer_backend.admin import InputFilter
+from retailer_backend.admin import InputFilter, SelectInputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
-                    RepackagingForm, RepackagingCostForm)
+                    RepackagingForm, RepackagingCostForm,
+                    ParentProductForm, ProductSourceMappingForm)
+
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
                         PackageSizeResource, ProductPriceResource,
                         ProductResource, SizeResource, TaxResource,
-                        WeightResource)
+                        WeightResource, ParentProductResource)
 from .views import (CityAutocomplete, MultiPhotoUploadView,
                     PincodeAutocomplete, ProductAutocomplete,
                     ProductCategoryAutocomplete, ProductCategoryMapping,
@@ -38,7 +40,11 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     products_export_for_vendor, products_filter_view,
                     products_price_filter_view, products_vendor_mapping,
                     ProductShopAutocomplete, SourceRepackageDetail,
-                    DestinationRepackageDetail, DestinationProductAutocomplete)
+                    DestinationRepackageDetail, DestinationProductAutocomplete,
+                    parent_product_upload, ParentProductsDownloadSampleCSV,
+                    product_csv_upload, ChildProductsDownloadSampleCSV,
+                    ParentProductAutocomplete, ParentProductsAutocompleteView)
+
 from .filters import BulkTaxUpdatedBySearch
 
 
@@ -100,9 +106,93 @@ class BrandFilter(AutocompleteFilter):
     field_name = 'product_brand'  # name of the foreign key field
 
 
+class ChildParentIDFilter(AutocompleteFilter):
+    title = 'Parent ID'  # display title
+    field_name = 'parent_product'  # name of the foreign key field
+
+    def get_autocomplete_url(self, request, model_admin):
+        return reverse('admin:parent-product-list-filter-autocomplete')
+
+
+class ParentBrandFilter(AutocompleteFilter):
+    title = 'Brand'  # display title
+    field_name = 'parent_brand'  # name of the foreign key field
+
+
 class CategoryFilter(AutocompleteFilter):
     title = 'Category'  # display title
     field_name = 'category_name'  # name of the foreign key field
+
+
+class ParentCategorySearch(admin.SimpleListFilter):
+    parameter_name = 'category'
+    title = 'Category'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(parent_product_pro_category__category__category_name__icontains=self.value())
+            )
+
+    template = 'admin/parent_category_select_input_filter.html'
+
+    def lookups(self, request, model_admin):
+        # Dummy, required to show the filter.
+        return ((),)
+
+    def choices(self, changelist):
+        # Grab only the "all" option.
+        all_choice = next(super().choices(changelist))
+        all_choice['query_parts'] = (
+            (k, v)
+            for k, v in changelist.get_filters_params().items()
+            if k != self.parameter_name
+        )
+        yield all_choice
+
+
+class ProductBrandSearch(admin.SimpleListFilter):
+    parameter_name = 'brand'
+    title = 'Brand'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            # return queryset.filter(
+            #     Q(parent_brand_product__brand__brand_name__icontains=self.value())
+            # )
+            return queryset.filter(
+                Q(parent_product__parent_brand__brand_name__icontains=self.value())
+            )
+
+    template = 'admin/product_brand_select_input_filter.html'
+
+    def lookups(self, request, model_admin):
+        # Dummy, required to show the filter.
+        return ((),)
+
+    def choices(self, changelist):
+        # Grab only the "all" option.
+        all_choice = next(super().choices(changelist))
+        all_choice['query_parts'] = (
+            (k, v)
+            for k, v in changelist.get_filters_params().items()
+            if k != self.parameter_name
+        )
+        yield all_choice
+
+
+class ParentIDFilter(InputFilter):
+    title = 'Parent ID'
+    parameter_name = 'parent_id'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            parent_id = self.value()
+            if parent_id is None:
+                return
+            return queryset.filter(
+                Q(parent_id__icontains=parent_id)
+            )
 
 
 class VendorFilter(AutocompleteFilter):
@@ -283,14 +373,155 @@ class ProductTaxMappingAdmin(admin.TabularInline):
     class Media:
         pass
 
+class ParentProductCategoryAdmin(TabularInline):
+    model = ParentProductCategory
+    autocomplete_fields = ['category']
+    formset = RequiredInlineFormSet  # or AtLeastOneFormSet
+
+
+def deactivate_selected_products(modeladmin, request, queryset):
+    queryset.update(status=False)
+    for record in queryset:
+        Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='deactivated')
+
+deactivate_selected_products.short_description = "Deactivate Selected Products"
+
+
+def approve_selected_products(modeladmin, request, queryset):
+    queryset.update(status=True)
+    for record in queryset:
+        Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='active')
+approve_selected_products.short_description = "Approve Selected Products"
+
+
+class ParentProductImageAdmin(admin.TabularInline):
+    model = ParentProductImage
+
+
+class ParentProductAdmin(admin.ModelAdmin):
+    resource_class = ParentProductResource
+    form = ParentProductForm
+
+    class Media:
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            'admin/js/child_product_form.js'
+        )
+
+    change_list_template = 'admin/products/parent_product_change_list.html'
+    change_form_template = 'admin/products/parent_product_change_form.html'
+    actions = [deactivate_selected_products, approve_selected_products]
+    list_display = [
+        'parent_id', 'name', 'parent_brand', 'product_hsn', 'product_gst', 'product_image', 'status'
+    ]
+    search_fields = [
+        'parent_id', 'name'
+    ]
+    inlines = [
+        ParentProductCategoryAdmin, ParentProductImageAdmin
+    ]
+    list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
+    autocomplete_fields = ['product_hsn', 'parent_brand']
+
+    def product_image(self, obj):
+        if obj.parent_product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.parent_product_pro_image.last().image.url,
+                (obj.parent_product_pro_image.last().image_alt_text or obj.parent_product_pro_image.last().image_name),
+                obj.parent_product_pro_image.last().image.url
+            ))
+        return '-'
+
+    def product_gst(self, obj):
+        if obj.gst:
+            return "{} %".format(obj.gst)
+        return ''
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ParentProductAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^parent-product-upload-csv/$',
+                self.admin_site.admin_view(parent_product_upload),
+                name="parent-product-upload"
+            ),
+            url(
+                r'^parent-products-download-sample-csv/$',
+                self.admin_site.admin_view(ParentProductsDownloadSampleCSV),
+                name="parent-products-download-sample-csv"
+            )
+        ] + urls
+        return urls
+
+
+def deactivate_selected_child_products(modeladmin, request, queryset):
+    queryset.update(status='deactivated')
+deactivate_selected_products.short_description = "Deactivate Selected Products"
+
+
+def approve_selected_child_products(modeladmin, request, queryset):
+    fail_skus = []
+    success_skus = []
+    for record in queryset:
+        parent_sku = ParentProduct.objects.filter(parent_id=record.parent_product.parent_id).last()
+        if parent_sku.status:
+            record.status = 'active'
+            record.save()
+            success_skus.append(record.product_sku)
+        else:
+            parent_sku.status = True
+            parent_sku.save()
+            record.status = 'active'
+            record.save()
+            fail_skus.append(record.product_sku)
+    if fail_skus:
+        modeladmin.message_user(
+            request,
+            "All selected Child SKUs were successfully approved along with their Parent SKU activation where required",
+            level=messages.SUCCESS
+        )
+    else:
+        modeladmin.message_user(request, "All selected Child SKUs were successfully approved", level=messages.SUCCESS)
+approve_selected_products.short_description = "Approve Selected Products"
+
+
+class ProductSourceMappingAdmin(admin.TabularInline):
+    model = ProductSourceMapping
+    fk_name = "destination_sku"
+    form = ProductSourceMappingForm
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ProductSourceMappingAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^source-product-autocomplete/$',
+                self.admin_site.admin_view(SourceProductAutocomplete.as_view()),
+                name='source-product-autocomplete',
+            ),
+        ] + urls
+        return urls
+
+
+class ChildProductImageAdmin(admin.TabularInline):
+    model = ChildProductImage
+
 
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductResource
     form = ProductForm
 
     class Media:
-            pass
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            'admin/js/child_product_form.js'
+        )
+
     exclude = ('product_sku',)
+
+    change_list_template = 'admin/products/product_change_list.html'
+    change_form_template = 'admin/products/product_change_form.html'
 
     def get_urls(self):
         from django.conf.urls import url
@@ -446,30 +677,95 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(DestinationRepackageDetail.as_view()),
                 name="destination-repackage-detail"
             ),
+            url(
+                r'^product-csv-upload/$',
+                self.admin_site.admin_view(product_csv_upload),
+                name="product-csv-upload"
+            ),
+            url(
+                r'^chld-products-download-sample-csv/$',
+                self.admin_site.admin_view(ChildProductsDownloadSampleCSV),
+                name="child-products-download-sample-csv"
+            ),
+            url(
+                r'^parent-product-autocomplete/$',
+                self.admin_site.admin_view(ParentProductAutocomplete.as_view()),
+                name='parent-product-autocomplete',
+            ),
+            url(
+                r'^parent-product-list-filter-autocomplete/$',
+                self.admin_site.admin_view(ParentProductsAutocompleteView.as_view(model_admin=self)),
+                name='parent-product-list-filter-autocomplete',
+            ),
+            # url('custom_search/', self.admin_site.admin_view(CustomSearchView.as_view(model_admin=self)),
+            #      name='custom_search'),
         ] + urls
         return urls
 
-    actions = ['export_as_csv']
+    actions = [deactivate_selected_child_products, approve_selected_child_products, 'export_as_csv']
+    # list_display = [
+    #     'product_sku', 'product_name', 'product_short_description',
+    #     'product_brand', 'product_gf_code', 'product_images'
+    # ]
+    # list_display = [
+    #     'product_sku', 'product_name',
+    #     'product_brand', 'product_images'
+    # ]
     list_display = [
-        'product_sku', 'product_name', 'product_short_description',
-        'product_brand', 'product_gf_code','product_images'
+        'product_sku', 'product_name', 'parent_product', 'parent_name',
+        'product_brand', 'product_ean_code', 'product_mrp',
+        'product_hsn', 'product_gst', 'products_image', 'status'
     ]
-    search_fields = ['product_name', 'id', 'product_gf_code']
-    list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
-    prepopulated_fields = {'product_slug': ('product_name',)}
-    inlines = [
-        ProductCategoryAdmin, ProductOptionAdmin,
-        ProductImageAdmin, ProductTaxMappingAdmin
-    ]
-    autocomplete_fields = ['product_hsn', 'product_brand']
+
+    # search_fields = ['product_name', 'id', 'product_gf_code']
+    search_fields = ['product_name', 'id']
+    # list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
+    list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status']
+    # prepopulated_fields = {'product_slug': ('product_name',)}
+    # inlines = [
+    #     ProductCategoryAdmin, ProductOptionAdmin,
+    #     ProductImageAdmin, ProductTaxMappingAdmin
+    # ]
+    inlines = [ChildProductImageAdmin, ProductSourceMappingAdmin]
+    # autocomplete_fields = ['product_hsn', 'product_brand']
+    autocomplete_fields = ['parent_product']
 
     def product_images(self,obj):
         if obj.product_pro_image.exists():
             return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
-                             format(obj.product_pro_image.last().image.url,obj.product_pro_image.last().image_alt_text,
+                             format(obj.product_pro_image.last().image.url, obj.product_pro_image.last().image_alt_text,
                                     obj.product_pro_image.last().image.url))
 
     product_images.short_description = 'Product Image'
+
+    def products_image(self, obj):
+        if obj.use_parent_image and obj.parent_product.parent_product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.parent_product.parent_product_pro_image.last().image.url,
+                (obj.parent_product.parent_product_pro_image.last().image_alt_text or obj.parent_product.parent_product_pro_image.last().image_name),
+                obj.parent_product.parent_product_pro_image.last().image.url
+            ))
+        elif not obj.use_parent_image and obj.child_product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.child_product_pro_image.last().image.url,
+                (obj.child_product_pro_image.last().image_alt_text or obj.child_product_pro_image.last().image_name),
+                obj.child_product_pro_image.last().image.url
+            ))
+        return '-'
+
+    def product_gst(self, obj):
+        if obj.product_gst:
+            return "{} %".format(obj.product_gst)
+        return ''
+    product_gst.short_description = 'Product GST'
+
+    def get_changeform_initial_data(self, request):
+        if request.GET.get('product'):
+            product_details = Product.objects.filter(pk=int(request.GET.get('product'))).last()
+            return {
+                'parent_product': product_details.parent_product
+            }
+        return super().get_changeform_initial_data(request)
 
 
 class MRPSearch(InputFilter):
@@ -506,11 +802,11 @@ class ExportProductPrice:
 class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
-    actions = ['export_as_csv_productprice', 'approve_product_price','disapprove_product_price']
+    actions = ['export_as_csv_productprice', 'approve_product_price', 'disapprove_product_price']
     list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
                            'pincode')
     list_display = [
-        'product', 'product_sku', 'product_gf_code', 'mrp', 'selling_price',
+        'product', 'product_sku', 'product_gf_code', 'product_mrp', 'selling_price',
         'seller_shop', 'buyer_shop', 'city', 'pincode',
         'start_date', 'end_date', 'approval_status', 'status'
     ]
@@ -529,8 +825,13 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
               'buyer_shop', 'city', 'pincode',
               'start_date', 'end_date', 'approval_status')
 
+    change_form_template = 'admin/products/product_price_change_form.html'
+
     class Media:
-        pass
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+            'admin/js/child_product_form.js'
+        )
 
     def get_readonly_fields(self, request, obj=None):
         if not request.user.is_superuser:
@@ -545,6 +846,13 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         return obj.product.product_sku
 
     product_sku.short_description = 'Product SKU'
+
+    def product_mrp(self, obj):
+        if obj.product.product_mrp:
+            return obj.product.product_mrp
+        elif obj.mrp:
+            return obj.mrp
+        return ''
 
     def product_gf_code(self, obj):
         return obj.product.product_gf_code
@@ -736,3 +1044,4 @@ admin.site.register(ProductTaxMapping, ProductTaxAdmin)
 admin.site.register(BulkProductTaxUpdate, BulkProductTaxUpdateAdmin)
 admin.site.register(BulkUploadForGSTChange, BulkUploadForGSTChangeAdmin)
 admin.site.register(Repackaging, RepackagingAdmin)
+admin.site.register(ParentProduct, ParentProductAdmin)

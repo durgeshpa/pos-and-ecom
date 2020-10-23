@@ -163,8 +163,8 @@ def create_order(sender, instance=None, created=False, **kwargs):
             order.total_final_amount = order.total_final_amount+instance.total_price
             order.save()
         else:
-            shipping_address = Address.objects.get(shop_name=instance.cart.shop,address_type='shipping')
-            billing_address = Address.objects.get(shop_name=instance.cart.shop,address_type='billing')
+            shipping_address = Address.objects.filter(shop_name=instance.cart.shop,address_type='shipping').last()
+            billing_address = Address.objects.filter(shop_name=instance.cart.shop,address_type='billing').last()
             Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no,billing_address=billing_address,
                  shipping_address=shipping_address,total_final_amount=instance.total_price,order_status='ordered_to_gram')
 

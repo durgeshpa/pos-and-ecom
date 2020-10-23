@@ -26,6 +26,13 @@ SlugValidator = RegexValidator(
     code='INVALID_SLUG'
 )
 
+#PABCDEF0023
+ParentIDValidator = RegexValidator(
+    regex='^[P][A-Z]{3}[A-Z]{3}[\d]{4}$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_PARENT_ID'],
+    code='INVALID_PARENT_ID'
+)
+
 #12BBPRG00000121
 SKUValidator = RegexValidator(
     regex='^[\d]{2}[A-Z]{5}[\d]{8}$',
