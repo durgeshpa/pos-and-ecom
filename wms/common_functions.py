@@ -307,10 +307,14 @@ def get_product_stock(shop, sku):
 
 
 def get_visibility_changes(shop, product):
+    visibility_changes = {}
+    if isinstance(product, int):
+        product = Product.objects.filter(id=product).last()
+    if not product:
+        return visibility_changes
     child_siblings = Product.objects.filter(
         parent_product=ParentProduct.objects.filter(id=product.parent_product.id).last(),
     )
-    visibility_changes = {}
     min_exp_date_data = {
         'id': '',
         'exp': None

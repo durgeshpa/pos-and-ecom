@@ -12,6 +12,7 @@ from shops.models import Shop
 from sp_to_gram import models
 from products.models import Product, ProductPrice
 from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF, get_product_stock
+from wms.common_functions import get_visibility_changes
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 import logging
 info_logger = logging.getLogger('file-info')
@@ -139,6 +140,14 @@ def upload_shop_stock(shop=None,product=None):
 	all_products = get_warehouse_stock(shop,product)
 	es_index = shop if shop else 'all_products'
 	for product in all_products:
+		if shop is not None:
+			visibility_changes = get_visibility_changes(shop, product['id'])
+			if visibility_changes:
+				for prod_id, visibility in visibility_changes.items():
+					if prod_id == product.get('id', ''):
+						product['visible'] = visibility
+					else:
+						es.update(index=create_es_index(shop),id=product_id,body={"doc":{"visible": visibility}},doc_type='product')
 		es.index(index=create_es_index(es_index), doc_type='product',id=product['id'], body=product)
 
 @task
