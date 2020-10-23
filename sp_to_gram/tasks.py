@@ -144,10 +144,10 @@ def upload_shop_stock(shop=None,product=None):
 			visibility_changes = get_visibility_changes(shop, product['id'])
 			if visibility_changes:
 				for prod_id, visibility in visibility_changes.items():
-					if prod_id == product.get('id', ''):
+					if prod_id == product['id']:
 						product['visible'] = visibility
 					else:
-						es.update(index=create_es_index(shop),id=product_id,body={"doc":{"visible": visibility}},doc_type='product')
+						es.update(index=create_es_index(es_index), doc_type='product', id=prod_id, body={"doc":{"visible": visibility}})
 		es.index(index=create_es_index(es_index), doc_type='product',id=product['id'], body=product)
 
 @task
