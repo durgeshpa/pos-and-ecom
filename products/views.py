@@ -1032,3 +1032,10 @@ class DestinationRepackageDetail(View):
             return JsonResponse({"success": False, "error": "Destination SKU Weight Value Not Found"})
 
         return JsonResponse({"destination_sku_weight": product_obj['weight_value'], "success": True})
+
+
+class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
+
+    def get_queryset(self, *args, **kwargs):
+        seller_shop = self.forwarded.get('source_sku', None)
+        pass

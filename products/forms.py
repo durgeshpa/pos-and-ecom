@@ -862,7 +862,7 @@ class RepackagingForm(forms.ModelForm):
     destination_sku = forms.ModelChoiceField(
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(
-            url='admin:product-price-autocomplete', )
+            url='admin:destination-product-autocomplete', forward=['source_sku'])
     )
 
     class Meta:

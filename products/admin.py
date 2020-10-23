@@ -38,7 +38,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     products_export_for_vendor, products_filter_view,
                     products_price_filter_view, products_vendor_mapping,
                     ProductShopAutocomplete, SourceRepackageDetail,
-                    DestinationRepackageDetail)
+                    DestinationRepackageDetail, DestinationProductAutocomplete)
 from .filters import BulkTaxUpdatedBySearch
 
 
@@ -430,6 +430,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^product-shop-autocomplete/$',
                 self.admin_site.admin_view(ProductShopAutocomplete.as_view()),
                 name="product-shop-autocomplete"
+            ),
+            url(
+                r'^destination-product-autocomplete/$',
+                self.admin_site.admin_view(DestinationProductAutocomplete.as_view()),
+                name="destination-product-autocomplete"
             ),
             url(
                 r'^source-repackage-detail/$',
