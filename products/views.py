@@ -32,7 +32,8 @@ from products.models import (
     Product, ProductCategory, ProductOption,
     ProductTaxMapping, ProductVendorMapping,
     ProductImage, ProductHSN, ProductPrice,
-    ParentProduct, ParentProductCategory
+    ParentProduct, ParentProductCategory,
+    ProductSourceMapping
     )
 
 logger = logging.getLogger(__name__)
@@ -1236,10 +1237,10 @@ class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self, *args, **kwargs):
         seller_shop = self.forwarded.get('seller_shop', None)
-        pp = ProductPrice.objects.filter(seller_shop_id=seller_shop).values('product_id')
-        qs = Product.objects.all()
+        qs = []
         if seller_shop:
-            qs = qs.filter(id__in=pp)
+            pp = ProductPrice.objects.filter(seller_shop_id=seller_shop).values('product_id')
+            qs = Product.objects.filter(id__in=pp, repackaging_type='source')
         return qs
 
 
@@ -1255,9 +1256,7 @@ class SourceRepackageDetail(View):
         inventory_id = InventoryType.objects.values('id').get(inventory_type='normal')
 
         try:
-            source_quantity = WarehouseInventory.objects.values('quantity').get(sku_id=product_obj['product_sku'],
-                                                                                    inventory_type_id=inventory_id[
-                                                                                        'id'])
+            source_quantity = WarehouseInventory.objects.values('quantity').get(sku_id=product_obj['product_sku'], inventory_type_id=inventory_id['id'])
         except Exception as e:
             return JsonResponse({"success": False, "error": "Warehouse Inventory Does Not Exist"})
 
@@ -1281,5 +1280,9 @@ class DestinationRepackageDetail(View):
 class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self, *args, **kwargs):
-        seller_shop = self.forwarded.get('source_sku', None)
-        pass
+        source_sku = self.forwarded.get('source_sku', None)
+        qs = []
+        if source_sku:
+            psm = ProductSourceMapping.objects.filter(source_sku=source_sku, status=True).values('destination_sku')
+            qs = Product.objects.filter(id__in=psm)
+        return qs
