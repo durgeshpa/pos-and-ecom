@@ -65,14 +65,7 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
 
     def max_putaway_qty_dt(self, obj):
         qty = Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('quantity'))['total']
-        info_logger.info("Putawaya beinganognaongonag")
-        info_logger.info(qty)
-        info_logger.info(obj.batch_id)
-        info_logger.info(obj.warehouse_id)
-        info_logger.info(Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).values("putaway_quantity"))
-        # print(obj.batch_id)
         updated_qty = qty - Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('putaway_quantity'))['total']
-        info_logger.info(updated_qty)
         return updated_qty
 
 
@@ -176,6 +169,8 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
 
     def product_mrp_dt(self, obj):
         #mrp = obj.pickup.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp
+        if obj.pickup.sku.product_mrp:
+            return obj.pickup.sku.product_mrp
         product_mrp = obj.pickup.sku.product_pro_price.filter(seller_shop=obj.warehouse, approval_status=2)
         if product_mrp:
             return product_mrp.last().mrp

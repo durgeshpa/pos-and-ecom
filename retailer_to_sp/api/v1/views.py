@@ -238,27 +238,7 @@ class GramGRNProductsList(APIView):
     def search_query(self, request):
         filter_list = [
             {"term": {"status": True}},
-            {"range": {"available": {"gt": 0}}},
-            {
-                "bool": {
-                    "should": [
-                        {
-                            "term": {
-                                "visible": True
-                            }
-                        },
-                        {
-                            "bool": {
-                                "must_not": {
-                                    "exists": {
-                                        "field": "visible"
-                                    }
-                                }
-                            }
-                        }
-                    ]
-                }
-            }
+            {"range": {"available": {"gt": 0}}}
         ]
         if self.product_ids:
             filter_list.append({"ids": {"type": "product", "values": self.product_ids}})
@@ -350,18 +330,18 @@ class GramGRNProductsList(APIView):
                 "from": offset,
                 "size": page_size,
                 "query": query,
-                "_source": {"includes": ["name", "product_images", "pack_size", "weight_unit", "weight_value"]}
+                "_source": {"includes": ["name", "product_images", "pack_size", "weight_unit", "weight_value", "visible"]}
             }
             products_list = es_search(index="all_products", body=body)
         for p in products_list['hits']['hits']:
-            if not Product.objects.filter(id=p["_source"]["id"]).exists():
-                print("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
-                continue
             visible_flag = p["_source"].get('visible', None)
             if visible_flag is not None and not visible_flag:
-                print("visible flag false for {}".format(p["_source"]))
+                logger.info("visible flag false for {}".format(p["_source"].get('name')))
                 continue
             if is_store_active:
+                if not Product.objects.filter(id=p["_source"]["id"]).exists():
+                    logger.info("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
+                    continue
                 product = Product.objects.get(id=p["_source"]["id"])
                 product_coupons = product.getProductCoupons()
                 coupons_queryset1 = Coupon.objects.filter(coupon_code__in=product_coupons, coupon_type='catalog')

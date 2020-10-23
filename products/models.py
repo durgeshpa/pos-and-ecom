@@ -385,6 +385,8 @@ class Product(models.Model):
         return self.get_current_shop_price(seller_shop_id, buyer_shop_id)
 
     def getMRP(self, seller_shop_id, buyer_shop_id):
+        if self.product_mrp:
+            return self.product_mrp
         product_price = self.getPriceByShopId(seller_shop_id, buyer_shop_id)
         return product_price.mrp if product_price else False
 
