@@ -443,19 +443,17 @@ class InternalInventoryChange(object):
         :param inventory_csv:
         :return:
         """
-        try:
-            BinInternalInventoryChange.objects.create(warehouse_id=shop_id.id, sku=sku,
-                                                      batch_id=batch_id,
-                                                      final_bin=Bin.objects.get(bin_id=final_bin_id,
-                                                                                warehouse=Shop.objects.get(
-                                                                                    id=shop_id.id)),
-                                                      initial_inventory_type=initial_type,
-                                                      final_inventory_type=final_type,
-                                                      transaction_type=transaction_type,
-                                                      transaction_id=transaction_id,
-                                                      quantity=quantity)
-        except Exception as e:
-            error_logger.error(e)
+
+        BinInternalInventoryChange.objects.create(warehouse_id=shop_id.id, sku=sku,
+                                                  batch_id=batch_id,
+                                                  final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                            warehouse=Shop.objects.get(
+                                                                                id=shop_id.id)),
+                                                  initial_inventory_type=initial_type,
+                                                  final_inventory_type=final_type,
+                                                  transaction_type=transaction_type,
+                                                  transaction_id=transaction_id,
+                                                  quantity=quantity)
 
 
 class WareHouseCommonFunction(object):
@@ -529,15 +527,14 @@ class InternalWarehouseChange(object):
         :param inventory_csv: stock movement csv obj
         :return: queryset
         """
-        try:
-            WarehouseInternalInventoryChange.objects.create(warehouse=warehouse,
-                                                            sku=sku, transaction_type=transaction_type,
-                                                            transaction_id=transaction_id, initial_stage=initial_stage,
-                                                            final_stage=final_stage, quantity=quantity,
-                                                            initial_type=initial_type, final_type=final_type,
-                                                            inventory_csv=inventory_csv)
-        except Exception as e:
-            error_logger.error(e)
+
+        WarehouseInternalInventoryChange.objects.create(warehouse=warehouse,
+                                                        sku=sku, transaction_type=transaction_type,
+                                                        transaction_id=transaction_id, initial_stage=initial_stage,
+                                                        final_stage=final_stage, quantity=quantity,
+                                                        initial_type=initial_type, final_type=final_type,
+                                                        inventory_csv=inventory_csv)
+
 
 
 class InternalStockCorrectionChange(object):
