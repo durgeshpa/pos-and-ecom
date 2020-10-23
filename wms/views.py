@@ -447,10 +447,14 @@ def commit_updates_to_es(shop, product):
     if not available_qty:
         status = False
     info_logger.info("updating ES %s", available_qty)
-    update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
     if visibility_changes:
         for prod_id, visibility in visibility_changes.items():
-            update_product_es.delay(shop.id, prod_id, visible=visibility)
+            if prod_id == product.id:
+                update_product_es.delay(shop.id, product.id, available=available_qty, status=status, visible=visibility)
+            else:
+                update_product_es.delay(shop.id, prod_id, visible=visibility)
+    else:
+        update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
 
 
 
