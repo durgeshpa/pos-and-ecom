@@ -246,6 +246,7 @@ class PutAwayViewSet(APIView):
                                                                     inventory_type=InventoryType.objects.filter(
                                                                         inventory_type='normal').last()).aggregate(
                                     total=Sum('quantity'))['total']
+                                # bug on production
                                 if total > 0:
                                     msg = {'is_success': False,
                                            'message': 'This product with sku {} and batch_id {} can not be placed in the bin'.format(
