@@ -7,7 +7,7 @@ from django import forms
 from datetime import datetime
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
     InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit
-from products.models import Product
+from products.models import Product, ProductPrice
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
@@ -846,6 +846,10 @@ class UploadAuditAdminForm(forms.Form):
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 2) + "," + "Product of MRP can not be empty or string type."))
 
+            if not ProductPrice.objects.filter(product__product_sku=row[1][-17:], seller_shop=row[0]).exists():
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "This Product is not associated with this warehouse."))
+
             # to validate expiry date is empty or not and validate the correct format
             if not row[3]:
                 raise ValidationError(_(
@@ -894,6 +898,10 @@ class UploadAuditAdminForm(forms.Form):
             if not Bin.objects.filter(bin_id=row[4], is_active=True).exists():
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID is not activated in the system."))
+
+            if not Bin.objects.filter(bin_id=row[4], warehouse=row[0]).exists():
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID is not associated with given warehouse."))
 
             # to validate normal initial quantity is empty or contains the number
             if not row[5] or not re.match("^[\d]*$", row[5]):
