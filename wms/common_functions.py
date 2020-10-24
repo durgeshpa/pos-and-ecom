@@ -598,7 +598,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
     :return:
     """
     bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(
-        bin_id=bin_id).last(),
+        bin_id=bin_id, warehouse=sh).last(),
                                                                                sku=put_away.last().sku,
                                                                                batch_id=batch_id,
                                                                                inventory_type=InventoryType.objects.filter(
@@ -612,7 +612,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
         CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, pu[0].sku, inv_type, inv_state, val,
                                                                      True)
     else:
-        BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(), sku=put_away.last().sku,
+        BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last(), sku=put_away.last().sku,
                                     batch_id=batch_id, inventory_type=InventoryType.objects.filter(
                 inventory_type=inv_type).last(), quantity=val, in_stock=t)
         CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, pu[0].sku, inv_type, inv_state, val,
