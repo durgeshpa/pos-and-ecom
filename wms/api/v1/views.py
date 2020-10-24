@@ -629,12 +629,9 @@ class PickupComplete(APIView):
                     state_picked = InventoryState.objects.filter(inventory_state="picked").last()
                     state_ordered = InventoryState.objects.filter(inventory_state="ordered").last()
 
-                    order_qs.update(order_status='picking_complete')
-                    pd_obj.update(picking_status='picking_complete')
-                    pick_obj.update(status='picking_complete', completed_at=timezone.now())
-
                     for pickup in pick_obj:
-                        info_logger.info("PickupComplete : Starting to complete pickup for - {}".format(pickup))
+                        info_logger.info("PickupComplete : Starting to complete pickup for order - {}, sku - {}"
+                                         .format(pickup.pickup_type_id, pickup.sku))
                         pickup_bin_list = PickupBinInventory.objects.filter(pickup=pickup)
                         for pickup_bin in pickup_bin_list:
                             if pickup_bin.pickup_quantity is None:
@@ -691,7 +688,13 @@ class PickupComplete(APIView):
                                                                                           type_normal, state_available,
                                                                                           reverse_quantity, None)
 
-                        info_logger.info("PickupComplete : Pickup completed for - {}".format(pickup))
+                        info_logger.info("PickupComplete : Pickup completed for order - {}, sku - {}"
+                                         .format(pickup.pickup_type_id, pickup.sku))
+
+                    order_qs.update(order_status='picking_complete')
+                    pd_obj.update(picking_status='picking_complete')
+                    pick_obj.update(status='picking_complete', completed_at=timezone.now())
+
                 return Response({'is_success': True,
                                  'message': "Pickup complete for all the items"})
 
