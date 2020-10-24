@@ -210,13 +210,16 @@ class PutAwayBinInventoryForm(forms.ModelForm):
             self.fields['bin_id'].disabled = True
             self.fields['bin'] = forms.ModelChoiceField(queryset=Bin.objects.filter(
                 warehouse=self.instance.warehouse).distinct(), widget=autocomplete.ModelSelect2())
-        bin_obj = BinInventory.objects.filter(bin=Bin.objects.filter(bin_id=self.cleaned_data['bin']).last(), warehouse=self.instance.warehouse).last()
+        bin_obj = BinInventory.objects.filter(
+            bin=Bin.objects.filter(bin_id=self.cleaned_data['bin'], warehouse=self.instance.warehouse).last(),
+            warehouse=self.instance.warehouse).last()
         if bin_obj:
             return bin_obj
         else:
             bin_exp_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse,
                                                       bin=Bin.objects.filter(
-                                                          bin_id=self.cleaned_data['bin'].bin_id).last(),
+                                                          bin_id=self.cleaned_data['bin'].bin_id,
+                                                      warehouse=self.instance.warehouse).last(),
                                                       sku=Product.objects.filter(
                                                           product_sku=self.instance.sku_id).last(),
                                                       batch_id=self.instance.batch_id)
