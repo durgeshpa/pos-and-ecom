@@ -527,7 +527,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
 
                 # to check normal quantity is available or not in Bin Inventory object
                 bin_inv_normal = BinInventory.objects.filter(warehouse=data[0],
-                                            bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                            bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
                                             sku=Product.objects.filter(
                                                 product_sku=data[2]).last(),
                                             batch_id=batch_id,
@@ -547,7 +547,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 else:
                     # if Norma quanity is not available in Bin Inventory object then create the data into Bin Inventory
                     BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=data[0])[0],
-                                                       bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                       bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
                                                        batch_id=batch_id,
                                                        sku=Product.objects.filter(
                                                            product_sku=data[2]).last(),
@@ -558,7 +558,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
 
                 # to check normal damaged is available or not in Bin Inventory object
                 bin_inv_damaged = BinInventory.objects.filter(warehouse=data[0],
-                                                          bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                          bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
                                                           sku=Product.objects.filter(
                                                               product_sku=data[2]).last(),
                                                           batch_id=batch_id,
@@ -572,7 +572,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                         out_quantity = out_quantity + int(data[6])
                 else:
                     BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=data[0])[0],
-                                                       bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                       bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
                                                        batch_id=batch_id,
                                                        sku=Product.objects.filter(product_sku=data[2]).last(),
                                                        in_stock=True, quantity=int(data[6]),
@@ -583,7 +583,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
 
                 # to check expired quantity is available or not in Bin Inventory object
                 bin_inv_expired = BinInventory.objects.filter(warehouse=data[0],
-                                                          bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                          bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
                                                           sku=Product.objects.filter(
                                                               product_sku=data[2]).last(),
                                                           batch_id=batch_id,
@@ -598,7 +598,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 else:
                     BinInventory.objects.get_or_create(
                         warehouse=Shop.objects.filter(id=data[0])[0],
-                        bin=Bin.objects.filter(bin_id=data[4]).last(),
+                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
                         batch_id=batch_id,
                         sku=Product.objects.filter(
                             product_sku=data[2]).last(),
@@ -610,7 +610,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
 
                 # to check missing quantity is available or not in Bin Inventory object
                 bin_inv_missing = BinInventory.objects.filter(warehouse=data[0],
-                                                          bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                          bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
                                                           sku=Product.objects.filter(
                                                               product_sku=data[2]).last(),
                                                           batch_id=batch_id,
@@ -625,7 +625,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 else:
                     BinInventory.objects.get_or_create(
                         warehouse=Shop.objects.filter(id=data[0])[0],
-                        bin=Bin.objects.filter(bin_id=data[4]).last(),
+                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
                         batch_id=batch_id,
                         sku=Product.objects.filter(
                             product_sku=data[2]).last(),
@@ -701,7 +701,7 @@ def check_transaction_type(key, value, data, stock_movement_obj, stock_correctio
     expiry_date = data[3]
     batch_id = create_batch_id(sku, expiry_date)
     bin_inv_normal = BinInventory.objects.filter(warehouse=data[0],
-                                                 bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                 bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
                                                  sku=Product.objects.filter(
                                                      product_sku=data[2]).last(),
                                                  batch_id=batch_id,

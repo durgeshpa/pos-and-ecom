@@ -846,9 +846,9 @@ class UploadAuditAdminForm(forms.Form):
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 2) + "," + "Product of MRP can not be empty or string type."))
 
-            if not ProductPrice.objects.filter(product__product_sku=row[1][-17:], seller_shop=row[0]).exists():
-                raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 2) + "," + "This Product is not associated with this warehouse."))
+            # if not ProductPrice.objects.filter(product__product_sku=row[1][-17:], seller_shop=row[0]).exists():
+            #     raise ValidationError(_(
+            #         "Issue in Row" + " " + str(row_id + 2) + "," + "This Product is not associated with this warehouse."))
 
             # to validate expiry date is empty or not and validate the correct format
             if not row[3]:
