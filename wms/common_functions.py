@@ -1705,7 +1705,7 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
     :return:
     """
     bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(
-        bin_id=bin_id).last(),
+        bin_id=bin_id, warehouse=sh).last(),
                                                                                sku=sku,
                                                                                batch_id=batch_id,
                                                                                inventory_type=InventoryType.objects.filter(
@@ -1716,7 +1716,7 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
         bin_inventory_obj.quantity = val
         bin_inventory_obj.save()
     else:
-        BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(), sku=sku,
+        BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last(), sku=sku,
                                     batch_id=batch_id, inventory_type=InventoryType.objects.filter(
                 inventory_type=inv_type).last(), quantity=val, in_stock=t)
     CommonWarehouseInventoryFunctions.create_warehouse_inventory_stock_correction(sh, sku, inv_type, inv_state, val,
@@ -1726,13 +1726,13 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
     else:
         if put_away_status is True:
             PutawayBinInventory.objects.create(warehouse=sh, putaway=transaction_type_obj.last(),
-                                               bin=BinInventory.objects.filter(bin__bin_id=bin_id).last(),
+                                               bin=BinInventory.objects.filter(bin__bin_id=bin_id, warehouse=sh).last(),
                                                putaway_quantity=val, putaway_status=True,
                                                sku=sku, batch_id=transaction_type_obj.last().batch_id,
                                                putaway_type=transaction_type_obj.last().putaway_type)
         else:
             PutawayBinInventory.objects.create(warehouse=sh, putaway=transaction_type_obj.last(),
-                                               bin=BinInventory.objects.filter(bin__bin_id=bin_id).last(),
+                                               bin=BinInventory.objects.filter(bin__bin_id=bin_id, warehouse=sh).last(),
                                                putaway_quantity=val, putaway_status=False,
                                                sku=sku, batch_id=transaction_type_obj.last().batch_id,
                                                putaway_type=transaction_type_obj.last().putaway_type)
