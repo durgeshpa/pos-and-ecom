@@ -837,10 +837,10 @@ class Repackaging(models.Model):
     seller_shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
     source_sku = models.ForeignKey(Product, related_name='source_sku_repackaging', on_delete=models.CASCADE, null=True)
     destination_sku = models.ForeignKey(Product, related_name='destination_sku_repackaging', on_delete=models.CASCADE, null=True)
-    repackage_weight = models.FloatField(default=0, blank=True, verbose_name='Weight Of Source SKU To Be Repackaged', validators=[WeightValidator])
-    available_source_weight = models.FloatField(default=0, blank=True, verbose_name='Available Source SKU Weight')
-    available_source_quantity = models.PositiveIntegerField(default=0, blank=True, verbose_name='Available Source SKU Qty(pcs)')
-    destination_sku_quantity = models.PositiveIntegerField(default=0, blank=True, verbose_name='Created Destination SKU Qty (pcs)')
+    repackage_weight = models.FloatField(default=0, verbose_name='Weight Of Source SKU To Be Repackaged (Kg)', validators=[WeightValidator])
+    available_source_weight = models.FloatField(default=0, verbose_name='Available Source SKU Weight (Kg)')
+    available_source_quantity = models.PositiveIntegerField(default=0, verbose_name='Available Source SKU Qty(pcs)')
+    destination_sku_quantity = models.PositiveIntegerField(default=0, verbose_name='Created Destination SKU Qty (pcs)')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -860,10 +860,13 @@ class Repackaging(models.Model):
         if self.pk is None:
             super().save(*args, **kwargs)
 
+    def __str__(self):
+        return "REPACKAGING: " + self.source_sku_name() + ' TO ' + self.destination_sku_name()
+
 
 class RepackagingCost(models.Model):
-    repackaging = models.ForeignKey(Repackaging, related_name='repackaging_fk', on_delete=models.CASCADE)
-    particular = models.PositiveIntegerField(default=1, verbose_name='PARTICULAR (KG)')
+    repackaging = models.ForeignKey(Repackaging, on_delete=models.CASCADE)
+    particular = models.FloatField(default=1, verbose_name='PARTICULAR (KG)', validators=[PriceValidator])
     raw_material = models.FloatField(default=0, validators=[PriceValidator])
     wastage = models.FloatField(default=0, validators=[PriceValidator])
     fumigation = models.FloatField(default=0, validators=[PriceValidator])

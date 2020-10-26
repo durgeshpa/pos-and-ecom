@@ -45,7 +45,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
                     ParentProductAutocomplete, ParentProductsAutocompleteView)
 
-from .filters import BulkTaxUpdatedBySearch
+from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 
 
 class ProductFilter(AutocompleteFilter):
@@ -1000,60 +1000,33 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     download_sample_file.short_description = 'Download Sample File'
 
 
-class SourceSKUSearch(InputFilter):
-    parameter_name = 'source_sku'
-    title = 'Source SKU ID'
-
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            source_sku = self.value()
-            if source_sku is None:
-                return
-            return queryset.filter(
-                Q(source_sku__product_sku__icontains=source_sku)
-            )
-
-
-class SourceSKUName(InputFilter):
-    parameter_name = 'source_sku_name'
-    title = 'Source SKU Name'
-
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            source_sku_name = self.value()
-            if source_sku_name is None:
-                return
-            return queryset.filter(
-                Q(source_sku__product_name__icontains=source_sku_name)
-            )
-
-
-class DestinationSKUName(InputFilter):
-    parameter_name = 'destination_sku_name'
-    title = 'Destination SKU Name'
-
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            destination_sku_name = self.value()
-            if destination_sku_name is None:
-                return
-            return queryset.filter(
-                Q(destination_sku__product_name__icontains=destination_sku_name)
-            )
-
-
-class DestinationSKUSearch(InputFilter):
-    parameter_name = 'destination_sku'
-    title = 'Destination SKU ID'
-
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            destination_sku = self.value()
-            if destination_sku is None:
-                return
-            return queryset.filter(
-                Q(destination_sku__product_name__icontains=destination_sku)
-            )
+class ExportRepackaging:
+    def export_as_csv_products_repackaging(self, request, queryset):
+        meta = self.model._meta
+        list_display = ['Source SKU Name', 'Source SKU ID', 'Destination SKU Name', 'Destination SKU ID',
+                        'Source SKU Weight to be Repackaged (Kg)', 'Destination SKU Qty Created',
+                        'Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
+                        'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost', 'Final FG Cost',
+                        'Conversion Cost']
+        field_names = ['repackage_weight', 'destination_sku_quantity']
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            items = [obj.source_sku_name(), obj.source_product_sku(), obj.destination_sku_name(), obj.destination_product_sku()]
+            items1 = [getattr(obj, field) for field in field_names]
+            items = items + items1
+            rep = obj.repackagingcost_set.all()
+            if rep:
+                add = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
+                       'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
+                for key in add:
+                    join_all = ", ".join([str(getattr(k, key)) for k in rep])
+                    items.append(join_all)
+            writer.writerow(items)
+        return response
+    export_as_csv_products_repackaging.short_description = "Download CSV of Selected Repackaging"
 
 
 class RepackagingCostInLine(admin.TabularInline):
@@ -1066,25 +1039,36 @@ class RepackagingCostInLine(admin.TabularInline):
     def has_change_permission(self, request, obj=None):
         if obj:
             return False
+        return True
+
+    def has_add_permission(self, request, obj=None):
+        if obj:
+            return False
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        if obj:
+            return False
+        return True
 
 
-class RepackagingAdmin(admin.ModelAdmin, ExportCsvMixin):
+class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
     inlines = [RepackagingCostInLine]
 
     form = RepackagingForm
     list_display = ('source_sku_name', 'source_product_sku', 'destination_sku_name',
                      'destination_product_sku', 'destination_sku_quantity', 'final_fg_cost', 'conversion_cost')
-    actions = ["export_as_csv"]
+    actions = ["export_as_csv_products_repackaging"]
 
     def get_queryset(self, obj):
         qs = super(RepackagingAdmin, self).get_queryset(obj)
-        return qs.prefetch_related('repackaging_fk')
+        return qs.prefetch_related('repackagingcost_set')
 
     def final_fg_cost(self, obj):
-        return ", ".join([str(k.final_fg_cost) for k in obj.repackaging_fk.all()])
+        return ", ".join([str(k.final_fg_cost) for k in obj.repackagingcost_set.all()])
 
     def conversion_cost(self, obj):
-        return ", ".join([str(k.conversion_cost) for k in obj.repackaging_fk.all()])
+        return ", ".join([str(k.conversion_cost) for k in obj.repackagingcost_set.all()])
 
     list_filter = [SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName, ('created_at', DateTimeRangeFilter)]
     list_per_page = 10
@@ -1095,6 +1079,7 @@ class RepackagingAdmin(admin.ModelAdmin, ExportCsvMixin):
     def has_change_permission(self, request, obj=None):
         if obj:
             return False
+        return True
 
 
 admin.site.register(ProductImage, ProductImageMainAdmin)

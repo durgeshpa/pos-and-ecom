@@ -1261,7 +1261,7 @@ class SourceRepackageDetail(View):
             return JsonResponse({"success": False, "error": "Warehouse Inventory Does Not Exist"})
 
         return JsonResponse({
-            "source_sku_weight": product_obj['weight_value'],
+            "source_sku_weight": product_obj['weight_value'] / 1000,
             "available_source_quantity": source_quantity['quantity'],
             "success": True})
 
@@ -1274,7 +1274,7 @@ class DestinationRepackageDetail(View):
         if product_obj['weight_value'] is None:
             return JsonResponse({"success": False, "error": "Destination SKU Weight Value Not Found"})
 
-        return JsonResponse({"destination_sku_weight": product_obj['weight_value'], "success": True})
+        return JsonResponse({"destination_sku_weight": product_obj['weight_value'] / 1000, "success": True})
 
 
 class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
