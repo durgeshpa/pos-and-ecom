@@ -153,7 +153,8 @@ class CartProductMappingForm(forms.ModelForm):
                 "onChange":'getProductVendorPriceDetails(this)'
             },
             forward=['supplier_name', 'cart_parent_product']
-        )
+        ),
+        label='CART CHILD PRODUCT'
     )
     mrp = forms.CharField(disabled=True, required=False)
     sku = forms.CharField(disabled=True, required=False)

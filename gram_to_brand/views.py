@@ -174,7 +174,8 @@ class DownloadPurchaseOrder(APIView):
             inline_sum_amount = m.total_price
             tax_percentage = 0
             if m.cart_product.parent_product:
-                tax_percentage = m.cart_product.parent_product.gst + m.cart_product.parent_product.cess + m.cart_product.parent_product.surcharge
+                tax_percentage = m.cart_product.parent_product.gst + m.cart_product.parent_product.cess + \
+                                 m.cart_product.parent_product.surcharge
             else:
                 for n in m.cart_product.product_pro_tax.all():
                     tax_percentage += n.tax.tax_percentage
