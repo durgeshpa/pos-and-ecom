@@ -2048,6 +2048,7 @@ class OrderedProductMapping(models.Model):
             product_tax = {}
             product_tax['tax_sum'] = self.product.parent_product.gst + self.product.parent_product.cess + \
                                  self.product.parent_product.surcharge
+            self.product_tax_json = product_tax
         else:
             product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
                                                                     'tax__tax_percentage')
