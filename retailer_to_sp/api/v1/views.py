@@ -41,7 +41,7 @@ from .serializers import (ProductsSearchSerializer, GramGRNProductsSearchSeriali
                           RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
                           ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer
                           )
 
 from products.models import Product, ProductPrice, ProductOption, ProductImage, ProductTaxMapping
@@ -731,6 +731,13 @@ class CartDetail(APIView):
                                  'delivery_message': self.delivery_message()}
                     )
                     for i in serializer.data['rt_cart_list']:
+                        if not i['cart_product']['product_pro_image']:
+                            product = Product.objects.get(id=i['cart_product']['id'])
+                            if product.use_parent_image:
+                                for im in product.parent_product.parent_product_pro_image.all():
+                                    parent_image_serializer = ParentProductImageSerializer(im)
+                                    i['cart_product']['product_pro_image'].append(parent_image_serializer.data)
+
                         if i['cart_product']['product_mrp'] == False:
                             i['qty'] = 0
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'],

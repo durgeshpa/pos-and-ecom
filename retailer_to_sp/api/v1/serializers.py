@@ -4,7 +4,7 @@ from rest_framework import serializers
 from common.common_utils import convert_date_format_ddmmmyyyy
 
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
-                             Size,Color,Fragrance,Flavor,Weight,PackageSize)
+                             Size,Color,Fragrance,Flavor,Weight,PackageSize, ChildProductImage, ParentProductImage)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
                                    Payment, Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Trip, PickerDashboard, ShipmentRescheduling)
@@ -47,8 +47,15 @@ class PickerDashboardSerializer(serializers.ModelSerializer):
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
-      model = ProductImage
+      # model = ProductImage
+      model = ChildProductImage
       fields = '__all__'
+
+
+class ParentProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ParentProductImage
+        fields = '__all__'
 
 
 class ProductPriceSerializer(serializers.ModelSerializer):
