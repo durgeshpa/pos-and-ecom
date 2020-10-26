@@ -1408,7 +1408,10 @@ def pdf_generation(request, ordered_product):
                 product_pro_price_ptr = round(product_price.selling_price, 2)
             else:
                 product_pro_price_ptr = cart_product_map.item_effective_prices
-            product_pro_price_mrp = round(product_price.mrp, 2)
+            if m.product.product_mrp:
+                product_pro_price_mrp = m.product.product_mrp
+            else:
+                product_pro_price_mrp = round(product_price.mrp, 2)
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
 
