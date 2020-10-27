@@ -514,9 +514,9 @@ def stock_correction_data(upload_data, stock_movement_obj):
     """
     try:
         with transaction.atomic():
-            in_quantity = 0
-            out_quantity = 0
             for data in upload_data:
+                in_quantity = 0
+                out_quantity = 0
                 # get the type of stock
                 stock_correction_type = 'stock_adjustment'
                 # Create data in IN Model
