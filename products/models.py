@@ -23,6 +23,9 @@ from coupon.models import Coupon
 from retailer_backend.messages import ERROR_MESSAGES, VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop
+from wms.models import InventoryType
+from retailer_to_sp.models import generate_picklist_id, PickerDashboard
+from .common_functions import CommonPickupFunctions
 
 # from analytics.post_save_signal import get_category_product_report, get_master_report
 
@@ -859,6 +862,16 @@ class Repackaging(models.Model):
     def save(self, *args, **kwargs):
         if self.pk is None:
             super().save(*args, **kwargs)
+            type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+            PickerDashboard.objects.create(
+                repackaging=self,
+                picking_status="picking_pending",
+                picklist_id=generate_picklist_id("00"),
+            )
+            shop = Shop.objects.filter(id=self.seller_shop.id).last()
+            CommonPickupFunctions.create_pickup_entry(shop, 'Repackaging', self.id, self.source_sku,
+                                                      self.repackage_weight,
+                                                      'pickup_creation')
 
     def __str__(self):
         return "REPACKAGING: " + self.source_sku_name() + ' TO ' + self.destination_sku_name()

@@ -36,7 +36,7 @@ from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, 
     get_expiry_date, OrderManagement
 from brand.models import Brand
 from otp.sms import SendSms
-from products.models import Product, ProductPrice
+from products.models import Product, ProductPrice, Repackaging
 from shops.models import Shop, ShopNameDisplay
 
 from .utils import (order_invoices, order_shipment_amount,
@@ -1760,6 +1760,7 @@ class PickerDashboard(models.Model):
     )
 
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
+    repackaging = models.ForeignKey(Repackaging, on_delete=models.CASCADE)
     shipment = models.ForeignKey(
         OrderedProduct, related_name="picker_shipment",
         on_delete=models.DO_NOTHING, null=True, blank=True)

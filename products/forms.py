@@ -25,6 +25,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
+from wms.models import InventoryType, WarehouseInventory
 
 
 class ProductImageForm(forms.ModelForm):
@@ -1041,6 +1042,21 @@ class RepackagingForm(forms.ModelForm):
         model = Repackaging
         fields = ('seller_shop', 'source_sku', 'destination_sku', 'repackage_weight',
                   "destination_sku_quantity", "available_source_quantity", "available_source_weight")
+
+    def clean(self):
+        product_obj = Product.objects.values('weight_value', 'product_sku').get(id=self.cleaned_data['source_sku'].id)
+        if product_obj['weight_value'] is None:
+            raise forms.ValidationError("Source SKU Weight Value Not Found")
+        inventory_id = InventoryType.objects.values('id').get(inventory_type='normal')
+        try:
+            source_quantity = WarehouseInventory.objects.values('quantity').get(sku_id=product_obj['product_sku'],
+                                                                                inventory_type_id=inventory_id['id'])
+        except Exception as e:
+            raise forms.ValidationError("Warehouse Inventory Does Not Exist")
+        available_source_wt = self.cleaned_data['repackage_weight'] + self.cleaned_data['available_source_weight']
+        if source_quantity['quantity'] * (product_obj['weight_value'] / 1000) != available_source_wt:
+            raise forms.ValidationError("Source Quantity Changed! Please Input Again")
+        return self.cleaned_data
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
