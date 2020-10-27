@@ -5,7 +5,7 @@ from audit.models import AuditRun, AuditRunItem, AUDIT_DETAIL_STATE_CHOICES, Aud
 
 @task
 def update_audit_status(audit_id):
-    audit=AuditDetail.objects.get(pk=audit_id)
+    audit = AuditDetail.objects.get(pk=audit_id)
     audit_run = AuditRun.objects.filter(audit=audit)
     audit_items = AuditRunItem.objects.filter(audit_run=audit_run)
     audit_state = AUDIT_DETAIL_STATE_CHOICES.PASS

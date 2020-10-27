@@ -5,7 +5,7 @@ import jsonpickle
 from num2words import num2words
 from datetime import datetime, timedelta
 
-from audit.views import is_product_blocked_for_audit
+from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Sum, Q
@@ -474,7 +474,9 @@ class AddToCart(APIView):
                 msg['message'] = ["Qty not Found"]
                 return Response(msg, status=status.HTTP_200_OK)
             # Check if product blocked for audit
-            is_blocked_for_audit = is_product_blocked_for_audit(Product.objects.get(id=cart_product), shop_id)
+            is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(
+                                                                                Product.objects.get(id=cart_product),
+                                                                                parent_mapping.parent)
             if is_blocked_for_audit:
                 msg['message'] = ERROR_MESSAGES['4019'].format(Product.objects.get(id=cart_product))
                 return Response(msg, status=status.HTTP_200_OK)
@@ -814,6 +816,13 @@ class ReservedOrder(generics.ListAPIView):
                            'response_data': None,
                            'is_shop_time_entered': False}
                     return Response(msg, status=status.HTTP_200_OK)
+                # Check if any product blocked for audit
+                for p in cart_products:
+                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+                                                                                            parent_mapping.parent)
+                    if is_blocked_for_audit:
+                        msg['message'] = ERROR_MESSAGES['4019'].format(p)
+                        return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
                 cart_products.update(capping_error_msg='')
@@ -1005,6 +1014,14 @@ class CreateOrder(APIView):
                                        id=cart_id).exists():
                     cart = Cart.objects.get(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
                                             id=cart_id)
+                    # Check if any product blocked for audit
+                    for p in cart.rt_cart_list.all():
+                        is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+                                                                                                parent_mapping.parent)
+                        if is_blocked_for_audit:
+                            msg['message'] = ERROR_MESSAGES['4019'].format(p)
+                            return Response(msg, status=status.HTTP_200_OK)
+
                     orderitems = []
                     for i in cart.rt_cart_list.all():
                         orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))

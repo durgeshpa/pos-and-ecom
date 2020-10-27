@@ -150,7 +150,7 @@ class In(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     in_type = models.CharField(max_length=20, null=True, blank=True)
     in_type_id = models.CharField(max_length=20, null=True, blank=True)
-    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING, related_name='ins+')
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -305,6 +305,7 @@ class WarehouseInternalInventoryChange(models.Model):
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('reschedule', 'Reschedule'),
         ('expired', 'Expired'),
+        ('manual_audit', 'Manual Audit'),
 
     )
 
@@ -348,6 +349,7 @@ class BinInternalInventoryChange(models.Model):
         ('stock_correction_in_type', 'stock_correction_in_type'),
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('expired', 'expired'),
+        ('manual_audit', 'Manual Audit'),
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)

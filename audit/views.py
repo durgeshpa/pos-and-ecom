@@ -26,6 +26,7 @@ import datetime
 
 from .serializers import WarehouseInventoryTransactionSerializer, WarehouseInventorySerializer, \
     BinInventoryTransactionSerializer, BinInventorySerializer, PickupBlockedQuantitySerializer
+from .utils import get_es_status, get_products_by_audit
 
 info_logger = logging.getLogger('file-info')
 
@@ -474,75 +475,39 @@ class PickupBlockedQuantityView(BaseListAPIView):
                                      sku_id=self.request.data.get('sku_id'),
                                      status__in=['pickup_creation', 'pickup_assigned'])
 
+class BlockUnblockProduct(object):
 
-def get_product_by_bin(warehouse, bins):
-    bin_inventory = BinInventory.objects.filter(warehouse=warehouse, bin_id__in=bins)
-    product_list = []
-    for b in bin_inventory:
-        product_list.append(b.sku)
-    return product_list
+    @staticmethod
+    def is_product_blocked_for_audit(product, warehouse):
+        return AuditProduct.objects.filter(warehouse=warehouse, sku=product, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists()
 
+    @staticmethod
+    def block_product_during_audit(product_list, warehouse):
+        es_product_status = get_es_status(product_list, warehouse)
+        for p in product_list:
+            update_product_es.delay(warehouse.id, p.id, status=False)
+            AuditProduct.objects.update_or_create(warehouse=warehouse, sku=p,
+                                                  defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED,
+                                                            'es_status': es_product_status[p.id]})
 
-def is_product_blocked_for_audit(product, warehouse):
-    return AuditProduct.objects.filter(warehouse=warehouse, sku=product, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists()
-
-
-def get_product_ids(product_list):
-    product_id_list = []
-    for p in product_list:
-        product_id_list.append(p.id)
-    return product_id_list
-
-
-def block_product_during_audit(product_list, warehouse):
-    es_product_status = get_es_status(product_list, warehouse)
-    for p in product_list:
-        update_product_es.delay(warehouse.id, p.id, status=False)
-        AuditProduct.objects.update_or_create(warehouse=warehouse, sku=p,
-                                              defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED,
-                                                        'es_status': es_product_status[p.id]})
+    @staticmethod
+    def unblock_product_after_audit(product, warehouse):
+        audit_product = AuditProduct.objects.get(warehouse=warehouse, sku=product)
+        update_product_es.delay(warehouse.id, product.id, status=audit_product.es_status)
+        audit_product.status = AUDIT_PRODUCT_STATUS.RELEASED
+        audit_product.save()
 
 
-def get_es_status(product_list, warehouse):
-    es_products = es_mget_by_ids(warehouse.id, {'ids': get_product_ids(product_list)})
-    es_product_status = {}
-    for p in es_products['docs']:
-        es_product_status[int(p['_id'])] = p['_source']['status'] if p['found'] else False
-    return es_product_status
+    @staticmethod
+    def enable_products(audit_detail):
+        products_to_update = get_products_by_audit(audit_detail)
+        for p in products_to_update:
+            BlockUnblockProduct.unblock_product_after_audit(p, audit_detail.warehouse)
+
+    @staticmethod
+    def disable_products(audit_detail):
+        products_to_disable = get_products_by_audit(audit_detail)
+        if len(products_to_disable) > 0:
+            BlockUnblockProduct.block_product_during_audit(products_to_disable, audit_detail.warehouse)
 
 
-def unblock_product_after_audit(product, warehouse):
-    audit_product = AuditProduct.objects.get(warehouse=warehouse, sku=product)
-    update_product_es.delay(warehouse.id, product.id, status=audit_product.es_status)
-    audit_product.status = AUDIT_PRODUCT_STATUS.RELEASED
-    audit_product.save()
-
-
-@receiver(post_save, sender=AuditDetail)
-def disable_audit_product(sender, instance=None, created=False, **kwargs):
-    if instance.status == AUDIT_DETAIL_STATUS_CHOICES.INACTIVE:
-        return
-
-    products_to_disable = []
-    if instance.audit_type == AUDIT_TYPE_CHOICES.MANUAL:
-        if instance.audit_level == 1:
-            products_to_disable.append(instance.sku)
-    if len(products_to_disable) > 0:
-        block_product_during_audit(products_to_disable, instance.warehouse)
-
-
-def disable_audit_products(sender, instance, action, *args, **kwargs):
-    if action != 'post_add':
-        return
-    products_to_disable = []
-    if instance.status == AUDIT_DETAIL_STATUS_CHOICES.INACTIVE:
-        return
-    if instance.audit_type == AUDIT_TYPE_CHOICES.MANUAL:
-        if instance.audit_level == 0:
-            if instance.bin.count() != 0:
-                products_to_disable.extend(get_product_by_bin(instance.warehouse, instance.bin.all()))
-    if len(products_to_disable) > 0:
-        block_product_during_audit(products_to_disable, instance.warehouse)
-
-
-m2m_changed.connect(disable_audit_products, sender=AuditDetail.bin.through)

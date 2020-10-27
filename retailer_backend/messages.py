@@ -41,8 +41,10 @@ SUCCESS_MESSAGES = {
 
 ERROR_MESSAGES = {
     'EMPTY': '%s can\'t be empty',
+    'REQUIRED_BATCH_SKU': 'Missing sku/batch_id',
     'INVALID_AUDIT_STATE': "This audit is not in %s state.",
-    'INVALID_STATE_TRANSITION': "This audit can not be %s at the moment.",
+    'AUDIT_NOT_STARTED': "This audit is not yet started",
+    'AUDIT_START_TIME_ERROR': "Audit Task can be initiated only after 30 mins from Audit Creation time. Start Time: {}",
     'FAILED_STATE_CHANGE': "Audit state could not be changed",
     'NO_RECORD': 'No %s record found',
     'SOME_ISSUE': 'There seems to be some issue.',
@@ -71,7 +73,7 @@ ERROR_MESSAGES = {
     "4016": "No Executive associated with Sales Manager.",
     "4017": "Feedback Submission is allowed only for the Current Date.",
     "4018": "Request Param value is not correct, Please re-verify at your end.",
-    "4019": "Product - [{}] is not available for order at the moment, please try after some time.",
+    "4019": "{} is not available for order at the moment, please try after some time.",
     "1001": "Selected records are exceeding system capacity, please keep max records at 50.",
     "1002": "Selected file status is QC pending, you can't download this file.",
     "1003": "More than 1 GRN selected. 1 GRN is allowed at a time to download Barcode"

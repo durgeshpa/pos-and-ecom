@@ -30,7 +30,9 @@ class AssignedUserFilter(AutocompleteFilter):
     title = 'Assigned User'
     field_name = 'assigned_user'
     autocomplete_url = 'assigned-user-autocomplete'
-
+#
+# class SKUInlineAdmin(admin.TabularInline):
+#     model = AuditDetail.sku.through
 
 @admin.register(AuditDetail)
 class AuditDetailAdmin(admin.ModelAdmin):
@@ -47,11 +49,12 @@ class AuditDetailAdmin(admin.ModelAdmin):
             'classes': ('automated',)
         }),
         ('Manual Audit', {
-            'fields': ('auditor', 'audit_level', 'bin', 'sku', ),
+            'fields': ('auditor', 'audit_level', 'bin', 'sku'),
             'classes': ('manual',)
         }),
     )
-
+    # inlines = (SKUInlineAdmin,)
+    # filter_horizontal = ('sku',)
     list_filter = [Warehouse, 'audit_type', 'state', 'audit_level', 'status']
     form = AuditCreationForm
     actions_on_top = False

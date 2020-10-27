@@ -18,10 +18,10 @@ class AuditCreationForm(forms.ModelForm):
         queryset=Bin.objects.all(),
         widget=autocomplete.ModelSelect2Multiple(url='bin-autocomplete',
                                                  forward=('warehouse',)))
-    sku = forms.ModelChoiceField(
+    sku = forms.ModelMultipleChoiceField(
         required=False,
         queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(url='sku-autocomplete')
+        widget=autocomplete.ModelSelect2Multiple(url='sku-autocomplete')
     )
 
     auditor = forms.ModelChoiceField(
@@ -29,11 +29,6 @@ class AuditCreationForm(forms.ModelForm):
         queryset=User.objects.all(),
         widget=autocomplete.ModelSelect2(url='assigned-user-autocomplete')
     )
-    #
-    # def __init__(self, *args, **kwargs):
-    #     super(AuditCreationForm, self).__init__(*args, **kwargs)
-    #     # assign a (computed, I assume) default value to the choice field
-    #     self.initial['audit_type'] = 0 # AUDIT_TYPE_CHOICES.MANUAL
 
     def clean(self):
         data = self.cleaned_data
@@ -55,7 +50,7 @@ class AuditCreationForm(forms.ModelForm):
                 if audit_bins.count() == 0:
                     raise ValidationError('Please select bins to audit!')
             elif audit_level == 1:
-                if audit_product is None:
+                if audit_product.count() is None:
                     raise ValidationError('Please select product to audit!')
             if auditor is None:
                 raise ValidationError('Please select an auditor!')
