@@ -875,7 +875,7 @@ def pickup_entry_creation_with_cron():
                     pickup_obj = obj
                     qty = obj.quantity
                     bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0,
-                                                              inventory_type__inventory_type='normal').order_by(
+                                                              inventory_type__inventory_type='normal', warehouse=shop).order_by(
                         '-batch_id',
                         'quantity')
                     if bin_lists.exists():
@@ -890,7 +890,7 @@ def pickup_entry_creation_with_cron():
                                                       "%d-%m-%Y"))
                     else:
                         bin_lists = obj.sku.rt_product_sku.filter(quantity=0,
-                                                                  inventory_type__inventory_type='normal').order_by(
+                                                                  inventory_type__inventory_type='normal', warehouse=shop).order_by(
                             '-batch_id',
                             'quantity').last()
                         if len(bin_lists.batch_id) == 23:
