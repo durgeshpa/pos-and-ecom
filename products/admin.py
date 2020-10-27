@@ -763,7 +763,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
                            'pincode')
     list_display = [
-        'product', 'product_sku', 'product_gf_code', 'product_mrp', 'selling_price',
+        'product', 'product_sku', 'product_mrp', 'selling_price',
         'seller_shop', 'buyer_shop', 'city', 'pincode',
         'start_date', 'end_date', 'approval_status', 'status'
     ]
