@@ -1922,6 +1922,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def mrp(self):
+        if self.product.product_mrp:
+            return self.product.product_mrp
         return self.ordered_product.order.ordered_cart.rt_cart_list \
             .get(cart_product=self.product).cart_product_price.mrp
 

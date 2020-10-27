@@ -61,7 +61,8 @@ class CartProductMappingAdmin(admin.TabularInline):
             url='parent-product-autocomplete',
             attrs={
                 "onChange":'getLastGrnProductDetails(this)'
-            }
+            },
+            forward=['supplier_name']
         )
     )
 

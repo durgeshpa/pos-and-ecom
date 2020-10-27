@@ -142,7 +142,8 @@ class CartProductMappingForm(forms.ModelForm):
             url='parent-product-autocomplete',
             attrs={
                 "onChange":'getLastGrnProductDetails(this)'
-            }
+            },
+            forward=['supplier_name']
         )
     )
     cart_product = forms.ModelChoiceField(

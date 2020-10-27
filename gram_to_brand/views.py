@@ -97,10 +97,24 @@ class OrderAutocomplete(autocomplete.Select2QuerySetView):
 
 class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
-        qs = ParentProduct.objects.all()
+        qs = None
+        supplier_id = self.forwarded.get('supplier_name', None)
+        if supplier_id is None:
+            return qs
+
+        product_qs = Product.objects.all()
+        product_id = ProductVendorMapping.objects \
+            .filter(vendor__id=supplier_id, case_size__gt=0, status=True).values('product')
+        prd = product_qs.filter(id__in=[product_id])
+        # print(prd.first())
+        # print(prd.first().product_tax_mappings.all())
+        parent_product_ids = product_qs.filter(id__in=[product_id]).values('parent_product')
+        qs = ParentProduct.objects.filter(id__in=[parent_product_ids])
+        print(qs.first().parent_product_pro_category.all())
+        # print(qs.first().parent_product_pro_category.first().category.category_name)
 
         if self.q:
-            qs = qs.filter(Q(name__istartswith=self.q) | Q(parent_id__istartswith=self.q))
+            qs = qs.filter(Q(name__icontains=self.q) | Q(parent_id__icontains=self.q))
 
         return qs
 
