@@ -646,7 +646,7 @@ def validation_stock_correction(self):
         # create batch id
         batch_id = create_batch_id(sku, row[3])
         bin_exp_obj = BinInventory.objects.filter(warehouse=row[0],
-                                                  bin=Bin.objects.filter(bin_id=row[4]).last(),
+                                                  bin=Bin.objects.filter(bin_id=row[4], warehouse=row[0]).last(),
                                                   sku=Product.objects.filter(
                                                       product_sku=row[2]).last(),
                                                   batch_id=batch_id)
