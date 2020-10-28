@@ -27,7 +27,8 @@ from django.db import transaction, DatabaseError
 from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
-    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, get_visibility_changes
+    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
+    get_expiry_date_db, get_visibility_changes
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory

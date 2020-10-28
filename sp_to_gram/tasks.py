@@ -48,7 +48,7 @@ def get_warehouse_stock(shop_id=None,product=None):
 		sub_total = None
 		available_qty = 0 if shop_id else 1
 		name = p.product.product_name
-		mrp = p.mrp if p.mrp else p.product.product_mrp
+		mrp = p.product.product_mrp if p.product.product_mrp else p.mrp
 		ptr = p.selling_price
 		try:
 			margin = (((mrp - p.selling_price) / mrp) * 100)

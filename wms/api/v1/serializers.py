@@ -5,9 +5,7 @@ from retailer_to_sp.models import Order
 from shops.api.v1.serializers import ShopSerializer
 from retailer_to_sp.api.v1.serializers import ProductSerializer
 from django.db.models import Sum
-import logging
 
-info_logger = logging.getLogger('file-info')
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 

@@ -676,6 +676,27 @@ class ProductTaxMapping(models.Model):
 #     modified_at = models.DateTimeField(auto_now=True)
 #     status = models.BooleanField(default=True)
 
+
+class ParentProductTaxMapping(models.Model):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_tax', on_delete=models.CASCADE)
+    tax = models.ForeignKey(Tax, related_name='parent_tax_pro_tax', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+    def __str__(self):
+        return "{}-{}".format(self.parent_product, self.tax.tax_name)
+
+    # def get_products_gst_tax(self):
+    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='gst')
+
+    # def get_products_gst_cess(self):
+    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='cess')
+
+    # def get_products_gst_surcharge(self):
+    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='surcharge')
+
+
 class ProductCSV(models.Model):
     file = models.FileField(upload_to='products/')
     uploaded_at = models.DateTimeField(auto_now_add=True)

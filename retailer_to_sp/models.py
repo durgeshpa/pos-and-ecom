@@ -2046,17 +2046,22 @@ class OrderedProductMapping(models.Model):
             return 0
 
     def set_product_tax_json(self):
-        if self.product.parent_product:
-            product_tax = {}
-            product_tax['tax_sum'] = self.product.parent_product.gst + self.product.parent_product.cess + \
-                                 self.product.parent_product.surcharge
-            self.product_tax_json = product_tax
-        else:
-            product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
-                                                                    'tax__tax_percentage')
-            product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
-            product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
-            self.product_tax_json = product_tax
+        # if self.product.parent_product:
+        #     product_tax = {}
+        #     product_tax['tax_sum'] = self.product.parent_product.gst + self.product.parent_product.cess + \
+        #                          self.product.parent_product.surcharge
+        #     self.product_tax_json = product_tax
+        # else:
+        #     product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+        #                                                             'tax__tax_percentage')
+        #     product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+        #     product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+        #     self.product_tax_json = product_tax
+        product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+                                                                'tax__tax_percentage')
+        product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+        product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+        self.product_tax_json = product_tax
         self.save()
 
     # def product_taxes(self):

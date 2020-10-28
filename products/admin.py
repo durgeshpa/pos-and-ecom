@@ -375,12 +375,56 @@ class ParentProductCategoryAdmin(TabularInline):
 
 
 def deactivate_selected_products(modeladmin, request, queryset):
-    queryset.update(status=False)
-    for record in queryset:
-        Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='deactivated')
+    parent_tax_script_qa4()
+    # queryset.update(status=False)
+    # for record in queryset:
+    #     Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='deactivated')
 
 deactivate_selected_products.short_description = "Deactivate Selected Products"
 
+def parent_tax_script_qa4():
+    parents = ParentProduct.objects.all()
+    for parent in parents:
+        if parent.gst is not None and parent.gst == 0:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=1)
+            ).save()
+        elif parent.gst and parent.gst == 5:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=2)
+            ).save()
+        elif parent.gst and parent.gst == 12:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=3)
+            ).save()
+        elif parent.gst and parent.gst == 18:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=4)
+            ).save()
+        elif parent.gst and parent.gst == 28:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=5)
+            ).save()
+        if parent.cess and parent.cess == 12:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=6)
+            ).save()
+        elif parent.cess is not None and parent.cess == 0:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=7)
+            ).save()
+        if parent.surcharge is not None and parent.surcharge == 0:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=8)
+            ).save()
 
 def approve_selected_products(modeladmin, request, queryset):
     queryset.update(status=True)
@@ -391,6 +435,29 @@ approve_selected_products.short_description = "Approve Selected Products"
 
 class ParentProductImageAdmin(admin.TabularInline):
     model = ParentProductImage
+
+class ParentProductTaxInlineFormSet(BaseInlineFormSet):
+   def clean(self):
+      super(ParentProductTaxInlineFormSet, self).clean()
+      tax_list_type = []
+      for form in self.forms:
+          if form.is_valid() and form.cleaned_data.get('tax'):
+              if form.cleaned_data.get('tax').tax_type in tax_list_type:
+                  raise ValidationError('{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
+              tax_list_type.append(form.cleaned_data.get('tax').tax_type)
+      if 'gst' not in tax_list_type:
+          raise ValidationError('Please fill the GST tax value')
+
+
+class ParentProductTaxMappingAdmin(admin.TabularInline):
+    model = ParentProductTaxMapping
+    extra = 3
+    formset = ParentProductTaxInlineFormSet
+    max_num = 6
+    autocomplete_fields = ['tax']
+
+    class Media:
+        pass
 
 
 class ParentProductAdmin(admin.ModelAdmin):
@@ -413,7 +480,7 @@ class ParentProductAdmin(admin.ModelAdmin):
         'parent_id', 'name'
     ]
     inlines = [
-        ParentProductCategoryAdmin, ParentProductImageAdmin
+        ParentProductCategoryAdmin, ParentProductImageAdmin, ParentProductTaxMappingAdmin
     ]
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
     autocomplete_fields = ['product_hsn', 'parent_brand']
@@ -452,7 +519,7 @@ class ParentProductAdmin(admin.ModelAdmin):
 
 def deactivate_selected_child_products(modeladmin, request, queryset):
     queryset.update(status='deactivated')
-deactivate_selected_products.short_description = "Deactivate Selected Products"
+deactivate_selected_child_products.short_description = "Deactivate Selected Products"
 
 
 def approve_selected_child_products(modeladmin, request, queryset):
@@ -478,7 +545,7 @@ def approve_selected_child_products(modeladmin, request, queryset):
         )
     else:
         modeladmin.message_user(request, "All selected Child SKUs were successfully approved", level=messages.SUCCESS)
-approve_selected_products.short_description = "Approve Selected Products"
+approve_selected_child_products.short_description = "Approve Selected Products"
 
 
 class ChildProductImageAdmin(admin.TabularInline):

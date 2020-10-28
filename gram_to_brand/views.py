@@ -105,13 +105,8 @@ class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
         product_qs = Product.objects.all()
         product_id = ProductVendorMapping.objects \
             .filter(vendor__id=supplier_id, case_size__gt=0, status=True).values('product')
-        prd = product_qs.filter(id__in=[product_id])
-        # print(prd.first())
-        # print(prd.first().product_tax_mappings.all())
         parent_product_ids = product_qs.filter(id__in=[product_id]).values('parent_product')
         qs = ParentProduct.objects.filter(id__in=[parent_product_ids])
-        print(qs.first().parent_product_pro_category.all())
-        # print(qs.first().parent_product_pro_category.first().category.category_name)
 
         if self.q:
             qs = qs.filter(Q(name__icontains=self.q) | Q(parent_id__icontains=self.q))
@@ -187,26 +182,35 @@ class DownloadPurchaseOrder(APIView):
             sum_amount = sum_amount + m.total_price
             inline_sum_amount = m.total_price
             tax_percentage = 0
-            if m.cart_product.parent_product:
-                tax_percentage = m.cart_product.parent_product.gst + m.cart_product.parent_product.cess + \
-                                 m.cart_product.parent_product.surcharge
-            else:
-                for n in m.cart_product.product_pro_tax.all():
-                    tax_percentage += n.tax.tax_percentage
+            # if m.cart_product.parent_product:
+            #     tax_percentage = m.cart_product.parent_product.gst + m.cart_product.parent_product.cess + \
+            #                      m.cart_product.parent_product.surcharge
+            # else:
+            #     for n in m.cart_product.product_pro_tax.all():
+            #         tax_percentage += n.tax.tax_percentage
+            for n in m.cart_product.product_pro_tax.all():
+                tax_percentage += n.tax.tax_percentage
             divisor = (1 + (tax_percentage / 100))
             original_amount = (inline_sum_amount / divisor)
-            if m.cart_product.parent_product:
-                gst_list.append((original_amount * (m.cart_product.parent_product.gst / 100)))
-                cess_list.append((original_amount * (m.cart_product.parent_product.cess / 100)))
-                surcharge_list.append((original_amount * (m.cart_product.parent_product.surcharge / 100)))
-            else:
-                for n in m.cart_product.product_pro_tax.all():
-                    if n.tax.tax_type == 'gst':
-                        gst_list.append((original_amount * (n.tax.tax_percentage / 100)))
-                    elif n.tax.tax_type == 'cess':
-                        cess_list.append((original_amount * (n.tax.tax_percentage / 100)))
-                    elif n.tax.tax_type == 'surcharge':
-                        surcharge_list.append((original_amount * (n.tax.tax_percentage / 100)))
+            # if m.cart_product.parent_product:
+            #     gst_list.append((original_amount * (m.cart_product.parent_product.gst / 100)))
+            #     cess_list.append((original_amount * (m.cart_product.parent_product.cess / 100)))
+            #     surcharge_list.append((original_amount * (m.cart_product.parent_product.surcharge / 100)))
+            # else:
+            #     for n in m.cart_product.product_pro_tax.all():
+            #         if n.tax.tax_type == 'gst':
+            #             gst_list.append((original_amount * (n.tax.tax_percentage / 100)))
+            #         elif n.tax.tax_type == 'cess':
+            #             cess_list.append((original_amount * (n.tax.tax_percentage / 100)))
+            #         elif n.tax.tax_type == 'surcharge':
+            #             surcharge_list.append((original_amount * (n.tax.tax_percentage / 100)))
+            for n in m.cart_product.product_pro_tax.all():
+                if n.tax.tax_type == 'gst':
+                    gst_list.append((original_amount * (n.tax.tax_percentage / 100)))
+                elif n.tax.tax_type == 'cess':
+                    cess_list.append((original_amount * (n.tax.tax_percentage / 100)))
+                elif n.tax.tax_type == 'surcharge':
+                    surcharge_list.append((original_amount * (n.tax.tax_percentage / 100)))
 
         igst = sum(gst_list)
         cgst = igst / 2
@@ -335,10 +339,6 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
         qs = None
         supplier_id = self.forwarded.get('supplier_name', None)
         parent_product_pk = self.forwarded.get('cart_parent_product', None)
-        # print(parent_product_pk)
-        # grn_pks = [x.get('pk') for x in list(GRNOrderProductMapping.objects.filter(product__parent_product__pk=parent_product_pk).distinct('product').values('pk'))]
-        # products_by_grn_date = GRNOrderProductMapping.objects.filter(pk__in=grn_pks).order_by('-created_at').values('created_at', 'product', 'product__product_sku')
-        # print(products_by_grn_date)
         if supplier_id:
             qs = Product.objects.filter(parent_product__pk=parent_product_pk)
             product_id = ProductVendorMapping.objects \
@@ -386,12 +386,14 @@ class VendorProductPrice(APIView):
             vendor_product_mrp = vendor_mapping.last().product_mrp
             product_case_size = vendor_mapping.last().case_size if vendor_mapping.last().case_size else vendor_mapping.last().product.product_case_size
             product_inner_case_size = vendor_mapping.last().product.product_inner_case_size
-            if product.parent_product:
-                taxes = product.parent_product.gst + product.parent_product.cess + product.parent_product.surcharge
-                taxes = str(taxes)
-            else:
-                taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
-                taxes = str(sum(taxes))
+            # if product.parent_product:
+            #     taxes = product.parent_product.gst + product.parent_product.cess + product.parent_product.surcharge
+            #     taxes = str(taxes)
+            # else:
+            #     taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
+            #     taxes = str(sum(taxes))
+            taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
+            taxes = str(sum(taxes))
             tax_percentage = taxes + '%'
 
         return Response({
