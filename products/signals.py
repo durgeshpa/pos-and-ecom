@@ -1,8 +1,7 @@
 from django.contrib.auth.models import User
 
 from products.models import Product, ProductPrice, ProductCategory, \
-    ProductTaxMapping, ProductImage, ChildProductImage, \
-    ParentProductTaxMapping
+    ProductTaxMapping, ProductImage, ParentProductTaxMapping
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es
@@ -41,17 +40,6 @@ def update_product_image_elasticsearch(sender, instance=None, created=False, **k
                         "image_alt":instance.image_alt_text,
                         "image_url":instance.image.url
                        }]
-    for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], product_images=product_images)
-
-
-@receiver(post_save, sender=ChildProductImage)
-def update_child_product_image_elasticsearch(sender, instance=None, created=False, **kwargs):
-    product_images = [{
-        "image_name": instance.image_name,
-        "image_alt": instance.image_alt_text,
-        "image_url": instance.image.url
-    }]
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
         update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], product_images=product_images)
 

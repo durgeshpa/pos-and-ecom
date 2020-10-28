@@ -751,7 +751,8 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     #     ProductCategoryAdmin, ProductOptionAdmin,
     #     ProductImageAdmin, ProductTaxMappingAdmin
     # ]
-    inlines = [ChildProductImageAdmin]
+    # inlines = [ChildProductImageAdmin]
+    inlines = [ProductImageAdmin]
     # autocomplete_fields = ['product_hsn', 'product_brand']
     autocomplete_fields = ['parent_product']
 
@@ -769,6 +770,12 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 obj.parent_product.parent_product_pro_image.last().image.url,
                 (obj.parent_product.parent_product_pro_image.last().image_alt_text or obj.parent_product.parent_product_pro_image.last().image_name),
                 obj.parent_product.parent_product_pro_image.last().image.url
+            ))
+        elif not obj.use_parent_image and obj.product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.product_pro_image.last().image.url,
+                (obj.product_pro_image.last().image_alt_text or obj.product_pro_image.last().image_name),
+                obj.product_pro_image.last().image.url
             ))
         elif not obj.use_parent_image and obj.child_product_pro_image.exists():
             return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
