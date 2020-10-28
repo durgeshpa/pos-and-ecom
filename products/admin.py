@@ -375,10 +375,10 @@ class ParentProductCategoryAdmin(TabularInline):
 
 
 def deactivate_selected_products(modeladmin, request, queryset):
-    parent_tax_script_qa4()
-    # queryset.update(status=False)
-    # for record in queryset:
-    #     Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='deactivated')
+    # parent_tax_script_qa4()
+    queryset.update(status=False)
+    for record in queryset:
+        Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='deactivated')
 
 deactivate_selected_products.short_description = "Deactivate Selected Products"
 
