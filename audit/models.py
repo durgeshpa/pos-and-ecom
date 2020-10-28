@@ -140,7 +140,7 @@ class AuditCancelledPicklist(BaseTimestampModel):
     order_no = models.CharField(max_length=20, null=False)
 
     class Meta:
-        db_table = "wms_audit_products"
+        db_table = "wms_audit_cancelled_picklists"
 #
 #
 # class AuditTicketManual(AuditTicket):
