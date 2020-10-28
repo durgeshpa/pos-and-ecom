@@ -1315,7 +1315,11 @@ def get_expiry_date(batch_id):
 def get_expiry_date_db(batch_id):
     expiry_date_db=None
     if batch_id is not None:
-        expiry_date = batch_id[-6:-4] + '/' + batch_id[-4:-2] + '/20' + batch_id[-2:]
+        if len(batch_id) == 23:
+            expiry_date = batch_id[-6:-4] + '/' + batch_id[-4:-2] + '/20' + batch_id[-2:]
+
+        if len(batch_id) == 25:
+            expiry_date = batch_id[-8:-6] + '/' + batch_id[-6:-4] + '/' + batch_id[-4:]
         expiry_date_db = datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%Y-%m-%d')
     return expiry_date_db
 

@@ -514,9 +514,9 @@ def stock_correction_data(upload_data, stock_movement_obj):
     """
     try:
         with transaction.atomic():
-            in_quantity = 0
-            out_quantity = 0
             for data in upload_data:
+                in_quantity = 0
+                out_quantity = 0
                 # get the type of stock
                 stock_correction_type = 'stock_adjustment'
                 # Create data in IN Model
@@ -875,7 +875,7 @@ def pickup_entry_creation_with_cron():
                     pickup_obj = obj
                     qty = obj.quantity
                     bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0,
-                                                              inventory_type__inventory_type='normal').order_by(
+                                                              inventory_type__inventory_type='normal', warehouse=shop).order_by(
                         '-batch_id',
                         'quantity')
                     if bin_lists.exists():
@@ -890,7 +890,7 @@ def pickup_entry_creation_with_cron():
                                                       "%d-%m-%Y"))
                     else:
                         bin_lists = obj.sku.rt_product_sku.filter(quantity=0,
-                                                                  inventory_type__inventory_type='normal').order_by(
+                                                                  inventory_type__inventory_type='normal', warehouse=shop).order_by(
                             '-batch_id',
                             'quantity').last()
                         if len(bin_lists.batch_id) == 23:
