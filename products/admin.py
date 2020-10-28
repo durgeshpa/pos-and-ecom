@@ -486,6 +486,11 @@ class ParentProductAdmin(admin.ModelAdmin):
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
     autocomplete_fields = ['product_hsn', 'parent_brand']
 
+    def product_gst(self, obj):
+        if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').exists():
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').last().tax.tax_percentage)
+        return ''
+
     def product_image(self, obj):
         if obj.parent_product_pro_image.exists():
             return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
@@ -494,11 +499,6 @@ class ParentProductAdmin(admin.ModelAdmin):
                 obj.parent_product_pro_image.last().image.url
             ))
         return '-'
-
-    def product_gst(self, obj):
-        if obj.gst:
-            return "{} %".format(obj.gst)
-        return ''
 
     def get_urls(self):
         from django.conf.urls import url
@@ -779,7 +779,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         return '-'
 
     def product_gst(self, obj):
-        if obj.product_gst:
+        if obj.product_gst is not None:
             return "{} %".format(obj.product_gst)
         return ''
     product_gst.short_description = 'Product GST'

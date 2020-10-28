@@ -128,20 +128,20 @@ class ParentProduct(models.Model):
     parent_brand = models.ForeignKey(Brand, related_name='parent_brand_product', blank=False, on_delete=models.CASCADE)
     # category = models.ForeignKey(Category, related_name='category_parent_category', on_delete=models.CASCADE)
     product_hsn = models.ForeignKey(ProductHSN, related_name='parent_hsn', blank=False, on_delete=models.CASCADE)
-    GST_CHOICES = (
-        (0, '0 %'),
-        (5, '5 %'),
-        (12, '12 %'),
-        (18, '18 %'),
-        (28, '28 %'),
-    )
-    gst = models.PositiveIntegerField(default=0, choices=GST_CHOICES)
-    CESS_CHOICES = (
-        (0, '0 %'),
-        (12, '12 %'),
-    )
-    cess = models.PositiveIntegerField(default=0, choices=CESS_CHOICES, blank=True)
-    surcharge = models.PositiveIntegerField(default=0, blank=True)
+    # GST_CHOICES = (
+    #     (0, '0 %'),
+    #     (5, '5 %'),
+    #     (12, '12 %'),
+    #     (18, '18 %'),
+    #     (28, '28 %'),
+    # )
+    # gst = models.PositiveIntegerField(default=0, choices=GST_CHOICES)
+    # CESS_CHOICES = (
+    #     (0, '0 %'),
+    #     (12, '12 %'),
+    # )
+    # cess = models.PositiveIntegerField(default=0, choices=CESS_CHOICES, blank=True)
+    # surcharge = models.PositiveIntegerField(default=0, blank=True)
     brand_case_size = models.PositiveIntegerField(blank=False)
     inner_case_size = models.PositiveIntegerField(blank=False, default=1)
     PRODUCT_TYPE_CHOICES = (
@@ -274,15 +274,21 @@ class Product(models.Model):
 
     @property
     def product_gst(self):
-        return self.parent_product.gst if self.parent_product else ''
+        if self.product_pro_tax.filter(tax__tax_type='gst').exists():
+            return self.product_pro_tax.filter(tax__tax_type='gst').last().tax.tax_percentage
+        return ''
 
     @property
     def product_cess(self):
-        return self.parent_product.cess if self.parent_product else ''
+        if self.product_pro_tax.filter(tax__tax_type='cess').exists():
+            return self.product_pro_tax.filter(tax__tax_type='cess').last().tax.tax_percentage
+        return ''
 
     @property
     def product_surcharge(self):
-        return self.parent_product.surcharge if self.parent_product else ''
+        if self.product_pro_tax.filter(tax__tax_type='surcharge').exists():
+            return self.product_pro_tax.filter(tax__tax_type='surcharge').last().tax.tax_percentage
+        return ''
 
     @property
     def product_case_size(self):

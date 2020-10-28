@@ -322,9 +322,12 @@ class ParentProductForm(forms.ModelForm):
 
     class Meta:
         model = ParentProduct
-        fields = ('parent_brand', 'name', 'product_hsn', 'gst', 'cess',
-                  'surcharge', 'brand_case_size', 'inner_case_size',
-                  'product_type',)
+        # fields = ('parent_brand', 'name', 'product_hsn', 'gst', 'cess',
+        #           'surcharge', 'brand_case_size', 'inner_case_size',
+        #           'product_type',)
+        fields = ('parent_brand', 'name', 'product_hsn',
+                    'brand_case_size', 'inner_case_size',
+                    'product_type',)
 
 
     def __init__(self, *args, **kwargs):
