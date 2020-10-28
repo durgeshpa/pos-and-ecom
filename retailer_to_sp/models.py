@@ -622,7 +622,8 @@ class BulkOrder(models.Model):
                     warehouse_obj = WarehouseInventory.objects.filter(
                         sku__product_sku=row[0],
                         inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                        inventory_state=InventoryState.objects.filter(inventory_state='available').last())
+                        inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
+                        warehouse=Shop.objects.filter(id=self.seller_shop.id).last())
                     if warehouse_obj.exists():
                         available_quantity = warehouse_obj[0].quantity
                     else:
@@ -694,7 +695,8 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                                 available_quantity = WarehouseInventory.objects.filter(
                                     sku__product_sku=row[0],
                                     inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                                    inventory_state=InventoryState.objects.filter(inventory_state='available').last())[
+                                    inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
+                                warehouse=Shop.objects.filter(id=instance.seller_shop_id).last())[
                                     0].quantity
                             except:
                                 continue
