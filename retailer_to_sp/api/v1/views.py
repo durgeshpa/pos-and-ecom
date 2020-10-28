@@ -1381,7 +1381,8 @@ def pdf_generation(request, ordered_product):
                 dict1["cess"] = (m.base_price * m.get_products_gst_cess_tax()) / 100
                 dict1["cess_rate"] = m.get_products_gst_cess_tax()
                 dict1["surcharge"] = (m.base_price * m.get_products_gst_surcharge()) / 100
-                dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                dict1["surcharge_rate"] = m.get_products_gst_surcharge()
                 dict1["total"] = m.product_tax_amount
                 list1.append(dict1)
 
@@ -1564,7 +1565,8 @@ class DownloadCreditNoteDiscounted(APIView):
                 dict1["cess"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_cess_tax()) / 100
                 dict1["cess_rate"] = m.get_products_gst_cess_tax()
                 dict1["surcharge"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_surcharge()) / 100
-                dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                dict1["surcharge_rate"] = m.get_products_gst_surcharge()
                 dict1["total"] = m.product_tax_discount_amount
                 list1.append(dict1)
 
