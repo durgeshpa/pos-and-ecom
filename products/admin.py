@@ -383,7 +383,8 @@ def deactivate_selected_products(modeladmin, request, queryset):
 deactivate_selected_products.short_description = "Deactivate Selected Products"
 
 def parent_tax_script_qa4():
-    parents = ParentProduct.objects.all()
+    pr = ParentProductTaxMapping.objects.all().values_list('parent_product', flat=True).distinct('parent_product')
+    parents = ParentProduct.objects.exclude(id__in=pr)
     for parent in parents:
         if parent.gst is not None and parent.gst == 0:
             ParentProductTaxMapping.objects.create(
