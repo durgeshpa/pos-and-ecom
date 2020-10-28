@@ -482,32 +482,33 @@ class BlockUnblockProduct(object):
         return AuditProduct.objects.filter(warehouse=warehouse, sku=product, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists()
 
     @staticmethod
-    def block_product_during_audit(product_list, warehouse):
+    def block_product_during_audit(audit, product_list, warehouse):
         es_product_status = get_es_status(product_list, warehouse)
         for p in product_list:
             update_product_es.delay(warehouse.id, p.id, status=False)
-            AuditProduct.objects.update_or_create(warehouse=warehouse, sku=p,
+            AuditProduct.objects.update_or_create(audit=audit, warehouse=warehouse, sku=p,
                                                   defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED,
                                                             'es_status': es_product_status[p.id]})
 
     @staticmethod
-    def unblock_product_after_audit(product, warehouse):
-        audit_product = AuditProduct.objects.get(warehouse=warehouse, sku=product)
-        update_product_es.delay(warehouse.id, product.id, status=audit_product.es_status)
-        audit_product.status = AUDIT_PRODUCT_STATUS.RELEASED
-        audit_product.save()
+    def unblock_product_after_audit(audit, product, warehouse):
+        audit_product = AuditProduct.objects.filter(audit=audit, warehouse=warehouse, sku=product).last()
+        if audit_product:
+            update_product_es.delay(warehouse.id, product.id, status=audit_product.es_status)
+            audit_product.status = AUDIT_PRODUCT_STATUS.RELEASED
+            audit_product.save()
 
 
     @staticmethod
     def enable_products(audit_detail):
         products_to_update = get_products_by_audit(audit_detail)
         for p in products_to_update:
-            BlockUnblockProduct.unblock_product_after_audit(p, audit_detail.warehouse)
+            BlockUnblockProduct.unblock_product_after_audit(audit_detail, p, audit_detail.warehouse)
 
     @staticmethod
     def disable_products(audit_detail):
         products_to_disable = get_products_by_audit(audit_detail)
         if len(products_to_disable) > 0:
-            BlockUnblockProduct.block_product_during_audit(products_to_disable, audit_detail.warehouse)
+            BlockUnblockProduct.block_product_during_audit(audit_detail, products_to_disable, audit_detail.warehouse)
 
 

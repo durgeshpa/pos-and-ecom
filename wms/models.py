@@ -305,7 +305,8 @@ class WarehouseInternalInventoryChange(models.Model):
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('reschedule', 'Reschedule'),
         ('expired', 'Expired'),
-        ('manual_audit', 'Manual Audit'),
+        ('manual_audit_add', 'Manual Audit Add'),
+        ('manual_audit_deduct', 'Manual Audit Deduct'),
 
     )
 
@@ -349,7 +350,8 @@ class BinInternalInventoryChange(models.Model):
         ('stock_correction_in_type', 'stock_correction_in_type'),
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('expired', 'expired'),
-        ('manual_audit', 'Manual Audit'),
+        ('manual_audit_add', 'Manual Audit Add'),
+        ('manual_audit_deduct', 'Manual Audit Deduct'),
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)

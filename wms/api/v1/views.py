@@ -695,7 +695,7 @@ class PickupComplete(APIView):
                 return Response({'is_success': True,
                                  'message': "Pickup complete for all the items"})
 
-        msg = {'is_success': True, 'message': 'Pickup Object Does not exist.', 'data': None}
+        msg = {'is_success': True, 'message': ' Does not exist.', 'data': None}
         return Response(msg, status=status.HTTP_404_NOT_FOUND)
 
 

@@ -1773,6 +1773,8 @@ class PickerDashboard(models.Model):
     )
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/picker/', null=True, blank=True)
     picker_assigned_date = models.DateTimeField(null=True, blank=True, default="2020-09-29")
+    is_valid = models.BooleanField(default=True)
+    refreshed_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

@@ -2,6 +2,7 @@ from django.db import models
 from model_utils import Choices
 
 from accounts.middlewares import get_current_user
+from retailer_to_sp.models import Order
 from services.models import InventoryArchiveMaster
 from shops.models import Shop
 from wms.models import Bin, InventoryState, InventoryType
@@ -124,10 +125,19 @@ class AuditTicket(BaseTimestampModel):
 
 
 class AuditProduct(models.Model):
+    audit = models.ForeignKey(AuditDetail, null=False, related_name='+', on_delete=models.DO_NOTHING)
     warehouse = models.ForeignKey(Shop, null=False, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, null=False, to_field='product_sku', on_delete=models.DO_NOTHING)
     status = models.PositiveSmallIntegerField(choices=AUDIT_PRODUCT_STATUS)
     es_status = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "wms_audit_products"
+
+
+class AuditCancelledPicklist(BaseTimestampModel):
+    audit = models.ForeignKey(AuditDetail, null=False, on_delete=models.DO_NOTHING, related_name='+')
+    order_no = models.CharField(max_length=20, null=False)
 
     class Meta:
         db_table = "wms_audit_products"
