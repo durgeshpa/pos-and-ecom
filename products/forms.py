@@ -410,7 +410,7 @@ class ProductForm(forms.ModelForm):
         queryset=ParentProduct.objects.all(),
         empty_label='Not Specified',
         widget=autocomplete.ModelSelect2(
-            url='parent-product-autocomplete',
+            url='admin:parent-product-autocomplete',
             attrs={"onChange":'getDefaultChildDetails()'}
         )
     )
