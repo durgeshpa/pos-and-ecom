@@ -1783,6 +1783,8 @@ class PickerDashboard(models.Model):
             PickerDashboard.objects.filter(id=self.id).update(picker_assigned_date=datetime.datetime.now())
             if self.order:
                 Pickup.objects.filter(pickup_type_id=self.order.order_no).update(status='picking_assigned')
+            elif self.repackaging:
+                Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no).update(status='picking_assigned')
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
@@ -2643,6 +2645,9 @@ def update_order_status_from_picker(sender, instance=None, created=False, **kwar
         if instance.order:
             instance.order.order_status = Order.PICKING_ASSIGNED
             instance.order.save()
+        elif instance.repackaging:
+            instance.repackaging.status = 'picking_assigned'
+            instance.repackaging.save()
 
 
 # @receiver(post_save, sender=Trip)

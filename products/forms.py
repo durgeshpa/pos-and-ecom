@@ -1056,7 +1056,9 @@ class RepackagingForm(forms.ModelForm):
                 raise forms.ValidationError("Warehouse Inventory Does Not Exist")
             if self.cleaned_data['source_repackage_quantity'] + self.cleaned_data['available_source_quantity'] != source_quantity['quantity']:
                 raise forms.ValidationError("Source Quantity Changed! Please Input Again")
-            return self.cleaned_data
+        if 'status' in self.changed_data and self.cleaned_data['status'] not in ['started', 'completed']:
+            raise forms.ValidationError("Status {} cannot be changed here". format(self.cleaned_data['status']))
+        return self.cleaned_data
 
     def __init__(self, *args, **kwargs):
         super(RepackagingForm, self).__init__(*args, **kwargs)

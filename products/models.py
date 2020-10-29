@@ -23,9 +23,6 @@ from coupon.models import Coupon
 from retailer_backend.messages import ERROR_MESSAGES, VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop
-from wms.models import InventoryType
-from retailer_to_sp.models import generate_picklist_id, PickerDashboard
-from .common_functions import CommonPickupFunctions
 
 # from analytics.post_save_signal import get_category_product_report, get_master_report
 
@@ -837,13 +834,25 @@ class BulkUploadForGSTChange(models.Model):
 
 
 class Repackaging(models.Model):
+    REPACKAGING_STATUS = [
+        ('started', 'Started'),
+        ('picking_complete', 'Picking Complete'),
+        ('picking_assigned', 'Picking Assigned'),
+        ('pickup_created', 'Pickup Created'),
+        ('completed', 'Completed')
+    ]
+    id = models.AutoField(primary_key=True, verbose_name='Repackaging ID')
+    repackaging_no = models.CharField(max_length=255, null=True, blank=True)
     seller_shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+    status = models.CharField(max_length=50, choices=REPACKAGING_STATUS, verbose_name='Repackaging Status', default='started')
     source_sku = models.ForeignKey(Product, related_name='source_sku_repackaging', on_delete=models.CASCADE, null=True)
     destination_sku = models.ForeignKey(Product, related_name='destination_sku_repackaging', on_delete=models.CASCADE, null=True)
-    repackage_weight = models.FloatField(default=0, verbose_name='Weight Of Source SKU To Be Repackaged (Kg)', validators=[WeightValidator])
+    source_repackage_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator], verbose_name='No Of Pieces Of Source SKU To Be Repackaged')
     available_source_weight = models.FloatField(default=0, verbose_name='Available Source SKU Weight (Kg)')
     available_source_quantity = models.PositiveIntegerField(default=0, verbose_name='Available Source SKU Qty(pcs)')
-    destination_sku_quantity = models.PositiveIntegerField(default=0, verbose_name='Created Destination SKU Qty (pcs)')
+    destination_sku_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator], verbose_name='Created Destination SKU Qty (pcs)')
+    remarks = models.TextField(null=True, blank=True)
+    expiry_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -859,22 +868,114 @@ class Repackaging(models.Model):
     def destination_product_sku(self):
         return self.destination_sku.product_sku
 
-    def save(self, *args, **kwargs):
-        if self.pk is None:
-            super().save(*args, **kwargs)
-            type_normal = InventoryType.objects.filter(inventory_type="normal").last()
-            PickerDashboard.objects.create(
-                repackaging=self,
-                picking_status="picking_pending",
-                picklist_id=generate_picklist_id("00"),
-            )
-            shop = Shop.objects.filter(id=self.seller_shop.id).last()
-            CommonPickupFunctions.create_pickup_entry(shop, 'Repackaging', self.id, self.source_sku,
-                                                      self.repackage_weight,
-                                                      'pickup_creation')
-
     def __str__(self):
-        return "REPACKAGING: " + self.source_sku_name() + ' TO ' + self.destination_sku_name()
+        return self.repackaging_no
+
+
+@receiver(post_save, sender=Repackaging)
+def create_repackaging_id(sender, instance=None, created=False, **kwargs):
+    if created:
+        from retailer_backend import common_function
+        instance.repackaging_no = common_function.repackaging_no_pattern(
+            Repackaging, 'id', instance.pk,
+            instance.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
+        instance.save()
+
+@receiver(post_save, sender=Repackaging)
+def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
+    if created:
+        rep_obj = Repackaging.objects.get(pk=instance.pk)
+        from wms.models import InventoryType, Pickup
+        from retailer_to_sp.models import generate_picklist_id, PickerDashboard
+        from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange
+        from datetime import datetime
+        type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+        PickerDashboard.objects.create(
+            repackaging=rep_obj,
+            picking_status="pickup_created",
+            picklist_id=generate_picklist_id("00")
+        )
+        rep_obj.status='pickup_created'
+        rep_obj.save()
+        shop = Shop.objects.filter(id=rep_obj.seller_shop.id).last()
+        CommonPickupFunctions.create_pickup_entry(shop, 'Repackaging', rep_obj.repackaging_no, rep_obj.source_sku,
+                                                  rep_obj.source_repackage_quantity,
+                                                  'pickup_creation')
+        pu = Pickup.objects.filter(pickup_type_id=rep_obj.repackaging_no)
+        for obj in pu:
+            bin_inv_dict = {}
+            pickup_obj = obj
+            qty = obj.quantity
+            bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0,
+                                                      inventory_type__inventory_type='normal').order_by(
+                '-batch_id',
+                'quantity')
+            if bin_lists.exists():
+                for k in bin_lists:
+                    if len(k.batch_id) == 23:
+                        bin_inv_dict[k] = str(datetime.strptime(
+                            k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],
+                            "%d-%m-%Y"))
+                    else:
+                        bin_inv_dict[k] = str(
+                            datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
+                                              "%d-%m-%Y"))
+            else:
+                bin_lists = obj.sku.rt_product_sku.filter(quantity=0,
+                                                          inventory_type__inventory_type='normal').order_by(
+                    '-batch_id',
+                    'quantity').last()
+                if len(bin_lists.batch_id) == 23:
+                    bin_inv_dict[bin_lists] = str(datetime.strptime(
+                        bin_lists.batch_id[17:19] + '-' + bin_lists.batch_id[
+                                                          19:21] + '-' + '20' + bin_lists.batch_id[21:23],
+                        "%d-%m-%Y"))
+                else:
+                    bin_inv_dict[bin_lists] = str(
+                        datetime.strptime('30-' + bin_lists.batch_id[17:19] + '-20' + bin_lists.batch_id[19:21],
+                                          "%d-%m-%Y"))
+
+            bin_inv_list = list(bin_inv_dict.items())
+            bin_inv_dict = dict(sorted(dict(bin_inv_list).items(), key=lambda x: x[1]))
+            for bin_inv in bin_inv_dict.keys():
+                if qty == 0:
+                    break
+                already_picked = 0
+                batch_id = bin_inv.batch_id if bin_inv else None
+                qty_in_bin = bin_inv.quantity if bin_inv else 0
+                shops = bin_inv.warehouse
+                if qty - already_picked <= qty_in_bin:
+                    already_picked += qty
+                    remaining_qty = qty_in_bin - already_picked
+                    bin_inv.quantity = remaining_qty
+                    bin_inv.save()
+                    qty = 0
+                    CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
+                                                                       quantity=already_picked,
+                                                                       bin_quantity=qty_in_bin,
+                                                                       pickup_quantity=None)
+                    InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
+                                                                                 bin_inv.bin,
+                                                                                 type_normal, type_normal,
+                                                                                 "pickup_created",
+                                                                                 pickup_obj.pk,
+                                                                                 already_picked)
+                else:
+                    already_picked = qty_in_bin
+                    remaining_qty = qty - already_picked
+                    bin_inv.quantity = qty_in_bin - already_picked
+                    bin_inv.save()
+                    qty = remaining_qty
+                    CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
+                                                                       quantity=already_picked,
+                                                                       bin_quantity=qty_in_bin,
+                                                                       pickup_quantity=None)
+                    InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
+                                                                                 bin_inv.bin,
+                                                                                 type_normal, type_normal,
+                                                                                 "pickup_created",
+                                                                                 pickup_obj.pk,
+                                                                                 already_picked)
 
 
 class RepackagingCost(models.Model):
