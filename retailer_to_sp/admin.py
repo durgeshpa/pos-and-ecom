@@ -775,7 +775,8 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     )
     list_display = (
         'picklist', 'picking_status', 'picker_boy',
-        'created_at', 'picker_assigned_date', 'download_pick_list', 'order_number', 'order_date'
+        'created_at', 'picker_assigned_date', 'download_pick_list', 'picklist_status', 'order_number', 'order_date',
+        'refreshed_at'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
@@ -855,6 +856,11 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         return obj.order.created_at
     order_date.short_description = 'Order Date'
 
+    def picklist_status(self, obj):
+        picklist_status = 'Valid'
+        if not obj.is_valid:
+            picklist_status = 'Cancelled'
+        return picklist_status
 
     def picklist(self, obj):
         return mark_safe("<a href='/admin/retailer_to_sp/pickerdashboard/%s/change/'>%s<a/>" % (obj.pk,
