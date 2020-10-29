@@ -775,7 +775,8 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     )
     list_display = (
         'picklist', 'picking_status', 'picker_boy',
-        'created_at', 'picker_assigned_date', 'download_pick_list', 'order_number', 'order_date'
+        'created_at', 'picker_assigned_date', 'download_pick_list', 'order_number', 'order_date',
+        'repackaging_number', 'repackaging_date'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
@@ -787,7 +788,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
-            return self.readonly_fields + ('order', 'shipment', 'picklist_id')
+            return self.readonly_fields + ('order', 'shipment', 'picklist_id', 'repackaging')
         return self.readonly_fields
 
     def get_urls(self):
@@ -848,13 +849,24 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     # def _picklist(self, obj, request):
     #     return obj.picklist(request.user)
     def order_number(self,obj):
-        return obj.order.order_no
+        if obj.order:
+            return obj.order.order_no
     order_number.short_description = 'Order No'
 
+    def repackaging_number(self,obj):
+        if obj.repackaging:
+            return obj.repackaging.repackaging_no
+    repackaging_number.short_description = 'Repackaging No'
+
     def order_date(self,obj):
-        return obj.order.created_at
+        if obj.order:
+            return obj.order.created_at
     order_date.short_description = 'Order Date'
 
+    def repackaging_date(self,obj):
+        if obj.repackaging:
+            return obj.repackaging.created_at
+    repackaging_date.short_description = 'Repackaging Date'
 
     def picklist(self, obj):
         return mark_safe("<a href='/admin/retailer_to_sp/pickerdashboard/%s/change/'>%s<a/>" % (obj.pk,
@@ -867,10 +879,16 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     picklist.short_description = 'Picklist'
 
     def download_pick_list(self, obj):
-        if obj.order.order_status not in ["active", "pending"]:
+        if obj.order:
+            if obj.order.order_status not in ["active", "pending"]:
+                return format_html(
+                    "<a href= '%s' >Download Pick List</a>" %
+                    (reverse('create-picklist', args=[obj.order.pk]))
+                )
+        elif obj.repackaging:
             return format_html(
                 "<a href= '%s' >Download Pick List</a>" %
-                (reverse('create-picklist', args=[obj.order.pk]))
+                (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
             )
 
     def download_bulk_pick_list(self, request, *args, **kwargs):
@@ -886,6 +904,8 @@ class PickerDashboardAdmin(admin.ModelAdmin):
             kwargs = {}
             argument_list = []
             for arg in args[ZERO]:
+                if not arg.order:
+                    continue
                 if arg.order.order_status not in ["active", "pending"]:
                     if arg.shipment:
                         # append pk which are not falling under the order active and pending

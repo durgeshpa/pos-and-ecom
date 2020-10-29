@@ -123,8 +123,8 @@ PriceValidator2 = RegexValidator(
     message=VALIDATION_ERROR_MESSAGES['INVALID_PRICE'],
     code='INVALID_PRICE'
 )
-WeightValidator = RegexValidator(
-    regex='^(0*[1-9][0-9]*(\.[0-9]+)?|0+\.[0-9]*[1-9][0-9]*)$',
-    message=VALIDATION_ERROR_MESSAGES['INVALID_WEIGHT_VALUE'],
-    code='INVALID_WEIGHT_VALUE'
+PositiveIntegerValidator = RegexValidator(
+    regex='^[1-9]\d*$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_INTEGER_VALUE'],
+    code='INVALID_INTEGER_VALUE'
 )

@@ -1040,33 +1040,30 @@ class RepackagingForm(forms.ModelForm):
 
     class Meta:
         model = Repackaging
-        fields = ('seller_shop', 'source_sku', 'destination_sku', 'repackage_weight',
-                  "destination_sku_quantity", "available_source_quantity", "available_source_weight")
+        fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity', 'status', "available_source_weight",
+                  "available_source_quantity", "destination_sku_quantity", "remarks", "expiry_date")
+        widgets = {
+            'remarks': forms.Textarea(attrs={'rows': 2}),
+        }
 
     def clean(self):
-        product_obj = Product.objects.values('weight_value', 'product_sku').get(id=self.cleaned_data['source_sku'].id)
-        if product_obj['weight_value'] is None:
-            raise forms.ValidationError("Source SKU Weight Value Not Found")
-        inventory_id = InventoryType.objects.values('id').get(inventory_type='normal')
-        try:
-            source_quantity = WarehouseInventory.objects.values('quantity').get(sku_id=product_obj['product_sku'],
-                                                                                inventory_type_id=inventory_id['id'])
-        except Exception as e:
-            raise forms.ValidationError("Warehouse Inventory Does Not Exist")
-        available_source_wt = self.cleaned_data['repackage_weight'] + self.cleaned_data['available_source_weight']
-        if source_quantity['quantity'] * (product_obj['weight_value'] / 1000) != available_source_wt:
-            raise forms.ValidationError("Source Quantity Changed! Please Input Again")
-        return self.cleaned_data
+        if 'source_sku' in self.cleaned_data:
+            product_obj = Product.objects.values('weight_value', 'product_sku').get(id=self.cleaned_data['source_sku'].id)
+            inventory_id = InventoryType.objects.values('id').get(inventory_type='normal')
+            try:
+                source_quantity = WarehouseInventory.objects.values('quantity').get(sku_id=product_obj['product_sku'], inventory_type_id=inventory_id['id'])
+            except Exception as e:
+                raise forms.ValidationError("Warehouse Inventory Does Not Exist")
+            if self.cleaned_data['source_repackage_quantity'] + self.cleaned_data['available_source_quantity'] != source_quantity['quantity']:
+                raise forms.ValidationError("Source Quantity Changed! Please Input Again")
+            return self.cleaned_data
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        readonly = ['destination_sku_quantity', 'available_source_weight', 'available_source_quantity']
+        super(RepackagingForm, self).__init__(*args, **kwargs)
+        readonly = ['available_source_weight', 'available_source_quantity']
         for key in readonly:
             if key in self.fields:
                 self.fields[key].widget.attrs['readonly'] = True
-        labels = {'seller_shop': "Seller Shop", 'source_sku': 'Source SKU', 'destination_sku': 'Destination SKU'}
-        for key in labels:
-            self.fields[key].label = labels[key]
 
 
 class RepackagingCostForm(forms.ModelForm):

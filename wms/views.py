@@ -34,7 +34,7 @@ from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBin
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
     OrderedProduct, OrderedProductMapping
-from products.models import Product, ProductPrice
+from products.models import Product, ProductPrice, Repackaging
 from gram_to_brand.models import GRNOrderProductMapping
 
 # third party imports
@@ -183,34 +183,15 @@ def put_away(request):
 
 class CreatePickList(APIView):
     permission_classes = (AllowAny,)
-    filename = 'picklist.pdf'
     template_name = 'admin/wms/picklist.html'
 
     def get(self, request, *args, **kwargs):
-        order = get_object_or_404(Order, pk=self.kwargs.get('pk'))
-        barcode = barcodeGen(order.order_no)
-        picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
-        data_list = []
-        new_list = []
-        for i in picku_bin_inv:
-            product = i.pickup.sku.product_name
-            sku = i.pickup.sku.product_sku
-            cart_product = order.ordered_cart.rt_cart_list.filter(cart_product=i.pickup.sku).last()
-            mrp = cart_product.cart_product_price.mrp
-            # mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
-            qty = i.quantity
-            batch_id = i.batch_id
-            bin_id = i.bin.bin.bin_id
-            prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id, "bin": bin_id}
-            data_list.append(prod_list)
-        data = {"data_list": data_list,
-                "buyer_shop": order.ordered_cart.buyer_shop.shop_name,
-                "buyer_contact_no": order.ordered_cart.buyer_shop.shop_owner.phone_number,
-                "buyer_shipping_address": order.shipping_address.address_line1,
-                "buyer_shipping_city": order.shipping_address.city.city_name,
-                "barcode": barcode,
-                "order_obj": order,
-                }
+        pk = self.kwargs.get('pk')
+        picklist_type = self.kwargs.get('type')
+        if picklist_type and int(picklist_type) == 2:
+            pdf_data = repackaging_picklist(pk)
+        else:
+            pdf_data = order_picklist(pk)
 
         cmd_option = {
             "margin-top": 10,
@@ -220,12 +201,73 @@ class CreatePickList(APIView):
             "no-stop-slow-scripts": True,
             "quiet": True
         }
+
         response = PDFTemplateResponse(
             request=request, template=self.template_name,
-            filename=self.filename, context=data,
+            filename=pdf_data['filename'], context=pdf_data['data'],
             show_content_in_browser=False, cmd_options=cmd_option
         )
         return response
+
+
+def order_picklist(order_id):
+    pdf_data = {}
+    order = get_object_or_404(Order, pk=order_id)
+    barcode = barcodeGen(order.order_no)
+    picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
+    data_list = []
+    new_list = []
+    for i in picku_bin_inv:
+        product = i.pickup.sku.product_name
+        sku = i.pickup.sku.product_sku
+        cart_product = order.ordered_cart.rt_cart_list.filter(cart_product=i.pickup.sku).last()
+        mrp = cart_product.cart_product_price.mrp
+        # mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
+        qty = i.quantity
+        batch_id = i.batch_id
+        bin_id = i.bin.bin.bin_id
+        prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id, "bin": bin_id}
+        data_list.append(prod_list)
+    pdf_data['data'] = {
+        "data_list": data_list,
+        "buyer_shop": order.ordered_cart.buyer_shop.shop_name,
+        "buyer_contact_no": order.ordered_cart.buyer_shop.shop_owner.phone_number,
+        "buyer_shipping_address": order.shipping_address.address_line1,
+        "buyer_shipping_city": order.shipping_address.city.city_name,
+        "barcode": barcode,
+        "order_obj": order,
+        "type": 'Order'
+    }
+    pdf_data['filename'] = 'picklist.pdf'
+
+    return pdf_data
+
+
+def repackaging_picklist(repackaging_id):
+    pdf_data = {}
+    repackaging = Repackaging.objects.get(id=repackaging_id)
+    barcode = barcodeGen(repackaging.repackaging_no)
+    pickup_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=repackaging.repackaging_no)
+    data_list = []
+    for i in pickup_bin_inv:
+        product = i.pickup.sku.product_name
+        sku = i.pickup.sku.product_sku
+        qty = i.quantity
+        batch_id = i.batch_id
+        bin_id = i.bin.bin.bin_id
+        prod_list = {"product": product, "sku": sku, "qty": qty, "batch_id": batch_id,
+                     "bin": bin_id}
+        data_list.append(prod_list)
+    pdf_data['data'] = {
+        "data_list": data_list,
+        "barcode": barcode,
+        "repackaging_obj": repackaging,
+        "type": 'Repackaging'
+    }
+
+    pdf_data['filename'] = 'picklistRepackaging.pdf'
+
+    return pdf_data
 
 
 class PickupInventoryManagement:

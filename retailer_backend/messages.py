@@ -26,7 +26,7 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_GSTIN_Number': 'Invalid Gstin number',
     'INVALID_MARGIN': '%s has not valid format( eg: 0, 201, 17.11)',
     'ALREADY_ADDED_SHOP':'Already added Sales Executive with this shop',
-    'INVALID_WEIGHT_VALUE':'Invalid weight value. Only positive value accepted'
+    'INVALID_INTEGER_VALUE':'Only Positive Integers Accepted'
 }
 
 SUCCESS_MESSAGES = {

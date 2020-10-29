@@ -2,7 +2,7 @@ from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django_filters import BooleanFilter
 from rangefilter.filter import DateTimeRangeFilter
-
+from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter
 from django.contrib import admin, messages
 from django.contrib.admin import TabularInline, SimpleListFilter
 from django.core.exceptions import ValidationError
@@ -1053,33 +1053,21 @@ class RepackagingCostInLine(admin.TabularInline):
 
 
 class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
-    inlines = [RepackagingCostInLine]
-
     form = RepackagingForm
-    list_display = ('source_sku_name', 'source_product_sku', 'destination_sku_name',
-                     'destination_product_sku', 'destination_sku_quantity', 'final_fg_cost', 'conversion_cost')
+    list_display = ('repackaging_no', 'status', 'source_sku_name', 'source_product_sku', 'destination_sku_name', 'destination_product_sku', 'destination_sku_quantity', 'created_at')
     actions = ["export_as_csv_products_repackaging"]
 
-    def get_queryset(self, obj):
-        qs = super(RepackagingAdmin, self).get_queryset(obj)
-        return qs.prefetch_related('repackagingcost_set')
-
-    def final_fg_cost(self, obj):
-        return ", ".join([str(k.final_fg_cost) for k in obj.repackagingcost_set.all()])
-
-    def conversion_cost(self, obj):
-        return ", ".join([str(k.conversion_cost) for k in obj.repackagingcost_set.all()])
-
-    list_filter = [SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName, ('created_at', DateTimeRangeFilter)]
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return ['seller_shop', 'source_sku', "destination_sku", "source_repackage_quantity", "available_source_weight", "available_source_quantity"]
+        else:
+            return ['status', 'destination_sku_quantity', 'remarks', 'expiry_date']
+    list_filter = [SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName,
+                   ('status', ChoiceDropdownFilter), ('created_at', DateTimeRangeFilter)]
     list_per_page = 10
 
     class Media:
         js = ("admin/js/repackaging.js",)
-
-    def has_change_permission(self, request, obj=None):
-        if obj:
-            return False
-        return True
 
 
 admin.site.register(ProductImage, ProductImageMainAdmin)

@@ -4,8 +4,7 @@
     var source_sku_weight = 0;
     var destination_sku_weight = 0;
 
-    $('#id_repackage_weight').attr('readonly', true);
-    $('input[name=_continue]').val('Save and view');
+    $('#id_source_repackage_quantity').attr('readonly', true);
 
 	$("#id_source_sku").on('change', function(){
 	    reset('source');
@@ -46,7 +45,7 @@
                         alert("Destination SKU weight value not found");
                         return false;
                     }
-                    $('#id_repackage_weight').attr('readonly', false);
+                    $('#id_source_repackage_quantity').attr('readonly', false);
                     destination_sku_weight = response.destination_sku_weight;
                 } else {
                     alert(response.error)
@@ -59,22 +58,20 @@
         reset('shop');
 	});
 
-	$('#id_repackage_weight').on('blur', function(){
+	$('#id_source_repackage_quantity').on('blur', function(){
 	    if($(this).prop('readonly')){
 	        return false;
 	    }
 	    if($(this).val() < 0 || $(this).val() == ''){
 	        $(this).val(0);
 	    }
-	    var repackage_weight = $(this).val();
-        set_weights(repackage_weight);
+	    var repackage_qty = $(this).val();
+        set_weights(repackage_qty);
 	});
 
 	function reset(type){
-	    $("#id_repackage_weight").val(0);
-	    $("#id_destination_sku_quantity").val(0);
-	    destination_sku_weight = '';
-	    $('#id_repackage_weight').attr('readonly', true);
+	    $("#id_source_repackage_quantity").val(0);
+	    $('#id_source_repackage_quantity').attr('readonly', true);
 	    if(type == 'shop' || type=='source'){
 	        $("#id_available_source_weight").val(0);
 	        $("#id_available_source_quantity").val(0);
@@ -89,20 +86,16 @@
 	    }
 	}
 
-	function set_weights(repackage_weight){
-	    $("#id_repackage_weight").val(repackage_weight);
+	function set_weights(repackage_qty){
+	    $("#id_source_repackage_quantity").val(repackage_qty);
         var available_source_weight = id_available_source_quantity_initial * source_sku_weight;
-	    if (repackage_weight > available_source_weight){
-	        alert("Please enter weight value less than available source weight")
+        var repackage_weight = repackage_qty * source_sku_weight;
+	    if (repackage_qty > id_available_source_quantity_initial){
+	        alert("Please enter repackage quantity less than available source quantity")
 	        return false;
 	    }
-	    if (repackage_weight % source_sku_weight != 0 && repackage_weight != 0) {
-            alert("Please enter weight value that is multiple of Source SKU’s weight value")
-            return false;
-	    }
         $("#id_available_source_weight").val(available_source_weight - repackage_weight);
-        $("#id_available_source_quantity").val($("#id_available_source_weight").val() / source_sku_weight);
-   	    $("#id_destination_sku_quantity").val(repackage_weight / destination_sku_weight);
+        $("#id_available_source_quantity").val(id_available_source_quantity_initial - repackage_qty);
 	};
   });
 
