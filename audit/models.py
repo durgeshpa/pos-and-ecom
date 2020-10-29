@@ -138,10 +138,13 @@ class AuditProduct(models.Model):
 class AuditCancelledPicklist(BaseTimestampModel):
     audit = models.ForeignKey(AuditDetail, null=False, on_delete=models.DO_NOTHING, related_name='+')
     order_no = models.CharField(max_length=20, null=False)
+    is_picklist_refreshed = models.BooleanField(default=False)
 
     class Meta:
         db_table = "wms_audit_cancelled_picklists"
+
 #
+
 #
 # class AuditTicketManual(AuditTicket):
 #     qty_normal_system = models.PositiveIntegerField()
