@@ -14,7 +14,8 @@ from rest_framework import permissions, authentication
 from retailer_backend.messages import ERROR_MESSAGES
 from wms.common_functions import InternalInventoryChange, WareHouseInternalInventoryChange, \
     CommonWarehouseInventoryFunctions, CommonBinInventoryFunctions
-from wms.models import BinInventory, Bin, InventoryType, PickupBinInventory, WarehouseInventory, InventoryState, Pickup
+from wms.models import BinInventory, Bin, InventoryType, PickupBinInventory, WarehouseInventory, InventoryState, Pickup, \
+    BinInternalInventoryChange
 from wms.views import PicklistRefresh
 from .serializers import AuditDetailSerializer
 from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
@@ -130,7 +131,7 @@ class AuditEndView(APIView):
     def get(self, request):
         info_logger.info("AuditEndView GET API called.")
 
-        audit_no = request.POST.get('audit_no')
+        audit_no = request.GET.get('audit_no')
 
         if not audit_no:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'audit_no', 'data': None}
@@ -405,13 +406,15 @@ class AuditInventory(APIView):
         sku = bin_inventory.sku
         current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
         is_inventory_changed = False
+        is_update_done = False
+        for key, value in current_inventory.items():
+            if value != old_inventory[key]:
+                is_inventory_changed = True
+                break
         if not retry:
-            for key, value in current_inventory.items():
-                if value != old_inventory[key]:
-                    is_inventory_changed = True
-                    break
             if is_inventory_changed:
                 data = {'is_inventory_changed': is_inventory_changed,
+                        'is_update_done': is_update_done,
                         'bin_id': bin_id, 'batch_id': batch_id,
                         'inventory': current_inventory}
                 msg = {'is_success': True, 'message': 'OK', 'data': data}
@@ -445,9 +448,10 @@ class AuditInventory(APIView):
             remaining_bins_to_audit = self.get_remaining_bins_to_audit(audit, audit_run, sku)
             if len(remaining_bins_to_audit) == 0:
                 BlockUnblockProduct.unblock_product_after_audit(audit, sku, warehouse)
-
+        is_update_done = True
         current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
         data = {'is_inventory_changed': is_inventory_changed,
+                'is_update_done': is_update_done,
                 'bin_id': bin_id, 'batch_id': batch_id,
                 'inventory': current_inventory}
         msg = {'is_success': True, 'message': 'OK', 'data': data}
@@ -467,10 +471,18 @@ class AuditInventory(APIView):
 
         CommonBinInventoryFunctions.update_or_create_bin_inventory(warehouse, bin, sku,
                                                                    batch_id, inventory_type, qty_diff, True)
-        InternalInventoryChange.create_bin_internal_inventory_change(warehouse, sku, batch_id, bin,
-                                                                     inventory_type,
-                                                                     inventory_type, tr_type,
-                                                                     audit_no, abs(qty_diff))
+        # InternalInventoryChange.create_bin_internal_inventory_change(warehouse, sku, batch_id, bin,
+        #                                                              inventory_type,
+        #                                                              inventory_type, tr_type,
+        #                                                              audit_no, abs(qty_diff))
+        BinInternalInventoryChange.objects.create(warehouse=warehouse, sku=sku,
+                                                  batch_id=batch_id,
+                                                  final_bin=bin,
+                                                  initial_inventory_type=inventory_type,
+                                                  final_inventory_type=inventory_type,
+                                                  transaction_type=tr_type,
+                                                  transaction_id=audit_no,
+                                                  quantity=abs(qty_diff))
 
         ware_house_inventory_obj = WarehouseInventory.objects.filter(warehouse=warehouse, sku=sku,
                                                                      inventory_state=inventory_state,
