@@ -398,7 +398,11 @@ class AuditInventory(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         retry = request.data.get('retry')
         warehouse = audit.warehouse
-        sku = BinInventory.objects.filter(batch_id=batch_id, bin=bin).last().sku
+        bin_inventory = BinInventory.objects.filter(batch_id=batch_id, bin=bin).last()
+        if not bin_inventory:
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['BATCH_BIN_ISSUE'].format(batch_id, bin_id), 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        sku = bin_inventory.sku
         current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
         is_inventory_changed = False
         if not retry:

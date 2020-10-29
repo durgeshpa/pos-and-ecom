@@ -49,6 +49,7 @@ ERROR_MESSAGES = {
     'FAILED_STATE_CHANGE': "Audit state could not be changed",
     'NO_RECORD': 'No %s record found',
     'SOME_ISSUE': 'There seems to be some issue.',
+    'BATCH_BIN_ISSUE': 'This batch {} is not found in this bin {}',
     'AVAILABLE_QUANTITY': 'Available Qty : {0}',
     'AVAILABLE_PRODUCT': 'Available No of Pieces : {0}',
     'INVALID_PRICE_UPLOAD': "You cannot upload Selling Price greater than MRP",
