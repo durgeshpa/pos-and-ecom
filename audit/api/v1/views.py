@@ -19,7 +19,7 @@ from wms.views import PicklistRefresh
 from .serializers import AuditDetailSerializer
 from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist
-from ...tasks import update_audit_status
+from ...tasks import update_audit_status, generate_pick_list
 from ...utils import is_audit_started
 from ...views import BlockUnblockProduct
 from rest_framework.permissions import BasePermission
@@ -128,7 +128,7 @@ class AuditEndView(APIView):
     permission_classes = (permissions.IsAuthenticated, IsAuditor)
 
     def get(self, request):
-        info_logger.info("AuditUpdateView GET API called.")
+        info_logger.info("AuditEndView GET API called.")
 
         audit_no = request.POST.get('audit_no')
 
@@ -146,14 +146,18 @@ class AuditEndView(APIView):
         audit = audits.last()
         if audit.state != AUDIT_DETAIL_STATE_CHOICES.INITIATED:
             msg = {'is_success': False,
-                   'message': ERROR_MESSAGES['INVALID_AUDIT_STATE'] % AUDIT_DETAIL_STATE_CHOICES[AUDIT_DETAIL_STATE_CHOICES.ENDED],
+                   'message': ERROR_MESSAGES['INVALID_AUDIT_STATE'] % AUDIT_DETAIL_STATE_CHOICES[AUDIT_DETAIL_STATE_CHOICES.INITIATED],
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-
-
+        try:
+            can_audit_end = self.can_end_audit(audit)
+        except Exception as e:
+            can_audit_end = False
+            error_logger.error(e)
+            info_logger.error("AuditEndView|Exception in can_end_audit")
         serializer = AuditDetailSerializer(audit)
-        msg = {'is_success': True, 'message': 'OK', 'data': {'audit_detail' :serializer.data,
-                                                             'can_audit_end' : self.can_end_audit(audit)}}
+        msg = {'is_success': True, 'message': 'OK', 'data': {'audit_detail':serializer.data,
+                                                             'can_audit_end': can_audit_end}}
         return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -178,12 +182,13 @@ class AuditEndView(APIView):
                    'message': ERROR_MESSAGES['INVALID_AUDIT_STATE'] % AUDIT_DETAIL_STATE_CHOICES[AUDIT_DETAIL_STATE_CHOICES.INITIATED],
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        if not self.can_end_audit(audit):
-            msg = {'is_success': False,
-                   'message': ERROR_MESSAGES['FAILED_STATE_CHANGE'],
-                   'data': None}
-            return Response(msg, status=status.HTTP_200_OK)
+
         try:
+            if not self.can_end_audit(audit):
+                msg = {'is_success': False,
+                       'message': ERROR_MESSAGES['FAILED_STATE_CHANGE'],
+                       'data': None}
+                return Response(msg, status=status.HTTP_200_OK)
             self.end_audit(audit)
         except Exception as e:
             error_logger.error(e)
@@ -224,6 +229,7 @@ class AuditEndView(APIView):
         audit.state = AUDIT_DETAIL_STATE_CHOICES.ENDED
         audit.save()
         update_audit_status.delay(audit.id)
+        generate_pick_list.delay(audit.id)
         return True
 
 
@@ -564,7 +570,6 @@ class AuditInventory(APIView):
     def cancel_picklist(self, audit, warehouse, batch_id, bin):
         pickup_bin_qs = PickupBinInventory.objects.filter(warehouse=warehouse, batch_id=batch_id, bin__bin_id=bin,
                                                           pickup__status__in=['pickup_creation', 'picking_assigned'])
-        orders_to_cancel_picklist = set()
         with transaction.atomic():
             for pb in pickup_bin_qs:
                 order_no = pb.pickup.pickup_type_id
