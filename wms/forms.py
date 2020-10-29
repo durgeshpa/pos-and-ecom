@@ -7,7 +7,7 @@ from django import forms
 from datetime import datetime
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
     InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit
-from products.models import Product
+from products.models import Product, ProductPrice
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
@@ -210,13 +210,16 @@ class PutAwayBinInventoryForm(forms.ModelForm):
             self.fields['bin_id'].disabled = True
             self.fields['bin'] = forms.ModelChoiceField(queryset=Bin.objects.filter(
                 warehouse=self.instance.warehouse).distinct(), widget=autocomplete.ModelSelect2())
-        bin_obj = BinInventory.objects.filter(bin=Bin.objects.filter(bin_id=self.cleaned_data['bin']).last(), warehouse=self.instance.warehouse).last()
+        bin_obj = BinInventory.objects.filter(
+            bin=Bin.objects.filter(bin_id=self.cleaned_data['bin'], warehouse=self.instance.warehouse).last(),
+            warehouse=self.instance.warehouse).last()
         if bin_obj:
             return bin_obj
         else:
             bin_exp_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse,
                                                       bin=Bin.objects.filter(
-                                                          bin_id=self.cleaned_data['bin'].bin_id).last(),
+                                                          bin_id=self.cleaned_data['bin'].bin_id,
+                                                      warehouse=self.instance.warehouse).last(),
                                                       sku=Product.objects.filter(
                                                           product_sku=self.instance.sku_id).last(),
                                                       batch_id=self.instance.batch_id)
@@ -643,7 +646,7 @@ def validation_stock_correction(self):
         # create batch id
         batch_id = create_batch_id(sku, row[3])
         bin_exp_obj = BinInventory.objects.filter(warehouse=row[0],
-                                                  bin=Bin.objects.filter(bin_id=row[4]).last(),
+                                                  bin=Bin.objects.filter(bin_id=row[4], warehouse=row[0]).last(),
                                                   sku=Product.objects.filter(
                                                       product_sku=row[2]).last(),
                                                   batch_id=batch_id)
@@ -846,6 +849,10 @@ class UploadAuditAdminForm(forms.Form):
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 2) + "," + "Product of MRP can not be empty or string type."))
 
+            # if not ProductPrice.objects.filter(product__product_sku=row[1][-17:], seller_shop=row[0]).exists():
+            #     raise ValidationError(_(
+            #         "Issue in Row" + " " + str(row_id + 2) + "," + "This Product is not associated with this warehouse."))
+
             # to validate expiry date is empty or not and validate the correct format
             if not row[3]:
                 raise ValidationError(_(
@@ -894,6 +901,10 @@ class UploadAuditAdminForm(forms.Form):
             if not Bin.objects.filter(bin_id=row[4], is_active=True).exists():
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID is not activated in the system."))
+
+            if not Bin.objects.filter(bin_id=row[4], warehouse=row[0]).exists():
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Bin ID is not associated with given warehouse."))
 
             # to validate normal initial quantity is empty or contains the number
             if not row[5] or not re.match("^[\d]*$", row[5]):
