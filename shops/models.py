@@ -89,15 +89,17 @@ class Shop(models.Model):
     def __str__(self):
         # return "%s-%s"%(self.shop_name, self.shop_owner)
         if self.shop_owner.first_name and self.shop_owner.last_name:
-            return "%s - %s - %s %s" % (self.shop_name,
+            return "%s - %s - %s %s - %s - %s" % (self.shop_name,
                                         str(self.shop_owner.phone_number), self.shop_owner.first_name,
-                                        self.shop_owner.last_name
+                                        self.shop_owner.last_name, str(self.shop_type), str(self.id)
                                         )
 
         elif self.shop_owner.first_name:
-            return "%s - %s - %s" % (self.shop_name, str(self.shop_owner.phone_number), self.shop_owner.first_name)
+            return "%s - %s - %s - %s - %s" % (self.shop_name, str(self.shop_owner.phone_number), self.shop_owner.first_name,
+                                     str(self.shop_type), str(self.id))
 
-        return "%s - %s" % (self.shop_name, str(self.shop_owner.phone_number))
+        return "%s - %s - %s - %s" % (self.shop_name, str(self.shop_owner.phone_number), str(self.shop_type),
+                                      str(self.id))
 
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)

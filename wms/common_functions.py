@@ -191,7 +191,7 @@ class CommonWarehouseInventoryFunctions(object):
             ware_house_inventory_obj.quantity = ware_house_quantity
             ware_house_inventory_obj.save()
         else:
-            WarehouseInventory.objects.create(
+            WarehouseInventory.objects.get_or_create(
                 warehouse=warehouse,
                 sku=sku,
                 inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
@@ -307,10 +307,15 @@ def get_product_stock(shop, sku):
 
 
 def get_visibility_changes(shop, product):
+    visibility_changes = {}
+    if isinstance(product, int):
+        product = Product.objects.filter(id=product).last()
+        if not product:
+            return visibility_changes
     child_siblings = Product.objects.filter(
         parent_product=ParentProduct.objects.filter(id=product.parent_product.id).last(),
+        status='active'
     )
-    visibility_changes = {}
     min_exp_date_data = {
         'id': '',
         'exp': None
@@ -341,7 +346,11 @@ def get_visibility_changes(shop, product):
         for data in bin_data:
             exp_date_str = get_expiry_date(batch_id=data.batch_id)
             exp_date = datetime.strptime(exp_date_str, "%d/%m/%Y")
-            if (not min_exp_date_data.get('exp', None)) or (exp_date < min_exp_date_data.get('exp')):
+            if not min_exp_date_data.get('exp', None):
+                min_exp_date_data['exp'] = exp_date
+                min_exp_date_data['id'] = data.sku.id
+            elif exp_date < min_exp_date_data.get('exp'):
+                visibility_changes[min_exp_date_data['id']] = False
                 min_exp_date_data['exp'] = exp_date
                 min_exp_date_data['id'] = data.sku.id
             else:

@@ -128,20 +128,20 @@ class ParentProduct(models.Model):
     parent_brand = models.ForeignKey(Brand, related_name='parent_brand_product', blank=False, on_delete=models.CASCADE)
     # category = models.ForeignKey(Category, related_name='category_parent_category', on_delete=models.CASCADE)
     product_hsn = models.ForeignKey(ProductHSN, related_name='parent_hsn', blank=False, on_delete=models.CASCADE)
-    GST_CHOICES = (
-        (0, '0 %'),
-        (5, '5 %'),
-        (12, '12 %'),
-        (18, '18 %'),
-        (28, '28 %'),
-    )
-    gst = models.PositiveIntegerField(default=0, choices=GST_CHOICES)
-    CESS_CHOICES = (
-        (0, '0 %'),
-        (12, '12 %'),
-    )
-    cess = models.PositiveIntegerField(default=0, choices=CESS_CHOICES, blank=True)
-    surcharge = models.PositiveIntegerField(default=0, blank=True)
+    # GST_CHOICES = (
+    #     (0, '0 %'),
+    #     (5, '5 %'),
+    #     (12, '12 %'),
+    #     (18, '18 %'),
+    #     (28, '28 %'),
+    # )
+    # gst = models.PositiveIntegerField(default=0, choices=GST_CHOICES)
+    # CESS_CHOICES = (
+    #     (0, '0 %'),
+    #     (12, '12 %'),
+    # )
+    # cess = models.PositiveIntegerField(default=0, choices=CESS_CHOICES, blank=True)
+    # surcharge = models.PositiveIntegerField(default=0, blank=True)
     brand_case_size = models.PositiveIntegerField(blank=False)
     inner_case_size = models.PositiveIntegerField(blank=False, default=1)
     PRODUCT_TYPE_CHOICES = (
@@ -280,19 +280,25 @@ class Product(models.Model):
 
     @property
     def product_gst(self):
-        return self.parent_product.gst if self.parent_product else ''
+        if self.product_pro_tax.filter(tax__tax_type='gst').exists():
+            return self.product_pro_tax.filter(tax__tax_type='gst').last().tax.tax_percentage
+        return ''
 
     @property
     def product_cess(self):
-        return self.parent_product.cess if self.parent_product else ''
+        if self.product_pro_tax.filter(tax__tax_type='cess').exists():
+            return self.product_pro_tax.filter(tax__tax_type='cess').last().tax.tax_percentage
+        return ''
 
     @property
     def product_surcharge(self):
-        return self.parent_product.surcharge if self.parent_product else ''
+        if self.product_pro_tax.filter(tax__tax_type='surcharge').exists():
+            return self.product_pro_tax.filter(tax__tax_type='surcharge').last().tax.tax_percentage
+        return ''
 
     @property
     def product_case_size(self):
-        return self.parent_product.brand_case_size if self.parent_product else ''
+        return self.parent_product.brand_case_size if self.parent_product else '1'
 
     @property
     def parent_name(self):
@@ -300,7 +306,7 @@ class Product(models.Model):
 
     @property
     def product_inner_case_size(self):
-        return self.parent_product.inner_case_size if self.parent_product else ''
+        return self.parent_product.inner_case_size if self.parent_product else '1'
 
     @property
     def product_short_description(self):
@@ -391,6 +397,8 @@ class Product(models.Model):
         return self.get_current_shop_price(seller_shop_id, buyer_shop_id)
 
     def getMRP(self, seller_shop_id, buyer_shop_id):
+        if self.product_mrp:
+            return self.product_mrp
         product_price = self.getPriceByShopId(seller_shop_id, buyer_shop_id)
         return product_price.mrp if product_price else False
 
@@ -410,7 +418,11 @@ class Product(models.Model):
         for rules in self.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
             for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
                 product_coupons.append(rule.coupon_code)
-        parent_brand = self.parent_product.parent_brand.brand_parent.id if self.parent_product else None
+        parent_product_brand = self.parent_product.parent_brand if self.parent_product else None
+        if parent_product_brand:
+            parent_brand = parent_product_brand.brand_parent.id if parent_product_brand.brand_parent else None
+        else:
+            parent_brand = None
         # parent_brand = self.product_brand.brand_parent.id if self.product_brand.brand_parent else None
         product_brand_id = self.parent_product.parent_brand.id if self.parent_product else None
         brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
@@ -687,6 +699,51 @@ class ProductTaxMapping(models.Model):
 #     created_at = models.DateTimeField(auto_now_add=True)
 #     modified_at = models.DateTimeField(auto_now=True)
 #     status = models.BooleanField(default=True)
+
+
+class ParentProductTaxMapping(models.Model):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_tax', on_delete=models.CASCADE)
+    tax = models.ForeignKey(Tax, related_name='parent_tax_pro_tax', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+    def __str__(self):
+        return "{}-{}".format(self.parent_product, self.tax.tax_name)
+
+    # def get_products_gst_tax(self):
+    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='gst')
+
+    # def get_products_gst_cess(self):
+    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='cess')
+
+    # def get_products_gst_surcharge(self):
+    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='surcharge')
+
+
+class DestinationRepackagingCostMapping(models.Model):
+    destination = models.ForeignKey(Product, related_name='destination_product_repackaging', on_delete=models.CASCADE)
+    raw_material = models.DecimalField(max_digits=10, decimal_places=2)
+    wastage = models.DecimalField(max_digits=10, decimal_places=2)
+    fumigation = models.DecimalField(max_digits=10, decimal_places=2)
+    label_printing = models.DecimalField(max_digits=10, decimal_places=2)
+    packing_labour = models.DecimalField(max_digits=10, decimal_places=2)
+    primary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    secondary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    final_fg_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    conversion_cost = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return "{}".format(self.destination)
+
+
+@receiver(pre_save, sender=DestinationRepackagingCostMapping)
+def calculate_fg_and_conversion_cost(sender, instance=None, created=False, **kwargs):
+    instance.final_fg_cost = instance.raw_material + instance.wastage + \
+        instance.fumigation + instance.label_printing + instance.packing_labour + \
+        instance.primary_pm_cost + instance.secondary_pm_cost
+    instance.conversion_cost = instance.final_fg_cost - instance.raw_material
+
 
 class ProductCSV(models.Model):
     file = models.FileField(upload_to='products/')

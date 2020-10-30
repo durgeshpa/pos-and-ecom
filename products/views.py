@@ -33,7 +33,8 @@ from products.models import (
     ProductTaxMapping, ProductVendorMapping,
     ProductImage, ProductHSN, ProductPrice,
     ParentProduct, ParentProductCategory,
-    ProductSourceMapping
+    ProductSourceMapping,
+    ParentProductTaxMapping, Tax
     )
 
 logger = logging.getLogger(__name__)
@@ -828,16 +829,43 @@ def parent_product_upload(request):
                     parent_product = ParentProduct.objects.create(
                         name=row[0],
                         parent_brand=Brand.objects.filter(brand_name=row[1]).last(),
-                        # category=Category.objects.filter(category_name=row[2]).last(),
                         product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
-                        gst=gst_mapper(row[4]),
-                        cess=int(row[5]) if row[5] else 0,
-                        surcharge=int(row[6]) if row[6] else 0,
                         brand_case_size=int(row[7]),
                         inner_case_size=int(row[8]),
                         product_type=row[9]
                     )
                     parent_product.save()
+                    parent_gst = gst_mapper(row[4])
+                    ParentProductTaxMapping.objects.create(
+                        parent_product=parent_product,
+                        tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last()
+                    ).save()
+                    parent_cess = int(row[5]) if row[5] else 0
+                    ParentProductTaxMapping.objects.create(
+                        parent_product=parent_product,
+                        tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last()
+                    ).save()
+                    parent_surcharge = int(row[6]) if row[6] else 0
+                    if Tax.objects.filter(
+                        tax_type='surcharge',
+                        tax_percentage=parent_surcharge
+                    ).exists():
+                        ParentProductTaxMapping.objects.create(
+                            parent_product=parent_product,
+                            tax=Tax.objects.filter(tax_type='surcharge', tax_percentage=parent_surcharge).last()
+                        ).save()
+                    else:
+                        new_surcharge_tax = Tax.objects.create(
+                            tax_name='Surcharge - {}'.format(parent_surcharge),
+                            tax_type='surcharge',
+                            tax_percentage=parent_surcharge,
+                            tax_start_at=datetime.datetime.now()
+                        )
+                        new_surcharge_tax.save()
+                        ParentProductTaxMapping.objects.create(
+                            parent_product=parent_product,
+                            tax=new_surcharge_tax
+                        ).save()
                     if Category.objects.filter(category_name=row[2]).exists():
                         parent_product_category = ParentProductCategory.objects.create(
                             parent_product=parent_product,
@@ -1112,7 +1140,6 @@ class SourceProductAutocomplete(autocomplete.Select2QuerySetView):
         qs = Product.objects.filter(repackaging_type='source')
         if self.q:
             qs = qs.filter(Q(product_name__icontains=self.q) |
-                           Q(product_gf_code__icontains=self.q) |
                            Q(product_sku__icontains=self.q))
         return qs
 

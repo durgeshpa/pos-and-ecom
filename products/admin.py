@@ -19,7 +19,7 @@ from retailer_backend.filters import CityFilter, ProductCategoryFilter
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
-                    RepackagingForm, ParentProductForm, ProductSourceMappingForm)
+                    RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -379,12 +379,57 @@ class ParentProductCategoryAdmin(TabularInline):
 
 
 def deactivate_selected_products(modeladmin, request, queryset):
+    # parent_tax_script_qa4()
     queryset.update(status=False)
     for record in queryset:
         Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='deactivated')
 
 deactivate_selected_products.short_description = "Deactivate Selected Products"
 
+def parent_tax_script_qa4():
+    pr = ParentProductTaxMapping.objects.all().values_list('parent_product', flat=True).distinct('parent_product')
+    parents = ParentProduct.objects.exclude(id__in=pr)
+    for parent in parents:
+        if parent.gst is not None and parent.gst == 0:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=1)
+            ).save()
+        elif parent.gst and parent.gst == 5:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=2)
+            ).save()
+        elif parent.gst and parent.gst == 12:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=3)
+            ).save()
+        elif parent.gst and parent.gst == 18:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=4)
+            ).save()
+        elif parent.gst and parent.gst == 28:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=5)
+            ).save()
+        if parent.cess and parent.cess == 12:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=6)
+            ).save()
+        elif parent.cess is not None and parent.cess == 0:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=7)
+            ).save()
+        if parent.surcharge is not None and parent.surcharge == 0:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent,
+                tax=Tax.objects.get(id=8)
+            ).save()
 
 def approve_selected_products(modeladmin, request, queryset):
     queryset.update(status=True)
@@ -395,6 +440,29 @@ approve_selected_products.short_description = "Approve Selected Products"
 
 class ParentProductImageAdmin(admin.TabularInline):
     model = ParentProductImage
+
+class ParentProductTaxInlineFormSet(BaseInlineFormSet):
+   def clean(self):
+      super(ParentProductTaxInlineFormSet, self).clean()
+      tax_list_type = []
+      for form in self.forms:
+          if form.is_valid() and form.cleaned_data.get('tax'):
+              if form.cleaned_data.get('tax').tax_type in tax_list_type:
+                  raise ValidationError('{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
+              tax_list_type.append(form.cleaned_data.get('tax').tax_type)
+      if 'gst' not in tax_list_type:
+          raise ValidationError('Please fill the GST tax value')
+
+
+class ParentProductTaxMappingAdmin(admin.TabularInline):
+    model = ParentProductTaxMapping
+    extra = 3
+    formset = ParentProductTaxInlineFormSet
+    max_num = 6
+    autocomplete_fields = ['tax']
+
+    class Media:
+        pass
 
 
 class ParentProductAdmin(admin.ModelAdmin):
@@ -417,10 +485,15 @@ class ParentProductAdmin(admin.ModelAdmin):
         'parent_id', 'name'
     ]
     inlines = [
-        ParentProductCategoryAdmin, ParentProductImageAdmin
+        ParentProductCategoryAdmin, ParentProductImageAdmin, ParentProductTaxMappingAdmin
     ]
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
     autocomplete_fields = ['product_hsn', 'parent_brand']
+
+    def product_gst(self, obj):
+        if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').exists():
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').last().tax.tax_percentage)
+        return ''
 
     def product_image(self, obj):
         if obj.parent_product_pro_image.exists():
@@ -430,11 +503,6 @@ class ParentProductAdmin(admin.ModelAdmin):
                 obj.parent_product_pro_image.last().image.url
             ))
         return '-'
-
-    def product_gst(self, obj):
-        if obj.gst:
-            return "{} %".format(obj.gst)
-        return ''
 
     def get_urls(self):
         from django.conf.urls import url
@@ -456,7 +524,7 @@ class ParentProductAdmin(admin.ModelAdmin):
 
 def deactivate_selected_child_products(modeladmin, request, queryset):
     queryset.update(status='deactivated')
-deactivate_selected_products.short_description = "Deactivate Selected Products"
+deactivate_selected_child_products.short_description = "Deactivate Selected Products"
 
 
 def approve_selected_child_products(modeladmin, request, queryset):
@@ -482,7 +550,7 @@ def approve_selected_child_products(modeladmin, request, queryset):
         )
     else:
         modeladmin.message_user(request, "All selected Child SKUs were successfully approved", level=messages.SUCCESS)
-approve_selected_products.short_description = "Approve Selected Products"
+approve_selected_child_products.short_description = "Approve Selected Products"
 
 
 class ProductSourceMappingAdmin(admin.TabularInline):
@@ -505,6 +573,15 @@ class ProductSourceMappingAdmin(admin.TabularInline):
 
 class ChildProductImageAdmin(admin.TabularInline):
     model = ChildProductImage
+
+
+class DestinationRepackagingCostMappingAdmin(admin.TabularInline):
+    model = DestinationRepackagingCostMapping
+    form = DestinationRepackagingCostMappingForm
+    extra = 1
+
+    class Media:
+        pass
 
 
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
@@ -725,7 +802,8 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     #     ProductCategoryAdmin, ProductOptionAdmin,
     #     ProductImageAdmin, ProductTaxMappingAdmin
     # ]
-    inlines = [ChildProductImageAdmin, ProductSourceMappingAdmin]
+    # inlines = [ChildProductImageAdmin]
+    inlines = [ProductImageAdmin, ProductSourceMappingAdmin, DestinationRepackagingCostMappingAdmin]
     # autocomplete_fields = ['product_hsn', 'product_brand']
     autocomplete_fields = ['parent_product']
 
@@ -744,6 +822,12 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 (obj.parent_product.parent_product_pro_image.last().image_alt_text or obj.parent_product.parent_product_pro_image.last().image_name),
                 obj.parent_product.parent_product_pro_image.last().image.url
             ))
+        elif not obj.use_parent_image and obj.product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.product_pro_image.last().image.url,
+                (obj.product_pro_image.last().image_alt_text or obj.product_pro_image.last().image_name),
+                obj.product_pro_image.last().image.url
+            ))
         elif not obj.use_parent_image and obj.child_product_pro_image.exists():
             return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
                 obj.child_product_pro_image.last().image.url,
@@ -753,7 +837,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         return '-'
 
     def product_gst(self, obj):
-        if obj.product_gst:
+        if obj.product_gst is not None:
             return "{} %".format(obj.product_gst)
         return ''
     product_gst.short_description = 'Product GST'
@@ -805,7 +889,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
                            'pincode')
     list_display = [
-        'product', 'product_sku', 'product_gf_code', 'product_mrp', 'selling_price',
+        'product', 'product_sku', 'product_mrp', 'selling_price',
         'seller_shop', 'buyer_shop', 'city', 'pincode',
         'start_date', 'end_date', 'approval_status', 'status'
     ]

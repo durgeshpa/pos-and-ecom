@@ -222,6 +222,11 @@ class CartProductMapping(models.Model):
         self._tax_percentage = value
 
     def calculate_tax_percentage(self):
+        # if self.cart_product.parent_product:
+        #     tax_percentage = self.cart_product.parent_product.gst + self.cart_product.parent_product.cess + self.cart_product.parent_product.surcharge
+        # else:
+        #     tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
+        #     tax_percentage = sum(tax_percentage)
         tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
         tax_percentage = sum(tax_percentage)
         return tax_percentage

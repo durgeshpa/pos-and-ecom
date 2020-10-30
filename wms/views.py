@@ -27,7 +27,8 @@ from django.db import transaction, DatabaseError
 from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
-    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, get_visibility_changes
+    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
+    get_expiry_date_db, get_visibility_changes
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
@@ -221,7 +222,10 @@ def order_picklist(order_id):
         product = i.pickup.sku.product_name
         sku = i.pickup.sku.product_sku
         cart_product = order.ordered_cart.rt_cart_list.filter(cart_product=i.pickup.sku).last()
-        mrp = cart_product.cart_product_price.mrp
+        if i.pickup.sku.product_mrp:
+            mrp = i.pickup.sku.product_mrp
+        else:
+            mrp = cart_product.cart_product_price.mrp
         # mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
         qty = i.quantity
         batch_id = i.batch_id
@@ -486,10 +490,14 @@ def commit_updates_to_es(shop, product):
     if not available_qty:
         status = False
     info_logger.info("updating ES %s", available_qty)
-    update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
     if visibility_changes:
         for prod_id, visibility in visibility_changes.items():
-            update_product_es.delay(shop.id, prod_id, visible=visibility)
+            if prod_id == product.id:
+                update_product_es.delay(shop.id, product.id, available=available_qty, status=status, visible=visibility)
+            else:
+                update_product_es.delay(shop.id, prod_id, visible=visibility)
+    else:
+        update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
 
 
 
@@ -560,9 +568,9 @@ def stock_correction_data(upload_data, stock_movement_obj):
     """
     try:
         with transaction.atomic():
-            in_quantity = 0
-            out_quantity = 0
             for data in upload_data:
+                in_quantity = 0
+                out_quantity = 0
                 # get the type of stock
                 stock_correction_type = 'stock_adjustment'
                 # Create data in IN Model
@@ -921,7 +929,7 @@ def pickup_entry_creation_with_cron():
                     pickup_obj = obj
                     qty = obj.quantity
                     bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0,
-                                                              inventory_type__inventory_type='normal').order_by(
+                                                              inventory_type__inventory_type='normal', warehouse=shop).order_by(
                         '-batch_id',
                         'quantity')
                     if bin_lists.exists():
@@ -936,7 +944,7 @@ def pickup_entry_creation_with_cron():
                                                       "%d-%m-%Y"))
                     else:
                         bin_lists = obj.sku.rt_product_sku.filter(quantity=0,
-                                                                  inventory_type__inventory_type='normal').order_by(
+                                                                  inventory_type__inventory_type='normal', warehouse=shop).order_by(
                             '-batch_id',
                             'quantity').last()
                         if len(bin_lists.batch_id) == 23:
