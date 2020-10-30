@@ -1086,27 +1086,30 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
 class ExportRepackaging:
     def export_as_csv_products_repackaging(self, request, queryset):
         meta = self.model._meta
-        list_display = ['Source SKU Name', 'Source SKU ID', 'Destination SKU Name', 'Destination SKU ID',
-                        'Source SKU Weight to be Repackaged (Kg)', 'Destination SKU Qty Created',
+        list_display = ['Repackaging ID', 'Repackaging Status', 'Source SKU Name', 'Source SKU ID',
+                        'Destination SKU Name', 'Destination SKU ID', 'Destination SKU Batch ID',
+                        'Source SKU Qty to be Repackaged', 'Destination SKU Qty Created',
                         'Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
                         'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost', 'Final FG Cost',
-                        'Conversion Cost']
-        field_names = ['repackage_weight', 'destination_sku_quantity']
+                        'Conversion Cost', 'Created At']
+        field_names = ['destination_batch_id', 'source_repackage_quantity', 'destination_sku_quantity']
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
         writer.writerow(list_display)
         for obj in queryset:
-            items = [obj.source_sku_name(), obj.source_product_sku(), obj.destination_sku_name(), obj.destination_product_sku()]
+            items = [obj.repackaging_no, obj.status, obj.source_sku_name(), obj.source_product_sku(),
+                     obj.destination_sku_name(), obj.destination_product_sku()]
             items1 = [getattr(obj, field) for field in field_names]
             items = items + items1
-            rep = obj.repackagingcost_set.all()
+            rep = obj.destination_sku.destination_product_repackaging.all()
             if rep:
                 add = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
                        'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
                 for key in add:
                     join_all = ", ".join([str(getattr(k, key)) for k in rep])
                     items.append(join_all)
+            items = items + [getattr(obj, 'created_at').strftime("%b. %d, %Y, %-I:%M %p")]
             writer.writerow(items)
         return response
     export_as_csv_products_repackaging.short_description = "Download CSV of Selected Repackaging"
@@ -1114,7 +1117,9 @@ class ExportRepackaging:
 
 class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
     form = RepackagingForm
-    list_display = ('repackaging_no', 'status', 'source_sku_name', 'source_product_sku', 'destination_sku_name', 'destination_product_sku', 'destination_sku_quantity', 'created_at')
+    list_display = ('repackaging_no', 'status', 'source_sku_name', 'source_product_sku', 'destination_sku_name',
+                    'destination_product_sku', 'destination_batch_id', 'destination_sku_quantity',
+                    'download_batch_id_barcode', 'created_at')
     actions = ["export_as_csv_products_repackaging"]
 
     def get_readonly_fields(self, request, obj=None):
@@ -1125,6 +1130,21 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
     list_filter = [SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName,
                    ('status', ChoiceDropdownFilter), ('created_at', DateTimeRangeFilter)]
     list_per_page = 10
+
+    def download_batch_id_barcode(self, obj):
+        if obj.source_batch_id:
+            grn_order_pro = obj.source_sku.product_grn_order_product.filter(batch_id=obj.source_batch_id).last()
+            if grn_order_pro is not None:
+                if grn_order_pro.barcode_id is None:
+                    product_id = str(grn_order_pro.product_id).zfill(5)
+                    expiry_date = datetime.datetime.strptime(str(grn_order_pro.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
+                    barcode_id = str("2" + product_id + str(expiry_date))
+                else:
+                    barcode_id = grn_order_pro.barcode_id
+                return format_html(
+                    "<a href= '{0}' >{1}</a>".format(reverse('batch_barcodes', args=[grn_order_pro.pk]), barcode_id)
+                )
+        return format_html("-")
 
     class Media:
         js = ("admin/js/repackaging.js",)

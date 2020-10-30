@@ -1268,6 +1268,8 @@ class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
         if seller_shop:
             pp = ProductPrice.objects.filter(seller_shop_id=seller_shop).values('product_id')
             qs = Product.objects.filter(id__in=pp, repackaging_type='source')
+            if self.q:
+                qs = qs.filter(product_name__icontains=self.q)
         return qs
 
 
@@ -1312,4 +1314,6 @@ class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
         if source_sku:
             psm = ProductSourceMapping.objects.filter(source_sku=source_sku, status=True).values('destination_sku')
             qs = Product.objects.filter(id__in=psm)
+            if self.q:
+                qs = qs.filter(product_name__icontains=self.q)
         return qs

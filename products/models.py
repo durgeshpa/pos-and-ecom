@@ -903,6 +903,8 @@ class Repackaging(models.Model):
     seller_shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
     status = models.CharField(max_length=50, choices=REPACKAGING_STATUS, verbose_name='Repackaging Status', default='started')
     source_sku = models.ForeignKey(Product, related_name='source_sku_repackaging', on_delete=models.CASCADE, null=True)
+    source_batch_id = models.CharField(max_length=50, null=True, blank=True)
+    destination_batch_id = models.CharField(max_length=50, null=True, blank=True)
     destination_sku = models.ForeignKey(Product, related_name='destination_sku_repackaging', on_delete=models.CASCADE, null=True)
     source_repackage_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator], verbose_name='No Of Pieces Of Source SKU To Be Repackaged')
     available_source_weight = models.FloatField(default=0, verbose_name='Available Source SKU Weight (Kg)')
@@ -952,7 +954,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
             picking_status="pickup_created",
             picklist_id=generate_picklist_id("00")
         )
-        rep_obj.status='pickup_created'
+        rep_obj.status = 'pickup_created'
         rep_obj.save()
         shop = Shop.objects.filter(id=rep_obj.seller_shop.id).last()
         CommonPickupFunctions.create_pickup_entry(shop, 'Repackaging', rep_obj.repackaging_no, rep_obj.source_sku,
@@ -1007,6 +1009,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                     bin_inv.quantity = remaining_qty
                     bin_inv.save()
                     qty = 0
+                    Repackaging.objects.filter(pk=instance.pk).update(source_batch_id=batch_id)
                     CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
                                                                        quantity=already_picked,
                                                                        bin_quantity=qty_in_bin,
