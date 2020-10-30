@@ -111,7 +111,7 @@ class AuditTicket(BaseTimestampModel):
     qty_expected = models.PositiveIntegerField()
     qty_calculated = models.IntegerField()
     status = models.PositiveSmallIntegerField(choices=AUDIT_TICKET_STATUS_CHOICES)
-    assigned_user = models.ForeignKey(get_user_model(), related_name='audit_tickets_assigned',
+    assigned_user = models.ForeignKey(get_user_model(), related_name='+',
                                       null=True, on_delete=models.DO_NOTHING)
 
     class Meta:
@@ -143,16 +143,22 @@ class AuditCancelledPicklist(BaseTimestampModel):
     class Meta:
         db_table = "wms_audit_cancelled_picklists"
 
-#
 
-#
-# class AuditTicketManual(AuditTicket):
-#     qty_normal_system = models.PositiveIntegerField()
-#     qty_normal_actual = models.PositiveIntegerField()
-#     qty_damaged_system = models.PositiveIntegerField()
-#     qty_damaged_actual = models.PositiveIntegerField()
-#     qty_expired_system = models.PositiveIntegerField()
-#     qty_expired_actual = models.PositiveIntegerField()
-#
-#     class Meta:
-#         db_table = "wms_audit_tickets_manual"
+class AuditTicketManual(BaseTimestampModel):
+    warehouse = models.ForeignKey(Shop, null=False, related_name='+', on_delete=models.DO_NOTHING)
+    audit_run = models.ForeignKey(AuditRun, null=False, on_delete=models.CASCADE)
+    sku = models.ForeignKey(Product, null=False, to_field='product_sku', related_name='+', on_delete=models.DO_NOTHING)
+    batch_id = models.CharField(max_length=50, null=True)
+    bin = models.ForeignKey(Bin, null=True, on_delete=models.DO_NOTHING)
+    qty_normal_system = models.PositiveIntegerField(verbose_name='Normal System Qty')
+    qty_normal_actual = models.PositiveIntegerField(verbose_name='Normal Physical Qty')
+    qty_damaged_system = models.PositiveIntegerField(verbose_name='Damaged System Qty')
+    qty_damaged_actual = models.PositiveIntegerField(verbose_name='Damaged Physical Qty')
+    qty_expired_system = models.PositiveIntegerField(verbose_name='Expired System Qty')
+    qty_expired_actual = models.PositiveIntegerField(verbose_name='Expired Physical Qty')
+    status = models.PositiveSmallIntegerField(choices=AUDIT_TICKET_STATUS_CHOICES)
+    assigned_user = models.ForeignKey(get_user_model(), related_name='+',
+                                      null=True, on_delete=models.DO_NOTHING)
+
+    class Meta:
+        db_table = "wms_audit_tickets_manual"

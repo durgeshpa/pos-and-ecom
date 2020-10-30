@@ -5,7 +5,7 @@ from daterange_filter.filter import DateRangeFilter
 from django.contrib import admin
 from rangefilter.filter import DateRangeFilter
 from audit.forms import AuditCreationForm
-from audit.models import AuditDetail, AuditTicket
+from audit.models import AuditDetail, AuditTicket, AuditTicketManual
 from retailer_backend.admin import InputFilter
 
 
@@ -87,6 +87,39 @@ class AuditTicketAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
+
+@admin.register(AuditTicketManual)
+class AuditTicketManualAdmin(admin.ModelAdmin):
+    list_display = ('audit_id', 'bin', 'sku', 'batch_id', 'qty_normal_system', 'qty_normal_actual', 'normal_var',
+                    'qty_damaged_system', 'qty_damaged_actual', 'damaged_var',
+                    'qty_expired_system', 'qty_expired_actual', 'expired_var',
+                    'total_var', 'status', 'assigned_user')
+
+    readonly_fields = ('sku', 'batch_id', 'bin', 'created_at', 'updated_at')
+    list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'status', ('created_at', DateRangeFilter)]
+    date_hierarchy = 'created_at'
+    actions_on_top = False
+
+    def audit_id(self, obj):
+        return  obj.audit_run.audit_id
+
+    def normal_var(self, obj):
+        return obj.qty_normal_system - obj.qty_normal_actual
+
+    def damaged_var(self, obj):
+        return obj.qty_damaged_system - obj.qty_damaged_actual
+
+    def expired_var(self, obj):
+        return obj.qty_expired_system - obj.qty_expired_actual
+
+    def total_var(self, obj):
+        return obj.qty_normal_system + obj.qty_damaged_system + obj.qty_expired_system - \
+               (obj.qty_damaged_actual + obj.qty_normal_actual + obj.qty_expired_actual)
+
+    class Media:
+        pass
+
 
 
 

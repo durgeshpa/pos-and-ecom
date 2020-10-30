@@ -20,7 +20,7 @@ from wms.views import PicklistRefresh
 from .serializers import AuditDetailSerializer
 from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist
-from ...tasks import update_audit_status, generate_pick_list
+from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
 from ...utils import is_audit_started
 from ...views import BlockUnblockProduct
 from rest_framework.permissions import BasePermission
@@ -231,6 +231,7 @@ class AuditEndView(APIView):
         audit.save()
         update_audit_status.delay(audit.id)
         generate_pick_list.delay(audit.id)
+        create_audit_tickets.delay(audit.id)
         return True
 
 
