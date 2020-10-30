@@ -836,6 +836,7 @@ class BulkUploadForGSTChange(models.Model):
 class Repackaging(models.Model):
     REPACKAGING_STATUS = [
         ('started', 'Started'),
+        ('created', 'Created'),
         ('picking_complete', 'Picking Complete'),
         ('picking_assigned', 'Picking Assigned'),
         ('pickup_created', 'Pickup Created'),

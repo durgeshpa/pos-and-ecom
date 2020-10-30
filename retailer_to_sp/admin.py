@@ -775,8 +775,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     )
     list_display = (
         'picklist', 'picking_status', 'picker_boy',
-        'created_at', 'picker_assigned_date', 'download_pick_list', 'order_number', 'order_date',
-        'repackaging_number', 'repackaging_date'
+        'created_at', 'picker_assigned_date', 'download_pick_list', 'picker_type', 'order_number', 'order_date'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
@@ -851,22 +850,23 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def order_number(self,obj):
         if obj.order:
             return obj.order.order_no
-    order_number.short_description = 'Order No'
-
-    def repackaging_number(self,obj):
-        if obj.repackaging:
+        elif obj.repackaging:
             return obj.repackaging.repackaging_no
-    repackaging_number.short_description = 'Repackaging No'
+    order_number.short_description = 'Order / Repackaging No'
+
+    def picker_type(self,obj):
+        if obj.repackaging:
+            return 'Repackaging'
+        elif obj.order:
+            return 'Order'
+    picker_type.short_description = 'Type'
 
     def order_date(self,obj):
         if obj.order:
             return obj.order.created_at
-    order_date.short_description = 'Order Date'
-
-    def repackaging_date(self,obj):
-        if obj.repackaging:
+        elif obj.repackaging:
             return obj.repackaging.created_at
-    repackaging_date.short_description = 'Repackaging Date'
+    order_date.short_description = 'Order / Repackaging Date'
 
     def picklist(self, obj):
         return mark_safe("<a href='/admin/retailer_to_sp/pickerdashboard/%s/change/'>%s<a/>" % (obj.pk,
