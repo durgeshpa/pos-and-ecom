@@ -20,8 +20,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductCategory, ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax, Weight,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
-                             Repackaging, RepackagingCost,
-                             ParentProduct, ProductHSN, ProductSourceMapping)
+                             Repackaging, ParentProduct, ProductHSN, ProductSourceMapping)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -1066,23 +1065,3 @@ class RepackagingForm(forms.ModelForm):
         for key in readonly:
             if key in self.fields:
                 self.fields[key].widget.attrs['readonly'] = True
-
-
-class RepackagingCostForm(forms.ModelForm):
-    class Meta:
-        model = RepackagingCost
-        fields = '__all__'
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.widget.attrs['style'] = 'width:100px'
-
-        add_fields = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost', 'secondary_pm_cost']
-        for name in add_fields:
-            self.fields[name].widget.attrs['oninput'] = "add_cost(this)";
-
-        self.fields['final_fg_cost'].widget.attrs['readonly'] = True
-        self.fields['conversion_cost'].widget.attrs['readonly'] = True
-        self.fields['final_fg_cost'].required = False
-        self.fields['conversion_cost'].required = False

@@ -836,10 +836,9 @@ class BulkUploadForGSTChange(models.Model):
 class Repackaging(models.Model):
     REPACKAGING_STATUS = [
         ('started', 'Started'),
-        ('created', 'Created'),
-        ('picking_complete', 'Picking Complete'),
-        ('picking_assigned', 'Picking Assigned'),
         ('pickup_created', 'Pickup Created'),
+        ('picking_assigned', 'Picking Assigned'),
+        ('picking_complete', 'Picking Complete'),
         ('completed', 'Completed')
     ]
     id = models.AutoField(primary_key=True, verbose_name='Repackaging ID')
@@ -977,24 +976,3 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                                                  "pickup_created",
                                                                                  pickup_obj.pk,
                                                                                  already_picked)
-
-
-class RepackagingCost(models.Model):
-    repackaging = models.ForeignKey(Repackaging, on_delete=models.CASCADE)
-    particular = models.FloatField(default=1, verbose_name='PARTICULAR (KG)', validators=[PriceValidator])
-    raw_material = models.FloatField(default=0, validators=[PriceValidator])
-    wastage = models.FloatField(default=0, validators=[PriceValidator])
-    fumigation = models.FloatField(default=0, validators=[PriceValidator])
-    label_printing = models.FloatField(default=0, validators=[PriceValidator])
-    packing_labour = models.FloatField(default=0, validators=[PriceValidator])
-    primary_pm_cost = models.FloatField(default=0, validators=[PriceValidator])
-    secondary_pm_cost = models.FloatField(default=0, validators=[PriceValidator])
-    final_fg_cost = models.FloatField(default=0, validators=[PriceValidator])
-    conversion_cost = models.FloatField(default=0, validators=[PriceValidator])
-
-    def __str__(self):
-        return ""
-
-    def save(self, *args, **kwargs):
-        if self.pk is None:
-            super().save(*args, **kwargs)

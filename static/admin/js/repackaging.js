@@ -3,7 +3,6 @@
     var id_available_source_quantity_initial = 0;
     var source_sku_weight = 0;
     var destination_sku_weight = 0;
-
     $('#id_source_repackage_quantity').attr('readonly', true);
 
 	$("#id_source_sku").on('change', function(){
@@ -99,27 +98,4 @@
 	};
   });
 
-
 })(django.jQuery);
-
-var final_fg;
-var conversion;
-
-function add_cost(obj){
-    final_fg = 0;
-    conversion = 0;
-    $(obj).parents('.dynamic-repackagingcost_set').find('input[type=number]').each(function () {
-        var obj_class = $(this).parent('td').attr('class');
-        if(jQuery.inArray(obj_class, ['field-particular', 'field-final_fg_cost', 'field-conversion_cost']) == -1){
-            var value = parseFloat($(this).val()) || 0;
-            if(obj_class == 'field-raw_material'){
-                final_fg += value;
-            } else {
-                final_fg += value;
-                conversion += value;
-            }
-        }
-    });
-    $(obj).parents('.dynamic-repackagingcost_set').find('.field-final_fg_cost').find("input[type=number]").val(final_fg);
-    $(obj).parents('.dynamic-repackagingcost_set').find('.field-conversion_cost').find("input[type=number]").val(conversion);
-}

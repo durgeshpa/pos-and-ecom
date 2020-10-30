@@ -19,8 +19,7 @@ from retailer_backend.filters import CityFilter, ProductCategoryFilter
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
-                    RepackagingForm, RepackagingCostForm,
-                    ParentProductForm, ProductSourceMappingForm)
+                    RepackagingForm, ParentProductForm, ProductSourceMappingForm)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -1027,29 +1026,6 @@ class ExportRepackaging:
             writer.writerow(items)
         return response
     export_as_csv_products_repackaging.short_description = "Download CSV of Selected Repackaging"
-
-
-class RepackagingCostInLine(admin.TabularInline):
-    form = RepackagingCostForm
-    model = RepackagingCost
-    verbose_name = ""
-    verbose_name_plural = "Cost"
-    extra = 1
-
-    def has_change_permission(self, request, obj=None):
-        if obj:
-            return False
-        return True
-
-    def has_add_permission(self, request, obj=None):
-        if obj:
-            return False
-        return True
-
-    def has_delete_permission(self, request, obj=None):
-        if obj:
-            return False
-        return True
 
 
 class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
