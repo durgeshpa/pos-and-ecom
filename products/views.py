@@ -21,7 +21,7 @@ from shops.models import Shop, ShopType
 from addresses.models import City, State, Address, Pincode
 from categories.models import Category
 from brand.models import Brand, Vendor
-from wms.models import InventoryType, WarehouseInventory
+from wms.models import InventoryType, WarehouseInventory, InventoryState
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
@@ -1277,21 +1277,30 @@ class SourceRepackageDetail(View):
 
     def get(self, *args, **kwargs):
         product_id = self.request.GET.get('sku_id')
+        shop_id = self.request.GET.get('shop_id')
         product_obj = Product.objects.values('weight_value', 'product_sku').get(id=product_id)
 
         if product_obj['weight_value'] is None:
             return JsonResponse({"success": False, "error": "Source SKU Weight Value Not Found"})
 
-        inventory_id = InventoryType.objects.values('id').get(inventory_type='normal')
-
         try:
-            source_quantity = WarehouseInventory.objects.values('quantity').get(sku_id=product_obj['product_sku'], inventory_type_id=inventory_id['id'])
+            warehouse_available_obj = WarehouseInventory.objects.filter(warehouse_id=shop_id,
+                                              sku_id=product_obj['product_sku'],
+                                              inventory_type=InventoryType.objects.filter(
+                                                  inventory_type='normal').last(),
+                                              inventory_state=InventoryState.objects.filter(
+                                                  inventory_state='available').last())
+            if warehouse_available_obj.exists():
+                w_obj = warehouse_available_obj.last()
+                source_quantity = w_obj.quantity
+            else:
+                return JsonResponse({"success": False, "error": "Warehouse Inventory Does Not Exist"})
         except Exception as e:
-            return JsonResponse({"success": False, "error": "Warehouse Inventory Does Not Exist"})
+            return JsonResponse({"success": False, "error": "Warehouse Inventory Could not be fetched"})
 
         return JsonResponse({
             "source_sku_weight": product_obj['weight_value'] / 1000,
-            "available_source_quantity": source_quantity['quantity'],
+            "available_source_quantity": source_quantity,
             "success": True})
 
 

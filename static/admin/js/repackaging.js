@@ -10,7 +10,7 @@
 	    if($(this).val() == ''){
 	        return false;
 	    }
-        $.ajax({ data: ({'sku_id':$(this).val() }) ,
+        $.ajax({ data: ({'sku_id':$(this).val(), 'shop_id':$('#id_seller_shop').val() }) ,
             type: 'GET',
             url: '/admin/products/product/source-repackage-detail/',
             success: function(response) {
@@ -30,28 +30,29 @@
         });
 	});
 
-//	$("#id_destination_sku").on('change', function(){
-////	    reset('dest');
-////	    if($(this).val() == ''){
-////	        return false;
-////	    }
-////        $.ajax({ data: ({'sku_id':$(this).val() }) ,
-////            type: 'GET',
-////            url: '/admin/products/product/destination-repackage-detail/',
-////            success: function(response) {
-////                if(response.success){
-////                    if (response.destination_sku_weight == 0 || response.destination_sku_weight == ''){
-////                        alert("Destination SKU weight value not found");
-////                        return false;
-////                    }
-////                    $('#id_source_repackage_quantity').attr('readonly', false);
-////                    destination_sku_weight = response.destination_sku_weight;
-////                } else {
-////                    alert(response.error)
-////                }
-////            },
-////        });
-//	});
+	$("#id_destination_sku").on('change', function(){
+//	    reset('dest');
+	    if($(this).val() == ''){
+	        return false;
+	    }
+	    $('#id_source_repackage_quantity').attr('readonly', false);
+//        $.ajax({ data: ({'sku_id':$(this).val() }) ,
+//            type: 'GET',
+//            url: '/admin/products/product/destination-repackage-detail/',
+//            success: function(response) {
+//                if(response.success){
+//                    if (response.destination_sku_weight == 0 || response.destination_sku_weight == ''){
+//                        alert("Destination SKU weight value not found");
+//                        return false;
+//                    }
+//                    $('#id_source_repackage_quantity').attr('readonly', false);
+//                    destination_sku_weight = response.destination_sku_weight;
+//                } else {
+//                    alert(response.error)
+//                }
+//            },
+//        });
+	});
 
 	$("#id_seller_shop").on('change', function(){
         reset('shop');

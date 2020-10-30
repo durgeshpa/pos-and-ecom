@@ -258,8 +258,12 @@ def repackaging_picklist(repackaging_id):
         sku = i.pickup.sku.product_sku
         qty = i.quantity
         batch_id = i.batch_id
+        if i.pickup.sku.product_mrp:
+            mrp = i.pickup.sku.product_mrp
+        else:
+            mrp = 0
         bin_id = i.bin.bin.bin_id
-        prod_list = {"product": product, "sku": sku, "qty": qty, "batch_id": batch_id,
+        prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id,
                      "bin": bin_id}
         data_list.append(prod_list)
     pdf_data['data'] = {

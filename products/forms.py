@@ -25,7 +25,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
-from wms.models import InventoryType, WarehouseInventory
+from wms.models import InventoryType, WarehouseInventory, InventoryState
 
 
 class ProductImageForm(forms.ModelForm):
@@ -1089,13 +1089,21 @@ class RepackagingForm(forms.ModelForm):
 
     def clean(self):
         if 'source_sku' in self.cleaned_data:
-            product_obj = Product.objects.values('weight_value', 'product_sku').get(id=self.cleaned_data['source_sku'].id)
-            inventory_id = InventoryType.objects.values('id').get(inventory_type='normal')
             try:
-                source_quantity = WarehouseInventory.objects.values('quantity').get(sku_id=product_obj['product_sku'], inventory_type_id=inventory_id['id'])
+                warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=self.cleaned_data['seller_shop'],
+                                                                            sku=self.cleaned_data['source_sku'],
+                                                                            inventory_type=InventoryType.objects.filter(
+                                                                                inventory_type='normal').last(),
+                                                                            inventory_state=InventoryState.objects.filter(
+                                                                                inventory_state='available').last())
+                if warehouse_available_obj.exists():
+                    w_obj = warehouse_available_obj.last()
+                    source_quantity = w_obj.quantity
+                else:
+                    raise forms.ValidationError("Warehouse Inventory Does Not Exist")
             except Exception as e:
-                raise forms.ValidationError("Warehouse Inventory Does Not Exist")
-            if self.cleaned_data['source_repackage_quantity'] + self.cleaned_data['available_source_quantity'] != source_quantity['quantity']:
+                raise forms.ValidationError("Warehouse Inventory Could not be fetched")
+            if self.cleaned_data['source_repackage_quantity'] + self.cleaned_data['available_source_quantity'] != source_quantity:
                 raise forms.ValidationError("Source Quantity Changed! Please Input Again")
         if 'status' in self.changed_data and self.cleaned_data['status'] not in ['started', 'completed', 'created']:
             raise forms.ValidationError("Status {} cannot be changed here". format(self.cleaned_data['status']))

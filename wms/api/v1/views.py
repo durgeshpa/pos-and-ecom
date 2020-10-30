@@ -12,6 +12,7 @@ from wms.views import PickupInventoryManagement, update_putaway
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop
+from products.models import Repackaging
 from retailer_to_sp.models import Order, PickerDashboard
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
@@ -548,9 +549,20 @@ class PickupComplete(APIView):
         if not order_no:
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+
+        is_repackaging = 0
+
         order_qs = Order.objects.filter(order_no=order_no)
         order_obj = order_qs.last()
-        pd_obj = PickerDashboard.objects.filter(order_id=order_obj)
+
+        if order_obj:
+            pd_obj = PickerDashboard.objects.filter(order_id=order_obj)
+        else:
+            is_repackaging = 1
+            rep_qs = Repackaging.objects.filter(repackaging_no=order_no)
+            rep_obj = rep_qs.last()
+            pd_obj = PickerDashboard.objects.filter(repackaging_id=rep_obj)
+
         if pd_obj.count() > 1:
             msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
@@ -636,7 +648,11 @@ class PickupComplete(APIView):
                         info_logger.info("PickupComplete : Pickup completed for order - {}, sku - {}"
                                          .format(pickup.pickup_type_id, pickup.sku))
 
-                    order_qs.update(order_status='picking_complete')
+                    if is_repackaging == 1:
+                        rep_qs.update(status='picking_complete')
+                    else:
+                        order_qs.update(order_status='picking_complete')
+
                     pd_obj.update(picking_status='picking_complete')
                     pick_obj.update(status='picking_complete', completed_at=timezone.now())
 
