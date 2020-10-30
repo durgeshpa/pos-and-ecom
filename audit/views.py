@@ -16,7 +16,7 @@ from retailer_to_sp.models import Order, Trip
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
                      AUDIT_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES, AuditProduct,
-                     AUDIT_PRODUCT_STATUS
+                     AUDIT_PRODUCT_STATUS, AUDIT_DETAIL_STATE_CHOICES
                      )
 from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
 from wms.models import WarehouseInventory, WarehouseInternalInventoryChange, InventoryType, InventoryState, \
@@ -26,9 +26,11 @@ import datetime
 
 from .serializers import WarehouseInventoryTransactionSerializer, WarehouseInventorySerializer, \
     BinInventoryTransactionSerializer, BinInventorySerializer, PickupBlockedQuantitySerializer
+from .tasks import update_audit_status, create_audit_tickets
 from .utils import get_es_status, get_products_by_audit
 
 info_logger = logging.getLogger('file-info')
+cron_logger = logging.getLogger('cron_log')
 
 
 def initialize_dict():
@@ -511,4 +513,50 @@ class BlockUnblockProduct(object):
         if len(products_to_disable) > 0:
             BlockUnblockProduct.block_product_during_audit(audit_detail, products_to_disable, audit_detail.warehouse)
 
+#
+# class AuditCronJobs:
+#
+#     @staticmethod
+#     def update_audit_status():
+#         cron_logger.info('update_audit_status|started')
+#         audit_qs = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.MANUAL,
+#                                               state=AUDIT_DETAIL_STATE_CHOICES.ENDED)
+#         cron_logger.info('update_audit_status| audit count {}'.format(audit_qs.count()))
+#         for audit in audit_qs:
+#             update_audit_status(audit_qs.id)
+#             cron_logger.info('update_audit_status|audit state updated | audit {}, state'.format(audit.id, audit.state))
+#         cron_logger.info('update_audit_status|completed')
+#
+#     @staticmethod
+#     def create_audit_tickets():
+#         cron_logger.info('create_audit_tickets|started')
+#         audit_qs = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.MANUAL,
+#                                               state=AUDIT_DETAIL_STATE_CHOICES.FAIL)
+#         cron_logger.info('create_audit_tickets|failed audit count {}'.format(audit_qs.count()))
+#         for audit in audit_qs:
+#             create_audit_tickets(audit_qs.id)
+#             cron_logger.info('create_audit_tickets| audit state updated | audit {}, state'
+#                              .format(audit.id, audit.state))
+#         cron_logger.info('create_audit_tickets|completed')
 
+def update_audit_status():
+    cron_logger.info('update_audit_status|started')
+    audit_qs = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.MANUAL,
+                                          state=AUDIT_DETAIL_STATE_CHOICES.ENDED)
+    cron_logger.info('update_audit_status| audit count {}'.format(audit_qs.count()))
+    for audit in audit_qs:
+        update_audit_status(audit_qs.id)
+        cron_logger.info('update_audit_status|audit state updated | audit {}, state'.format(audit.id, audit.state))
+    cron_logger.info('update_audit_status|completed')
+
+
+def create_audit_tickets():
+    cron_logger.info('create_audit_tickets|started')
+    audit_qs = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.MANUAL,
+                                          state=AUDIT_DETAIL_STATE_CHOICES.FAIL)
+    cron_logger.info('create_audit_tickets|failed audit count {}'.format(audit_qs.count()))
+    for audit in audit_qs:
+        create_audit_tickets(audit_qs.id)
+        cron_logger.info('create_audit_tickets| audit state updated | audit {}, state'
+                         .format(audit.id, audit.state))
+    cron_logger.info('create_audit_tickets|completed')
