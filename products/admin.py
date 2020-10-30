@@ -567,6 +567,24 @@ class ProductSourceMappingAdmin(admin.TabularInline):
         return urls
 
 
+class ProductSourceMappingAdmin(admin.TabularInline):
+    model = ProductSourceMapping
+    fk_name = "destination_sku"
+    form = ProductSourceMappingForm
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ProductSourceMappingAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^source-product-autocomplete/$',
+                self.admin_site.admin_view(SourceProductAutocomplete.as_view()),
+                name='source-product-autocomplete',
+            ),
+        ] + urls
+        return urls
+
+
 class ChildProductImageAdmin(admin.TabularInline):
     model = ChildProductImage
 
