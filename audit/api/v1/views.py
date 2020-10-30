@@ -164,7 +164,7 @@ class AuditEndView(APIView):
     def post(self, request):
         info_logger.info("AuditUpdateView called.")
 
-        audit_no = request.POST.get('audit_no')
+        audit_no = request.data.get('audit_no')
 
         if not audit_no:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'audit_no', 'data': None}
