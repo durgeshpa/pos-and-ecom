@@ -20,7 +20,8 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductCategory, ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax, Weight,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
-                             ParentProduct, ProductHSN, ProductSourceMapping)
+                             ParentProduct, ProductHSN, ProductSourceMapping,
+                             DestinationRepackagingCostMapping)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -316,6 +317,44 @@ class ProductPriceNewForm(forms.ModelForm):
         #     )
         #else:
         return cleaned_data
+
+
+class DestinationRepackagingCostMappingForm(forms.ModelForm):
+
+    class Meta:
+        model = DestinationRepackagingCostMapping
+        fields = ('raw_material', 'wastage', 'fumigation',
+                    'label_printing', 'packing_labour', \
+                    'primary_pm_cost', 'secondary_pm_cost', \
+                    'final_fg_cost', 'conversion_cost')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['final_fg_cost'].disabled = True
+        self.fields['final_fg_cost'].required = False
+        self.fields['conversion_cost'].disabled = True
+        self.fields['conversion_cost'].required = False
+        self.fields['raw_material'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['wastage'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['fumigation'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['label_printing'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['packing_labour'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['primary_pm_cost'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['secondary_pm_cost'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
 
 
 class ParentProductForm(forms.ModelForm):

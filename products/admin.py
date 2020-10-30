@@ -19,7 +19,7 @@ from retailer_backend.filters import CityFilter, ProductCategoryFilter
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
-                    ParentProductForm, ProductSourceMappingForm)
+                    ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm)
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
                         PackageSizeResource, ProductPriceResource,
@@ -567,26 +567,17 @@ class ProductSourceMappingAdmin(admin.TabularInline):
         return urls
 
 
-class ProductSourceMappingAdmin(admin.TabularInline):
-    model = ProductSourceMapping
-    fk_name = "destination_sku"
-    form = ProductSourceMappingForm
-
-    def get_urls(self):
-        from django.conf.urls import url
-        urls = super(ProductSourceMappingAdmin, self).get_urls()
-        urls = [
-            url(
-                r'^source-product-autocomplete/$',
-                self.admin_site.admin_view(SourceProductAutocomplete.as_view()),
-                name='source-product-autocomplete',
-            ),
-        ] + urls
-        return urls
-
-
 class ChildProductImageAdmin(admin.TabularInline):
     model = ChildProductImage
+
+
+class DestinationRepackagingCostMappingAdmin(admin.TabularInline):
+    model = DestinationRepackagingCostMapping
+    form = DestinationRepackagingCostMappingForm
+    extra = 1
+
+    class Media:
+        pass
 
 
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
@@ -788,7 +779,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     #     ProductImageAdmin, ProductTaxMappingAdmin
     # ]
     # inlines = [ChildProductImageAdmin]
-    inlines = [ProductImageAdmin, ProductSourceMappingAdmin]
+    inlines = [ProductImageAdmin, ProductSourceMappingAdmin, DestinationRepackagingCostMappingAdmin]
     # autocomplete_fields = ['product_hsn', 'product_brand']
     autocomplete_fields = ['parent_product']
 

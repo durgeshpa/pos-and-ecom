@@ -23,10 +23,28 @@
             document.getElementById('id_repackaging_type').onchange = function() {
                 if ($('#id_repackaging_type').val() == 'destination') {
                     $(".tabular.inline-related").last().children('fieldset').children('h2').addClass('required_field_red');
+                    $(".tabular.inline-related").eq(-2).children('fieldset').children('h2').addClass('required_field_red');
                 } else {
                     $(".tabular.inline-related").last().children('fieldset').children('h2').removeClass('required_field_red');
+                    $(".tabular.inline-related").eq(-2).children('fieldset').children('h2').removeClass('required_field_red');
                 }
             };
         });
+    </script>
+    <script>
+        function calc_final_fg_and_conversion_cost(elem) {
+            var item_row = $(elem).closest('tr');
+            var sum = 0;
+            var raw_mat_cost = Number(item_row.children('.field-raw_material').children('input').val());
+            var wastage_cost = Number(item_row.children('.field-wastage').children('input').val());
+            var fumigation_cost = Number(item_row.children('.field-fumigation').children('input').val());
+            var label_printing_cost = Number(item_row.children('.field-label_printing').children('input').val());
+            var packing_labour_cost = Number(item_row.children('.field-packing_labour').children('input').val());
+            var primary_pm_cost = Number(item_row.children('.field-primary_pm_cost').children('input').val());
+            var secondary_pm_cost = Number(item_row.children('.field-secondary_pm_cost').children('input').val());
+            sum = raw_mat_cost + wastage_cost + fumigation_cost + label_printing_cost + packing_labour_cost + primary_pm_cost + secondary_pm_cost;
+            item_row.children('.field-final_fg_cost').children('input').val(sum);
+            item_row.children('.field-conversion_cost').children('input').val(sum - raw_mat_cost);
+        }
     </script>
 {% endblock %}

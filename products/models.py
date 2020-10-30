@@ -721,6 +721,30 @@ class ParentProductTaxMapping(models.Model):
     #     return self.parent_product.product_pro_tax.filter(tax__tax_type='surcharge')
 
 
+class DestinationRepackagingCostMapping(models.Model):
+    destination = models.ForeignKey(Product, related_name='destination_product_repackaging', on_delete=models.CASCADE)
+    raw_material = models.DecimalField(max_digits=10, decimal_places=2)
+    wastage = models.DecimalField(max_digits=10, decimal_places=2)
+    fumigation = models.DecimalField(max_digits=10, decimal_places=2)
+    label_printing = models.DecimalField(max_digits=10, decimal_places=2)
+    packing_labour = models.DecimalField(max_digits=10, decimal_places=2)
+    primary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    secondary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    final_fg_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    conversion_cost = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return "{}".format(self.destination)
+
+
+@receiver(pre_save, sender=DestinationRepackagingCostMapping)
+def calculate_fg_and_conversion_cost(sender, instance=None, created=False, **kwargs):
+    instance.final_fg_cost = instance.raw_material + instance.wastage + \
+        instance.fumigation + instance.label_printing + instance.packing_labour + \
+        instance.primary_pm_cost + instance.secondary_pm_cost
+    instance.conversion_cost = instance.final_fg_cost - instance.raw_material
+
+
 class ProductCSV(models.Model):
     file = models.FileField(upload_to='products/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
