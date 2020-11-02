@@ -531,7 +531,7 @@ def update_audit_status_by_audit(audit_id):
 def create_pick_list_by_audit(audit_id):
     orders_to_generate_picklists = AuditCancelledPicklist.objects.filter(audit=audit_id, is_picklist_refreshed=False)
     for o in orders_to_generate_picklists:
-        order = Order.objects.filter(order_no=o.order_no)
+        order = Order.objects.filter(order_no=o.order_no).last()
         try:
             pd_obj = PickerDashboard.objects.filter(order=order,
                                                     picking_status__in=['picking_pending', 'picking_assigned'],
@@ -540,7 +540,7 @@ def create_pick_list_by_audit(audit_id):
                 info_logger.info("Picker Dashboard object does not exists for order {}".format(order.order_no))
                 continue
             with transaction.atomic():
-                PicklistRefresh.create_picklist_by_order(o.order_no)
+                PicklistRefresh.create_picklist_by_order(order)
                 o.is_picklist_refreshed = True
                 o.save()
                 pd_obj.is_valid = True

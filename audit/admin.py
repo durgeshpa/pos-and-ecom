@@ -1,14 +1,20 @@
+import csv
 import logging
+from io import StringIO
 
 from dal_admin_filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
+from django.http import HttpResponse
 from rangefilter.filter import DateRangeFilter
 
 from audit.forms import AuditCreationForm
-from audit.models import AuditDetail, AuditTicket, AuditTicketManual
+from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
 from retailer_backend.admin import InputFilter
+
+
+info_logger = logging.getLogger('file-info')
 
 
 class SKUFilter(InputFilter):
@@ -109,15 +115,13 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
     list_display = ('audit_id', 'bin', 'sku', 'batch_id', 'qty_normal_system', 'qty_normal_actual', 'normal_var',
                     'qty_damaged_system', 'qty_damaged_actual', 'damaged_var',
                     'qty_expired_system', 'qty_expired_actual', 'expired_var',
-                    'total_var', 'status', 'assigned_user')
+                    'total_var', 'status', 'created_at')
 
-    readonly_fields = ('sku', 'batch_id', 'bin', 'created_at', 'updated_at')
     list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'status', ('created_at', DateRangeFilter)]
-    date_hierarchy = 'created_at'
-    actions_on_top = False
+    actions = ['download_tickets']
 
     def audit_id(self, obj):
-        return  obj.audit_run.audit_id
+        return obj.audit_run.audit_id
 
     def normal_var(self, obj):
         return obj.qty_normal_system - obj.qty_normal_actual
@@ -131,6 +135,26 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
     def total_var(self, obj):
         return obj.qty_normal_system + obj.qty_damaged_system + obj.qty_expired_system - \
                (obj.qty_damaged_actual + obj.qty_normal_actual + obj.qty_expired_actual)
+
+    def download_tickets(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(['audit_id', 'bin', 'sku', 'batch_id', 'qty_normal_system', 'qty_normal_actual', 'normal_var',
+                         'qty_damaged_system', 'qty_damaged_actual', 'damaged_var',
+                         'qty_expired_system', 'qty_expired_actual', 'expired_var',
+                         'total_var', 'status'])
+
+        for query in queryset:
+            obj = AuditTicketManual.objects.get(id=query.id)
+            writer.writerow([obj.audit_run.audit_id, obj.bin, obj.sku, obj.batch_id, obj.qty_normal_system,
+                             obj.qty_normal_actual, self.normal_var(obj), obj.qty_damaged_system, obj.qty_damaged_actual,
+                             self.damaged_var(obj), obj.qty_expired_system, obj.qty_expired_actual, self.expired_var(obj),
+                             self.total_var(obj), AUDIT_TICKET_STATUS_CHOICES[obj.status]])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=manual-audit-tickets.csv'
+        return response
 
     class Media:
         pass

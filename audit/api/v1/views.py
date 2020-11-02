@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 
 
-from retailer_backend.messages import ERROR_MESSAGES
+from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from wms.common_functions import InternalInventoryChange, WareHouseInternalInventoryChange, \
     CommonWarehouseInventoryFunctions, CommonBinInventoryFunctions
 from wms.models import BinInventory, Bin, InventoryType, PickupBinInventory, WarehouseInventory, InventoryState, Pickup, \
@@ -22,7 +22,7 @@ from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOIC
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist
 from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
 from ...utils import is_audit_started
-from ...views import BlockUnblockProduct
+from ...views import BlockUnblockProduct, create_pick_list_by_audit
 from rest_framework.permissions import BasePermission
 
 info_logger = logging.getLogger('file-info')
@@ -157,7 +157,7 @@ class AuditEndView(APIView):
             error_logger.error(e)
             info_logger.error("AuditEndView|Exception in can_end_audit")
         serializer = AuditDetailSerializer(audit)
-        msg = {'is_success': True, 'message': 'OK', 'data': {'audit_detail':serializer.data,
+        msg = {'is_success': True, 'message': 'OK', 'data': {'audit_detail': serializer.data,
                                                              'can_audit_end': can_audit_end}}
         return Response(msg, status=status.HTTP_200_OK)
 
@@ -183,6 +183,40 @@ class AuditEndView(APIView):
                    'message': ERROR_MESSAGES['INVALID_AUDIT_STATE'] % AUDIT_DETAIL_STATE_CHOICES[AUDIT_DETAIL_STATE_CHOICES.INITIATED],
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+        audit_run = AuditRun.objects.filter(audit=audit).last()
+        if audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
+            sku = request.data.get('sku')
+            if sku:
+                audit_skus = audit.sku.all().values_list('product_sku', flat=True)
+                if sku in audit_skus:
+                    self.end_audit_for_sku(audit, audit_run, sku)
+                    info_logger.info('AuditEndView|Audit {}, ended for sku-{}'.format(audit_no, sku))
+                    msg = {'is_success': True,
+                           'message': SUCCESS_MESSAGES['AUDIT_ENDED_SKU'].format(sku),
+                           'data': None}
+                    return Response(msg, status=status.HTTP_200_OK)
+
+                msg = {'is_success': False,
+                       'message': ERROR_MESSAGES['AUDIT_SKU_NOT_IN_SCOPE'],
+                       'data': None}
+                return Response(msg, status=status.HTTP_200_OK)
+
+        if audit.audit_level == AUDIT_LEVEL_CHOICES.BIN:
+            bin_id = request.data.get('bin_id')
+            if bin_id:
+                audit_bins = audit.bin.all().values_list('bin_id', flat=True)
+                if bin_id in audit_bins:
+                    self.end_audit_for_bin(audit, audit_run, bin_id)
+                    info_logger.info('AuditEndView|Audit {}, ended for bin-{}'.format(audit_no, bin_id))
+                    msg = {'is_success': True,
+                           'message': SUCCESS_MESSAGES['AUDIT_ENDED_BIN'].format(bin_id),
+                           'data': None}
+                    return Response(msg, status=status.HTTP_200_OK)
+
+                msg = {'is_success': False,
+                       'message': ERROR_MESSAGES['AUDIT_BIN_NOT_IN_SCOPE'],
+                       'data': None}
+                return Response(msg, status=status.HTTP_200_OK)
 
         try:
             if not self.can_end_audit(audit):
@@ -234,6 +268,50 @@ class AuditEndView(APIView):
         create_audit_tickets.delay(audit.id)
         return True
 
+    def end_audit_for_bin(self, audit, audit_run, bin_id):
+        info_logger.info('End audit {} for bin {}'.format(audit.id, bin_id))
+        inventory_state = InventoryState.objects.filter(inventory_state='available').last()
+        normal_type = InventoryType.objects.filter(inventory_type='normal').last()
+        damaged_type = InventoryType.objects.filter(inventory_type='damaged').last()
+        expired_type = InventoryType.objects.filter(inventory_type='expired').last()
+        inv_type_list = [normal_type, damaged_type, expired_type]
+        batches_audited = AuditRunItem.objects.filter(audit_run=audit_run, bin__bin_id=bin_id)\
+                                              .values_list('batch_id', flat=True)
+        bi_qs = BinInventory.objects.filter(warehouse=audit.warehouse, bin__bin_id=bin_id,
+                                            inventory_type__in=inv_type_list)
+        for bi in bi_qs:
+            if bi.batch_id in batches_audited:
+                continue
+            AuditInventory.log_audit_data(audit_run.warehouse, audit_run, bi.batch_id, bi.bin, bi.sku,
+                                          bi.inventory_type, inventory_state, bi.quantity, 0)
+
+            AuditInventory.update_inventory(audit.id, audit.warehouse, bi.batch_id, bi.bin, bi.sku,
+                                            bi.inventory_type, inventory_state, bi.quantity, 0)
+
+            info_logger.info('End audit {} for bin {}'.format(audit.id, bin_id))
+
+    def end_audit_for_sku(self, audit, audit_run, sku):
+        info_logger.info('End audit {} for sku {}'.format(audit.id, sku))
+        inventory_state = InventoryState.objects.filter(inventory_state='available').last()
+        normal_type = InventoryType.objects.filter(inventory_type='normal').last()
+        damaged_type = InventoryType.objects.filter(inventory_type='damaged').last()
+        expired_type = InventoryType.objects.filter(inventory_type='expired').last()
+        inv_type_list = [normal_type, damaged_type, expired_type]
+        bins_audited = AuditRunItem.objects.filter(audit_run=audit_run, sku=sku)\
+                                           .values_list('bin_id', flat=True)
+        bi_qs = BinInventory.objects.filter(warehouse=audit.warehouse, sku_id=sku,
+                                            inventory_type__in=inv_type_list)
+        for bi in bi_qs:
+            if bi.bin_id in bins_audited:
+                continue
+            AuditInventory.log_audit_data(audit_run.warehouse, audit_run, bi.batch_id, bi.bin, bi.sku,
+                                          bi.inventory_type, inventory_state, bi.quantity, 0)
+
+            AuditInventory.update_inventory(audit.id, audit.warehouse, bi.batch_id, bi.bin, bi.sku,
+                                            bi.inventory_type, inventory_state, bi.quantity, 0)
+
+            info_logger.info('End audit {} for bin {}'.format(audit.id, sku))
+
 
 class AuditBinList(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -253,7 +331,6 @@ class AuditBinList(APIView):
             msg = {'is_success': False, 'message': ERROR_MESSAGES['AUDIT_NOT_STARTED'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        audit_sku = request.GET.get('sku')
         audit_bins = []
         audit_skus = []
         if audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
@@ -460,9 +537,9 @@ class AuditInventory(APIView):
         msg = {'is_success': True, 'message': 'OK', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
 
-
-    def update_inventory(self, audit_no, warehouse, batch_id, bin, sku, inventory_type, inventory_state,
-                                            expected_qty, physical_qty):
+    @staticmethod
+    def update_inventory(audit_no, warehouse, batch_id, bin, sku, inventory_type, inventory_state,
+                         expected_qty, physical_qty):
         info_logger.info('AuditInventory | update_inventory | started ')
         if expected_qty == physical_qty:
             info_logger.info('AuditInventory | update_inventory | Quantity matched, updated not required')
@@ -505,7 +582,8 @@ class AuditInventory(APIView):
                                                                                abs(qty_diff))
         info_logger.info('AuditInventory | update_inventory | completed')
 
-    def log_audit_data(self, warehouse, audit_run, batch_id, bin, sku, inventory_type, inventory_state, expected_qty,
+    @staticmethod
+    def log_audit_data(warehouse, audit_run, batch_id, bin, sku, inventory_type, inventory_state, expected_qty,
                        physical_qty):
         audit_status = AUDIT_STATUS_CHOICES.DIRTY
         if physical_qty == expected_qty:

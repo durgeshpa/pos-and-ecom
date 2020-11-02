@@ -22,7 +22,7 @@ AUDIT_TYPE_CHOICES = Choices((0, 'MANUAL', 'manual'),  #(1, 'SCHEDULED', 'schedu
 AUDIT_RUN_STATUS_CHOICES = Choices((0, 'IN_PROGRESS', 'in_progress'), (1, 'ABORTED', 'aborted'),
                                    (2, 'COMPLETED', 'completed'))
 AUDIT_STATUS_CHOICES = Choices((0, 'DIRTY', 'dirty'), (1, 'CLEAN', 'clean'))
-AUDIT_TICKET_STATUS_CHOICES = Choices((0, 'OPENED', 'opened'), (1, 'ASSIGNED', 'assigned'), (2, 'CLOSED', 'closed'))
+AUDIT_TICKET_STATUS_CHOICES = Choices((0, 'OPEN', 'open'), (1, 'ASSIGNED', 'assigned'), (2, 'CLOSED', 'closed'))
 AUDIT_LEVEL_CHOICES = Choices((0, 'BIN', 'bin'), (1, 'PRODUCT', 'product'))
 AUDIT_PRODUCT_STATUS = Choices((0, 'RELEASED', 'released'), (1, 'BLOCKED', 'blocked'), )
 

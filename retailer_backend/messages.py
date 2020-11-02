@@ -35,6 +35,8 @@ SUCCESS_MESSAGES = {
     'CHANGED_STATUS': 'Po_Status changed to %s',
     'CSV_UPLOADED': 'CSV file has been successfully uploaded.',
     'CSV_UPLOADED_EXCEPT': 'CSV file has been successfully uploaded, except these ids:-%s',
+    'AUDIT_ENDED_SKU': 'Audit completed for SKU {}',
+    'AUDIT_ENDED_BIN': 'Audit completed for BIN {}',
     "2001": "Ok",
     "2002": "Executive Feedback saved successfully.",
 }
@@ -50,6 +52,8 @@ ERROR_MESSAGES = {
     'NO_RECORD': 'No %s record found',
     'SOME_ISSUE': 'There seems to be some issue.',
     'BATCH_BIN_ISSUE': 'This batch {} is not found in this bin {}',
+    'AUDIT_SKU_NOT_IN_SCOPE': "This sku is out of scope for this audit",
+    'AUDIT_BIN_NOT_IN_SCOPE': "This bin is out of scope for this audit",
     'AVAILABLE_QUANTITY': 'Available Qty : {0}',
     'AVAILABLE_PRODUCT': 'Available No of Pieces : {0}',
     'INVALID_PRICE_UPLOAD': "You cannot upload Selling Price greater than MRP",
