@@ -25,14 +25,14 @@ from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
     ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
-    UploadChildProductAdminForm
+    UploadChildProductAdminForm, ParentProductImageForm
     )
 from products.models import (
     Product, ProductCategory, ProductOption,
     ProductTaxMapping, ProductVendorMapping,
     ProductImage, ProductHSN, ProductPrice,
     ParentProduct, ParentProductCategory,
-    ParentProductTaxMapping, Tax
+    ParentProductTaxMapping, Tax, ParentProductImage
     )
 
 logger = logging.getLogger(__name__)
@@ -627,7 +627,7 @@ def products_csv_upload_view(request):
 
 class MultiPhotoUploadView(View):
     """
-    Bulk images upload with GFcode as photo name
+    Bulk images upload with Child SKU ID as photo name
     """
     def get(self, request):
         photos_list = ProductImage.objects.all()
@@ -664,6 +664,52 @@ class MultiPhotoUploadView(View):
                     'url': form_instance.image.url,
                     'product_sku': product.product_sku,
                     'product_name': product.product_name
+                }
+        else:
+            data = {'is_valid': False}
+        return JsonResponse(data)
+
+
+class ParentProductMultiPhotoUploadView(View):
+    """
+    Bulk images upload with Parent ID as photo name
+    """
+    def get(self, request):
+        photos_list = ParentProductImage.objects.all()
+        return render(
+            self.request,
+            'admin/products/parentproductmultiphotoupload.html',
+            {'photos': photos_list}
+        )
+
+    def post(self, request):
+        print(self.request.POST)
+        form = ParentProductImageForm(self.request.POST, self.request.FILES)
+        if form.is_valid():
+            file_name = (
+                os.path.splitext(form.cleaned_data['image'].name)[0])
+            parent_id = file_name.split("_")[0]
+            try:
+                parent = ParentProduct.objects.get(parent_id=parent_id)
+            except:
+                data = {
+                    'is_valid': False,
+                    'error': True,
+                    'name': 'No Parent Product found with Parent ID <b>{}</b>'.format(parent_id),
+                    'url': '#'
+                }
+
+            else:
+                form_instance = form.save(commit=False)
+                form_instance.parent_product = parent
+                form_instance.image_name = file_name
+                form_instance.save()
+                data = {
+                    'is_valid': True,
+                    'name': form_instance.image.name,
+                    'url': form_instance.image.url,
+                    'product_sku': parent.parent_id,
+                    'product_name': parent.name
                 }
         else:
             data = {'is_valid': False}

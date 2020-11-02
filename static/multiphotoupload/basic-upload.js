@@ -15,7 +15,7 @@ $(function () {
           data.result.name +
           "</a></td><td>Product Name: " +
           data.result.product_name +
-          "</td><td>Product SKU: " +
+          "</td><td>Product ID: " +
           data.result.product_sku +
           "</td></tr>"
         )

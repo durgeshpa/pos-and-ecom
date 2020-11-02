@@ -20,7 +20,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductCategory, ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax, Weight,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
-                             ParentProduct, ProductHSN)
+                             ParentProduct, ProductHSN, ParentProductImage)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -29,6 +29,11 @@ from shops.models import Shop, ShopType
 class ProductImageForm(forms.ModelForm):
     class Meta:
         model = ProductImage
+        fields = ('image', )
+
+class ParentProductImageForm(forms.ModelForm):
+    class Meta:
+        model = ParentProductImage
         fields = ('image', )
 
 class ProductPriceForm(forms.Form):

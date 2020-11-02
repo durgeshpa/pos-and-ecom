@@ -39,7 +39,8 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     products_price_filter_view, products_vendor_mapping,
                     parent_product_upload, ParentProductsDownloadSampleCSV,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
-                    ParentProductAutocomplete, ParentProductsAutocompleteView)
+                    ParentProductAutocomplete, ParentProductsAutocompleteView,
+                    ParentProductMultiPhotoUploadView)
 from .filters import BulkTaxUpdatedBySearch
 
 
@@ -513,7 +514,12 @@ class ParentProductAdmin(admin.ModelAdmin):
                 r'^parent-products-download-sample-csv/$',
                 self.admin_site.admin_view(ParentProductsDownloadSampleCSV),
                 name="parent-products-download-sample-csv"
-            )
+            ),
+            url(
+                r'^parent-product-multiple-photos-upload/$',
+                self.admin_site.admin_view(ParentProductMultiPhotoUploadView.as_view()),
+                name='parent_product_multiple_photos_upload'
+            ),
         ] + urls
         return urls
 
