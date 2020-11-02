@@ -540,7 +540,7 @@ def create_pick_list_by_audit(audit_id):
                 info_logger.info("Picker Dashboard object does not exists for order {}".format(order.order_no))
                 continue
             with transaction.atomic():
-                PicklistRefresh.create_picklist_by_order(o.order_no, pd_obj)
+                PicklistRefresh.create_picklist_by_order(o.order_no)
                 o.is_picklist_refreshed = True
                 o.save()
                 pd_obj.is_valid = True
