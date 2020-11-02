@@ -22,7 +22,7 @@ from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOIC
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist
 from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
 from ...utils import is_audit_started
-from ...views import BlockUnblockProduct, create_pick_list_by_audit
+from ...views import BlockUnblockProduct, create_pick_list_by_audit, create_audit_tickets_by_audit
 from rest_framework.permissions import BasePermission
 
 info_logger = logging.getLogger('file-info')
@@ -145,6 +145,7 @@ class AuditEndView(APIView):
             msg = {'is_success': False, 'message': ERROR_MESSAGES['NO_RECORD'] % 'audit', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         audit = audits.last()
+        create_audit_tickets_by_audit(audit.id)
         if audit.state != AUDIT_DETAIL_STATE_CHOICES.INITIATED:
             msg = {'is_success': False,
                    'message': ERROR_MESSAGES['INVALID_AUDIT_STATE'] % AUDIT_DETAIL_STATE_CHOICES[AUDIT_DETAIL_STATE_CHOICES.INITIATED],
@@ -184,6 +185,7 @@ class AuditEndView(APIView):
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         audit_run = AuditRun.objects.filter(audit=audit).last()
+
         if audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
             sku = request.data.get('sku')
             if sku:

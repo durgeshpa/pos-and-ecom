@@ -99,7 +99,7 @@ def run_warehouse_level_audit(audit_run):
                                                 qty_calculated_type=AuditTicket.QTY_TYPE_IDENTIFIER.WAREHOUSE_CALCULATED,
                                                 qty_expected=item['quantity'],
                                                 qty_calculated=qty_calculated,
-                                                status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
+                                                status=AUDIT_TICKET_STATUS_CHOICES.OPEN)
             # AuditTicketHistory.objects.create(audit_ticket=ticket, comment="Created")
 
 
@@ -176,7 +176,7 @@ def run_bin_level_audit(audit_run):
                                                 qty_calculated_type=AuditTicket.QTY_TYPE_IDENTIFIER.BIN_CALCULATED,
                                                 qty_expected=item['quantity'],
                                                 qty_calculated=qty_calculated,
-                                                status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
+                                                status=AUDIT_TICKET_STATUS_CHOICES.OPEN)
             # AuditTicketHistory.objects.create(audit_ticket=ticket, comment="Created")
 
 
@@ -230,7 +230,7 @@ def run_bin_warehouse_integrated_audit(audit_run):
                                                 qty_calculated_type=AuditTicket.QTY_TYPE_IDENTIFIER.WAREHOUSE,
                                                 qty_expected=bin_quantity,
                                                 qty_calculated=warehouse_quantity,
-                                                status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
+                                                status=AUDIT_TICKET_STATUS_CHOICES.OPEN)
             # AuditTicketHistory.objects.create(audit_ticket=ticket, comment="Created")
 
 
@@ -355,7 +355,7 @@ def run_audit_for_daily_operations(audit_run):
                                                 qty_calculated_type=AuditTicket.QTY_TYPE_IDENTIFIER.WAREHOUSE_CALCULATED,
                                                 qty_expected=item['quantity'],
                                                 qty_calculated=calculated_quantity,
-                                                status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
+                                                status=AUDIT_TICKET_STATUS_CHOICES.OPEN)
             # AuditTicketHistory.objects.create(audit_ticket=ticket, comment="Created")
 
 
@@ -577,11 +577,11 @@ def create_audit_tickets_by_audit(audit_id):
                                              audit_run=audit_run, bin=i.bin, sku=i.sku, batch_id=i.batch_id,
                                              qty_normal_system=agg_qty['n_sys'],
                                              qty_normal_actual=agg_qty['n_phy'],
-                                             qty_damaged_system=agg_qty['d_sys'],
-                                             qty_damaged_actual=agg_qty['d_phy'],
-                                             qty_expired_system=agg_qty['e_sys'],
-                                             qty_expired_actual=agg_qty['e_phy'],
-                                             status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
+                                             qty_damaged_system=0 if agg_qty['d_sys'] is None else agg_qty['d_sys'],
+                                             qty_damaged_actual=0 if agg_qty['d_phy'] is None else agg_qty['d_phy'],
+                                             qty_expired_system=0 if agg_qty['e_sys'] is None else agg_qty['e_sys'],
+                                             qty_expired_actual=0 if agg_qty['e_phy'] is None else agg_qty['e_phy'],
+                                             status=AUDIT_TICKET_STATUS_CHOICES.OPEN)
     info_logger.info('tasks|create_audit_tickets|created for audit run {}, bin {}, batch {}'
                              .format(audit_run.id, i.bin_id, i.batch_id))
     audit.state = AUDIT_DETAIL_STATE_CHOICES.TICKET_RAISED
