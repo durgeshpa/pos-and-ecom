@@ -2,7 +2,7 @@ from django.conf.urls import url
 from django.urls import path, include
 
 from . import views
-from .filters import AssignedUserFilter, WareHouseComplete, SKUComplete, BinComplete
+from .filters import AssignedUserFilter, WareHouseComplete, SKUComplete, BinComplete, AuditorComplete
 
 urlpatterns = [
     url(r'^api/', include('audit.api.urls')),
@@ -10,6 +10,7 @@ urlpatterns = [
      url(r'^assigned-user-autocomplete/$', AssignedUserFilter.as_view(), name='assigned-user-autocomplete'),
      url(r'^sku-autocomplete/$', SKUComplete.as_view(), name='sku-autocomplete'),
      url(r'^bin-autocomplete/$', BinComplete.as_view(), name='bin-autocomplete'),
+     url(r'^auditor-autocomplete/$', AuditorComplete.as_view(), name='auditor-autocomplete'),
      url(r'^warehouse_transactions/$', views.WarehouseInventoryTransactionView.as_view(), name="warehouse-transaction"),
      url(r'^warehouse_inventory/$', views.WarehouseInventoryView.as_view(), name="warehouse-inventory"),
      url(r'^warehouse_history/$', views.WarehouseInventoryHistoryView.as_view(), name="warehouse-historic"),

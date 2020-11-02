@@ -583,7 +583,7 @@ def create_audit_tickets_by_audit(audit_id):
                                              qty_expired_actual=0 if agg_qty['e_phy'] is None else agg_qty['e_phy'],
                                              status=AUDIT_TICKET_STATUS_CHOICES.OPEN)
     info_logger.info('tasks|create_audit_tickets|created for audit run {}, bin {}, batch {}'
-                             .format(audit_run.id, i.bin_id, i.batch_id))
+                     .format(audit_run.id, i.bin_id, i.batch_id))
     audit.state = AUDIT_DETAIL_STATE_CHOICES.TICKET_RAISED
     audit.save()
 

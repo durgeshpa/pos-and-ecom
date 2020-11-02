@@ -56,6 +56,12 @@ class AssignedUserFilter(AutocompleteFilter):
     autocomplete_url = 'assigned-user-autocomplete'
 
 
+class AuditorFilter(AutocompleteFilter):
+    title = 'Auditor'
+    field_name = 'auditor'
+    autocomplete_url = 'auditor-autocomplete'
+
+
 @admin.register(AuditDetail)
 class AuditDetailAdmin(admin.ModelAdmin):
     list_display = ('id', 'warehouse', 'audit_type', 'audit_inventory_type', 'audit_level',
@@ -75,7 +81,7 @@ class AuditDetailAdmin(admin.ModelAdmin):
             'classes': ('manual',)
         }),
     )
-    list_filter = [Warehouse, AuditNoFilter, 'audit_type', 'audit_level', 'state', 'status']
+    list_filter = [Warehouse, AuditNoFilter, AuditorFilter, 'audit_type', 'audit_level', 'state', 'status']
     form = AuditCreationForm
     actions_on_top = False
 

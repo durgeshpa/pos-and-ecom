@@ -1,7 +1,7 @@
 from dal import autocomplete
 
 from accounts.models import User
-from audit.models import AuditDetail
+from audit.models import AuditDetail, AuditTicketManual
 from products.models import Product
 from shops.models import Shop
 from wms.models import Bin
@@ -30,6 +30,17 @@ class AssignedUserFilter(autocomplete.Select2QuerySetView):
             qs = qs.filter(first_name__icontains=self.q)
         return qs
 
+class AuditorComplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+
+        auditor = AuditDetail.objects.only('auditor').values_list('auditor_id', flat=True)
+        qs = User.objects.filter(id__in=auditor)
+
+        if self.q:
+            qs = qs.filter(first_name__icontains=self.q)
+        return qs
 
 class SKUComplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -39,7 +50,7 @@ class SKUComplete(autocomplete.Select2QuerySetView):
         qs = Product.objects.all()
 
         if self.q:
-            qs = qs.filter(product_sku__istartswith=self.q)
+            qs = qs.filter(product_name__istartswith=self.q)
         return qs
 
 
