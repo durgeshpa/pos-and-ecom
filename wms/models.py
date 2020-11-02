@@ -347,6 +347,7 @@ class BinInternalInventoryChange(models.Model):
         ('put_away_type', 'Put Away'),
         ('pickup_created', 'Pickup Created'),
         ('pickup_complete', 'Pickup Complete'),
+        ('picking_cancelled', 'Pickup Cancelled'),
         ('stock_correction_in_type', 'stock_correction_in_type'),
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('expired', 'expired'),

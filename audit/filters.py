@@ -1,6 +1,7 @@
 from dal import autocomplete
 
 from accounts.models import User
+from audit.models import AuditDetail
 from products.models import Product
 from shops.models import Shop
 from wms.models import Bin

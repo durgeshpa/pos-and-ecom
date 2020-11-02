@@ -3,7 +3,9 @@ import logging
 from dal_admin_filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django.contrib import admin
+from django.contrib.admin import SimpleListFilter
 from rangefilter.filter import DateRangeFilter
+
 from audit.forms import AuditCreationForm
 from audit.models import AuditDetail, AuditTicket, AuditTicketManual
 from retailer_backend.admin import InputFilter
@@ -20,24 +22,38 @@ class SKUFilter(InputFilter):
         return queryset
 
 
+class AuditNoFilter(InputFilter):
+    title = 'Audit No'
+    parameter_name = 'id'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(id=value)
+        return queryset
+
 class Warehouse(AutocompleteFilter):
     title = 'Warehouse'
     field_name = 'warehouse'
     autocomplete_url = 'warehouse-autocomplete'
 
 
+class AuditStateFilter(AutocompleteFilter):
+    title = 'Audit State'
+    field_name = 'state'
+    autocomplete_url = 'audit-state-autocomplete'
+
+
 class AssignedUserFilter(AutocompleteFilter):
     title = 'Assigned User'
     field_name = 'assigned_user'
     autocomplete_url = 'assigned-user-autocomplete'
-#
-# class SKUInlineAdmin(admin.TabularInline):
-#     model = AuditDetail.sku.through
+
 
 @admin.register(AuditDetail)
 class AuditDetailAdmin(admin.ModelAdmin):
     list_display = ('id', 'warehouse', 'audit_type', 'audit_inventory_type', 'audit_level',
-                    'state', 'status', 'user', 'auditor')
+                    'state', 'status', 'user', 'auditor', 'created_at')
 
     fieldsets = (
         ('Basic', {
@@ -53,11 +69,10 @@ class AuditDetailAdmin(admin.ModelAdmin):
             'classes': ('manual',)
         }),
     )
-    # inlines = (SKUInlineAdmin,)
-    # filter_horizontal = ('sku',)
-    list_filter = [Warehouse, 'audit_type', 'state', 'audit_level', 'status']
+    list_filter = [Warehouse, AuditNoFilter, 'audit_type', 'audit_level', 'state', 'status']
     form = AuditCreationForm
     actions_on_top = False
+
 
     def get_readonly_fields(self, request, obj=None):
         if obj:

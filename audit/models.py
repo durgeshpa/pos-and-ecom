@@ -124,7 +124,7 @@ class AuditTicket(BaseTimestampModel):
         return AUDIT_TYPE_CHOICES[self.audit_run.audit.audit_type]
 
 
-class AuditProduct(models.Model):
+class AuditProduct(BaseTimestampModel):
     audit = models.ForeignKey(AuditDetail, null=False, related_name='+', on_delete=models.DO_NOTHING)
     warehouse = models.ForeignKey(Shop, null=False, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, null=False, to_field='product_sku', on_delete=models.DO_NOTHING)
@@ -162,3 +162,5 @@ class AuditTicketManual(BaseTimestampModel):
 
     class Meta:
         db_table = "wms_audit_tickets_manual"
+        verbose_name = "Manual Audit Ticket"
+        verbose_name_plural = "Manual Audit Tickets"

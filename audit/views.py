@@ -1,22 +1,25 @@
 import json
 from collections import defaultdict
 
-from django.db.models import Sum, Q
+from django.db import transaction
+from django.db.models import Sum, Q, F
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
 from django.http import HttpResponse
 import logging
 
+from django.utils import timezone
 from rest_framework import status, authentication, permissions
 from rest_framework.generics import ListCreateAPIView
 from rest_framework.response import Response
 
 from sp_to_gram.tasks import update_product_es, es_mget_by_ids
-from retailer_to_sp.models import Order, Trip
+from retailer_to_sp.models import Order, Trip, PickerDashboard
+from wms.views import PicklistRefresh
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
                      AUDIT_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES, AuditProduct,
-                     AUDIT_PRODUCT_STATUS, AUDIT_DETAIL_STATE_CHOICES
+                     AUDIT_PRODUCT_STATUS, AUDIT_DETAIL_STATE_CHOICES, AuditCancelledPicklist, AuditTicketManual
                      )
 from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
 from wms.models import WarehouseInventory, WarehouseInternalInventoryChange, InventoryType, InventoryState, \
@@ -26,7 +29,6 @@ import datetime
 
 from .serializers import WarehouseInventoryTransactionSerializer, WarehouseInventorySerializer, \
     BinInventoryTransactionSerializer, BinInventorySerializer, PickupBlockedQuantitySerializer
-from .tasks import update_audit_status, create_audit_tickets
 from .utils import get_es_status, get_products_by_audit
 
 info_logger = logging.getLogger('file-info')
@@ -513,50 +515,75 @@ class BlockUnblockProduct(object):
         if len(products_to_disable) > 0:
             BlockUnblockProduct.block_product_during_audit(audit_detail, products_to_disable, audit_detail.warehouse)
 
-#
-# class AuditCronJobs:
-#
-#     @staticmethod
-#     def update_audit_status():
-#         cron_logger.info('update_audit_status|started')
-#         audit_qs = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.MANUAL,
-#                                               state=AUDIT_DETAIL_STATE_CHOICES.ENDED)
-#         cron_logger.info('update_audit_status| audit count {}'.format(audit_qs.count()))
-#         for audit in audit_qs:
-#             update_audit_status(audit_qs.id)
-#             cron_logger.info('update_audit_status|audit state updated | audit {}, state'.format(audit.id, audit.state))
-#         cron_logger.info('update_audit_status|completed')
-#
-#     @staticmethod
-#     def create_audit_tickets():
-#         cron_logger.info('create_audit_tickets|started')
-#         audit_qs = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.MANUAL,
-#                                               state=AUDIT_DETAIL_STATE_CHOICES.FAIL)
-#         cron_logger.info('create_audit_tickets|failed audit count {}'.format(audit_qs.count()))
-#         for audit in audit_qs:
-#             create_audit_tickets(audit_qs.id)
-#             cron_logger.info('create_audit_tickets| audit state updated | audit {}, state'
-#                              .format(audit.id, audit.state))
-#         cron_logger.info('create_audit_tickets|completed')
 
-def update_audit_status():
-    cron_logger.info('update_audit_status|started')
-    audit_qs = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.MANUAL,
-                                          state=AUDIT_DETAIL_STATE_CHOICES.ENDED)
-    cron_logger.info('update_audit_status| audit count {}'.format(audit_qs.count()))
-    for audit in audit_qs:
-        update_audit_status(audit_qs.id)
-        cron_logger.info('update_audit_status|audit state updated | audit {}, state'.format(audit.id, audit.state))
-    cron_logger.info('update_audit_status|completed')
+def update_audit_status_by_audit(audit_id):
+    audit = AuditDetail.objects.filter(id=audit_id).last()
+    audit_items = AuditRunItem.objects.filter(audit_run__audit=audit)
+    audit_state = AUDIT_DETAIL_STATE_CHOICES.PASS
+    for i in audit_items:
+        if i.qty_expected != i.qty_calculated:
+            audit_state = AUDIT_DETAIL_STATE_CHOICES.FAIL
+            break
+    audit.state = audit_state
+    audit.save()
 
 
-def create_audit_tickets():
-    cron_logger.info('create_audit_tickets|started')
-    audit_qs = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.MANUAL,
-                                          state=AUDIT_DETAIL_STATE_CHOICES.FAIL)
-    cron_logger.info('create_audit_tickets|failed audit count {}'.format(audit_qs.count()))
-    for audit in audit_qs:
-        create_audit_tickets(audit_qs.id)
-        cron_logger.info('create_audit_tickets| audit state updated | audit {}, state'
-                         .format(audit.id, audit.state))
-    cron_logger.info('create_audit_tickets|completed')
+def create_pick_list_by_audit(audit_id):
+    orders_to_generate_picklists = AuditCancelledPicklist.objects.filter(audit=audit_id, is_picklist_refreshed=False)
+    for o in orders_to_generate_picklists:
+        order = Order.objects.filter(order_no=o.order_no)
+        try:
+            pd_obj = PickerDashboard.objects.filter(order=order,
+                                                    picking_status__in=['picking_pending', 'picking_assigned'],
+                                                    is_valid=False).last()
+            if pd_obj is None:
+                info_logger.info("Picker Dashboard object does not exists for order {}".format(order.order_no))
+                continue
+            with transaction.atomic():
+                PicklistRefresh.create_picklist_by_order(o.order_no, pd_obj)
+                o.is_picklist_refreshed = True
+                o.save()
+                pd_obj.is_valid = True
+                pd_obj.refreshed_at = timezone.now()
+                pd_obj.save()
+        except Exception as e:
+            info_logger.error(e)
+            info_logger.error('generate_pick_list|Exception while generating picklist for order {}'.format(o))
+
+
+def create_audit_tickets_by_audit(audit_id):
+    audit = AuditDetail.objects.filter(id=audit_id).last()
+    if audit.state != AUDIT_DETAIL_STATE_CHOICES.FAIL:
+        info_logger.info('tasks|create_audit_tickets| ticked not generated, audit is in {} state'
+                         .format(AUDIT_DETAIL_STATE_CHOICES[audit.state]))
+        return
+    audit_run = AuditRun.objects.filter(audit=audit).last()
+    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+    type_expired = InventoryType.objects.filter(inventory_type='expired').last()
+    type_damaged = InventoryType.objects.filter(inventory_type='damaged').last()
+    audit_items = AuditRunItem.objects.filter(~Q(qty_expected=F('qty_calculated')), audit_run=audit_run)
+    for i in audit_items:
+        if not AuditTicketManual.objects.filter(audit_run=audit_run, bin=i.bin, sku=i.sku,
+                                                batch_id=i.batch_id).exists():
+            agg_qty = AuditRunItem.objects.filter(audit_run=audit_run, bin=i.bin, sku=i.sku, batch_id=i.batch_id) \
+                .aggregate(n_phy=Sum('qty_calculated', filter=Q(inventory_type=type_normal)),
+                           n_sys=Sum('qty_expected', filter=Q(inventory_type=type_normal)),
+                           e_phy=Sum('qty_calculated', filter=Q(inventory_type=type_expired)),
+                           e_sys=Sum('qty_expected', filter=Q(inventory_type=type_expired)),
+                           d_phy=Sum('qty_calculated', filter=Q(inventory_type=type_damaged)),
+                           d_sys=Sum('qty_expected', filter=Q(inventory_type=type_damaged)))
+
+            AuditTicketManual.objects.create(warehouse=audit_run.warehouse,
+                                             audit_run=audit_run, bin=i.bin, sku=i.sku, batch_id=i.batch_id,
+                                             qty_normal_system=agg_qty['n_sys'],
+                                             qty_normal_actual=agg_qty['n_phy'],
+                                             qty_damaged_system=agg_qty['d_sys'],
+                                             qty_damaged_actual=agg_qty['d_phy'],
+                                             qty_expired_system=agg_qty['e_sys'],
+                                             qty_expired_actual=agg_qty['e_phy'],
+                                             status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
+    info_logger.info('tasks|create_audit_tickets|created for audit run {}, bin {}, batch {}'
+                             .format(audit_run.id, i.bin_id, i.batch_id))
+    audit.state = AUDIT_DETAIL_STATE_CHOICES.TICKET_RAISED
+    audit.save()
+

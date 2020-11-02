@@ -402,7 +402,9 @@ class AuditInventory(APIView):
         warehouse = audit.warehouse
         bin_inventory = BinInventory.objects.filter(batch_id=batch_id, bin=bin).last()
         if not bin_inventory:
-            msg = {'is_success': False, 'message': ERROR_MESSAGES['BATCH_BIN_ISSUE'].format(batch_id, bin_id), 'data': None}
+            msg = {'is_success': False,
+                   'message': ERROR_MESSAGES['BATCH_BIN_ISSUE'].format(batch_id, bin_id),
+                   'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         sku = bin_inventory.sku
         current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
@@ -493,13 +495,14 @@ class AuditInventory(APIView):
             if ware_house_inventory_obj.quantity+qty_diff < 0:
                 qty_diff = -1*ware_house_inventory_obj.quantity
         # update warehouse inventory
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, inventory_type, inventory_state,
-                                                                     qty_diff, True)
-        WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku,
-                                                                           tr_type, audit_no,
-                                                                           inventory_type, inventory_state,
-                                                                           inventory_type, inventory_state,
-                                                                           abs(qty_diff))
+        if qty_diff != 0:
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, inventory_type, inventory_state,
+                                                                         qty_diff, True)
+            WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku,
+                                                                               tr_type, audit_no,
+                                                                               inventory_type, inventory_state,
+                                                                               inventory_type, inventory_state,
+                                                                               abs(qty_diff))
         info_logger.info('AuditInventory | update_inventory | completed')
 
     def log_audit_data(self, warehouse, audit_run, batch_id, bin, sku, inventory_type, inventory_state, expected_qty,
