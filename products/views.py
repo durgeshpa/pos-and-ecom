@@ -683,7 +683,6 @@ class ParentProductMultiPhotoUploadView(View):
         )
 
     def post(self, request):
-        print(self.request.POST)
         form = ParentProductImageForm(self.request.POST, self.request.FILES)
         if form.is_valid():
             file_name = (
