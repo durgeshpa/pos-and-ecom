@@ -585,6 +585,10 @@ class PickupComplete(APIView):
                     state_available = InventoryState.objects.filter(inventory_state="available").last()
                     state_picked = InventoryState.objects.filter(inventory_state="picked").last()
                     state_ordered = InventoryState.objects.filter(inventory_state="ordered").last()
+                    wh_inv_state = 'ordered'
+                    if is_repackaging == 1:
+                        state_ordered = InventoryState.objects.filter(inventory_state="repackaging").last()
+                        wh_inv_state = 'repackaging'
 
                     for pickup in pick_obj:
                         info_logger.info("PickupComplete : Starting to complete pickup for order - {}, sku - {}"
@@ -600,7 +604,7 @@ class PickupComplete(APIView):
                             # Entry in warehouse Table
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
                                                                                          pickup_bin.pickup.sku,
-                                                                                         "normal", "ordered",
+                                                                                         "normal", wh_inv_state,
                                                                                          pickup_bin.quantity * -1,
                                                                                          True)
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,

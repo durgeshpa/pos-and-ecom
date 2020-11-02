@@ -1,9 +1,10 @@
 (function($) {
     $(document).ready(function() {
-    var id_available_source_quantity_initial = 0;
-    var source_sku_weight = 0;
-//    var destination_sku_weight = 0;
-    $('#id_source_repackage_quantity').attr('readonly', true);
+    var id_available_source_quantity_initial;
+    var source_sku_weight;
+    if ($("#id_destination_sku").val() == ''){
+        $('#id_source_repackage_quantity').attr('readonly', true);
+    }
 
 	$("#id_source_sku").on('change', function(){
 	    reset('source');

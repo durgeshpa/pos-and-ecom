@@ -8,7 +8,7 @@ from sp_to_gram.tasks import update_shop_product_es
 from analytics.post_save_signal import get_category_product_report
 import logging
 from django.db import transaction
-from wms.models import InventoryType, Pickup, WarehouseInventory, InventoryState,WarehouseInternalInventoryChange
+from wms.models import In, InventoryType, Pickup, WarehouseInventory, InventoryState,WarehouseInternalInventoryChange, PutawayBinInventory, Putaway
 from retailer_to_sp.models import generate_picklist_id, PickerDashboard
 from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange
 from datetime import datetime
@@ -146,7 +146,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                 warehouse_product_available = WarehouseInventory.objects.filter(warehouse=rep_obj.seller_shop,
                                                                                 sku__id=rep_obj.source_sku.id,
                                                                                 inventory_type__inventory_type='normal',
-                                                                                inventory_state__inventory_state='ordered').last()
+                                                                                inventory_state__inventory_state='repackaging').last()
                 if warehouse_product_available:
                     available_qty = warehouse_product_available.quantity
                     warehouse_product_available.quantity = available_qty + repackage_quantity
@@ -155,13 +155,13 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                     WarehouseInventory.objects.create(warehouse=rep_obj.seller_shop,
                                                       sku=rep_obj.source_sku,
                                                       inventory_state=InventoryState.objects.filter(
-                                                          inventory_state='ordered').last(),
+                                                          inventory_state='repackaging').last(),
                                                       quantity=repackage_quantity, in_stock=True,
                                                       inventory_type=InventoryType.objects.filter(
                                                           inventory_type='normal').last())
                 WarehouseInternalInventoryChange.objects.create(warehouse=rep_obj.seller_shop,
                                                                 sku=rep_obj.source_sku,
-                                                                transaction_type='ordered',
+                                                                transaction_type='repackaging',
                                                                 transaction_id=rep_obj.repackaging_no,
                                                                 initial_type=InventoryType.objects.filter(
                                                                     inventory_type='normal').last(),
@@ -170,7 +170,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                                 initial_stage=InventoryState.objects.filter(
                                                                     inventory_state='available').last(),
                                                                 final_stage=InventoryState.objects.filter(
-                                                                    inventory_state='ordered').last(),
+                                                                    inventory_state='repackaging').last(),
                                                                 quantity=repackage_quantity)
                 type_normal = InventoryType.objects.filter(inventory_type="normal").last()
                 PickerDashboard.objects.create(
@@ -260,6 +260,30 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                                                          "pickup_created",
                                                                                          pickup_obj.pk,
                                                                                          already_picked)
+
+    else:
+        rep_obj = Repackaging.objects.get(pk=instance.pk)
+        if rep_obj.expiry_date and not rep_obj.destination_batch_id and rep_obj.status == 'completed':
+            rep_obj.destination_batch_id = '{}{}'.format(rep_obj.destination_sku.product_sku,
+                                                         rep_obj.expiry_date.strftime('%d%m%y'))
+            rep_obj.save()
+            In.objects.create(warehouse=rep_obj.seller_shop, in_type='REPACKAGING', in_type_id=rep_obj.repackaging_no,
+                              sku=rep_obj.destination_sku, batch_id=rep_obj.destination_batch_id, quantity=rep_obj.destination_sku_quantity, expiry_date=rep_obj.expiry_date)
+            pu = Putaway.objects.create(warehouse=rep_obj.seller_shop,
+                                        putaway_type='REPACKAGING',
+                                        putaway_type_id=rep_obj.repackaging_no,
+                                        sku=rep_obj.destination_sku,
+                                        batch_id=rep_obj.destination_batch_id,
+                                        quantity=rep_obj.destination_sku_quantity,
+                                        putaway_quantity=0)
+
+            PutawayBinInventory.objects.create(warehouse=rep_obj.seller_shop,
+                                               sku=rep_obj.destination_sku,
+                                               batch_id=rep_obj.destination_batch_id,
+                                               putaway_type='REPACKAGING',
+                                               putaway=pu,
+                                               putaway_status=False,
+                                               putaway_quantity=rep_obj.destination_sku_quantity)
 
 
 post_save.connect(get_category_product_report, sender=Product)

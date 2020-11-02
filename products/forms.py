@@ -1111,7 +1111,7 @@ class RepackagingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(RepackagingForm, self).__init__(*args, **kwargs)
-        if self.instance.pk:
+        if self.instance.pk and 'expiry_date' in self.fields:
             self.fields['expiry_date'].required = True
         readonly = ['available_source_weight', 'available_source_quantity']
         for key in readonly:

@@ -1124,7 +1124,11 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
-            return ['seller_shop', 'source_sku', "destination_sku", "source_repackage_quantity", "available_source_weight", "available_source_quantity"]
+            add_f = []
+            if request.method == "GET":
+                if obj.status == 'completed':
+                    add_f = ['destination_sku_quantity', 'status', 'expiry_date', 'remarks']
+            return ['seller_shop', 'source_sku', "destination_sku", "source_repackage_quantity", "available_source_weight", "available_source_quantity"] + add_f
         else:
             return ['status', 'destination_sku_quantity', 'remarks', 'expiry_date']
     list_filter = [SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName,

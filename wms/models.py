@@ -44,7 +44,8 @@ INVENTORY_STATE_CHOICES = (
     ('ordered', 'Ordered'),  # Inventory Ordered
     ('picked', 'PICKED'),  # Inventory picked
     ('canceled', 'Canceled'),  # Inventory Canceled
-    ('new', 'New')
+    ('new', 'New'),
+    ('repackaging', 'Repackaging')
 )
 
 
@@ -306,7 +307,7 @@ class WarehouseInternalInventoryChange(models.Model):
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('reschedule', 'Reschedule'),
         ('expired', 'Expired'),
-
+        ('repackaging', 'Repackaging')
     )
 
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
