@@ -642,14 +642,15 @@ class MultiPhotoUploadView(View):
         if form.is_valid():
             file_name = (
                 os.path.splitext(form.cleaned_data['image'].name)[0])
+            product_sku = file_name.split("_")[0]
             try:
-                product = Product.objects.get(product_gf_code=file_name)
+                product = Product.objects.get(product_sku=product_sku)
             except:
                 data = {
                     'is_valid': False,
                     'error': True,
-                    'name': 'No Product found with GF code <b>' + file_name
-                            + '</b>', 'url': '#'
+                    'name': 'No Product found with SKU ID <b>{}</b>'.format(product_sku),
+                    'url': '#'
                 }
 
             else:
@@ -660,7 +661,9 @@ class MultiPhotoUploadView(View):
                 data = {
                     'is_valid': True,
                     'name': form_instance.image.name,
-                    'url': form_instance.image.url
+                    'url': form_instance.image.url,
+                    'product_sku': product.product_sku,
+                    'product_name': product.product_name
                 }
         else:
             data = {'is_valid': False}
