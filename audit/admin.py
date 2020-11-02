@@ -79,6 +79,7 @@ class AuditDetailAdmin(admin.ModelAdmin):
     form = AuditCreationForm
     actions_on_top = False
 
+    change_list_template = 'admin/audit/audit_ticket_change_list.html'
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
