@@ -2018,6 +2018,9 @@ class OrderedProductMapping(models.Model):
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
 
+    def get_products_tcs(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='tcs')
+
     def get_products_gst(self):
         queryset = self.product.product_pro_tax.filter(tax__tax_type='gst')
         if queryset.exists():

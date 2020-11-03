@@ -130,9 +130,45 @@
                            <td></td>
                            <td></td>
                             <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
-                            <td class="thick-line text-center"><strong>Total</strong></td>
-                            <td class="thick-line text-right">₹{{ sum_amount }}/-</td>
+                            <td class="thick-line text-center">Total</td>
+                            <td class="thick-line text-right">₹{{ sum_amount| floatformat:2 | intcomma }}/-</td>
                          </tr>
+                         <tr>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center">TCS Rate</td>
+									<td class="no-line text-center">{{tcs_rate}} %</td>
+								</tr>
+								<tr>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center">TCS Value</td>
+									<td class="no-line text-center">{{tcs_tax}}</td>
+								</tr>
+								<tr>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="thick-line text-center"><strong>Total</strong></td>
+									<td class="thick-line text-center"><strong>₹{{total_amount| floatformat:2 | intcomma}}/-</strong></td>
+								</tr>
                          <tr>
                             <td class="no-line"></td>
                             <td class="no-line"></td>
