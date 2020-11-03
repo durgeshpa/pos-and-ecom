@@ -904,16 +904,17 @@ class PickerDashboardAdmin(admin.ModelAdmin):
             kwargs = {}
             argument_list = []
             for arg in args[ZERO]:
-                if not arg.order:
-                    continue
-                if arg.order.order_status not in ["active", "pending"]:
-                    if arg.shipment:
-                        # append pk which are not falling under the order active and pending
-                        kwargs.update({arg.order.pk: arg.shipment.pk})
+                if arg.order:
+                    if arg.order.order_status not in ["active", "pending"]:
+                        if arg.shipment:
+                            # append pk which are not falling under the order active and pending
+                            kwargs.update({arg.order.pk: arg.shipment.pk})
+                        else:
+                            kwargs.update({arg.order.pk: '0'})
                     else:
-                        kwargs.update({arg.order.pk: '0'})
-                else:
-                    pass
+                        pass
+                elif arg.repackaging:
+                    kwargs.update({arg.repackaging.pk: 'repackaging'})
             # call get method under the DownloadPickListPicker class
             response = DownloadPickListPicker.get(self, request, argument_list, kwargs)
             if response[1] is True:
@@ -925,7 +926,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         return response
 
     download_pick_list.short_description = 'Download Pick List'
-    download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders'
+    download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders/Repackagings'
 
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):

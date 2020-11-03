@@ -806,7 +806,7 @@ class DownloadPickListPicker(TemplateView, ):
                 # get shipment id
                 shipment_id = self.kwargs.get('shipment_id')
                 # call pick list dashboard method for create and save the pdf file in database if pdf is not exist
-                pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode)
+                pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode, 'order')
                 result = requests.get(order_obj.picker_order.all()[0].pick_list_pdf.url)
                 file_prefix = PREFIX_PICK_LIST_FILE_NAME
                 # generate pdf file
@@ -820,25 +820,34 @@ class DownloadPickListPicker(TemplateView, ):
                 pdf_created_date = []
                 if args[1]:
                     for pk in args[1]:
-                        # check pk is exist or not for Order model
-                        order_obj = get_object_or_404(Order, pk=pk)
-                        # generate barcode
-                        barcode = barcodeGen(order_obj.order_no)
-                        # get shipment id
-                        shipment_id = args[1][pk]
                         # call pick list dashboard method for create and save the pdf file in
                         # database if pdf is not exist
-                        pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode)
                         # append the pdf file path
-                        file_path_list.append(order_obj.picker_order.all()[0].pick_list_pdf.url)
-                        # append created date for pdf file
-                        pdf_created_date.append(order_obj.created_at)
+                        obj_type = 'order'
+                        if args[1][pk] == 'repackaging':
+                            rep_obj = get_object_or_404(Repackaging, pk=pk)
+                            barcode = barcodeGen(rep_obj.repackaging_no)
+                            obj_type = 'repackaging'
+                            file_prefix = PREFIX_PICK_LIST_FILE_NAME + '_repackaging'
+                            pick_list_dashboard(request, rep_obj, '', template_name, file_prefix, barcode, obj_type)
+                            file_path_list.append(rep_obj.picker_repacks.all()[0].pick_list_pdf.url)
+                            pdf_created_date.append(rep_obj.created_at)
+                        else:
+                            order_obj = get_object_or_404(Order, pk=pk)
+                            barcode = barcodeGen(order_obj.order_no)
+                            shipment_id = args[1][pk]
+                            pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode, obj_type)
+                            file_path_list.append(order_obj.picker_order.all()[0].pick_list_pdf.url)
+                            pdf_created_date.append(order_obj.created_at)
+
                     # condition to check the download file count
                     if len(pdf_created_date) == 1:
-                        result = requests.get(order_obj.picker_order.all()[0].pick_list_pdf.url)
-                        file_prefix = PREFIX_PICK_LIST_FILE_NAME
-                        # generate pdf file
-                        response = single_pdf_file(order_obj, result, file_prefix)
+                        if obj_type == 'repackaging':
+                            result = requests.get(rep_obj.picker_repacks.all()[0].pick_list_pdf.url)
+                            response = single_pdf_file(rep_obj, result, file_prefix)
+                        else:
+                            result = requests.get(order_obj.picker_order.all()[0].pick_list_pdf.url)
+                            response = single_pdf_file(order_obj, result, file_prefix)
                         return response, False
                     else:
                         # get merged pdf file name
@@ -851,11 +860,11 @@ class DownloadPickListPicker(TemplateView, ):
             logger.exception(e)
 
 
-def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode):
+def pick_list_dashboard(request, pobject, shipment_id, template_name, file_prefix, barcode, obj_type):
     """
 
     :param request: request object
-    :param order_obj: order object
+    :param pobject: order/repackaging object
     :param shipment_id: shipment id
     :param template_name: template for pdf file
     :param file_prefix: prefix name for pdf file
@@ -863,25 +872,33 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
     :return: pdf file instance
     """
     try:
-        if order_obj.picker_order.all()[0].pick_list_pdf.url:
-            pass
+        if obj_type == 'repackaging':
+            if pobject.picker_repacks.all()[0].pick_list_pdf.url:
+                pass
+        else:
+            if pobject.picker_order.all()[0].pick_list_pdf.url:
+                pass
     except:
         # get the file name along with with prefix name
-        file_name = create_file_name(file_prefix, order_obj)
-        if shipment_id != "0":
-            shipment = OrderedProduct.objects.get(id=shipment_id)
+        file_name = create_file_name(file_prefix, pobject)
+        shipment = ''
+        if obj_type == 'repackaging':
+            picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=pobject.repackaging_no)
         else:
-            shipment = order_obj.rt_order_order_product.last()
-        #if shipment:
-        picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_obj.order_no)
+            if shipment_id != "0":
+                shipment = OrderedProduct.objects.get(id=shipment_id)
+            else:
+                shipment = pobject.rt_order_order_product.last()
+                picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=pobject.order_no)
         data_list = []
         new_list = []
         for i in picku_bin_inv:
             product = i.pickup.sku.product_name
             sku = i.pickup.sku.product_sku
+            mrp = 'n/a'
             if i.pickup.sku.product_mrp:
                 mrp = i.pickup.sku.product_mrp
-            else:
+            elif obj_type == 'order':
                 mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
             qty = i.quantity
             batch_id = i.batch_id
@@ -889,14 +906,23 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
             prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id,
                          "bin": bin_id}
             data_list.append(prod_list)
-        data = {"data_list": data_list,
-                "buyer_shop": order_obj.ordered_cart.buyer_shop.shop_name,
-                "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
-                "buyer_shipping_address": order_obj.shipping_address.address_line1,
-                "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-                "barcode": barcode,
-                "order_obj": order_obj,
-                }
+
+        if obj_type == 'repackaging':
+            data = {"data_list": data_list,
+                    "barcode": barcode,
+                    "repackaging_object": pobject,
+                    "type": 'Repackaging'
+                    }
+        else:
+            data = {"data_list": data_list,
+                    "buyer_shop": pobject.ordered_cart.buyer_shop.shop_name,
+                    "buyer_contact_no": pobject.ordered_cart.buyer_shop.shop_owner.phone_number,
+                    "buyer_shipping_address": pobject.shipping_address.address_line1,
+                    "buyer_shipping_city": pobject.shipping_address.city.city_name,
+                    "barcode": barcode,
+                    "order_obj": pobject,
+                    "type": 'Order'
+                    }
 
         cmd_option = {
             "margin-top": 10,
@@ -913,9 +939,13 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
         )
         try:
             # save pdf file in pick_list_pdf field
-            picklist = order_obj.picker_order.all()[0]
-            order_obj.picker_order.all()[0].pick_list_pdf.save("{}".format(file_name),
-                                                               ContentFile(response.rendered_content), save=True)
+            if obj_type == 'repackaging':
+                pobject.picker_repacks.all()[0].pick_list_pdf.save("{}".format(file_name),
+                                                                 ContentFile(response.rendered_content), save=True)
+            else:
+                picklist = pobject.picker_order.all()[0]
+                pobject.picker_order.all()[0].pick_list_pdf.save("{}".format(file_name),
+                                                                   ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
         return response
