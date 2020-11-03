@@ -371,15 +371,16 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
             if not row[1]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Brand' can not be empty."))
-            elif not Brand.objects.filter(brand_name=row[1]).exists():
+            elif not Brand.objects.filter(brand_name=row[1].strip()).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | 'Brand' doesn't exist in the system."))
             if not row[2]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Category' can not be empty."))
             else:
-                if not Category.objects.filter(category_name=row[2]).exists():
+                if not Category.objects.filter(category_name=row[2].strip()).exists():
                     categories = row[2].split(',')
                     for cat in categories:
-                        if not Category.objects.filter(category_name=cat.strip()).exists():
+                        cat = cat.strip().replace("'", '')
+                        if not Category.objects.filter(category_name=cat).exists():
                             raise ValidationError(_(f"Row {row_id + 1} | 'Category' {cat.strip()} doesn't exist in the system."))
             if not row[3]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'HSN' can not be empty."))

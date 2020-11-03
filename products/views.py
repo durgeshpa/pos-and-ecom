@@ -926,7 +926,7 @@ def parent_product_upload(request):
                     else:
                         categories = row[2].split(',')
                         for cat in categories:
-                            cat = cat.strip()
+                            cat = cat.strip().replace("'", '')
                             parent_product_category = ParentProductCategory.objects.create(
                                 parent_product=parent_product,
                                 category=Category.objects.filter(category_name=cat).last()
