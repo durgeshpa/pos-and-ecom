@@ -223,7 +223,6 @@ class DownloadCreditNote(APIView):
                 igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = sum_amount
-        print(type(total_amount))
         if total_amount > 5000000:
             if gstinn2 == 'Unregistered':
                 tcs_rate = 1
