@@ -1,3 +1,4 @@
+import decimal
 import logging
 from decimal import Decimal
 import json
@@ -543,13 +544,13 @@ class AddToCart(APIView):
                                                                                            cart_product=product)
                                 if (capping.capping_qty - ordered_qty) > 0:
                                     cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                                capping.capping_qty - ordered_qty)
+                                            capping.capping_qty - ordered_qty)
                                 else:
                                     cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                                 cart_mapping.save()
                             else:
                                 msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (
-                                capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
+                                    capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
                                 return Response(msg, status=status.HTTP_200_OK)
 
                     else:
@@ -557,13 +558,13 @@ class AddToCart(APIView):
                             cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                             if (capping.capping_qty - ordered_qty) > 0:
                                 cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                            capping.capping_qty - ordered_qty)
+                                        capping.capping_qty - ordered_qty)
                             else:
                                 cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                             cart_mapping.save()
                         else:
                             msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (
-                            capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
+                                capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
                             return Response(msg, status=status.HTTP_200_OK)
                 else:
                     if int(qty) == 0:
@@ -875,14 +876,14 @@ class ReservedOrder(generics.ListAPIView):
                             if (capping.capping_qty - ordered_qty) < product_qty:
                                 if (capping.capping_qty - ordered_qty) > 0:
                                     cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                                capping.capping_qty - ordered_qty)
+                                            capping.capping_qty - ordered_qty)
                                 else:
                                     cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                                 cart_product.save()
                         else:
                             if (capping.capping_qty - ordered_qty) > 0:
                                 cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                            capping.capping_qty - ordered_qty)
+                                        capping.capping_qty - ordered_qty)
                             else:
                                 cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                             cart_product.save()
@@ -1064,7 +1065,8 @@ class CreateOrder(APIView):
                             order = jsonpickle.encode(order, unpicklable=False)
                             pick_list_download.delay(request, order)
                         except:
-                            msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'], 'response_data': None}
+                            msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'],
+                                   'response_data': None}
                             return Response(msg, status=status.HTTP_200_OK)
                     else:
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -1254,7 +1256,6 @@ class DownloadInvoiceSP(APIView):
         return response
 
 
-
 # @task
 def pdf_generation(request, ordered_product):
     """
@@ -1274,208 +1275,220 @@ def pdf_generation(request, ordered_product):
     else:
         request = request
         ordered_product = ordered_product
+    # try:
+    #     if ordered_product.invoice.invoice_pdf.url:
+    #         pass
+    # except Exception as e:
+    #     logger.exception(e)
+    barcode = barcodeGen(ordered_product.invoice_no)
+    # payment_type = 'cash_on_delivery'
     try:
-        if ordered_product.invoice.invoice_pdf.url:
-            pass
-    except Exception as e:
-        logger.exception(e)
-        barcode = barcodeGen(ordered_product.invoice_no)
-        # payment_type = 'cash_on_delivery'
-        try:
-            if ordered_product.order.buyer_shop.shop_timing:
-                open_time = ordered_product.order.buyer_shop.shop_timing.open_timing
-                close_time = ordered_product.order.buyer_shop.shop_timing.closing_timing
-                if open_time == 'midnight' and close_time == 'midnight':
-                    open_time = '-'
-                    close_time = '-'
-
-            else:
+        if ordered_product.order.buyer_shop.shop_timing:
+            open_time = ordered_product.order.buyer_shop.shop_timing.open_timing
+            close_time = ordered_product.order.buyer_shop.shop_timing.closing_timing
+            if open_time == 'midnight' and close_time == 'midnight':
                 open_time = '-'
                 close_time = '-'
-        except:
+
+        else:
             open_time = '-'
             close_time = '-'
-
-        seller_shop_gistin = 'unregistered'
-        buyer_shop_gistin = 'unregistered'
-        if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.exists():
-            seller_shop_gistin = ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
-                shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
-                shop_document_type='gstin').exists() else 'unregistered'
-
-        if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.exists():
-            buyer_shop_gistin = ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
-                shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
-                shop_document_type='gstin').exists() else 'unregistered'
-
-        shop_mapping_list = ShopMigrationMapp.objects.filter(
-            new_sp_addistro_shop=ordered_product.order.ordered_cart.seller_shop.pk).all()
-        if shop_mapping_list.exists():
-            template_name = 'admin/invoice/invoice_addistro_sp.html'
-
-        product_listing = []
-        taxes_list = []
-        gst_tax_list = []
-        cess_tax_list = []
-        surcharge_tax_list = []
-        sum_qty = 0
-        igst = sum(gst_tax_list)
-        cgst = (sum(gst_tax_list)) / 2
-        sgst = (sum(gst_tax_list)) / 2
-        cess = sum(cess_tax_list)
-        surcharge = sum(surcharge_tax_list)
+    except:
         open_time = '-'
         close_time = '-'
-        sum_qty = 0
-        sum_basic_amount = 0
-        shop_name_gram = 'GFDN SERVICES PVT LTD'
-        nick_name_gram = '-'
-        address_line1_gram = '-'
-        city_gram = '-'
-        state_gram = '-'
-        pincode_gram = '-'
-        cin = '-'
-        list1 = []
-        for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
-            dict1 = {}
-            flag = 0
-            if len(list1) > 0 :
-                for i in list1:
-                    if i["hsn"] == m.product.product_hsn:
-                        i["taxable_value"] = i["taxable_value"] + m.base_price
-                        i["cgst"] = i["cgst"] + (m.base_price * m.get_products_gst()) / 200
-                        i["sgst"] = i["sgst"] + (m.base_price * m.get_products_gst()) / 200
-                        i["igst"] = i["igst"] + (m.base_price * m.get_products_gst()) / 100
-                        i["cess"] = i["cess"] + (m.base_price * m.get_products_gst_cess_tax()) / 100
-                        i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
-                        i["total"] = i["total"] + m.product_tax_amount
-                        flag = 1
 
-            if flag==0 :
-                dict1["hsn"] = m.product.product_hsn
-                dict1["taxable_value"] = m.base_price
-                dict1["cgst"] = (m.base_price * m.get_products_gst()) / 200
-                dict1["cgst_rate"] = m.get_products_gst() / 2
-                dict1["sgst"] = (m.base_price * m.get_products_gst()) / 200
-                dict1["sgst_rate"] = m.get_products_gst() / 2
-                dict1["igst"] = (m.base_price * m.get_products_gst()) / 100
-                dict1["igst_rate"] = m.get_products_gst()
-                dict1["cess"] = (m.base_price * m.get_products_gst_cess_tax()) / 100
-                dict1["cess_rate"] = m.get_products_gst_cess_tax()
-                dict1["surcharge"] = (m.base_price * m.get_products_gst_surcharge()) / 100
-                dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
-                dict1["total"] = m.product_tax_amount
-                list1.append(dict1)
+    seller_shop_gistin = 'unregistered'
+    buyer_shop_gistin = 'unregistered'
+    if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.exists():
+        seller_shop_gistin = ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
+            shop_document_type='gstin').exists() else 'unregistered'
 
+    if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.exists():
+        buyer_shop_gistin = ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
+            shop_document_type='gstin').exists() else 'unregistered'
 
-            sum_qty += m.shipped_qty
-            sum_basic_amount += m.base_price
-            tax_sum = 0
-            basic_rate = 0
-            product_tax_amount = 0
-            product_pro_price_mrp = 0
-            product_pro_price_ptr = 0
+    shop_mapping_list = ShopMigrationMapp.objects.filter(
+        new_sp_addistro_shop=ordered_product.order.ordered_cart.seller_shop.pk).all()
+    if shop_mapping_list.exists():
+        template_name = 'admin/invoice/invoice_addistro_sp.html'
 
-            no_of_pieces = 0
-            cart_qty = 0
-            product_tax_amount = 0
-            basic_rate = 0
-            inline_sum_amount = 0
-            cart_product_map = ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
-            product_price = cart_product_map.get_cart_product_price(
-                ordered_product.order.ordered_cart.seller_shop,
-                ordered_product.order.ordered_cart.buyer_shop)
+    product_listing = []
+    taxes_list = []
+    gst_tax_list = []
+    cess_tax_list = []
+    surcharge_tax_list = []
+    tcs_rate = 0
+    tcs_tax = 0
+    sum_qty = 0
+    igst = sum(gst_tax_list)
+    cgst = (sum(gst_tax_list)) / 2
+    sgst = (sum(gst_tax_list)) / 2
+    cess = sum(cess_tax_list)
+    surcharge = sum(surcharge_tax_list)
+    open_time = '-'
+    close_time = '-'
+    sum_qty = 0
+    sum_basic_amount = 0
+    shop_name_gram = 'GFDN SERVICES PVT LTD'
+    nick_name_gram = '-'
+    address_line1_gram = '-'
+    city_gram = '-'
+    state_gram = '-'
+    pincode_gram = '-'
+    cin = '-'
+    list1 = []
+    for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
+        dict1 = {}
+        flag = 0
+        if len(list1) > 0:
+            for i in list1:
+                if i["hsn"] == m.product.product_hsn:
+                    i["taxable_value"] = i["taxable_value"] + m.base_price
+                    i["cgst"] = i["cgst"] + (m.base_price * m.get_products_gst()) / 200
+                    i["sgst"] = i["sgst"] + (m.base_price * m.get_products_gst()) / 200
+                    i["igst"] = i["igst"] + (m.base_price * m.get_products_gst()) / 100
+                    i["cess"] = i["cess"] + (m.base_price * m.get_products_gst_cess_tax()) / 100
+                    i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
+                    i["total"] = i["total"] + m.product_tax_amount
+                    flag = 1
 
-            if ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
-                product_pro_price_ptr = round(product_price.selling_price, 2)
-            else:
-                product_pro_price_ptr = cart_product_map.item_effective_prices
-            product_pro_price_mrp = round(product_price.mrp, 2)
-            no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
-            cart_qty = m.product.rt_cart_product_mapping.last().qty
+        if flag == 0:
+            dict1["hsn"] = m.product.product_hsn
+            dict1["taxable_value"] = m.base_price
+            dict1["cgst"] = (m.base_price * m.get_products_gst()) / 200
+            dict1["cgst_rate"] = m.get_products_gst() / 2
+            dict1["sgst"] = (m.base_price * m.get_products_gst()) / 200
+            dict1["sgst_rate"] = m.get_products_gst() / 2
+            dict1["igst"] = (m.base_price * m.get_products_gst()) / 100
+            dict1["igst_rate"] = m.get_products_gst()
+            dict1["cess"] = (m.base_price * m.get_products_gst_cess_tax()) / 100
+            dict1["cess_rate"] = m.get_products_gst_cess_tax()
+            dict1["surcharge"] = (m.base_price * m.get_products_gst_surcharge()) / 100
+            dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+            dict1["total"] = m.product_tax_amount
+            list1.append(dict1)
 
-            # new code for tax start
-            tax_sum = m.get_product_tax_json()
+        sum_qty += m.shipped_qty
+        sum_basic_amount += m.base_price
+        tax_sum = 0
+        basic_rate = 0
+        product_tax_amount = 0
+        product_pro_price_mrp = 0
+        product_pro_price_ptr = 0
 
-            get_tax_val = tax_sum / 100
-            basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
-            base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
-            product_tax_amount = round(float(base_price) * float(get_tax_val), 2)
-            for z in ordered_product.order.seller_shop.shop_name_address_mapping.all():
-                cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
-                shop_name_gram = 'GFDN SERVICES PVT LTD' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
-                nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
-                city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
+        no_of_pieces = 0
+        cart_qty = 0
+        product_tax_amount = 0
+        basic_rate = 0
+        inline_sum_amount = 0
+        cart_product_map = ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
+        product_price = cart_product_map.get_cart_product_price(
+            ordered_product.order.ordered_cart.seller_shop,
+            ordered_product.order.ordered_cart.buyer_shop)
 
-            ordered_prodcut = {
-                "product_sku": m.product.product_gf_code,
-                "product_short_description": m.product.product_short_description,
-                "product_hsn": m.product.product_hsn,
-                "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
-                "product_mrp": product_pro_price_mrp,
-                "shipped_qty": m.shipped_qty,
-                "product_inner_case_size": m.product.product_inner_case_size,
-                "product_no_of_pices": int(m.shipped_qty) * int(m.product.product_inner_case_size),
-                "basic_rate": basic_rate,
-                "basic_amount": float(m.shipped_qty) * float(basic_rate),
-                "price_to_retailer": round(product_pro_price_ptr, 2),
-                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
-                "product_tax_amount": product_tax_amount
-            }
-            # total_tax_sum = total_tax_sum + product_tax_amount
-            # inline_sum_amount = inline_sum_amount + product_pro_price_ptr
-            product_listing.append(ordered_prodcut)
-            # New Code For Product Listing End
+        if ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
+            product_pro_price_ptr = round(product_price.selling_price, 2)
+        else:
+            product_pro_price_ptr = cart_product_map.item_effective_prices
+        product_pro_price_mrp = round(product_price.mrp, 2)
+        no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
+        cart_qty = m.product.rt_cart_product_mapping.last().qty
 
-            # sum_qty += int(m.shipped_qty)
-            # sum_amount += int(m.shipped_qty) * product_pro_price_ptr
-            inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
-            gst_tax = (m.base_price * m.get_products_gst()) / 100
-            cess_tax = (m.base_price * m.get_products_gst_cess_tax()) / 100
-            surcharge_tax = (m.base_price * m.get_products_gst_surcharge()) / 100
-            gst_tax_list.append(gst_tax)
-            cess_tax_list.append(cess_tax)
-            surcharge_tax_list.append(surcharge_tax)
-            igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(
-                cess_tax_list), sum(surcharge_tax_list)
+        # new code for tax start
+        tax_sum = m.get_product_tax_json()
 
-        total_amount = ordered_product.invoice_amount
-        total_amount_int = total_amount
+        get_tax_val = tax_sum / 100
+        basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
+        base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
+        product_tax_amount = round(float(base_price) * float(get_tax_val), 2)
+        for z in ordered_product.order.seller_shop.shop_name_address_mapping.all():
+            cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
+            shop_name_gram = 'GFDN SERVICES PVT LTD' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
+            nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
+            city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
-        total_tax_amount = ordered_product.sum_amount_tax()
-        total_tax_amount_int = round(total_tax_amount)
+        ordered_prodcut = {
+            "product_sku": m.product.product_gf_code,
+            "product_short_description": m.product.product_short_description,
+            "product_hsn": m.product.product_hsn,
+            "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
+            "product_mrp": product_pro_price_mrp,
+            "shipped_qty": m.shipped_qty,
+            "product_inner_case_size": m.product.product_inner_case_size,
+            "product_no_of_pices": int(m.shipped_qty) * int(m.product.product_inner_case_size),
+            "basic_rate": basic_rate,
+            "basic_amount": float(m.shipped_qty) * float(basic_rate),
+            "price_to_retailer": round(product_pro_price_ptr, 2),
+            "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
+            "product_tax_amount": product_tax_amount
+        }
+        # total_tax_sum = total_tax_sum + product_tax_amount
+        # inline_sum_amount = inline_sum_amount + product_pro_price_ptr
+        product_listing.append(ordered_prodcut)
+        # New Code For Product Listing End
 
-        amt = [num2words(i) for i in str(total_amount).split('.')]
-        rupees = amt[0]
+        # sum_qty += int(m.shipped_qty)
+        # sum_amount += int(m.shipped_qty) * product_pro_price_ptr
+        inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
+        gst_tax = (m.base_price * m.get_products_gst()) / 100
+        cess_tax = (m.base_price * m.get_products_gst_cess_tax()) / 100
+        surcharge_tax = (m.base_price * m.get_products_gst_surcharge()) / 100
+        gst_tax_list.append(gst_tax)
+        cess_tax_list.append(cess_tax)
+        surcharge_tax_list.append(surcharge_tax)
+        igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(
+            cess_tax_list), sum(surcharge_tax_list)
 
-        tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
-        tax_rupees = tax_amt[0]
+    total_amount = ordered_product.invoice_amount
 
-        logger.info("createing invoice pdf")
-        logger.info(template_name)
-        logger.info(request.get_host())
+    total_tax_amount = ordered_product.sum_amount_tax()
 
-        data = {"shipment": ordered_product, "order": ordered_product.order,
-                "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
-                "igst": igst, "cgst": cgst, "sgst": sgst, "cess": cess, "surcharge": surcharge,
-                "total_amount": total_amount,
-                "barcode": barcode, "product_listing": product_listing, "rupees": rupees, "tax_rupees": tax_rupees,
-                "seller_shop_gistin": seller_shop_gistin, "buyer_shop_gistin": buyer_shop_gistin,
-                "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty, "sum_basic_amount": sum_basic_amount,
-                "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
-                "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
-                "pincode_gram": pincode_gram, "cin": cin, "hsn_list": list1}
+    if total_amount > 5000000:
+        if buyer_shop_gistin == 'unregistered':
+            tcs_rate = 1
+            tcs_tax = total_amount * float(tcs_rate / 100)
+        else:
+            tcs_rate = 0.075
+            tcs_tax = total_amount * float(tcs_rate / 100)
 
-        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
-                      "no-stop-slow-scripts": True, "quiet": True}
-        response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
-                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
-        try:
-            create_invoice_data(ordered_product)
-            ordered_product.invoice.invoice_pdf.save("{}".format(filename),
-                                                     ContentFile(response.rendered_content), save=True)
-        except Exception as e:
-            logger.exception(e)
+    tcs_tax = round(tcs_tax, 2)
+    total_amount = total_amount + tcs_tax
+    total_amount_int = round(total_amount)
+    total_tax_amount_int = round(total_tax_amount)
+
+    amt = [num2words(i) for i in str(total_amount_int).split('.')]
+    rupees = amt[0]
+
+    tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
+    tax_rupees = tax_amt[0]
+
+    logger.info("createing invoice pdf")
+    logger.info(template_name)
+    logger.info(request.get_host())
+
+    data = {"shipment": ordered_product, "order": ordered_product.order,
+            "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
+            "igst": igst, "cgst": cgst, "sgst": sgst, "tcs_tax": tcs_tax, "tcs_rate": tcs_rate, "cess": cess,
+            "surcharge": surcharge, "total_amount": total_amount,
+            "barcode": barcode, "product_listing": product_listing, "rupees": rupees, "tax_rupees": tax_rupees,
+            "seller_shop_gistin": seller_shop_gistin, "buyer_shop_gistin": buyer_shop_gistin,
+            "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty, "sum_basic_amount": sum_basic_amount,
+            "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
+            "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
+            "pincode_gram": pincode_gram, "cin": cin, "hsn_list": list1}
+
+    cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                  "no-stop-slow-scripts": True, "quiet": True}
+    response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                   context=data, show_content_in_browser=False, cmd_options=cmd_option)
+    try:
+        create_invoice_data(ordered_product)
+        ordered_product.invoice.invoice_pdf.save("{}".format(filename),
+                                                 ContentFile(response.rendered_content), save=True)
+    except Exception as e:
+        logger.exception(e)
 
 
 class DownloadCreditNoteDiscounted(APIView):
@@ -1508,6 +1521,8 @@ class DownloadCreditNoteDiscounted(APIView):
         sum_qty, sum_amount, tax_inline, sum_basic_amount, product_tax_amount, total_product_tax_amount = 0, 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
+        tcs_rate = 0
+        tcs_tax = 0
         list1 = []
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
             pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
@@ -1527,7 +1542,7 @@ class DownloadCreditNoteDiscounted(APIView):
                         i["igst"] = i["igst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
                         i["cess"] = i["cess"] + (m.delivered_qty * m.basic_rate * m.get_products_gst_cess_tax()) / 100
                         i["surcharge"] = i["surcharge"] + (
-                                    m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
+                                m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
                         i["total"] = i["total"] + m.product_tax_discount_amount
                         flag = 1
 
@@ -1561,37 +1576,32 @@ class DownloadCreditNoteDiscounted(APIView):
             igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
                 sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
-            # for n in m.get_products_gst_tax():
-            #     divisor = (1 + (n.tax.tax_percentage / 100))
-            #     original_amount = (float(inline_sum_amount) / divisor)
-            #     tax_amount = float(inline_sum_amount) - original_amount
-            #     if n.tax.tax_type == 'gst':
-            #         gst_tax_list.append(tax_amount)
-            #     if n.tax.tax_type == 'cess':
-            #         cess_tax_list.append(tax_amount)
-            #     if n.tax.tax_type == 'surcharge':
-            #         surcharge_tax_list.append(tax_amount)
-            #     taxes_list.append(tax_amount)
-            #     igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
-            #         sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
+        total_amount = sum_amount
+        if total_amount > 5000000:
+            if gstinn2 == 'Unregistered':
+                tcs_rate = 1
+                tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
+            else:
+                tcs_rate = 0.075
+                tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
 
-        total_amount = round(credit_note.note_amount)
-        total_amount_int = total_amount
+        tcs_tax = round(tcs_tax, 2)
+        total_amount = total_amount + tcs_tax
+        total_amount_int = round(total_amount)
         total_product_tax_amount_int = round(total_product_tax_amount)
 
-        amt = [num2words(i) for i in str(sum_amount).split('.')]
+        amt = [num2words(i) for i in str(total_amount_int).split('.')]
         rupees = amt[0]
 
         prdct_tax_amt = [num2words(i) for i in str(total_product_tax_amount_int).split('.')]
         tax_rupees = prdct_tax_amt[0]
 
         data = {
-            "object": credit_note, "products": products, "shop": credit_note, "total_amount_int": total_amount_int,
+            "object": credit_note, "products": products, "shop": credit_note, "total_amount": total_amount,
             "sum_qty": sum_qty, "sum_amount": sum_amount, "total_product_tax_amount": total_product_tax_amount,
-            "tax_rupees": tax_rupees, "sum_basic_amount": sum_basic_amount,
+            "tax_rupees": tax_rupees, "sum_basic_amount": sum_basic_amount, "tcs_tax": tcs_tax, "tcs_rate": tcs_rate,
             "url": request.get_host(), "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
-            "sgst": sgst, "cess": cess, "surcharge": surcharge,
-            "total_amount": round(total_amount, 2), "order_id": order_id, "shop_name_gram": shop_name_gram,
+            "sgst": sgst, "cess": cess, "surcharge": surcharge, "order_id": order_id, "shop_name_gram": shop_name_gram,
             "nick_name_gram": nick_name_gram, "city_gram": city_gram,
             "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
             "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
@@ -1999,7 +2009,7 @@ class FeedbackData(generics.ListCreateAPIView):
             self.perform_create(serializer)
             if ((serializer.data['delivery_experience'] and int(serializer.data['delivery_experience']) > 4) or (
                     serializer.data['overall_product_packaging'] and int(
-                    serializer.data['overall_product_packaging']) > 4)):
+                serializer.data['overall_product_packaging']) > 4)):
                 can_comment = True
             msg = {'is_success': True, 'can_comment': can_comment, 'message': None, 'response_data': serializer.data}
         else:

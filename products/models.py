@@ -427,11 +427,13 @@ class ProductImage(models.Model):
     def __str__(self):
         return self.image.name
 
+
 class Tax(models.Model):
     TAX_CHOICES = (
             ("cess", "Cess"),
             ("gst", "GST"),
             ("surcharge", "Surcharge"),
+            ("tcs", "TCS")
         )
 
     tax_name = models.CharField(max_length=255,validators=[ProductNameValidator])
@@ -468,6 +470,9 @@ class ProductTaxMapping(models.Model):
 
     def get_products_gst_surcharge(self):
         return self.product.product_pro_tax.filter(tax__tax_type='surcharge')
+
+    def get_products_tcs(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='tcs')
 # class ProductSurcharge(models.Model):
 #     product = models.ForeignKey(Product, related_name='product_pro_surcharge',on_delete=models.CASCADE)
 #     surcharge_name = models.CharField(max_length=255, validators=[NameValidator])

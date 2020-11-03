@@ -293,7 +293,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
                    ('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
     # fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document', 'invoice_date', 'invoice_amount')
-    fields = ('order', 'invoice_no', 'invoice_date', 'invoice_amount')
+    fields = ('order', 'invoice_no', 'invoice_date', 'invoice_amount', 'tcs_amount')
 
     # template = 'admin/gram_to_brand/grn_order/change_form.html'
 
@@ -303,7 +303,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     def po_created_by(self, obj):
         return obj.order.ordered_cart.po_raised_by
 
-    po_created_by.short_description = 'PO Creadted By'
+    po_created_by.short_description = 'PO Created By'
 
     def brand(self, obj):
         return obj.order.ordered_cart.brand
