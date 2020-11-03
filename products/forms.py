@@ -389,9 +389,9 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | 'GST' can not be empty."))
             elif not re.match("^([0]|[5]|[1][2]|[1][8]|[2][8])(\s+)?(%)?$", row[4]):
                 raise ValidationError(_(f"Row {row_id + 1} | 'GST' can only be 0, 5, 12, 18, 28."))
-            if row[5] and not re.match("^([0]|[1][2])$", row[5]):
+            if row[5] and not re.match("^([0]|[1][2])(\s+)?%?$", row[5]):
                 raise ValidationError(_(f"Row {row_id + 1} | 'CESS' can only be 0, 12."))
-            if row[6] and not re.match("^\d+$", row[6]):
+            if row[6] and not re.match("^[0-9]\d*(\.\d{1,2})?(\s+)?%?$", row[6]):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Surcharge' can only be a numeric value."))
             if not row[7]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Brand Case Size' can not be empty."))
