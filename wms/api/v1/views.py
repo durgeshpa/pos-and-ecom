@@ -7,7 +7,7 @@ from model_utils import Choices
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
     PickupBinInventory, StockMovementCSVUpload
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
-    PickupBinInventorySerializer
+    PickupBinInventorySerializer, RepackagingSerializer
 from wms.views import PickupInventoryManagement, update_putaway
 from rest_framework.response import Response
 from rest_framework import status
@@ -121,9 +121,21 @@ class PutAwayViewSet(APIView):
                              'message': 'User is not mapped with associated Warehouse.',
                              'data': None}, status=status.HTTP_200_OK)
 
+        putaway_type = request.GET.get('type')
+        if putaway_type:
+            putaway_type = int(putaway_type)
+        if putaway_type not in [1, 2]:
+            msg = {'is_success': False, 'message': 'Please provide a valid type', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+
         if batch_id:
-            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse).order_by(
-                'created_at')
+            if putaway_type == 1:
+                put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse).exclude(
+                    putaway_type='REPACKAGING').order_by('created_at')
+            elif putaway_type == 2:
+                put_away = PutawayCommonFunctions.get_filtered_putaways(putaway_type='REPACKAGING', batch_id=batch_id,
+                                                                        warehouse=warehouse).order_by(
+                    'created_at')
             if put_away.exists():
                 serializer = PutAwaySerializer(put_away.last(), fields=(
                     'is_success', 'product_sku', 'batch_id', 'product_name', 'putaway_quantity', 'max_putaway_qty'))
@@ -133,7 +145,10 @@ class PutAwayViewSet(APIView):
                 msg = {'is_success': False, 'message': 'Batch id does not exist.', 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
         else:
-            put_away = PutawayCommonFunctions.get_filtered_putaways()
+            if putaway_type == 1:
+                put_away = PutawayCommonFunctions.get_filtered_putaways().exclude(putaway_type='REPACKAGING')
+            elif putaway_type == 2:
+                put_away = PutawayCommonFunctions.get_filtered_putaways(putaway_type='REPACKAGING')
             serializer = PutAwaySerializer(put_away, many=True, fields=(
                 'is_success', 'product_sku', 'batch_id', 'product_name', 'putaway_quantity', 'max_putaway_qty'))
             msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
@@ -330,27 +345,56 @@ class PickupList(APIView):
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         picker_boy = request.GET.get('picker_boy')
-        orders = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
-                                      Q(picker_order__picking_status__in=['picking_assigned', 'picking_complete']),
-                                      Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete']),
-                                      Q(picker_order__picker_assigned_date__startswith=date.date())).order_by(
-            '-created_at')
 
-        if not orders:
+        # repackaging OR order
+        pickuptype = request.GET.get('type')
+        if pickuptype:
+            pickuptype = int(pickuptype)
+        if pickuptype not in [1, 2]:
+            msg = {'is_success': False, 'message': 'Please provide a valid type', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+
+        data_found = 0
+        if pickuptype == 1:
+            orders = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
+                                          Q(picker_order__picking_status__in=['picking_assigned', 'picking_complete']),
+                                          Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete'])).order_by(
+                '-created_at')
+            if orders:
+                data_found = 1
+                serializer = OrderSerializer(orders, many=True)
+                picking_complete = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
+                                                        Q(picker_order__picking_status__in=['picking_complete']),
+                                                        Q(order_status__in=['picking_complete']),
+                                                        Q(
+                                                            picker_order__picker_assigned_date__startswith=date.date())).order_by(
+                    '-created_at').count()
+                picking_assigned = orders.count()
+        elif pickuptype == 2:
+            repacks = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
+                                          Q(picker_repacks__picking_status__in=['picking_assigned', 'picking_complete']),
+                                          Q(status__in=['picking_assigned', 'picking_complete', 'completed']),
+                                          Q(picker_repacks__picker_assigned_date__startswith=date.date())).order_by(
+                '-created_at')
+            if repacks:
+                data_found = 1
+                serializer = RepackagingSerializer(repacks, many=True)
+                picking_complete = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
+                                                        Q(picker_repacks__picking_status__in=['picking_complete']),
+                                                        Q(status__in=['picking_complete', 'completed']),
+                                                        Q(
+                                                            picker_repacks__picker_assigned_date__startswith=date.date())).order_by(
+                    '-created_at').count()
+                picking_assigned = repacks.count()
+
+        if data_found:
+            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data, 'picking_complete': picking_complete,
+                   'picking_assigned': picking_assigned}
+            return Response(msg, status=status.HTTP_200_OK)
+        else:
             picking_complete = 0
             picking_assigned = 0
             msg = {'is_success': False, 'message': 'No data found.', 'data': None, 'picking_complete': picking_complete,
-                   'picking_assigned':picking_assigned}
-            return Response(msg, status=status.HTTP_200_OK)
-        else:
-            serializer = OrderSerializer(orders, many=True)
-            picking_complete = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
-                                      Q(picker_order__picking_status__in=['picking_complete']),
-                                      Q(order_status__in=['picking_complete']),
-                                      Q(picker_order__picker_assigned_date__startswith=date.date())).order_by(
-            '-created_at').count()
-            picking_assigned = orders.count()
-            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data, 'picking_complete': picking_complete,
                    'picking_assigned':picking_assigned}
             return Response(msg, status=status.HTTP_200_OK)
 

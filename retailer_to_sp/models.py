@@ -1768,7 +1768,7 @@ class PickerDashboard(models.Model):
     )
 
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE, null=True, blank=True)
-    repackaging = models.ForeignKey(Repackaging, on_delete=models.CASCADE, null=True, blank=True)
+    repackaging = models.ForeignKey(Repackaging, related_name="picker_repacks", on_delete=models.CASCADE, null=True, blank=True)
     shipment = models.ForeignKey(
         OrderedProduct, related_name="picker_shipment",
         on_delete=models.DO_NOTHING, null=True, blank=True)
