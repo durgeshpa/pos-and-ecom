@@ -211,7 +211,7 @@ class OrderNumberFilterForOrderRelease(InputFilter):
 
 
 class OrderNumberFilterForPickupBinInventory(InputFilter):
-    title = 'Order Number'
+    title = 'Order / Repackaging Number'
     parameter_name = 'pickup'
 
     def queryset(self, request, queryset):

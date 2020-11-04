@@ -1103,12 +1103,14 @@ class ExportRepackaging:
             items1 = [getattr(obj, field) for field in field_names]
             items = items + items1
             rep = obj.destination_sku.destination_product_repackaging.all()
-            if rep:
-                add = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
-                       'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
-                for key in add:
+            add = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
+                   'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
+            for key in add:
+                if rep:
                     join_all = ", ".join([str(getattr(k, key)) for k in rep])
-                    items.append(join_all)
+                else:
+                    join_all = ""
+                items.append(join_all)
             items = items + [getattr(obj, 'created_at').strftime("%b. %d, %Y, %-I:%M %p")]
             writer.writerow(items)
         return response
@@ -1128,7 +1130,8 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
             if request.method == "GET":
                 if obj.status == 'completed':
                     add_f = ['destination_sku_quantity', 'status', 'expiry_date', 'remarks']
-            return ['seller_shop', 'source_sku', "destination_sku", "source_repackage_quantity", "available_source_weight", "available_source_quantity"] + add_f
+            return ['seller_shop', 'source_sku', "destination_sku", "source_repackage_quantity",
+                    "available_source_weight", "available_source_quantity"] + add_f
         else:
             return ['status', 'destination_sku_quantity', 'remarks', 'expiry_date']
     list_filter = [SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName,
@@ -1141,7 +1144,8 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
             if grn_order_pro is not None:
                 if grn_order_pro.barcode_id is None:
                     product_id = str(grn_order_pro.product_id).zfill(5)
-                    expiry_date = datetime.datetime.strptime(str(grn_order_pro.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
+                    expiry_date = datetime.datetime.strptime(str(grn_order_pro.expiry_date), '%Y-%m-%d').strftime(
+                        '%d%m%y')
                     barcode_id = str("2" + product_id + str(expiry_date))
                 else:
                     barcode_id = grn_order_pro.barcode_id
@@ -1149,6 +1153,11 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
                     "<a href= '{0}' >{1}</a>".format(reverse('batch_barcodes', args=[grn_order_pro.pk]), barcode_id)
                 )
         return format_html("-")
+
+    def has_change_permission(self, request, obj=None):
+        if obj and obj.status and obj.status == 'completed' and request.method == "GET":
+            return False
+        return True
 
     class Media:
         js = ("admin/js/repackaging.js",)

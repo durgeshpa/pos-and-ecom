@@ -131,11 +131,11 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
         with transaction.atomic():
             rep_obj = Repackaging.objects.get(pk=instance.pk)
             repackage_quantity = rep_obj.source_repackage_quantity
+            type_normal = InventoryType.objects.filter(inventory_type="normal").last()
 
             warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=rep_obj.seller_shop,
                                                                         sku__id=rep_obj.source_sku.id,
-                                                                        inventory_type=InventoryType.objects.filter(
-                                                                            inventory_type='normal').last(),
+                                                                        inventory_type=type_normal,
                                                                         inventory_state=InventoryState.objects.filter(
                                                                             inventory_state='available').last())
             if warehouse_available_obj.exists():
@@ -146,7 +146,8 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                 warehouse_product_available = WarehouseInventory.objects.filter(warehouse=rep_obj.seller_shop,
                                                                                 sku__id=rep_obj.source_sku.id,
                                                                                 inventory_type__inventory_type='normal',
-                                                                                inventory_state__inventory_state='repackaging').last()
+                                                                                inventory_state__inventory_state=
+                                                                                'repackaging').last()
                 if warehouse_product_available:
                     available_qty = warehouse_product_available.quantity
                     warehouse_product_available.quantity = available_qty + repackage_quantity
@@ -157,22 +158,19 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                       inventory_state=InventoryState.objects.filter(
                                                           inventory_state='repackaging').last(),
                                                       quantity=repackage_quantity, in_stock=True,
-                                                      inventory_type=InventoryType.objects.filter(
-                                                          inventory_type='normal').last())
+                                                      inventory_type=type_normal)
                 WarehouseInternalInventoryChange.objects.create(warehouse=rep_obj.seller_shop,
                                                                 sku=rep_obj.source_sku,
                                                                 transaction_type='repackaging',
                                                                 transaction_id=rep_obj.repackaging_no,
-                                                                initial_type=InventoryType.objects.filter(
-                                                                    inventory_type='normal').last(),
-                                                                final_type=InventoryType.objects.filter(
-                                                                    inventory_type='normal').last(),
+                                                                initial_type=type_normal,
+                                                                final_type=type_normal,
                                                                 initial_stage=InventoryState.objects.filter(
                                                                     inventory_state='available').last(),
                                                                 final_stage=InventoryState.objects.filter(
                                                                     inventory_state='repackaging').last(),
                                                                 quantity=repackage_quantity)
-                type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+
                 PickerDashboard.objects.create(
                     repackaging=rep_obj,
                     picking_status="pickup_created",
@@ -181,9 +179,8 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                 rep_obj.status = 'pickup_created'
                 rep_obj.save()
                 shop = Shop.objects.filter(id=rep_obj.seller_shop.id).last()
-                CommonPickupFunctions.create_pickup_entry(shop, 'Repackaging', rep_obj.repackaging_no, rep_obj.source_sku,
-                                                          rep_obj.source_repackage_quantity,
-                                                          'pickup_creation')
+                CommonPickupFunctions.create_pickup_entry(shop, 'Repackaging', rep_obj.repackaging_no,
+                                                          rep_obj.source_sku, repackage_quantity, 'pickup_creation')
                 pu = Pickup.objects.filter(pickup_type_id=rep_obj.repackaging_no)
                 for obj in pu:
                     bin_inv_dict = {}

@@ -98,6 +98,26 @@
         $("#id_available_source_weight").val(available_source_weight - repackage_weight);
         $("#id_available_source_quantity").val(id_available_source_quantity_initial - repackage_qty);
 	};
+
+	$("#repackaging_form").submit(function() {
+      if (is_valid()) {
+        return true;
+      } else {
+        alert("Please fill all mandatory fields!")
+        return false;
+      }
+    });
+
+    function is_valid(){
+        var dval = $("#id_destination_sku").val();
+        var sval = $("#id_source_sku").val();
+        var shopval = $("#id_seller_shop").val();
+        var rval = $("#id_source_repackage_quantity").val();
+        if(dval == '' || sval == '' || shopval == '' || (!/^([1-9]\d*)$/.test(rval) && rval != undefined)){
+            return false;
+        }
+        return true;
+    };
   });
 
 })(django.jQuery);

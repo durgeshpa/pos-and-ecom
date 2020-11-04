@@ -158,15 +158,15 @@ class OrderIdSearch(InputFilter):
 
 
 class OrderNumberSearch(InputFilter):
-    parameter_name = 'order_no'
-    title = 'Order No.(Comma seperated)'
+    parameter_name = 'type_no'
+    title = 'Order / Repackaging No.(Comma separated)'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
             order_no = self.value()
             order_nos = order_no.replace(" ", "").replace("\t","").split(',')
             return queryset.filter(
-                Q(order__order_no__in=order_nos)
+                Q(order__order_no__in=order_nos) | Q(repackaging__repackaging_no__in=order_nos)
             )
 
 

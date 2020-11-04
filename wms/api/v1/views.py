@@ -121,21 +121,16 @@ class PutAwayViewSet(APIView):
                              'message': 'User is not mapped with associated Warehouse.',
                              'data': None}, status=status.HTTP_200_OK)
 
-        putaway_type = request.GET.get('type')
-        if putaway_type:
-            putaway_type = int(putaway_type)
-        if putaway_type not in [1, 2]:
-            msg = {'is_success': False, 'message': 'Please provide a valid type', 'data': None}
-            return Response(msg, status=status.HTTP_200_OK)
+        # putaway_type = request.GET.get('type')
+        # if putaway_type:
+        #     putaway_type = int(putaway_type)
+        # if putaway_type not in [1, 2]:
+        #     msg = {'is_success': False, 'message': 'Please provide a valid type', 'data': None}
+        #     return Response(msg, status=status.HTTP_200_OK)
 
         if batch_id:
-            if putaway_type == 1:
-                put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse).exclude(
-                    putaway_type='REPACKAGING').order_by('created_at')
-            elif putaway_type == 2:
-                put_away = PutawayCommonFunctions.get_filtered_putaways(putaway_type='REPACKAGING', batch_id=batch_id,
-                                                                        warehouse=warehouse).order_by(
-                    'created_at')
+            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse).order_by(
+                'created_at')
             if put_away.exists():
                 serializer = PutAwaySerializer(put_away.last(), fields=(
                     'is_success', 'product_sku', 'batch_id', 'product_name', 'putaway_quantity', 'max_putaway_qty'))
@@ -145,10 +140,7 @@ class PutAwayViewSet(APIView):
                 msg = {'is_success': False, 'message': 'Batch id does not exist.', 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
         else:
-            if putaway_type == 1:
-                put_away = PutawayCommonFunctions.get_filtered_putaways().exclude(putaway_type='REPACKAGING')
-            elif putaway_type == 2:
-                put_away = PutawayCommonFunctions.get_filtered_putaways(putaway_type='REPACKAGING')
+            put_away = PutawayCommonFunctions.get_filtered_putaways()
             serializer = PutAwaySerializer(put_away, many=True, fields=(
                 'is_success', 'product_sku', 'batch_id', 'product_name', 'putaway_quantity', 'max_putaway_qty'))
             msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
@@ -201,6 +193,12 @@ class PutAwayViewSet(APIView):
         for i, value in diction.items():
             key += 1
             val = value
+            put_away_rep = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse, putaway_type='REPACKAGING')
+            if put_away_rep.count() > 0:
+                msg = {'is_success': False, "message": "Putaway for batch_id {} is for repackaging.".format(i),
+                       'batch_id': i}
+                lis_data.append(msg)
+                continue
             put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse).order_by(
                 'created_at')
             ids = [i.id for i in put_away]

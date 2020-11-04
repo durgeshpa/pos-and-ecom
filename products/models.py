@@ -901,17 +901,21 @@ class Repackaging(models.Model):
     id = models.AutoField(primary_key=True, verbose_name='Repackaging ID')
     repackaging_no = models.CharField(max_length=255, null=True, blank=True)
     seller_shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
-    status = models.CharField(max_length=50, choices=REPACKAGING_STATUS, verbose_name='Repackaging Status', default='started')
+    status = models.CharField(max_length=50, choices=REPACKAGING_STATUS, verbose_name='Repackaging Status',
+                              default='started')
     source_sku = models.ForeignKey(Product, related_name='source_sku_repackaging', on_delete=models.CASCADE, null=True)
     source_batch_id = models.CharField(max_length=50, null=True, blank=True)
+    destination_sku = models.ForeignKey(Product, related_name='destination_sku_repackaging', on_delete=models.CASCADE,
+                                        null=True)
     destination_batch_id = models.CharField(max_length=50, null=True, blank=True)
-    destination_sku = models.ForeignKey(Product, related_name='destination_sku_repackaging', on_delete=models.CASCADE, null=True)
-    source_repackage_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator], verbose_name='No Of Pieces Of Source SKU To Be Repackaged')
+    source_repackage_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
+                                                            verbose_name='No Of Pieces Of Source SKU To Be Repackaged')
     available_source_weight = models.FloatField(default=0, verbose_name='Available Source SKU Weight (Kg)')
     available_source_quantity = models.PositiveIntegerField(default=0, verbose_name='Available Source SKU Qty(pcs)')
-    destination_sku_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator], verbose_name='Created Destination SKU Qty (pcs)')
+    destination_sku_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
+                                                           verbose_name='Created Destination SKU Qty (pcs)')
     remarks = models.TextField(null=True, blank=True)
-    expiry_date = models.DateTimeField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
