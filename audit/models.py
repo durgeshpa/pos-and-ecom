@@ -157,7 +157,7 @@ class AuditTicketManual(BaseTimestampModel):
     qty_expired_system = models.PositiveIntegerField(verbose_name='Expired System Qty')
     qty_expired_actual = models.PositiveIntegerField(verbose_name='Expired Physical Qty')
     status = models.PositiveSmallIntegerField(choices=AUDIT_TICKET_STATUS_CHOICES)
-    assigned_user = models.ForeignKey(get_user_model(), related_name='+',
+    assigned_user = models.ForeignKey(get_user_model(),verbose_name='Assigned To', related_name='+',
                                       null=True, on_delete=models.DO_NOTHING)
 
     class Meta:

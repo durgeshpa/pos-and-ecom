@@ -18,8 +18,7 @@ class WareHouseComplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
 
-
-class AssignedUserFilter(autocomplete.Select2QuerySetView):
+class AssignedUserComplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:
             return User.objects.none()
@@ -30,12 +29,25 @@ class AssignedUserFilter(autocomplete.Select2QuerySetView):
             qs = qs.filter(first_name__icontains=self.q)
         return qs
 
-class AuditorComplete(autocomplete.Select2QuerySetView):
+class AssignedUserFilter(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:
             return User.objects.none()
 
-        auditor = AuditDetail.objects.only('auditor').values_list('auditor_id', flat=True)
+        assigned_user = AuditTicketManual.objects.values_list('assigned_user_id', flat=True)
+        qs = User.objects.filter(id__in=assigned_user)
+
+        if self.q:
+            qs = qs.filter(first_name__icontains=self.q)
+        return qs
+
+
+class AuditorFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return User.objects.none()
+
+        auditor = AuditDetail.objects.values_list('auditor_id', flat=True)
         qs = User.objects.filter(id__in=auditor)
 
         if self.q:

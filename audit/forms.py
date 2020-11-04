@@ -4,7 +4,8 @@ from django.core.exceptions import ValidationError
 
 from accounts.middlewares import get_current_user
 from accounts.models import User
-from audit.models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES
+from audit.models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
+    AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
 from products.models import Product
 from shops.models import Shop
 from wms.models import Bin
@@ -64,3 +65,19 @@ class AuditCreationForm(forms.ModelForm):
                                           warehouse=data['warehouse']).exists():
                 raise ValidationError('An active automated audit already exists for this combination!!')
         return self.cleaned_data
+
+class AuditTicketForm(forms.ModelForm):
+    assigned_user = forms.ModelChoiceField(
+        required=False,
+        queryset=User.objects.all(),
+        widget=autocomplete.ModelSelect2(url='assigned-user-autocomplete')
+    )
+
+    def clean(self):
+        data = self.cleaned_data
+        if self.instance.status == AUDIT_TICKET_STATUS_CHOICES.CLOSED:
+            raise ValidationError('Ticket cannot be updated once its closed')
+
+    class Meta:
+        model = AuditTicketManual
+        fields = ('status', 'assigned_user')

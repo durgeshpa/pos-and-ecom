@@ -1,7 +1,8 @@
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
 
-from audit.models import AuditDetail, AUDIT_TYPE_CHOICES, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_DETAIL_STATE_CHOICES
+from audit.models import AuditDetail, AUDIT_TYPE_CHOICES, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
+    AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
 from audit.views import BlockUnblockProduct
 
 
@@ -28,3 +29,15 @@ def disable_bin_audit_products(sender, instance, action, *args, **kwargs):
 
 m2m_changed.connect(disable_bin_audit_products, sender=AuditDetail.bin.through)
 m2m_changed.connect(disable_bin_audit_products, sender=AuditDetail.sku.through)
+
+
+@receiver(post_save, sender=AuditTicketManual)
+def update_audit_ticket(sender, instance=None, created=False, **kwargs):
+    if instance.status == AUDIT_TICKET_STATUS_CHOICES.CLOSED:
+        open_ticket_count = AuditTicketManual.objects.filter(audit_run=instance.audit_run,
+                                                             status=AUDIT_TICKET_STATUS_CHOICES.OPEN).count()
+        if open_ticket_count == 0:
+            audit = AuditDetail.objects.filter(id=instance.audit_run.audit_id).last()
+            if audit:
+                audit.state = AUDIT_DETAIL_STATE_CHOICES.TICKET_CLOSED
+                audit.save()

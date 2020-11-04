@@ -99,12 +99,12 @@ class AuditStartView(APIView):
                    'message': ERROR_MESSAGES['AUDIT_STARTED'],
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        if not self.can_start_audit(audit):
-            msg = {'is_success': False,
-                   'message': ERROR_MESSAGES['AUDIT_START_TIME_ERROR']
-                       .format(self.audit_start_time(audit).strftime("%d/%m/%Y, %H:%M:%S")),
-                   'data': None}
-            return Response(msg, status=status.HTTP_200_OK)
+        # if not self.can_start_audit(audit):
+        #     msg = {'is_success': False,
+        #            'message': ERROR_MESSAGES['AUDIT_START_TIME_ERROR']
+        #                .format(self.audit_start_time(audit).strftime("%d/%m/%Y, %H:%M:%S")),
+        #            'data': None}
+        #     return Response(msg, status=status.HTTP_200_OK)
         self.initiate_audit(audit)
         serializer = AuditDetailSerializer(audit)
         msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}

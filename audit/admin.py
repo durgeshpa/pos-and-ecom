@@ -9,7 +9,7 @@ from django.contrib.admin import SimpleListFilter
 from django.http import HttpResponse
 from rangefilter.filter import DateRangeFilter
 
-from audit.forms import AuditCreationForm
+from audit.forms import AuditCreationForm, AuditTicketForm
 from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
 from retailer_backend.admin import InputFilter
 
@@ -53,7 +53,7 @@ class AuditStateFilter(AutocompleteFilter):
 class AssignedUserFilter(AutocompleteFilter):
     title = 'Assigned User'
     field_name = 'assigned_user'
-    autocomplete_url = 'assigned-user-autocomplete'
+    autocomplete_url = 'assigned-user-filter'
 
 
 class AuditorFilter(AutocompleteFilter):
@@ -122,9 +122,10 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
     list_display = ('audit_id', 'bin', 'sku', 'batch_id', 'qty_normal_system', 'qty_normal_actual', 'normal_var',
                     'qty_damaged_system', 'qty_damaged_actual', 'damaged_var',
                     'qty_expired_system', 'qty_expired_actual', 'expired_var',
-                    'total_var', 'status', 'created_at')
+                    'total_var', 'status', 'assigned_user', 'created_at')
 
-    list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'status', ('created_at', DateRangeFilter)]
+    list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'status']
+    form = AuditTicketForm
     actions = ['download_tickets']
 
     def audit_id(self, obj):
