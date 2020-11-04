@@ -634,7 +634,8 @@ class BulkOrder(models.Model):
                         count += 1
                     if count == 0:
                         raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                            0] + " | Ordered Quantity is more than Available quantity."))
+                            0] + " | Order for following SKUs was not placed because Ordered qty is greater than "
+                                 "Available inventory"))
 
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
