@@ -21,7 +21,8 @@ class AuditCreationForm(forms.ModelForm):
     sku = forms.ModelMultipleChoiceField(
         required=False,
         queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2Multiple(url='sku-autocomplete')
+        widget=autocomplete.ModelSelect2Multiple(url='sku-autocomplete',
+                                                 forward=('warehouse',))
     )
 
     auditor = forms.ModelChoiceField(

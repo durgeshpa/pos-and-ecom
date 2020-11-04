@@ -4,7 +4,7 @@ from accounts.models import User
 from audit.models import AuditDetail, AuditTicketManual
 from products.models import Product
 from shops.models import Shop
-from wms.models import Bin
+from wms.models import Bin, BinInventory
 
 
 class WareHouseComplete(autocomplete.Select2QuerySetView):
@@ -47,7 +47,9 @@ class SKUComplete(autocomplete.Select2QuerySetView):
         if not self.request.user.is_authenticated:
             return Product.objects.none()
 
-        qs = Product.objects.all()
+        warehouse = self.forwarded.get('warehouse', None)
+        sku = BinInventory.objects.only('sku_id').filter(warehouse=warehouse).values_list('sku_id', flat=True)
+        qs = Product.objects.filter(product_sku__in=sku)
 
         if self.q:
             qs = qs.filter(product_name__istartswith=self.q)

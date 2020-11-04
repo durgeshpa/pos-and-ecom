@@ -191,7 +191,16 @@ class AuditEndView(APIView):
             if sku:
                 audit_skus = audit.sku.all().values_list('product_sku', flat=True)
                 if sku in audit_skus:
-                    self.end_audit_for_sku(audit, audit_run, sku)
+                    try:
+                        self.end_audit_for_sku(audit, audit_run, sku)
+                    except Exception as e:
+                        error_logger.error(e)
+                        info_logger.info('AuditEndView|Exception while ending audit for Audit {}, sku-{}'
+                                         .format(audit_no, sku))
+                        msg = {'is_success': False,
+                               'message': ERROR_MESSAGES['SOME_ISSUE'],
+                               'data': None}
+                        return Response(msg, status=status.HTTP_200_OK)
                     info_logger.info('AuditEndView|Audit {}, ended for sku-{}'.format(audit_no, sku))
                     msg = {'is_success': True,
                            'message': SUCCESS_MESSAGES['AUDIT_ENDED_SKU'].format(sku),
@@ -208,7 +217,15 @@ class AuditEndView(APIView):
             if bin_id:
                 audit_bins = audit.bin.all().values_list('bin_id', flat=True)
                 if bin_id in audit_bins:
-                    self.end_audit_for_bin(audit, audit_run, bin_id)
+                    try:
+                        self.end_audit_for_bin(audit, audit_run, bin_id)
+                    except Exception as e:
+                        error_logger.error(e)
+                        info_logger.info('AuditEndView|Exception while ending audit for Audit {}, bin-{}'.format(audit_no, bin_id))
+                        msg = {'is_success': False,
+                               'message': ERROR_MESSAGES['SOME_ISSUE'],
+                               'data': None}
+                        return Response(msg, status=status.HTTP_200_OK)
                     info_logger.info('AuditEndView|Audit {}, ended for bin-{}'.format(audit_no, bin_id))
                     msg = {'is_success': True,
                            'message': SUCCESS_MESSAGES['AUDIT_ENDED_BIN'].format(bin_id),

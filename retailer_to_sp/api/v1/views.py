@@ -478,7 +478,7 @@ class AddToCart(APIView):
                                                                                 Product.objects.get(id=cart_product),
                                                                                 parent_mapping.parent)
             if is_blocked_for_audit:
-                msg['message'] = ERROR_MESSAGES['4019'].format(Product.objects.get(id=cart_product))
+                msg['message'] = [ERROR_MESSAGES['4019'].format(Product.objects.get(id=cart_product))]
                 return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
             available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
@@ -821,7 +821,7 @@ class ReservedOrder(generics.ListAPIView):
                     is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
                                                                                             parent_mapping.parent)
                     if is_blocked_for_audit:
-                        msg['message'] = ERROR_MESSAGES['4019'].format(p)
+                        msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
                         return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
@@ -1019,7 +1019,7 @@ class CreateOrder(APIView):
                         is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
                                                                                                 parent_mapping.parent)
                         if is_blocked_for_audit:
-                            msg['message'] = ERROR_MESSAGES['4019'].format(p)
+                            msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
                             return Response(msg, status=status.HTTP_200_OK)
 
                     orderitems = []
