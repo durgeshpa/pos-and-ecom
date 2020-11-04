@@ -190,17 +190,25 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
 
 class RepackagingSerializer(serializers.ModelSerializer):
     picker_status = serializers.SerializerMethodField('picker_status_dt')
-    rep_create_date = serializers.SerializerMethodField()
+    order_create_date = serializers.SerializerMethodField()
+    delivery_location = serializers.SerializerMethodField('m_delivery_location')
+    order_no = serializers.SerializerMethodField()
 
     class Meta:
         model = Repackaging
-        fields = ('id', 'repackaging_no', 'picker_status', 'rep_create_date')
+        fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location',)
 
     def picker_status_dt(self, obj):
         return str(obj.status).lower()
 
-    def get_rep_create_date(self, obj):
+    def get_order_create_date(self, obj):
         return obj.created_at.strftime("%d-%m-%Y")
+
+    def m_delivery_location(self, obj):
+        return ''
+
+    def get_order_no(self, obj):
+        return obj.repackaging_no
 
 
     # def bin_id_dt(self, obj):
