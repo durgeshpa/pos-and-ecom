@@ -569,72 +569,76 @@ class BulkOrder(models.Model):
 
     def clean(self, *args, **kwargs):
         if self.cart_products_csv:
-            product_ids = []
-            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
-            headers = next(reader, None)
-            product_skus = [x[0] for x in reader if x]
-            for sku in product_skus:
-                if Product.objects.filter(product_sku=sku).exists():
-                    product_ids.append(Product.objects.get(product_sku=sku).id)
-                else:
-                    raise ValidationError("The SKU %s is invalid" % (sku))
-            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
-            headers = next(reader, None)
-            duplicate_products = []
-            count = 0
-            for id, row in enumerate(reader):
-                if not row[0]:
-                    raise ValidationError(
-                        "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | Product SKU cannot be empty")
-
-                try:
-                    Product.objects.get(product_sku=row[0])
-                except:
-                    raise ValidationError(
-                        "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
-                            'INVALID_PRODUCT_SKU'])
-                if not row[2] or not re.match("^[\d\,]*$", row[2]):
-                    raise ValidationError(
-                        "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
-                            'EMPTY'] % ("qty"))
-
-                if self.order_type == 'DISCOUNTED':
-                    if not row[3] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[3]):
-                        raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " +
-                                              VALIDATION_ERROR_MESSAGES[
-                                                  'EMPTY'] % ("discounted_price"))
-                if row[0]:
-                    product = Product.objects.get(product_sku=row[0])
-                    if product in duplicate_products:
-                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                            0] + " | Duplicate entries of this product has been uploaded"))
-                    duplicate_products.append(product)
-                    product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
-                    if not product_price:
-                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                            0] + " | Product Price Not Available"))
-                    if row[3] and self.order_type == 'DISCOUNTED':
-                        discounted_price = float(row[3])
-                        if product_price.selling_price < discounted_price:
-                            raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                                0] + " | Discounted Price can't be more than Product Price."))
-                    ordered_qty = int(row[2])
-                    warehouse_obj = WarehouseInventory.objects.filter(
-                        sku__product_sku=row[0],
-                        inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                        inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-                        warehouse=Shop.objects.filter(id=self.seller_shop.id).last())
-                    if warehouse_obj.exists():
-                        available_quantity = warehouse_obj[0].quantity
+            try:
+                product_ids = []
+                reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+                headers = next(reader, None)
+                product_skus = [x[0] for x in reader if x]
+                for sku in product_skus:
+                    if Product.objects.filter(product_sku=sku).exists():
+                        product_ids.append(Product.objects.get(product_sku=sku).id)
                     else:
-                        continue
-                    product_available = int(
-                         int(available_quantity) / int(product.product_inner_case_size))
-                    if product_available >= ordered_qty:
-                        count += 1
-                    if count == 0:
-                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                            0] + " | Ordered Quantity is more than Available quantity."))
+                        raise ValidationError("The SKU %s is invalid" % (sku))
+                reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+                headers = next(reader, None)
+                duplicate_products = []
+                count = 0
+                for id, row in enumerate(reader):
+                    if not row[0]:
+                        raise ValidationError(
+                            "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | Product SKU cannot be empty")
+
+                    try:
+                        Product.objects.get(product_sku=row[0])
+                    except:
+                        raise ValidationError(
+                            "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
+                                'INVALID_PRODUCT_SKU'])
+                    if not row[2] or not re.match("^[\d\,]*$", row[2]):
+                        raise ValidationError(
+                            "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
+                                'EMPTY'] % ("qty"))
+
+                    if self.order_type == 'DISCOUNTED':
+                        if not row[3] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[3]):
+                            raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " +
+                                                  VALIDATION_ERROR_MESSAGES[
+                                                      'EMPTY'] % ("discounted_price"))
+                    if row[0]:
+                        product = Product.objects.get(product_sku=row[0])
+                        if product in duplicate_products:
+                            raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                                0] + " | Duplicate entries of this product has been uploaded"))
+                        duplicate_products.append(product)
+                        product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
+                        if not product_price:
+                            raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                                0] + " | Product Price Not Available"))
+                        if row[3] and self.order_type == 'DISCOUNTED':
+                            discounted_price = float(row[3])
+                            if product_price.selling_price < discounted_price:
+                                raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                                    0] + " | Discounted Price can't be more than Product Price."))
+                        ordered_qty = int(row[2])
+                        warehouse_obj = WarehouseInventory.objects.filter(
+                            sku__product_sku=row[0],
+                            inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+                            inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
+                            warehouse=Shop.objects.filter(id=self.seller_shop.id).last())
+                        if warehouse_obj.exists():
+                            available_quantity = warehouse_obj[0].quantity
+                        else:
+                            continue
+                        product_available = int(
+                             int(available_quantity) / int(product.product_inner_case_size))
+                        if product_available >= ordered_qty:
+                            count += 1
+                        if count == 0:
+                            raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                                0] + " | Ordered Quantity is more than Available quantity."))
+            except:
+                raise ValidationError(
+                    _('Some special characters in the sheet, please remove it before upload the sheet.'))
 
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
