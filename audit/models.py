@@ -129,7 +129,7 @@ class AuditProduct(BaseTimestampModel):
     warehouse = models.ForeignKey(Shop, null=False, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, null=False, to_field='product_sku', on_delete=models.DO_NOTHING)
     status = models.PositiveSmallIntegerField(choices=AUDIT_PRODUCT_STATUS)
-    es_status = models.BooleanField(default=False)
+    # es_status = models.BooleanField(default=False)
 
     class Meta:
         db_table = "wms_audit_products"

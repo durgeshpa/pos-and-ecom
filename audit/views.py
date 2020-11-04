@@ -487,20 +487,25 @@ class BlockUnblockProduct(object):
 
     @staticmethod
     def block_product_during_audit(audit, product_list, warehouse):
-        es_product_status = get_es_status(product_list, warehouse)
+        # es_product_status = get_es_status(product_list, warehouse)
         for p in product_list:
             update_product_es.delay(warehouse.id, p.id, status=False)
+            # AuditProduct.objects.update_or_create(audit=audit, warehouse=warehouse, sku=p,
+            #                                       defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED,
+            #                                                 'es_status': es_product_status[p.id]})
             AuditProduct.objects.update_or_create(audit=audit, warehouse=warehouse, sku=p,
-                                                  defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED,
-                                                            'es_status': es_product_status[p.id]})
+                                                  defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED})
 
     @staticmethod
     def unblock_product_after_audit(audit, product, warehouse):
         audit_product = AuditProduct.objects.filter(audit=audit, warehouse=warehouse, sku=product).last()
         if audit_product:
-            update_product_es.delay(warehouse.id, product.id, status=audit_product.es_status)
             audit_product.status = AUDIT_PRODUCT_STATUS.RELEASED
             audit_product.save()
+        is_products_still_blocked = AuditProduct.objects.filter(warehouse=warehouse, sku=product,
+                                                                status=AUDIT_PRODUCT_STATUS.BLOCKED).exists()
+        if not is_products_still_blocked:
+            update_product_es.delay(warehouse.id, product.id, status=True)
 
 
     @staticmethod
