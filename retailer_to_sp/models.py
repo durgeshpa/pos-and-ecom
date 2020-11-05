@@ -2668,7 +2668,7 @@ def update_order_status_from_picker(sender, instance=None, created=False, **kwar
             instance.order.order_status = Order.PICKING_ASSIGNED
             instance.order.save()
         elif instance.repackaging:
-            instance.repackaging.status = 'picking_assigned'
+            instance.repackaging.source_picking_status = 'picking_assigned'
             instance.repackaging.save()
 
 

@@ -1082,7 +1082,7 @@ class RepackagingForm(forms.ModelForm):
         model = Repackaging
         fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity', 'status',
                   "available_source_weight", "available_source_quantity", "destination_sku_quantity", "remarks",
-                  "expiry_date")
+                  "expiry_date", "source_picking_status")
         widgets = {
             'remarks': forms.Textarea(attrs={'rows': 2}),
         }
@@ -1107,9 +1107,7 @@ class RepackagingForm(forms.ModelForm):
                     source_quantity:
                 raise forms.ValidationError("Source Quantity Changed! Please Input Again")
         if 'status' in self.changed_data and 'status' in self.cleaned_data:
-            if self.cleaned_data['status'] not in ['completed']:
-                raise forms.ValidationError("Status {} cannot be changed here". format(self.cleaned_data['status']))
-            if self.cleaned_data['status'] == 'completed' and self.instance.status != 'picking_complete':
+            if self.cleaned_data['status'] == 'completed' and self.instance.source_picking_status != 'picking_complete':
                     raise forms.ValidationError("Status not valid. Source pickup is still not completed.")
         return self.cleaned_data
 

@@ -695,7 +695,7 @@ class PickupComplete(APIView):
                                          .format(pickup.pickup_type_id, pickup.sku))
 
                     if is_repackaging == 1:
-                        rep_qs.update(status='picking_complete')
+                        rep_qs.update(source_picking_status='picking_complete')
                     else:
                         order_qs.update(order_status='picking_complete')
 

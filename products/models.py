@@ -6,6 +6,7 @@ import urllib.request
 
 from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
+from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -893,10 +894,12 @@ class BulkUploadForGSTChange(models.Model):
 class Repackaging(models.Model):
     REPACKAGING_STATUS = [
         ('started', 'Started'),
+        ('completed', 'Completed'),
+    ]
+    SOURCE_PICKING_STATUS = [
         ('pickup_created', 'Pickup Created'),
         ('picking_assigned', 'Picking Assigned'),
         ('picking_complete', 'Picking Complete'),
-        ('completed', 'Completed')
     ]
     id = models.AutoField(primary_key=True, verbose_name='Repackaging ID')
     repackaging_no = models.CharField(max_length=255, null=True, blank=True)
@@ -905,6 +908,7 @@ class Repackaging(models.Model):
                               default='started')
     source_sku = models.ForeignKey(Product, related_name='source_sku_repackaging', on_delete=models.CASCADE, null=True)
     source_batch_id = models.CharField(max_length=50, null=True, blank=True)
+    source_picking_status = models.CharField(max_length=50, choices=SOURCE_PICKING_STATUS, default='')
     destination_sku = models.ForeignKey(Product, related_name='destination_sku_repackaging', on_delete=models.CASCADE,
                                         null=True)
     destination_batch_id = models.CharField(max_length=50, null=True, blank=True)
@@ -915,7 +919,7 @@ class Repackaging(models.Model):
     destination_sku_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
                                                            verbose_name='Created Destination SKU Qty (pcs)')
     remarks = models.TextField(null=True, blank=True)
-    expiry_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True, validators=[MinValueValidator(datetime.date.today())])
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

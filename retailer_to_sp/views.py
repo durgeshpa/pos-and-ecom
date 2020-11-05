@@ -910,7 +910,7 @@ def pick_list_dashboard(request, pobject, shipment_id, template_name, file_prefi
         if obj_type == 'repackaging':
             data = {"data_list": data_list,
                     "barcode": barcode,
-                    "repackaging_object": pobject,
+                    "repackaging_obj": pobject,
                     "type": 'Repackaging'
                     }
         else:

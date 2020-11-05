@@ -1131,9 +1131,9 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
                 if obj.status == 'completed':
                     add_f = ['destination_sku_quantity', 'status', 'expiry_date', 'remarks']
             return ['seller_shop', 'source_sku', "destination_sku", "source_repackage_quantity",
-                    "available_source_weight", "available_source_quantity"] + add_f
+                    "available_source_weight", "available_source_quantity", "source_picking_status"] + add_f
         else:
-            return ['status', 'destination_sku_quantity', 'remarks', 'expiry_date']
+            return ['status', 'destination_sku_quantity', 'remarks', 'expiry_date', 'source_picking_status']
     list_filter = [SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName,
                    ('status', ChoiceDropdownFilter), ('created_at', DateTimeRangeFilter)]
     list_per_page = 10
