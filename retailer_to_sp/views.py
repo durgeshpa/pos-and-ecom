@@ -34,7 +34,7 @@ from retailer_to_sp.forms import (
     TripForm, DispatchForm, AssignPickerForm, )
 from django.views.generic import TemplateView
 from django.contrib import messages
-
+from payments.models import Payment as PaymentDetail
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 from shops.models import Shop, ShopMigrationMapp
 from retailer_to_sp.api.v1.serializers import (
@@ -113,6 +113,16 @@ class DownloadCreditNote(APIView):
             products = [i for i in pp if (i.returned_qty + i.returned_damage_qty) != 0]
             reason = 'Returned' if [i for i in pp if i.returned_qty > 0] else 'Damaged' if [i for i in pp if
                                                                                             i.returned_damage_qty > 0] else 'Returned and Damaged'
+
+        shop_id = credit_note.shipment.order.buyer_shop.shop_owner_id
+        payment = PaymentDetail.objects.filter(paid_by_id=shop_id)
+        paid_amount = 0
+        for p in payment:
+            date_time = p.created_at
+            month = date_time.strftime("%m")
+            year = date_time.strftime("%Y")
+            if int(month) > 2 and int(year) > 2019:
+                paid_amount += p.paid_amount
 
         order_id = credit_note.shipment.order.order_no
         sum_qty, sum_basic_amount, sum_amount, tax_inline, total_product_tax_amount = 0, 0, 0, 0, 0
@@ -223,7 +233,7 @@ class DownloadCreditNote(APIView):
                 igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = sum_amount
-        if total_amount > 5000000:
+        if float(total_amount) + float(paid_amount) > 5000000:
             if gstinn2 == 'Unregistered':
                 tcs_rate = 1
                 tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
