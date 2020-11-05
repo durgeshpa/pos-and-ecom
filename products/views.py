@@ -495,7 +495,7 @@ def products_csv_upload_view(request):
 
         if form.is_valid():
             file = form.cleaned_data['file']
-            reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
             first_row = next(reader)
             for row in reader:
                 try:
