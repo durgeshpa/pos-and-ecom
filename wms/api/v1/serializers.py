@@ -1,7 +1,7 @@
 from django.utils.safestring import mark_safe
 from rest_framework import serializers
 from wms.models import Bin, Putaway, Out, Pickup, BinInventory, PickupBinInventory
-from retailer_to_sp.models import Order
+from retailer_to_sp.models import Order, Repackaging
 from shops.api.v1.serializers import ShopSerializer
 from retailer_to_sp.api.v1.serializers import ProductSerializer
 from django.db.models import Sum
@@ -167,6 +167,8 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
 
     def product_mrp_dt(self, obj):
         #mrp = obj.pickup.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp
+        if obj.pickup.sku.product_mrp:
+            return obj.pickup.sku.product_mrp
         product_mrp = obj.pickup.sku.product_pro_price.filter(seller_shop=obj.warehouse, approval_status=2)
         if product_mrp:
             return product_mrp.last().mrp
@@ -184,6 +186,29 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
     def m_product_image(self,obj):
         if obj.pickup.sku.product_pro_image.exists():
             return obj.pickup.sku.product_pro_image.last().image.url
+
+
+class RepackagingSerializer(serializers.ModelSerializer):
+    picker_status = serializers.SerializerMethodField('picker_status_dt')
+    order_create_date = serializers.SerializerMethodField()
+    delivery_location = serializers.SerializerMethodField('m_delivery_location')
+    order_no = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Repackaging
+        fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location',)
+
+    def picker_status_dt(self, obj):
+        return str(obj.status).lower()
+
+    def get_order_create_date(self, obj):
+        return obj.created_at.strftime("%d-%m-%Y")
+
+    def m_delivery_location(self, obj):
+        return ''
+
+    def get_order_no(self, obj):
+        return obj.repackaging_no
 
 
     # def bin_id_dt(self, obj):

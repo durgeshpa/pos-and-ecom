@@ -44,7 +44,8 @@ INVENTORY_STATE_CHOICES = (
     ('ordered', 'Ordered'),  # Inventory Ordered
     ('picked', 'PICKED'),  # Inventory picked
     ('canceled', 'Canceled'),  # Inventory Canceled
-    ('new', 'New')
+    ('new', 'New'),
+    ('repackaging', 'Repackaging')
 )
 
 
@@ -141,6 +142,7 @@ class WarehouseInventory(models.Model):
     in_stock = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    visible = models.BooleanField(default=True)
 
     class Meta:
         db_table = "wms_warehouse_inventory"
@@ -305,7 +307,7 @@ class WarehouseInternalInventoryChange(models.Model):
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('reschedule', 'Reschedule'),
         ('expired', 'Expired'),
-
+        ('repackaging', 'Repackaging')
     )
 
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)

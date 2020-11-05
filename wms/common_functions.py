@@ -19,7 +19,7 @@ from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, Wa
 import retailer_to_sp.models
 
 from shops.models import Shop
-from products.models import Product
+from products.models import Product, ParentProduct
 
 # Logger
 
@@ -304,6 +304,60 @@ def get_product_stock(shop, sku):
         Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
         Q(in_stock='t')
     )
+
+
+def get_visibility_changes(shop, product):
+    visibility_changes = {}
+    if isinstance(product, int):
+        product = Product.objects.filter(id=product).last()
+        if not product:
+            return visibility_changes
+    child_siblings = Product.objects.filter(
+        parent_product=ParentProduct.objects.filter(id=product.parent_product.id).last(),
+        status='active'
+    )
+    min_exp_date_data = {
+        'id': '',
+        'exp': None
+    }
+    for child in child_siblings:
+        if child.reason_for_child_sku == 'offer':
+            visibility_changes[child.id] = True
+            continue
+        warehouse_entries = WarehouseInventory.objects.filter(
+            Q(sku=child),
+            Q(warehouse=shop),
+            Q(quantity__gt=0),
+            Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
+            Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
+            Q(in_stock='t')
+        )
+        if not warehouse_entries:
+            continue
+        sum_qty_warehouse_entries = warehouse_entries.aggregate(Sum('quantity'))['quantity__sum']
+        if sum_qty_warehouse_entries <= 2*(int(child.product_inner_case_size)):
+            visibility_changes[child.id] = True
+            continue
+        bin_data = BinInventory.objects.filter(
+            Q(warehouse=shop),
+            Q(sku=child),
+            Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
+        )
+        for data in bin_data:
+            exp_date_str = get_expiry_date(batch_id=data.batch_id)
+            exp_date = datetime.strptime(exp_date_str, "%d/%m/%Y")
+            if not min_exp_date_data.get('exp', None):
+                min_exp_date_data['exp'] = exp_date
+                min_exp_date_data['id'] = data.sku.id
+            elif exp_date < min_exp_date_data.get('exp'):
+                visibility_changes[min_exp_date_data['id']] = False
+                min_exp_date_data['exp'] = exp_date
+                min_exp_date_data['id'] = data.sku.id
+            else:
+                visibility_changes[child.id] = False
+    if min_exp_date_data.get('id'):
+        visibility_changes[min_exp_date_data['id']] = True
+    return visibility_changes
 
 
 def get_warehouse_product_availability(sku_id, shop_id=False):
@@ -1430,6 +1484,81 @@ def cancel_ordered(request, obj, ordered_inventory_state, initial_stage, bin_id)
                                               transaction_type=transaction_type,
                                               transaction_id=transaction_id,
                                               quantity=quantity)
+
+    obj.putaway.putaway_user = request
+    obj.putaway.save()
+    obj.putaway_status = True
+    obj.save()
+
+
+def putaway_repackaging(request, obj, initial_stage, bin_id):
+    if obj.putaway.putaway_quantity == 0:
+        obj.putaway.putaway_quantity = obj.putaway_quantity
+    else:
+        obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
+    normal_inventory_type = 'normal',
+    available_inventory_state = 'available',
+    available_quantity = obj.putaway_quantity
+    transaction_type = 'put_away_type'
+    transaction_id = obj.putaway_id
+    initial_type = InventoryType.objects.filter(inventory_type='new').last(),
+    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
+    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+    try:
+        initial_bin_id = ''
+        if obj.bin:
+            initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
+        final_bin_id = Bin.objects.get(bin_id=bin_id.bin.bin_id, warehouse=obj.warehouse)
+    except:
+        raise forms.ValidationError("Bin Id is not associate with this Warehouse.")
+    quantity = available_quantity
+    batch_id = obj.batch_id
+    bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse, bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
+                                              batch_id=batch_id,
+                                              inventory_type=final_type[0], in_stock=True).last()
+    if bin_inv_obj:
+        bin_quantity = bin_inv_obj.quantity
+        final_quantity = bin_quantity + quantity
+        bin_inv_obj.quantity = final_quantity
+        bin_inv_obj.save()
+    else:
+
+        BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku, batch_id=batch_id,
+                                           inventory_type=final_type[0], quantity=quantity, in_stock=True)
+
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
+                                                                 normal_inventory_type[0],
+                                                                 available_inventory_state[0],
+                                                                 available_quantity, True)
+    WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse, obj.sku,
+                                                                       transaction_type,
+                                                                       transaction_id,
+                                                                       initial_type[0],
+                                                                       initial_stage[0],
+                                                                       final_type[0], final_stage[0],
+                                                                       available_quantity)
+    if initial_bin_id != '':
+        BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
+                                                  batch_id=batch_id,
+                                                  initial_bin=Bin.objects.get(bin_id=initial_bin_id,
+                                                                              warehouse=obj.warehouse),
+                                                  final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                            warehouse=obj.warehouse),
+                                                  initial_inventory_type=initial_type[0],
+                                                  final_inventory_type=final_type[0],
+                                                  transaction_type=transaction_type,
+                                                  transaction_id=transaction_id,
+                                                  quantity=quantity)
+    else:
+        BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
+                                                  batch_id=batch_id,
+                                                  final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                            warehouse=obj.warehouse),
+                                                  initial_inventory_type=initial_type[0],
+                                                  final_inventory_type=final_type[0],
+                                                  transaction_type=transaction_type,
+                                                  transaction_id=transaction_id,
+                                                  quantity=quantity)
 
     obj.putaway.putaway_user = request
     obj.putaway.save()

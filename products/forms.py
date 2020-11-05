@@ -19,10 +19,13 @@ from categories.models import Category
 from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductCategory, ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax, Weight,
-                             BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange)
+                             BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
+                             Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
+                             DestinationRepackagingCostMapping)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
+from wms.models import InventoryType, WarehouseInventory, InventoryState
 
 
 class ProductImageForm(forms.ModelForm):
@@ -277,6 +280,15 @@ class ProductPriceNewForm(forms.ModelForm):
             forward=('city', 'buyer_shop')),
         required=False
     )
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='product-autocomplete',
+            attrs={"onChange":'getProductDetails()'}
+        )
+    )
+    mrp = forms.DecimalField(required=False)
 
     class Meta:
         model = ProductPrice
@@ -288,12 +300,13 @@ class ProductPriceNewForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # self.fields['start_date'].required = True
         # self.fields['end_date'].required = True
+        self.fields['mrp'].disabled = True
         if 'approval_status' in self.fields:
             self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        mrp = int(self.cleaned_data.get('mrp', '0'))
+        # mrp = int(self.cleaned_data.get('mrp', '0'))
         selling_price = int(self.cleaned_data.get('selling_price', '0'))
         # if not mrp:
         #     raise forms.ValidationError(
@@ -307,18 +320,220 @@ class ProductPriceNewForm(forms.ModelForm):
         return cleaned_data
 
 
+class DestinationRepackagingCostMappingForm(forms.ModelForm):
+
+    class Meta:
+        model = DestinationRepackagingCostMapping
+        fields = ('raw_material', 'wastage', 'fumigation',
+                    'label_printing', 'packing_labour', \
+                    'primary_pm_cost', 'secondary_pm_cost', \
+                    'final_fg_cost', 'conversion_cost')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['final_fg_cost'].disabled = True
+        self.fields['final_fg_cost'].required = False
+        self.fields['conversion_cost'].disabled = True
+        self.fields['conversion_cost'].required = False
+        self.fields['raw_material'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['wastage'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['fumigation'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['label_printing'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['packing_labour'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['primary_pm_cost'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['secondary_pm_cost'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+
+
+class ParentProductForm(forms.ModelForm):
+
+    class Meta:
+        model = ParentProduct
+        # fields = ('parent_brand', 'name', 'product_hsn', 'gst', 'cess',
+        #           'surcharge', 'brand_case_size', 'inner_case_size',
+        #           'product_type',)
+        fields = ('parent_brand', 'name', 'product_hsn',
+                    'brand_case_size', 'inner_case_size',
+                    'product_type',)
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        return cleaned_data
+
+
+class UploadParentProductAdminForm(forms.Form):
+    """
+      Upload Parent Product Form
+    """
+    file = forms.FileField(label='Upload Parent Product list')
+
+    class Meta:
+        model = ParentProduct
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        for row_id, row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if '' in row:
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
+                    row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                    continue
+            if not row[0]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Parent Name' can not be empty."))
+            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[0]):
+                raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
+            if not row[1]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Brand' can not be empty."))
+            elif not Brand.objects.filter(brand_name=row[1]).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | 'Brand' doesn't exist in the system."))
+            if not row[2]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Category' can not be empty."))
+            else:
+                if not Category.objects.filter(category_name=row[2]).exists():
+                    categories = row[2].split(',')
+                    for cat in categories:
+                        if not Category.objects.filter(category_name=cat.strip()).exists():
+                            raise ValidationError(_(f"Row {row_id + 1} | 'Category' {cat.strip()} doesn't exist in the system."))
+            if not row[3]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'HSN' can not be empty."))
+            elif not ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | 'HSN' doesn't exist in the system."))
+            if not row[4]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'GST' can not be empty."))
+            elif not re.match("^([0]|[5]|[1][2]|[1][8]|[2][8])(\s+)?(%)?$", row[4]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'GST' can only be 0, 5, 12, 18, 28."))
+            if row[5] and not re.match("^([0]|[1][2])$", row[5]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'CESS' can only be 0, 12."))
+            if row[6] and not re.match("^\d+$", row[6]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Surcharge' can only be a numeric value."))
+            if not row[7]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Brand Case Size' can not be empty."))
+            elif not re.match("^\d+$", row[7]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Brand Case Size' can only be a numeric value."))
+            if not row[8]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Inner Case Size' can not be empty."))
+            elif not re.match("^\d+$", row[8]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Inner Case Size' can only be a numeric value."))
+            if not row[9]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product Type' can not be empty."))
+            elif row[9].lower() not in ['b2b', 'b2c', 'both', 'both b2b and b2c']:
+                raise ValidationError(_(f"Row {row_id + 1} | 'GST' can only be 'B2B', 'B2C', 'Both B2B and B2C'."))
+        return self.cleaned_data['file']
+
+
 class ProductForm(forms.ModelForm):
     product_name = forms.CharField(required=True)
-    product_short_description = forms.CharField(required=True)
-    product_slug = forms.CharField(required=True)
-    product_gf_code = forms.CharField(required=True)
+    # product_short_description = forms.CharField(required=True)
+    # product_slug = forms.CharField(required=True)
+    # product_gf_code = forms.CharField(required=True)
     product_ean_code = forms.CharField(required=True)
+    parent_product = forms.ModelChoiceField(
+        queryset=ParentProduct.objects.all(),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='admin:parent-product-autocomplete',
+            attrs={"onChange":'getDefaultChildDetails()'}
+        )
+    )
 
     class Meta:
         model = Product
-        fields = ('product_name','product_slug','product_short_description', 'product_long_description',
-                  'product_gf_code', 'product_ean_code', 'product_hsn','product_brand', 'product_inner_case_size',
-                  'product_case_size','weight_value', 'weight_unit', 'status',)
+        # fields = ('product_name','product_slug','product_short_description', 'product_long_description',
+        #           'product_gf_code', 'product_ean_code', 'product_hsn','product_brand', 'product_inner_case_size',
+        #           'product_case_size','weight_value', 'weight_unit', 'status',)
+        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status', 'repackaging_type')
+
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        return cleaned_data
+
+
+class ProductSourceMappingForm(forms.ModelForm):
+    source_sku = forms.ModelChoiceField(
+        queryset=Product.objects.filter(repackaging_type='source'),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='source-product-autocomplete'
+        )
+    )
+
+    class Meta:
+        model = ProductSourceMapping
+        fields = ('source_sku', 'status')
+
+class UploadChildProductAdminForm(forms.Form):
+    """
+      Upload Child Product Form
+    """
+    file = forms.FileField(label='Upload Child Product list')
+
+    class Meta:
+        model = ParentProduct
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        for row_id, row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if '' in row:
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                    continue
+            if not row[0]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Parent Product ID' can not be empty."))
+            elif not ParentProduct.objects.filter(parent_id=row[0]).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | 'Parent Product' doesn't exist in the system."))
+            if not row[1]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can not be empty."))
+            elif row[1].lower() not in ['default', 'different mrp', 'different weight', 'different ean', 'other']:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can only be 'Default', 'Different MRP', 'Different Weight', 'Different EAN', 'Other'."))
+            if not row[2]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product Name' can not be empty."))
+            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[2]):
+                raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
+            if not row[3]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product EAN Code' can not be empty."))
+            elif not re.match("^[a-zA-Z0-9\+\.\-]*$", row[3].replace("'", '')):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product EAN Code' can only contain alphanumeric input."))
+            if not row[4]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product MRP' can not be empty."))
+            elif not re.match("^\d+[.]?[\d]{0,2}$", row[4]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Product MRP' can only be a numeric value."))
+            if not row[5]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Weight Value' can not be empty."))
+            elif not re.match("^\d+[.]?[\d]{0,2}$", row[5]):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Weight Value' can only be a numeric value."))
+            if not row[6]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can not be empty."))
+            elif row[6].lower() not in ['gram']:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can only be 'Gram'."))
+        return self.cleaned_data['file']
+
 
 
 class ProductsFilterForm(forms.Form):
@@ -479,7 +694,7 @@ class ProductPriceAddPerm(forms.ModelForm):
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+        fields = ('product', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
                   'start_date', 'end_date', 'approval_status')
 
@@ -505,7 +720,7 @@ class ProductPriceChangePerm(forms.ModelForm):
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+        fields = ('product', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
                   'start_date', 'end_date', 'approval_status')
 
@@ -843,3 +1058,66 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
             return self.cleaned_data
         else:
             raise forms.ValidationError("CSV file is required!")
+
+
+class RepackagingForm(forms.ModelForm):
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete'),
+    )
+
+    source_sku = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-shop-autocomplete', forward=['seller_shop']),
+    )
+
+    destination_sku = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:destination-product-autocomplete', forward=['source_sku'])
+    )
+
+    class Meta:
+        model = Repackaging
+        fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity', 'status',
+                  "available_source_weight", "available_source_quantity", "destination_sku_quantity", "remarks",
+                  "expiry_date")
+        widgets = {
+            'remarks': forms.Textarea(attrs={'rows': 2}),
+        }
+
+    def clean(self):
+        if 'source_sku' in self.cleaned_data:
+            try:
+                warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=self.cleaned_data['seller_shop'],
+                                                                            sku=self.cleaned_data['source_sku'],
+                                                                            inventory_type=InventoryType.objects.filter(
+                                                                                inventory_type='normal').last(),
+                                                                            inventory_state=InventoryState.objects.filter(
+                                                                                inventory_state='available').last())
+                if warehouse_available_obj.exists():
+                    w_obj = warehouse_available_obj.last()
+                    source_quantity = w_obj.quantity
+                else:
+                    raise forms.ValidationError("Warehouse Inventory Does Not Exist")
+            except Exception as e:
+                raise forms.ValidationError("Warehouse Inventory Could not be fetched")
+            if self.cleaned_data['source_repackage_quantity'] + self.cleaned_data['available_source_quantity'] !=\
+                    source_quantity:
+                raise forms.ValidationError("Source Quantity Changed! Please Input Again")
+        if 'status' in self.changed_data and 'status' in self.cleaned_data:
+            if self.cleaned_data['status'] not in ['completed']:
+                raise forms.ValidationError("Status {} cannot be changed here". format(self.cleaned_data['status']))
+            if self.cleaned_data['status'] == 'completed' and self.instance.status != 'picking_complete':
+                    raise forms.ValidationError("Status not valid. Source pickup is still not completed.")
+        return self.cleaned_data
+
+    def __init__(self, *args, **kwargs):
+        super(RepackagingForm, self).__init__(*args, **kwargs)
+        if self.instance.pk and 'expiry_date' in self.fields:
+            self.fields['expiry_date'].required = True
+        readonly = ['available_source_weight', 'available_source_quantity']
+        for key in readonly:
+            if key in self.fields:
+                self.fields[key].widget.attrs['readonly'] = True

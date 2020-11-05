@@ -14,6 +14,7 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_STATUS': 'Invalid status value. It should be either 0 or 1',
     'INVALID_ID': 'Invalid ID. It should be numeric',
     'INVALID_SKU': 'Invalid SKU.(eg: 12BBPRG00000121)',
+    'INVALID_PARENT_ID': 'Invalid Parent ID.(eg: PABCDEF0023)',
     'INVALID_PERCENTAGE': 'Invalid percentage. Only positive value is accepted without %(eg: 10,10.5).',
     'INVALID_DATETIME': 'Invalid datetime. It should be of format YYYY-MM-DD HH:MM:SS(eg: 2018-10-11 13:06:56)',
     'INVALID_PRICE': 'Invalid price.(eg: 1000, 200.50)',
@@ -25,6 +26,7 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_GSTIN_Number': 'Invalid Gstin number',
     'INVALID_MARGIN': '%s has not valid format( eg: 0, 201, 17.11)',
     'ALREADY_ADDED_SHOP':'Already added Sales Executive with this shop',
+    'INVALID_INTEGER_VALUE':'Only Positive Integers Accepted'
 }
 
 SUCCESS_MESSAGES = {

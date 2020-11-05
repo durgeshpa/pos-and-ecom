@@ -13,6 +13,7 @@ from django.views import View
 from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import permission_required
+from admin_auto_filters.views import AutocompleteJsonView
 
 from decimal import Decimal
 
@@ -20,15 +21,20 @@ from shops.models import Shop, ShopType
 from addresses.models import City, State, Address, Pincode
 from categories.models import Category
 from brand.models import Brand, Vendor
+from wms.models import InventoryType, WarehouseInventory, InventoryState
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
-    ProductCategoryMappingForm, NewProductPriceUpload
+    ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
+    UploadChildProductAdminForm
     )
 from products.models import (
     Product, ProductCategory, ProductOption,
     ProductTaxMapping, ProductVendorMapping,
-    ProductImage, ProductHSN, ProductPrice
+    ProductImage, ProductHSN, ProductPrice,
+    ParentProduct, ParentProductCategory,
+    ProductSourceMapping,
+    ParentProductTaxMapping, Tax
     )
 
 logger = logging.getLogger(__name__)
@@ -780,6 +786,264 @@ def download_all_products(request):
     return response
 
 
+def ParentProductsDownloadSampleCSV(request):
+    filename = "parent_products_sample.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(["Name", "Brand", "Category", "HSN", "GST", "CESS", "Surcharge", "Brand Case Size", "Inner Case Size", "Product Type"])
+    writer.writerow(["testparent2", "Nestle", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100", "10", "10", "b2c"])
+    return response
+
+
+def parent_product_upload(request):
+    if request.method == 'POST':
+        form = UploadParentProductAdminForm(request.POST, request.FILES)
+
+        if form.errors:
+            return render(request, 'admin/products/parent-product-upload.html', {'form': form})
+
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            first_row = next(reader)
+            def gst_mapper(gst):
+                if '0' in gst:
+                    return 0
+                elif '5' in gst:
+                    return 5
+                elif '12' in gst:
+                    return 12
+                elif '18' in gst:
+                    return 18
+                elif '28' in gst:
+                    return 28
+            try:
+                for row in reader:
+                    if len(row) == 0:
+                        continue
+                    if '' in row:
+                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
+                            row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                            continue
+                    parent_product = ParentProduct.objects.create(
+                        name=row[0],
+                        parent_brand=Brand.objects.filter(brand_name=row[1]).last(),
+                        product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
+                        brand_case_size=int(row[7]),
+                        inner_case_size=int(row[8]),
+                        product_type=row[9]
+                    )
+                    parent_product.save()
+                    parent_gst = gst_mapper(row[4])
+                    ParentProductTaxMapping.objects.create(
+                        parent_product=parent_product,
+                        tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last()
+                    ).save()
+                    parent_cess = int(row[5]) if row[5] else 0
+                    ParentProductTaxMapping.objects.create(
+                        parent_product=parent_product,
+                        tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last()
+                    ).save()
+                    parent_surcharge = int(row[6]) if row[6] else 0
+                    if Tax.objects.filter(
+                        tax_type='surcharge',
+                        tax_percentage=parent_surcharge
+                    ).exists():
+                        ParentProductTaxMapping.objects.create(
+                            parent_product=parent_product,
+                            tax=Tax.objects.filter(tax_type='surcharge', tax_percentage=parent_surcharge).last()
+                        ).save()
+                    else:
+                        new_surcharge_tax = Tax.objects.create(
+                            tax_name='Surcharge - {}'.format(parent_surcharge),
+                            tax_type='surcharge',
+                            tax_percentage=parent_surcharge,
+                            tax_start_at=datetime.datetime.now()
+                        )
+                        new_surcharge_tax.save()
+                        ParentProductTaxMapping.objects.create(
+                            parent_product=parent_product,
+                            tax=new_surcharge_tax
+                        ).save()
+                    if Category.objects.filter(category_name=row[2]).exists():
+                        parent_product_category = ParentProductCategory.objects.create(
+                            parent_product=parent_product,
+                            category=Category.objects.filter(category_name=row[2]).last()
+                        )
+                        parent_product_category.save()
+                    else:
+                        categories = row[2].split(',')
+                        for cat in categories:
+                            cat = cat.strip()
+                            parent_product_category = ParentProductCategory.objects.create(
+                                parent_product=parent_product,
+                                category=Category.objects.filter(category_name=cat).last()
+                            )
+                            parent_product_category.save()
+            except Exception as e:
+                print(e)
+            return render(request, 'admin/products/parent-product-upload.html', {
+                'form': form,
+                'success': 'Parent Product CSV uploaded successfully !',
+            })
+    else:
+        form = UploadParentProductAdminForm()
+    return render(request, 'admin/products/parent-product-upload.html', {'form': form})
+
+
+class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = ParentProduct.objects.all()
+
+        if self.q:
+            qs = qs.filter(name__istartswith=self.q)
+
+        return qs
+
+
+class ProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Product.objects.all()
+
+        if self.q:
+            qs = qs.filter(name__istartswith=self.q)
+
+        return qs
+
+
+
+def ChildProductsDownloadSampleCSV(request):
+    filename = "child_products_sample.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(["Parent Product ID", "Reason for Child SKU", "Product Name", "Product EAN Code", "Product MRP", "Weight Value", "Weight Unit"])
+    writer.writerow(["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram"])
+    return response
+
+
+def product_csv_upload(request):
+    if request.method == 'POST':
+        form = UploadChildProductAdminForm(request.POST, request.FILES)
+
+        if form.errors:
+            return render(request, 'admin/products/child-product-upload.html', {'form': form})
+
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            first_row = next(reader)
+            def reason_for_child_sku_mapper(reason):
+                reason = reason.lower()
+                if 'default' in reason:
+                    return 'default'
+                elif 'mrp' in reason:
+                    return 'different_mrp'
+                elif 'weight' in reason:
+                    return 'different_weight'
+                elif 'ean' in reason:
+                    return 'different_ean'
+                elif 'other' in reason:
+                    return 'other'
+            try:
+                for row in reader:
+                    if len(row) == 0:
+                        continue
+                    if '' in row:
+                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                            continue
+                    product = Product.objects.create(
+                        parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
+                        reason_for_child_sku=reason_for_child_sku_mapper(row[1]),
+                        product_name=row[2],
+                        product_ean_code=row[3].replace("'", ''),
+                        product_mrp=float(row[4]),
+                        weight_value=float(row[5]),
+                        weight_unit='gm' if 'gram' in row[6].lower() else 'gm'
+                    )
+                    product.save()
+            except Exception as e:
+                print(e)
+            return render(request, 'admin/products/child-product-upload.html', {
+                'form': form,
+                'success': 'Child Product CSV uploaded successfully !',
+            })
+    else:
+        form = UploadChildProductAdminForm()
+    return render(request, 'admin/products/child-product-upload.html', {'form': form})
+
+
+def FetchDefaultChildDdetails(request):
+    parent_product_id = request.GET.get('parent')
+    data = {
+        'found': False
+    }
+    if not parent_product_id:
+        return JsonResponse(data)
+    def_child = Product.objects.filter(parent_product=parent_product_id, reason_for_child_sku__icontains='default').last()
+    if def_child:
+        data = {
+            'found': True,
+            'product_name': def_child.product_name,
+            'product_ean_code': def_child.product_ean_code,
+            'product_mrp': def_child.product_mrp,
+            'weight_value': def_child.weight_value,
+            'weight_unit': {
+                'option': def_child.weight_unit,
+                'text': 'Gram'
+            },
+            'enable_use_parent_image_check': True if def_child.parent_product.parent_product_pro_image.exists() else False
+        }
+
+    return JsonResponse(data)
+
+
+class ParentProductsAutocompleteView(AutocompleteJsonView):
+    def get_queryset(self):
+        queryset = ParentProduct.objects.all().order_by('name')
+
+        if self.term:
+            queryset = queryset.filter(Q(name__icontains=self.term) | Q(parent_id__icontains=self.term))
+
+        return queryset
+
+
+def FetchAllParentCategories(request):
+    data = { 'categories': [] }
+    categories = Category.objects.all()
+    for category in categories:
+        data['categories'].append(category.category_name)
+
+    return JsonResponse(data, safe=False)
+
+
+def FetchAllProductBrands(request):
+    data = { 'brands': [] }
+    brands = Brand.objects.all()
+    for brand in brands:
+        data['brands'].append(brand.brand_name)
+
+    return JsonResponse(data, safe=False)
+
+
+def FetchProductDdetails(request):
+    product_id = request.GET.get('product')
+    data = {
+        'found': False
+    }
+    if not product_id:
+        return JsonResponse(data)
+    def_product = Product.objects.filter(pk=product_id).last()
+    if def_product:
+        data = {
+            'found': True,
+            'product_mrp': def_product.product_mrp
+        }
+
+    return JsonResponse(data)
+
+
 class ProductCategoryMapping(View):
 
     def validate_row(self, first_row, row):
@@ -867,6 +1131,15 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(Q(product_name__icontains=self.q) |
                            Q(product_gf_code__icontains=self.q) |
+                           Q(product_sku__icontains=self.q))
+        return qs
+
+
+class SourceProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Product.objects.filter(repackaging_type='source')
+        if self.q:
+            qs = qs.filter(Q(product_name__icontains=self.q) |
                            Q(product_sku__icontains=self.q))
         return qs
 
@@ -984,4 +1257,72 @@ class VendorAutocomplete(autocomplete.Select2QuerySetView):
             qs = Vendor.objects.filter(
                 Q(vendor_name__icontains=self.q)
             )
+        return qs
+
+
+class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
+
+    def get_queryset(self, *args, **kwargs):
+        seller_shop = self.forwarded.get('seller_shop', None)
+        qs = []
+        if seller_shop:
+            pp = ProductPrice.objects.filter(seller_shop_id=seller_shop).values('product_id')
+            qs = Product.objects.filter(id__in=pp, repackaging_type='source')
+            if self.q:
+                qs = qs.filter(product_name__icontains=self.q)
+        return qs
+
+
+class SourceRepackageDetail(View):
+
+    def get(self, *args, **kwargs):
+        product_id = self.request.GET.get('sku_id')
+        shop_id = self.request.GET.get('shop_id')
+        product_obj = Product.objects.values('weight_value', 'product_sku').get(id=product_id)
+
+        if product_obj['weight_value'] is None:
+            return JsonResponse({"success": False, "error": "Source SKU Weight Value Not Found"})
+
+        try:
+            warehouse_available_obj = WarehouseInventory.objects.filter(warehouse_id=shop_id,
+                                              sku_id=product_obj['product_sku'],
+                                              inventory_type=InventoryType.objects.filter(
+                                                  inventory_type='normal').last(),
+                                              inventory_state=InventoryState.objects.filter(
+                                                  inventory_state='available').last())
+            if warehouse_available_obj.exists():
+                w_obj = warehouse_available_obj.last()
+                source_quantity = w_obj.quantity
+            else:
+                return JsonResponse({"success": False, "error": "Warehouse Inventory Does Not Exist"})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": "Warehouse Inventory Could not be fetched"})
+
+        return JsonResponse({
+            "source_sku_weight": product_obj['weight_value'] / 1000,
+            "available_source_quantity": source_quantity,
+            "success": True})
+
+
+class DestinationRepackageDetail(View):
+
+    def get(self, *args, **kwargs):
+        product_id = self.request.GET.get('sku_id')
+        product_obj = Product.objects.values('weight_value', 'product_sku').get(id=product_id)
+        if product_obj['weight_value'] is None:
+            return JsonResponse({"success": False, "error": "Destination SKU Weight Value Not Found"})
+
+        return JsonResponse({"destination_sku_weight": product_obj['weight_value'] / 1000, "success": True})
+
+
+class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
+
+    def get_queryset(self, *args, **kwargs):
+        source_sku = self.forwarded.get('source_sku', None)
+        qs = []
+        if source_sku:
+            psm = ProductSourceMapping.objects.filter(source_sku=source_sku, status=True).values('destination_sku')
+            qs = Product.objects.filter(id__in=psm)
+            if self.q:
+                qs = qs.filter(product_name__icontains=self.q)
         return qs

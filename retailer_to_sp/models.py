@@ -36,7 +36,7 @@ from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, 
     get_expiry_date, OrderManagement
 from brand.models import Brand
 from otp.sms import SendSms
-from products.models import Product, ProductPrice
+from products.models import Product, ProductPrice, Repackaging
 from shops.models import Shop, ShopNameDisplay
 
 from .utils import (order_invoices, order_shipment_amount,
@@ -234,10 +234,16 @@ class Cart(models.Model):
                 if m.cart_product.get_current_shop_price(shop, buyer_shop) == None:
                     CartProductMapping.objects.filter(cart__id=self.id, cart_product__id=m.cart_product.id).delete()
                     continue
-                parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
+                parent_product_brand = m.cart_product.parent_product.parent_brand if m.cart_product.parent_product else None
+                if parent_product_brand:
+                    parent_brand = parent_product_brand.brand_parent.id if parent_product_brand.brand_parent else None
+                else:
+                    parent_brand = None
+                # parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
+                product_brand_id = m.cart_product.parent_product.parent_brand.id if m.cart_product.parent_product else None
                 brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True,
                                                       expiry_date__gte=date).filter(
-                    Q(rule__brand_ruleset__brand=m.cart_product.product_brand.id) | Q(
+                    Q(rule__brand_ruleset__brand=product_brand_id) | Q(
                         rule__brand_ruleset__brand=parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
                 b_list = [x.coupon_name for x in brand_coupons]
                 cart_coupons = Coupon.objects.filter(coupon_type='cart', is_active=True,
@@ -307,7 +313,7 @@ class Cart(models.Model):
                                         'discounted_product_subtotal': round((sku_ptr * sku_no_of_pieces), 2),
                                         'discounted_product_subtotal_after_sku_discount': round(
                                             (sku_ptr * sku_no_of_pieces), 2),
-                                        'brand_id': m.cart_product.product_brand.id, 'cart_or_brand_level_discount': 0,
+                                        'brand_id': product_brand_id, 'cart_or_brand_level_discount': 0,
                                         'applicable_brand_coupons': b_list, 'applicable_cart_coupons': c_list})
             brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True, expiry_date__gte=date).order_by(
                 '-rule__cart_qualifying_min_sku_value')
@@ -1762,7 +1768,8 @@ class PickerDashboard(models.Model):
 
     )
 
-    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE, null=True, blank=True)
+    repackaging = models.ForeignKey(Repackaging, related_name="picker_repacks", on_delete=models.CASCADE, null=True, blank=True)
     shipment = models.ForeignKey(
         OrderedProduct, related_name="picker_shipment",
         on_delete=models.DO_NOTHING, null=True, blank=True)
@@ -1783,7 +1790,10 @@ class PickerDashboard(models.Model):
         super(PickerDashboard, self).save(*args, **kwargs)
         if self.picking_status == 'picking_assigned':
             PickerDashboard.objects.filter(id=self.id).update(picker_assigned_date=datetime.datetime.now())
-            Pickup.objects.filter(pickup_type_id=self.order.order_no).update(status='picking_assigned')
+            if self.order:
+                Pickup.objects.filter(pickup_type_id=self.order.order_no).update(status='picking_assigned')
+            elif self.repackaging:
+                Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no).update(status='picking_assigned')
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
@@ -1919,6 +1929,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def mrp(self):
+        if self.product.product_mrp:
+            return self.product.product_mrp
         return self.ordered_product.order.ordered_cart.rt_cart_list \
             .get(cart_product=self.product).cart_product_price.mrp
 
@@ -2041,6 +2053,17 @@ class OrderedProductMapping(models.Model):
             return 0
 
     def set_product_tax_json(self):
+        # if self.product.parent_product:
+        #     product_tax = {}
+        #     product_tax['tax_sum'] = self.product.parent_product.gst + self.product.parent_product.cess + \
+        #                          self.product.parent_product.surcharge
+        #     self.product_tax_json = product_tax
+        # else:
+        #     product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+        #                                                             'tax__tax_percentage')
+        #     product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+        #     product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+        #     self.product_tax_json = product_tax
         product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
                                                                 'tax__tax_percentage')
         product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
@@ -2641,8 +2664,12 @@ def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=PickerDashboard)
 def update_order_status_from_picker(sender, instance=None, created=False, **kwargs):
     if instance.picking_status == PickerDashboard.PICKING_ASSIGNED:
-        instance.order.order_status = Order.PICKING_ASSIGNED
-        instance.order.save()
+        if instance.order:
+            instance.order.order_status = Order.PICKING_ASSIGNED
+            instance.order.save()
+        elif instance.repackaging:
+            instance.repackaging.status = 'picking_assigned'
+            instance.repackaging.save()
 
 
 # @receiver(post_save, sender=Trip)

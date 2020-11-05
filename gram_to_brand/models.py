@@ -16,7 +16,7 @@ from django.db import models
 from django.db.models import Sum
 
 from shops.models import Shop, ParentRetailerMapping
-from products.models import Product, ProductVendorMapping
+from products.models import Product, ProductVendorMapping, ParentProduct
 from brand.models import Brand, Vendor
 from addresses.models import Address, City, State
 from retailer_to_gram.models import (
@@ -193,6 +193,7 @@ class Cart(BaseCart):
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
+    cart_parent_product = models.ForeignKey(ParentProduct, related_name='cart_parent_product_mapping', on_delete=models.CASCADE, default=None, null=True)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
     _tax_percentage = models.FloatField(db_column="tax_percentage", null=True)
     #Todo Remove
@@ -221,6 +222,11 @@ class CartProductMapping(models.Model):
         self._tax_percentage = value
 
     def calculate_tax_percentage(self):
+        # if self.cart_product.parent_product:
+        #     tax_percentage = self.cart_product.parent_product.gst + self.cart_product.parent_product.cess + self.cart_product.parent_product.surcharge
+        # else:
+        #     tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
+        #     tax_percentage = sum(tax_percentage)
         tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
         tax_percentage = sum(tax_percentage)
         return tax_percentage

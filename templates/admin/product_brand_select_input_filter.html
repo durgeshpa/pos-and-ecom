@@ -1,0 +1,74 @@
+{% load i18n %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
+<h3>{% blocktrans with filter_title=title %} By {{ filter_title }} {% endblocktrans %}</h3>
+<ul>
+    <li>
+        <form id="product_brand_select_form" method="GET" action="">
+            <select name="brand" id="product_brand_select">
+                <option value="">-----</option>
+                <option value="All">All</option>
+            </select>
+        </form>
+    </li>
+</ul>
+<script>
+    $(document).ready(function() {
+        $('#product_brand_select').select2();
+        var url = window.location.href;
+        var captured = /brand=([^&]+)/.exec(url);
+        if (captured) {
+            captured = captured[1];
+            var result = captured ? captured : '-----';
+            if (result !== '-----') {
+                document.getElementById("select2-product_brand_select-container").title = decodeURIComponent(result).replaceAll('+', ' ');
+                document.getElementById("select2-product_brand_select-container").innerHTML = decodeURIComponent(result).replaceAll('+', ' ');
+            }
+        }
+    });
+</script>
+<script>
+    product_brand_select = document.getElementById("product_brand_select");
+    ajax_url = "/product/fetch-all-product-brands/";
+    $.ajax({
+        url: ajax_url,
+        type : 'GET',
+        contentType: "application/json; charset=utf-8",
+        success: function (data) {
+            (data.brands).forEach(element => {
+                var opt = document.createElement("option");
+                opt.value = element;
+                opt.innerHTML = element;
+                product_brand_select.appendChild(opt);
+            });
+            product_brand_select.onchange = function(event){
+                if (document.getElementById("product_brand_select").value === 'All') {
+                    sourceURL = window.location.href;
+                    var rtn = sourceURL.split("?")[0],
+                    param,
+                    params_arr = [],
+                    queryString = (sourceURL.indexOf("?") !== -1) ? sourceURL.split("?")[1] : "";
+                    if (queryString !== "") {
+                        params_arr = queryString.split("&");
+                        for (var i = params_arr.length - 1; i >= 0; i -= 1) {
+                            param = params_arr[i].split("=")[0];
+                            if (param === 'brand') {
+                                params_arr.splice(i, 1);
+                            }
+                        }
+                        rtn = rtn + "?" + params_arr.join("&");
+                    }
+                    window.location.href = rtn;
+                } else {
+                    document.getElementById("product_brand_select_form").submit();
+                }
+            }
+        },
+        error: function (data) {
+            console.log("ERROR");
+            console.error(data);
+            return true;
+        },
+        cache: false
+    });
+</script>
