@@ -1443,9 +1443,9 @@ def bulk_putaway(self, request, argument_list):
             except:
                 message = "You can't Perform this action, Bin Id is None."
                 return message, False
-            if obj.bin.bin.bin_id == 'V2VZ01SR001-0001':
-                message = "You can't assign this BIN ID, This is a Virtual Bin ID."
-                return message, False
+            # if obj.bin.bin.bin_id == 'V2VZ01SR001-0001':
+            #     message = "You can't assign this BIN ID, This is a Virtual Bin ID."
+            #     return message, False
             else:
                 bin_in_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
                                                          sku=Product.objects.filter(
