@@ -187,7 +187,7 @@
 								  	<td class="thick-line text-center"><strong></strong></td>
     								<td class="thick-line"></td>
     								<td class="thick-line text-center">Total</td>
-    								<td class="thick-line text-right">₹{{ sum_amount| floatformat:2 | intcomma }}/-</td>
+									<td class="thick-line text-right"><strong>₹{{ sum_amount| floatformat:2 | intcomma }}/-</strong></td>
     							</tr>
 
 								{% if shop.shipment.order.seller_shop.shop_name_address_mapping.all == shop.shipment.order.shipping_address %}
