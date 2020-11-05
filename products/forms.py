@@ -528,7 +528,7 @@ class ProductsCSVUploadForm(forms.Form):
     def clean_file(self):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         for id,row in enumerate(reader):
             if not row[0] or row[0].isspace():
@@ -634,7 +634,6 @@ class ProductsCSVUploadForm(forms.Form):
             if not row[16]:
                 raise ValidationError(_('HSN_CODE_REQUIRED at Row[%(value)s].'), params={'value': id+1},)
         return self.cleaned_data['file']
-
 
 class ProductPriceAddPerm(forms.ModelForm):
     product = forms.ModelChoiceField(

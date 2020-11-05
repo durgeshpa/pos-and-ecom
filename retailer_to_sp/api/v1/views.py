@@ -1,3 +1,4 @@
+import decimal
 import logging
 from decimal import Decimal
 import json
@@ -50,6 +51,8 @@ from sp_to_gram.models import (OrderedProductMapping, OrderedProductReserved,
                                OrderedProduct as SPOrderedProduct, StockAdjustment, create_credit_note)
 
 from categories import models as categorymodel
+
+from payments.models import Payment as PaymentDetail
 
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
                                   OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems
@@ -554,13 +557,13 @@ class AddToCart(APIView):
                                                                                            cart_product=product)
                                 if (capping.capping_qty - ordered_qty) > 0:
                                     cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                                capping.capping_qty - ordered_qty)
+                                            capping.capping_qty - ordered_qty)
                                 else:
                                     cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                                 cart_mapping.save()
                             else:
                                 msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (
-                                capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
+                                    capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
                                 return Response(msg, status=status.HTTP_200_OK)
 
                     else:
@@ -568,13 +571,13 @@ class AddToCart(APIView):
                             cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                             if (capping.capping_qty - ordered_qty) > 0:
                                 cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                            capping.capping_qty - ordered_qty)
+                                        capping.capping_qty - ordered_qty)
                             else:
                                 cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                             cart_mapping.save()
                         else:
                             msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (
-                            capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
+                                capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
                             return Response(msg, status=status.HTTP_200_OK)
                 else:
                     if int(qty) == 0:
@@ -893,14 +896,14 @@ class ReservedOrder(generics.ListAPIView):
                             if (capping.capping_qty - ordered_qty) < product_qty:
                                 if (capping.capping_qty - ordered_qty) > 0:
                                     cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                                capping.capping_qty - ordered_qty)
+                                            capping.capping_qty - ordered_qty)
                                 else:
                                     cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                                 cart_product.save()
                         else:
                             if (capping.capping_qty - ordered_qty) > 0:
                                 cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                            capping.capping_qty - ordered_qty)
+                                        capping.capping_qty - ordered_qty)
                             else:
                                 cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                             cart_product.save()
@@ -1082,7 +1085,8 @@ class CreateOrder(APIView):
                             order = jsonpickle.encode(order, unpicklable=False)
                             pick_list_download.delay(request, order)
                         except:
-                            msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'], 'response_data': None}
+                            msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'],
+                                   'response_data': None}
                             return Response(msg, status=status.HTTP_200_OK)
                     else:
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -1272,7 +1276,6 @@ class DownloadInvoiceSP(APIView):
         return response
 
 
-
 # @task
 def pdf_generation(request, ordered_product):
     """
@@ -1292,13 +1295,26 @@ def pdf_generation(request, ordered_product):
     else:
         request = request
         ordered_product = ordered_product
+
     try:
         if ordered_product.invoice.invoice_pdf.url:
             pass
     except Exception as e:
         logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
-        # payment_type = 'cash_on_delivery'
+
+        shop_id = ordered_product.order.buyer_shop.shop_owner_id
+        payment = PaymentDetail.objects.filter(paid_by_id=shop_id)
+        paid_amount = 0
+        for p in payment:
+            date_time = p.created_at
+            month = date_time.strftime("%m")
+            year = date_time.strftime("%Y")
+            print(str(month) + " " + str(year) + " " + str(paid_amount))
+            if int(month) > 2 and int(year) > 2019:
+                paid_amount += p.paid_amount
+
+    # payment_type = 'cash_on_delivery'
         try:
             if ordered_product.order.buyer_shop.shop_timing:
                 open_time = ordered_product.order.buyer_shop.shop_timing.open_timing
@@ -1336,6 +1352,8 @@ def pdf_generation(request, ordered_product):
         gst_tax_list = []
         cess_tax_list = []
         surcharge_tax_list = []
+        tcs_rate = 0
+        tcs_tax = 0
         sum_qty = 0
         igst = sum(gst_tax_list)
         cgst = (sum(gst_tax_list)) / 2
@@ -1357,7 +1375,7 @@ def pdf_generation(request, ordered_product):
         for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             dict1 = {}
             flag = 0
-            if len(list1) > 0 :
+            if len(list1) > 0:
                 for i in list1:
                     if i["hsn"] == m.product.product_hsn:
                         i["taxable_value"] = i["taxable_value"] + m.base_price
@@ -1369,7 +1387,7 @@ def pdf_generation(request, ordered_product):
                         i["total"] = i["total"] + m.product_tax_amount
                         flag = 1
 
-            if flag==0 :
+            if flag == 0:
                 dict1["hsn"] = m.product.product_hsn
                 dict1["taxable_value"] = m.base_price
                 dict1["cgst"] = (m.base_price * m.get_products_gst()) / 200
@@ -1385,7 +1403,6 @@ def pdf_generation(request, ordered_product):
                 dict1["surcharge_rate"] = m.get_products_gst_surcharge()
                 dict1["total"] = m.product_tax_amount
                 list1.append(dict1)
-
 
             sum_qty += m.shipped_qty
             sum_basic_amount += m.base_price
@@ -1462,12 +1479,23 @@ def pdf_generation(request, ordered_product):
                 cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = ordered_product.invoice_amount
-        total_amount_int = total_amount
 
         total_tax_amount = ordered_product.sum_amount_tax()
+
+        if float(paid_amount) + total_amount > 5000000:
+            if buyer_shop_gistin == 'unregistered':
+                tcs_rate = 1
+                tcs_tax = total_amount * float(tcs_rate / 100)
+            else:
+                tcs_rate = 0.075
+                tcs_tax = total_amount * float(tcs_rate / 100)
+
+        tcs_tax = round(tcs_tax, 2)
+        total_amount = total_amount + tcs_tax
+        total_amount_int = round(total_amount)
         total_tax_amount_int = round(total_tax_amount)
 
-        amt = [num2words(i) for i in str(total_amount).split('.')]
+        amt = [num2words(i) for i in str(total_amount_int).split('.')]
         rupees = amt[0]
 
         tax_amt = [num2words(i) for i in str(total_tax_amount_int).split('.')]
@@ -1479,8 +1507,8 @@ def pdf_generation(request, ordered_product):
 
         data = {"shipment": ordered_product, "order": ordered_product.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
-                "igst": igst, "cgst": cgst, "sgst": sgst, "cess": cess, "surcharge": surcharge,
-                "total_amount": total_amount,
+                "igst": igst, "cgst": cgst, "sgst": sgst, "tcs_tax": tcs_tax, "tcs_rate": tcs_rate, "cess": cess,
+                "surcharge": surcharge, "total_amount": total_amount,
                 "barcode": barcode, "product_listing": product_listing, "rupees": rupees, "tax_rupees": tax_rupees,
                 "seller_shop_gistin": seller_shop_gistin, "buyer_shop_gistin": buyer_shop_gistin,
                 "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty, "sum_basic_amount": sum_basic_amount,
@@ -1518,6 +1546,17 @@ class DownloadCreditNoteDiscounted(APIView):
             gstinn1 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
         # gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
         # changes for org change
+
+        shop_id = credit_note.shipment.order.buyer_shop.shop_owner_id
+        payment = PaymentDetail.objects.filter(paid_by_id=shop_id)
+        paid_amount = 0
+        for p in payment:
+            date_time = p.created_at
+            month = date_time.strftime("%m")
+            year = date_time.strftime("%Y")
+            if int(month) > 2 and int(year) > 2019:
+                paid_amount += p.paid_amount
+
         shop_mapping_list = ShopMigrationMapp.objects.filter(
             new_sp_addistro_shop=credit_note.shipment.order.seller_shop.pk).all()
         if shop_mapping_list.exists():
@@ -1530,6 +1569,8 @@ class DownloadCreditNoteDiscounted(APIView):
         sum_qty, sum_amount, tax_inline, sum_basic_amount, product_tax_amount, total_product_tax_amount = 0, 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
+        tcs_rate = 0
+        tcs_tax = 0
         list1 = []
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
             pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
@@ -1549,7 +1590,7 @@ class DownloadCreditNoteDiscounted(APIView):
                         i["igst"] = i["igst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
                         i["cess"] = i["cess"] + (m.delivered_qty * m.basic_rate * m.get_products_gst_cess_tax()) / 100
                         i["surcharge"] = i["surcharge"] + (
-                                    m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
+                                m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
                         i["total"] = i["total"] + m.product_tax_discount_amount
                         flag = 1
 
@@ -1584,37 +1625,32 @@ class DownloadCreditNoteDiscounted(APIView):
             igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
                 sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
-            # for n in m.get_products_gst_tax():
-            #     divisor = (1 + (n.tax.tax_percentage / 100))
-            #     original_amount = (float(inline_sum_amount) / divisor)
-            #     tax_amount = float(inline_sum_amount) - original_amount
-            #     if n.tax.tax_type == 'gst':
-            #         gst_tax_list.append(tax_amount)
-            #     if n.tax.tax_type == 'cess':
-            #         cess_tax_list.append(tax_amount)
-            #     if n.tax.tax_type == 'surcharge':
-            #         surcharge_tax_list.append(tax_amount)
-            #     taxes_list.append(tax_amount)
-            #     igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (
-            #         sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
+        total_amount = sum_amount
+        if float(total_amount) + float(paid_amount) > 5000000:
+            if gstinn2 == 'Unregistered':
+                tcs_rate = 1
+                tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
+            else:
+                tcs_rate = 0.075
+                tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
 
-        total_amount = round(credit_note.note_amount)
-        total_amount_int = total_amount
+        tcs_tax = round(tcs_tax, 2)
+        total_amount = total_amount + tcs_tax
+        total_amount_int = round(total_amount)
         total_product_tax_amount_int = round(total_product_tax_amount)
 
-        amt = [num2words(i) for i in str(sum_amount).split('.')]
+        amt = [num2words(i) for i in str(total_amount_int).split('.')]
         rupees = amt[0]
 
         prdct_tax_amt = [num2words(i) for i in str(total_product_tax_amount_int).split('.')]
         tax_rupees = prdct_tax_amt[0]
 
         data = {
-            "object": credit_note, "products": products, "shop": credit_note, "total_amount_int": total_amount_int,
+            "object": credit_note, "products": products, "shop": credit_note, "total_amount": total_amount,
             "sum_qty": sum_qty, "sum_amount": sum_amount, "total_product_tax_amount": total_product_tax_amount,
-            "tax_rupees": tax_rupees, "sum_basic_amount": sum_basic_amount,
+            "tax_rupees": tax_rupees, "sum_basic_amount": sum_basic_amount, "tcs_tax": tcs_tax, "tcs_rate": tcs_rate,
             "url": request.get_host(), "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
-            "sgst": sgst, "cess": cess, "surcharge": surcharge,
-            "total_amount": round(total_amount, 2), "order_id": order_id, "shop_name_gram": shop_name_gram,
+            "sgst": sgst, "cess": cess, "surcharge": surcharge, "order_id": order_id, "shop_name_gram": shop_name_gram,
             "nick_name_gram": nick_name_gram, "city_gram": city_gram,
             "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram, "state_gram": state_gram,
             "amount": amount, "gstinn1": gstinn1, "gstinn2": gstinn2,
@@ -2022,7 +2058,7 @@ class FeedbackData(generics.ListCreateAPIView):
             self.perform_create(serializer)
             if ((serializer.data['delivery_experience'] and int(serializer.data['delivery_experience']) > 4) or (
                     serializer.data['overall_product_packaging'] and int(
-                    serializer.data['overall_product_packaging']) > 4)):
+                serializer.data['overall_product_packaging']) > 4)):
                 can_comment = True
             msg = {'is_success': True, 'can_comment': can_comment, 'message': None, 'response_data': serializer.data}
         else:
