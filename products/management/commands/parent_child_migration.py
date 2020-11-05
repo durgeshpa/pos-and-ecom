@@ -222,7 +222,7 @@ def update_child_products():
             continue
         else:
             if product.parent_product:
-                print("product {} already mapped with parent {} in row {}".format(product.id, product.parent_product.id, row_id))
+                # print("product {} already mapped with parent {} in row {}".format(product.id, product.parent_product.id, row_id))
                 continue
             try:
                 parent = ParentProduct.objects.get(name=row[0].strip().replace('\\', ''))
@@ -233,6 +233,7 @@ def update_child_products():
                 continue
             else:
                 product.parent_product = parent
+            finally:
                 if product.id in status_data:
                     product.status = status_data[product.id]
                 elif str(product.id) in status_data:
