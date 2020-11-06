@@ -6,6 +6,7 @@ from accounts.middlewares import get_current_user
 from accounts.models import User
 from audit.models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
     AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
+from audit.views import get_existing_audit_for_product, get_existing_audit_for_bin
 from products.models import Product
 from shops.models import Shop
 from wms.models import Bin
@@ -38,6 +39,7 @@ class AuditCreationForm(forms.ModelForm):
             if self.instance.state != AUDIT_DETAIL_STATE_CHOICES.CREATED:
                 raise ValidationError('Audit update is not allowed once audit is initiated!!')
             return self.cleaned_data
+        warehouse = data.get('warehouse')
         audit_type = data.get('audit_type')
         if audit_type is None:
             raise ValidationError('Please select Audit Type!!')
@@ -51,9 +53,21 @@ class AuditCreationForm(forms.ModelForm):
             elif audit_level == 0:
                 if audit_bins.count() == 0:
                     raise ValidationError('Please select bins to audit!')
+                for b in audit_bins:
+                    existing_audits = get_existing_audit_for_bin(warehouse, b)
+                    if existing_audits.count() > 0:
+                        audit_ids = list(existing_audits.only('id').values_list('pk', flat=True))
+                        raise ValidationError('Bin {} is already under audit {}!'
+                                              .format(b, audit_ids))
             elif audit_level == 1:
                 if audit_product.count() is None:
                     raise ValidationError('Please select product to audit!')
+                for s in audit_product:
+                    existing_audits = get_existing_audit_for_product(warehouse, s)
+                    if existing_audits.count() > 0:
+                        audit_ids = list(existing_audits.only('id').values_list('pk', flat=True))
+                        raise ValidationError('Sku {} is already under audit {}!'
+                                              .format(s, audit_ids))
             if auditor is None:
                 raise ValidationError('Please select an auditor!')
 

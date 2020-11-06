@@ -43,8 +43,8 @@ class AuditDetail(BaseTimestampModel):
     audit_level = models.PositiveSmallIntegerField(choices=AUDIT_LEVEL_CHOICES, null=True, blank=True,
                                                    verbose_name='Audit Level')
     warehouse = models.ForeignKey(Shop, null=False, blank=False, on_delete=models.DO_NOTHING)
-    bin = models.ManyToManyField(Bin, null=True, blank=True, related_name='audit_bin_mapping+')
-    sku = models.ManyToManyField(Product, null=True, blank=True, related_name='audit_product_mapping+')
+    bin = models.ManyToManyField(Bin, null=True, blank=True, related_name='audit_bin_mapping')
+    sku = models.ManyToManyField(Product, null=True, blank=True, related_name='audit_product_mapping')
     status = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATUS_CHOICES, verbose_name='Audit Status')
     state = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATE_CHOICES,
                                              default=AUDIT_DETAIL_STATE_CHOICES.CREATED,

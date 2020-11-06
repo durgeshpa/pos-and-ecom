@@ -592,6 +592,14 @@ def create_audit_tickets_by_audit(audit_id):
     audit.state = AUDIT_DETAIL_STATE_CHOICES.TICKET_RAISED
     audit.save()
 
-# def is_audit_exists_for_bin(warehouse, bins):
-#     AuditDetail.objects.filter(warehouse=warehouse, bin__in=bins,
-#                                status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
+
+def get_existing_audit_for_product(warehouse, sku):
+    return sku.audit_product_mapping.filter(warehouse=warehouse,
+                                            state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
+                                                       AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')
+
+
+def get_existing_audit_for_bin(warehouse, bin):
+    return bin.audit_bin_mapping.filter(warehouse=warehouse,
+                                        state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
+                                                   AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')

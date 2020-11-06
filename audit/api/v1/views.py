@@ -163,7 +163,7 @@ class AuditEndView(APIView):
         return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
-        info_logger.info("AuditUpdateView called.")
+        info_logger.info("AuditEndView POST API called.")
 
         audit_no = request.data.get('audit_no')
 
@@ -251,6 +251,7 @@ class AuditEndView(APIView):
                    'message': ERROR_MESSAGES['SOME_ISSUE'],
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+        info_logger.info('AuditEndView|Audit {}, ended '.format(audit_no))
         serializer = AuditDetailSerializer(audit)
         msg = {'is_success': True, 'message': 'OK', 'data': {'audit_detail': serializer.data}}
         return Response(msg, status=status.HTTP_200_OK)
@@ -329,7 +330,7 @@ class AuditEndView(APIView):
             AuditInventory.update_inventory(audit.id, audit.warehouse, bi.batch_id, bi.bin, bi.sku,
                                             bi.inventory_type, inventory_state, bi.quantity, 0)
 
-            info_logger.info('End audit {} for bin {}'.format(audit.id, sku))
+            info_logger.info('End audit {} for sku {}'.format(audit.id, sku))
 
 
 class AuditBinList(APIView):
@@ -640,12 +641,12 @@ class AuditInventory(APIView):
                 bin_inventory_dict[i.inventory_type] = 0
 
     def get_pickup_blocked_quantity(self, warehouse, batch_id, bin):
-        pickup_qty = 0
-        pickup_qs = PickupBinInventory.objects.filter(warehouse=warehouse, bin__bin_id=bin, batch_id=batch_id,
-                                                      pickup__status__in=['pickup_creation', 'picking_assigned']) \
-                                              .annotate(pickup_qty=Sum('quantity'))
-        if pickup_qs.count() > 0:
-            pickup_qty = pickup_qs.last().pickup_qty
+        pickup_qty = PickupBinInventory.objects.filter(warehouse=warehouse, bin__bin_id=bin, batch_id=batch_id,
+                                                       pickup__status__in=['pickup_creation', 'picking_assigned']) \
+                                               .aggregate(pickup_qty=Sum('quantity')).get('pickup_qty')
+        if pickup_qty is None:
+            pickup_qty = 0
+
         return pickup_qty
 
 
