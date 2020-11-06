@@ -114,16 +114,6 @@ class DownloadCreditNote(APIView):
             reason = 'Returned' if [i for i in pp if i.returned_qty > 0] else 'Damaged' if [i for i in pp if
                                                                                             i.returned_damage_qty > 0] else 'Returned and Damaged'
 
-        shop_id = credit_note.shipment.order.buyer_shop.shop_owner_id
-        payment = PaymentDetail.objects.filter(paid_by_id=shop_id)
-        paid_amount = 0
-        for p in payment:
-            date_time = p.created_at
-            month = date_time.strftime("%m")
-            year = date_time.strftime("%Y")
-            if int(month) > 2 and int(year) > 2019:
-                paid_amount += p.paid_amount
-
         order_id = credit_note.shipment.order.order_no
         sum_qty, sum_basic_amount, sum_amount, tax_inline, total_product_tax_amount = 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
