@@ -907,7 +907,6 @@ class Repackaging(models.Model):
     status = models.CharField(max_length=50, choices=REPACKAGING_STATUS, verbose_name='Repackaging Status',
                               default='started')
     source_sku = models.ForeignKey(Product, related_name='source_sku_repackaging', on_delete=models.CASCADE, null=True)
-    source_batch_id = models.CharField(max_length=50, null=True, blank=True)
     source_picking_status = models.CharField(max_length=50, choices=SOURCE_PICKING_STATUS, default='')
     destination_sku = models.ForeignKey(Product, related_name='destination_sku_repackaging', on_delete=models.CASCADE,
                                         null=True)

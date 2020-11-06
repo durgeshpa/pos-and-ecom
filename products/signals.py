@@ -230,12 +230,11 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                             bin_inv.quantity = remaining_qty
                             bin_inv.save()
                             qty = 0
-                            Repackaging.objects.filter(pk=instance.pk).update(source_batch_id=batch_id)
                             Out.objects.create(warehouse=rep_obj.seller_shop,
                                                out_type='repackaging',
                                                out_type_id=rep_obj.id,
                                                sku=rep_obj.source_sku,
-                                               batch_id=batch_id, quantity=repackage_quantity)
+                                               batch_id=batch_id, quantity=already_picked)
                             CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
                                                                                quantity=already_picked,
                                                                                bin_quantity=qty_in_bin,
@@ -252,6 +251,11 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                             bin_inv.quantity = qty_in_bin - already_picked
                             bin_inv.save()
                             qty = remaining_qty
+                            Out.objects.create(warehouse=rep_obj.seller_shop,
+                                               out_type='repackaging',
+                                               out_type_id=rep_obj.id,
+                                               sku=rep_obj.source_sku,
+                                               batch_id=batch_id, quantity=already_picked)
                             CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
                                                                                quantity=already_picked,
                                                                                bin_quantity=qty_in_bin,

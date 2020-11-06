@@ -199,7 +199,7 @@ class RepackagingSerializer(serializers.ModelSerializer):
         fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location',)
 
     def picker_status_dt(self, obj):
-        return str(obj.status).lower()
+        return str(obj.source_picking_status).lower()
 
     def get_order_create_date(self, obj):
         return obj.created_at.strftime("%d-%m-%Y")

@@ -39,13 +39,13 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     products_export_for_vendor, products_filter_view,
                     products_price_filter_view, products_vendor_mapping,
                     ProductShopAutocomplete, SourceRepackageDetail,
-                    DestinationRepackageDetail, DestinationProductAutocomplete,
+                    DestinationProductAutocomplete,
                     parent_product_upload, ParentProductsDownloadSampleCSV,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
                     ParentProductAutocomplete, ParentProductsAutocompleteView)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
-
+from wms.models import Out
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
@@ -749,11 +749,6 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="source-repackage-detail"
             ),
             url(
-                r'^destination-repackage-detail/$',
-                self.admin_site.admin_view(DestinationRepackageDetail.as_view()),
-                name="destination-repackage-detail"
-            ),
-            url(
                 r'^product-csv-upload/$',
                 self.admin_site.admin_view(product_csv_upload),
                 name="product-csv-upload"
@@ -1139,20 +1134,28 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
     list_per_page = 10
 
     def download_batch_id_barcode(self, obj):
-        if obj.source_batch_id:
-            grn_order_pro = obj.source_sku.product_grn_order_product.filter(batch_id=obj.source_batch_id).last()
-            if grn_order_pro is not None:
-                if grn_order_pro.barcode_id is None:
-                    product_id = str(grn_order_pro.product_id).zfill(5)
-                    expiry_date = datetime.datetime.strptime(str(grn_order_pro.expiry_date), '%Y-%m-%d').strftime(
-                        '%d%m%y')
-                    barcode_id = str("2" + product_id + str(expiry_date))
-                else:
-                    barcode_id = grn_order_pro.barcode_id
-                return format_html(
-                    "<a href= '{0}' >{1}</a>".format(reverse('batch_barcodes', args=[grn_order_pro.pk]), barcode_id)
-                )
-        return format_html("-")
+        html_ret = '';
+        if obj.source_sku:
+            outs = Out.objects.filter(out_type='repackaging', out_type_id=obj.id, sku=obj.source_sku)
+            if outs.exists():
+                for out_obj in outs:
+                    if out_obj.batch_id:
+                        grn_order_pro = obj.source_sku.product_grn_order_product.filter(batch_id=out_obj.batch_id).last()
+                        if grn_order_pro is not None:
+                            if grn_order_pro.barcode_id is None:
+                                product_id = str(grn_order_pro.product_id).zfill(5)
+                                expiry_date = datetime.datetime.strptime(str(grn_order_pro.expiry_date), '%Y-%m-%d').strftime(
+                                    '%d%m%y')
+                                barcode_id = str("2" + product_id + str(expiry_date))
+                            else:
+                                barcode_id = grn_order_pro.barcode_id
+                            html_ret += "<a href= '{0}' >{1}</a><br>".format(reverse('batch_barcodes', args=[grn_order_pro.pk]), barcode_id)
+                        else:
+                            html_ret += '{0}<br>'.format(out_obj.batch_id);
+                    else:
+                        html_ret += '--<br>'
+        html_ret = '-' if html_ret == '' else html_ret;
+        return format_html(html_ret)
 
     def has_change_permission(self, request, obj=None):
         if obj and obj.status and obj.status == 'completed' and request.method == "GET":

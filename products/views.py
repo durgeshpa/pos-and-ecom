@@ -1293,26 +1293,18 @@ class SourceRepackageDetail(View):
             if warehouse_available_obj.exists():
                 w_obj = warehouse_available_obj.last()
                 source_quantity = w_obj.quantity
+                if source_quantity <= 0:
+                    return JsonResponse({"success": False, "error": "Source Not Available In Warehouse"})
             else:
                 return JsonResponse({"success": False, "error": "Warehouse Inventory Does Not Exist"})
         except Exception as e:
             return JsonResponse({"success": False, "error": "Warehouse Inventory Could not be fetched"})
 
         return JsonResponse({
+            "available_weight": (source_quantity * product_obj['weight_value']) / 1000,
             "source_sku_weight": product_obj['weight_value'] / 1000,
             "available_source_quantity": source_quantity,
             "success": True})
-
-
-class DestinationRepackageDetail(View):
-
-    def get(self, *args, **kwargs):
-        product_id = self.request.GET.get('sku_id')
-        product_obj = Product.objects.values('weight_value', 'product_sku').get(id=product_id)
-        if product_obj['weight_value'] is None:
-            return JsonResponse({"success": False, "error": "Destination SKU Weight Value Not Found"})
-
-        return JsonResponse({"destination_sku_weight": product_obj['weight_value'] / 1000, "success": True})
 
 
 class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):

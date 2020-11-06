@@ -371,7 +371,6 @@ class PickupList(APIView):
         elif pickuptype == 2:
             repacks = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
                                           Q(picker_repacks__picking_status__in=['picking_assigned', 'picking_complete']),
-                                          Q(status__in=['picking_assigned', 'picking_complete', 'completed']),
                                           Q(picker_repacks__picker_assigned_date__startswith=date.date())).order_by(
                 '-created_at')
             if repacks:
@@ -379,10 +378,8 @@ class PickupList(APIView):
                 serializer = RepackagingSerializer(repacks, many=True)
                 picking_complete = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
                                                         Q(picker_repacks__picking_status__in=['picking_complete']),
-                                                        Q(status__in=['picking_complete', 'completed']),
-                                                        Q(
-                                                            picker_repacks__picker_assigned_date__startswith=date.date())).order_by(
-                    '-created_at').count()
+                                                        Q(picker_repacks__picker_assigned_date__startswith=date.date())
+                                                              ).order_by('-created_at').count()
                 picking_assigned = repacks.count()
 
         if data_found:
