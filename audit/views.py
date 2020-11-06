@@ -592,3 +592,6 @@ def create_audit_tickets_by_audit(audit_id):
     audit.state = AUDIT_DETAIL_STATE_CHOICES.TICKET_RAISED
     audit.save()
 
+# def is_audit_exists_for_bin(warehouse, bins):
+#     AuditDetail.objects.filter(warehouse=warehouse, bin__in=bins,
+#                                status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)

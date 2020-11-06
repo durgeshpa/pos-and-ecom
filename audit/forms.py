@@ -56,6 +56,7 @@ class AuditCreationForm(forms.ModelForm):
                     raise ValidationError('Please select product to audit!')
             if auditor is None:
                 raise ValidationError('Please select an auditor!')
+
         elif audit_type == 2:
             audit_inventory_type = data.get('audit_inventory_type')
             if audit_inventory_type is None:
