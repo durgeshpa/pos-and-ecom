@@ -1471,9 +1471,9 @@ def pdf_generation(request, ordered_product):
 
         tcs_tax = round(tcs_tax, 2)
         total_amount = total_amount + tcs_tax
-        print("TCS Rate", tcs_rate)
-        print("TCS Value", tcs_tax)
-        print("Total", total_amount)
+        # print("TCS Rate", tcs_rate)
+        # print("TCS Value", tcs_tax)
+        # print("Total", total_amount)
         total_amount_int = round(total_amount)
         total_tax_amount_int = round(total_tax_amount)
 
