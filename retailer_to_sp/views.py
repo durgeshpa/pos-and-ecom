@@ -34,7 +34,7 @@ from retailer_to_sp.forms import (
     TripForm, DispatchForm, AssignPickerForm, )
 from django.views.generic import TemplateView
 from django.contrib import messages
-
+from payments.models import Payment as PaymentDetail
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 from shops.models import Shop, ShopMigrationMapp
 from retailer_to_sp.api.v1.serializers import (
@@ -223,13 +223,13 @@ class DownloadCreditNote(APIView):
                 igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = sum_amount
-        if total_amount > 5000000:
-            if gstinn2 == 'Unregistered':
-                tcs_rate = 1
-                tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
-            else:
-                tcs_rate = 0.075
-                tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
+        # if float(total_amount) + float(paid_amount) > 5000000:
+        #     if gstinn2 == 'Unregistered':
+        #         tcs_rate = 1
+        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
+        #     else:
+        #         tcs_rate = 0.075
+        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
 
         tcs_tax = round(tcs_tax, 2)
         total_amount = total_amount + tcs_tax

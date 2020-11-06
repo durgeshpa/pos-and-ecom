@@ -52,6 +52,8 @@ from sp_to_gram.models import (OrderedProductMapping, OrderedProductReserved,
 
 from categories import models as categorymodel
 
+from payments.models import Payment as PaymentDetail
+
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
                                   OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems
                                   )
@@ -1275,13 +1277,27 @@ def pdf_generation(request, ordered_product):
     else:
         request = request
         ordered_product = ordered_product
+
     try:
         if ordered_product.invoice.invoice_pdf.url:
             pass
     except Exception as e:
         logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
-    # payment_type = 'cash_on_delivery'
+
+        buyer_shop_id = ordered_product.order.buyer_shop_id
+        paid_amount = 0
+        invoice_details = OrderedProduct.objects.filter(order__buyer_shop_id=buyer_shop_id)
+        for invoice_amount in invoice_details:
+            date_time = invoice_amount.created_at
+            date = date_time.strftime("%d")
+            month = date_time.strftime("%m")
+            year = date_time.strftime("%Y")
+            # print(str(date) + " " + str(month) + " " + str(year) + " " + str(invoice_amount.invoice_amount) + " " + str(invoice_amount.shipment_status))
+            if int(month) > 2 and int(year) > 2019:
+                paid_amount += invoice_amount.invoice_amount
+        print(paid_amount)
+
         try:
             if ordered_product.order.buyer_shop.shop_timing:
                 open_time = ordered_product.order.buyer_shop.shop_timing.open_timing
@@ -1445,7 +1461,7 @@ def pdf_generation(request, ordered_product):
 
         total_tax_amount = ordered_product.sum_amount_tax()
 
-        if total_amount > 5000000:
+        if float(paid_amount) > 5000000:
             if buyer_shop_gistin == 'unregistered':
                 tcs_rate = 1
                 tcs_tax = total_amount * float(tcs_rate / 100)
@@ -1455,6 +1471,9 @@ def pdf_generation(request, ordered_product):
 
         tcs_tax = round(tcs_tax, 2)
         total_amount = total_amount + tcs_tax
+        # print("TCS Rate", tcs_rate)
+        # print("TCS Value", tcs_tax)
+        # print("Total", total_amount)
         total_amount_int = round(total_amount)
         total_tax_amount_int = round(total_tax_amount)
 
@@ -1509,6 +1528,17 @@ class DownloadCreditNoteDiscounted(APIView):
             gstinn1 = gs.shop_document_number if gs.shop_document_type == 'gstin' else 'Unregistered'
         # gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
         # changes for org change
+
+        # shop_id = credit_note.shipment.order.buyer_shop.shop_owner_id
+        # payment = PaymentDetail.objects.filter(paid_by_id=shop_id)
+        # paid_amount = 0
+        # for p in payment:
+        #     date_time = p.created_at
+        #     month = date_time.strftime("%m")
+        #     year = date_time.strftime("%Y")
+        #     if int(month) > 2 and int(year) > 2019:
+        #         paid_amount += p.paid_amount
+
         shop_mapping_list = ShopMigrationMapp.objects.filter(
             new_sp_addistro_shop=credit_note.shipment.order.seller_shop.pk).all()
         if shop_mapping_list.exists():
@@ -1577,13 +1607,13 @@ class DownloadCreditNoteDiscounted(APIView):
                 sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = sum_amount
-        if total_amount > 5000000:
-            if gstinn2 == 'Unregistered':
-                tcs_rate = 1
-                tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
-            else:
-                tcs_rate = 0.075
-                tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
+        # if float(total_amount) + float(paid_amount) > 5000000:
+        #     if gstinn2 == 'Unregistered':
+        #         tcs_rate = 1
+        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
+        #     else:
+        #         tcs_rate = 0.075
+        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
 
         tcs_tax = round(tcs_tax, 2)
         total_amount = total_amount + tcs_tax

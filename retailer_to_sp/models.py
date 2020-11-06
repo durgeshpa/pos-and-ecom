@@ -570,7 +570,7 @@ class BulkOrder(models.Model):
     def clean(self, *args, **kwargs):
         if self.cart_products_csv:
             product_ids = []
-            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
             headers = next(reader, None)
             product_skus = [x[0] for x in reader if x]
             for sku in product_skus:
@@ -578,7 +578,7 @@ class BulkOrder(models.Model):
                     product_ids.append(Product.objects.get(product_sku=sku).id)
                 else:
                     raise ValidationError("The SKU %s is invalid" % (sku))
-            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
             headers = next(reader, None)
             duplicate_products = []
             count = 0
@@ -637,6 +637,7 @@ class BulkOrder(models.Model):
                             0] + " | Order for following SKUs was not placed because Ordered qty is greater than "
                                  "Available inventory"))
 
+
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
 
@@ -678,12 +679,12 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
             products_available = {}
             if instance.cart_products_csv:
                 product_ids = []
-                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8',  errors='ignore'))
                 headers = next(reader, None)
                 product_skus = [x[0] for x in reader if x]
                 for sku in product_skus:
                     product_ids.append(Product.objects.get(product_sku=sku).id)
-                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8',  errors='ignore'))
                 for id, row in enumerate(reader):
                     for row in reader:
                         if row[0]:
