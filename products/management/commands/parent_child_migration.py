@@ -20,6 +20,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         create_parents()
         update_child_products()
+        update_not_found_products()
 
 
 def create_parents():
@@ -201,11 +202,17 @@ def update_child_products():
     print("mrp")
     print(len(mrp_data))
     mrp_file.close()
+    brand_file = open("products/management/commands/product_brand_data.txt", "r")
+    brand_data = json.loads(brand_file.read())
+    print("brand")
+    print(len(brand_data))
+    brand_file.close()
     mapping_file = open('products/management/commands/parent_child_mapping.csv', 'rb')
     reader = csv.reader(codecs.iterdecode(mapping_file, 'utf-8'))
     first_row = next(reader)
     not_found = []
     parent_nf = []
+    not_done = []
     for row_id, row in enumerate(reader):
         if len(row) == 0:
             continue
@@ -230,22 +237,103 @@ def update_child_products():
                 # print("Exception is {}".format(e))
                 # print(row[0])
                 parent_nf.append(row[0])
-                continue
+                made, parent_product = create_parent_product_for_one(product, brand_data)
+                if not made:
+                    not_done.append(product.id)
+                else:
+                    product.parent_product = parent_product
+                    entry = brand_data.get(product.id, brand_data.get(str(product.id)))
+                    product.status = entry.get('status', 'deactivated')
+                    if entry.get('mrp'):
+                        product.product_mrp = float(entry['mrp'])
+                    product.save()
+                    count += 1
+                # continue
             else:
                 product.parent_product = parent
-            finally:
-                if product.id in status_data:
-                    product.status = status_data[product.id]
-                elif str(product.id) in status_data:
-                    product.status = status_data[str(product.id)]
-                if product.id in mrp_data:
-                    product.product_mrp = float(mrp_data[product.id])
-                elif str(product.id) in mrp_data:
-                    product.product_mrp = float(mrp_data[str(product.id)])
+                entry = brand_data.get(product.id, brand_data.get(str(product.id)))
+                product.status = entry.get('status', 'deactivated')
+                # if entry.get('mrp'):
+                #     product.product_mrp = float(entry[mrp])
+                # if product.id in status_data:
+                #     product.status = status_data[product.id]
+                # elif str(product.id) in status_data:
+                #     product.status = status_data[str(product.id)]
+                # if product.id in mrp_data:
+                #     product.product_mrp = float(mrp_data[product.id])
+                # elif str(product.id) in mrp_data:
+                #     product.product_mrp = float(mrp_data[str(product.id)])
                 product.save()
                 count += 1
     # print(not_found)
     print(len(not_found))
     # print(parent_nf)
     print(len(parent_nf))
+    print(not_done)
+    print(len(not_done))
     print(count)
+
+
+def create_parent_product_for_one(product, data):
+    entry = data.get(product.id, data.get(str(product.id)))
+    if not entry.get('hsn'):
+        return False, False
+    hsn_entry = ProductHSN.objects.filter(id=entry.get('hsn')).last()
+    parent_product = ParentProduct.objects.create(
+        name=product.product_name.strip().replace('\\', ''),
+        parent_brand=Brand.objects.filter(id=entry.get('brand')).last(),
+        product_hsn=hsn_entry,
+        brand_case_size=int(entry.get('case')),
+        inner_case_size=int(entry.get('inner_case')),
+        product_type='both' # Need to confirm
+    )
+    parent_product.save()
+    for tax in entry.get('tax', []):
+        tax_type, percent = tax.split('__')
+        if 'gst' in tax_type:
+            parent_gst = gst_mapper(percent)
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent_product,
+                tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last()
+            ).save()
+        elif 'cess' in tax_type:
+            parent_cess = cess_mapper(percent)
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent_product,
+                tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last()
+            ).save()
+        elif 'surch' in tax_type:
+            ParentProductTaxMapping.objects.create(
+                parent_product=parent_product,
+                tax=Tax.objects.filter(tax_type='surcharge', tax_percentage=0).last()
+            ).save()
+    for cat in entry.get('cats', []):
+        parent_product_category = ParentProductCategory.objects.create(
+            parent_product=parent_product,
+            category=Category.objects.filter(id=cat).last()
+        )
+        parent_product_category.save()
+    return True, parent_product
+
+
+def update_not_found_products():
+    brand_file = open("products/management/commands/product_brand_data.txt", "r")
+    brand_data = json.loads(brand_file.read())
+    print("brand")
+    print(len(brand_data))
+    not_done = []
+    products = Product.objects.filter(parent_product__isnull=True)
+    for product in products:
+        made, parent_product = create_parent_product_for_one(product, brand_data)
+        if not made:
+            not_done.append(product.id)
+        else:
+            product.parent_product = parent_product
+            entry = brand_data.get(product.id, brand_data.get(str(product.id)))
+            product.status = entry.get('status', 'deactivated')
+            if entry.get('mrp'):
+                product.product_mrp = float(entry['mrp'])
+            product.save()
+    print(not_done)
+    print(len(not_done))
+    # print(count)
