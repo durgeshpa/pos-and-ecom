@@ -6,7 +6,7 @@ from django.contrib import admin
 from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList,
                      PickListItems,
                      OrderedProductReserved, Po_Message, Document)
-from products.models import Product, ProductVendorMapping
+from products.models import Product, ProductVendorMapping, ParentProduct
 from retailer_backend.admin import InputFilter
 from django import forms
 from django.db.models import Sum, F
@@ -55,8 +55,25 @@ class CartProductMappingAdmin(admin.TabularInline):
     search_fields = ('cart_product',)
     form = CartProductMappingForm
 
+    cart_parent_product = forms.ModelChoiceField(
+        queryset=ParentProduct.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='parent-product-autocomplete',
+            attrs={
+                "onChange":'getLastGrnProductDetails(this)'
+            },
+            forward=['supplier_name']
+        )
+    )
+
+    class Media:
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            'admin/js/po_generation_form.js'
+        )
+
     fields = (
-    'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total')
+    'cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total')
     readonly_fields = ('tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total')
 
     ##readonly_fields = ('tax_percentage','case_sizes','total_no_of_pieces',)
@@ -145,8 +162,13 @@ class CartAdmin(admin.ModelAdmin):
             )
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
 
+    # class Media:
+    #     pass
     class Media:
-        pass
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            'admin/js/po_generation_form.js'
+        )
 
     def get_urls(self):
         from django.conf.urls import url

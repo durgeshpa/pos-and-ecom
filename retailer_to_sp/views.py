@@ -162,7 +162,8 @@ class DownloadCreditNote(APIView):
                     dict1["cess"] = (m.base_price * m.get_products_gst_cess_tax()) / 100
                     dict1["cess_rate"] = m.get_products_gst_cess_tax()
                     dict1["surcharge"] = (m.base_price * m.get_products_gst_surcharge()) / 100
-                    dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                    # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                    dict1["surcharge_rate"] = m.get_products_gst_surcharge()
                     dict1["total"] = m.product_tax_amount
                     list1.append(dict1)
 
@@ -206,7 +207,8 @@ class DownloadCreditNote(APIView):
                     dict1["cess"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_cess_tax()) / 100
                     dict1["cess_rate"] = m.get_products_gst_cess_tax()
                     dict1["surcharge"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_surcharge()) / 100
-                    dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                    # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                    dict1["surcharge_rate"] = m.get_products_gst_surcharge()
                     dict1["total"] = m.product_tax_return_amount
                     list1.append(dict1)
                 sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
@@ -891,7 +893,10 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
         for i in picku_bin_inv:
             product = i.pickup.sku.product_name
             sku = i.pickup.sku.product_sku
-            mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
+            if i.pickup.sku.product_mrp:
+                mrp = i.pickup.sku.product_mrp
+            else:
+                mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
             qty = i.quantity
             batch_id = i.batch_id
             bin_id = i.bin.bin.bin_id
@@ -1019,7 +1024,7 @@ def pick_list_download(request, order_obj):
             product_list = {
                 "product_name": cart_pro.cart_product.product_name,
                 "product_sku": cart_pro.cart_product.product_sku,
-                "product_mrp": cart_pro.cart_product_price.mrp,
+                "product_mrp": cart_pro.cart_product.product_mrp if cart_pro.cart_product.product_mrp else cart_pro.cart_product_price.mrp,
                 "ordered_qty": cart_pro.qty,
                 "no_of_pieces": cart_pro.no_of_pieces,
 
@@ -1378,6 +1383,10 @@ class RetailerCart(APIView):
             context={'parent_mapping_id': order_obj.seller_shop.id,
                      'buyer_shop_id': order_obj.buyer_shop.id}
         )
+        for i in dt.data['rt_cart_list']:
+            if not i['cart_product_price']['product_mrp'] or i['cart_product_price']['product_mrp'] is None:
+                product = Product.objects.get(id=i['cart_product']['id'])
+                i['cart_product_price']['product_mrp'] = product.product_mrp or i['cart_product_price']['product_mrp']
         return Response({'is_success': True, 'response_data': dt.data}, status=status.HTTP_200_OK)
 
 

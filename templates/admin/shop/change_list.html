@@ -55,6 +55,14 @@
                         <div class="text"><a href="?o=2">MRP</a></div>
                         <div class="clear"></div>
                       </th>
+                      <th scope="col" class="sortable column-country">
+                        <div class="text"><a href="#">Parent ID</a></div>
+                        <div class="clear"></div>
+                      </th>
+                      <th scope="col" class="sortable column-country">
+                        <div class="text"><a href="#">Parent Name</a></div>
+                        <div class="clear"></div>
+                      </th>
                       <th scope="col" class="sortable column-state_name">
                         <div class="text"><a href="?o=4">Normal Qty </a></div>
                         <div class="clear"></div>
@@ -79,6 +87,8 @@
                         <td class="field-country nowrap">{{ value.sku }}</td>
                         <td class="field-country nowrap">{{ value.name }}</td>
                         <td class="field-country nowrap">{{ value.mrp }}</td>
+                        <td class="field-country nowrap">{{ value.parent_id }}</td>
+                        <td class="field-country nowrap">{{ value.parent_name }}</td>
                         <td class="field-country nowrap">{{ value.normal }}</td>
                         <td class="field-country nowrap">{% if value.damaged is None %}0{% else %}{{value.damaged}}{% endif %}</td>
                         <td class="field-country nowrap">{% if value.expired is None %}0{% else %}{{value.expired}}{% endif %}</td>

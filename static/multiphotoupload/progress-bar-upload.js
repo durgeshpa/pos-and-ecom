@@ -28,7 +28,15 @@ var aborted_files = 0;
     done: function (e, data) {
       if (data.result.is_valid) {
         $("#gallery tbody").prepend(
-          "<tr><td><a href='" + data.result.url + "'>" + data.result.name + "</a></td></tr>"
+          // "<tr><td><a href='" + data.result.url + "'>" + data.result.name + "</a></td></tr>"
+          "<tr><td><a href='" +
+          data.result.url + "'>" +
+          data.result.name +
+          "</a></td><td>Product Name: " +
+          data.result.product_name +
+          "</td><td>Product ID: " +
+          data.result.product_sku +
+          "</td></tr>"
         )
       }
     },
@@ -43,7 +51,7 @@ var aborted_files = 0;
       if (data.result.error) {
         aborted_files = aborted_files + 1;
         $("#gallery tbody").prepend(
-          "<tr><td><a class='alert-danger' href='" + data.result.url + "'>" + data.result.name + "</a></td></tr>"
+          "<tr><td><a class='alert-danger' href='" + data.result.url + "'>" + data.result.name + "</a></td><td></td><td></td></tr>"
         )
       }
       var files_uploaded = total_files - aborted_files;

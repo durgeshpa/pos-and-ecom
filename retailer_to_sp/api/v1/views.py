@@ -42,7 +42,7 @@ from .serializers import (ProductsSearchSerializer, GramGRNProductsSearchSeriali
                           RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
                           ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
                           ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-                          ShipmentReschedulingSerializer, ShipmentReturnSerializer
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer, ParentProductImageSerializer
                           )
 
 from products.models import Product, ProductPrice, ProductOption, ProductImage, ProductTaxMapping
@@ -239,7 +239,10 @@ class GramGRNProductsList(APIView):
     serializer_class = GramGRNProductsSearchSerializer
 
     def search_query(self, request):
-        filter_list = [{"term": {"status": True}}, {"range": {"available": {"gt": 0}}}]
+        filter_list = [
+            {"term": {"status": True}},
+            {"range": {"available": {"gt": 0}}}
+        ]
         if self.product_ids:
             filter_list.append({"ids": {"type": "product", "values": self.product_ids}})
             query = {"bool": {"filter": filter_list}}
@@ -280,7 +283,7 @@ class GramGRNProductsList(APIView):
         self.keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
         offset = int(request.data.get('offset', 0))
-        page_size = int(request.data.get('pro_count', 20))
+        page_size = int(request.data.get('pro_count', 50))
         grn_dict = None
         cart_check = False
         is_store_active = True
@@ -330,11 +333,18 @@ class GramGRNProductsList(APIView):
                 "from": offset,
                 "size": page_size,
                 "query": query,
-                "_source": {"includes": ["name", "product_images", "pack_size", "weight_unit", "weight_value"]}
+                "_source": {"includes": ["name", "product_images", "pack_size", "weight_unit", "weight_value", "visible"]}
             }
             products_list = es_search(index="all_products", body=body)
         for p in products_list['hits']['hits']:
+            visible_flag = p["_source"].get('visible', None)
+            if visible_flag is not None and not visible_flag:
+                logger.info("visible flag false for {}".format(p["_source"].get('name')))
+                continue
             if is_store_active:
+                if not Product.objects.filter(id=p["_source"]["id"]).exists():
+                    logger.info("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
+                    continue
                 product = Product.objects.get(id=p["_source"]["id"])
                 product_coupons = product.getProductCoupons()
                 coupons_queryset1 = Coupon.objects.filter(coupon_code__in=product_coupons, coupon_type='catalog')
@@ -358,9 +368,10 @@ class GramGRNProductsList(APIView):
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
                 if not check_price:
                     continue
+                check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
                 p["_source"]["ptr"] = check_price.selling_price
-                p["_source"]["mrp"] = check_price.mrp
-                p["_source"]["margin"] = (((check_price.mrp - check_price.selling_price) / check_price.mrp) * 100)
+                p["_source"]["mrp"] = check_price_mrp
+                p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
                 loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
                 cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
@@ -375,14 +386,14 @@ class GramGRNProductsList(APIView):
                                 if i['item_sku'] == c_p.cart_product.product_sku:
                                     discounted_product_subtotal = i['discounted_product_subtotal']
                                     p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
-                            p["_source"]["margin"] = (((float(check_price.mrp) - c_p.item_effective_prices) / float(
-                                check_price.mrp)) * 100)
+                            p["_source"]["margin"] = (((float(check_price_mrp) - c_p.item_effective_prices) / float(
+                                check_price_mrp)) * 100)
                             array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet2))
                             for j in coupons:
                                 for i in (array3 + array2):
                                     if j['coupon_code'] == i['coupon_code']:
                                         j['is_applied'] = True
-                        user_selected_qty = c_p.qty
+                        user_selected_qty = c_p.qty or 0
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
                         p["_source"]["no_of_pieces"] = no_of_pieces
@@ -723,6 +734,13 @@ class CartDetail(APIView):
                                  'delivery_message': self.delivery_message()}
                     )
                     for i in serializer.data['rt_cart_list']:
+                        if not i['cart_product']['product_pro_image']:
+                            product = Product.objects.get(id=i['cart_product']['id'])
+                            if product.use_parent_image:
+                                for im in product.parent_product.parent_product_pro_image.all():
+                                    parent_image_serializer = ParentProductImageSerializer(im)
+                                    i['cart_product']['product_pro_image'].append(parent_image_serializer.data)
+
                         if i['cart_product']['product_mrp'] == False:
                             i['qty'] = 0
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'],
@@ -1382,7 +1400,8 @@ def pdf_generation(request, ordered_product):
                 dict1["cess"] = (m.base_price * m.get_products_gst_cess_tax()) / 100
                 dict1["cess_rate"] = m.get_products_gst_cess_tax()
                 dict1["surcharge"] = (m.base_price * m.get_products_gst_surcharge()) / 100
-                dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                dict1["surcharge_rate"] = m.get_products_gst_surcharge()
                 dict1["total"] = m.product_tax_amount
                 list1.append(dict1)
 
@@ -1408,7 +1427,10 @@ def pdf_generation(request, ordered_product):
                 product_pro_price_ptr = round(product_price.selling_price, 2)
             else:
                 product_pro_price_ptr = cart_product_map.item_effective_prices
-            product_pro_price_mrp = round(product_price.mrp, 2)
+            if m.product.product_mrp:
+                product_pro_price_mrp = m.product.product_mrp
+            else:
+                product_pro_price_mrp = round(product_price.mrp, 2)
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
 
@@ -1588,7 +1610,8 @@ class DownloadCreditNoteDiscounted(APIView):
                 dict1["cess"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_cess_tax()) / 100
                 dict1["cess_rate"] = m.get_products_gst_cess_tax()
                 dict1["surcharge"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_surcharge()) / 100
-                dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                dict1["surcharge_rate"] = m.get_products_gst_surcharge()
                 dict1["total"] = m.product_tax_discount_amount
                 list1.append(dict1)
 
