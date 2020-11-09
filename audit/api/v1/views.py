@@ -401,7 +401,8 @@ class AuditBinsBySKUList(APIView):
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'sku', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        bin_ids = BinInventory.objects.filter(sku=audit_sku).values_list('bin_id', flat=True)
+        bin_ids = BinInventory.objects.filter(warehouse=audit.warehouse,
+                                              sku=audit_sku).values_list('bin_id', flat=True)
         bins_to_audit = Bin.objects.filter(id__in=bin_ids).values('bin_id')
         bins_audited = AuditRunItem.objects.filter(audit_run__audit=audit).values_list('bin__bin_id', flat=True)
         for b in bins_to_audit:

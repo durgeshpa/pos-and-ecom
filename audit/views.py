@@ -71,9 +71,15 @@ def run_warehouse_level_audit(audit_run):
 
         if isinstance(inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id], dict):
             inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] = 0
-
-        inventory_calculated[tr.sku.product_sku][tr.initial_type_id][tr.initial_stage_id] -= tr.quantity
-        inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] += tr.quantity
+        if tr.transaction_type in ['stock_correction_in_type', 'stock_correction_out_type']:
+            inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] = tr.quantity
+        elif tr.transaction_type in ['manual_audit_add']:
+            inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] += tr.quantity
+        elif tr.transaction_type in ['manual_audit_deduct']:
+            inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] -= tr.quantity
+        else:
+            inventory_calculated[tr.sku.product_sku][tr.initial_type_id][tr.initial_stage_id] -= tr.quantity
+            inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] += tr.quantity
 
     for item in current_inventory:
         if isinstance(inventory_calculated[item['sku_id']][item['inventory_type_id']][item['inventory_state_id']], dict):
@@ -109,7 +115,9 @@ def bin_transaction_type_switch(tr_type):
         'put_away_type': 1,
         'pickup_created': -1,
         'pickup_complete': 1,
-        'picking_cancelled': 1
+        'picking_cancelled': 1,
+        'manual_audit_add': 1,
+        'manual_audit_deduct': -1,
     }
     return tr_type_in_out.get(tr_type, 1)
 
@@ -234,8 +242,6 @@ def run_bin_warehouse_integrated_audit(audit_run):
 
 
 def run_audit_for_daily_operations(audit_run):
-    audit_started = audit_run.created_at
-    prev_day = audit_started.date() - datetime.timedelta(1)
     type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
     stage_available = InventoryState.objects.only('id').get(inventory_state='available').id
     stage_reserved = InventoryState.objects.only('id').get(inventory_state='reserved').id
