@@ -21,6 +21,7 @@ class Command(BaseCommand):
         create_parents()
         update_child_products()
         update_not_found_products()
+        make_parents_for_childs_with_missing_data()
 
 
 def create_parents():
@@ -337,3 +338,59 @@ def update_not_found_products():
     print(not_done)
     print(len(not_done))
     # print(count)
+
+def make_parents_for_childs_with_missing_data():
+    product_ids = [19419,19391,19349,19070,19069,19068,19064,18985,11012,10845,10780,7437,6979,6978,6977,
+    6975,6974,4763,4762,4533,4340,4087,3997,3873,3757,3532,3405,3404,3165,2799,2310,2193,2183,1110,1056]
+    product_hsn = "Dummy HSN"
+    brand_file = open("products/management/commands/product_brand_data.txt", "r")
+    brand_data = json.loads(brand_file.read())
+    print("brand")
+    print(len(brand_data))
+    brand_file.close()
+    c = 0
+    for product_id in product_ids:
+        product = Product.objects.get(id=product_id)
+        entry = brand_data.get(product.id, brand_data.get(str(product.id)))
+        hsn_entry = ProductHSN.objects.filter(product_hsn_code=product_hsn).last()
+        parent_product = ParentProduct.objects.create(
+            name=product.product_name.strip().replace('\\', ''),
+            parent_brand=Brand.objects.filter(id=entry.get('brand')).last(),
+            product_hsn=hsn_entry,
+            brand_case_size=int(entry.get('case')),
+            inner_case_size=int(entry.get('inner_case')),
+            product_type='both' # Need to confirm
+        )
+        parent_product.save()
+        for tax in entry.get('tax', []):
+            tax_type, percent = tax.split('__')
+            if 'gst' in tax_type:
+                parent_gst = gst_mapper(percent)
+                ParentProductTaxMapping.objects.create(
+                    parent_product=parent_product,
+                    tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last()
+                ).save()
+            elif 'cess' in tax_type:
+                parent_cess = cess_mapper(percent)
+                ParentProductTaxMapping.objects.create(
+                    parent_product=parent_product,
+                    tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last()
+                ).save()
+            elif 'surch' in tax_type:
+                ParentProductTaxMapping.objects.create(
+                    parent_product=parent_product,
+                    tax=Tax.objects.filter(tax_type='surcharge', tax_percentage=0).last()
+                ).save()
+        for cat in entry.get('cats', []):
+            parent_product_category = ParentProductCategory.objects.create(
+                parent_product=parent_product,
+                category=Category.objects.filter(id=cat).last()
+            )
+            parent_product_category.save()
+        product.parent_product = parent_product
+        product.status = entry.get('status', 'deactivated')
+        if entry.get('mrp'):
+            product.product_mrp = float(entry['mrp'])
+        product.save()
+        c += 1
+    print(c)
