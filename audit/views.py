@@ -312,7 +312,7 @@ def run_audit_for_daily_operations(audit_run):
         if isinstance(inventory_calculated[item['pickup__sku_id']][type_normal][stage_ordered], dict):
             inventory_calculated[item['pickup__sku_id']][type_normal][stage_ordered] = 0
         if isinstance(inventory_calculated[item['pickup__sku_id']][type_normal][stage_available], dict):
-                inventory_calculated[item['pickup__sku_id']][type_normal][stage_available] = 0
+            inventory_calculated[item['pickup__sku_id']][type_normal][stage_available] = 0
 
         inventory_calculated[item['pickup__sku_id']][type_normal][stage_picked] += item['pickup_qty']
         inventory_calculated[item['pickup__sku_id']][type_normal][stage_ordered] -= item['qty']
