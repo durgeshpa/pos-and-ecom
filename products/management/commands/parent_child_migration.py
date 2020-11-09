@@ -18,10 +18,11 @@ class Command(BaseCommand):
     help = 'Migration script for Parent Child Data'
 
     def handle(self, *args, **options):
-        create_parents()
-        update_child_products()
-        update_not_found_products()
-        make_parents_for_childs_with_missing_data()
+        # create_parents()
+        # update_child_products()
+        # update_not_found_products()
+        # make_parents_for_childs_with_missing_data()
+        migrate_mrp()
 
 
 def create_parents():
@@ -254,8 +255,8 @@ def update_child_products():
                 product.parent_product = parent
                 entry = brand_data.get(product.id, brand_data.get(str(product.id)))
                 product.status = entry.get('status', 'deactivated')
-                # if entry.get('mrp'):
-                #     product.product_mrp = float(entry[mrp])
+                if entry.get('mrp'):
+                    product.product_mrp = float(entry['mrp'])
                 # if product.id in status_data:
                 #     product.status = status_data[product.id]
                 # elif str(product.id) in status_data:
@@ -338,6 +339,20 @@ def update_not_found_products():
     print(not_done)
     print(len(not_done))
     # print(count)
+
+def migrate_mrp():
+    brand_file = open("products/management/commands/product_brand_data.txt", "r")
+    brand_data = json.loads(brand_file.read())
+    print("brand")
+    print(len(brand_data))
+    brand_file.close()
+    products = Product.objects.all()
+    for product in products:
+        entry = brand_data.get(product.id, brand_data.get(str(product.id)))
+        if entry:
+            if entry.get('mrp'):
+                product.product_mrp = float(entry['mrp'])
+            product.save()
 
 def make_parents_for_childs_with_missing_data():
     product_ids = [19419,19391,19349,19070,19069,19068,19064,18985,11012,10845,10780,7437,6979,6978,6977,

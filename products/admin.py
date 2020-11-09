@@ -103,7 +103,7 @@ class BrandFilter(AutocompleteFilter):
 
 
 class ChildParentIDFilter(AutocompleteFilter):
-    title = 'Parent ID'  # display title
+    title = 'Parent Product (ID or Name)'  # display title
     field_name = 'parent_product'  # name of the foreign key field
 
     def get_autocomplete_url(self, request, model_admin):
