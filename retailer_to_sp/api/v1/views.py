@@ -1463,7 +1463,7 @@ def pdf_generation(request, ordered_product):
             if product_special_cess is None:
                 product_special_cess = 0.0
             else:
-                product_special_cess
+                product_special_cess = product_special_cess
             gst_tax_list.append(gst_tax)
             cess_tax_list.append(cess_tax)
             surcharge_tax_list.append(surcharge_tax)
@@ -1483,7 +1483,9 @@ def pdf_generation(request, ordered_product):
                 tcs_tax = total_amount * float(tcs_rate / 100)
 
         tcs_tax = round(tcs_tax, 2)
-        total_amount = total_amount + tcs_tax
+        product_special_cess = round(product_special_cess)
+        amount = total_amount + product_special_cess
+        total_amount = total_amount + tcs_tax + product_special_cess
         total_amount_int = round(total_amount)
         total_tax_amount_int = round(total_tax_amount)
 
@@ -1500,7 +1502,7 @@ def pdf_generation(request, ordered_product):
         data = {"shipment": ordered_product, "order": ordered_product.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
                 "igst": igst, "cgst": cgst, "sgst": sgst, "product_special_cess":product_special_cess, "tcs_tax": tcs_tax, "tcs_rate": tcs_rate, "cess": cess,
-                "surcharge": surcharge, "total_amount": total_amount,
+                "surcharge": surcharge, "total_amount": total_amount, "amount": amount,
                 "barcode": barcode, "product_listing": product_listing, "rupees": rupees, "tax_rupees": tax_rupees,
                 "seller_shop_gistin": seller_shop_gistin, "buyer_shop_gistin": buyer_shop_gistin,
                 "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty, "sum_basic_amount": sum_basic_amount,

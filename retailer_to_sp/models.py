@@ -2020,8 +2020,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_sub_total(self):
-        return round(self.effective_price * self.shipped_qty, 2)
-
+        return round(float(self.effective_price * self.shipped_qty) + float(self.total_product_cess_amount), 2)
+        # round(float(self.effective_price * self.shipped_qty) + float(self.product_cess_amount), 2)
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             seller_shop__shop_type__shop_type='sp', status=True
