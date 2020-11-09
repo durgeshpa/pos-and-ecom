@@ -995,8 +995,8 @@ def product_csv_upload(request):
                     return 'different_weight'
                 elif 'ean' in reason:
                     return 'different_ean'
-                elif 'other' in reason:
-                    return 'other'
+                elif 'offer' in reason:
+                    return 'offer'
             try:
                 for row in reader:
                     if len(row) == 0:
