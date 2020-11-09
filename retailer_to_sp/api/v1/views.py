@@ -1388,7 +1388,7 @@ def pdf_generation(request, ordered_product):
                         if m.product.product_special_cess is None:
                             i["product_special_cess"] = i["product_special_cess"] + 0.0
                         else:
-                            i["product_special_cess"] = i["product_special_cess"] + m.product.product_special_cess
+                            i["product_special_cess"] = i["product_special_cess"] + m.total_product_cess_amount
                         i["total"] = i["total"] + m.product_tax_amount
                         flag = 1
 
@@ -1408,7 +1408,7 @@ def pdf_generation(request, ordered_product):
                 if dict1["product_special_cess"] is None:
                     dict1["product_special_cess"] = 0.0
                 else:
-                    dict1["product_special_cess"] = m.product.product_special_cess
+                    dict1["product_special_cess"] = m.total_product_cess_amount
                 dict1["surcharge_rate"] = m.get_products_gst_surcharge()
                 dict1["total"] = m.product_tax_amount
                 list1.append(dict1)
@@ -1505,7 +1505,7 @@ def pdf_generation(request, ordered_product):
                 tcs_tax = total_amount * float(tcs_rate / 100)
 
         tcs_tax = round(tcs_tax, 2)
-        product_special_cess = round(product_special_cess)
+        product_special_cess = round(m.total_product_cess_amount)
         amount = total_amount + product_special_cess
         total_amount = total_amount + tcs_tax + product_special_cess
         total_amount_int = round(total_amount)
