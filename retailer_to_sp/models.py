@@ -1938,7 +1938,11 @@ class OrderedProductMapping(models.Model):
             return ptr
         else:
             if self.effective_price:
-                return self.effective_price
+                if self.product_cess_amount is None:
+                    product_cess_amount = 0.0
+                else:
+                    product_cess_amount = self.product_cess_amount
+                return float(self.effective_price) + float(product_cess_amount)
             return self.ordered_product.order.ordered_cart.rt_cart_list \
                 .get(cart_product=self.product).item_effective_prices
 
@@ -2005,7 +2009,7 @@ class OrderedProductMapping(models.Model):
 
     @property
     def total_product_cess_amount(self):
-        product_special_cess = float(self.product_cess_amount) * (int(self.shipped_qty) * int(self.product.product_inner_case_size))
+        product_special_cess = float(self.product_cess_amount) * (int(self.shipped_qty))
         return round(float(product_special_cess), 2)
 
     @property
