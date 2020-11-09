@@ -230,7 +230,7 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
         return urls
 
     def product_status(self, obj):
-        return  obj.product.status
+        return obj.product.status == 'active'
     product_status.boolean = True
 
     class Media:
