@@ -142,12 +142,12 @@
                       			<tr>
         							<td><strong>Serial No.</strong></td>
 
-												<td class="text-center"><strong>GF Code</strong></td>
+												<!-- <td class="text-center"><strong>GF Code</strong></td> -->
         							<td class="text-center"><strong>Description of Goods</strong></td>
 
         							<td class="text-center"><strong>HSN/SAC</strong></td>
 
-									    <td class="text-center"><strong>Tax Rate (GST+CESS)</strong></td>
+									    <td class="text-center"><strong>Tax Rate (GST+CESS+SURCHARGE)</strong></td>
 											<td class="text-center"><strong>MRP</strong></td>
 											<td class="text-center"><strong>No. of Pieces</strong></td>
 											<td class="text-center"><strong> Basic Rate</strong></td>
@@ -163,7 +163,7 @@
 								{% if m.shipped_qty != 0 %}
 								<tr>
 									<td><strong>{{forloop.counter}}</strong></td>
-									<td class="text-center">{{ m.product.product_gf_code}}</td>
+									<!-- <td class="text-center">{{ m.product.product_gf_code}}</td> -->
 									<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
 									<td class="text-center">{{ m.product.product_hsn}}</td>
 									<td class="text-center">{{ m.get_product_tax_json}}</td>

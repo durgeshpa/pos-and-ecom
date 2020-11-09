@@ -15,6 +15,13 @@
          <th{% if field.required %} class="required"{% endif %}>{{ field.label|capfirst }}
          {% if field.help_text %}&nbsp;<img src="{% static "admin/img/icon-unknown.svg" %}" class="help help-tooltip" width="10" height="10" alt="({{ field.help_text|striptags }})" title="{{ field.help_text|striptags }}">{% endif %}
          </th>
+
+         {% if field.label == 'Product mrp' %}
+            <th>
+                Add New Child SKU
+            </th>
+         {% endif %}
+
        {% endif %}
      {% endfor %}
      {% if inline_admin_formset.formset.can_delete %}<th>{% trans "Delete?" %}</th>{% endif %}
@@ -59,6 +66,13 @@
                   {{ field.field }}
               {% endif %}
               </td>
+
+              {% if field.field.name == 'product_mrp' %}
+                  <td>
+                    <a href="javascript:;" class="button_add_new_child"><img src="/static/admin/img/icon-addlink.svg" alt="Add"></a>
+                  </td>
+                {% endif %}
+
               {% endif %}
             {% endfor %}
           {% endfor %}
@@ -73,7 +87,15 @@
 </fieldset>
   </div>
 </div>
-
+<script>(function($){
+    $('.button_add_new_child').click(function(){
+        var product_id = $(this).closest('tr').children('.field-product').children('select').val();
+        var win = window.open(`/admin/products/product/add/?product=${product_id}`, '_blank');
+        if (win) {
+            win.focus();
+        }
+    })})(django.jQuery);
+</script>
 <script type="text/javascript">
 (function($) {
     'use strict';

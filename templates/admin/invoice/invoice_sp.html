@@ -137,12 +137,12 @@ table tr td,th,h4,span,address{
                       			<tr>
         							<td><strong>Serial No.</strong></td>
 
-												<td class="text-center"><strong>GF Code</strong></td>
+												<!-- <td class="text-center"><strong>GF Code</strong></td> -->
         							<td class="text-center"><strong>Description of Goods</strong></td>
 
         							<td class="text-center"><strong>HSN/SAC</strong></td>
 
-									    <td class="text-center"><strong>Tax Rate (GST+CESS)</strong></td>
+									    <td class="text-center"><strong>Tax Rate (GST+CESS+SURCHARGE)</strong></td>
 										<td class="text-center"><strong>Specific Cess Amount (per unit)</strong></td>
 											<td class="text-center"><strong>MRP</strong></td>
 											<td class="text-center"><strong>No. of Pieces</strong></td>
@@ -160,7 +160,7 @@ table tr td,th,h4,span,address{
 								{% if m.shipped_qty != 0 %}
 								<tr>
 								<td><strong>{{forloop.counter}}</strong></td>
-									<td class="text-center">{{ m.product.product_gf_code}}</td>
+									<!-- <td class="text-center">{{ m.product.product_gf_code}}</td> -->
 								<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
 								<td class="text-center">{{ m.product.product_hsn}}</td>
 								<td class="text-center">{{ m.get_product_tax_json}}</td>
@@ -186,12 +186,10 @@ table tr td,th,h4,span,address{
     								<td class="thick-line"></td>
 									<td class="thick-line"></td>
 									<td class="thick-line"></td>
-									<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong>₹{{shipment.sum_amount_tax| floatformat:2 | intcomma }}/-</strong></td>
     								<td class="thick-line text-right"><strong>₹{{amount| intcomma}}/-</strong></td>
     							</tr>
 								<tr>
-									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
@@ -216,7 +214,6 @@ table tr td,th,h4,span,address{
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
-									<td class="no-line text-center"></td>
 									<td class="no-line text-center">TCS Value</td>
 									<td class="no-line text-center">{{tcs_tax}}</td>
 								</tr>
@@ -231,7 +228,6 @@ table tr td,th,h4,span,address{
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
 									<td class="no-line text-center"></td>
-									<td class="thick-line text-center"></td>
 									<td class="thick-line text-center"></td>
 									<td class="thick-line text-center"></td>
 								</tr>
@@ -333,7 +329,6 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
     								<td class="no-line"></td>
 										<td class="no-line"></td>
-									<td class="no-line"></td>
 									<td class="no-line text-right"><strong>Total</strong></td>
     								<td class="no-line text-right" colspan="2">
     									<strong>₹ {{total_amount| intcomma}}/- </strong>
