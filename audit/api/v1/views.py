@@ -561,6 +561,8 @@ class AuditInventory(APIView):
     def update_inventory(audit_no, warehouse, batch_id, bin, sku, inventory_type, inventory_state,
                          expected_qty, physical_qty):
         info_logger.info('AuditInventory | update_inventory | started ')
+        initial_inventory_type = InventoryType.objects.filter(inventory_type='new').last()
+        initial_inventory_state = InventoryState.objects.filter(inventory_state='new').last()
         if expected_qty == physical_qty:
             info_logger.info('AuditInventory | update_inventory | Quantity matched, updated not required')
             return
@@ -578,7 +580,7 @@ class AuditInventory(APIView):
         BinInternalInventoryChange.objects.create(warehouse=warehouse, sku=sku,
                                                   batch_id=batch_id,
                                                   final_bin=bin,
-                                                  initial_inventory_type=inventory_type,
+                                                  initial_inventory_type=initial_inventory_type,
                                                   final_inventory_type=inventory_type,
                                                   transaction_type=tr_type,
                                                   transaction_id=audit_no,
@@ -597,7 +599,8 @@ class AuditInventory(APIView):
                                                                          qty_diff, True)
             WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku,
                                                                                tr_type, audit_no,
-                                                                               inventory_type, inventory_state,
+                                                                               initial_inventory_type,
+                                                                               initial_inventory_state,
                                                                                inventory_type, inventory_state,
                                                                                abs(qty_diff))
         info_logger.info('AuditInventory | update_inventory | completed')

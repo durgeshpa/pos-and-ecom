@@ -109,8 +109,7 @@ def bin_transaction_type_switch(tr_type):
         'put_away_type': 1,
         'pickup_created': -1,
         'pickup_complete': 1,
-        'stock_correction_in_type': 1,
-        'stock_correction_out_type': -1
+        'picking_cancelled': 1
     }
     return tr_type_in_out.get(tr_type, 1)
 
@@ -146,8 +145,11 @@ def run_bin_level_audit(audit_run):
     for tr in last_day_transactions:
         if isinstance(inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id], dict):
             inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id] = 0
-        quantity = bin_transaction_type_switch(tr.transaction_type)*tr.quantity
-        inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id] += quantity
+        if tr.transaction_type in ['stock_correction_in_type','stock_correction_out_type']:
+            inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id] = tr.quantity
+        else:
+            quantity = bin_transaction_type_switch(tr.transaction_type)*tr.quantity
+            inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id] += quantity
 
     for item in current_inventory:
         if isinstance(inventory_calculated[item['sku_id']][item['batch_id']][item['bin_id']][item['inventory_type_id']], dict):
@@ -190,13 +192,10 @@ def run_bin_warehouse_integrated_audit(audit_run):
                                                 .filter(warehouse=audit_run.warehouse) \
                                                 .annotate(quantity=Sum('quantity'))
     pickup_blocked_inventory = Pickup.objects.filter(warehouse=audit_run.warehouse,
-                                                     status__in=['pickup_creation','pickup_assigned'])\
+                                                     status__in=['pickup_creation', 'pickup_assigned'])\
                                              .values('sku_id').annotate(qty=Sum('quantity'))
 
     pickup_dict = {g['sku_id']: g['qty'] for g in pickup_blocked_inventory}
-    pickup_cancelled_inventory = Putaway.objects.filter(status__in=['pickup_cancelled'],
-                                                       putaway_quantity=0)\
-                                               .values('sku_id').annotate(qty=Sum('quantity'))
 
     for item in current_bin_inventory:
         warehouse_quantity = WarehouseInventory.objects.filter(Q(warehouse__id=audit_run.warehouse.id),
