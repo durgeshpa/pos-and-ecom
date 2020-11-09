@@ -411,9 +411,6 @@ class UploadParentProductAdminForm(forms.Form):
 
 class ProductForm(forms.ModelForm):
     product_name = forms.CharField(required=True)
-    # product_short_description = forms.CharField(required=True)
-    # product_slug = forms.CharField(required=True)
-    # product_gf_code = forms.CharField(required=True)
     product_ean_code = forms.CharField(required=True)
     parent_product = forms.ModelChoiceField(
         queryset=ParentProduct.objects.all(),
@@ -423,13 +420,12 @@ class ProductForm(forms.ModelForm):
             attrs={"onChange":'getDefaultChildDetails()'}
         )
     )
+    product_special_cess = forms.FloatField(required=False, min_value=0)
 
     class Meta:
         model = Product
-        # fields = ('product_name','product_slug','product_short_description', 'product_long_description',
-        #           'product_gf_code', 'product_ean_code', 'product_hsn','product_brand', 'product_inner_case_size',
-        #           'product_case_size','weight_value', 'weight_unit', 'status',)
-        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status',)
+        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status',
+                  'product_special_cess',)
 
     def clean(self):
         cleaned_data = self.cleaned_data

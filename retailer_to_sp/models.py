@@ -1999,8 +1999,22 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_tax_amount(self):
+        product_special_cess = self.total_product_cess_amount
         get_tax_val = self.get_product_tax_json() / 100
-        return round(float(self.base_price) * float(get_tax_val), 2)
+        return round(float(self.base_price) * float(get_tax_val), 2) + product_special_cess
+
+    @property
+    def total_product_cess_amount(self):
+        product_special_cess = float(self.product_cess_amount) * (int(self.shipped_qty) * int(self.product.product_inner_case_size))
+        return round(float(product_special_cess), 2)
+
+    @property
+    def product_cess_amount(self):
+        if self.product.product_special_cess is None:
+            return 0.0
+        else:
+            product_special_cess = float(self.product.product_special_cess)
+            return round(float(product_special_cess), 2)
 
     @property
     def product_tax_return_amount(self):
@@ -2014,8 +2028,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_sub_total(self):
-        return round(self.effective_price * self.shipped_qty, 2)
-
+        return round(float(self.effective_price * self.shipped_qty) + float(self.total_product_cess_amount), 2)
+        # round(float(self.effective_price * self.shipped_qty) + float(self.product_cess_amount), 2)
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             seller_shop__shop_type__shop_type='sp', status=True

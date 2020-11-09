@@ -143,6 +143,7 @@ table tr td,th,h4,span,address{
         							<td class="text-center"><strong>HSN/SAC</strong></td>
 
 									    <td class="text-center"><strong>Tax Rate (GST+CESS+SURCHARGE)</strong></td>
+										<td class="text-center"><strong>Specific Cess Amount (per unit)</strong></td>
 											<td class="text-center"><strong>MRP</strong></td>
 											<td class="text-center"><strong>No. of Pieces</strong></td>
 											<td class="text-center"><strong> Basic Rate</strong></td>
@@ -163,6 +164,7 @@ table tr td,th,h4,span,address{
 								<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
 								<td class="text-center">{{ m.product.product_hsn}}</td>
 								<td class="text-center">{{ m.get_product_tax_json}}</td>
+									<td class="text-center">{{ m.product_cess_amount}}</td>
 								<td class="text-center"><strong>{{ m.mrp}}</strong></td>
 								<td class="text-center">{{m.shipped_qty}}</td>
 								<td class="text-center">{{m.basic_rate |floatformat:2 | intcomma}}</td>
@@ -185,7 +187,7 @@ table tr td,th,h4,span,address{
 									<td class="thick-line"></td>
 									<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong>₹{{shipment.sum_amount_tax| floatformat:2 | intcomma }}/-</strong></td>
-    								<td class="thick-line text-right"><strong>₹{{shipment.invoice_amount| floatformat:2 | intcomma }}/-</strong></td>
+    								<td class="thick-line text-right"><strong>₹{{amount| intcomma}}/-</strong></td>
     							</tr>
 								<tr>
 									<td class="no-line text-center"></td>
@@ -361,6 +363,7 @@ table tr td,th,h4,span,address{
 									{% endif %}
 									<td colspan="2" class="text-center"><strong>CESS</strong></td>
 									<td colspan="2" class="text-center"><strong>SURCHARGE</strong></td>
+									<td colspan="2" class="text-center"><strong>SPECIFIC CESS</strong></td>
 									<td class="text-center"><strong>Total</strong></td>
 								</tr>
 								<tr>
@@ -382,6 +385,8 @@ table tr td,th,h4,span,address{
 									<td class="text-center"><strong>Amount</strong></td>
 
 									<td class="text-center"><strong>Rate</strong></td>
+									<td class="text-center"><strong>Amount</strong></td>
+									<td class="text-center"><strong></strong></td>
 									<td class="text-center"><strong>Amount</strong></td>
 
 									<td class="text-center"><strong>Tax Amount</strong></td>
@@ -407,6 +412,8 @@ table tr td,th,h4,span,address{
 
 										<td class="text-center">{{ m.surcharge_rate }}%</td>
 										<td class="text-center">{{ m.surcharge | floatformat:2 }}</td>
+										<td class="text-center"></td>
+										<td class="text-center">{{ m.product_special_cess| floatformat:2}}</td>
 
 										<td class="text-center">{{ m.total |floatformat:2 | intcomma}}</td>
 								</tr>
@@ -434,6 +441,9 @@ table tr td,th,h4,span,address{
 
 									<td class="thick-line text-center"></td>
 									<td class="thick-line text-center"><strong>{{ surcharge | floatformat:2 }}</strong></td>
+
+                                    <td class="thick-line text-center"></td>
+									<td class="thick-line text-center"><strong>{{ product_special_cess| floatformat:2 }}</strong></td>
 
 									<td class="thick-line text-center"><strong>₹{{ shipment.sum_amount_tax| floatformat:2 | intcomma }}/-</strong></td></td>
 								</tr>
