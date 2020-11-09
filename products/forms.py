@@ -463,8 +463,8 @@ class UploadChildProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Parent Product' doesn't exist in the system."))
             if not row[1]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can not be empty."))
-            elif row[1].lower() not in ['default', 'different mrp', 'different weight', 'different ean', 'other']:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can only be 'Default', 'Different MRP', 'Different Weight', 'Different EAN', 'Other'."))
+            elif row[1].lower() not in ['default', 'different mrp', 'different weight', 'different ean', 'offer']:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can only be 'Default', 'Different MRP', 'Different Weight', 'Different EAN', 'Offer'."))
             if not row[2]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Product Name' can not be empty."))
             elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[2]):
