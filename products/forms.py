@@ -313,6 +313,7 @@ class ProductForm(forms.ModelForm):
     product_slug = forms.CharField(required=True)
     product_gf_code = forms.CharField(required=True)
     product_ean_code = forms.CharField(required=True)
+    product_special_cess = forms.FloatField(required=False, min_value=0)
 
     class Meta:
         model = Product

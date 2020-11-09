@@ -1366,6 +1366,10 @@ def pdf_generation(request, ordered_product):
                         i["igst"] = i["igst"] + (m.base_price * m.get_products_gst()) / 100
                         i["cess"] = i["cess"] + (m.base_price * m.get_products_gst_cess_tax()) / 100
                         i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
+                        if m.product.product_special_cess is None:
+                            i["product_special_cess"] = i["product_special_cess"] + 0.0
+                        else:
+                            i["product_special_cess"] = i["product_special_cess"] + m.product.product_special_cess
                         i["total"] = i["total"] + m.product_tax_amount
                         flag = 1
 
@@ -1382,6 +1386,11 @@ def pdf_generation(request, ordered_product):
                 dict1["cess_rate"] = m.get_products_gst_cess_tax()
                 dict1["surcharge"] = (m.base_price * m.get_products_gst_surcharge()) / 100
                 dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                dict1["product_special_cess"] = m.product.product_special_cess
+                if dict1["product_special_cess"] is None:
+                    dict1["product_special_cess"] = 0.0
+                else:
+                    dict1["product_special_cess"] = m.product.product_special_cess
                 dict1["total"] = m.product_tax_amount
                 list1.append(dict1)
 
@@ -1450,6 +1459,11 @@ def pdf_generation(request, ordered_product):
             gst_tax = (m.base_price * m.get_products_gst()) / 100
             cess_tax = (m.base_price * m.get_products_gst_cess_tax()) / 100
             surcharge_tax = (m.base_price * m.get_products_gst_surcharge()) / 100
+            product_special_cess = m.product.product_special_cess
+            if product_special_cess is None:
+                product_special_cess = 0.0
+            else:
+                product_special_cess
             gst_tax_list.append(gst_tax)
             cess_tax_list.append(cess_tax)
             surcharge_tax_list.append(surcharge_tax)
@@ -1485,7 +1499,7 @@ def pdf_generation(request, ordered_product):
 
         data = {"shipment": ordered_product, "order": ordered_product.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
-                "igst": igst, "cgst": cgst, "sgst": sgst, "tcs_tax": tcs_tax, "tcs_rate": tcs_rate, "cess": cess,
+                "igst": igst, "cgst": cgst, "sgst": sgst, "product_special_cess":product_special_cess, "tcs_tax": tcs_tax, "tcs_rate": tcs_rate, "cess": cess,
                 "surcharge": surcharge, "total_amount": total_amount,
                 "barcode": barcode, "product_listing": product_listing, "rupees": rupees, "tax_rupees": tax_rupees,
                 "seller_shop_gistin": seller_shop_gistin, "buyer_shop_gistin": buyer_shop_gistin,
@@ -1570,6 +1584,7 @@ class DownloadCreditNoteDiscounted(APIView):
                         i["surcharge"] = i["surcharge"] + (
                                 m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
                         i["total"] = i["total"] + m.product_tax_discount_amount
+                        i["product_special_cess"] = i["product_special_cess"] + m.product.product_special_cess
                         flag = 1
 
             if flag == 0:
@@ -1586,6 +1601,7 @@ class DownloadCreditNoteDiscounted(APIView):
                 dict1["surcharge"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_surcharge()) / 100
                 dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
                 dict1["total"] = m.product_tax_discount_amount
+                dict1["product_special_cess"] = m.product.product_special_cess
                 list1.append(dict1)
 
             sum_qty = sum_qty + (int(m.delivered_qty))
