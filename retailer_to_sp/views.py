@@ -147,7 +147,7 @@ class DownloadCreditNote(APIView):
                             i["igst"] = i["igst"] + (m.base_price * m.get_products_gst()) / 100
                             i["cess"] = i["cess"] + (m.base_price * m.get_products_gst_cess_tax()) / 100
                             i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
-                            i["total"] = i["total"] + m.product_tax_amount
+                            i["total"] = round(i["total"] + m.product_tax_amount)
                             if m.product.product_special_cess is None:
                                 i["product_special_cess"] = i["product_special_cess"] + 0.0
                             else:
@@ -173,7 +173,7 @@ class DownloadCreditNote(APIView):
                         dict1["product_special_cess"] = 0.0
                     else:
                         dict1["product_special_cess"] = m.total_product_cess_amount
-                    dict1["total"] = m.product_tax_amount
+                    dict1["total"] = round(m.product_tax_amount)
                     list1.append(dict1)
 
                 sum_qty = sum_qty + (int(m.shipped_qty))
@@ -202,7 +202,7 @@ class DownloadCreditNote(APIView):
                             i["igst"] = i["igst"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 100
                             i["cess"] = i["cess"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_cess_tax()) / 100
                             i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
-                            i["total"] = i["total"] + m.product_tax_amount
+                            i["total"] = round(i["total"] + m.product_tax_amount)
                             if m.product.product_special_cess is None:
                                 i["product_special_cess"] = i["product_special_cess"] + 0.0
                             else:
@@ -228,7 +228,7 @@ class DownloadCreditNote(APIView):
                         dict1["product_special_cess"] = 0.0
                     else:
                         dict1["product_special_cess"] = m.total_product_cess_amount
-                    dict1["total"] = m.product_tax_return_amount
+                    dict1["total"] = round(m.product_tax_return_amount)
                     list1.append(dict1)
                 sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
                 sum_basic_amount += m.basic_rate * (m.returned_qty + m.damaged_qty)
@@ -268,7 +268,7 @@ class DownloadCreditNote(APIView):
 
         data = {
             "object": credit_note, "products": products, "shop": credit_note, "total_amount": total_amount,
-            "total_product_tax_amount": total_product_tax_amount, "sum_qty": sum_qty, "sum_amount": sum_amount,
+            "total_product_tax_amount": round(total_product_tax_amount), "sum_qty": sum_qty, "sum_amount": sum_amount,
             "sum_basic_amount": sum_basic_amount, "url": request.get_host(), "tcs_tax": tcs_tax, "tcs_rate": tcs_rate,
             "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
             "sgst": sgst,"product_special_cess":product_special_cess, "cess": cess, "surcharge": surcharge,
