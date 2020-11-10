@@ -433,6 +433,15 @@ class ProductForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = self.cleaned_data
+        if cleaned_data['use_parent_image']:
+            if not cleaned_data['parent_product'].parent_product_pro_image.exists():
+                raise ValidationError(_(f"Parent Product Images could not be found. Please upload Child Images."))
+        else:
+            if not self.files:
+                raise ValidationError(_(f"Child Product Images should be uploaded when not using Parent Product Images."))
+            else:
+                if len(self.files) < 1:
+                    raise ValidationError(_(f"Child Product Images should be uploaded when not using Parent Product Images."))
         return cleaned_data
 
 
