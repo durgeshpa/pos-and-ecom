@@ -1938,11 +1938,7 @@ class OrderedProductMapping(models.Model):
             return ptr
         else:
             if self.effective_price:
-                if self.product_cess_amount is None:
-                    product_cess_amount = 0.0
-                else:
-                    product_cess_amount = self.product_cess_amount
-                return float(self.effective_price) + float(product_cess_amount)
+                return float(self.effective_price)
             return self.ordered_product.order.ordered_cart.rt_cart_list \
                 .get(cart_product=self.product).item_effective_prices
 
@@ -1988,7 +1984,7 @@ class OrderedProductMapping(models.Model):
     @property
     def basic_rate(self):
         get_tax_val = self.get_product_tax_json() / 100
-        basic_rate = (float(self.effective_price)) / (float(get_tax_val) + 1)
+        basic_rate = (float(self.effective_price)-float(self.product_cess_amount)) / (float(get_tax_val) + 1)
         return round(basic_rate, 2)
 
     @property
@@ -2003,9 +1999,9 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_tax_amount(self):
-        product_special_cess = self.total_product_cess_amount
-        get_tax_val = self.get_product_tax_json() / 100
-        return round(float(self.base_price) * float(get_tax_val), 2) + product_special_cess
+        #product_special_cess = self.total_product_cess_amount
+        #get_tax_val = self.get_product_tax_json() / 100
+        return round(float(self.product_sub_total) -float(self.base_price), 2)
 
     @property
     def total_product_cess_amount(self):
@@ -2032,7 +2028,7 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_sub_total(self):
-        return round(float(self.effective_price * self.shipped_qty) + float(self.total_product_cess_amount), 2)
+        return round(float(self.effective_price * self.shipped_qty), 2)
         # round(float(self.effective_price * self.shipped_qty) + float(self.product_cess_amount), 2)
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
