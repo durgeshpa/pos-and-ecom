@@ -38,10 +38,10 @@ def amount(value, *args, **kwargs):
 
 
 @register.simple_tag(name='findTax')
-def findTax(r, per, product_cess_amount, *args, **kwargs):
+def findTax(r, per, product_cess_amount, qty, *args, **kwargs):
     # you would need to do any localization of the result here
     special_cess= float(product_cess_amount)
-    return round(((float(r*100)/(100+per)*per)/100) + special_cess, 2)
+    return round((((float((r-special_cess)*100)/(100+per)*per)/100) + special_cess)*qty, 2)
 
 
 @register.simple_tag(name='addition')

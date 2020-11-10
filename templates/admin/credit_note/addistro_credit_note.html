@@ -137,7 +137,7 @@
                     {% else %}
                     <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
                     {% endif %} -->
-							<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage m.product_cess_amount %}</strong></td>
+							<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_product_tax_json m.product_cess_amount m.shipped_qty %}</strong></td>
 									<td class="text-center"></td>
 
 
@@ -170,7 +170,7 @@
                     {% else %}
                     <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
                     {% endif %} -->
-                            <td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage  m.product_cess_amount %}</strong></td>
+                            <td class="text-center"><strong>{% findTax m.price_to_retailer m.get_product_tax_json m.product_cess_amount addition m.returned_qty m.damaged_qty %}</strong></td>
                                     <td class="text-center"></td>
 
 
