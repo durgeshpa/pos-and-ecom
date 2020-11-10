@@ -254,9 +254,9 @@ class DownloadCreditNote(APIView):
 
         tcs_tax = round(tcs_tax, 2)
         product_special_cess = round(m.total_product_cess_amount)
-        sum_amount = sum_amount + product_special_cess
-        amount = total_amount + product_special_cess
-        total_amount = total_amount + tcs_tax + product_special_cess
+        sum_amount = sum_amount
+        amount = total_amount
+        total_amount = total_amount + tcs_tax
         total_amount_int = round(total_amount)
         total_product_tax_amount_int = round(total_product_tax_amount)
 
