@@ -1118,7 +1118,7 @@ class RepackagingForm(forms.ModelForm):
                     source_quantity:
                 raise forms.ValidationError("Source Quantity Changed! Please Input Again")
         if self.instance.source_picking_status in ['pickup_created', 'picking_assigned']:
-                    raise forms.ValidationError("Source pickup is still not complete.")
+            raise forms.ValidationError("Source pickup is still not complete.")
         return self.cleaned_data
 
     def __init__(self, *args, **kwargs):

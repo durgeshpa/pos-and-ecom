@@ -83,7 +83,12 @@
 
 	$("#repackaging_form").submit(function() {
       if (is_valid()) {
-        return true;
+        if ($("#id_source_repackage_quantity").val() > available_source_quantity_initial){
+	        alert("Please enter repackage quantity less than available source quantity")
+	        return false;
+	    } else {
+            return true;
+        }
       } else {
         alert("Please fill all mandatory fields!")
         return false;
