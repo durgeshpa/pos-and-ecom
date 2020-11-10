@@ -21,7 +21,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductVendorMapping, Size, Tax, Weight,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
-                             DestinationRepackagingCostMapping)
+                             DestinationRepackagingCostMapping, ParentProductImage)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -31,6 +31,11 @@ from wms.models import InventoryType, WarehouseInventory, InventoryState
 class ProductImageForm(forms.ModelForm):
     class Meta:
         model = ProductImage
+        fields = ('image', )
+
+class ParentProductImageForm(forms.ModelForm):
+    class Meta:
+        model = ParentProductImage
         fields = ('image', )
 
 class ProductPriceForm(forms.Form):
@@ -406,15 +411,16 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
             if not row[1]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Brand' can not be empty."))
-            elif not Brand.objects.filter(brand_name=row[1]).exists():
+            elif not Brand.objects.filter(brand_name=row[1].strip()).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | 'Brand' doesn't exist in the system."))
             if not row[2]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Category' can not be empty."))
             else:
-                if not Category.objects.filter(category_name=row[2]).exists():
+                if not Category.objects.filter(category_name=row[2].strip()).exists():
                     categories = row[2].split(',')
                     for cat in categories:
-                        if not Category.objects.filter(category_name=cat.strip()).exists():
+                        cat = cat.strip().replace("'", '')
+                        if not Category.objects.filter(category_name=cat).exists():
                             raise ValidationError(_(f"Row {row_id + 1} | 'Category' {cat.strip()} doesn't exist in the system."))
             if not row[3]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'HSN' can not be empty."))
@@ -424,9 +430,9 @@ class UploadParentProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | 'GST' can not be empty."))
             elif not re.match("^([0]|[5]|[1][2]|[1][8]|[2][8])(\s+)?(%)?$", row[4]):
                 raise ValidationError(_(f"Row {row_id + 1} | 'GST' can only be 0, 5, 12, 18, 28."))
-            if row[5] and not re.match("^([0]|[1][2])$", row[5]):
+            if row[5] and not re.match("^([0]|[1][2])(\s+)?%?$", row[5]):
                 raise ValidationError(_(f"Row {row_id + 1} | 'CESS' can only be 0, 12."))
-            if row[6] and not re.match("^\d+$", row[6]):
+            if row[6] and not re.match("^[0-9]\d*(\.\d{1,2})?(\s+)?%?$", row[6]):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Surcharge' can only be a numeric value."))
             if not row[7]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Brand Case Size' can not be empty."))
@@ -445,9 +451,6 @@ class UploadParentProductAdminForm(forms.Form):
 
 class ProductForm(forms.ModelForm):
     product_name = forms.CharField(required=True)
-    # product_short_description = forms.CharField(required=True)
-    # product_slug = forms.CharField(required=True)
-    # product_gf_code = forms.CharField(required=True)
     product_ean_code = forms.CharField(required=True)
     parent_product = forms.ModelChoiceField(
         queryset=ParentProduct.objects.all(),
@@ -457,16 +460,24 @@ class ProductForm(forms.ModelForm):
             attrs={"onChange":'getDefaultChildDetails()'}
         )
     )
+    product_special_cess = forms.FloatField(required=False, min_value=0)
 
     class Meta:
         model = Product
-        # fields = ('product_name','product_slug','product_short_description', 'product_long_description',
-        #           'product_gf_code', 'product_ean_code', 'product_hsn','product_brand', 'product_inner_case_size',
-        #           'product_case_size','weight_value', 'weight_unit', 'status',)
-        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status', 'repackaging_type')
+        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status', 'repackaging_type',
+                  'product_special_cess',)
 
     def clean(self):
         cleaned_data = self.cleaned_data
+        if cleaned_data['use_parent_image']:
+            if not cleaned_data['parent_product'].parent_product_pro_image.exists():
+                raise ValidationError(_(f"Parent Product Images could not be found. Please upload Child Images."))
+        else:
+            if not self.files:
+                raise ValidationError(_(f"Child Product Images should be uploaded when not using Parent Product Images."))
+            else:
+                if len(self.files) < 1:
+                    raise ValidationError(_(f"Child Product Images should be uploaded when not using Parent Product Images."))
         return cleaned_data
 
 
@@ -510,8 +521,8 @@ class UploadChildProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Parent Product' doesn't exist in the system."))
             if not row[1]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can not be empty."))
-            elif row[1].lower() not in ['default', 'different mrp', 'different weight', 'different ean', 'other']:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can only be 'Default', 'Different MRP', 'Different Weight', 'Different EAN', 'Other'."))
+            elif row[1].lower() not in ['default', 'different mrp', 'different weight', 'different ean', 'offer']:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Reason for Child SKU' can only be 'Default', 'Different MRP', 'Different Weight', 'Different EAN', 'Offer'."))
             if not row[2]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Product Name' can not be empty."))
             elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[2]):

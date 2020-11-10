@@ -53,6 +53,9 @@ def update_product_image_elasticsearch(sender, instance=None, created=False, **k
 
 @receiver(post_save, sender=Product)
 def update_product_elasticsearch(sender, instance=None, created=False, **kwargs):
+    if not instance.parent_product:
+        logger.error("Post Save call being cancelled for product {} because Parent Product mapping doesn't exist".format(instance.id))
+        return
     logger.info("Updating Tax Mappings of product")
     update_product_tax_mapping(instance)
     logger.error("updating product to elastic search")

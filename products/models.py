@@ -221,18 +221,12 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
 class Product(models.Model):
     product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255, blank=True)
-    # product_short_description = models.CharField(max_length=255, validators=[ProductNameValidator], null=True, blank=True)
-    # product_long_description = models.TextField(null=True, blank=True)
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
-    # product_gf_code = models.CharField(max_length=255, blank=False, unique=True)
     product_ean_code = models.CharField(max_length=255, blank=True)
-    # product_hsn = models.ForeignKey(ProductHSN, related_name='product_hsn', null=True, blank=True, on_delete=models.CASCADE)
-    # product_brand = models.ForeignKey(Brand, related_name='prodcut_brand_product', blank=False, on_delete=models.CASCADE)
-    # product_inner_case_size = models.CharField(max_length=255, null=True)
-    # product_case_size = models.CharField(max_length=255, blank=False)
     product_mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     weight_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=WEIGHT_UNIT_CHOICES, default='gm')
+    product_special_cess = models.FloatField(null=True, blank=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     STATUS_CHOICES = (
@@ -650,11 +644,13 @@ class ProductImage(models.Model):
     def __str__(self):
         return self.image.name
 
+
 class Tax(models.Model):
     TAX_CHOICES = (
             ("cess", "Cess"),
             ("gst", "GST"),
             ("surcharge", "Surcharge"),
+            ("tcs", "TCS")
         )
 
     tax_name = models.CharField(max_length=255,validators=[ProductNameValidator])
@@ -691,6 +687,9 @@ class ProductTaxMapping(models.Model):
 
     def get_products_gst_surcharge(self):
         return self.product.product_pro_tax.filter(tax__tax_type='surcharge')
+
+    def get_products_tcs(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='tcs')
 # class ProductSurcharge(models.Model):
 #     product = models.ForeignKey(Product, related_name='product_pro_surcharge',on_delete=models.CASCADE)
 #     surcharge_name = models.CharField(max_length=255, validators=[NameValidator])

@@ -26,7 +26,7 @@ from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
     ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
-    UploadChildProductAdminForm
+    UploadChildProductAdminForm, ParentProductImageForm
     )
 from products.models import (
     Product, ProductCategory, ProductOption,
@@ -34,7 +34,7 @@ from products.models import (
     ProductImage, ProductHSN, ProductPrice,
     ParentProduct, ParentProductCategory,
     ProductSourceMapping,
-    ParentProductTaxMapping, Tax
+    ParentProductTaxMapping, Tax, ParentProductImage
     )
 
 logger = logging.getLogger(__name__)
@@ -629,7 +629,7 @@ def products_csv_upload_view(request):
 
 class MultiPhotoUploadView(View):
     """
-    Bulk images upload with GFcode as photo name
+    Bulk images upload with Child SKU ID as photo name
     """
     def get(self, request):
         photos_list = ProductImage.objects.all()
@@ -644,14 +644,15 @@ class MultiPhotoUploadView(View):
         if form.is_valid():
             file_name = (
                 os.path.splitext(form.cleaned_data['image'].name)[0])
+            product_sku = file_name.split("_")[0]
             try:
-                product = Product.objects.get(product_gf_code=file_name)
+                product = Product.objects.get(product_sku=product_sku)
             except:
                 data = {
                     'is_valid': False,
                     'error': True,
-                    'name': 'No Product found with GF code <b>' + file_name
-                            + '</b>', 'url': '#'
+                    'name': 'No Product found with SKU ID <b>{}</b>'.format(product_sku),
+                    'url': '#'
                 }
 
             else:
@@ -662,7 +663,54 @@ class MultiPhotoUploadView(View):
                 data = {
                     'is_valid': True,
                     'name': form_instance.image.name,
-                    'url': form_instance.image.url
+                    'url': form_instance.image.url,
+                    'product_sku': product.product_sku,
+                    'product_name': product.product_name
+                }
+        else:
+            data = {'is_valid': False}
+        return JsonResponse(data)
+
+
+class ParentProductMultiPhotoUploadView(View):
+    """
+    Bulk images upload with Parent ID as photo name
+    """
+    def get(self, request):
+        photos_list = ParentProductImage.objects.all()
+        return render(
+            self.request,
+            'admin/products/parentproductmultiphotoupload.html',
+            {'photos': photos_list}
+        )
+
+    def post(self, request):
+        form = ParentProductImageForm(self.request.POST, self.request.FILES)
+        if form.is_valid():
+            file_name = (
+                os.path.splitext(form.cleaned_data['image'].name)[0])
+            parent_id = file_name.split("_")[0]
+            try:
+                parent = ParentProduct.objects.get(parent_id=parent_id)
+            except:
+                data = {
+                    'is_valid': False,
+                    'error': True,
+                    'name': 'No Parent Product found with Parent ID <b>{}</b>'.format(parent_id),
+                    'url': '#'
+                }
+
+            else:
+                form_instance = form.save(commit=False)
+                form_instance.parent_product = parent
+                form_instance.image_name = file_name
+                form_instance.save()
+                data = {
+                    'is_valid': True,
+                    'name': form_instance.image.name,
+                    'url': form_instance.image.url,
+                    'product_sku': parent.parent_id,
+                    'product_name': parent.name
                 }
         else:
             data = {'is_valid': False}
@@ -818,6 +866,11 @@ def parent_product_upload(request):
                     return 18
                 elif '28' in gst:
                     return 28
+            def cess_mapper(cess):
+                if '0' in cess:
+                    return 0
+                elif '12' in cess:
+                    return 12
             try:
                 for row in reader:
                     if len(row) == 0:
@@ -827,8 +880,8 @@ def parent_product_upload(request):
                             row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
                             continue
                     parent_product = ParentProduct.objects.create(
-                        name=row[0],
-                        parent_brand=Brand.objects.filter(brand_name=row[1]).last(),
+                        name=row[0].strip(),
+                        parent_brand=Brand.objects.filter(brand_name=row[1].strip()).last(),
                         product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
                         brand_case_size=int(row[7]),
                         inner_case_size=int(row[8]),
@@ -840,12 +893,12 @@ def parent_product_upload(request):
                         parent_product=parent_product,
                         tax=Tax.objects.filter(tax_type='gst', tax_percentage=parent_gst).last()
                     ).save()
-                    parent_cess = int(row[5]) if row[5] else 0
+                    parent_cess = cess_mapper(row[5]) if row[5] else 0
                     ParentProductTaxMapping.objects.create(
                         parent_product=parent_product,
                         tax=Tax.objects.filter(tax_type='cess', tax_percentage=parent_cess).last()
                     ).save()
-                    parent_surcharge = int(row[6]) if row[6] else 0
+                    parent_surcharge = float(row[6]) if row[6] else 0
                     if Tax.objects.filter(
                         tax_type='surcharge',
                         tax_percentage=parent_surcharge
@@ -866,16 +919,16 @@ def parent_product_upload(request):
                             parent_product=parent_product,
                             tax=new_surcharge_tax
                         ).save()
-                    if Category.objects.filter(category_name=row[2]).exists():
+                    if Category.objects.filter(category_name=row[2].strip()).exists():
                         parent_product_category = ParentProductCategory.objects.create(
                             parent_product=parent_product,
-                            category=Category.objects.filter(category_name=row[2]).last()
+                            category=Category.objects.filter(category_name=row[2].strip()).last()
                         )
                         parent_product_category.save()
                     else:
                         categories = row[2].split(',')
                         for cat in categories:
-                            cat = cat.strip()
+                            cat = cat.strip().replace("'", '')
                             parent_product_category = ParentProductCategory.objects.create(
                                 parent_product=parent_product,
                                 category=Category.objects.filter(category_name=cat).last()
@@ -944,8 +997,8 @@ def product_csv_upload(request):
                     return 'different_weight'
                 elif 'ean' in reason:
                     return 'different_ean'
-                elif 'other' in reason:
-                    return 'other'
+                elif 'offer' in reason:
+                    return 'offer'
             try:
                 for row in reader:
                     if len(row) == 0:

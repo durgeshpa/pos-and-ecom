@@ -143,6 +143,7 @@ table tr td,th,h4,span,address{
         							<td class="text-center"><strong>HSN/SAC</strong></td>
 
 									    <td class="text-center"><strong>Tax Rate (GST+CESS+SURCHARGE)</strong></td>
+										<td class="text-center"><strong>Specific Cess Amount (per unit)</strong></td>
 											<td class="text-center"><strong>MRP</strong></td>
 											<td class="text-center"><strong>No. of Pieces</strong></td>
 											<td class="text-center"><strong> Basic Rate</strong></td>
@@ -163,6 +164,7 @@ table tr td,th,h4,span,address{
 								<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
 								<td class="text-center">{{ m.product.product_hsn}}</td>
 								<td class="text-center">{{ m.get_product_tax_json}}</td>
+									<td class="text-center">{{ m.product_cess_amount}}</td>
 								<td class="text-center"><strong>{{ m.mrp}}</strong></td>
 								<td class="text-center">{{m.shipped_qty}}</td>
 								<td class="text-center">{{m.basic_rate |floatformat:2 | intcomma}}</td>
@@ -172,49 +174,86 @@ table tr td,th,h4,span,address{
 								<td class="text-right"><strong>{{m.product_sub_total|floatformat:2| intcomma }}/-</strong></td>
     							</tr>
 								{% endif %}
-					{% endfor %}
+								{% endfor %}
     							<tr>
 									<td></td>
-
 									<td></td>
 									<td><strong></strong></td>
-
 									<td></td>
-                  <td></td>
+                  					<td></td>
 									<td></td>
-								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
+								  	<td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
     								<td class="thick-line"></td>
-										<td class="thick-line"></td>
-										<td class="thick-line"></td>
+									<td class="thick-line"></td>
+									<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong>₹{{shipment.sum_amount_tax| floatformat:2 | intcomma }}/-</strong></td>
-    								<td class="thick-line text-right"><strong>₹{{shipment.invoice_amount| floatformat:2 | intcomma }}/-</strong></td>
+    								<td class="thick-line text-right"><strong>₹{{amount| intcomma}}/-</strong></td>
     							</tr>
+								<tr>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center">TCS Rate</td>
+									<td class="no-line text-center">{{tcs_rate}} %</td>
+								</tr>
+								<tr>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center">TCS Value</td>
+									<td class="no-line text-center">{{tcs_tax}}</td>
+								</tr>
+								<tr>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="no-line text-center"></td>
+									<td class="thick-line text-center"></td>
+									<td class="thick-line text-center"></td>
+								</tr>
 						{% if shipment.order.seller_shop.shop_name_address_mapping.all == shipment.order.shipping_address %}
     							<tr style="display:none">
 
 									<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-
 									<td class="no-line"></td>
-                  <td class="no-line"></td>
-									<td class="no-line"></td>
-    								<td class="no-line"></td>
-    								<td class="no-line"></td>
+                  					<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
-										<td class="no-line"></td>
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
     								<td class="no-line text-center"><strong>CGST</strong></td>
     								<td class="no-line text-right"><strong>₹{{cgst | floatformat:2 }}/-</strong></td>
     							</tr>
 								<tr style="display:none">
-
     								<td class="no-line"></td>
 									<td class="no-line"></td>
-										<td class="no-line"></td>
-
 									<td class="no-line"></td>
-                  <td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -292,9 +331,10 @@ table tr td,th,h4,span,address{
 										<td class="no-line"></td>
 									<td class="no-line text-right"><strong>Total</strong></td>
     								<td class="no-line text-right" colspan="2">
-    									<strong>₹ {{shipment.invoice_amount| intcomma}}/- </strong>
+    									<strong>₹ {{total_amount| intcomma}}/- </strong>
     								</td>
     							</tr>
+
 
 								<tr>
 								<td colspan="12"></td>
@@ -323,6 +363,7 @@ table tr td,th,h4,span,address{
 									{% endif %}
 									<td colspan="2" class="text-center"><strong>CESS</strong></td>
 									<td colspan="2" class="text-center"><strong>SURCHARGE</strong></td>
+									<td colspan="2" class="text-center"><strong>SPECIFIC CESS</strong></td>
 									<td class="text-center"><strong>Total</strong></td>
 								</tr>
 								<tr>
@@ -345,35 +386,13 @@ table tr td,th,h4,span,address{
 
 									<td class="text-center"><strong>Rate</strong></td>
 									<td class="text-center"><strong>Amount</strong></td>
+									<td class="text-center"><strong></strong></td>
+									<td class="text-center"><strong>Amount</strong></td>
 
 									<td class="text-center"><strong>Tax Amount</strong></td>
 								</tr>
 							</thead>
 							<tbody>
-<!--								<tr>-->
-<!--									{% for m in shipment.rt_order_product_order_product_mapping.all %}-->
-<!--										<td class="text-center">{{ m.product.product_hsn }}</td>-->
-<!--										<td class="text-center">{{ m.base_price |floatformat:2 | intcomma }}</td>-->
-<!--										{% if shipment.order.shipping_address.state == state_gram %}-->
-<!--											<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>-->
-<!--											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>-->
-
-<!--											<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>-->
-<!--											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>-->
-<!--										{% else %}-->
-<!--											<td class="text-center">{{ m.get_products_gst }}%</td>-->
-<!--											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:100|floatformat:2 }}</td>-->
-<!--										{% endif %}-->
-
-<!--										<td class="text-center">{{ m.get_products_gst_cess_tax }}%</td>-->
-<!--										<td class="text-center">{{ m.base_price|mul:m.get_products_gst_cess_tax|div:100|floatformat:2 }}</td>-->
-
-<!--										<td class="text-center">{{ m.get_products_gst_surcharge }}%</td>-->
-<!--										<td class="text-center">{{ m.base_price|mul:m.get_products_gst_surcharge|div:100|floatformat:2 }}</td>-->
-
-<!--										<td class="text-center">{{m.product_tax_amount |floatformat:2 | intcomma}}</td>-->
-<!--								</tr>-->
-<!--								{% endfor %}-->
 								<tr>
 									{% for m in hsn_list %}
 										<td class="text-center">{{ m.hsn }}</td>
@@ -393,6 +412,8 @@ table tr td,th,h4,span,address{
 
 										<td class="text-center">{{ m.surcharge_rate }}%</td>
 										<td class="text-center">{{ m.surcharge | floatformat:2 }}</td>
+										<td class="text-center"></td>
+										<td class="text-center">{{ m.product_special_cess| floatformat:2}}</td>
 
 										<td class="text-center">{{ m.total |floatformat:2 | intcomma}}</td>
 								</tr>
@@ -420,6 +441,9 @@ table tr td,th,h4,span,address{
 
 									<td class="thick-line text-center"></td>
 									<td class="thick-line text-center"><strong>{{ surcharge | floatformat:2 }}</strong></td>
+
+                                    <td class="thick-line text-center"></td>
+									<td class="thick-line text-center"><strong>{{ product_special_cess| floatformat:2 }}</strong></td>
 
 									<td class="thick-line text-center"><strong>₹{{ shipment.sum_amount_tax| floatformat:2 | intcomma }}/-</strong></td></td>
 								</tr>

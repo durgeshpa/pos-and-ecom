@@ -42,7 +42,8 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     DestinationProductAutocomplete,
                     parent_product_upload, ParentProductsDownloadSampleCSV,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
-                    ParentProductAutocomplete, ParentProductsAutocompleteView)
+                    ParentProductAutocomplete, ParentProductsAutocompleteView,
+                    ParentProductMultiPhotoUploadView)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
@@ -106,7 +107,7 @@ class BrandFilter(AutocompleteFilter):
 
 
 class ChildParentIDFilter(AutocompleteFilter):
-    title = 'Parent ID'  # display title
+    title = 'Parent Product (ID or Name)'  # display title
     field_name = 'parent_product'  # name of the foreign key field
 
     def get_autocomplete_url(self, request, model_admin):
@@ -233,7 +234,7 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
         return urls
 
     def product_status(self, obj):
-        return  obj.product.status
+        return obj.product.status == 'active'
     product_status.boolean = True
 
     class Media:
@@ -517,7 +518,12 @@ class ParentProductAdmin(admin.ModelAdmin):
                 r'^parent-products-download-sample-csv/$',
                 self.admin_site.admin_view(ParentProductsDownloadSampleCSV),
                 name="parent-products-download-sample-csv"
-            )
+            ),
+            url(
+                r'^parent-product-multiple-photos-upload/$',
+                self.admin_site.admin_view(ParentProductMultiPhotoUploadView.as_view()),
+                name='parent_product_multiple_photos_upload'
+            ),
         ] + urls
         return urls
 
