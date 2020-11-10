@@ -137,7 +137,7 @@
                     {% else %}
                     <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
                     {% endif %} -->
-							<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage %}</strong></td>
+							<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_product_tax_json m.product_cess_amount m.shipped_qty %}</strong></td>
 									<td class="text-center"></td>
 
 
@@ -164,12 +164,13 @@
                                             <td class="text-center">{{ m.product.product_short_description}}</td>
                                     <td class="text-center">{{ m.product.product_hsn}}</td>
                                         <td class="text-center">{{ m.get_product_tax_json}}</td>
+								<td class="text-center">{{ m.product_cess_amount}}</td>
                     <!-- {% if m.get_products_gst_cess %}
                    <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage |add:m.get_products_gst_cess.last.tax.tax_percentage }}%</strong></td>
                     {% else %}
                     <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
                     {% endif %} -->
-                            <td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage %}</strong></td>
+                            <td class="text-center"><strong>{% findTax m.price_to_retailer m.get_product_tax_json m.product_cess_amount addition m.returned_qty m.damaged_qty %}</strong></td>
                                     <td class="text-center"></td>
 
 
@@ -197,11 +198,11 @@
 
 									<td></td>
 									<td></td>
-                  <td></td>
+                  					<td></td>
+									<td></td>
 									<td></td>
 
-
-<td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
+									<td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
 								  <td class="thick-line text-center"><strong></strong></td>
     								<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong>Total</strong></td>
@@ -337,6 +338,7 @@
 									{% endif %}
 									<td colspan="2" class="text-center"><strong>CESS</strong></td>
 									<td colspan="2" class="text-center"><strong>SURCHARGE</strong></td>
+									<td colspan="2" class="text-center"><strong>SPECIFIC CESS</strong></td>
 									<td class="text-center"><strong>Total</strong></td>
 								</tr>
 								<tr>
@@ -359,7 +361,8 @@
 
 									<td class="text-center"><strong>Rate</strong></td>
 									<td class="text-center"><strong>Amount</strong></td>
-
+									<td class="text-center"><strong></strong></td>
+									<td class="text-center"><strong>Amount</strong></td>
 									<td class="text-center"><strong>Tax Amount</strong></td>
 								</tr>
 							</thead>
@@ -427,6 +430,8 @@
 
 										<td class="text-center">{{ m.surcharge_rate }}%</td>
 										<td class="text-center">{{ m.surcharge | floatformat:2 }}</td>
+										<td class="text-center"></td>
+										<td class="text-center">{{ m.product_special_cess| floatformat:2}}</td>
 
 										<td class="text-center">{{ m.total |floatformat:2 | intcomma}}</td>
 								</tr>
@@ -453,6 +458,8 @@
 
 									<td class="thick-line text-center"></td>
 									<td class="thick-line text-center"><strong>{{ surcharge | floatformat:2 }}</strong></td>
+									<td class="thick-line text-center"></td>
+									<td class="thick-line text-center"><strong>{{ product_special_cess | floatformat:2 }}</strong></td>
 									<td class="thick-line text-center"><strong>₹{{ total_product_tax_amount| floatformat:2 | intcomma }}/-</strong></td></td>
 								</tr>
 								<tr>

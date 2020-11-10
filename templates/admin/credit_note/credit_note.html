@@ -129,7 +129,7 @@
 										{% else %}
 										<td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
 										{% endif %} -->
-										<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage m.product_cess_amount m.shipped_qty %}</strong></td>
+										<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_product_tax_json m.product_cess_amount m.shipped_qty %}</strong></td>
 										<td class="text-center"></td>
 										<td class="text-center">{{ m.shipped_qty }}</td>
 										<div style="display:none"> {{m.shipped_qty | total_returned_qty }}</div>
@@ -141,7 +141,7 @@
 										<div style="display:none"> {{m.shipped_qty | total_returned_qty }}</div>
                        					<div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
 <!--                    				{% with h=m.price_to_retailer %}-->
-    									<td class="text-right">{% multiply_price_with_qty m.price_to_retailer m.shipped_qty m.product_cess_amount m.shipped_qty%}/</td>
+    									<td class="text-right">{% multiply_price_with_qty m.price_to_retailer m.shipped_qty %}/</td>
 <!--									{% endwith %}-->
 								</tr>
 									{% endfor %}
@@ -159,7 +159,7 @@
 										{% else %}
 										<td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
 										{% endif %} -->
-                            			<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage m.product_cess_amount m.shipped_qty %}</strong></td>
+                            			<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_product_tax_json m.product_cess_amount addition m.returned_qty m.damaged_qty %}</strong></td>
                                     	<td class="text-center"></td>
                                     	<td class="text-center">{% addition m.returned_qty m.damaged_qty %}</td>
                                     	<div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
@@ -171,7 +171,7 @@
 										<div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
                        					<div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
 <!--                    				{% with h=m.price_to_retailer %}-->
-                                    	<td class="text-right">{% addMultiplication m.price_to_retailer m.returned_qty m.damaged_qty m.product_cess_amount m.shipped_qty%}</td>
+                                    	<td class="text-right">{% addMultiplication m.price_to_retailer m.returned_qty m.damaged_qty %}</td>
 <!--                                    {% endwith %}-->
                                 </tr>
                                     {% endfor %}
