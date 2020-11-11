@@ -1,0 +1,22 @@
+{% extends "admin/change_form.html" %} {% load i18n %}
+
+{% block content %}
+    {{ block.super }}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <style>
+        .required_field_red::after {
+            content: "*";
+            color: red;
+            margin-left: 2px;
+        }
+    </style>
+    <script>
+        $(document).ready(function(jQuery) {
+            var inline_admins = document.getElementsByClassName("tabular inline-related");
+            var parent_product_category_fieldset = inline_admins[0].getElementsByTagName('fieldset');
+            parent_product_category_fieldset[0].getElementsByTagName('h2')[0].className = 'required_field_red';
+            var parent_product_image_fieldset = inline_admins[1].getElementsByTagName('fieldset');
+            parent_product_image_fieldset[0].getElementsByTagName('h2')[0].className = 'required_field_red';
+        });
+    </script>
+{% endblock %}

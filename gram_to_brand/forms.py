@@ -25,7 +25,7 @@ from .models import (
 from brand.models import Brand
 from addresses.models import State, Address
 from brand.models import Vendor
-from products.models import Product, ProductVendorMapping
+from products.models import Product, ProductVendorMapping, ParentProduct
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 
 
@@ -66,7 +66,10 @@ class POGenerationForm(forms.ModelForm):
     delivery_term = forms.CharField(widget=forms.Textarea(attrs={'rows': 2, 'cols': 33}),required=True)
 
     class Media:
-        js = ('/static/admin/js/po_generation_form.js',)
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+            '/static/admin/js/po_generation_form.js',
+        )
 
     class Meta:
         model = Cart
@@ -133,9 +136,26 @@ class POGenerationAccountForm(forms.ModelForm):
     change_form_template = 'admin/gram_to_brand/acc-cart/change_form.html'
 
 class CartProductMappingForm(forms.ModelForm):
+    cart_parent_product = forms.ModelChoiceField(
+        queryset=ParentProduct.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='parent-product-autocomplete',
+            attrs={
+                "onChange":'getLastGrnProductDetails(this)'
+            },
+            forward=['supplier_name']
+        )
+    )
     cart_product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
+        widget=autocomplete.ModelSelect2(
+            url='vendor-product-autocomplete',
+            attrs={
+                "onChange":'getProductVendorPriceDetails(this)'
+            },
+            forward=['supplier_name', 'cart_parent_product']
+        ),
+        label='CART CHILD PRODUCT'
     )
     mrp = forms.CharField(disabled=True, required=False)
     sku = forms.CharField(disabled=True, required=False)
@@ -160,9 +180,15 @@ class CartProductMappingForm(forms.ModelForm):
 
     class Meta:
         model = CartProductMapping
-        fields = ('cart','cart_product','mrp','sku','tax_percentage','case_sizes','no_of_cases','price','sub_total','no_of_pieces','vendor_product')
+        fields = ('cart', 'cart_parent_product', 'cart_product','mrp','sku','tax_percentage','case_sizes','no_of_cases','price','sub_total','no_of_pieces','vendor_product')
         search_fields=('cart_product',)
         exclude = ('qty',)
+
+    class Media:
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            'admin/js/po_generation_form.js'
+        )
 
 class GRNOrderForm(forms.ModelForm):
     class Meta:

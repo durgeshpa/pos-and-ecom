@@ -361,20 +361,26 @@ class PutAwayAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     def grn_id(self, obj):
-        if obj.putaway_type == 'GRN':
-            in_type_id = In.objects.filter(id=obj.putaway_type_id).last().in_type_id
-            grn_id = GRNOrder.objects.filter(grn_id=in_type_id).last().id
-            return format_html("<a href='/admin/gram_to_brand/grnorder/%s/change/'> %s </a>" % (str(grn_id), str(in_type_id)))
-        else:
+        try:
+            if obj.putaway_type == 'GRN':
+                in_type_id = In.objects.filter(id=obj.putaway_type_id).last().in_type_id
+                grn_id = GRNOrder.objects.filter(grn_id=in_type_id).last().id
+                return format_html("<a href='/admin/gram_to_brand/grnorder/%s/change/'> %s </a>" % (str(grn_id), str(in_type_id)))
+            else:
+                return '-'
+        except:
             return '-'
 
     def trip_id(self, obj):
-        if obj.putaway_type == 'RETURNED':
-            invoice_number = Invoice.objects.filter(invoice_no=obj.putaway_type_id).last().shipment.trip.dispatch_no
-            trip_id = Trip.objects.filter(dispatch_no=invoice_number).last().id
-            return format_html(
-                "<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'> %s </a>" % (str(trip_id), str(invoice_number)))
-        else:
+        try:
+            if obj.putaway_type == 'RETURNED':
+                invoice_number = Invoice.objects.filter(invoice_no=obj.putaway_type_id).last().shipment.trip.dispatch_no
+                trip_id = Trip.objects.filter(dispatch_no=invoice_number).last().id
+                return format_html(
+                    "<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'> %s </a>" % (str(trip_id), str(invoice_number)))
+            else:
+                return '-'
+        except:
             return '-'
 
     def download_bulk_put_away_csv(self, request, queryset):
