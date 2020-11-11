@@ -843,7 +843,8 @@ def cancel_order_with_pick(instance):
     """
     with transaction.atomic():
         # get the queryset object from Pickup Bin Inventory Model
-        pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)
+        pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
+                                                      .exclude(pickup__status='picking_cancelled')
         # iterate over the PickupBin Inventory object
         for pickup_bin in pickup_bin_object:
             # if pick up status is pickup creation
@@ -925,7 +926,7 @@ def cancel_order_with_pick(instance):
                                                          putaway=pu, bin=pickup_bin.bin, putaway_status=False,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
             # get the queryset filter from Pickup model
-        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
+        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
         # iterate the pickup objects and set the status picking cancelled
         for obj in pickup_obj:
             obj.status = 'picking_cancelled'

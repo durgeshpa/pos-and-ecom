@@ -531,7 +531,9 @@ class PickupDetail(APIView):
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                         pickup__sku__id=j)
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
-                        Pickup.objects.filter(pickup_type_id=order_no, sku__id=j).update(pickup_quantity=sum_total)
+                        Pickup.objects.filter(pickup_type_id=order_no, sku__id=j)\
+                                      .exclude(status='picking_cancelled')\
+                                      .update(pickup_quantity=sum_total)
                         serializer = PickupBinInventorySerializer(picking_details.last())
                         data_list.append(serializer.data)
         msg = {'is_success': True, 'message': 'Pick up data saved successfully.',
@@ -554,7 +556,7 @@ class PickupComplete(APIView):
         if pd_obj.count() > 1:
             msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        pick_obj = Pickup.objects.filter(pickup_type_id=order_no)
+        pick_obj = Pickup.objects.filter(pickup_type_id=order_no).exclude(status='picking_cancelled')
 
         if pick_obj.exists():
             for pickup in pick_obj:

@@ -1052,9 +1052,10 @@ class Order(models.Model):
 
     @property
     def pickup_completed_at(self):
-        pickup_object = Pickup.objects.filter(pickup_type_id=self.order_no)
+        pickup_object = Pickup.objects.filter(pickup_type_id=self.order_no,
+                                              status='picking_complete')
         if pickup_object.exists():
-            return Pickup.objects.filter(pickup_type_id=self.order_no).last().completed_at
+            return pickup_object.last().completed_at
 
     @property
     def invoice_no(self):
