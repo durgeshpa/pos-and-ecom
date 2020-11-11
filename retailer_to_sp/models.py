@@ -1788,7 +1788,8 @@ class PickerDashboard(models.Model):
         super(PickerDashboard, self).save(*args, **kwargs)
         if self.picking_status == 'picking_assigned':
             PickerDashboard.objects.filter(id=self.id).update(picker_assigned_date=datetime.datetime.now())
-            Pickup.objects.filter(pickup_type_id=self.order.order_no).update(status='picking_assigned')
+            Pickup.objects.filter(pickup_type_id=self.order.order_no,
+                                  status='pickup_creation').update(status='picking_assigned')
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
