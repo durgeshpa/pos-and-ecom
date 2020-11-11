@@ -85,19 +85,19 @@ def find_mrp(product):
 
 def create_brand_data():
 
-    mrp_data = {}
-    missing_mrp_file = open('products/management/commands/missing_mrp_data.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(missing_mrp_file, 'utf-8'))
-    first_row = next(reader)
-    for _, row in enumerate(reader):
-        if not row[0] or not row[9]:
-            continue
-        try:
-            mrp_val = float(row[9])
-        except Exception as e:
-            continue
-        else:
-            mrp_data[row[0]] = str(mrp_val)
+    # mrp_data = {}
+    # missing_mrp_file = open('products/management/commands/missing_mrp_data.csv', 'rb')
+    # reader = csv.reader(codecs.iterdecode(missing_mrp_file, 'utf-8'))
+    # first_row = next(reader)
+    # for _, row in enumerate(reader):
+    #     if not row[0] or not row[9]:
+    #         continue
+    #     try:
+    #         mrp_val = float(row[9])
+    #     except Exception as e:
+    #         continue
+    #     else:
+    #         mrp_data[row[0]] = str(mrp_val)
 
     brand_file = open('products/management/commands/product_brand_data.txt', "w")
     brand_data = {}
@@ -123,10 +123,10 @@ def create_brand_data():
         mrp_found, mrp = find_mrp(product)
         if mrp_found:
             brand_data[product.id]['mrp'] = str(mrp)
-        elif mrp_data.get(product.id):
-            brand_data[product.id]['mrp'] = mrp_data[product.id]
-        elif mrp_data.get(str(product.id)):
-            brand_data[product.id]['mrp'] = mrp_data[str(product.id)]
+        # elif mrp_data.get(product.id):
+        #     brand_data[product.id]['mrp'] = mrp_data[product.id]
+        # elif mrp_data.get(str(product.id)):
+        #     brand_data[product.id]['mrp'] = mrp_data[str(product.id)]
         
 
 

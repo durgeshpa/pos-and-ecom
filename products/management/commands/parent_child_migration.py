@@ -18,11 +18,14 @@ class Command(BaseCommand):
     help = 'Migration script for Parent Child Data'
 
     def handle(self, *args, **options):
-        # create_parents()
-        # update_child_products()
-        # update_not_found_products()
+        print("Creating Parent Products")
+        create_parents()
+        print("Mapping Child Products to Parents")
+        update_child_products()
+        print("Creating 1-to-1 mapping for Child Products with no Parent Product data")
+        update_not_found_products()
         # make_parents_for_childs_with_missing_data()
-        migrate_mrp()
+        # migrate_mrp()
 
 
 def create_parents():
@@ -194,16 +197,16 @@ def create_parent_product(row_id, row):
 
 def update_child_products():
     count = 0
-    status_file = open("products/management/commands/product_status_data.txt", "r")
-    status_data = json.loads(status_file.read())
-    print("status")
-    print(len(status_data))
-    status_file.close()
-    mrp_file = open("products/management/commands/product_mrp_data.txt", "r")
-    mrp_data = json.loads(mrp_file.read())
-    print("mrp")
-    print(len(mrp_data))
-    mrp_file.close()
+    # status_file = open("products/management/commands/product_status_data.txt", "r")
+    # status_data = json.loads(status_file.read())
+    # print("status")
+    # print(len(status_data))
+    # status_file.close()
+    # mrp_file = open("products/management/commands/product_mrp_data.txt", "r")
+    # mrp_data = json.loads(mrp_file.read())
+    # print("mrp")
+    # print(len(mrp_data))
+    # mrp_file.close()
     brand_file = open("products/management/commands/product_brand_data.txt", "r")
     brand_data = json.loads(brand_file.read())
     print("brand")
@@ -268,19 +271,26 @@ def update_child_products():
                 product.save()
                 count += 1
     # print(not_found)
+    print("Child Product not found")
     print(len(not_found))
-    # print(parent_nf)
+    print("Parent Product not found")
+    print(parent_nf)
     print(len(parent_nf))
+    print("Parent Mapping could not be done")
     print(not_done)
     print(len(not_done))
+    print("Products mapped count")
     print(count)
 
 
 def create_parent_product_for_one(product, data):
     entry = data.get(product.id, data.get(str(product.id)))
     if not entry.get('hsn'):
-        return False, False
-    hsn_entry = ProductHSN.objects.filter(id=entry.get('hsn')).last()
+        product_hsn = "Dummy HSN"
+        hsn_entry = ProductHSN.objects.filter(product_hsn_code=product_hsn).last()
+        # return False, False
+    else:
+        hsn_entry = ProductHSN.objects.filter(id=entry.get('hsn')).last()
     parent_product = ParentProduct.objects.create(
         name=product.product_name.strip().replace('\\', ''),
         parent_brand=Brand.objects.filter(id=entry.get('brand')).last(),
@@ -336,6 +346,7 @@ def update_not_found_products():
             if entry.get('mrp'):
                 product.product_mrp = float(entry['mrp'])
             product.save()
+    print("Child Products for which Parent Product could not be made")
     print(not_done)
     print(len(not_done))
     # print(count)
