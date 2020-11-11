@@ -16,7 +16,7 @@ from django.db import models
 from django.db.models import Sum
 
 from shops.models import Shop, ParentRetailerMapping
-from products.models import Product, ProductVendorMapping
+from products.models import Product, ProductVendorMapping, ParentProduct
 from brand.models import Brand, Vendor
 from addresses.models import Address, City, State
 from retailer_to_gram.models import (
@@ -193,6 +193,7 @@ class Cart(BaseCart):
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
+    cart_parent_product = models.ForeignKey(ParentProduct, related_name='cart_parent_product_mapping', on_delete=models.CASCADE, default=None, null=True)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
     _tax_percentage = models.FloatField(db_column="tax_percentage", null=True)
     #Todo Remove
@@ -221,6 +222,11 @@ class CartProductMapping(models.Model):
         self._tax_percentage = value
 
     def calculate_tax_percentage(self):
+        # if self.cart_product.parent_product:
+        #     tax_percentage = self.cart_product.parent_product.gst + self.cart_product.parent_product.cess + self.cart_product.parent_product.surcharge
+        # else:
+        #     tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
+        #     tax_percentage = sum(tax_percentage)
         tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
         tax_percentage = sum(tax_percentage)
         return tax_percentage
@@ -348,20 +354,23 @@ class Order(BaseOrder):
         verbose_name = _("Add GRN")
         verbose_name_plural = _("Add GRN")
 
+
 class GRNOrder(BaseShipment): #Order Shipment
-    order = models.ForeignKey(Order,verbose_name='PO Number',related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
+    order = models.ForeignKey(Order, verbose_name='PO Number', related_name='order_grn_order', on_delete=models.CASCADE, null=True, blank=True )
     invoice_no = models.CharField(max_length=255)
     invoice_date = models.DateField(null=True)
-    invoice_amount = models.DecimalField(max_digits=20,decimal_places=4,default=('0.0000'))
-    #e_way_bill_no = models.CharField(max_length=255, blank=True, null=True)
-    #e_way_bill_document = models.FileField(null=True,blank=True)
+    invoice_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
+    tcs_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
+    # e_way_bill_no = models.CharField(max_length=255, blank=True, null=True)
+    # e_way_bill_document = models.FileField(null=True,blank=True)
     grn_id = models.CharField(max_length=255,null=True,blank=True)
-    last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order', null=True,blank=True, on_delete=models.CASCADE)
+    last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order', null=True, blank=True, on_delete=models.CASCADE)
     grn_date = models.DateField(auto_now_add=True)
-    #brand_invoice = models.FileField(null=True,blank=True,upload_to='brand_invoice')
+    # brand_invoice = models.FileField(null=True,blank=True,upload_to='brand_invoice')
     products = models.ManyToManyField(Product,through='GRNOrderProductMapping')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
     def __str__(self):
         return str(self.grn_id)
 

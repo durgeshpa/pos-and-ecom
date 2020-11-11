@@ -15,8 +15,14 @@
  * Licensed under the New BSD License
  * See: http://www.opensource.org/licenses/bsd-license.php
  */
+if (!$) {
+    $ = django.jQuery;
+}
 (function($) {
     'use strict';
+    if (!$) {
+        $ = django.jQuery;
+    }
     $.fn.formset = function(opts) {
         var options = $.extend({}, $.fn.formset.defaults, opts);
         var $this = $(this);

@@ -1,0 +1,62 @@
+{% extends "admin/change_list.html" %} {% load i18n %} 
+{% load static %}
+{% load staticfiles %}
+{% load total_counts %}
+
+{% block content %}
+    {% get_products_count as product_sku %}
+    {% get_active_products_count as active_product_sku %}
+    <div>
+        <div style="float: left;">
+            <table style="width: 90%;">
+                <thead>
+                    <tr>
+                    <th>
+                    <div class="text">
+                    <p><strong>Total Child SKUs</strong></p>
+                    </div>
+                    </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                    <th>
+                    <div class="text">
+                    <p><strong>{{product_sku}}</strong></p>
+                    </div>
+                    </th>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="float: left;">
+            <table style="width: 90%;">
+                <thead>
+                    <tr>
+                    <th>
+                    <div class="text">
+                    <p><strong>Total Active Child SKUs</strong></p>
+                    </div>
+                    </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                    <th>
+                    <div class="text">
+                    <p><strong>{{active_product_sku}}</strong></p>
+                    </div>
+                    </th>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {{ block.super }}
+{% endblock %}
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="{% url 'admin:product-csv-upload' %}" class="addlink">Upload Products List</a>
+    </li>
+{% endblock %}
