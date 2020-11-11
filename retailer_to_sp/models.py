@@ -234,10 +234,16 @@ class Cart(models.Model):
                 if m.cart_product.get_current_shop_price(shop, buyer_shop) == None:
                     CartProductMapping.objects.filter(cart__id=self.id, cart_product__id=m.cart_product.id).delete()
                     continue
-                parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
+                parent_product_brand = m.cart_product.parent_product.parent_brand if m.cart_product.parent_product else None
+                if parent_product_brand:
+                    parent_brand = parent_product_brand.brand_parent.id if parent_product_brand.brand_parent else None
+                else:
+                    parent_brand = None
+                # parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
+                product_brand_id = m.cart_product.parent_product.parent_brand.id if m.cart_product.parent_product else None
                 brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True,
                                                       expiry_date__gte=date).filter(
-                    Q(rule__brand_ruleset__brand=m.cart_product.product_brand.id) | Q(
+                    Q(rule__brand_ruleset__brand=product_brand_id) | Q(
                         rule__brand_ruleset__brand=parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
                 b_list = [x.coupon_name for x in brand_coupons]
                 cart_coupons = Coupon.objects.filter(coupon_type='cart', is_active=True,
@@ -307,7 +313,7 @@ class Cart(models.Model):
                                         'discounted_product_subtotal': round((sku_ptr * sku_no_of_pieces), 2),
                                         'discounted_product_subtotal_after_sku_discount': round(
                                             (sku_ptr * sku_no_of_pieces), 2),
-                                        'brand_id': m.cart_product.product_brand.id, 'cart_or_brand_level_discount': 0,
+                                        'brand_id': product_brand_id, 'cart_or_brand_level_discount': 0,
                                         'applicable_brand_coupons': b_list, 'applicable_cart_coupons': c_list})
             brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True, expiry_date__gte=date).order_by(
                 '-rule__cart_qualifying_min_sku_value')
@@ -570,7 +576,7 @@ class BulkOrder(models.Model):
     def clean(self, *args, **kwargs):
         if self.cart_products_csv:
             product_ids = []
-            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
             headers = next(reader, None)
             product_skus = [x[0] for x in reader if x]
             for sku in product_skus:
@@ -578,7 +584,7 @@ class BulkOrder(models.Model):
                     product_ids.append(Product.objects.get(product_sku=sku).id)
                 else:
                     raise ValidationError("The SKU %s is invalid" % (sku))
-            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
             headers = next(reader, None)
             duplicate_products = []
             count = 0
@@ -622,7 +628,8 @@ class BulkOrder(models.Model):
                     warehouse_obj = WarehouseInventory.objects.filter(
                         sku__product_sku=row[0],
                         inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                        inventory_state=InventoryState.objects.filter(inventory_state='available').last())
+                        inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
+                        warehouse=Shop.objects.filter(id=self.seller_shop.id).last())
                     if warehouse_obj.exists():
                         available_quantity = warehouse_obj[0].quantity
                     else:
@@ -634,6 +641,7 @@ class BulkOrder(models.Model):
                     if count == 0:
                         raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                             0] + " | Ordered Quantity is more than Available quantity."))
+
 
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
@@ -676,12 +684,12 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
             products_available = {}
             if instance.cart_products_csv:
                 product_ids = []
-                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8',  errors='ignore'))
                 headers = next(reader, None)
                 product_skus = [x[0] for x in reader if x]
                 for sku in product_skus:
                     product_ids.append(Product.objects.get(product_sku=sku).id)
-                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8',  errors='ignore'))
                 for id, row in enumerate(reader):
                     for row in reader:
                         if row[0]:
@@ -694,7 +702,8 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                                 available_quantity = WarehouseInventory.objects.filter(
                                     sku__product_sku=row[0],
                                     inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                                    inventory_state=InventoryState.objects.filter(inventory_state='available').last())[
+                                    inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
+                                warehouse=Shop.objects.filter(id=instance.seller_shop_id).last())[
                                     0].quantity
                             except:
                                 continue
@@ -1916,6 +1925,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def mrp(self):
+        if self.product.product_mrp:
+            return self.product.product_mrp
         return self.ordered_product.order.ordered_cart.rt_cart_list \
             .get(cart_product=self.product).cart_product_price.mrp
 
@@ -1927,7 +1938,7 @@ class OrderedProductMapping(models.Model):
             return ptr
         else:
             if self.effective_price:
-                return self.effective_price
+                return float(self.effective_price)
             return self.ordered_product.order.ordered_cart.rt_cart_list \
                 .get(cart_product=self.product).item_effective_prices
 
@@ -1973,7 +1984,7 @@ class OrderedProductMapping(models.Model):
     @property
     def basic_rate(self):
         get_tax_val = self.get_product_tax_json() / 100
-        basic_rate = (float(self.effective_price)) / (float(get_tax_val) + 1)
+        basic_rate = (float(self.effective_price)-float(self.product_cess_amount)) / (float(get_tax_val) + 1)
         return round(basic_rate, 2)
 
     @property
@@ -1988,8 +1999,22 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_tax_amount(self):
-        get_tax_val = self.get_product_tax_json() / 100
-        return round(float(self.base_price) * float(get_tax_val), 2)
+        #product_special_cess = self.total_product_cess_amount
+        #get_tax_val = self.get_product_tax_json() / 100
+        return round(float(self.product_sub_total) -float(self.base_price), 2)
+
+    @property
+    def total_product_cess_amount(self):
+        product_special_cess = float(self.product_cess_amount) * (int(self.shipped_qty))
+        return round(float(product_special_cess), 2)
+
+    @property
+    def product_cess_amount(self):
+        if self.product.product_special_cess is None:
+            return 0.0
+        else:
+            product_special_cess = float(self.product.product_special_cess)
+            return round(float(product_special_cess), 2)
 
     @property
     def product_tax_return_amount(self):
@@ -2003,8 +2028,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_sub_total(self):
-        return round(self.effective_price * self.shipped_qty, 2)
-
+        return round(float(self.effective_price * self.shipped_qty), 2)
+        # round(float(self.effective_price * self.shipped_qty) + float(self.product_cess_amount), 2)
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             seller_shop__shop_type__shop_type='sp', status=True
@@ -2015,6 +2040,9 @@ class OrderedProductMapping(models.Model):
 
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
+
+    def get_products_tcs(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='tcs')
 
     def get_products_gst(self):
         queryset = self.product.product_pro_tax.filter(tax__tax_type='gst')
@@ -2038,6 +2066,17 @@ class OrderedProductMapping(models.Model):
             return 0
 
     def set_product_tax_json(self):
+        # if self.product.parent_product:
+        #     product_tax = {}
+        #     product_tax['tax_sum'] = self.product.parent_product.gst + self.product.parent_product.cess + \
+        #                          self.product.parent_product.surcharge
+        #     self.product_tax_json = product_tax
+        # else:
+        #     product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+        #                                                             'tax__tax_percentage')
+        #     product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+        #     product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+        #     self.product_tax_json = product_tax
         product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
                                                                 'tax__tax_percentage')
         product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}

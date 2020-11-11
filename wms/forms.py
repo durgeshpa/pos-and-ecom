@@ -256,8 +256,8 @@ class PutAwayBinInventoryForm(forms.ModelForm):
             except:
                 raise forms.ValidationError("You can't perform this action, Please select one of the Bin ID from drop"
                                             "down menu.")
-            if self.cleaned_data['bin'].bin.bin_id == 'V2VZ01SR001-0001':
-                raise forms.ValidationError("You can't assign this BIN ID, This is a Virtual Bin ID.")
+            # if self.cleaned_data['bin'].bin.bin_id == 'V2VZ01SR001-0001':
+            #     raise forms.ValidationError("You can't assign this BIN ID, This is a Virtual Bin ID.")
             if self.cleaned_data['putaway_status'] is False:
                 raise forms.ValidationError("You can't perform this action, Please mark PutAway status is Active.")
             if PutawayBinInventory.objects.filter(id=self.instance.id)[0].putaway_status is True:
@@ -646,7 +646,7 @@ def validation_stock_correction(self):
         # create batch id
         batch_id = create_batch_id(sku, row[3])
         bin_exp_obj = BinInventory.objects.filter(warehouse=row[0],
-                                                  bin=Bin.objects.filter(bin_id=row[4]).last(),
+                                                  bin=Bin.objects.filter(bin_id=row[4], warehouse=row[0]).last(),
                                                   sku=Product.objects.filter(
                                                       product_sku=row[2]).last(),
                                                   batch_id=batch_id)

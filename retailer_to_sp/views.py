@@ -1,3 +1,5 @@
+import decimal
+
 import requests
 import jsonpickle
 import logging
@@ -32,7 +34,7 @@ from retailer_to_sp.forms import (
     TripForm, DispatchForm, AssignPickerForm, )
 from django.views.generic import TemplateView
 from django.contrib import messages
-
+from payments.models import Payment as PaymentDetail
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 from shops.models import Shop, ShopMigrationMapp
 from retailer_to_sp.api.v1.serializers import (
@@ -116,6 +118,8 @@ class DownloadCreditNote(APIView):
         sum_qty, sum_basic_amount, sum_amount, tax_inline, total_product_tax_amount = 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
+        tcs_rate = 0
+        tcs_tax = 0
         taxes_list = []
         gst_tax_list = []
         cess_tax_list = []
@@ -143,7 +147,11 @@ class DownloadCreditNote(APIView):
                             i["igst"] = i["igst"] + (m.base_price * m.get_products_gst()) / 100
                             i["cess"] = i["cess"] + (m.base_price * m.get_products_gst_cess_tax()) / 100
                             i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
-                            i["total"] = i["total"] + m.product_tax_amount
+                            i["total"] = round(i["total"] + m.product_tax_amount)
+                            if m.product.product_special_cess is None:
+                                i["product_special_cess"] = i["product_special_cess"] + 0.0
+                            else:
+                                i["product_special_cess"] = i["product_special_cess"] + m.total_product_cess_amount
                             flag = 1
 
                 if flag == 0:
@@ -158,8 +166,14 @@ class DownloadCreditNote(APIView):
                     dict1["cess"] = (m.base_price * m.get_products_gst_cess_tax()) / 100
                     dict1["cess_rate"] = m.get_products_gst_cess_tax()
                     dict1["surcharge"] = (m.base_price * m.get_products_gst_surcharge()) / 100
-                    dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
-                    dict1["total"] = m.product_tax_amount
+                    # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                    dict1["surcharge_rate"] = m.get_products_gst_surcharge()
+                    dict1["product_special_cess"] = m.total_product_cess_amount
+                    if dict1["product_special_cess"] is None:
+                        dict1["product_special_cess"] = 0.0
+                    else:
+                        dict1["product_special_cess"] = m.total_product_cess_amount
+                    dict1["total"] = round(m.product_tax_amount)
                     list1.append(dict1)
 
                 sum_qty = sum_qty + (int(m.shipped_qty))
@@ -170,6 +184,7 @@ class DownloadCreditNote(APIView):
                 gst_tax = (m.base_price * m.get_products_gst()) / 100
                 cess_tax = (m.base_price * m.get_products_gst_cess_tax()) / 100
                 surcharge_tax = (m.base_price * m.get_products_gst_surcharge()) / 100
+                product_special_cess = m.product.product_special_cess
                 gst_tax_list.append(gst_tax)
                 cess_tax_list.append(cess_tax)
                 surcharge_tax_list.append(surcharge_tax)
@@ -187,7 +202,11 @@ class DownloadCreditNote(APIView):
                             i["igst"] = i["igst"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 100
                             i["cess"] = i["cess"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_cess_tax()) / 100
                             i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
-                            i["total"] = i["total"] + m.product_tax_amount
+                            i["total"] = round(i["total"] + m.product_tax_amount)
+                            if m.product.product_special_cess is None:
+                                i["product_special_cess"] = i["product_special_cess"] + 0.0
+                            else:
+                                i["product_special_cess"] = i["product_special_cess"] + m.total_product_cess_amount
                             flag = 1
 
                 if flag == 0:
@@ -202,8 +221,14 @@ class DownloadCreditNote(APIView):
                     dict1["cess"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_cess_tax()) / 100
                     dict1["cess_rate"] = m.get_products_gst_cess_tax()
                     dict1["surcharge"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_surcharge()) / 100
-                    dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
-                    dict1["total"] = m.product_tax_return_amount
+                    # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
+                    dict1["surcharge_rate"] = m.get_products_gst_surcharge()
+                    dict1["product_special_cess"] = m.total_product_cess_amount
+                    if dict1["product_special_cess"] is None:
+                        dict1["product_special_cess"] = 0.0
+                    else:
+                        dict1["product_special_cess"] = m.total_product_cess_amount
+                    dict1["total"] = round(m.product_tax_return_amount)
                     list1.append(dict1)
                 sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
                 sum_basic_amount += m.basic_rate * (m.returned_qty + m.damaged_qty)
@@ -218,22 +243,35 @@ class DownloadCreditNote(APIView):
                 surcharge_tax_list.append(surcharge_tax)
                 igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
-        total_amount = round(credit_note.note_amount)
-        total_amount_int = total_amount
+        total_amount = sum_amount
+        # if float(total_amount) + float(paid_amount) > 5000000:
+        #     if gstinn2 == 'Unregistered':
+        #         tcs_rate = 1
+        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
+        #     else:
+        #         tcs_rate = 0.075
+        #         tcs_tax = total_amount * decimal.Decimal(tcs_rate / 100)
+
+        tcs_tax = round(tcs_tax, 2)
+        product_special_cess = round(m.total_product_cess_amount)
+        sum_amount = sum_amount
+        amount = total_amount
+        total_amount = total_amount + tcs_tax
+        total_amount_int = round(total_amount)
         total_product_tax_amount_int = round(total_product_tax_amount)
 
-        amt = [num2words(i) for i in str(sum_amount).split('.')]
+        amt = [num2words(i) for i in str(total_amount_int).split('.')]
         rupees = amt[0]
 
         prdct_tax_amt = [num2words(i) for i in str(total_product_tax_amount_int).split('.')]
         tax_rupees = prdct_tax_amt[0]
 
         data = {
-            "object": credit_note, "products": products, "shop": credit_note, "total_amount_int": total_amount_int,
-            "total_product_tax_amount": total_product_tax_amount, "sum_qty": sum_qty, "sum_amount": sum_amount,
-            "sum_basic_amount": sum_basic_amount, "url": request.get_host(),
+            "object": credit_note, "products": products, "shop": credit_note, "total_amount": total_amount,
+            "total_product_tax_amount": round(total_product_tax_amount), "sum_qty": sum_qty, "sum_amount": sum_amount,
+            "sum_basic_amount": sum_basic_amount, "url": request.get_host(), "tcs_tax": tcs_tax, "tcs_rate": tcs_rate,
             "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
-            "sgst": sgst, "cess": cess, "surcharge": surcharge, "total_amount": round(total_amount, 2),
+            "sgst": sgst,"product_special_cess":product_special_cess, "cess": cess, "surcharge": surcharge,
             "order_id": order_id, "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
             "city_gram": city_gram, "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram,
             "state_gram": state_gram,"amount":amount, "gstinn1": gstinn1, "gstinn2": gstinn2, "gstinn3": gstinn3,
@@ -877,7 +915,10 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
         for i in picku_bin_inv:
             product = i.pickup.sku.product_name
             sku = i.pickup.sku.product_sku
-            mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
+            if i.pickup.sku.product_mrp:
+                mrp = i.pickup.sku.product_mrp
+            else:
+                mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
             qty = i.quantity
             batch_id = i.batch_id
             bin_id = i.bin.bin.bin_id
@@ -1005,7 +1046,7 @@ def pick_list_download(request, order_obj):
             product_list = {
                 "product_name": cart_pro.cart_product.product_name,
                 "product_sku": cart_pro.cart_product.product_sku,
-                "product_mrp": cart_pro.cart_product_price.mrp,
+                "product_mrp": cart_pro.cart_product.product_mrp if cart_pro.cart_product.product_mrp else cart_pro.cart_product_price.mrp,
                 "ordered_qty": cart_pro.qty,
                 "no_of_pieces": cart_pro.no_of_pieces,
 
@@ -1364,6 +1405,10 @@ class RetailerCart(APIView):
             context={'parent_mapping_id': order_obj.seller_shop.id,
                      'buyer_shop_id': order_obj.buyer_shop.id}
         )
+        for i in dt.data['rt_cart_list']:
+            if not i['cart_product_price']['product_mrp'] or i['cart_product_price']['product_mrp'] is None:
+                product = Product.objects.get(id=i['cart_product']['id'])
+                i['cart_product_price']['product_mrp'] = product.product_mrp or i['cart_product_price']['product_mrp']
         return Response({'is_success': True, 'response_data': dt.data}, status=status.HTTP_200_OK)
 
 
