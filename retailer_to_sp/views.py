@@ -207,7 +207,7 @@ class DownloadCreditNote(APIView):
                             else:
                                 i["product_special_cess"] = i["product_special_cess"] + m.product_cess_amount
                                 i["product_special_cess"] = (i["product_special_cess"] * (m.returned_qty + m.damaged_qty))
-                            i["total"] = round(i["total"] + m.product_tax_amount)
+                            i["total"] = round(i["total"] + m.product_tax_return_amount)
                             flag = 1
 
                 if flag == 0:
@@ -230,7 +230,7 @@ class DownloadCreditNote(APIView):
                     else:
                         dict1["product_special_cess"] = m.product_cess_amount
                     dict1["product_special_cess"] = (dict1["product_special_cess"] * (m.returned_qty + m.damaged_qty))
-                    dict1["total"] = round(m.product_tax_return_amount + dict1["product_special_cess"])
+                    dict1["total"] = round(m.product_tax_return_amount)
                     list1.append(dict1)
                 sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
                 sum_basic_amount += m.basic_rate * (m.returned_qty + m.damaged_qty)
