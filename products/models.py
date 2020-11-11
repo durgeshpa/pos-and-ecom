@@ -121,23 +121,130 @@ class ProductHSN(models.Model):
     def __str__(self):
         return self.product_hsn_code
 
-class Product(models.Model):
-    product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    product_slug = models.SlugField(max_length=255)
-    product_short_description = models.CharField(max_length=255,validators=[ProductNameValidator], null=True, blank=True)
-    product_long_description = models.TextField(null=True,blank=True)
-    product_sku = models.CharField(max_length=255, blank=False, unique=True)
-    product_gf_code = models.CharField(max_length=255, blank=False, unique=True)
-    product_ean_code = models.CharField(max_length=255, blank=True)
-    product_hsn = models.ForeignKey(ProductHSN,related_name='product_hsn',null=True,blank=True,on_delete=models.CASCADE)
-    product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',blank=False,on_delete=models.CASCADE)
-    product_inner_case_size = models.CharField(max_length=255,blank=False, default=1)
-    product_case_size = models.CharField(max_length=255,blank=False)
-    weight_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator],choices=WEIGHT_UNIT_CHOICES, default = 'gm')
+class ParentProduct(models.Model):
+    parent_id = models.CharField(max_length=255, validators=[ParentIDValidator])
+    name = models.CharField(max_length=255, validators=[ProductNameValidator])
+    parent_slug = models.SlugField(max_length=255)
+    parent_brand = models.ForeignKey(Brand, related_name='parent_brand_product', blank=False, on_delete=models.CASCADE)
+    # category = models.ForeignKey(Category, related_name='category_parent_category', on_delete=models.CASCADE)
+    product_hsn = models.ForeignKey(ProductHSN, related_name='parent_hsn', blank=False, on_delete=models.CASCADE)
+    # GST_CHOICES = (
+    #     (0, '0 %'),
+    #     (5, '5 %'),
+    #     (12, '12 %'),
+    #     (18, '18 %'),
+    #     (28, '28 %'),
+    # )
+    # gst = models.PositiveIntegerField(default=0, choices=GST_CHOICES)
+    # CESS_CHOICES = (
+    #     (0, '0 %'),
+    #     (12, '12 %'),
+    # )
+    # cess = models.PositiveIntegerField(default=0, choices=CESS_CHOICES, blank=True)
+    # surcharge = models.PositiveIntegerField(default=0, blank=True)
+    brand_case_size = models.PositiveIntegerField(blank=False)
+    inner_case_size = models.PositiveIntegerField(blank=False, default=1)
+    PRODUCT_TYPE_CHOICES = (
+        ('b2b', 'B2B'),
+        ('b2c', 'B2C'),
+        ('both', 'Both B2B and B2C'),
+    )
+    product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES)
+    # image = models.ImageField(upload_to='parent_product_image', blank=False)
+    status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True,verbose_name='Product Status')
+
+    def save(self, *args, **kwargs):
+        self.parent_slug = slugify(self.name)
+        super(ParentProduct, self).save(*args, **kwargs)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return "{}-{}".format(self.parent_id, self.name)
+
+class ParentProductSKUGenerator(models.Model):
+    cat_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three characters for SKU")
+    brand_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three characters for SKU")
+    last_auto_increment = models.CharField(max_length=8)
+
+class ParentProductCategory(models.Model):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_category', on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, related_name='parent_category_pro_category', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = _("Parent Product Category")
+        verbose_name_plural = _("Parent Product Categories")
+
+
+class ParentProductImage(models.Model):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_image', on_delete=models.CASCADE)
+    image_name = models.CharField(max_length=255, validators=[ProductNameValidator])
+    image_alt_text = models.CharField(max_length=255, null=True, blank=True, validators=[NameValidator])
+    image = models.ImageField(upload_to='parent_product_image')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    # status = models.BooleanField(default=True)
+
+    def image_thumbnail(self):
+        return mark_safe('<img src="{url}" width="{width}" height={height} />'.format(
+            url = self.image.url,
+            width='500px',
+            height='500px',
+            )
+    )
+
+    def __str__(self):
+        return self.image.name
+
+
+@receiver(pre_save, sender=ParentProductCategory)
+def create_parent_product_id(sender, instance=None, created=False, **kwargs):
+    parent_product = ParentProduct.objects.get(pk=instance.parent_product.id)
+    cat_sku_code = instance.category.category_sku_part
+    brand_sku_code = parent_product.parent_brand.brand_code
+    last_sku = ParentProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code).last()
+    if last_sku:
+        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
+    else:
+        last_sku_increment = '0001'
+    ParentProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
+    parent_product.parent_id = "P%s%s%s"%(cat_sku_code, brand_sku_code, last_sku_increment)
+    parent_product.save()
+
+class Product(models.Model):
+    product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
+    product_slug = models.SlugField(max_length=255, blank=True)
+    product_sku = models.CharField(max_length=255, blank=False, unique=True)
+    product_ean_code = models.CharField(max_length=255, blank=True)
+    product_mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
+    weight_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
+    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=WEIGHT_UNIT_CHOICES, default='gm')
+    product_special_cess = models.FloatField(null=True, blank=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    STATUS_CHOICES = (
+        ('pending_approval', 'Pending Approval'),
+        ('active', 'Active'),
+        ('deactivated', 'Deactivated'),
+    )
+    status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False)
+    parent_product = models.ForeignKey(ParentProduct, related_name='product_parent_product', null=True, blank=False, on_delete=models.DO_NOTHING)
+    REASON_FOR_NEW_CHILD_CHOICES = (
+        ('default', 'Default'),
+        ('different_mrp', 'Different MRP'),
+        ('different_weight', 'Different Weight'),
+        ('different_ean', 'Different EAN'),
+        ('offer', 'Offer'),
+    )
+    reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
+    use_parent_image = models.BooleanField(default=False)
+    # child_product_image = models.ImageField(upload_to='child_product_image', blank=True, null=True)
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
@@ -148,6 +255,64 @@ class Product(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        verbose_name = 'Child Product'
+        verbose_name_plural = 'Child Products'
+
+    @property
+    def product_brand(self):
+        return self.parent_product.parent_brand if self.parent_product else ''
+
+    @property
+    def product_hsn(self):
+        return self.parent_product.product_hsn if self.parent_product else ''
+
+    @property
+    def product_gst(self):
+        if self.product_pro_tax.filter(tax__tax_type='gst').exists():
+            return self.product_pro_tax.filter(tax__tax_type='gst').last().tax.tax_percentage
+        return ''
+
+    @property
+    def product_cess(self):
+        if self.product_pro_tax.filter(tax__tax_type='cess').exists():
+            return self.product_pro_tax.filter(tax__tax_type='cess').last().tax.tax_percentage
+        return ''
+
+    @property
+    def product_surcharge(self):
+        if self.product_pro_tax.filter(tax__tax_type='surcharge').exists():
+            return self.product_pro_tax.filter(tax__tax_type='surcharge').last().tax.tax_percentage
+        return ''
+
+    @property
+    def product_case_size(self):
+        return self.parent_product.brand_case_size if self.parent_product else '1'
+
+    @property
+    def parent_name(self):
+        return self.parent_product.name if self.parent_product else ''
+
+    @property
+    def product_inner_case_size(self):
+        return self.parent_product.inner_case_size if self.parent_product else '1'
+
+    @property
+    def product_short_description(self):
+        return self.product_name
+
+    @property
+    def product_long_description(self):
+        return ''
+
+    @property
+    def product_gf_code(self):
+        return ''
+
+    @property
+    def product_image(self):
+        if self.use_parent_image:
+            return self.parent_product.image
+        return self.child_product_image
 
     def get_current_shop_price(self, seller_shop_id, buyer_shop_id):
         '''
@@ -220,6 +385,8 @@ class Product(models.Model):
         return self.get_current_shop_price(seller_shop_id, buyer_shop_id)
 
     def getMRP(self, seller_shop_id, buyer_shop_id):
+        if self.product_mrp:
+            return self.product_mrp
         product_price = self.getPriceByShopId(seller_shop_id, buyer_shop_id)
         return product_price.mrp if product_price else False
 
@@ -239,8 +406,14 @@ class Product(models.Model):
         for rules in self.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
             for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
                 product_coupons.append(rule.coupon_code)
-        parent_brand = self.product_brand.brand_parent.id if self.product_brand.brand_parent else None
-        brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = self.product_brand.id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
+        parent_product_brand = self.parent_product.parent_brand if self.parent_product else None
+        if parent_product_brand:
+            parent_brand = parent_product_brand.brand_parent.id if parent_product_brand.brand_parent else None
+        else:
+            parent_brand = None
+        # parent_brand = self.product_brand.brand_parent.id if self.product_brand.brand_parent else None
+        product_brand_id = self.parent_product.parent_brand.id if self.parent_product else None
+        brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
         for x in brand_coupons:
             product_coupons.append(x.coupon_code)
         return product_coupons
@@ -251,6 +424,27 @@ class ProductSKUGenerator(models.Model):
     cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
     brand_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
     last_auto_increment = models.CharField(max_length=8)
+
+
+class ChildProductImage(models.Model):
+    product = models.ForeignKey(Product, related_name='child_product_pro_image', blank=True, on_delete=models.CASCADE)
+    image_name = models.CharField(max_length=255, blank=True, validators=[ProductNameValidator])
+    image_alt_text = models.CharField(max_length=255, null=True, blank=True, validators=[NameValidator])
+    image = models.ImageField(upload_to='child_product_image', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    # status = models.BooleanField(default=True)
+
+    def image_thumbnail(self):
+        return mark_safe('<img src="{url}" width="{width}" height={height} />'.format(
+            url=self.image.url,
+            width='500px',
+            height='500px',
+        ))
+
+    def __str__(self):
+        return self.image.name
+
 
 class ProductOption(models.Model):
     product = models.ForeignKey(Product, related_name='product_opt_product', on_delete=models.CASCADE)
@@ -286,7 +480,7 @@ class ProductPrice(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_price',
                                 on_delete=models.CASCADE)
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True,
-                              blank=False)
+                              blank=True)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2,
                                         null=True, blank=False)
     seller_shop = models.ForeignKey(Shop, related_name='shop_product_price',
@@ -313,8 +507,8 @@ class ProductPrice(models.Model):
         return "%s - %s" % (self.product.product_name, self.selling_price)
 
     def validate(self, exception_type):
-        if not self.mrp:
-            raise ValidationError(_('Please enter valid Mrp price.'))
+        # if not self.mrp:
+        #     raise ValidationError(_('Please enter valid Mrp price.'))
         if not self.selling_price:
             print(self.selling_price)
             raise ValidationError(_('Please enter valid Selling price.'))
@@ -387,6 +581,10 @@ class ProductPrice(models.Model):
     @property
     def sku_code(self):
         return self.product.product_sku
+
+    # @property
+    # def mrp(self):
+    #     return self.product.product_mrp
 
 
 class ProductCategory(models.Model):
@@ -483,6 +681,27 @@ class ProductTaxMapping(models.Model):
 #     modified_at = models.DateTimeField(auto_now=True)
 #     status = models.BooleanField(default=True)
 
+
+class ParentProductTaxMapping(models.Model):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_tax', on_delete=models.CASCADE)
+    tax = models.ForeignKey(Tax, related_name='parent_tax_pro_tax', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+    def __str__(self):
+        return "{}-{}".format(self.parent_product, self.tax.tax_name)
+
+    # def get_products_gst_tax(self):
+    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='gst')
+
+    # def get_products_gst_cess(self):
+    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='cess')
+
+    # def get_products_gst_surcharge(self):
+    #     return self.parent_product.product_pro_tax.filter(tax__tax_type='surcharge')
+
+
 class ProductCSV(models.Model):
     file = models.FileField(upload_to='products/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -553,21 +772,24 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
         ProductVendorMapping.objects.bulk_create(product_mapping)
         #ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
 
-@receiver(pre_save, sender=ProductCategory)
+@receiver(pre_save, sender=Product)
 def create_product_sku(sender, instance=None, created=False, **kwargs):
-    product = Product.objects.get(pk=instance.product_id)
-    if not product.product_sku:
-        cat_sku_code = instance.category.category_sku_part
-        parent_cat_sku_code = instance.category.category_parent.category_sku_part if instance.category.category_parent else cat_sku_code
-        brand_sku_code = instance.product.product_brand.brand_code
-        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code).last()
+    # product = Product.objects.get(pk=instance.product_id)
+    # if not product.product_sku:
+    if not instance.product_sku:
+        # cat_sku_code = instance.category.category_sku_part
+        parent_product_category = ParentProductCategory.objects.filter(parent_product=instance.parent_product).last().category
+        cat_sku_code = parent_product_category.category_sku_part
+        parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
+        brand_sku_code = instance.product_brand.brand_code
+        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code).last()
         if last_sku:
             last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
         else:
             last_sku_increment = '00000001'
-        ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
-        product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
-        product.save()
+        ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
+        instance.product_sku = "%s%s%s%s"%(cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
+        # product.save()
 
 class ProductCapping(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_capping',
