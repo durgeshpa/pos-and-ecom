@@ -1222,7 +1222,7 @@ class ProductPriceUpload(View):
             qs = qs.filter(product=data['product'])
         return qs.values_list(
             'product__product_sku', 'product__product_name',
-            'product__product_gf_code', 'seller_shop__shop_name', 'mrp',
+            'seller_shop__shop_name', 'mrp',
             'selling_price', 'city_id', 'city__city_name', 'pincode',
             'buyer_shop_id', 'buyer_shop__shop_name', 'start_date', 'end_date',
             'approval_status')
