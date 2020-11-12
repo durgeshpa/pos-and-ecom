@@ -851,8 +851,8 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 
     autocomplete_fields = ['product']
     search_fields = [
-        'product__product_name', 'product__product_gf_code',
-        'product__product_brand__brand_name', 'seller_shop__shop_name',
+        'product__product_name',
+        'product__parent_product__parent_brand__brand_name', 'seller_shop__shop_name',
         'buyer_shop__shop_name'
     ]
     list_filter = [
