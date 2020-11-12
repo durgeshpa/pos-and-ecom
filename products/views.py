@@ -733,10 +733,13 @@ def products_export_for_vendor(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['id','product_name','product_gf_code','product_sku', 'mrp', 'brand_to_gram_price','case_size'])
-    products = Product.objects.values_list('id','product_name','product_gf_code','product_sku','product_case_size')
+    # writer.writerow(['id','product_name','product_gf_code','product_sku', 'mrp', 'brand_to_gram_price','case_size'])
+    writer.writerow(['id','product_name', 'product_sku', 'mrp', 'brand_to_gram_price', 'case_size'])
+    # products = Product.objects.values_list('id','product_name','product_gf_code','product_sku','product_case_size')
+    products = Product.objects.all().only('id', 'product_name', 'product_sku', 'product_mrp')
     for product in products:
-        writer.writerow([product[0],product[1],product[2],product[3],'','',product[4]])
+        # writer.writerow([product[0],product[1],product[2],product[3],'','',product[4]])
+        writer.writerow([product.id, product.product_name, product.product_sku, '', '', product.product_case_size])
     return response
 
 def products_vendor_mapping(request,pk=None):
@@ -1259,7 +1262,8 @@ class ProductPriceUpload(View):
                     self.validate_row(first_row, row)
                     product = Product.objects.values('id').get(product_sku=row[0])
                     if row[7]:
-                        pincode = Pincode.objects.values('id').get(pincode=row[7])['id']
+                        # pincode = Pincode.objects.values('id').get(pincode=row[7])['id']
+                        pincode = Pincode.objects.values('id').filter(pincode=row[7]).last()['id']
                     else:
                         pincode = None
                     ProductPrice.objects.create(
