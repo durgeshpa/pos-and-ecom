@@ -30,8 +30,8 @@ from django.db import transaction, DatabaseError
 from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
-    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, WareHouseInternalInventoryChange, \
-    get_expiry_date_db
+    common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
+    get_expiry_date_db, get_visibility_changes
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
@@ -201,7 +201,10 @@ class CreatePickList(APIView):
             product = i.pickup.sku.product_name
             sku = i.pickup.sku.product_sku
             cart_product = order.ordered_cart.rt_cart_list.filter(cart_product=i.pickup.sku).last()
-            mrp = cart_product.cart_product_price.mrp
+            if i.pickup.sku.product_mrp:
+                mrp = i.pickup.sku.product_mrp
+            else:
+                mrp = cart_product.cart_product_price.mrp
             # mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
             qty = i.quantity
             batch_id = i.batch_id
@@ -439,6 +442,7 @@ def commit_updates_to_es(shop, product):
     status = True
     db_available_products = get_product_stock(shop, product)
     products_available = db_available_products.aggregate(Sum('quantity'))['quantity__sum']
+    visibility_changes = get_visibility_changes(shop, product)
     try:
         available_qty = int(int(products_available) / int(product.product_inner_case_size))
     except Exception as e:
@@ -448,7 +452,15 @@ def commit_updates_to_es(shop, product):
     if not available_qty:
         status = False
     info_logger.info("updating ES %s", available_qty)
-    update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
+    if visibility_changes:
+        for prod_id, visibility in visibility_changes.items():
+            if prod_id == product.id:
+                update_product_es.delay(shop.id, product.id, available=available_qty, status=status, visible=visibility)
+            else:
+                update_product_es.delay(shop.id, prod_id, visible=visibility)
+    else:
+        update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
+
 
 
 @receiver(post_save, sender=WarehouseInventory)
@@ -1349,9 +1361,9 @@ def bulk_putaway(self, request, argument_list):
             except:
                 message = "You can't Perform this action, Bin Id is None."
                 return message, False
-            if obj.bin.bin.bin_id == 'V2VZ01SR001-0001':
-                message = "You can't assign this BIN ID, This is a Virtual Bin ID."
-                return message, False
+            # if obj.bin.bin.bin_id == 'V2VZ01SR001-0001':
+            #     message = "You can't assign this BIN ID, This is a Virtual Bin ID."
+            #     return message, False
             else:
                 bin_in_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
                                                          sku=Product.objects.filter(

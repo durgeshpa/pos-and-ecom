@@ -50,8 +50,9 @@ class ShopMappedProduct(TemplateView):
         if shop_obj.shop_type.shop_type == 'gf':
             grn_product = GRNOrderProductMapping.objects.filter(
                 grn_order__order__ordered_cart__gf_shipping_address__shop_name=shop_obj)
-            product_sum = grn_product.values('product', 'product__product_name', 'product__product_gf_code',
+            product_sum = grn_product.values('product', 'product__product_name',
                                              'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
+            #   'product__product_gf_code',
             context['shop_products'] = product_sum
 
 
@@ -65,10 +66,16 @@ class ShopMappedProduct(TemplateView):
                     product_temp = product_list[myproduct.sku.product_sku]
                     product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
                 else:
-                    product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop_obj, approval_status=2)
-                    product_temp = {'sku': myproduct.sku.product_sku, 'name': myproduct.sku.product_name,
-                                    myproduct.inventory_type.inventory_type: myproduct.quantity,
-                                    'mrp': product_mrp.last().mrp if product_mrp.exists() else ''}
+                    # product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop_obj, approval_status=2)
+                    product_temp = {
+                        'sku': myproduct.sku.product_sku,
+                        'name': myproduct.sku.product_name,
+                        myproduct.inventory_type.inventory_type: myproduct.quantity,
+                        'mrp': myproduct.sku.product_mrp,
+                        'parent_id': myproduct.sku.parent_product.parent_id,
+                        'parent_name': myproduct.sku.parent_product.name
+                        # 'mrp': product_mrp.last().mrp if product_mrp.exists() else ''}
+                    }
 
                 product_list[myproduct.sku.product_sku] = product_temp
             context['products'] = product_list
@@ -116,27 +123,35 @@ def shop_stock_download(request, shop_id):
             product_temp = product_list[myproduct.sku.product_sku]
             product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
         else:
-            product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop, approval_status=2)
-            product_temp = {'sku': myproduct.sku.product_sku, 'name': myproduct.sku.product_name,
-                            myproduct.inventory_type.inventory_type: myproduct.quantity,
-                            'mrp': product_mrp.last().mrp if product_mrp.exists() else ''}
+            # product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop, approval_status=2)
+            product_temp = {
+                'sku': myproduct.sku.product_sku,
+                'name': myproduct.sku.product_name,
+                myproduct.inventory_type.inventory_type: myproduct.quantity,
+                'mrp': myproduct.sku.product_mrp,
+                'parent_id': myproduct.sku.parent_product.parent_id,
+                'parent_name': myproduct.sku.parent_product.name,
+                'product_ean_code': myproduct.sku.product_ean_code,
+                'weight': f'{myproduct.sku.weight_value} {myproduct.sku.weight_unit}'
+                # 'mrp': product_mrp.last().mrp if product_mrp.exists() else ''
+            }
 
         product_list[myproduct.sku.product_sku] = product_temp
 
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['SKU Id', 'Product Name', 'MRP', 'Normal Qty', 'Damaged Qty', 'Expired Qty', 'Missing Qty'])
+    writer.writerow(['SKU Id', 'Product Name', 'MRP', 'Parent ID', 'Parent Name', 'EAN', 'Weight', 'Normal Qty', 'Damaged Qty', 'Expired Qty', 'Missing Qty'])
     for key, value in product_list.items():
         if 'damaged' not in value:
-            value['damaged']=0
+            value['damaged'] = 0
         if 'expired' not in value:
-            value['expired']=0
+            value['expired'] = 0
         if 'missing' not in value:
-            value['missing']=0
+            value['missing'] = 0
 
         writer.writerow(
-            [value['sku'], value['name'], value['mrp'], value['normal'], value['damaged'], value['expired']
+            [value['sku'], value['name'], value['mrp'], value['parent_id'], value['parent_name'], value['product_ean_code'], value['weight'], value['normal'], value['damaged'], value['expired']
                 , value['missing']])
     return response
 

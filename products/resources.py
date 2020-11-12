@@ -1,6 +1,6 @@
 from import_export import resources
 from .models import (Size, Color, Fragrance, Flavor, Weight, PackageSize,
-    Product, ProductPrice, Tax)
+    Product, ProductPrice, Tax, ParentProduct)
 
 class SizeResource(resources.ModelResource):
     class Meta:
@@ -31,6 +31,11 @@ class PackageSizeResource(resources.ModelResource):
     class Meta:
         model = PackageSize
         exclude = ('created_at','modified_at')
+
+class ParentProductResource(resources.ModelResource):
+    class Meta:
+        model = ParentProduct
+        exclude = ('created_at', 'modified_at')
 
 class ProductResource(resources.ModelResource):
     class Meta:

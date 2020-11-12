@@ -1,4 +1,10 @@
+if (!$) {
+    $ = django.jQuery;
+}
 (function ($) {
+    if (!$) {
+        $ = django.jQuery;
+    }
     function openDetails() {
       alert('changed')
     }
@@ -12,43 +18,43 @@
     });
     });
 
-   $(document).on('change', '.select2-hidden-accessible', function(index){
-        if ($(this).data("autocomplete-light-url") == '/gram/brand/vendor-product-autocomplete/'){
-            var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
-            var supplier_id = $('#id_supplier_name').val();
-            var present_id = $(this) ;
-            $.ajax({ data: ({'supplier_id':supplier_id, 'product_id':$(this).val()}) ,
-                type: 'GET',
-                dataType: 'json',
-                url: host+'gram/brand/vendor-product-price/',
-                success: function(response) {
-                     var row_id = present_id.closest(".form-row").attr("id");
-                     var row_no = row_id.match(/(\d+)/g);
-                     if(response['success']) {
-                        $('#cart_list-'+row_no+' td.field-tax_percentage p').text(response.tax_percentage);
-                        $('#id_cart_list-'+row_no+'-price').val(response.price);
-                        $('#id_cart_list-'+row_no+'-case_size').val(response.case_size);
-                        $('#id_cart_list-'+row_no+'-inner_case_size').val(response.inner_case_size);
-                        $('#cart_list-'+row_no+' td.field-case_sizes p').text(response.case_size);
-                        $('#cart_list-'+row_no+' td.field-sku p').text(response.sku);
-                        $('#cart_list-'+row_no+' td.field-mrp p').text(response.mrp);
+//    $(document).on('change', '.select2-hidden-accessible', function(index){
+//         if ($(this).data("autocomplete-light-url") == '/gram/brand/vendor-product-autocomplete/'){
+//             var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
+//             var supplier_id = $('#id_supplier_name').val();
+//             var present_id = $(this) ;
+//             $.ajax({ data: ({'supplier_id':supplier_id, 'product_id':$(this).val()}) ,
+//                 type: 'GET',
+//                 dataType: 'json',
+//                 url: host+'gram/brand/vendor-product-price/',
+//                 success: function(response) {
+//                      var row_id = present_id.closest(".form-row").attr("id");
+//                      var row_no = row_id.match(/(\d+)/g);
+//                      if(response['success']) {
+//                         $('#cart_list-'+row_no+' td.field-tax_percentage p').text(response.tax_percentage);
+//                         $('#id_cart_list-'+row_no+'-price').val(response.price);
+//                         $('#id_cart_list-'+row_no+'-case_size').val(response.case_size);
+//                         $('#id_cart_list-'+row_no+'-inner_case_size').val(response.inner_case_size);
+//                         $('#cart_list-'+row_no+' td.field-case_sizes p').text(response.case_size);
+//                         $('#cart_list-'+row_no+' td.field-sku p').text(response.sku);
+//                         $('#cart_list-'+row_no+' td.field-mrp p').text(response.mrp);
 
-                     }else{
-                        $('#cart_list-'+row_no+' td.field-tax_percentage p').text(response.tax_percentage);
-                        $('#id_cart_list-'+row_no+'-price').val(0);
-                        $('#id_cart_list-'+row_no+'-case_size').val(0);
-                        $('#id_cart_list-'+row_no+'-inner_case_size').val(0);
-                        $('#cart_list-'+row_no+' td.field-case_sizes p').text("-");
-                        $('#cart_list-'+row_no+' td.field-sku p').text("-");
-                        $('#cart_list-'+row_no+' td.field-mrp p').text("-");
-                     }
-                },
-                error: function (request, status, error) {
-                     console.log(request.responseText);
-                }
-            });
-        }
-    });
+//                      }else{
+//                         $('#cart_list-'+row_no+' td.field-tax_percentage p').text(response.tax_percentage);
+//                         $('#id_cart_list-'+row_no+'-price').val(0);
+//                         $('#id_cart_list-'+row_no+'-case_size').val(0);
+//                         $('#id_cart_list-'+row_no+'-inner_case_size').val(0);
+//                         $('#cart_list-'+row_no+' td.field-case_sizes p').text("-");
+//                         $('#cart_list-'+row_no+' td.field-sku p').text("-");
+//                         $('#cart_list-'+row_no+' td.field-mrp p').text("-");
+//                      }
+//                 },
+//                 error: function (request, status, error) {
+//                      console.log(request.responseText);
+//                 }
+//             });
+//         }
+//     });
 
     $(document).on('input', '.field-no_of_cases input[type=text]', function(index){
         var row_id = $(this).closest(".form-row").attr("id");
@@ -185,4 +191,67 @@ function calculateColumn(index) {
 })(django.jQuery);
 
 
+function getLastGrnProductDetails(parent_id_select) {
+    if (!$) {
+        $ = django.jQuery;
+    }
+    ajax_url = "/gram/brand/fetch-last-grn-product/";
+    $.ajax({
+        url: ajax_url,
+        type : 'GET',
+        data: { 'parent_product': parent_id_select.value },
+        contentType: "application/json; charset=utf-8",
+        success: function (data) {
+            if(data.found === true){
+                $(parent_id_select).closest('tr').children('.field-cart_product').children('select').find('option').remove();
+                $(parent_id_select).closest('tr').children('.field-cart_product').children('select').append($('<option value="'+data.product_id+'">'+data.product_name+'</option>'));
+                $(parent_id_select).closest('tr').children('.field-cart_product').children('select').val(data.product_id).change();
+            }
+            return true;
+        },
+        error: function (data) {
+            console.log("ERROR");
+            console.error(data);
+            return true;
+        },
+        cache: false
+    });
+}
 
+function getProductVendorPriceDetails(product_id_select) {
+    if (!$) {
+        $ = django.jQuery;
+    }
+    var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
+    var supplier_id = $('#id_supplier_name').val();
+    var product_id = product_id_select.value;
+    $.ajax({ data: ({'supplier_id': supplier_id, 'product_id': product_id}),
+        type: 'GET',
+        dataType: 'json',
+        url: host+'gram/brand/vendor-product-price/',
+        success: function(response) {
+            var row_id = $(product_id_select).closest(".form-row").attr("id");
+            var row_no = row_id.match(/(\d+)/g);
+            if(response['success']) {
+                $('#cart_list-'+row_no+' td.field-tax_percentage p').text(response.tax_percentage);
+                $('#id_cart_list-'+row_no+'-price').val(response.price);
+                $('#id_cart_list-'+row_no+'-case_size').val(response.case_size);
+                $('#id_cart_list-'+row_no+'-inner_case_size').val(response.inner_case_size);
+                $('#cart_list-'+row_no+' td.field-case_sizes p').text(response.case_size);
+                $('#cart_list-'+row_no+' td.field-sku p').text(response.sku);
+                $('#cart_list-'+row_no+' td.field-mrp p').text(response.mrp);
+            } else {
+                $('#cart_list-'+row_no+' td.field-tax_percentage p').text(response.tax_percentage);
+                $('#id_cart_list-'+row_no+'-price').val(0);
+                $('#id_cart_list-'+row_no+'-case_size').val(0);
+                $('#id_cart_list-'+row_no+'-inner_case_size').val(0);
+                $('#cart_list-'+row_no+' td.field-case_sizes p').text("-");
+                $('#cart_list-'+row_no+' td.field-sku p').text("-");
+                $('#cart_list-'+row_no+' td.field-mrp p').text("-");
+            }
+        },
+        error: function (request, status, error) {
+            console.error(request.responseText);
+        }
+    });
+}
