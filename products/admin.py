@@ -886,10 +886,10 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     product_sku.short_description = 'Product SKU'
 
     def product_mrp(self, obj):
+        if obj.mrp:
+            return obj.mrp
         if obj.product.product_mrp:
             return obj.product.product_mrp
-        elif obj.mrp:
-            return obj.mrp
         return ''
 
     def product_gf_code(self, obj):
