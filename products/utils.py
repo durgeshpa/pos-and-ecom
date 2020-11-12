@@ -158,22 +158,34 @@ def products_price_excel(queryset):
     # column headings
     worksheet.write('A1', 'Product SKU\n(required)', header_format)
     worksheet.write('B1', 'Product Name', header_format)
-    worksheet.write('C1', 'Product GF Code', header_format)
-    worksheet.write('D1', 'Seller Shop Name', header_format)
-    worksheet.write('E1', 'MRP\n(required)', header_format)
-    worksheet.write('F1', 'Selling Price\n(required)', header_format)
-    worksheet.write('G1', 'City ID\n(optional)', header_format)
-    worksheet.write('H1', 'City Name', header_format)
-    worksheet.write('I1', 'Pincode\n(optional)', header_format)
-    worksheet.write('J1', 'Buyer Shop ID\n(optional)', header_format)
-    worksheet.write('K1', 'Buyer Shop Name', header_format)
-    worksheet.write('L1', 'Price Start Date\n(dd/mm/yy hh:mm:ss)(required)', header_format)
-    worksheet.write('M1', 'Price End Date\n(dd/mm/yy hh:mm:ss)(required)', header_format)
-    worksheet.write('N1', 'Approval Status', header_format)
+    worksheet.write('C1', 'Seller Shop Name', header_format)
+    worksheet.write('D1', 'MRP\n(required)', header_format)
+    worksheet.write('E1', 'Selling Price\n(required)', header_format)
+    worksheet.write('F1', 'City ID\n(optional)', header_format)
+    worksheet.write('G1', 'City Name', header_format)
+    worksheet.write('H1', 'Pincode\n(optional)', header_format)
+    worksheet.write('I1', 'Buyer Shop ID\n(optional)', header_format)
+    worksheet.write('J1', 'Buyer Shop Name', header_format)
+    worksheet.write('K1', 'Price Start Date\n(dd/mm/yy hh:mm:ss)(required)', header_format)
+    worksheet.write('L1', 'Price End Date\n(dd/mm/yy hh:mm:ss)(required)', header_format)
+    worksheet.write('M1', 'Approval Status', header_format)
+    # worksheet.write('C1', 'Product GF Code', header_format)
+    # worksheet.write('D1', 'Seller Shop Name', header_format)
+    # worksheet.write('E1', 'MRP\n(required)', header_format)
+    # worksheet.write('F1', 'Selling Price\n(required)', header_format)
+    # worksheet.write('G1', 'City ID\n(optional)', header_format)
+    # worksheet.write('H1', 'City Name', header_format)
+    # worksheet.write('I1', 'Pincode\n(optional)', header_format)
+    # worksheet.write('J1', 'Buyer Shop ID\n(optional)', header_format)
+    # worksheet.write('K1', 'Buyer Shop Name', header_format)
+    # worksheet.write('L1', 'Price Start Date\n(dd/mm/yy hh:mm:ss)(required)', header_format)
+    # worksheet.write('M1', 'Price End Date\n(dd/mm/yy hh:mm:ss)(required)', header_format)
+    # worksheet.write('N1', 'Approval Status', header_format)
 
     for row_num, columns in enumerate(data):
         for col_num, cell_data in enumerate(columns):
-            if cell_data and col_num in (11, 12):
+            # if cell_data and col_num in (11, 12):
+            if cell_data and col_num in (10, 11):
                 worksheet.write_datetime(row_num + 1, col_num, cell_data)
             else:
                 worksheet.write(row_num + 1, col_num, cell_data)
