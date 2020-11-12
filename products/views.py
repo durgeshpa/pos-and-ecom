@@ -1226,7 +1226,7 @@ class ProductPriceUpload(View):
         return qs.values_list(
             'product__product_sku', 'product__product_name',
             'seller_shop__shop_name', 'mrp',
-            'selling_price', 'city_id', 'city__city_name', 'pincode',
+            'selling_price', 'city_id', 'city__city_name', 'pincode__pincode',
             'buyer_shop_id', 'buyer_shop__shop_name', 'start_date', 'end_date',
             'approval_status')
 
@@ -1261,9 +1261,9 @@ class ProductPriceUpload(View):
                 )):
                     self.validate_row(first_row, row)
                     product = Product.objects.values('id').get(product_sku=row[0])
-                    if row[7]:
+                    if row[7] and Pincode.objects.filter(Q(pincode=row[7]) | Q(id=row[7])).exists():
                         # pincode = Pincode.objects.values('id').get(pincode=row[7])['id']
-                        pincode = Pincode.objects.values('id').filter(pincode=row[7]).last()['id']
+                        pincode = Pincode.objects.filter(Q(pincode=row[7]) | Q(id=row[7])).last()
                     else:
                         pincode = None
                     ProductPrice.objects.create(
@@ -1272,7 +1272,7 @@ class ProductPriceUpload(View):
                         seller_shop_id=int(data['seller_shop'].id),
                         buyer_shop_id=int(row[8]) if row[8] else None,
                         city_id=int(row[5]) if row[5] else None,
-                        pincode_id=pincode,
+                        pincode=pincode,
                         start_date=row[10], end_date=row[11],
                         approval_status=ProductPrice.APPROVAL_PENDING)
 
