@@ -733,10 +733,13 @@ def products_export_for_vendor(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['id','product_name','product_gf_code','product_sku', 'mrp', 'brand_to_gram_price','case_size'])
-    products = Product.objects.values_list('id','product_name','product_gf_code','product_sku','product_case_size')
+    # writer.writerow(['id','product_name','product_gf_code','product_sku', 'mrp', 'brand_to_gram_price','case_size'])
+    writer.writerow(['id','product_name', 'product_sku', 'mrp', 'brand_to_gram_price', 'case_size'])
+    # products = Product.objects.values_list('id','product_name','product_gf_code','product_sku','product_case_size')
+    products = Product.objects.all().only('id', 'product_name', 'product_sku', 'product_mrp')
     for product in products:
-        writer.writerow([product[0],product[1],product[2],product[3],'','',product[4]])
+        # writer.writerow([product[0],product[1],product[2],product[3],'','',product[4]])
+        writer.writerow([product.id, product.product_name, product.product_sku, '', '', product.product_case_size])
     return response
 
 def products_vendor_mapping(request,pk=None):
@@ -1222,8 +1225,8 @@ class ProductPriceUpload(View):
             qs = qs.filter(product=data['product'])
         return qs.values_list(
             'product__product_sku', 'product__product_name',
-            'product__product_gf_code', 'seller_shop__shop_name', 'mrp',
-            'selling_price', 'city_id', 'city__city_name', 'pincode',
+            'seller_shop__shop_name', 'mrp',
+            'selling_price', 'city_id', 'city__city_name', 'pincode__pincode',
             'buyer_shop_id', 'buyer_shop__shop_name', 'start_date', 'end_date',
             'approval_status')
 
@@ -1231,20 +1234,20 @@ class ProductPriceUpload(View):
         # if (row[0] and not re.match("^[\d]*$", str(row[0]))) or not row[0]:
         #     raise Exception("{} - Please enter a valid {}"
         #                     "".format(row[0], first_row[0]))
+        if ((row[3] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[3]))) or
+                not row[3]):
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[3], first_row[3]))
         if ((row[4] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[4]))) or
                 not row[4]):
             raise Exception("{} - Please enter a valid {}"
                             "".format(row[4], first_row[4]))
-        if ((row[5] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[5]))) or
-                not row[5]):
+        if not row[10]:
             raise Exception("{} - Please enter a valid {}"
-                            "".format(row[5], first_row[5]))
+                            "".format(row[10], first_row[10]))
         if not row[11]:
             raise Exception("{} - Please enter a valid {}"
                             "".format(row[11], first_row[11]))
-        if not row[12]:
-            raise Exception("{} - Please enter a valid {}"
-                            "".format(row[12], first_row[12]))
 
     def create_product_price(self, request, data):
         try:
@@ -1258,18 +1261,19 @@ class ProductPriceUpload(View):
                 )):
                     self.validate_row(first_row, row)
                     product = Product.objects.values('id').get(product_sku=row[0])
-                    if row[8]:
-                        pincode = Pincode.objects.values('id').get(pincode=row[8])['id']
+                    if row[7] and Pincode.objects.filter(Q(pincode=row[7]) | Q(id=row[7])).exists():
+                        # pincode = Pincode.objects.values('id').get(pincode=row[7])['id']
+                        pincode = Pincode.objects.filter(Q(pincode=row[7]) | Q(id=row[7])).last()
                     else:
                         pincode = None
                     ProductPrice.objects.create(
-                        product_id=product['id'], mrp=Decimal(row[4]),
-                        selling_price=Decimal(row[5]),
+                        product_id=product['id'], mrp=Decimal(row[3]),
+                        selling_price=Decimal(row[4]),
                         seller_shop_id=int(data['seller_shop'].id),
-                        buyer_shop_id=int(row[9]) if row[9] else None,
-                        city_id=int(row[6]) if row[6] else None,
-                        pincode_id=pincode,
-                        start_date=row[11], end_date=row[12],
+                        buyer_shop_id=int(row[8]) if row[8] else None,
+                        city_id=int(row[5]) if row[5] else None,
+                        pincode=pincode,
+                        start_date=row[10], end_date=row[11],
                         approval_status=ProductPrice.APPROVAL_PENDING)
 
                 messages.success(request, 'Prices uploaded successfully')

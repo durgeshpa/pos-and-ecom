@@ -2018,8 +2018,10 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_tax_return_amount(self):
-        get_tax_val = self.get_product_tax_json() / 100
-        return round(float(self.basic_rate * (self.returned_qty + self.damaged_qty)) * float(get_tax_val), 2)
+        #get_tax_val = self.get_product_tax_json() / 100
+        #return round(float(self.basic_rate * (self.returned_qty + self.damaged_qty)) * float(get_tax_val), 2)
+        quantity = self.returned_damage_qty + self.returned_qty
+        return round(float(self.effective_price * quantity), 2) -self.basic_rate * quantity
 
     @property
     def product_tax_discount_amount(self):
