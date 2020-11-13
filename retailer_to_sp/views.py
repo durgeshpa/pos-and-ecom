@@ -920,7 +920,7 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
             if i.pickup.sku.product_mrp:
                 mrp = i.pickup.sku.product_mrp
             else:
-                mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
+                mrp = '-'
             qty = i.quantity
             batch_id = i.batch_id
             bin_id = i.bin.bin.bin_id
@@ -1048,7 +1048,7 @@ def pick_list_download(request, order_obj):
             product_list = {
                 "product_name": cart_pro.cart_product.product_name,
                 "product_sku": cart_pro.cart_product.product_sku,
-                "product_mrp": cart_pro.cart_product.product_mrp if cart_pro.cart_product.product_mrp else cart_pro.cart_product_price.mrp,
+                "product_mrp": cart_pro.cart_product.product_mrp if cart_pro.cart_product.product_mrp else '-',
                 "ordered_qty": cart_pro.qty,
                 "no_of_pieces": cart_pro.no_of_pieces,
 
