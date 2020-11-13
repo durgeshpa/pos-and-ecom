@@ -200,7 +200,7 @@ class CreatePickList(APIView):
             if i.pickup.sku.product_mrp:
                 mrp = i.pickup.sku.product_mrp
             else:
-                mrp = cart_product.cart_product_price.mrp
+                mrp = '-'
             # mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
             qty = i.quantity
             batch_id = i.batch_id
