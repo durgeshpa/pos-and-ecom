@@ -81,6 +81,8 @@ class ExportCsvMixin:
         writer = csv.writer(response)
         if self.model._meta.db_table=='products_product':
             field_names_temp = field_names.copy()
+            field_names_temp.append('product_brand')
+            field_names_temp.append('product_category')
             field_names_temp.append('image')
             writer.writerow(field_names_temp)
         else:
@@ -88,7 +90,11 @@ class ExportCsvMixin:
         for obj in queryset:
             items= [getattr(obj, field) for field in field_names]
             if self.model._meta.db_table == 'products_product':
-                if obj.product_pro_image.last():
+                items.append(obj.product_brand)
+                items.append(self.product_category(obj))
+                if obj.use_parent_image and obj.parent_product.parent_product_pro_image.last():
+                    items.append(obj.parent_product.parent_product_pro_image.last().image.url)
+                elif obj.product_pro_image.last():
                     items.append(obj.product_pro_image.last().image.url)
                 else:
                     items.append('-')
@@ -474,9 +480,11 @@ class ParentProductAdmin(admin.ModelAdmin):
 
     change_list_template = 'admin/products/parent_product_change_list.html'
     change_form_template = 'admin/products/parent_product_change_form.html'
-    actions = [deactivate_selected_products, approve_selected_products]
+    actions = [deactivate_selected_products, approve_selected_products, 'export_as_csv']
     list_display = [
-        'parent_id', 'name', 'parent_brand', 'product_hsn', 'product_gst', 'product_image', 'status'
+        'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
+        'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
+        'product_type'
     ]
     search_fields = [
         'parent_id', 'name'
@@ -491,6 +499,26 @@ class ParentProductAdmin(admin.ModelAdmin):
         if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').exists():
             return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').last().tax.tax_percentage)
         return ''
+    product_gst.short_description = 'Product GST'
+
+    def product_cess(self, obj):
+        if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='cess').exists():
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='cess').last().tax.tax_percentage)
+        return ''
+    product_cess.short_description = 'Product CESS'
+
+    def product_surcharge(self, obj):
+        if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='surcharge').exists():
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='surcharge').last().tax.tax_percentage)
+        return ''
+    product_surcharge.short_description = 'Product Surcharge'
+
+    def product_category(self, obj):
+        if obj.parent_product_pro_category.exists():
+            cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
+            return "\n".join(cats)
+        return ''
+    product_category.short_description = 'Product Category'
 
     def product_image(self, obj):
         if obj.parent_product_pro_image.exists():
@@ -500,6 +528,36 @@ class ParentProductAdmin(admin.ModelAdmin):
                 obj.parent_product_pro_image.last().image.url
             ))
         return '-'
+
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        field_names = [
+            'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
+            'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
+            'product_type'
+        ]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = []
+            for field in field_names:
+                try:
+                    val = getattr(obj, field)
+                except:
+                    if field == 'product_image':
+                        if obj.parent_product_pro_image.exists():
+                            val = "{}".format(obj.parent_product_pro_image.last().image.url)
+                        else:
+                            val = '-'
+                    else:
+                        val = eval("self.{}(obj)".format(field))
+                finally:
+                    row.append(val)
+            writer.writerow(row)
+        return response
+    export_as_csv.short_description = "Download CSV of Selected Objects"
 
     def get_urls(self):
         from django.conf.urls import url
@@ -744,7 +802,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     # ]
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
-        'product_brand', 'product_ean_code', 'product_mrp',
+        'product_brand', 'product_category', 'product_ean_code', 'product_mrp',
         'product_hsn', 'product_gst', 'products_image', 'status'
     ]
 
@@ -797,6 +855,13 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         return ''
     product_gst.short_description = 'Product GST'
 
+    def product_category(self, obj):
+        if obj.parent_product.parent_product_pro_category.exists():
+            cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
+            return "\n".join(cats)
+        return ''
+    product_category.short_description = 'Product Category'
+
     def get_changeform_initial_data(self, request):
         if request.GET.get('product'):
             product_details = Product.objects.filter(pk=int(request.GET.get('product'))).last()
@@ -822,17 +887,28 @@ class MRPSearch(InputFilter):
 class ExportProductPrice:
     def export_as_csv_productprice(self, request, queryset):
         meta = self.model._meta
+        # list_display = [
+        #     'product' ,'sku_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
+        #     'shop', 'cash_discount','loyalty_incentive','margin','start_date', 'end_date', 'status'
+        # ]
         list_display = [
-            'product' ,'sku_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
-            'shop', 'cash_discount','loyalty_incentive','margin','start_date', 'end_date', 'status'
+            'product', 'sku_code', 'mrp', 'selling_price', 'seller_shop', 'buyer_shop', 'city',
+            'pincode', 'start_date', 'end_date', 'approval_status', 'status'
         ]
-        field_names = [field.name for field in meta.fields if field.name in list_display]
+        # field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
         writer.writerow(list_display)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in list_display])
+            row = [getattr(obj, field) for field in list_display]
+            if row[-2] == 2:
+                row[-2] = 'Approved'
+            elif row[-2] == 1:
+                row[-2] = 'Approval Pending'
+            else:
+                row[-2] = 'Deactivated'
+            writer.writerow(row)
         return response
     export_as_csv_productprice.short_description = "Download CSV of Selected ProductPrice"
 
