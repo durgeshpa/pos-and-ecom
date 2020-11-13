@@ -64,16 +64,16 @@ class AuditorFilter(AutocompleteFilter):
 
 @admin.register(AuditDetail)
 class AuditDetailAdmin(admin.ModelAdmin):
-    list_display = ('id', 'warehouse', 'audit_type', 'audit_inventory_type', 'audit_level',
+    list_display = ('audit_no', 'warehouse', 'audit_run_type', 'audit_inventory_type', 'audit_level',
                     'state', 'status', 'user', 'auditor', 'created_at')
 
     fieldsets = (
         ('Basic', {
-            'fields': ('warehouse', 'audit_type', 'status'),
+            'fields': ('warehouse', 'audit_run_type', 'status'),
             'classes': ('required',)
         }),
         ('Automated Audit', {
-            'fields': ('audit_inventory_type',),
+            'fields': ('audit_inventory_type', 'is_historic', 'audit_from'),
             'classes': ('automated',)
         }),
         ('Manual Audit', {
@@ -81,7 +81,7 @@ class AuditDetailAdmin(admin.ModelAdmin):
             'classes': ('manual',)
         }),
     )
-    list_filter = [Warehouse, AuditNoFilter, AuditorFilter, 'audit_type', 'audit_level', 'state', 'status']
+    list_filter = [Warehouse, AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
     form = AuditCreationForm
     actions_on_top = False
 
@@ -89,8 +89,8 @@ class AuditDetailAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
-            return self.readonly_fields + ('warehouse', 'audit_type', 'audit_inventory_type', 'audit_level',
-                                           'bin', 'sku', 'user', 'auditor')
+            return self.readonly_fields + ('warehouse', 'audit_run_type', 'audit_inventory_type', 'audit_level',
+                                           'bin', 'sku', 'user', 'auditor', 'is_historic', 'audit_from')
         return self.readonly_fields
 
     class Media:
@@ -99,13 +99,13 @@ class AuditDetailAdmin(admin.ModelAdmin):
 
 @admin.register(AuditTicket)
 class AuditTicketAdmin(admin.ModelAdmin):
-    list_display = ('audit_id', 'audit_run_id', 'audit_type', 'audit_inventory_type',  'sku_id', 'batch_id', 'bin',
+    list_display = ('audit_id', 'audit_run_id', 'audit_run_type', 'audit_inventory_type',  'sku_id', 'batch_id', 'bin',
                     'inventory_type', 'inventory_state',
                     'qty_expected_type', 'qty_expected', 'qty_calculated_type', 'qty_calculated', 'created_at',
                     'status', 'assigned_user')
 
     readonly_fields = ('sku', 'batch_id', 'bin', 'qty_expected', 'qty_calculated', 'created_at', 'updated_at')
-    list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'audit_run__audit__audit_type',
+    list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'audit_run__audit__audit_run_type',
                    'audit_run__audit__audit_inventory_type', 'status', ('created_at', DateRangeFilter)]
     date_hierarchy = 'created_at'
     actions_on_top = False
@@ -119,7 +119,7 @@ class AuditTicketAdmin(admin.ModelAdmin):
 
 @admin.register(AuditTicketManual)
 class AuditTicketManualAdmin(admin.ModelAdmin):
-    list_display = ('audit_id', 'bin', 'sku', 'batch_id', 'qty_normal_system', 'qty_normal_actual', 'normal_var',
+    list_display = ('audit_no', 'bin', 'sku', 'batch_id', 'qty_normal_system', 'qty_normal_actual', 'normal_var',
                     'qty_damaged_system', 'qty_damaged_actual', 'damaged_var',
                     'qty_expired_system', 'qty_expired_actual', 'expired_var',
                     'total_var', 'status', 'assigned_user', 'created_at')
@@ -130,6 +130,9 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
 
     def audit_id(self, obj):
         return obj.audit_run.audit_id
+
+    def audit_no(self, obj):
+        return obj.audit_run.audit.audit_no
 
     def normal_var(self, obj):
         return obj.qty_normal_system - obj.qty_normal_actual

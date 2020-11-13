@@ -18,7 +18,7 @@ from wms.models import BinInventory, Bin, InventoryType, PickupBinInventory, War
     BinInternalInventoryChange
 from wms.views import PicklistRefresh
 from .serializers import AuditDetailSerializer
-from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
+from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist
 from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
 from ...utils import is_audit_started
@@ -59,7 +59,7 @@ class AuditListView(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         audits = AuditDetail.objects.filter(auditor=request.user,
-                                            audit_type=AUDIT_TYPE_CHOICES.MANUAL,
+                                            audit_run_type=AUDIT_RUN_TYPE_CHOICES.MANUAL,
                                             state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
                                                        AUDIT_DETAIL_STATE_CHOICES.INITIATED],
                                             status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
@@ -87,7 +87,7 @@ class AuditStartView(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         audits = AuditDetail.objects.filter(id=audit_no, auditor=request.user,
-                                            audit_type=AUDIT_TYPE_CHOICES.MANUAL,
+                                            audit_run_type=AUDIT_RUN_TYPE_CHOICES.MANUAL,
                                             status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
         count = audits.count()
         if count == 0:
@@ -138,7 +138,7 @@ class AuditEndView(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         audits = AuditDetail.objects.filter(id=audit_no, auditor=request.user,
-                                            audit_type=AUDIT_TYPE_CHOICES.MANUAL,
+                                            audit_run_type=AUDIT_RUN_TYPE_CHOICES.MANUAL,
                                             status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
         count = audits.count()
         if count == 0:
@@ -172,7 +172,7 @@ class AuditEndView(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         audits = AuditDetail.objects.filter(id=audit_no, auditor=request.user,
-                                            audit_type=AUDIT_TYPE_CHOICES.MANUAL,
+                                            audit_run_type=AUDIT_RUN_TYPE_CHOICES.MANUAL,
                                             status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
         count = audits.count()
         if count == 0:

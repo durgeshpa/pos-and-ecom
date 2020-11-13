@@ -11,20 +11,20 @@ from products.models import Product
 
 # Create your models here.
 
-AUDIT_DETAIL_STATUS_CHOICES = Choices((0, 'INACTIVE', 'inactive'), (1, 'ACTIVE', 'active'))
-AUDIT_DETAIL_STATE_CHOICES = Choices((1, 'CREATED', 'created'), (2, 'INITIATED', 'initiated'),(3, 'ENDED', 'ended'),
-                                     (4, 'PASS', 'pass'), (5, 'FAIL', 'fail'),
-                                     (6, 'TICKET_RAISED', 'ticket_raised'),(7, 'TICKET_CLOSED', 'ticket_closed'))
+AUDIT_DETAIL_STATUS_CHOICES = Choices((0, 'INACTIVE', 'Inactive'), (1, 'ACTIVE', 'Active'))
+AUDIT_DETAIL_STATE_CHOICES = Choices((1, 'CREATED', 'Created'), (2, 'INITIATED', 'Initiated'),(3, 'ENDED', 'Ended'),
+                                     (4, 'PASS', 'Pass'), (5, 'FAIL', 'Fail'),
+                                     (6, 'TICKET_RAISED', 'Ticket Raised'),(7, 'TICKET_CLOSED', 'Ticket Closed'))
 AUDIT_INVENTORY_CHOICES = Choices((1, 'WAREHOUSE', 'warehouse'), (2, 'BIN', 'bin'), (3, 'INTEGRATED', 'bin-warehouse'),
                                   (4, 'DAILY_OPERATIONS', 'daily operations'))
-AUDIT_TYPE_CHOICES = Choices((0, 'MANUAL', 'manual'),  #(1, 'SCHEDULED', 'scheduled'),
-                             (2, 'AUTOMATED', 'automated'))
-AUDIT_RUN_STATUS_CHOICES = Choices((0, 'IN_PROGRESS', 'in_progress'), (1, 'ABORTED', 'aborted'),
-                                   (2, 'COMPLETED', 'completed'))
-AUDIT_STATUS_CHOICES = Choices((0, 'DIRTY', 'dirty'), (1, 'CLEAN', 'clean'))
-AUDIT_TICKET_STATUS_CHOICES = Choices((0, 'OPEN', 'open'), (1, 'ASSIGNED', 'assigned'), (2, 'CLOSED', 'closed'))
-AUDIT_LEVEL_CHOICES = Choices((0, 'BIN', 'bin'), (1, 'PRODUCT', 'product'))
-AUDIT_PRODUCT_STATUS = Choices((0, 'RELEASED', 'released'), (1, 'BLOCKED', 'blocked'), )
+AUDIT_RUN_TYPE_CHOICES = Choices((0, 'MANUAL', 'Manual'),  #(1, 'SCHEDULED', 'scheduled'),
+                                 (2, 'AUTOMATED', 'Automated'))
+AUDIT_RUN_STATUS_CHOICES = Choices((0, 'IN_PROGRESS', 'In Progress'), (1, 'ABORTED', 'Aborted'),
+                                   (2, 'COMPLETED', 'Completed'))
+AUDIT_STATUS_CHOICES = Choices((0, 'DIRTY', 'Dirty'), (1, 'CLEAN', 'Clean'))
+AUDIT_TICKET_STATUS_CHOICES = Choices((0, 'OPEN', 'Open'), (1, 'ASSIGNED', 'Assigned'), (2, 'CLOSED', 'Closed'))
+AUDIT_LEVEL_CHOICES = Choices((0, 'BIN', 'Bin WIse'), (1, 'PRODUCT', 'Product Wise'))
+AUDIT_PRODUCT_STATUS = Choices((0, 'RELEASED', 'Released'), (1, 'BLOCKED', 'Blocked'), )
 
 
 class BaseTimestampModel(models.Model):
@@ -36,22 +36,26 @@ class BaseTimestampModel(models.Model):
 
 
 class AuditDetail(BaseTimestampModel):
-    # audit_no = models.CharField(max_length=10)
-    audit_type = models.PositiveSmallIntegerField(choices=AUDIT_TYPE_CHOICES, verbose_name='Audit Type')
+    audit_no = models.CharField(max_length=10, null=True)
+    audit_run_type = models.PositiveSmallIntegerField(choices=AUDIT_RUN_TYPE_CHOICES, default=AUDIT_RUN_TYPE_CHOICES.MANUAL,
+                                                      verbose_name='Audit Run Type')
     audit_inventory_type = models.PositiveSmallIntegerField(choices=AUDIT_INVENTORY_CHOICES, null=True,
                                                             blank=True,verbose_name='Audit Inventory Type')
     audit_level = models.PositiveSmallIntegerField(choices=AUDIT_LEVEL_CHOICES, null=True, blank=True,
-                                                   verbose_name='Audit Level')
+                                                   verbose_name='Audit Type')
     warehouse = models.ForeignKey(Shop, null=False, blank=False, on_delete=models.DO_NOTHING)
     bin = models.ManyToManyField(Bin, null=True, blank=True, related_name='audit_bin_mapping')
     sku = models.ManyToManyField(Product, null=True, blank=True, related_name='audit_product_mapping')
-    status = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATUS_CHOICES, verbose_name='Audit Status')
+    status = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATUS_CHOICES,
+                                              default=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE, verbose_name='Audit Status')
     state = models.PositiveSmallIntegerField(choices=AUDIT_DETAIL_STATE_CHOICES,
                                              default=AUDIT_DETAIL_STATE_CHOICES.CREATED,
                                              verbose_name='Audit State')
     user = models.ForeignKey(get_user_model(), related_name='audits_created', on_delete=models.DO_NOTHING,
                              verbose_name='Created By')
     auditor = models.ForeignKey(get_user_model(), related_name='audits_assigned', null=True, on_delete=models.DO_NOTHING)
+    is_historic = models.BooleanField(default=False)
+    audit_from = models.DateField(null=True, blank=True, verbose_name='Start Audit From')
 
     def save(self, *args, **kwargs):
         if not self.id:
@@ -63,7 +67,7 @@ class AuditDetail(BaseTimestampModel):
 
     class Meta:
         db_table = "wms_audit_details"
-        verbose_name_plural = "Audit Details"
+        verbose_name_plural = "Audit Tasks"
 
 
 class AuditRun(BaseTimestampModel):
@@ -116,12 +120,14 @@ class AuditTicket(BaseTimestampModel):
 
     class Meta:
         db_table = "wms_audit_tickets"
+        verbose_name = "Automated Audit Ticket"
+        verbose_name_plural = "Automated Audit Tickets"
 
     def audit_inventory_type(self):
         return AUDIT_INVENTORY_CHOICES[self.audit_run.audit.audit_inventory_type]
 
-    def audit_type(self):
-        return AUDIT_TYPE_CHOICES[self.audit_run.audit.audit_type]
+    def audit_run_type(self):
+        return AUDIT_RUN_TYPE_CHOICES[self.audit_run.audit.audit_run_type]
 
 
 class AuditProduct(BaseTimestampModel):

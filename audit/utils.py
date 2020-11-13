@@ -1,6 +1,21 @@
-from audit.models import AuditRun, AUDIT_RUN_STATUS_CHOICES
+from audit.models import AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_RUN_TYPE_CHOICES, AUDIT_LEVEL_CHOICES
 from sp_to_gram.tasks import es_mget_by_ids
 from wms.models import BinInventory
+
+
+def create_audit_no(audit):
+    if audit.audit_run_type == AUDIT_RUN_TYPE_CHOICES.AUTOMATED:
+        audit_no = audit.id
+    else:
+        audit_no = 'A_'
+        if audit.audit_level == AUDIT_LEVEL_CHOICES.BIN:
+            audit_no += 'B'
+        elif audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
+            audit_no += 'P'
+        audit_id_str = str(audit.id)
+        audit_id_str.zfill(3)
+        audit_no += audit_id_str
+    return audit_no
 
 
 def get_products_by_audit(audit_detail):

@@ -18,7 +18,7 @@ from retailer_to_sp.models import Order, Trip, PickerDashboard
 from wms.views import PicklistRefresh
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
-                     AUDIT_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES, AuditProduct,
+                     AUDIT_RUN_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES, AuditProduct,
                      AUDIT_PRODUCT_STATUS, AUDIT_DETAIL_STATE_CHOICES, AuditCancelledPicklist, AuditTicketManual
                      )
 from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
@@ -29,7 +29,7 @@ import datetime
 
 from .serializers import WarehouseInventoryTransactionSerializer, WarehouseInventorySerializer, \
     BinInventoryTransactionSerializer, BinInventorySerializer, PickupBlockedQuantitySerializer
-from .utils import get_es_status, get_products_by_audit
+from .utils import get_products_by_audit
 
 info_logger = logging.getLogger('file-info')
 cron_logger = logging.getLogger('cron_log')
@@ -176,8 +176,6 @@ def run_bin_level_audit(audit_run):
                                                  status=audit_item_status)
         if audit_item_status == AUDIT_STATUS_CHOICES.DIRTY:
             ticket = AuditTicket.objects.create(warehouse=audit_run.warehouse, audit_run=audit_run,
-                                                # audit_type=audit_run.audit.audit_type,
-                                                # audit_inventory_type=audit_run.audit.audit_inventory_type,
                                                 sku_id=item['sku_id'],
                                                 batch_id=item['batch_id'],
                                                 bin_id=item['bin_id'],
@@ -376,7 +374,7 @@ def run_audit(audit_run, inventory_choice):
 
 
 def start_automated_inventory_audit():
-    audits_to_perform = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.AUTOMATED,
+    audits_to_perform = AuditDetail.objects.filter(audit_run_type=AUDIT_RUN_TYPE_CHOICES.AUTOMATED,
                                                    status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
     for audit in audits_to_perform:
         audit_run = AuditRun.objects.filter(audit=audit, status=AUDIT_RUN_STATUS_CHOICES.IN_PROGRESS)

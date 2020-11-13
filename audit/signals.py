@@ -1,14 +1,23 @@
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
 
-from audit.models import AuditDetail, AUDIT_TYPE_CHOICES, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
+from audit.models import AuditDetail, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
     AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
+from audit.utils import create_audit_no
 from audit.views import BlockUnblockProduct
 
 
 @receiver(post_save, sender=AuditDetail)
+def save_audit_no(sender, instance=None, created=False, **kwargs):
+    if created:
+        audit_no = create_audit_no(instance)
+        instance.audit_no = audit_no
+        instance.save()
+
+
+@receiver(post_save, sender=AuditDetail)
 def enable_disable_audit_product_on_save(sender, instance=None, created=False, **kwargs):
-    if instance.audit_type == AUDIT_TYPE_CHOICES.AUTOMATED:
+    if instance.audit_run_type == AUDIT_RUN_TYPE_CHOICES.AUTOMATED:
         return
     if instance.status == AUDIT_DETAIL_STATUS_CHOICES.INACTIVE:
         BlockUnblockProduct.enable_products(instance)
@@ -20,7 +29,7 @@ def enable_disable_audit_product_on_save(sender, instance=None, created=False, *
 def disable_bin_audit_products(sender, instance, action, *args, **kwargs):
     if action != 'post_add':
         return
-    if instance.audit_type == AUDIT_TYPE_CHOICES.AUTOMATED:
+    if instance.audit_run_type == AUDIT_RUN_TYPE_CHOICES.AUTOMATED:
         return
     if instance.status == AUDIT_DETAIL_STATUS_CHOICES.INACTIVE:
         return
