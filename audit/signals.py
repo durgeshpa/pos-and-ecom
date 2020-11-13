@@ -1,26 +1,29 @@
+from django.db import transaction
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
 
 from audit.models import AuditDetail, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
-    AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
-from audit.utils import create_audit_no
+    AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES, AUDIT_LEVEL_CHOICES
+from audit.utils import get_next_audit_no
 from audit.views import BlockUnblockProduct
-
-#
-# @receiver(post_save, sender=AuditDetail)
-# def save_audit_no(sender, instance=None, created=False, **kwargs):
-#     if created:
-#         audit_no = create_audit_no(instance)
-#         instance.audit_no = audit_no
-#         instance.save()
 
 
 @receiver(post_save, sender=AuditDetail)
 def save_audit_no(sender, instance=None, created=False, **kwargs):
     if created:
-        audit_no = create_audit_no(instance)
-        instance.audit_no = audit_no
-        instance.save()
+        with transaction.atomic():
+            if instance.audit_run_type == AUDIT_RUN_TYPE_CHOICES.AUTOMATED:
+                audit_no = 'AA_'
+            elif instance.audit_run_type == AUDIT_RUN_TYPE_CHOICES.MANUAL:
+                audit_no = 'MA_'
+                if instance.audit_level == AUDIT_LEVEL_CHOICES.BIN:
+                    audit_no += 'B'
+                elif instance.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
+                    audit_no += 'P'
+            next_audit_no = get_next_audit_no(instance)
+            audit_no += str(next_audit_no)
+            instance.audit_no = audit_no
+            instance.save()
 
 
 @receiver(post_save, sender=AuditDetail)

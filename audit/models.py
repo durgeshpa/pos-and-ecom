@@ -23,7 +23,7 @@ AUDIT_RUN_STATUS_CHOICES = Choices((0, 'IN_PROGRESS', 'In Progress'), (1, 'ABORT
                                    (2, 'COMPLETED', 'Completed'))
 AUDIT_STATUS_CHOICES = Choices((0, 'DIRTY', 'Dirty'), (1, 'CLEAN', 'Clean'))
 AUDIT_TICKET_STATUS_CHOICES = Choices((0, 'OPEN', 'Open'), (1, 'ASSIGNED', 'Assigned'), (2, 'CLOSED', 'Closed'))
-AUDIT_LEVEL_CHOICES = Choices((0, 'BIN', 'Bin WIse'), (1, 'PRODUCT', 'Product Wise'))
+AUDIT_LEVEL_CHOICES = Choices((0, 'BIN', 'Bin Wise'), (1, 'PRODUCT', 'Product Wise'))
 AUDIT_PRODUCT_STATUS = Choices((0, 'RELEASED', 'Released'), (1, 'BLOCKED', 'Blocked'), )
 
 
@@ -34,10 +34,14 @@ class BaseTimestampModel(models.Model):
     class Meta:
         abstract = True
 
+class AuditNumberGenerator(BaseTimestampModel):
+    audit_run_type = models.PositiveSmallIntegerField(choices=AUDIT_RUN_TYPE_CHOICES)
+    audit_level = models.PositiveSmallIntegerField(choices=AUDIT_LEVEL_CHOICES, null=True)
+    current_number = models.IntegerField()
 
 class AuditDetail(BaseTimestampModel):
     audit_no = models.CharField(max_length=10, null=True)
-    audit_run_type = models.PositiveSmallIntegerField(choices=AUDIT_RUN_TYPE_CHOICES, default=AUDIT_RUN_TYPE_CHOICES.MANUAL,
+    audit_run_type = models.PositiveSmallIntegerField(choices=AUDIT_RUN_TYPE_CHOICES,
                                                       verbose_name='Audit Run Type')
     audit_inventory_type = models.PositiveSmallIntegerField(choices=AUDIT_INVENTORY_CHOICES, null=True,
                                                             blank=True,verbose_name='Audit Inventory Type')

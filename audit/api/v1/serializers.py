@@ -9,7 +9,7 @@ class AuditDetailSerializer(serializers.ModelSerializer):
     audit_state = serializers.SerializerMethodField('m_audit_state')
 
     def m_audit_no(self, obj):
-        return obj.id
+        return obj.audit_no
 
     def m_audit_level(self, obj):
         return AUDIT_LEVEL_CHOICES[obj.audit_level]

@@ -32,6 +32,10 @@ class AuditCreationForm(forms.ModelForm):
         queryset=User.objects.all(),
         widget=autocomplete.ModelSelect2(url='assigned-user-autocomplete', forward=('warehouse',)))
 
+    def __init__(self, *args, **kwargs):
+        super(AuditCreationForm, self).__init__(*args, **kwargs)
+        self.fields['audit_run_type'].initial = AUDIT_RUN_TYPE_CHOICES.MANUAL
+
     def clean(self):
         data = self.cleaned_data
         if self.instance.id:
@@ -89,18 +93,24 @@ class AuditCreationForm(forms.ModelForm):
 
         return self.cleaned_data
 
+
 class AuditTicketForm(forms.ModelForm):
+    warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
     assigned_user = forms.ModelChoiceField(
         required=False,
         queryset=User.objects.all(),
-        widget=autocomplete.ModelSelect2(url='assigned-user-autocomplete')
-    )
+        widget=autocomplete.ModelSelect2(url='assigned-user-autocomplete',
+                                         forward=('warehouse',)))
 
     def clean(self):
         data = self.cleaned_data
+        if self.instance.warehouse != data['warehouse']:
+            raise ValidationError('Warehouse cannot be changed of a ticket')
+
         if self.instance.status == AUDIT_TICKET_STATUS_CHOICES.CLOSED:
             raise ValidationError('Ticket cannot be updated once its closed')
 
     class Meta:
         model = AuditTicketManual
-        fields = ('status', 'assigned_user')
+        fields = ('warehouse', 'status', 'assigned_user')

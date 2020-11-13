@@ -1,21 +1,27 @@
-from audit.models import AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_RUN_TYPE_CHOICES, AUDIT_LEVEL_CHOICES
+from django.db import transaction
+from django.db.models import Count
+
+from audit.models import AuditRun, AUDIT_RUN_STATUS_CHOICES, AuditNumberGenerator, AuditDetail
 from sp_to_gram.tasks import es_mget_by_ids
 from wms.models import BinInventory
 
 
-def create_audit_no(audit):
-    if audit.audit_run_type == AUDIT_RUN_TYPE_CHOICES.AUTOMATED:
-        audit_no = audit.id
+def get_next_audit_no(audit):
+    audit_no_generator = AuditNumberGenerator.objects.filter(audit_run_type=audit.audit_run_type,
+                                                             audit_level=audit.audit_level).last()
+    if audit_no_generator:
+        audit_no_generator.current_number = audit_no_generator.current_number + 1
+        audit_no_generator.save()
+
     else:
-        audit_no = 'A_'
-        if audit.audit_level == AUDIT_LEVEL_CHOICES.BIN:
-            audit_no += 'B'
-        elif audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
-            audit_no += 'P'
-        audit_id_str = str(audit.id)
-        audit_id_str.zfill(3)
-        audit_no += audit_id_str
-    return audit_no
+        count = AuditDetail.objects.filter(audit_run_type=audit.audit_run_type,
+                                           audit_level=audit.audit_level).count()
+        audit_no_generator = AuditNumberGenerator.objects.create(audit_run_type=audit.audit_run_type,
+                                                                 audit_level=audit.audit_level,
+                                                                 current_number=count)
+    return audit_no_generator.current_number
+
+
 
 
 def get_products_by_audit(audit_detail):

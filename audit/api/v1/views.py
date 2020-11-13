@@ -86,7 +86,7 @@ class AuditStartView(APIView):
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'audit_no', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        audits = AuditDetail.objects.filter(id=audit_no, auditor=request.user,
+        audits = AuditDetail.objects.filter(audit_no=audit_no, auditor=request.user,
                                             audit_run_type=AUDIT_RUN_TYPE_CHOICES.MANUAL,
                                             status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
         count = audits.count()
@@ -137,7 +137,7 @@ class AuditEndView(APIView):
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'audit_no', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        audits = AuditDetail.objects.filter(id=audit_no, auditor=request.user,
+        audits = AuditDetail.objects.filter(audit_no=audit_no, auditor=request.user,
                                             audit_run_type=AUDIT_RUN_TYPE_CHOICES.MANUAL,
                                             status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
         count = audits.count()
@@ -171,7 +171,7 @@ class AuditEndView(APIView):
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'audit_no', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        audits = AuditDetail.objects.filter(id=audit_no, auditor=request.user,
+        audits = AuditDetail.objects.filter(audit_no=audit_no, auditor=request.user,
                                             audit_run_type=AUDIT_RUN_TYPE_CHOICES.MANUAL,
                                             status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
         count = audits.count()
@@ -343,7 +343,7 @@ class AuditBinList(APIView):
         if not audit_no:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'audit_no', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        audit = AuditDetail.objects.filter(id=audit_no).last()
+        audit = AuditDetail.objects.filter(audit_no=audit_no).last()
         if audit is None:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['NO_RECORD'] % 'audit', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
@@ -388,7 +388,7 @@ class AuditBinsBySKUList(APIView):
         if not audit_no:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'audit_no', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        audit = AuditDetail.objects.filter(id=audit_no).last()
+        audit = AuditDetail.objects.filter(audit_no=audit_no).last()
         if audit is None:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['NO_RECORD'] % 'audit', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
@@ -430,7 +430,7 @@ class AuditInventory(APIView):
         if not audit_no:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'audit_no', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        audit = AuditDetail.objects.filter(id=audit_no).last()
+        audit = AuditDetail.objects.filter(audit_no=audit_no).last()
         if audit is None:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['NO_RECORD'] % 'audit', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
@@ -468,7 +468,7 @@ class AuditInventory(APIView):
         if not audit_no:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'audit_no', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        audit = AuditDetail.objects.filter(id=audit_no).last()
+        audit = AuditDetail.objects.filter(audit_no=audit_no).last()
         if audit is None:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['NO_RECORD'] % 'audit', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
