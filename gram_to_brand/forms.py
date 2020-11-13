@@ -91,27 +91,36 @@ class POGenerationForm(forms.ModelForm):
             first_row = next(reader)
             for id,row in enumerate(reader):
                 if not row[0]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Parent Product ID cannot be empty")
 
                 try:
-                    product = Product.objects.get(pk=row[0])
+                    parent_product = ParentProduct.objects.get(parent_id=row[0])
                 except:
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PARENT_ID'])
+
+                if not row[2]:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | Product ID cannot be empty")
+
+                try:
+                    product = Product.objects.get(pk=row[2], parent_product=parent_product)
+                except:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | "+VALIDATION_ERROR_MESSAGES[
                     'INVALID_PRODUCT_ID'])
 
-                if not row[3] or not re.match("^[\d\,]*$", row[3]):
+                if not row[5] or not re.match("^[\d\,]*$", row[5]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("Case_Size"))
 
-                if not row[4] or not re.match("^[\d\,]*$", row[4]):
+                if not row[6] or not re.match("^[\d\,]*$", row[6]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("No_of_cases"))
 
-                if not row[5] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[5]):
+                if not row[7] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[7]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("MRP"))
 
-                if not row[6] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[6]):
+                if not row[8] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[8]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("Gram_to_brand"))
 
