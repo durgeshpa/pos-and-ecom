@@ -159,7 +159,7 @@ def products_price_excel(queryset):
     worksheet.write('A1', 'Product SKU\n(required)', header_format)
     worksheet.write('B1', 'Product Name', header_format)
     worksheet.write('C1', 'Seller Shop Name', header_format)
-    worksheet.write('D1', 'MRP\n(required)', header_format)
+    worksheet.write('D1', 'MRP\n(Stored with Child Product. Do not update here.)', header_format)
     worksheet.write('E1', 'Selling Price\n(required)', header_format)
     worksheet.write('F1', 'City ID\n(optional)', header_format)
     worksheet.write('G1', 'City Name', header_format)
