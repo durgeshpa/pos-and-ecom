@@ -18,17 +18,18 @@ class WareHouseComplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
 
+
 class AssignedUserComplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:
             return User.objects.none()
-
         warehouse = self.forwarded.get('warehouse', None)
         user = ShopUserMapping.objects.filter(shop=warehouse).values_list('employee_id', flat=True)
         qs = User.objects.filter(id__in=user)
         if self.q:
             qs = qs.filter(first_name__istartswith=self.q)
         return qs
+
 
 class AssignedUserFilter(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):

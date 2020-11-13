@@ -35,7 +35,6 @@
                 bin.hide();
             }
         }
-
         toggleAuditType($('#id_audit_run_type').val())
         toggleAuditLevel($('#id_audit_level').val())
 

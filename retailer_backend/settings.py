@@ -102,7 +102,8 @@ INSTALLED_APPS = [
     'django_elasticsearch_dsl',
     'mathfilters',
     'wms',
-    'audit'
+    'audit',
+    'django_extensions'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:

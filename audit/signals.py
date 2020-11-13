@@ -6,6 +6,14 @@ from audit.models import AuditDetail, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATU
 from audit.utils import create_audit_no
 from audit.views import BlockUnblockProduct
 
+#
+# @receiver(post_save, sender=AuditDetail)
+# def save_audit_no(sender, instance=None, created=False, **kwargs):
+#     if created:
+#         audit_no = create_audit_no(instance)
+#         instance.audit_no = audit_no
+#         instance.save()
+
 
 @receiver(post_save, sender=AuditDetail)
 def save_audit_no(sender, instance=None, created=False, **kwargs):

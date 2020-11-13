@@ -308,6 +308,8 @@ class WarehouseInternalInventoryChange(models.Model):
         ('expired', 'Expired'),
         ('manual_audit_add', 'Manual Audit Add'),
         ('manual_audit_deduct', 'Manual Audit Deduct'),
+        ('audit_correction_add', 'Audit Correction Add'),
+        ('audit_correction_deduct', 'Audit Correction Deduct'),
 
     )
 
@@ -354,6 +356,8 @@ class BinInternalInventoryChange(models.Model):
         ('expired', 'expired'),
         ('manual_audit_add', 'Manual Audit Add'),
         ('manual_audit_deduct', 'Manual Audit Deduct'),
+        ('audit_correction_add', 'Audit Correction Add'),
+        ('audit_correction_deduct', 'Audit Correction Deduct'),
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
