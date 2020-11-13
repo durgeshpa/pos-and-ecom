@@ -1230,24 +1230,40 @@ class ProductPriceUpload(View):
             'buyer_shop_id', 'buyer_shop__shop_name', 'start_date', 'end_date',
             'approval_status')
 
-    def validate_row(self, first_row, row):
+    def validate_row(self, first_row, row, mrp_col_present=True):
         # if (row[0] and not re.match("^[\d]*$", str(row[0]))) or not row[0]:
         #     raise Exception("{} - Please enter a valid {}"
         #                     "".format(row[0], first_row[0]))
-        if ((row[3] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[3]))) or
-                not row[3]):
-            raise Exception("{} - Please enter a valid {}"
-                            "".format(row[3], first_row[3]))
-        if ((row[4] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[4]))) or
-                not row[4]):
-            raise Exception("{} - Please enter a valid {}"
-                            "".format(row[4], first_row[4]))
-        if not row[10]:
-            raise Exception("{} - Please enter a valid {}"
-                            "".format(row[10], first_row[10]))
-        if not row[11]:
-            raise Exception("{} - Please enter a valid {}"
-                            "".format(row[11], first_row[11]))
+        if mrp_col_present:
+            # if ((row[3] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[3]))) or
+            #         not row[3]):
+            #     raise Exception("{} - Please enter a valid {}"
+            #                     "".format(row[3], first_row[3]))
+            if ((row[4] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[4]))) or
+                    not row[4]):
+                raise Exception("{} - Please enter a valid {}"
+                                "".format(row[4], first_row[4]))
+            if not row[10]:
+                raise Exception("{} - Please enter a valid {}"
+                                "".format(row[10], first_row[10]))
+            if not row[11]:
+                raise Exception("{} - Please enter a valid {}"
+                                "".format(row[11], first_row[11]))
+        else:
+            if ((row[3] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[3]))) or
+                    not row[3]):
+                raise Exception("{} - Please enter a valid {}"
+                                "".format(row[3], first_row[3]))
+            # if ((row[4] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[4]))) or
+            #         not row[4]):
+            #     raise Exception("{} - Please enter a valid {}"
+            #                     "".format(row[4], first_row[4]))
+            if not row[9]:
+                raise Exception("{} - Please enter a valid {}"
+                                "".format(row[9], first_row[9]))
+            if not row[10]:
+                raise Exception("{} - Please enter a valid {}"
+                                "".format(row[10], first_row[10]))
 
     def create_product_price(self, request, data):
         try:
@@ -1255,26 +1271,48 @@ class ProductPriceUpload(View):
                 wb_obj = openpyxl.load_workbook(data.get('csv_file'))
                 sheet_obj = wb_obj.active
                 first_row = next(sheet_obj.iter_rows(values_only=True))
+                mrp_col_present = False
+                for col in first_row:
+                    if 'mrp' in col.lower():
+                        mrp_col_present = True
                 for row_id, row in enumerate(sheet_obj.iter_rows(
                     min_row=2, max_row=None, min_col=None, max_col=None,
                     values_only=True
                 )):
-                    self.validate_row(first_row, row)
-                    product = Product.objects.values('id').get(product_sku=row[0])
-                    if row[7] and Pincode.objects.filter(Q(pincode=row[7]) | Q(id=row[7])).exists():
-                        # pincode = Pincode.objects.values('id').get(pincode=row[7])['id']
-                        pincode = Pincode.objects.filter(Q(pincode=row[7]) | Q(id=row[7])).last()
+                    self.validate_row(first_row, row, mrp_col_present)
+                    product = Product.objects.get(product_sku=row[0])
+                    if not product.product_mrp:
+                        raise Exception("Product MRP not present at Child Product level")
+                    if mrp_col_present:
+                        if row[7] and Pincode.objects.filter(Q(pincode=row[7]) | Q(id=row[7])).exists():
+                            # pincode = Pincode.objects.values('id').get(pincode=row[7])['id']
+                            pincode = Pincode.objects.filter(Q(pincode=row[7]) | Q(id=row[7])).last()
+                        else:
+                            pincode = None
+                        ProductPrice.objects.create(
+                            product=product, mrp=product.product_mrp,
+                            selling_price=Decimal(row[4]),
+                            seller_shop_id=int(data['seller_shop'].id),
+                            buyer_shop_id=int(row[8]) if row[8] else None,
+                            city_id=int(row[5]) if row[5] else None,
+                            pincode=pincode,
+                            start_date=row[10], end_date=row[11],
+                            approval_status=ProductPrice.APPROVAL_PENDING)
                     else:
-                        pincode = None
-                    ProductPrice.objects.create(
-                        product_id=product['id'], mrp=Decimal(row[3]),
-                        selling_price=Decimal(row[4]),
-                        seller_shop_id=int(data['seller_shop'].id),
-                        buyer_shop_id=int(row[8]) if row[8] else None,
-                        city_id=int(row[5]) if row[5] else None,
-                        pincode=pincode,
-                        start_date=row[10], end_date=row[11],
-                        approval_status=ProductPrice.APPROVAL_PENDING)
+                        if row[6] and Pincode.objects.filter(Q(pincode=row[6]) | Q(id=row[6])).exists():
+                            # pincode = Pincode.objects.values('id').get(pincode=row[6])['id']
+                            pincode = Pincode.objects.filter(Q(pincode=row[6]) | Q(id=row[6])).last()
+                        else:
+                            pincode = None
+                        ProductPrice.objects.create(
+                            product=product, mrp=product.product_mrp,
+                            selling_price=Decimal(row[3]),
+                            seller_shop_id=int(data['seller_shop'].id),
+                            buyer_shop_id=int(row[7]) if row[7] else None,
+                            city_id=int(row[4]) if row[4] else None,
+                            pincode=pincode,
+                            start_date=row[9], end_date=row[10],
+                            approval_status=ProductPrice.APPROVAL_PENDING)
 
                 messages.success(request, 'Prices uploaded successfully')
 
