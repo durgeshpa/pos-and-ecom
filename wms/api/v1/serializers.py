@@ -173,7 +173,7 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
         # if product_mrp:
         #    return product_mrp.last().mrp
         else:
-            return ''
+            return float(0.0)
 
     def batch_sku(self, obj):
         batch_id = obj.batch_id
