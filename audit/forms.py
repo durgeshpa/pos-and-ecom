@@ -34,6 +34,8 @@ class AuditCreationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(AuditCreationForm, self).__init__(*args, **kwargs)
+        if self.instance.id:
+            return
         self.fields['audit_run_type'].initial = AUDIT_RUN_TYPE_CHOICES.MANUAL
 
     def clean(self):
