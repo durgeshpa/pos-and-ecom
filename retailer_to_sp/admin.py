@@ -579,11 +579,11 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
                     return self.readonly_fields+ ('approval_status',)
         return self.readonly_fields
 
+
 class BulkOrderAdmin(admin.ModelAdmin):
     fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv', 'order_type')
     form = BulkCartForm
-    list_display = ('cart', 'order_type', 'seller_shop','buyer_shop', 'shipping_address', 'billing_address', 'created_at',)
-    #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
+    list_display = ('cart', 'order_type', 'seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'created_at')
     list_filter = (SellerShopFilter, BuyerShopFilter)
 
     class Media:
@@ -591,21 +591,12 @@ class BulkOrderAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
-            return self.readonly_fields + ('seller_shop','buyer_shop','shipping_address','billing_address',)
+            return self.readonly_fields + ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address',)
         return self.readonly_fields
 
     def has_change_permission(self, request, obj=None):
         if obj:
             return False
-    # def change_view(self, request, object_id, extra_context=None):
-    #     if object_id:
-    #         extra_context = {
-    #             'show_save_and_add_another': False,
-    #             'show_save_and_continue': False,
-    #             'show_save': False
-    #             }
-    #
-    #     return super(BulkOrderAdmin, self).change_view(request, object_id, extra_context=extra_context)
 
 
 class ExportCsvMixin:
