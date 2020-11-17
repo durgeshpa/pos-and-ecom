@@ -314,20 +314,31 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
             reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
             for id,row in enumerate(reader):
                 for row in reader:
-                    if row[0] and row[4] and row[5] :
-                        product = Product.objects.get(id=int(row[0]))
+                    if row[0] and row[2] and row[6] and row[7]:
+                        parent_product = ParentProduct.objects.get(parent_id=row[0])
+                        product = Product.objects.get(id=int(row[2]))
 
-                        vendor_product = ProductVendorMapping.objects.filter(vendor=instance.supplier_name,product_id=row[0]).last()
-                        if vendor_product and (vendor_product.case_size == row[2] or vendor_product.product_price == row[5]):
+                        vendor_product = ProductVendorMapping.objects.filter(vendor=instance.supplier_name,product_id=row[2]).last()
+                        if vendor_product and (vendor_product.case_size == row[5] or vendor_product.product_price == row[8]):
                             vendor_product_dt = vendor_product
                         else:
-                            vendor_product_dt = ProductVendorMapping.objects.create(vendor=instance.supplier_name,
-                                                                product_id=row[0], product_price=row[6],
-                                                                product_mrp=row[5], case_size=row[3], status=True)
+                            vendor_product_dt = ProductVendorMapping.objects.create(
+                                vendor=instance.supplier_name,
+                                product_id=row[2],
+                                product_price=row[8],
+                                product_mrp=row[7],
+                                case_size=row[5],
+                                status=True
+                            )
 
-                        CartProductMapping.objects.create(cart=instance,cart_product_id = row[0],
-                         no_of_pieces = int(vendor_product_dt.case_size)*int(row[4]),
-                         price=float(row[6]),vendor_product=vendor_product_dt)
+                        CartProductMapping.objects.create(
+                            cart=instance,
+                            cart_parent_product=parent_product,
+                            cart_product_id=row[2],
+                            no_of_pieces=int(vendor_product_dt.case_size)*int(row[6]),
+                            price=float(row[8]),
+                            vendor_product=vendor_product_dt
+                        )
 
     order,_ = Order.objects.get_or_create(ordered_cart=instance)
     order.order_no = instance.po_no

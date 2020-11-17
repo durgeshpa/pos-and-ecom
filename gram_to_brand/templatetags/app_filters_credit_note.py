@@ -38,10 +38,17 @@ def amount(value, *args, **kwargs):
 
 
 @register.simple_tag(name='findTax')
-def findTax(r, per, product_cess_amount, shipped_qty, *args, **kwargs):
+def findTax(r, per, product_cess_amount, qty, *args, **kwargs):
     # you would need to do any localization of the result here
-    special_cess= float(product_cess_amount) * (int(shipped_qty))
-    return round(((float(r*100)/(100+per)*per)/100)+ special_cess, 2)
+    special_cess= float(product_cess_amount)
+    return round((((float((r-special_cess)*100)/(100+per)*per)/100) + special_cess)*qty)
+
+@register.simple_tag(name='findReturnTax')
+def findReturnTax(r, per, product_cess_amount, returned_qty, damaged_qty, *args, **kwargs):
+    # you would need to do any localization of the result here
+    qty = returned_qty + damaged_qty
+    special_cess= float(product_cess_amount)
+    return round((((float((r-special_cess)*100)/(100+per)*per)/100) + special_cess)*qty)
 
 
 @register.simple_tag(name='addition')
@@ -51,15 +58,15 @@ def addition(qty, unit_price, *args, **kwargs):
 
 
 @register.simple_tag(name='addMultiplication')
-def addMultiplication(qty, unit_price, newqty, product_cess_amount, shipped_qty, *args, **kwargs):
-    special_cess = float(product_cess_amount) * (int(shipped_qty))
-    return round(float(qty) * int(unit_price + newqty) + special_cess, 2)
+def addMultiplication(qty, unit_price, newqty, *args, **kwargs):
+    #special_cess = float(product_cess_amount) * (int(shipped_qty))
+    return round(float(qty) * int(unit_price + newqty), 2)
 
 
 @register.simple_tag(name='multiply_price_with_qty')
-def multiply_price_with_qty(unit_price, qty, product_cess_amount, shipped_qty,  *args, **kwargs):
-    special_cess = float(product_cess_amount) * (int(shipped_qty))
-    return round(float(unit_price) * int(qty) + special_cess, 2)
+def multiply_price_with_qty(unit_price, qty, *args, **kwargs):
+    #special_cess = float(product_cess_amount) * (int(shipped_qty))
+    return round(float(unit_price) * int(qty), 2)
 
 
 @register.simple_tag(name='addMultiplicationcreditNote')

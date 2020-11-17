@@ -45,24 +45,49 @@ class VendorForm(forms.ModelForm):
                 raise forms.ValidationError("Sorry! Only csv file accepted")
             reader = csv.reader(codecs.iterdecode(self.cleaned_data['vendor_products_csv'], 'utf-8'))
             first_row = next(reader)
-            for id,row in enumerate(reader):
-                if not row[0]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
+            gf_code_col_present = False
+            for row_item in first_row:
+                if 'product_gf_code' in row_item.lower():
+                    gf_code_col_present = True
+            if gf_code_col_present:
+                for id,row in enumerate(reader):
+                    if not row[0]:
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
 
-                try:
-                    Product.objects.get(pk=row[0])
-                except:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
+                    try:
+                        Product.objects.get(pk=row[0])
+                    except:
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
 
-                if not row[4] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[4]):
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("MRP"))
+                    if not row[4] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[4]):
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("MRP"))
 
-                if not row[5] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[5]):
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+                    if not row[5] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[5]):
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
 
-                if not row[6] or not re.match("^[\d\,]*$", row[6]):
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[6]+":"+row[6]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("Case_size"))
-            return self.cleaned_data['vendor_products_csv']
+                    if not row[6] or not re.match("^[\d\,]*$", row[6]):
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[6]+":"+row[6]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("Case_size"))
+                return self.cleaned_data['vendor_products_csv']
+            else:
+                for id,row in enumerate(reader):
+                    if not row[0]:
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
+
+                    try:
+                        Product.objects.get(pk=row[0])
+                    except:
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
+
+                    if not row[3] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[3]):
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("MRP"))
+
+                    if not row[4] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[4]):
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+
+                    if not row[5] or not re.match("^[\d\,]*$", row[5]):
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("Case_size"))
+                return self.cleaned_data['vendor_products_csv']
+
 
 
 class BrandForm(forms.ModelForm):

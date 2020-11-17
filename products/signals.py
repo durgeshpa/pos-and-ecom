@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 
 from products.models import Product, ProductPrice, ProductCategory, \
-    ProductTaxMapping, ProductImage, ParentProductTaxMapping, Repackaging
+    ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es
@@ -91,6 +91,44 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
                 category=product_categories,
                 product_images=product_images
             )
+
+
+@receiver(post_save, sender=ParentProduct)
+def update_parent_product_elasticsearch(sender, instance=None, created=False, **kwargs):
+    logger.info("Updating ES of child products of parent {}".format(instance))
+    child_skus = Product.objects.filter(parent_product=instance)
+    child_categories = [str(c.category) for c in instance.parent_product_pro_category.filter(status=True)]
+    for child in child_skus:
+        product_images = []
+        if child.use_parent_image:
+            product_images = [
+                {
+                    "image_name": p_i.image_name,
+                    "image_alt": p_i.image_alt_text,
+                    "image_url": p_i.image.url
+                }
+                for p_i in instance.parent_product_pro_image.all()
+            ]
+        for prod_price in child.product_pro_price.filter(status=True).values('seller_shop', 'product', 'product__product_name', 'product__status'):
+            if not product_images:
+                update_shop_product_es.delay(
+                    prod_price['seller_shop'],
+                    prod_price['product'],
+                    name=prod_price['product__product_name'],
+                    pack_size=instance.inner_case_size,
+                    status=True if (prod_price['product__status'] in ['active', True]) else False,
+                    category=child_categories
+                )
+            else:
+                update_shop_product_es.delay(
+                    prod_price['seller_shop'],
+                    prod_price['product'],
+                    name=prod_price['product__product_name'],
+                    pack_size=instance.inner_case_size,
+                    status=True if (prod_price['product__status'] in ['active', True]) else False,
+                    category=child_categories,
+                    product_images=product_images
+                )
 
 
 @receiver(post_save, sender=ParentProductTaxMapping)

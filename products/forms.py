@@ -312,6 +312,8 @@ class ProductPriceNewForm(forms.ModelForm):
     def clean(self):
         cleaned_data = self.cleaned_data
         # mrp = int(self.cleaned_data.get('mrp', '0'))
+        if self.cleaned_data['product'].product_mrp:
+            self.cleaned_data['mrp'] = self.cleaned_data['product'].product_mrp
         selling_price = int(self.cleaned_data.get('selling_price', '0'))
         # if not mrp:
         #     raise forms.ValidationError(

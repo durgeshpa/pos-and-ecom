@@ -605,7 +605,7 @@ class PickupComplete(APIView):
         if pd_obj.count() > 1:
             msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        pick_obj = Pickup.objects.filter(pickup_type_id=order_no, status='picking_assigned')
+        pick_obj = Pickup.objects.filter(pickup_type_id=order_no)
 
         if pick_obj.exists():
             for pickup in pick_obj:
