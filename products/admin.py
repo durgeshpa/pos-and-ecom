@@ -902,6 +902,7 @@ class ExportProductPrice:
         writer.writerow(list_display)
         for obj in queryset:
             row = [getattr(obj, field) for field in list_display]
+            row[2] = Product.objects.get(id=obj.product.id).product_mrp
             if row[-2] == 2:
                 row[-2] = 'Approved'
             elif row[-2] == 1:
@@ -962,8 +963,8 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     product_sku.short_description = 'Product SKU'
 
     def product_mrp(self, obj):
-        if obj.mrp:
-            return obj.mrp
+        # if obj.mrp:
+        #     return obj.mrp
         if obj.product.product_mrp:
             return obj.product.product_mrp
         return ''
