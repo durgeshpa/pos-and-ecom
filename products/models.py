@@ -767,7 +767,7 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
                 vendor_product = ProductVendorMapping.objects.filter(vendor=vendor, product_id=row[0])
                 if vendor_product.exists():
                     vendor_product.update(status=False)
-                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[4], product_price=row[5],case_size=row[6]))
+                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[3], product_price=row[4],case_size=row[5]))
 
         ProductVendorMapping.objects.bulk_create(product_mapping)
         #ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
