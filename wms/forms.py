@@ -488,7 +488,7 @@ def validation_bin_stock_movement(self):
 
 
 def validation_stock_correction(self):
-    reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
     first_row = next(reader)
     # list which contains csv data and pass into the view file
     form_data_list = []
@@ -811,7 +811,7 @@ class UploadAuditAdminForm(forms.Form):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only .csv file accepted.")
 
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         # list which contains csv data and pass into the view file
         form_data_list = []
