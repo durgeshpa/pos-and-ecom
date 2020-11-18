@@ -1073,7 +1073,7 @@ class CreateOrder(APIView):
                         order_result = OrderManagement.release_blocking_from_order(reserved_args, sku_id)
                         if order_result is False:
                             order.delete()
-                            msg = {'is_success': False, 'message': ['No item in this cart.'], 'response_data': None}
+                            msg = {'is_success': True, 'message': ['No item in this cart.'], 'response_data': None}
                             return Response(msg, status=status.HTTP_200_OK)
                         serializer = OrderSerializer(order,
                                                      context={'parent_mapping_id': parent_mapping.parent.id,
