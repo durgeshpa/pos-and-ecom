@@ -206,6 +206,8 @@ class ParentProductImage(models.Model):
 @receiver(pre_save, sender=ParentProductCategory)
 def create_parent_product_id(sender, instance=None, created=False, **kwargs):
     parent_product = ParentProduct.objects.get(pk=instance.parent_product.id)
+    if parent_product.parent_id:
+        return
     cat_sku_code = instance.category.category_sku_part
     brand_sku_code = parent_product.parent_brand.brand_code
     last_sku = ParentProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code, brand_sku_code=brand_sku_code).last()
@@ -778,7 +780,7 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
     # if not product.product_sku:
     if not instance.product_sku:
         # cat_sku_code = instance.category.category_sku_part
-        parent_product_category = ParentProductCategory.objects.filter(parent_product=instance.parent_product).last().category
+        parent_product_category = ParentProductCategory.objects.filter(parent_product=instance.parent_product).first().category
         cat_sku_code = parent_product_category.category_sku_part
         parent_cat_sku_code = parent_product_category.category_parent.category_sku_part if parent_product_category.category_parent else cat_sku_code
         brand_sku_code = instance.product_brand.brand_code
