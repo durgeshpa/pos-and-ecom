@@ -1,20 +1,17 @@
 import datetime
 import logging
-import os
 from decimal import Decimal
 import csv
 import codecs
 import re
 import json
 
-from django.conf import settings
 from django.db import models
 from accounts.middlewares import get_current_user
 from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.http import HttpResponse
 
 
 from django.db.models import F, FloatField, Sum, Func, Q, Count, Case, Value, When
@@ -649,7 +646,7 @@ class BulkOrder(models.Model):
                     if warehouse_obj.exists():
                         available_quantity = warehouse_obj[0].quantity
                     else:
-                        raise ValidationError(_("Please add those SKUs which exist in warehouse "))
+                        continue
                     product_available = int(
                          int(available_quantity) / int(product.product_inner_case_size))
                     if product_available >= ordered_qty:

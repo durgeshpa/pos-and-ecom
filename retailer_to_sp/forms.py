@@ -839,8 +839,6 @@ class BulkCartForm(forms.ModelForm):
             if self.cleaned_data['cart_products_csv']:
                 if not self.cleaned_data['cart_products_csv'].name[-4:] in ('.csv'):
                     raise forms.ValidationError("Sorry! Only csv file accepted")
-                # else:
-                #     return self.instance.cart_product_list_status
 
         return self.cleaned_data
 
