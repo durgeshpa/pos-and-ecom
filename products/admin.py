@@ -20,7 +20,7 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
-                    ProductSourceMappingFormset, DestinationRepackagingCostMappingFormset)
+                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -622,7 +622,7 @@ class ProductSourceMappingAdmin(admin.TabularInline):
     model = ProductSourceMapping
     fk_name = "destination_sku"
     form = ProductSourceMappingForm
-    formset = ProductSourceMappingFormset
+    formset = ProductSourceMappingFormSet
 
     def get_urls(self):
         from django.conf.urls import url
@@ -644,7 +644,7 @@ class ChildProductImageAdmin(admin.TabularInline):
 class DestinationRepackagingCostMappingAdmin(admin.TabularInline):
     model = DestinationRepackagingCostMapping
     form = DestinationRepackagingCostMappingForm
-    formset = DestinationRepackagingCostMappingFormset
+    formset = DestinationRepackagingCostMappingFormSet
     extra = 1
 
     class Media:
