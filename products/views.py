@@ -1359,4 +1359,4 @@ class UpdateProductMrp(APIView):
             product.product_mrp = product_mrp
             product.save()
 
-        return Response({"message": "Shop data updated on ES", "response_data": None, "is_success": True})
+        return Response({"message": "MRP data updated", "is_success": True})
