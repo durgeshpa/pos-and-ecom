@@ -913,7 +913,8 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
         else:
             shipment = order_obj.rt_order_order_product.last()
         #if shipment:
-        picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_obj.order_no)
+        picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_obj.order_no)\
+                                                  .exclude(pickup__status='picking_cancelled')
         data_list = []
         new_list = []
         for i in picku_bin_inv:

@@ -164,7 +164,7 @@ class CommonPickupFunctions(object):
 
     @classmethod
     def get_filtered_pickup(cls, **kwargs):
-        pickup_data = Pickup.objects.filter(**kwargs)
+        pickup_data = Pickup.objects.filter(**kwargs).exclude(status='picking_cancelled')
         return pickup_data
 
 
@@ -252,7 +252,7 @@ class CommonPickBinInvFunction(object):
 
     @classmethod
     def get_filtered_pick_bin_inv(cls, **kwargs):
-        pick_bin_inv = PickupBinInventory.objects.filter(**kwargs)
+        pick_bin_inv = PickupBinInventory.objects.filter(**kwargs).exclude(pickup__status='picking_cancelled')
         return pick_bin_inv
 
 
@@ -1260,7 +1260,7 @@ def common_on_return_and_partial(shipment, flag):
             for shipment_product_batch in shipment_product.rt_ordered_product_mapping.all():
                 # first bin with non 0 inventory for a batch or last empty bin
                 shipment_product_batch_bin_list = PickupBinInventory.objects.filter(
-                    shipment_batch=shipment_product_batch)
+                    shipment_batch=shipment_product_batch).exclude(pickup__status='picking_cancelled')
                 bin_id_for_input = None
                 shipment_product_batch_bin_temp = None
                 for shipment_product_batch_bin in shipment_product_batch_bin_list:

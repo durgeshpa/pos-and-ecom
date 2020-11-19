@@ -846,7 +846,7 @@ def release_blocking_with_cron():
 
 
 def pickup_entry_exists_for_order(order_id):
-    pd_obj = PickerDashboard.objects.filter(order_id=order_id)
+    pd_obj = PickerDashboard.objects.filter(order_id=order_id).exclude(picking_status='picking_cancelled')
     if pd_obj.exists():
         return True
     return False

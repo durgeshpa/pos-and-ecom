@@ -6,7 +6,7 @@ from wms.models import Bin,PickupBinInventory,BinInventory,InventoryType,Putaway
 from gram_to_brand.models import GRNOrderProductMapping
 
 virtual_bin = Bin.objects.filter(bin_id='V2VZ01SR001-0001').last()
-pickup_bin_inventory_list = PickupBinInventory.objects.all()
+pickup_bin_inventory_list = PickupBinInventory.objects.all().exclude(pickup__status='picking_cancelled')
 #putaway_list = Putaway.objects.all()
 inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
 print(pickup_bin_inventory_list.count())
