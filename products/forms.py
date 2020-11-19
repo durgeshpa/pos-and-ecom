@@ -496,6 +496,52 @@ class ProductSourceMappingForm(forms.ModelForm):
         model = ProductSourceMapping
         fields = ('source_sku', 'status')
 
+class ProductSourceMappingFormset(forms.models.BaseInlineFormSet):
+
+    def clean(self):
+        super(ProductSourceMappingFormset, self).clean()
+        count = 0
+        delete_count = 0
+        for form in self:
+            if 'source_sku' in form.cleaned_data:
+                count += 1
+            if self.instance.repackaging_type != 'destination':
+                form.cleaned_data['DELETE'] = True
+            if 'DELETE' in form.cleaned_data and form.cleaned_data['DELETE'] is True:
+                delete_count += 1
+
+        if self.instance.repackaging_type == 'destination':
+            if count < 1 or count == delete_count:
+                raise ValidationError("At least one source mapping is required")
+        return self.cleaned_data
+
+    class Meta:
+        model = ProductSourceMapping
+
+
+class DestinationRepackagingCostMappingFormset(forms.models.BaseInlineFormSet):
+
+    def clean(self):
+        super(DestinationRepackagingCostMappingFormset, self).clean()
+        count = 0
+        delete_count = 0
+        for form in self:
+            if 'raw_material' in form.cleaned_data:
+                count += 1
+            if self.instance.repackaging_type != 'destination':
+                form.cleaned_data['DELETE'] = True
+            if 'DELETE' in form.cleaned_data and form.cleaned_data['DELETE'] is True:
+                delete_count += 1
+
+        if self.instance.repackaging_type == 'destination':
+            if count < 1 or count == delete_count:
+                raise ValidationError("At least one cost mapping is required")
+        return self.cleaned_data
+
+    class Meta:
+        model = DestinationRepackagingCostMapping
+
+
 class UploadChildProductAdminForm(forms.Form):
     """
       Upload Child Product Form

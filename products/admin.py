@@ -19,7 +19,8 @@ from retailer_backend.filters import CityFilter, ProductCategoryFilter
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
-                    RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm)
+                    RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
+                    ProductSourceMappingFormset, DestinationRepackagingCostMappingFormset)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -621,6 +622,7 @@ class ProductSourceMappingAdmin(admin.TabularInline):
     model = ProductSourceMapping
     fk_name = "destination_sku"
     form = ProductSourceMappingForm
+    formset = ProductSourceMappingFormset
 
     def get_urls(self):
         from django.conf.urls import url
@@ -642,6 +644,7 @@ class ChildProductImageAdmin(admin.TabularInline):
 class DestinationRepackagingCostMappingAdmin(admin.TabularInline):
     model = DestinationRepackagingCostMapping
     form = DestinationRepackagingCostMappingForm
+    formset = DestinationRepackagingCostMappingFormset
     extra = 1
 
     class Media:
@@ -915,6 +918,18 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 'parent_product': product_details.parent_product
             }
         return super().get_changeform_initial_data(request)
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return ['repackaging_type']
+        return self.readonly_fields
+
+    def get_form(self, request, obj=None, **kwargs):
+        self.inlines = [ProductImageAdmin, ProductSourceMappingAdmin, DestinationRepackagingCostMappingAdmin]
+        if obj and obj.repackaging_type != 'destination':
+            self.inlines.remove(ProductSourceMappingAdmin)
+            self.inlines.remove(DestinationRepackagingCostMappingAdmin)
+        return super(ProductAdmin, self).get_form(request, obj, **kwargs)
 
 
 class MRPSearch(InputFilter):

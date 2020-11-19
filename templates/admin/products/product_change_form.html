@@ -20,6 +20,7 @@
                     $(".tabular.inline-related").first().children('fieldset').children('h2').addClass('required_field_red');
                 }
             };
+            if ($("#id_repackaging_type").length != 0){
             document.getElementById('id_repackaging_type').onchange = function() {
                 if ($('#id_repackaging_type').val() == 'destination') {
                     $(".tabular.inline-related").last().children('fieldset').children('h2').addClass('required_field_red');
@@ -29,6 +30,7 @@
                     $(".tabular.inline-related").eq(-2).children('fieldset').children('h2').removeClass('required_field_red');
                 }
             };
+            }
         });
     </script>
     <script>

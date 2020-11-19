@@ -56,3 +56,23 @@ function getProductDetails() {
         cache: false
     });
 }
+
+(function($) {
+    $(document).ready(function() {
+        if($("#id_repackaging_type").val() == 'none' || $("#id_repackaging_type").val() == 'source'){
+            $("#destination_product_pro-group").addClass('hidden');
+	        $("#destination_product_repackaging-group").addClass('hidden');
+        }
+        if ($("#id_repackaging_type").length != 0){
+            $("#id_repackaging_type").on('change', function(){
+                if($(this).val() == 'none' || $(this).val() == 'source'){
+                    $("#destination_product_pro-group").addClass('hidden');
+                    $("#destination_product_repackaging-group").addClass('hidden');
+                } else {
+                    $("#destination_product_pro-group").removeClass('hidden');
+                    $("#destination_product_repackaging-group").removeClass('hidden');
+                }
+            });
+	    }
+    });
+})(django.jQuery);
