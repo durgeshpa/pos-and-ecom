@@ -556,7 +556,7 @@ class PickupComplete(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         order_qs = Order.objects.filter(order_no=order_no)
         order_obj = order_qs.last()
-        pd_obj = PickerDashboard.objects.filter(order_id=order_obj)
+        pd_obj = PickerDashboard.objects.filter(order_id=order_obj).exclude(picking_status='picking_cancelled')
         if pd_obj.count() > 1:
             msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
