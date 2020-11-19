@@ -474,7 +474,7 @@ class AuditInventory(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         audit_run = AuditRun.objects.filter(audit=audit, status=AUDIT_RUN_STATUS_CHOICES.IN_PROGRESS).last()
         if audit_run is None:
-            msg = {'is_success': False, 'message': ERROR_MESSAGES['AUDIT_NOT_STARTED'] % 'audit', 'data': None}
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['AUDIT_NOT_STARTED'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         bin_id = request.data.get('bin_id')
         if not bin_id:

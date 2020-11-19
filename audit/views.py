@@ -633,12 +633,14 @@ def create_audit_tickets_by_audit(audit_id):
 
 def get_existing_audit_for_product(warehouse, sku):
     return sku.audit_product_mapping.filter(warehouse=warehouse,
+                                            status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
                                             state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
                                                        AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')
 
 
 def get_existing_audit_for_bin(warehouse, bin):
     return bin.audit_bin_mapping.filter(warehouse=warehouse,
+                                        status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
                                         state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
                                                    AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')
 
