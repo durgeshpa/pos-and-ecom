@@ -53,6 +53,7 @@ ERROR_MESSAGES = {
     'NO_RECORD': 'No %s record found',
     'SOME_ISSUE': 'There seems to be some issue.',
     'BATCH_BIN_ISSUE': 'This batch {} is not found in this bin {}',
+    'DIFF_BATCH_ONE_BIN': 'Quantity could not be updated as different expiry date product already present in this bin',
     'AUDIT_SKU_NOT_IN_SCOPE': "This sku is out of scope for this audit",
     'AUDIT_BIN_NOT_IN_SCOPE': "This bin is out of scope for this audit",
     'AVAILABLE_QUANTITY': 'Available Qty : {0}',

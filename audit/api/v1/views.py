@@ -21,7 +21,7 @@ from .serializers import AuditDetailSerializer
 from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist
 from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
-from ...utils import is_audit_started
+from ...utils import is_audit_started, is_diff_batch_in_this_bin
 from ...views import BlockUnblockProduct, create_pick_list_by_audit, create_audit_tickets_by_audit
 from rest_framework.permissions import BasePermission
 
@@ -521,6 +521,13 @@ class AuditInventory(APIView):
                 msg = {'is_success': True, 'message': 'OK', 'data': data}
                 return Response(msg, status=status.HTTP_200_OK)
 
+        for key, value in physical_inventory.items():
+            if value > 0:
+                if is_diff_batch_in_this_bin(warehouse, batch_id, bin, sku):
+                    msg = {'is_success': False, 'message': ERROR_MESSAGES['DIFF_BATCH_ONE_BIN'], 'data': None}
+                    return Response(msg, status=status.HTTP_200_OK)
+
+
         try:
             with transaction.atomic():
                 inventory_state = InventoryState.objects.filter(inventory_state='available').last()
@@ -628,7 +635,7 @@ class AuditInventory(APIView):
         damaged_type = InventoryType.objects.filter(inventory_type='damaged').last()
         expired_type = InventoryType.objects.filter(inventory_type='expired').last()
         inv_type_list = [normal_type, damaged_type, expired_type]
-        bin_inventory = BinInventory.objects.filter(bin=bin, batch_id=batch_id,
+        bin_inventory = BinInventory.objects.filter(warehouse=warehouse, bin=bin, batch_id=batch_id,
                                                     inventory_type__in=inv_type_list) \
                                             .values('inventory_type__inventory_type', 'quantity')
         bin_inventory_dict = {g['inventory_type__inventory_type']: g['quantity'] for g in bin_inventory}

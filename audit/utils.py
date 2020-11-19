@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 
 from audit.models import AuditRun, AUDIT_RUN_STATUS_CHOICES, AuditNumberGenerator, AuditDetail
 from sp_to_gram.tasks import es_mget_by_ids
@@ -59,3 +59,10 @@ def get_products_by_bin(warehouse, bins):
 def is_audit_started(audit):
     return AuditRun.objects.filter(audit=audit, status=AUDIT_RUN_STATUS_CHOICES.IN_PROGRESS).exists()
 
+
+def is_diff_batch_in_this_bin(warehouse, batch_id, bin, sku):
+    return BinInventory.objects.filter(~Q(batch_id=batch_id),
+                                       warehouse=warehouse,
+                                       bin=bin,
+                                       sku=sku,
+                                       quantity__gt=0).exists()

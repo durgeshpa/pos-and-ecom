@@ -63,7 +63,7 @@ class AuditCreationForm(forms.ModelForm):
                 for b in audit_bins:
                     existing_audits = get_existing_audit_for_bin(warehouse, b)
                     if existing_audits.count() > 0:
-                        audit_ids = list(existing_audits.only('id').values_list('pk', flat=True))
+                        audit_ids = list(existing_audits.only('id').values_list('audit_no', flat=True))
                         raise ValidationError('Bin {} is already under audit {}!'
                                               .format(b, audit_ids))
             elif audit_level == 1:
@@ -72,8 +72,8 @@ class AuditCreationForm(forms.ModelForm):
                 for s in audit_product:
                     existing_audits = get_existing_audit_for_product(warehouse, s)
                     if existing_audits.count() > 0:
-                        audit_ids = list(existing_audits.only('id').values_list('pk', flat=True))
-                        raise ValidationError('Sku {} is already under audit {}!'
+                        audit_ids = list(existing_audits.only('id').values_list('audit_no', flat=True))
+                        raise ValidationError('SKU {} is already under audit {}!'
                                               .format(s, audit_ids))
             if auditor is None:
                 raise ValidationError('Please select an auditor!')
