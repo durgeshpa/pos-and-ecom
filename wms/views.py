@@ -204,7 +204,7 @@ class CreatePickList(APIView):
             if i.pickup.sku.product_mrp:
                 mrp = i.pickup.sku.product_mrp
             else:
-                mrp = cart_product.cart_product_price.mrp
+                mrp = '-'
             # mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
             qty = i.quantity
             batch_id = i.batch_id
@@ -466,9 +466,12 @@ def commit_updates_to_es(shop, product):
 @receiver(post_save, sender=WarehouseInventory)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Post save called for Warehouse Inventory")
-    if instance.inventory_type.inventory_type == 'normal' and instance.inventory_state.inventory_state == 'available':
-        info_logger.info("Inside if condition of post save Warehouse Inventory")
-        commit_updates_to_es(instance.warehouse, instance.sku)
+    try:
+        if instance.inventory_type.inventory_type == 'normal' and instance.inventory_state.inventory_state == 'available':
+            info_logger.info("Inside if condition of post save Warehouse Inventory")
+            commit_updates_to_es(instance.warehouse, instance.sku)
+    except:
+        pass
 
 
 def bin_stock_movement_data(upload_data, stock_movement_obj):
@@ -1752,3 +1755,48 @@ class PicklistRefresh:
                                                                                      already_picked)
             info_logger.info('RefreshPicklist|create_picklist_by_order| completed for order {}'
                              .format(order.order_no))
+
+def audit_ordered_data(request):
+    start_time = '2020-08-29 01:01:06.067349'
+    inventory_calculated = {}
+    warehouse = Shop.objects.filter(id = 32154).last()
+    type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
+    stage_ordered = InventoryState.objects.only('id').get(inventory_state='ordered').id
+    try:
+
+        warehouse_inventory = WarehouseInventory.objects.filter(inventory_type=type_normal,
+                                                                inventory_state=stage_ordered,warehouse=warehouse)\
+                                                            .values('sku_id', 'quantity')
+
+        orders_placed = Order.objects.filter(order_status__in=[Order.ORDERED,
+                                                               Order.PICKUP_CREATED,
+                                                               Order.PICKING_ASSIGNED],seller_shop=warehouse,
+                                             created_at__gte=start_time,)
+        for o in orders_placed:
+            ordered_sku = o.ordered_cart.rt_cart_list.values('cart_product__product_sku')\
+                                                      .annotate(qty=Sum('no_of_pieces'))
+            for item in ordered_sku:
+                if inventory_calculated.get(item['cart_product__product_sku']) is None:
+                    inventory_calculated[item['cart_product__product_sku']] = 0
+
+                inventory_calculated[item['cart_product__product_sku']] += item['qty']
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format("ordered_data.csv")
+        writer = csv.writer(response)
+        writer.writerow(['SKU', 'Quantity', 'Warehouse Qty'])
+        for item in warehouse_inventory:
+            if inventory_calculated.get(item['sku_id']) is None:
+                inventory_calculated[item['sku_id']] = 0
+            if inventory_calculated[item['sku_id']] > item['quantity']:
+                writer.writerow([item['sku_id'], inventory_calculated[item['sku_id']], item['quantity']])
+                product = Product.objects.filter(product_sku=item['sku_id']).last()
+                quantity=WarehouseInventory.objects.filter(inventory_type=type_normal,sku=product,
+                                                  inventory_state=stage_ordered,warehouse=warehouse).last()
+                quantity.quantity=inventory_calculated[item['sku_id']]
+                quantity.save()
+
+
+        return response
+    except Exception as e:
+        info_logger.error(e)

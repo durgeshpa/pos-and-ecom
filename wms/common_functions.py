@@ -770,7 +770,7 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
                                               sku=Product.objects.get(id=order_product.sku.id),
                                               inventory_state=InventoryState.objects.filter(
                                                   inventory_state='ordered').last(),
-                                              quantity=reserved_qty, in_stock=True,
+                                              quantity=order_product.warehouse_internal_inventory_reserve.quantity, in_stock=True,
                                               inventory_type=InventoryType.objects.filter(
                                                   inventory_type='normal').last())
         WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),

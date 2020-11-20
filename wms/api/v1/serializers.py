@@ -166,14 +166,14 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
         return sku_id
 
     def product_mrp_dt(self, obj):
-        #mrp = obj.pickup.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp
+        # mrp = obj.pickup.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp
         if obj.pickup.sku.product_mrp:
             return obj.pickup.sku.product_mrp
-        product_mrp = obj.pickup.sku.product_pro_price.filter(seller_shop=obj.warehouse, approval_status=2)
-        if product_mrp:
-            return product_mrp.last().mrp
+        # product_mrp = obj.pickup.sku.product_pro_price.filter(seller_shop=obj.warehouse, approval_status=2)
+        # if product_mrp:
+        #    return product_mrp.last().mrp
         else:
-            return ''
+            return None
 
     def batch_sku(self, obj):
         batch_id = obj.batch_id

@@ -271,7 +271,7 @@ class OrderedProductMapping(models.Model): #GRN Product
                     Q(shop=shop),
                     Q(expiry_date__gt=datetime.datetime.today()),
                     Q(available_qty__gt=0),
-                    Q(product__product_brand__brand_parent=brand)
+                    Q(product=Product.objects.get(id=brand.id))
                 ).exclude(
                         Q(ordered_product__status=OrderedProduct.DISABLED)
                     )
