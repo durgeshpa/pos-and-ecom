@@ -18,6 +18,7 @@ from wms.models import BinInventory, Bin, InventoryType, PickupBinInventory, War
     BinInternalInventoryChange
 from wms.views import PicklistRefresh
 from .serializers import AuditDetailSerializer
+from ...cron import release_products_from_audit
 from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist
 from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
