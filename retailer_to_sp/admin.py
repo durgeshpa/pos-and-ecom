@@ -775,7 +775,8 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     )
     list_display = (
         'picklist', 'picking_status', 'picker_boy',
-        'created_at', 'picker_assigned_date', 'download_pick_list', 'order_number', 'order_date'
+        'created_at', 'picker_assigned_date', 'download_pick_list', 'picklist_status', 'order_number', 'order_date',
+        'refreshed_at'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
@@ -855,6 +856,11 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         return obj.order.created_at
     order_date.short_description = 'Order Date'
 
+    def picklist_status(self, obj):
+        picklist_status = 'Valid'
+        if not obj.is_valid:
+            picklist_status = 'Cancelled'
+        return picklist_status
 
     def picklist(self, obj):
         return mark_safe("<a href='/admin/retailer_to_sp/pickerdashboard/%s/change/'>%s<a/>" % (obj.pk,
@@ -934,7 +940,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'pincode', 'city', 'total_final_amount', 'order_status', 'created_at',
                     'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
-                    'picking_status', 'picklist_id', 'picker_boy', 'pickup_completed_at' #'damaged_amount',
+                    'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy',
+                    'pickup_completed_at' #'damaged_amount',
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',

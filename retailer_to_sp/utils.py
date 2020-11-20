@@ -145,6 +145,14 @@ def picking_statuses(picker_dashboards):
             ) for s in picker_dashboards)
     )
 
+
+def picklist_refreshed_at(picker_dashboards):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.refreshed_at,
+            ) for s in picker_dashboards)
+    )
+
 def picker_boys(picker_dashboards):
     return format_html_join(
     "","{}<br><br>",

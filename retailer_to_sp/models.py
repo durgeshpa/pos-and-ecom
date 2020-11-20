@@ -27,7 +27,7 @@ from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
-                    picking_statuses, picker_boys, picklist_ids)
+                    picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at)
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
@@ -1046,6 +1046,10 @@ class Order(models.Model):
         return picking_statuses(self.picker_dashboards())
 
     @property
+    def picklist_refreshed_at(self):
+        return picklist_refreshed_at(self.picker_dashboards())
+
+    @property
     def picker_boy(self):
         return picker_boys(self.picker_dashboards())
 
@@ -1055,9 +1059,10 @@ class Order(models.Model):
 
     @property
     def pickup_completed_at(self):
-        pickup_object = Pickup.objects.filter(pickup_type_id=self.order_no)
+        pickup_object = Pickup.objects.filter(pickup_type_id=self.order_no,
+                                              status='picking_complete')
         if pickup_object.exists():
-            return Pickup.objects.filter(pickup_type_id=self.order_no).last().completed_at
+            return pickup_object.last().completed_at
 
     @property
     def invoice_no(self):
@@ -1782,6 +1787,8 @@ class PickerDashboard(models.Model):
     )
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/picker/', null=True, blank=True)
     picker_assigned_date = models.DateTimeField(null=True, blank=True, default="2020-09-29")
+    is_valid = models.BooleanField(default=True)
+    refreshed_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -1789,7 +1796,8 @@ class PickerDashboard(models.Model):
         super(PickerDashboard, self).save(*args, **kwargs)
         if self.picking_status == 'picking_assigned':
             PickerDashboard.objects.filter(id=self.id).update(picker_assigned_date=datetime.datetime.now())
-            Pickup.objects.filter(pickup_type_id=self.order.order_no).update(status='picking_assigned')
+            Pickup.objects.filter(pickup_type_id=self.order.order_no,
+                                  status='pickup_creation').update(status='picking_assigned')
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
