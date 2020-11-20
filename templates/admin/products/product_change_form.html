@@ -21,15 +21,23 @@
                 }
             };
             if ($("#id_repackaging_type").length != 0){
-            document.getElementById('id_repackaging_type').onchange = function() {
-                if ($('#id_repackaging_type').val() == 'destination') {
-                    $(".tabular.inline-related").last().children('fieldset').children('h2').addClass('required_field_red');
-                    $(".tabular.inline-related").eq(-2).children('fieldset').children('h2').addClass('required_field_red');
-                } else {
-                    $(".tabular.inline-related").last().children('fieldset').children('h2').removeClass('required_field_red');
-                    $(".tabular.inline-related").eq(-2).children('fieldset').children('h2').removeClass('required_field_red');
+                if($("#id_repackaging_type").val() == 'none' || $("#id_repackaging_type").val() == 'source'){
+                    $("#destination_product_pro-group").addClass('hidden');
+	                $("#destination_product_repackaging-group").addClass('hidden');
                 }
-            };
+                document.getElementById('id_repackaging_type').onchange = function() {
+                    if ($('#id_repackaging_type').val() == 'destination') {
+                        $("#destination_product_pro-group").removeClass('hidden');
+                        $("#destination_product_repackaging-group").removeClass('hidden');
+                        $(".tabular.inline-related").last().children('fieldset').children('h2').addClass('required_field_red');
+                        $(".tabular.inline-related").eq(-2).children('fieldset').children('h2').addClass('required_field_red');
+                    } else {
+                        $("#destination_product_pro-group").addClass('hidden');
+                        $("#destination_product_repackaging-group").addClass('hidden');
+                        $(".tabular.inline-related").last().children('fieldset').children('h2').removeClass('required_field_red');
+                        $(".tabular.inline-related").eq(-2).children('fieldset').children('h2').removeClass('required_field_red');
+                    }
+                };
             }
         });
     </script>
