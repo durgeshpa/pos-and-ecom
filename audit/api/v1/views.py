@@ -310,7 +310,7 @@ class AuditEndView(APIView):
                                             bi.inventory_type, inventory_state, bi.quantity, 0)
 
             BlockUnblockProduct.release_product_from_audit(audit, audit_run, bi.sku, audit.warehouse)
-            info_logger.info('End audit {} for bin {}'.format(audit.id, bin_id))
+        info_logger.info('End audit {} for bin {}'.format(audit.id, bin_id))
 
     def end_audit_for_sku(self, audit, audit_run, sku):
         info_logger.info('End audit {} for sku {}'.format(audit.id, sku))
@@ -333,7 +333,7 @@ class AuditEndView(APIView):
                                             bi.inventory_type, inventory_state, bi.quantity, 0)
 
             BlockUnblockProduct.release_product_from_audit(audit, audit_run, bi.sku, audit.warehouse)
-            info_logger.info('End audit {} for sku {}'.format(audit.id, sku))
+        info_logger.info('End audit {} for sku {}'.format(audit.id, sku))
 
 
 class AuditBinList(APIView):
