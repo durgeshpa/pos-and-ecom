@@ -18,8 +18,10 @@ from retailer_to_sp.models import Order, Trip, PickerDashboard
 from wms.views import PicklistRefresh
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
-                     AUDIT_RUN_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES, AuditProduct,
-                     AUDIT_PRODUCT_STATUS, AUDIT_DETAIL_STATE_CHOICES, AuditCancelledPicklist, AuditTicketManual
+                     AUDIT_RUN_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES,
+                     AuditProduct,
+                     AUDIT_PRODUCT_STATUS, AUDIT_DETAIL_STATE_CHOICES, AuditCancelledPicklist, AuditTicketManual,
+                     AUDIT_LEVEL_CHOICES
                      )
 from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
 from wms.models import WarehouseInventory, WarehouseInternalInventoryChange, InventoryType, InventoryState, \
@@ -558,6 +560,43 @@ class BlockUnblockProduct(object):
         if len(products_to_disable) > 0:
             BlockUnblockProduct.block_product_during_audit(audit_detail, products_to_disable, audit_detail.warehouse)
 
+    @staticmethod
+    def release_product_from_audit(audit, audit_run, sku, warehouse):
+        if audit.audit_level == AUDIT_LEVEL_CHOICES.BIN:
+            remaining_products_to_audit = get_remaining_products_to_audit(audit, audit_run)
+            if sku not in remaining_products_to_audit:
+                BlockUnblockProduct.unblock_product_after_audit(audit, sku, warehouse)
+        if audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
+            remaining_bins_to_audit = get_remaining_bins_to_audit(audit, audit_run, sku)
+            if len(remaining_bins_to_audit) == 0:
+                BlockUnblockProduct.unblock_product_after_audit(audit, sku, warehouse)
+
+
+def get_remaining_bins_to_audit(audit, audit_run, sku):
+    bin_and_batches_to_audit = BinInventory.objects.filter(warehouse=audit.warehouse,
+                                                           sku=sku)\
+                                                   .values_list('bin_id', 'batch_id', 'sku_id')
+    bin_batches_audited = AuditRunItem.objects.filter(audit_run=audit_run)\
+                                              .values_list('bin_id', 'batch_id', 'sku_id')
+
+    remaining_bin_batches_to_audit = list(set(bin_and_batches_to_audit) - set(bin_batches_audited))
+    info_logger.info('AuditInventory|get_remaining_bins_to_audit|remaining_bin_batches_to_audit-{}'
+                     .format(remaining_bin_batches_to_audit))
+    return remaining_bin_batches_to_audit
+
+def get_remaining_products_to_audit(audit, audit_run):
+    all_bins_to_audit = audit.bin.all()
+    bin_and_batches_to_audit = BinInventory.objects.filter(warehouse=audit.warehouse,
+                                                           bin__in=all_bins_to_audit)\
+                                                   .values_list('bin_id', 'batch_id', 'sku_id')
+
+    bin_batches_audited = AuditRunItem.objects.filter(audit_run=audit_run)\
+                                              .values_list('bin_id', 'batch_id', 'sku_id')
+    remaining_bin_batches_to_audit = list(set(bin_and_batches_to_audit) - set(bin_batches_audited))
+    remaining_skus_to_audit = [item[2] for item in remaining_bin_batches_to_audit]
+    info_logger.info('AuditInventory|get_remaining_products_to_audit|remaining_skus_to_audit-{}'
+                     .format(remaining_skus_to_audit))
+    return remaining_skus_to_audit
 
 def update_audit_status_by_audit(audit_id):
     audit = AuditDetail.objects.filter(id=audit_id).last()
