@@ -576,8 +576,12 @@ class BulkOrder(models.Model):
 
     @property
     def cart_product_list_status(self):
-        url = """<h2 style="color:blue;"><a href="%s" target="_blank">
-                            Download Ordered Cart List Status</a></h2>""" % \
+        if self.order_type == 'DISCOUNTED':
+            status = "Discounted Order"
+        else:
+            status = "Bulk Order"
+        url = f"""<h2 style="color:blue;"><a href="%s" target="_blank">
+                            Download {status} List Status</a></h2>""" % \
               (
                   reverse(
                       'admin:cart_products_list_status'
@@ -587,6 +591,7 @@ class BulkOrder(models.Model):
 
     def clean(self, *args, **kwargs):
         errors = []
+        availableQuantity = []
         if self.cart_products_csv:
             product_ids = []
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
@@ -649,6 +654,7 @@ class BulkOrder(models.Model):
                         continue
                     product_available = int(
                          int(available_quantity) / int(product.product_inner_case_size))
+                    availableQuantity.append(product_available)
                     if product_available >= ordered_qty:
                         count += 1
                     if count == 0:
@@ -663,6 +669,7 @@ class BulkOrder(models.Model):
                     for id, row in enumerate(reader):
                         writer.writerow(row)
 
+                index = 0
                 with open("cart_product_list.csv", 'r') as csvinput:
                     with open("ordered_cart_product_list.csv", 'w') as csvoutput:
                         writer = csv.writer(csvoutput)
@@ -671,10 +678,11 @@ class BulkOrder(models.Model):
                                 writer.writerow(new_row+["Order_Status"])
                             else:
                                 if new_row[0] in errors:
-                                    writer.writerow(new_row + ["Failed because orderedQuantity > availableQuantity"])
+                                    writer.writerow(new_row + [f"Failed because of ordered_quantity({new_row[2]}) > available_quantity({availableQuantity[index]})"])
+                                    index = index + 1
                                 else:
                                     writer.writerow(new_row + ["Success"])
-
+                                    index = index + 1
                 self.save()
                 raise ValidationError(mark_safe(f"Order doesn't placed for some SKUs because for those SKUs, Ordered "
                                                 f"qty is greater than Available inventory.Please click the "
