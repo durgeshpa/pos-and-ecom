@@ -71,14 +71,14 @@ class SalesReport(APIView):
                 delivered_amount = float((product_price_to_retailer * Decimal(product_shipments)) / (Decimal(get_tax_val) + 1))
                 delivered_tax_amount = float((delivered_amount * float(get_tax_val)))
                 if product_sku in ordered_items:
-                    ordered_items[product_sku]['ordered_qty'] += ordered_qty
-                    ordered_items[product_sku]['ordered_amount'] += ordered_amount
-                    ordered_items[product_sku]['ordered_tax_amount'] += ordered_tax_amount
-                    ordered_items[product_sku]['delivered_qty'] += product_shipments
-                    ordered_items[product_sku]['delivered_amount'] += delivered_amount
-                    ordered_items[product_sku]['delivered_tax_amount'] += delivered_tax_amount
+                    ordered_items['ordered_qty'] += ordered_qty
+                    ordered_items['ordered_amount'] += ordered_amount
+                    ordered_items['ordered_tax_amount'] += ordered_tax_amount
+                    ordered_items['delivered_qty'] += product_shipments
+                    ordered_items['delivered_amount'] += delivered_amount
+                    ordered_items['delivered_tax_amount'] += delivered_tax_amount
                 else:
-                    ordered_items[product_sku] = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount, 'seller_shop':seller_shop}
+                    ordered_items = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount, 'seller_shop':seller_shop}
                     ordered_list.append(ordered_items)
         data = ordered_list
         return data
@@ -101,9 +101,8 @@ class SalesReport(APIView):
         response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
         writer = csv.writer(response)
         writer.writerow(['ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
-        for data_set in data:
-            for k,v in data_set.items():
-                writer.writerow([v['product_id'], v['product_sku'], v['product_name'], v['product_brand'], v['ordered_qty'], v['delivered_qty'], v['ordered_amount'], v['ordered_tax_amount'],  v['delivered_amount'], v['delivered_tax_amount'],v['seller_shop']])
+        for dic in data:
+            writer.writerow([dic['product_id'], dic['product_sku'], dic['product_name'], dic['product_brand'], dic['ordered_qty'], dic['delivered_qty'], dic['ordered_amount'], dic['ordered_tax_amount'],  dic['delivered_amount'], dic['delivered_tax_amount'],dic['seller_shop']])
 
         return response
 
