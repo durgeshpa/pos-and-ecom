@@ -420,7 +420,10 @@ class BinIDList(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         pickup_orders = Order.objects.filter(order_no=order_no).last()
         if pickup_orders is None:
-            msg = {'is_success': True, 'message': 'Order number does not exist.', 'data': None}
+            pickup_orders = Repackaging.objects.filter(repackaging_no=order_no).last()
+
+        if pickup_orders is None:
+            msg = {'is_success': True, 'message': 'Order/Repackaging number does not exist.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         else:
             pick_list = []
