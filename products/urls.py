@@ -15,5 +15,5 @@ urlpatterns = [
     url(r'^fetch-all-parent-categories/$', FetchAllParentCategories, name='fetch-all-parent-categories',),
     url(r'^fetch-all-product-brands/$', FetchAllProductBrands, name='fetch-all-product-brands',),
     url(r'^update-product-mrp-using-sheet/$', UpdateProductMrp.as_view(), name='update-product-mrp-using-sheet',),
-    url(r'^update-product-mrp-using-sheet_add/$', UpdateProductMrp_Add.as_view(), name='update-product-mrp-using-sheet',),
+    url(r'^update-product-mrp-using-sheet_add/$', UpdateProductMrp_Add.as_view(), name='update-product-mrp-using-sheet_add',),
 ]
