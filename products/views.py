@@ -1352,7 +1352,7 @@ class UpdateProductMrp(APIView):
         reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
         first_row = next(reader)
         for row_id, row in enumerate(reader):
-            if not row[0] or not row[6]:
+            if not row[0] or not row[4]:
                 continue
             product = Product.objects.get(id=int(row[0]))
             product_mrp = float(row[4])
