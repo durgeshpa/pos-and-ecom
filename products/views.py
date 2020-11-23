@@ -774,6 +774,16 @@ def cart_products_mapping(request,pk=None):
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
     return response
 
+def cart_product_list_status(request):
+        filename = "Cart_Product_List_Status.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        with open("ordered_cart_product_list.csv", 'r') as csvinput:
+            writer = csv.writer(response)
+            for new_row in csv.reader(csvinput):
+                writer.writerow(new_row)
+        return response
+
 
 def ProductsUploadSample(request):
     filename = "products_upload_sample.csv"

@@ -40,7 +40,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     parent_product_upload, ParentProductsDownloadSampleCSV,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
-                    ParentProductMultiPhotoUploadView)
+                    ParentProductMultiPhotoUploadView, cart_product_list_status)
 from .filters import BulkTaxUpdatedBySearch
 
 
@@ -710,6 +710,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^cart-products-mapping/(?P<pk>\d+)/$',
                 self.admin_site.admin_view(cart_products_mapping),
                 name='cart_products_mapping'
+            ),
+            url(
+                r'^cart-products-mapping/$',
+                self.admin_site.admin_view(cart_product_list_status),
+                name='cart_products_list_status'
             ),
             url(
                 r'^product-price-autocomplete/$',

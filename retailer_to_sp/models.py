@@ -5,6 +5,7 @@ import csv
 import codecs
 import re
 import json
+
 from django.db import models
 from accounts.middlewares import get_current_user
 from celery.task import task
@@ -573,7 +574,24 @@ class BulkOrder(models.Model):
             url = """<h3><a href="#">Download Products List</a></h3>"""
         return url
 
+    @property
+    def cart_product_list_status(self):
+        if self.order_type == 'DISCOUNTED':
+            status = "Discounted Order"
+        else:
+            status = "Bulk Order"
+        url = f"""<h2 style="color:blue;"><a href="%s" target="_blank">
+                            Download {status} List Status</a></h2>""" % \
+              (
+                  reverse(
+                      'admin:cart_products_list_status'
+                  )
+              )
+        return url
+
     def clean(self, *args, **kwargs):
+        errors = []
+        availableQuantity = []
         if self.cart_products_csv:
             product_ids = []
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
@@ -587,8 +605,8 @@ class BulkOrder(models.Model):
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
             headers = next(reader, None)
             duplicate_products = []
-            count = 0
             for id, row in enumerate(reader):
+                count = 0
                 if not row[0]:
                     raise ValidationError(
                         "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | Product SKU cannot be empty")
@@ -636,13 +654,40 @@ class BulkOrder(models.Model):
                         continue
                     product_available = int(
                          int(available_quantity) / int(product.product_inner_case_size))
+                    availableQuantity.append(product_available)
                     if product_available >= ordered_qty:
                         count += 1
                     if count == 0:
-                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                            0] + " | Ordered Quantity is more than Available quantity."))
+                        errors.append(row[0])
+        if len(errors) > 0:
+            if self.cart_products_csv:
+                reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
+                headers = next(reader, None)
+                with open("cart_product_list.csv", 'w') as csvFile:
+                    writer = csv.writer(csvFile)
+                    writer.writerow(headers)
+                    for id, row in enumerate(reader):
+                        writer.writerow(row)
 
-
+                index = 0
+                with open("cart_product_list.csv", 'r') as csvinput:
+                    with open("ordered_cart_product_list.csv", 'w') as csvoutput:
+                        writer = csv.writer(csvoutput)
+                        for new_row in csv.reader(csvinput):
+                            if new_row == headers:
+                                writer.writerow(new_row+["Order_Status"])
+                            else:
+                                if new_row[0] in errors:
+                                    writer.writerow(new_row + [f"Failed because of ordered_quantity({new_row[2]}) > available_quantity({availableQuantity[index]})"])
+                                    index = index + 1
+                                else:
+                                    writer.writerow(new_row + ["Success"])
+                                    index = index + 1
+                self.save()
+                raise ValidationError(mark_safe(f"Order doesn't placed for some SKUs because for those SKUs, Ordered "
+                                                f"qty is greater than Available inventory.Please click the "
+                                                f"below Link for seeing the status"
+                                                f"{self.cart_product_list_status}"))
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
 
