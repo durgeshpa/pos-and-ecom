@@ -1293,7 +1293,7 @@ class ProductPriceUpload(View):
                             pincode = None
                         ProductPrice.objects.create(
                             product=product, mrp=product.product_mrp,
-                            selling_price=Decimal(row[4]),
+                            selling_price=round(Decimal(row[4]), 2),
                             seller_shop_id=int(data['seller_shop'].id),
                             buyer_shop_id=int(row[8]) if row[8] else None,
                             city_id=int(row[5]) if row[5] else None,
@@ -1308,7 +1308,7 @@ class ProductPriceUpload(View):
                             pincode = None
                         ProductPrice.objects.create(
                             product=product, mrp=product.product_mrp,
-                            selling_price=Decimal(row[3]),
+                            selling_price=round(Decimal(row[3]), 2),
                             seller_shop_id=int(data['seller_shop'].id),
                             buyer_shop_id=int(row[7]) if row[7] else None,
                             city_id=int(row[4]) if row[4] else None,
