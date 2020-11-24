@@ -112,7 +112,7 @@ class AuditStartView(APIView):
         return Response(msg, status=status.HTTP_200_OK)
 
     def can_start_audit(self, audit):
-        return (audit.created_at <= datetime.now() - timedelta(minutes=8))
+        return (audit.created_at <= datetime.now() - timedelta(minutes=30))
 
     def audit_start_time(self, audit):
         return audit.created_at + timedelta(minutes=30)
