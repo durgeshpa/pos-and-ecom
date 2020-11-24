@@ -660,7 +660,7 @@ class BulkOrder(models.Model):
                     if count == 0:
                         errors.append(row[0])
         if len(errors) > 0:
-            if self.cart_products_csv:
+            if self.cart_products_csv and self.order_type:
                 reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
                 headers = next(reader, None)
                 with open("cart_product_list.csv", 'w') as csvFile:
