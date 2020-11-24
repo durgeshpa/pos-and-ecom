@@ -231,11 +231,22 @@ class AuditEndView(APIView):
                 for s in end_audit_for_skus:
                     self.end_audit_for_sku(audit, audit_run, s)
                     info_logger.info('AuditEndView|Audit {}, ended for sku-{}'.format(audit_no, s))
-            self.end_audit(audit)
-            info_logger.info('AuditEndView|Audit {}, ended '.format(audit_no))
-            serializer = AuditDetailSerializer(audit)
-            msg = {'is_success': True, 'message': 'OK', 'data': {'audit_detail': serializer.data}}
-            return Response(msg, status=status.HTTP_200_OK)
+            if sku:
+                msg = {'is_success': True,
+                       'message': SUCCESS_MESSAGES['AUDIT_ENDED_SKU'].format(sku),
+                       'data': None}
+                return Response(msg, status=status.HTTP_200_OK)
+            elif bin_id:
+                msg = {'is_success': True,
+                       'message': SUCCESS_MESSAGES['AUDIT_ENDED_BIN'].format(bin_id),
+                       'data': None}
+                return Response(msg, status=status.HTTP_200_OK)
+            else:
+                self.end_audit(audit)
+                info_logger.info('AuditEndView|Audit {}, ended '.format(audit_no))
+                serializer = AuditDetailSerializer(audit)
+                msg = {'is_success': True, 'message': 'OK', 'data': {'audit_detail': serializer.data}}
+                return Response(msg, status=status.HTTP_200_OK)
         except Exception as e:
             error_logger.error(e)
             info_logger.info('AuditEndView|Exception while ending Audit {}' .format(audit_no))
