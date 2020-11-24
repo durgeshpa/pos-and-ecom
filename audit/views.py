@@ -611,7 +611,8 @@ def update_audit_status_by_audit(audit_id):
 
 
 def create_pick_list_by_audit(audit_id):
-    orders_to_generate_picklists = AuditCancelledPicklist.objects.filter(audit=audit_id, is_picklist_refreshed=False)
+    orders_to_generate_picklists = AuditCancelledPicklist.objects.filter(audit=audit_id, is_picklist_refreshed=False)\
+                                                                 .order_by('order_no')
     for o in orders_to_generate_picklists:
         order = Order.objects.filter(order_no=o.order_no).last()
         try:

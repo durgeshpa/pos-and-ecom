@@ -146,7 +146,6 @@ class AuditEndView(APIView):
             msg = {'is_success': False, 'message': ERROR_MESSAGES['NO_RECORD'] % 'audit', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         audit = audits.last()
-        create_audit_tickets_by_audit(audit.id)
         if audit.state != AUDIT_DETAIL_STATE_CHOICES.INITIATED:
             msg = {'is_success': False,
                    'message': ERROR_MESSAGES['INVALID_AUDIT_STATE'] % AUDIT_DETAIL_STATE_CHOICES[AUDIT_DETAIL_STATE_CHOICES.INITIATED],
@@ -186,76 +185,131 @@ class AuditEndView(APIView):
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         audit_run = AuditRun.objects.filter(audit=audit).last()
+        sku = request.data.get('sku')
+        bin_id = request.data.get('bin_id')
 
-        if audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
-            sku = request.data.get('sku')
-            if sku:
-                audit_skus = audit.sku.all().values_list('product_sku', flat=True)
-                if sku in audit_skus:
-                    try:
-                        self.end_audit_for_sku(audit, audit_run, sku)
-                    except Exception as e:
-                        error_logger.error(e)
-                        info_logger.info('AuditEndView|Exception while ending audit for Audit {}, sku-{}'
-                                         .format(audit_no, sku))
-                        msg = {'is_success': False,
-                               'message': ERROR_MESSAGES['SOME_ISSUE'],
-                               'data': None}
-                        return Response(msg, status=status.HTTP_200_OK)
-                    info_logger.info('AuditEndView|Audit {}, ended for sku-{}'.format(audit_no, sku))
-                    msg = {'is_success': True,
-                           'message': SUCCESS_MESSAGES['AUDIT_ENDED_SKU'].format(sku),
-                           'data': None}
-                    return Response(msg, status=status.HTTP_200_OK)
-
-                msg = {'is_success': False,
-                       'message': ERROR_MESSAGES['AUDIT_SKU_NOT_IN_SCOPE'],
-                       'data': None}
-                return Response(msg, status=status.HTTP_200_OK)
-
-        if audit.audit_level == AUDIT_LEVEL_CHOICES.BIN:
-            bin_id = request.data.get('bin_id')
-            if bin_id:
-                audit_bins = audit.bin.all().values_list('bin_id', flat=True)
-                if bin_id in audit_bins:
-                    try:
-                        self.end_audit_for_bin(audit, audit_run, bin_id)
-                    except Exception as e:
-                        error_logger.error(e)
-                        info_logger.info('AuditEndView|Exception while ending audit for Audit {}, bin-{}'.format(audit_no, bin_id))
-                        msg = {'is_success': False,
-                               'message': ERROR_MESSAGES['SOME_ISSUE'],
-                               'data': None}
-                        return Response(msg, status=status.HTTP_200_OK)
-                    info_logger.info('AuditEndView|Audit {}, ended for bin-{}'.format(audit_no, bin_id))
-                    msg = {'is_success': True,
-                           'message': SUCCESS_MESSAGES['AUDIT_ENDED_BIN'].format(bin_id),
-                           'data': None}
-                    return Response(msg, status=status.HTTP_200_OK)
-
-                msg = {'is_success': False,
-                       'message': ERROR_MESSAGES['AUDIT_BIN_NOT_IN_SCOPE'],
-                       'data': None}
-                return Response(msg, status=status.HTTP_200_OK)
-
-        try:
+        if sku is None and bin_id is None:
             if not self.can_end_audit(audit):
                 msg = {'is_success': False,
                        'message': ERROR_MESSAGES['FAILED_STATE_CHANGE'],
                        'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
+
+        end_audit_for_skus = []
+        end_audit_for_bins = []
+
+        if audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
+            audit_skus = audit.sku.all().values_list('product_sku', flat=True)
+            if sku:
+                if sku not in audit_skus:
+                    msg = {'is_success': False,
+                           'message': ERROR_MESSAGES['AUDIT_SKU_NOT_IN_SCOPE'],
+                           'data': None}
+                    return Response(msg, status=status.HTTP_200_OK)
+                end_audit_for_skus.append(sku)
+            else:
+                end_audit_for_skus.extend(audit_skus)
+
+        if audit.audit_level == AUDIT_LEVEL_CHOICES.BIN:
+            audit_bins = audit.bin.all().values_list('bin_id', flat=True)
+            if bin_id:
+                if bin_id not in audit_bins:
+                    msg = {'is_success': False,
+                           'message': ERROR_MESSAGES['AUDIT_BIN_NOT_IN_SCOPE'],
+                           'data': None}
+                    return Response(msg, status=status.HTTP_200_OK)
+                end_audit_for_bins.append(bin_id)
+            else:
+                end_audit_for_bins.extend(audit_bins)
+
+        try:
+            if len(end_audit_for_bins) > 0:
+                for b in end_audit_for_bins:
+                    self.end_audit_for_bin(audit, audit_run, b)
+                    info_logger.info('AuditEndView|Audit {}, ended for bin-{}'.format(audit_no, b))
+            elif len(end_audit_for_skus) > 0:
+                for s in end_audit_for_skus:
+                    self.end_audit_for_sku(audit, audit_run, s)
+                    info_logger.info('AuditEndView|Audit {}, ended for sku-{}'.format(audit_no, s))
             self.end_audit(audit)
+            info_logger.info('AuditEndView|Audit {}, ended '.format(audit_no))
+            serializer = AuditDetailSerializer(audit)
+            msg = {'is_success': True, 'message': 'OK', 'data': {'audit_detail': serializer.data}}
+            return Response(msg, status=status.HTTP_200_OK)
         except Exception as e:
             error_logger.error(e)
-            info_logger.error('AuditEndView|Exception in ending the audit-{}'.format(audit_no))
+            info_logger.info('AuditEndView|Exception while ending Audit {}' .format(audit_no))
             msg = {'is_success': False,
                    'message': ERROR_MESSAGES['SOME_ISSUE'],
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        info_logger.info('AuditEndView|Audit {}, ended '.format(audit_no))
-        serializer = AuditDetailSerializer(audit)
-        msg = {'is_success': True, 'message': 'OK', 'data': {'audit_detail': serializer.data}}
-        return Response(msg, status=status.HTTP_200_OK)
+        # if audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
+        #     sku = request.data.get('sku')
+        #     if sku:
+        #         audit_skus = audit.sku.all().values_list('product_sku', flat=True)
+        #         if sku in audit_skus:
+        #             try:
+        #                 self.end_audit_for_sku(audit, audit_run, sku)
+        #             except Exception as e:
+        #                 error_logger.error(e)
+        #                 info_logger.info('AuditEndView|Exception while ending audit for Audit {}, sku-{}'
+        #                                  .format(audit_no, sku))
+        #                 msg = {'is_success': False,
+        #                        'message': ERROR_MESSAGES['SOME_ISSUE'],
+        #                        'data': None}
+        #                 return Response(msg, status=status.HTTP_200_OK)
+        #             info_logger.info('AuditEndView|Audit {}, ended for sku-{}'.format(audit_no, sku))
+        #             msg = {'is_success': True,
+        #                    'message': SUCCESS_MESSAGES['AUDIT_ENDED_SKU'].format(sku),
+        #                    'data': None}
+        #             return Response(msg, status=status.HTTP_200_OK)
+        #
+        #         msg = {'is_success': False,
+        #                'message': ERROR_MESSAGES['AUDIT_SKU_NOT_IN_SCOPE'],
+        #                'data': None}
+        #         return Response(msg, status=status.HTTP_200_OK)
+        #
+        # if audit.audit_level == AUDIT_LEVEL_CHOICES.BIN:
+        #     bin_id = request.data.get('bin_id')
+        #     if bin_id:
+        #         audit_bins = audit.bin.all().values_list('bin_id', flat=True)
+        #         if bin_id in audit_bins:
+        #             try:
+        #                 self.end_audit_for_bin(audit, audit_run, bin_id)
+        #             except Exception as e:
+        #                 error_logger.error(e)
+        #                 info_logger.info('AuditEndView|Exception while ending audit for Audit {}, bin-{}'.format(audit_no, bin_id))
+        #                 msg = {'is_success': False,
+        #                        'message': ERROR_MESSAGES['SOME_ISSUE'],
+        #                        'data': None}
+        #                 return Response(msg, status=status.HTTP_200_OK)
+        #             info_logger.info('AuditEndView|Audit {}, ended for bin-{}'.format(audit_no, bin_id))
+        #             msg = {'is_success': True,
+        #                    'message': SUCCESS_MESSAGES['AUDIT_ENDED_BIN'].format(bin_id),
+        #                    'data': None}
+        #             return Response(msg, status=status.HTTP_200_OK)
+        #
+        #         msg = {'is_success': False,
+        #                'message': ERROR_MESSAGES['AUDIT_BIN_NOT_IN_SCOPE'],
+        #                'data': None}
+        #         return Response(msg, status=status.HTTP_200_OK)
+
+        # try:
+        #     if not self.can_end_audit(audit):
+        #         msg = {'is_success': False,
+        #                'message': ERROR_MESSAGES['FAILED_STATE_CHANGE'],
+        #                'data': None}
+        #         return Response(msg, status=status.HTTP_200_OK)
+        #
+        #     self.end_audit(audit)
+        # except Exception as e:
+        #     error_logger.error(e)
+        #     info_logger.error('AuditEndView|Exception in ending the audit-{}'.format(audit_no))
+        #     msg = {'is_success': False,
+        #            'message': ERROR_MESSAGES['SOME_ISSUE'],
+        #            'data': None}
+        #     return Response(msg, status=status.HTTP_200_OK)
+
 
     def can_end_audit(self, audit):
         if audit.audit_level == AUDIT_LEVEL_CHOICES.BIN:
