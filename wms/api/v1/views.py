@@ -384,7 +384,8 @@ class BinIDList(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         else:
             pick_list = []
-            pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no)
+            pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no)\
+                                                       .exclude(pickup__status='picking_cancelled')
             for pick_up in pickup_bin_obj:
                 pick_list.append(pick_up.bin.bin)
             temp_list = []
@@ -436,7 +437,8 @@ class PickupDetail(APIView):
             msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id)
+        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id)\
+                                                    .exclude(pickup__status='picking_cancelled')
         if picking_details.exists():
             serializer = PickupBinInventorySerializer(picking_details, many=True)
         msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
@@ -505,7 +507,8 @@ class PickupDetail(APIView):
         with transaction.atomic():
             for j, i in diction.items():
                 picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j)
+                                                                    bin__bin__bin_id=bin_id, pickup__sku__id=j)\
+                                                            .exclude(pickup__status='picking_cancelled')
                 if picking_details.count() == 0:
                     return Response({'is_success': False,
                                      'message': 'Picking details not found, please check the details entered.',
@@ -529,9 +532,12 @@ class PickupDetail(APIView):
                         picking_details.update(pickup_quantity=i + pick_qty, last_picked_at=timezone.now(),
                                                remarks=remarks_text)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                                        pickup__sku__id=j)
+                                                                        pickup__sku__id=j)\
+                                                                .exclude(pickup__status='picking_cancelled')
                         sum_total = sum([0 if i.pickup_quantity is None else i.pickup_quantity for i in pick_object])
-                        Pickup.objects.filter(pickup_type_id=order_no, sku__id=j).update(pickup_quantity=sum_total)
+                        Pickup.objects.filter(pickup_type_id=order_no, sku__id=j)\
+                                      .exclude(status='picking_cancelled')\
+                                      .update(pickup_quantity=sum_total)
                         serializer = PickupBinInventorySerializer(picking_details.last())
                         data_list.append(serializer.data)
         msg = {'is_success': True, 'message': 'Pick up data saved successfully.',
@@ -541,7 +547,7 @@ class PickupDetail(APIView):
 
 class PickupComplete(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated, )
 
     def post(self, request):
         order_no = request.data.get('order_no')
@@ -550,11 +556,11 @@ class PickupComplete(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         order_qs = Order.objects.filter(order_no=order_no)
         order_obj = order_qs.last()
-        pd_obj = PickerDashboard.objects.filter(order_id=order_obj)
+        pd_obj = PickerDashboard.objects.filter(order_id=order_obj).exclude(picking_status='picking_cancelled')
         if pd_obj.count() > 1:
             msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        pick_obj = Pickup.objects.filter(pickup_type_id=order_no)
+        pick_obj = Pickup.objects.filter(pickup_type_id=order_no).exclude(status='picking_cancelled')
 
         if pick_obj.exists():
             for pickup in pick_obj:
@@ -643,7 +649,7 @@ class PickupComplete(APIView):
                 return Response({'is_success': True,
                                  'message': "Pickup complete for all the items"})
 
-        msg = {'is_success': True, 'message': 'Pickup Object Does not exist.', 'data': None}
+        msg = {'is_success': True, 'message': ' Does not exist.', 'data': None}
         return Response(msg, status=status.HTTP_404_NOT_FOUND)
 
 

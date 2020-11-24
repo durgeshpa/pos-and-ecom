@@ -5,6 +5,7 @@ import csv
 import codecs
 import re
 import json
+
 from django.db import models
 from accounts.middlewares import get_current_user
 from celery.task import task
@@ -27,7 +28,7 @@ from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
-                    picking_statuses, picker_boys, picklist_ids)
+                    picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at)
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
@@ -573,7 +574,24 @@ class BulkOrder(models.Model):
             url = """<h3><a href="#">Download Products List</a></h3>"""
         return url
 
+    @property
+    def cart_product_list_status(self):
+        if self.order_type == 'DISCOUNTED':
+            status = "Discounted Order"
+        else:
+            status = "Bulk Order"
+        url = f"""<h2 style="color:blue;"><a href="%s" target="_blank">
+                            Download {status} List Status</a></h2>""" % \
+              (
+                  reverse(
+                      'admin:cart_products_list_status'
+                  )
+              )
+        return url
+
     def clean(self, *args, **kwargs):
+        errors = []
+        availableQuantity = []
         if self.cart_products_csv:
             product_ids = []
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
@@ -587,8 +605,8 @@ class BulkOrder(models.Model):
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
             headers = next(reader, None)
             duplicate_products = []
-            count = 0
             for id, row in enumerate(reader):
+                count = 0
                 if not row[0]:
                     raise ValidationError(
                         "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | Product SKU cannot be empty")
@@ -636,13 +654,40 @@ class BulkOrder(models.Model):
                         continue
                     product_available = int(
                          int(available_quantity) / int(product.product_inner_case_size))
+                    availableQuantity.append(product_available)
                     if product_available >= ordered_qty:
                         count += 1
                     if count == 0:
-                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                            0] + " | Ordered Quantity is more than Available quantity."))
+                        errors.append(row[0])
+        if len(errors) > 0:
+            if self.cart_products_csv and self.order_type:
+                reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
+                headers = next(reader, None)
+                with open("cart_product_list.csv", 'w') as csvFile:
+                    writer = csv.writer(csvFile)
+                    writer.writerow(headers)
+                    for id, row in enumerate(reader):
+                        writer.writerow(row)
 
-
+                index = 0
+                with open("cart_product_list.csv", 'r') as csvinput:
+                    with open("ordered_cart_product_list.csv", 'w') as csvoutput:
+                        writer = csv.writer(csvoutput)
+                        for new_row in csv.reader(csvinput):
+                            if new_row == headers:
+                                writer.writerow(new_row+["Order_Status"])
+                            else:
+                                if new_row[0] in errors:
+                                    writer.writerow(new_row + [f"Failed because of ordered_quantity({new_row[2]}) > available_quantity({availableQuantity[index]})"])
+                                    index = index + 1
+                                else:
+                                    writer.writerow(new_row + ["Success"])
+                                    index = index + 1
+                self.save()
+                raise ValidationError(mark_safe(f"Order doesn't placed for some SKUs because for those SKUs, Ordered "
+                                                f"qty is greater than Available inventory.Please click the "
+                                                f"below Link for seeing the status"
+                                                f"{self.cart_product_list_status}"))
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
 
@@ -1046,6 +1091,10 @@ class Order(models.Model):
         return picking_statuses(self.picker_dashboards())
 
     @property
+    def picklist_refreshed_at(self):
+        return picklist_refreshed_at(self.picker_dashboards())
+
+    @property
     def picker_boy(self):
         return picker_boys(self.picker_dashboards())
 
@@ -1055,9 +1104,10 @@ class Order(models.Model):
 
     @property
     def pickup_completed_at(self):
-        pickup_object = Pickup.objects.filter(pickup_type_id=self.order_no)
+        pickup_object = Pickup.objects.filter(pickup_type_id=self.order_no,
+                                              status='picking_complete')
         if pickup_object.exists():
-            return Pickup.objects.filter(pickup_type_id=self.order_no).last().completed_at
+            return pickup_object.last().completed_at
 
     @property
     def invoice_no(self):
@@ -1782,6 +1832,8 @@ class PickerDashboard(models.Model):
     )
     pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/picker/', null=True, blank=True)
     picker_assigned_date = models.DateTimeField(null=True, blank=True, default="2020-09-29")
+    is_valid = models.BooleanField(default=True)
+    refreshed_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -1789,7 +1841,8 @@ class PickerDashboard(models.Model):
         super(PickerDashboard, self).save(*args, **kwargs)
         if self.picking_status == 'picking_assigned':
             PickerDashboard.objects.filter(id=self.id).update(picker_assigned_date=datetime.datetime.now())
-            Pickup.objects.filter(pickup_type_id=self.order.order_no).update(status='picking_assigned')
+            Pickup.objects.filter(pickup_type_id=self.order.order_no,
+                                  status='pickup_creation').update(status='picking_assigned')
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
