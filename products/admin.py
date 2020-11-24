@@ -19,7 +19,7 @@ from retailer_backend.filters import CityFilter, ProductCategoryFilter
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
-                    ParentProductForm)
+                    ParentProductForm, ProductImageFormSet)
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
                         PackageSizeResource, ProductPriceResource,
@@ -351,6 +351,7 @@ class ProductCategoryAdmin(TabularInline):
 
 
 class ProductImageAdmin(admin.TabularInline):
+    formset = ProductImageFormSet
     model = ProductImage
 
 class ProductTaxInlineFormSet(BaseInlineFormSet):
