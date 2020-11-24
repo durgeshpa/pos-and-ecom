@@ -30,12 +30,23 @@ class SKUFilter(InputFilter):
 
 class AuditNoFilter(InputFilter):
     title = 'Audit No'
-    parameter_name = 'id'
+    parameter_name = 'audit_no'
 
     def queryset(self, request, queryset):
         value = self.value()
         if value:
-            return queryset.filter(id=value)
+            return queryset.filter(audit_no=value)
+        return queryset
+
+
+class AuditNoFilterForTickets(InputFilter):
+    title = 'Audit No'
+    parameter_name = 'audit_no'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(audit_run__audit__audit_no=value)
         return queryset
 
 class Warehouse(AutocompleteFilter):
@@ -124,7 +135,7 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
                     'qty_expired_system', 'qty_expired_actual', 'expired_var',
                     'total_var', 'status', 'assigned_user', 'created_at')
 
-    list_filter = [Warehouse, SKUFilter, AssignedUserFilter, 'status']
+    list_filter = [Warehouse, AuditNoFilterForTickets, SKUFilter, AssignedUserFilter, 'status',  ('created_at', DateRangeFilter)]
     form = AuditTicketForm
     actions = ['download_tickets']
 
