@@ -774,6 +774,16 @@ def cart_products_mapping(request,pk=None):
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
     return response
 
+def cart_product_list_status(request):
+        filename = "Cart_Product_List_Status.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        with open("ordered_cart_product_list.csv", 'r') as csvinput:
+            writer = csv.writer(response)
+            for new_row in csv.reader(csvinput):
+                writer.writerow(new_row)
+        return response
+
 
 def ProductsUploadSample(request):
     filename = "products_upload_sample.csv"
@@ -938,7 +948,10 @@ def parent_product_upload(request):
                             )
                             parent_product_category.save()
             except Exception as e:
-                print(e)
+                return render(request, 'admin/products/parent-product-upload.html', {
+                    'form': form,
+                    'error': e,
+                })
             return render(request, 'admin/products/parent-product-upload.html', {
                 'form': form,
                 'success': 'Parent Product CSV uploaded successfully !',
@@ -1293,7 +1306,7 @@ class ProductPriceUpload(View):
                             pincode = None
                         ProductPrice.objects.create(
                             product=product, mrp=product.product_mrp,
-                            selling_price=Decimal(row[4]),
+                            selling_price=round(Decimal(row[4]), 2),
                             seller_shop_id=int(data['seller_shop'].id),
                             buyer_shop_id=int(row[8]) if row[8] else None,
                             city_id=int(row[5]) if row[5] else None,
@@ -1308,7 +1321,7 @@ class ProductPriceUpload(View):
                             pincode = None
                         ProductPrice.objects.create(
                             product=product, mrp=product.product_mrp,
-                            selling_price=Decimal(row[3]),
+                            selling_price=round(Decimal(row[3]), 2),
                             seller_shop_id=int(data['seller_shop'].id),
                             buyer_shop_id=int(row[7]) if row[7] else None,
                             city_id=int(row[4]) if row[4] else None,
@@ -1344,36 +1357,3 @@ class VendorAutocomplete(autocomplete.Select2QuerySetView):
                 Q(vendor_name__icontains=self.q)
             )
         return qs
-
-class UpdateProductMrp(APIView):
-
-    def get(self, request, *args, **kwargs):
-        f = open('products/management/missing_mrp_products_1.csv', 'rb')
-        reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
-        first_row = next(reader)
-        for row_id, row in enumerate(reader):
-            if not row[0] or not row[4]:
-                continue
-            product = Product.objects.get(id=int(row[0]))
-            product_mrp = float(row[4])
-            product.product_mrp = product_mrp
-            product.save()
-
-        return Response({"message": "MRP data updated", "is_success": True})
-
-
-class UpdateProductMrp_Add(APIView):
-
-    def get(self, request, *args, **kwargs):
-        f = open('products/management/missing_mrp_products_2.csv', 'rb')
-        reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
-        first_row = next(reader)
-        for row_id, row in enumerate(reader):
-            if not row[0] or not row[4]:
-                continue
-            product = Product.objects.get(id=int(row[0]))
-            product_mrp = float(row[4])
-            product.product_mrp = product_mrp
-            product.save()
-
-        return Response({"message": "MRP data updated", "is_success": True})

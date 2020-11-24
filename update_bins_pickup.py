@@ -5,8 +5,6 @@ django.setup()
 from wms.models import Bin,PickupBinInventory,BinInventory,InventoryType,Putaway
 from gram_to_brand.models import GRNOrderProductMapping
 
-
-
 # virtual_bin = Bin.objects.filter(bin_id='V2VZ01SR001-0001').last()
 # pickup_bin_inventory_list = PickupBinInventory.objects.all()
 # #putaway_list = Putaway.objects.all()

@@ -1,33 +1,41 @@
 import json
 from collections import defaultdict
 
-from django.db.models import Sum, Q
+from django.db import transaction
+from django.db.models import Sum, Q, F
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
 from django.http import HttpResponse
 import logging
 
+from django.utils import timezone
 from rest_framework import status, authentication, permissions
 from rest_framework.generics import ListCreateAPIView
 from rest_framework.response import Response
 
 from sp_to_gram.tasks import update_product_es, es_mget_by_ids
-from retailer_to_sp.models import Order, Trip
+from retailer_to_sp.models import Order, Trip, PickerDashboard
+from wms.views import PicklistRefresh
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
-                     AUDIT_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES, AuditProduct,
-                     AUDIT_PRODUCT_STATUS
+                     AUDIT_RUN_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES,
+                     AuditProduct,
+                     AUDIT_PRODUCT_STATUS, AUDIT_DETAIL_STATE_CHOICES, AuditCancelledPicklist, AuditTicketManual,
+                     AUDIT_LEVEL_CHOICES
                      )
 from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
 from wms.models import WarehouseInventory, WarehouseInternalInventoryChange, InventoryType, InventoryState, \
-    BinInventory, BinInternalInventoryChange, Putaway, OrderReserveRelease, Pickup, PickupBinInventory
+    BinInventory, BinInternalInventoryChange, Putaway, OrderReserveRelease, Pickup, PickupBinInventory, \
+    PutawayBinInventory
 from products.models import Product
 import datetime
 
 from .serializers import WarehouseInventoryTransactionSerializer, WarehouseInventorySerializer, \
     BinInventoryTransactionSerializer, BinInventorySerializer, PickupBlockedQuantitySerializer
+from .utils import get_products_by_audit
 
 info_logger = logging.getLogger('file-info')
+cron_logger = logging.getLogger('cron_log')
 
 
 def initialize_dict():
@@ -44,8 +52,10 @@ def run_warehouse_level_audit(audit_run):
                                                   .values('sku_id', 'inventory_type_id',
                                                           'inventory_state_id', 'quantity')
 
-    last_archived = InventoryArchiveMaster.objects.filter(
-                        inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.WAREHOUSE).latest('archive_date')
+    last_archived = get_archive_entry(audit_run, InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.WAREHOUSE)
+
+    if last_archived is None:
+        return
     audit_run.archive_entry = last_archived
     last_day_inventory = WarehouseInventoryHistoric.objects.filter(archive_entry=last_archived,
                                                                    warehouse=audit_run.warehouse) \
@@ -66,9 +76,15 @@ def run_warehouse_level_audit(audit_run):
 
         if isinstance(inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id], dict):
             inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] = 0
-
-        inventory_calculated[tr.sku.product_sku][tr.initial_type_id][tr.initial_stage_id] -= tr.quantity
-        inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] += tr.quantity
+        if tr.transaction_type in ['stock_correction_in_type', 'stock_correction_out_type']:
+            inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] = tr.quantity
+        elif tr.transaction_type in ['manual_audit_add', 'audit_correction_add']:
+            inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] += tr.quantity
+        elif tr.transaction_type in ['manual_audit_deduct', 'audit_correction_deduct']:
+            inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] -= tr.quantity
+        else:
+            inventory_calculated[tr.sku.product_sku][tr.initial_type_id][tr.initial_stage_id] -= tr.quantity
+            inventory_calculated[tr.sku.product_sku][tr.final_type_id][tr.final_stage_id] += tr.quantity
 
     for item in current_inventory:
         if isinstance(inventory_calculated[item['sku_id']][item['inventory_type_id']][item['inventory_state_id']], dict):
@@ -94,8 +110,19 @@ def run_warehouse_level_audit(audit_run):
                                                 qty_calculated_type=AuditTicket.QTY_TYPE_IDENTIFIER.WAREHOUSE_CALCULATED,
                                                 qty_expected=item['quantity'],
                                                 qty_calculated=qty_calculated,
-                                                status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
+                                                status=AUDIT_TICKET_STATUS_CHOICES.OPEN)
             # AuditTicketHistory.objects.create(audit_ticket=ticket, comment="Created")
+
+
+def get_archive_entry(audit_run, inventory_type):
+    last_archived_qs = InventoryArchiveMaster.objects.filter(inventory_type=inventory_type)
+    if audit_run.audit.is_historic:
+        audit_from = audit_run.audit.audit_from
+        last_archived_qs.filter(archive_date__gte=audit_from)
+        last_archived = last_archived_qs.earliest('archive_date')
+    else:
+        last_archived = last_archived_qs.latest('archive_date')
+    return last_archived
 
 
 def bin_transaction_type_switch(tr_type):
@@ -104,23 +131,28 @@ def bin_transaction_type_switch(tr_type):
         'put_away_type': 1,
         'pickup_created': -1,
         'pickup_complete': 1,
-        'stock_correction_in_type': 1,
-        'stock_correction_out_type': -1
+        'picking_cancelled': 1,
+        'manual_audit_add': 1,
+        'manual_audit_deduct': -1,
+        'audit_correction_add': 1,
+        'audit_correction_deduct': -1
     }
     return tr_type_in_out.get(tr_type, 1)
 
 
 def run_bin_level_audit(audit_run):
     audit_started = audit_run.created_at
-    prev_day = audit_started.date() - datetime.timedelta(1)
     inventory_calculated = initialize_dict()
 
     current_inventory = BinInventory.objects.filter(warehouse=audit_run.warehouse).values('sku_id', 'batch_id',
                                                                                           'bin_id', 'inventory_type_id',
                                                                                           'quantity')
 
-    last_archived = InventoryArchiveMaster.objects.filter(
-                        inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.BIN).latest('archive_date')
+    last_archived = get_archive_entry(audit_run, InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.BIN)
+
+    if last_archived is None:
+        return
+
     audit_run.archive_entry = last_archived
     last_day_inventory = BinInventoryHistoric.objects.filter(archive_entry=last_archived,
                                                              warehouse=audit_run.warehouse) \
@@ -141,8 +173,11 @@ def run_bin_level_audit(audit_run):
     for tr in last_day_transactions:
         if isinstance(inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id], dict):
             inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id] = 0
-        quantity = bin_transaction_type_switch(tr.transaction_type)*tr.quantity
-        inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id] += quantity
+        if tr.transaction_type in ['stock_correction_in_type','stock_correction_out_type']:
+            inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id] = tr.quantity
+        else:
+            quantity = bin_transaction_type_switch(tr.transaction_type)*tr.quantity
+            inventory_calculated[tr.sku_id][tr.batch_id][tr.final_bin_id][tr.final_inventory_type_id] += quantity
 
     for item in current_inventory:
         if isinstance(inventory_calculated[item['sku_id']][item['batch_id']][item['bin_id']][item['inventory_type_id']], dict):
@@ -161,8 +196,6 @@ def run_bin_level_audit(audit_run):
                                                  status=audit_item_status)
         if audit_item_status == AUDIT_STATUS_CHOICES.DIRTY:
             ticket = AuditTicket.objects.create(warehouse=audit_run.warehouse, audit_run=audit_run,
-                                                # audit_type=audit_run.audit.audit_type,
-                                                # audit_inventory_type=audit_run.audit.audit_inventory_type,
                                                 sku_id=item['sku_id'],
                                                 batch_id=item['batch_id'],
                                                 bin_id=item['bin_id'],
@@ -171,7 +204,7 @@ def run_bin_level_audit(audit_run):
                                                 qty_calculated_type=AuditTicket.QTY_TYPE_IDENTIFIER.BIN_CALCULATED,
                                                 qty_expected=item['quantity'],
                                                 qty_calculated=qty_calculated,
-                                                status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
+                                                status=AUDIT_TICKET_STATUS_CHOICES.OPEN)
             # AuditTicketHistory.objects.create(audit_ticket=ticket, comment="Created")
 
 
@@ -185,14 +218,15 @@ def run_bin_warehouse_integrated_audit(audit_run):
                                                 .filter(warehouse=audit_run.warehouse) \
                                                 .annotate(quantity=Sum('quantity'))
     pickup_blocked_inventory = Pickup.objects.filter(warehouse=audit_run.warehouse,
-                                                     status__in=['pickup_creation','pickup_assigned'])\
+                                                     status__in=['pickup_creation', 'picking_assigned'])\
                                              .values('sku_id').annotate(qty=Sum('quantity'))
 
     pickup_dict = {g['sku_id']: g['qty'] for g in pickup_blocked_inventory}
-    pickup_cancelled_inventory = Putaway.objects.filter(status__in=['pickup_cancelled'],
-                                                       putaway_quantity=0)\
-                                               .values('sku_id').annotate(qty=Sum('quantity'))
-
+    pickup_cancelled_inventory = PutawayBinInventory.objects.filter(warehouse=audit_run.warehouse,
+                                                                    putaway_status=False,
+                                                                    putaway__putaway_type='CANCELLED')\
+                                                            .values('sku_id').annotate(qty=Sum('putaway_quantity'))
+    pickup_cancelled_dict = {g['sku_id']: g['qty'] for g in pickup_cancelled_inventory}
     for item in current_bin_inventory:
         warehouse_quantity = WarehouseInventory.objects.filter(Q(warehouse__id=audit_run.warehouse.id),
                                                                Q(sku_id=item['sku_id']),
@@ -206,6 +240,7 @@ def run_bin_warehouse_integrated_audit(audit_run):
         bin_quantity = item['quantity']
         if item['inventory_type_id'] == type_normal:
             bin_quantity += (pickup_dict[item['sku_id']] if pickup_dict.get(item['sku_id']) else 0)
+            bin_quantity += (pickup_cancelled_dict[item['sku_id']] if pickup_cancelled_dict.get(item['sku_id']) else 0)
         audit_item_status = AUDIT_STATUS_CHOICES.DIRTY
         if warehouse_quantity == bin_quantity:
             audit_item_status = AUDIT_STATUS_CHOICES.CLEAN
@@ -225,13 +260,11 @@ def run_bin_warehouse_integrated_audit(audit_run):
                                                 qty_calculated_type=AuditTicket.QTY_TYPE_IDENTIFIER.WAREHOUSE,
                                                 qty_expected=bin_quantity,
                                                 qty_calculated=warehouse_quantity,
-                                                status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
+                                                status=AUDIT_TICKET_STATUS_CHOICES.OPEN)
             # AuditTicketHistory.objects.create(audit_ticket=ticket, comment="Created")
 
 
 def run_audit_for_daily_operations(audit_run):
-    audit_started = audit_run.created_at
-    prev_day = audit_started.date() - datetime.timedelta(1)
     type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
     stage_available = InventoryState.objects.only('id').get(inventory_state='available').id
     stage_reserved = InventoryState.objects.only('id').get(inventory_state='reserved').id
@@ -302,7 +335,7 @@ def run_audit_for_daily_operations(audit_run):
         if isinstance(inventory_calculated[item['pickup__sku_id']][type_normal][stage_ordered], dict):
             inventory_calculated[item['pickup__sku_id']][type_normal][stage_ordered] = 0
         if isinstance(inventory_calculated[item['pickup__sku_id']][type_normal][stage_available], dict):
-                inventory_calculated[item['pickup__sku_id']][type_normal][stage_available] = 0
+            inventory_calculated[item['pickup__sku_id']][type_normal][stage_available] = 0
 
         inventory_calculated[item['pickup__sku_id']][type_normal][stage_picked] += item['pickup_qty']
         inventory_calculated[item['pickup__sku_id']][type_normal][stage_ordered] -= item['qty']
@@ -350,7 +383,7 @@ def run_audit_for_daily_operations(audit_run):
                                                 qty_calculated_type=AuditTicket.QTY_TYPE_IDENTIFIER.WAREHOUSE_CALCULATED,
                                                 qty_expected=item['quantity'],
                                                 qty_calculated=calculated_quantity,
-                                                status=AUDIT_TICKET_STATUS_CHOICES.OPENED)
+                                                status=AUDIT_TICKET_STATUS_CHOICES.OPEN)
             # AuditTicketHistory.objects.create(audit_ticket=ticket, comment="Created")
 
 
@@ -365,10 +398,22 @@ def run_audit(audit_run, inventory_choice):
         run_audit_for_daily_operations(audit_run)
 
 
+def get_last_historic_run(audit):
+    return AuditRun.objects.filter(audit=audit, status=AUDIT_RUN_STATUS_CHOICES.COMPLETED).last()
+
+
 def start_automated_inventory_audit():
-    audits_to_perform = AuditDetail.objects.filter(audit_type=AUDIT_TYPE_CHOICES.AUTOMATED,
+    audits_to_perform = AuditDetail.objects.filter(audit_run_type=AUDIT_RUN_TYPE_CHOICES.AUTOMATED,
                                                    status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE)
     for audit in audits_to_perform:
+        if audit.is_historic:
+            last_historic_run = get_last_historic_run(audit)
+            if last_historic_run:
+                diff_in_dates = (datetime.date.today() - last_historic_run.completed_at.date())
+                if diff_in_dates.days < 30:
+                    cron_logger.info('Audit Id-{}. last run was completed on {}, skipping this audit run for now.'
+                                     .format(audit.id, last_historic_run.completed_at))
+                    continue
         audit_run = AuditRun.objects.filter(audit=audit, status=AUDIT_RUN_STATUS_CHOICES.IN_PROGRESS)
         if audit_run:
             continue
@@ -474,75 +519,168 @@ class PickupBlockedQuantityView(BaseListAPIView):
                                      sku_id=self.request.data.get('sku_id'),
                                      status__in=['pickup_creation', 'pickup_assigned'])
 
+class BlockUnblockProduct(object):
 
-def get_product_by_bin(warehouse, bins):
-    bin_inventory = BinInventory.objects.filter(warehouse=warehouse, bin_id__in=bins)
-    product_list = []
-    for b in bin_inventory:
-        product_list.append(b.sku)
-    return product_list
+    @staticmethod
+    def is_product_blocked_for_audit(product, warehouse):
+        return AuditProduct.objects.filter(warehouse=warehouse, sku=product, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists()
 
+    @staticmethod
+    def block_product_during_audit(audit, product_list, warehouse):
+        # es_product_status = get_es_status(product_list, warehouse)
+        for p in product_list:
+            update_product_es.delay(warehouse.id, p.id, status=False)
+            # AuditProduct.objects.update_or_create(audit=audit, warehouse=warehouse, sku=p,
+            #                                       defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED,
+            #                                                 'es_status': es_product_status[p.id]})
+            AuditProduct.objects.update_or_create(audit=audit, warehouse=warehouse, sku=p,
+                                                  defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED})
 
-def is_product_blocked_for_audit(product, warehouse):
-    return AuditProduct.objects.filter(warehouse=warehouse, sku=product, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists()
-
-
-def get_product_ids(product_list):
-    product_id_list = []
-    for p in product_list:
-        product_id_list.append(p.id)
-    return product_id_list
-
-
-def block_product_during_audit(product_list, warehouse):
-    es_product_status = get_es_status(product_list, warehouse)
-    for p in product_list:
-        update_product_es.delay(warehouse.id, p.id, status=False)
-        AuditProduct.objects.update_or_create(warehouse=warehouse, sku=p,
-                                              defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED,
-                                                        'es_status': es_product_status[p.id]})
-
-
-def get_es_status(product_list, warehouse):
-    es_products = es_mget_by_ids(warehouse.id, {'ids': get_product_ids(product_list)})
-    es_product_status = {}
-    for p in es_products['docs']:
-        es_product_status[int(p['_id'])] = p['_source']['status'] if p['found'] else False
-    return es_product_status
+    @staticmethod
+    def unblock_product_after_audit(audit, product, warehouse):
+        audit_product = AuditProduct.objects.filter(audit=audit, warehouse=warehouse, sku=product).last()
+        if audit_product:
+            audit_product.status = AUDIT_PRODUCT_STATUS.RELEASED
+            audit_product.save()
+        is_products_still_blocked = AuditProduct.objects.filter(warehouse=warehouse, sku=product,
+                                                                status=AUDIT_PRODUCT_STATUS.BLOCKED).exists()
+        if not is_products_still_blocked:
+            update_product_es.delay(warehouse.id, product.id, status=True)
 
 
-def unblock_product_after_audit(product, warehouse):
-    audit_product = AuditProduct.objects.get(warehouse=warehouse, sku=product)
-    update_product_es.delay(warehouse.id, product.id, status=audit_product.es_status)
-    audit_product.status = AUDIT_PRODUCT_STATUS.RELEASED
-    audit_product.save()
+    @staticmethod
+    def enable_products(audit_detail):
+        products_to_update = get_products_by_audit(audit_detail)
+        for p in products_to_update:
+            BlockUnblockProduct.unblock_product_after_audit(audit_detail, p, audit_detail.warehouse)
+
+    @staticmethod
+    def disable_products(audit_detail):
+        products_to_disable = get_products_by_audit(audit_detail)
+        if len(products_to_disable) > 0:
+            BlockUnblockProduct.block_product_during_audit(audit_detail, products_to_disable, audit_detail.warehouse)
+
+    @staticmethod
+    def release_product_from_audit(audit, audit_run, sku, warehouse):
+        if audit.audit_level == AUDIT_LEVEL_CHOICES.BIN:
+            remaining_products_to_audit = get_remaining_products_to_audit(audit, audit_run)
+            if sku not in remaining_products_to_audit:
+                BlockUnblockProduct.unblock_product_after_audit(audit, sku, warehouse)
+        if audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
+            remaining_bins_to_audit = get_remaining_bins_to_audit(audit, audit_run, sku)
+            if len(remaining_bins_to_audit) == 0:
+                BlockUnblockProduct.unblock_product_after_audit(audit, sku, warehouse)
 
 
-@receiver(post_save, sender=AuditDetail)
-def disable_audit_product(sender, instance=None, created=False, **kwargs):
-    if instance.status == AUDIT_DETAIL_STATUS_CHOICES.INACTIVE:
+def get_remaining_bins_to_audit(audit, audit_run, sku):
+    bin_and_batches_to_audit = BinInventory.objects.filter(warehouse=audit.warehouse,
+                                                           sku=sku)\
+                                                   .values_list('bin_id', 'batch_id', 'sku_id')
+    bin_batches_audited = AuditRunItem.objects.filter(audit_run=audit_run)\
+                                              .values_list('bin_id', 'batch_id', 'sku_id')
+
+    remaining_bin_batches_to_audit = list(set(bin_and_batches_to_audit) - set(bin_batches_audited))
+    info_logger.info('AuditInventory|get_remaining_bins_to_audit|remaining_bin_batches_to_audit-{}'
+                     .format(remaining_bin_batches_to_audit))
+    return remaining_bin_batches_to_audit
+
+def get_remaining_products_to_audit(audit, audit_run):
+    all_bins_to_audit = audit.bin.all()
+    bin_and_batches_to_audit = BinInventory.objects.filter(warehouse=audit.warehouse,
+                                                           bin__in=all_bins_to_audit)\
+                                                   .values_list('bin_id', 'batch_id', 'sku_id')
+
+    bin_batches_audited = AuditRunItem.objects.filter(audit_run=audit_run)\
+                                              .values_list('bin_id', 'batch_id', 'sku_id')
+    remaining_bin_batches_to_audit = list(set(bin_and_batches_to_audit) - set(bin_batches_audited))
+    remaining_skus_to_audit = [item[2] for item in remaining_bin_batches_to_audit]
+    info_logger.info('AuditInventory|get_remaining_products_to_audit|remaining_skus_to_audit-{}'
+                     .format(remaining_skus_to_audit))
+    return remaining_skus_to_audit
+
+def update_audit_status_by_audit(audit_id):
+    audit = AuditDetail.objects.filter(id=audit_id).last()
+    audit_items = AuditRunItem.objects.filter(audit_run__audit=audit)
+    audit_state = AUDIT_DETAIL_STATE_CHOICES.PASS
+    for i in audit_items:
+        if i.qty_expected != i.qty_calculated:
+            audit_state = AUDIT_DETAIL_STATE_CHOICES.FAIL
+            break
+    audit.state = audit_state
+    audit.save()
+
+
+def create_pick_list_by_audit(audit_id):
+    orders_to_generate_picklists = AuditCancelledPicklist.objects.filter(audit=audit_id, is_picklist_refreshed=False)\
+                                                                 .order_by('order_no')
+    for o in orders_to_generate_picklists:
+        order = Order.objects.filter(order_no=o.order_no).last()
+        try:
+            pd_obj = PickerDashboard.objects.filter(order=order,
+                                                    picking_status__in=['picking_pending', 'picking_assigned'],
+                                                    is_valid=False).last()
+            if pd_obj is None:
+                info_logger.info("Picker Dashboard object does not exists for order {}".format(order.order_no))
+                continue
+            with transaction.atomic():
+                PicklistRefresh.create_picklist_by_order(order)
+                o.is_picklist_refreshed = True
+                o.save()
+                pd_obj.is_valid = True
+                pd_obj.refreshed_at = timezone.now()
+                pd_obj.save()
+        except Exception as e:
+            info_logger.error(e)
+            info_logger.error('generate_pick_list|Exception while generating picklist for order {}'.format(o))
+
+
+def create_audit_tickets_by_audit(audit_id):
+    audit = AuditDetail.objects.filter(id=audit_id).last()
+    if audit.state != AUDIT_DETAIL_STATE_CHOICES.FAIL:
+        info_logger.info('tasks|create_audit_tickets| ticked not generated, audit is in {} state'
+                         .format(AUDIT_DETAIL_STATE_CHOICES[audit.state]))
         return
+    audit_run = AuditRun.objects.filter(audit=audit).last()
+    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+    type_expired = InventoryType.objects.filter(inventory_type='expired').last()
+    type_damaged = InventoryType.objects.filter(inventory_type='damaged').last()
+    audit_items = AuditRunItem.objects.filter(~Q(qty_expected=F('qty_calculated')), audit_run=audit_run)
+    for i in audit_items:
+        if not AuditTicketManual.objects.filter(audit_run=audit_run, bin=i.bin, sku=i.sku,
+                                                batch_id=i.batch_id).exists():
+            agg_qty = AuditRunItem.objects.filter(audit_run=audit_run, bin=i.bin, sku=i.sku, batch_id=i.batch_id) \
+                .aggregate(n_phy=Sum('qty_calculated', filter=Q(inventory_type=type_normal)),
+                           n_sys=Sum('qty_expected', filter=Q(inventory_type=type_normal)),
+                           e_phy=Sum('qty_calculated', filter=Q(inventory_type=type_expired)),
+                           e_sys=Sum('qty_expected', filter=Q(inventory_type=type_expired)),
+                           d_phy=Sum('qty_calculated', filter=Q(inventory_type=type_damaged)),
+                           d_sys=Sum('qty_expected', filter=Q(inventory_type=type_damaged)))
 
-    products_to_disable = []
-    if instance.audit_type == AUDIT_TYPE_CHOICES.MANUAL:
-        if instance.audit_level == 1:
-            products_to_disable.append(instance.sku)
-    if len(products_to_disable) > 0:
-        block_product_during_audit(products_to_disable, instance.warehouse)
+            AuditTicketManual.objects.create(warehouse=audit_run.warehouse,
+                                             audit_run=audit_run, bin=i.bin, sku=i.sku, batch_id=i.batch_id,
+                                             qty_normal_system=agg_qty['n_sys'],
+                                             qty_normal_actual=agg_qty['n_phy'],
+                                             qty_damaged_system=0 if agg_qty['d_sys'] is None else agg_qty['d_sys'],
+                                             qty_damaged_actual=0 if agg_qty['d_phy'] is None else agg_qty['d_phy'],
+                                             qty_expired_system=0 if agg_qty['e_sys'] is None else agg_qty['e_sys'],
+                                             qty_expired_actual=0 if agg_qty['e_phy'] is None else agg_qty['e_phy'],
+                                             status=AUDIT_TICKET_STATUS_CHOICES.OPEN)
+    info_logger.info('tasks|create_audit_tickets|created for audit run {}, bin {}, batch {}'
+                     .format(audit_run.id, i.bin_id, i.batch_id))
+    audit.state = AUDIT_DETAIL_STATE_CHOICES.TICKET_RAISED
+    audit.save()
 
 
-def disable_audit_products(sender, instance, action, *args, **kwargs):
-    if action != 'post_add':
-        return
-    products_to_disable = []
-    if instance.status == AUDIT_DETAIL_STATUS_CHOICES.INACTIVE:
-        return
-    if instance.audit_type == AUDIT_TYPE_CHOICES.MANUAL:
-        if instance.audit_level == 0:
-            if instance.bin.count() != 0:
-                products_to_disable.extend(get_product_by_bin(instance.warehouse, instance.bin.all()))
-    if len(products_to_disable) > 0:
-        block_product_during_audit(products_to_disable, instance.warehouse)
+def get_existing_audit_for_product(warehouse, sku):
+    return sku.audit_product_mapping.filter(warehouse=warehouse,
+                                            status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
+                                            state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
+                                                       AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')
 
 
-m2m_changed.connect(disable_audit_products, sender=AuditDetail.bin.through)
+def get_existing_audit_for_bin(warehouse, bin):
+    return bin.audit_bin_mapping.filter(warehouse=warehouse,
+                                        status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
+                                        state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
+                                                   AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')
+
