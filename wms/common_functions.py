@@ -352,7 +352,7 @@ def get_visibility_changes(shop, product):
             if not min_exp_date_data.get('exp', None):
                 min_exp_date_data['exp'] = exp_date
                 min_exp_date_data['id'] = data.sku.id
-            elif exp_date <= min_exp_date_data.get('exp'):
+            elif exp_date < min_exp_date_data.get('exp'):
                 visibility_changes[min_exp_date_data['id']] = False
                 min_exp_date_data['exp'] = exp_date
                 min_exp_date_data['id'] = data.sku.id
