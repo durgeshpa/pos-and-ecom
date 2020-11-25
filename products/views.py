@@ -14,6 +14,8 @@ from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import permission_required
 from admin_auto_filters.views import AutocompleteJsonView
+from rest_framework.views import APIView
+from rest_framework.response import Response
 
 from decimal import Decimal
 
@@ -774,6 +776,16 @@ def cart_products_mapping(request,pk=None):
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
     return response
 
+def cart_product_list_status(request):
+        filename = "Cart_Product_List_Status.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        with open("ordered_cart_product_list.csv", 'r') as csvinput:
+            writer = csv.writer(response)
+            for new_row in csv.reader(csvinput):
+                writer.writerow(new_row)
+        return response
+
 
 def ProductsUploadSample(request):
     filename = "products_upload_sample.csv"
@@ -938,7 +950,10 @@ def parent_product_upload(request):
                             )
                             parent_product_category.save()
             except Exception as e:
-                print(e)
+                return render(request, 'admin/products/parent-product-upload.html', {
+                    'form': form,
+                    'error': e,
+                })
             return render(request, 'admin/products/parent-product-upload.html', {
                 'form': form,
                 'success': 'Parent Product CSV uploaded successfully !',
@@ -1236,7 +1251,7 @@ class ProductPriceUpload(View):
             qs = qs.filter(product=data['product'])
         return qs.values_list(
             'product__product_sku', 'product__product_name',
-            'seller_shop__shop_name', 'mrp',
+            'seller_shop__shop_name', 'product__product_mrp',
             'selling_price', 'city_id', 'city__city_name', 'pincode__pincode',
             'buyer_shop_id', 'buyer_shop__shop_name', 'start_date', 'end_date',
             'approval_status')
@@ -1302,7 +1317,7 @@ class ProductPriceUpload(View):
                             pincode = None
                         ProductPrice.objects.create(
                             product=product, mrp=product.product_mrp,
-                            selling_price=Decimal(row[4]),
+                            selling_price=round(Decimal(row[4]), 2),
                             seller_shop_id=int(data['seller_shop'].id),
                             buyer_shop_id=int(row[8]) if row[8] else None,
                             city_id=int(row[5]) if row[5] else None,
@@ -1317,7 +1332,7 @@ class ProductPriceUpload(View):
                             pincode = None
                         ProductPrice.objects.create(
                             product=product, mrp=product.product_mrp,
-                            selling_price=Decimal(row[3]),
+                            selling_price=round(Decimal(row[3]), 2),
                             seller_shop_id=int(data['seller_shop'].id),
                             buyer_shop_id=int(row[7]) if row[7] else None,
                             city_id=int(row[4]) if row[4] else None,

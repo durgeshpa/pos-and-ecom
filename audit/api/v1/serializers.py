@@ -9,9 +9,13 @@ class AuditDetailSerializer(serializers.ModelSerializer):
     audit_state = serializers.SerializerMethodField('m_audit_state')
 
     def m_audit_no(self, obj):
-        return obj.id
+        return obj.audit_no
 
     def m_audit_level(self, obj):
+        if obj.audit_level == AUDIT_LEVEL_CHOICES.BIN:
+            return 'bin'
+        elif obj.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
+            return 'product'
         return AUDIT_LEVEL_CHOICES[obj.audit_level]
 
     def m_audit_state(self, obj):
@@ -20,4 +24,3 @@ class AuditDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditDetail
         fields = ('audit_no', 'audit_level', 'audit_state', 'created_at')
-

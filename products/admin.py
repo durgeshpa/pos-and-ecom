@@ -20,7 +20,7 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
-                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet)
+                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -44,7 +44,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     parent_product_upload, ParentProductsDownloadSampleCSV,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
-                    ParentProductMultiPhotoUploadView)
+                    ParentProductMultiPhotoUploadView, cart_product_list_status)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
@@ -356,6 +356,7 @@ class ProductCategoryAdmin(TabularInline):
 
 
 class ProductImageAdmin(admin.TabularInline):
+    formset = ProductImageFormSet
     model = ProductImage
 
 class ProductTaxInlineFormSet(BaseInlineFormSet):
@@ -746,6 +747,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name='cart_products_mapping'
             ),
             url(
+                r'^cart-products-mapping/$',
+                self.admin_site.admin_view(cart_product_list_status),
+                name='cart_products_list_status'
+            ),
+            url(
                 r'^product-price-autocomplete/$',
                 self.admin_site.admin_view(ProductPriceAutocomplete.as_view()),
                 name="product-price-autocomplete"
@@ -963,6 +969,7 @@ class ExportProductPrice:
         writer.writerow(list_display)
         for obj in queryset:
             row = [getattr(obj, field) for field in list_display]
+            row[2] = Product.objects.get(id=obj.product.id).product_mrp
             if row[-2] == 2:
                 row[-2] = 'Approved'
             elif row[-2] == 1:
@@ -1023,8 +1030,8 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     product_sku.short_description = 'Product SKU'
 
     def product_mrp(self, obj):
-        if obj.mrp:
-            return obj.mrp
+        # if obj.mrp:
+        #     return obj.mrp
         if obj.product.product_mrp:
             return obj.product.product_mrp
         return ''

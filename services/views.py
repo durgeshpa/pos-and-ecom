@@ -39,6 +39,7 @@ class SalesReport(APIView):
             orders = orders.using('readonly').filter(created_at__gte = start_date)
         if end_date:
             orders = orders.using('readonly').filter(created_at__lte = end_date)
+        ordered_list=[]
         ordered_items = {}
         for order in orders:
             order_shipments = OrderedProductMapping.objects.using('readonly').filter(
@@ -67,19 +68,19 @@ class SalesReport(APIView):
                 product_price_to_retailer = cart_product_mapping.cart_product_price.selling_price
                 ordered_amount = (product_price_to_retailer * Decimal(ordered_qty)) / (Decimal(get_tax_val) + 1)
                 ordered_tax_amount = (ordered_amount * Decimal(get_tax_val))
-                delivered_amount = (product_price_to_retailer * Decimal(product_shipments)) / (Decimal(get_tax_val) + 1)
-                delivered_tax_amount = (delivered_amount * Decimal(get_tax_val))
-                if product.product_gf_code in ordered_items:
-                    ordered_items[product.product_gf_code]['ordered_qty'] += ordered_qty
-                    ordered_items[product.product_gf_code]['ordered_amount'] += ordered_amount
-                    ordered_items[product.product_gf_code]['ordered_tax_amount'] += ordered_tax_amount
-                    ordered_items[product.product_gf_code]['delivered_qty'] += product_shipments
-                    ordered_items[product.product_gf_code]['delivered_amount'] += delivered_amount
-                    ordered_items[product.product_gf_code]['delivered_tax_amount'] += delivered_tax_amount
+                delivered_amount = float((product_price_to_retailer * Decimal(product_shipments)) / (Decimal(get_tax_val) + 1))
+                delivered_tax_amount = float((delivered_amount * float(get_tax_val)))
+                if product_sku in ordered_items:
+                    ordered_items['ordered_qty'] += ordered_qty
+                    ordered_items['ordered_amount'] += ordered_amount
+                    ordered_items['ordered_tax_amount'] += ordered_tax_amount
+                    ordered_items['delivered_qty'] += product_shipments
+                    ordered_items['delivered_amount'] += delivered_amount
+                    ordered_items['delivered_tax_amount'] += delivered_tax_amount
                 else:
-                    ordered_items[product.product_gf_code] = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount, 'seller_shop':seller_shop}
-
-        data = ordered_items
+                    ordered_items = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount, 'seller_shop':seller_shop}
+                    ordered_list.append(ordered_items)
+        data = ordered_list
         return data
 
     def get(self, *args, **kwargs):
@@ -99,9 +100,9 @@ class SalesReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['GF Code', 'ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
-        for k,v in data.items():
-            writer.writerow([k, v['product_id'], v['product_sku'], v['product_name'], v['product_brand'], v['ordered_qty'], v['delivered_qty'], v['ordered_amount'], v['ordered_tax_amount'],  v['delivered_amount'], v['delivered_tax_amount'],v['seller_shop']])
+        writer.writerow(['ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
+        for dic in data:
+            writer.writerow([dic['product_id'], dic['product_sku'], dic['product_name'], dic['product_brand'], dic['ordered_qty'], dic['delivered_qty'], dic['ordered_amount'], dic['ordered_tax_amount'],  dic['delivered_amount'], dic['delivered_tax_amount'],dic['seller_shop']])
 
         return response
 

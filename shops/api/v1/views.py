@@ -769,14 +769,19 @@ class CheckUser(generics.ListAPIView):
     def get(self, *args, **kwargs):
         all_user = ShopUserMapping.objects.filter(employee=self.request.user,status=True)
         if not all_user.exists():
-            msg = {'is_success': False, 'message': ["Sorry you are not authorised"], 'response_data': None, 'is_sales': False,'is_sales_manager': False, 'is_delivery_boy': False, 'is_picker': False, 'is_putaway': False}
+            msg = {'is_success': False, 'message': ["Sorry you are not authorised"], 'response_data': None,
+                   'is_sales': False,'is_sales_manager': False, 'is_delivery_boy': False, 'is_picker': False,
+                   'is_putaway': False, 'is_auditor': False }
         else:
             is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop',shop__shop_type__shop_type='r', status=True).exists() else False
             is_sales_manager = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_manager_add_shop',shop__shop_type__shop_type='sp', status=True).exists() else False
             is_delivery_boy = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='is_delivery_boy', status=True).exists() else False
             is_picker = True if 'Picker Boy' in self.request.user.groups.values_list('name', flat=True) else False
             is_putaway = True if 'Putaway' in self.request.user.groups.values_list('name', flat=True) else False
-            msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager, 'is_delivery_boy': is_delivery_boy, 'is_picker':is_picker, 'is_putaway': is_putaway}
+            is_auditor = True if self.request.user.groups.filter(name='Warehouse-Auditor').exists() else False
+            msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales,
+                   'is_sales_manager':is_sales_manager, 'is_delivery_boy': is_delivery_boy,
+                   'is_picker': is_picker, 'is_putaway': is_putaway, 'is_auditor': is_auditor}
         return Response(msg, status=status.HTTP_200_OK)
 
 

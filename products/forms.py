@@ -33,6 +33,34 @@ class ProductImageForm(forms.ModelForm):
         model = ProductImage
         fields = ('image', )
 
+
+class ProductImageFormSet(forms.models.BaseInlineFormSet):
+
+    def clean(self):
+        super(ProductImageFormSet, self).clean()
+        count = 0
+        delete_count = 0
+        valid = True
+        for form in self:
+            if form.is_valid():
+                if form.cleaned_data:
+                    count += 1
+                if 'DELETE' in form.cleaned_data and form.cleaned_data['DELETE'] is True:
+                    delete_count += 1
+            else:
+                valid = False
+        if self.instance.use_parent_image:
+            if not self.instance.parent_product.parent_product_pro_image.exists():
+                raise ValidationError(_(f"Parent Product Images could not be found. Please upload Child Images."))
+        elif count < 1 or count == delete_count:
+            raise ValidationError(_(f"Child Product Images should be uploaded when not using Parent Product Images."))
+        if valid:
+            return self.cleaned_data
+
+    class Meta:
+        model = ProductImage
+
+
 class ParentProductImageForm(forms.ModelForm):
     class Meta:
         model = ParentProductImage
@@ -468,19 +496,6 @@ class ProductForm(forms.ModelForm):
         model = Product
         fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status', 'repackaging_type',
                   'product_special_cess',)
-
-    def clean(self):
-        cleaned_data = self.cleaned_data
-        if cleaned_data['use_parent_image']:
-            if not cleaned_data['parent_product'].parent_product_pro_image.exists():
-                raise ValidationError(_(f"Parent Product Images could not be found. Please upload Child Images."))
-        else:
-            if not self.files:
-                raise ValidationError(_(f"Child Product Images should be uploaded when not using Parent Product Images."))
-            else:
-                if len(self.files) < 1:
-                    raise ValidationError(_(f"Child Product Images should be uploaded when not using Parent Product Images."))
-        return cleaned_data
 
 
 class ProductSourceMappingForm(forms.ModelForm):

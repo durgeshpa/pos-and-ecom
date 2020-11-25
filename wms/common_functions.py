@@ -19,7 +19,7 @@ from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, Wa
 import retailer_to_sp.models
 
 from shops.models import Shop
-from products.models import Product, ParentProduct
+from products.models import Product, ParentProduct, ProductPrice
 
 # Logger
 
@@ -164,7 +164,7 @@ class CommonPickupFunctions(object):
 
     @classmethod
     def get_filtered_pickup(cls, **kwargs):
-        pickup_data = Pickup.objects.filter(**kwargs)
+        pickup_data = Pickup.objects.filter(**kwargs).exclude(status='picking_cancelled')
         return pickup_data
 
 
@@ -252,7 +252,7 @@ class CommonPickBinInvFunction(object):
 
     @classmethod
     def get_filtered_pick_bin_inv(cls, **kwargs):
-        pick_bin_inv = PickupBinInventory.objects.filter(**kwargs)
+        pick_bin_inv = PickupBinInventory.objects.filter(**kwargs).exclude(pickup__status='picking_cancelled')
         return pick_bin_inv
 
 
@@ -347,17 +347,24 @@ def get_visibility_changes(shop, product):
             Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
         )
         for data in bin_data:
-            exp_date_str = get_expiry_date(batch_id=data.batch_id)
-            exp_date = datetime.strptime(exp_date_str, "%d/%m/%Y")
-            if not min_exp_date_data.get('exp', None):
-                min_exp_date_data['exp'] = exp_date
-                min_exp_date_data['id'] = data.sku.id
-            elif exp_date < min_exp_date_data.get('exp'):
-                visibility_changes[min_exp_date_data['id']] = False
-                min_exp_date_data['exp'] = exp_date
-                min_exp_date_data['id'] = data.sku.id
-            else:
-                visibility_changes[child.id] = False
+            if ProductPrice.objects.filter(product=data.sku, approval_status=2, seller_shop=shop).exists():
+                exp_date_str = get_expiry_date(batch_id=data.batch_id)
+                exp_date = datetime.strptime(exp_date_str, "%d/%m/%Y")
+                if not min_exp_date_data.get('exp', None):
+                    min_exp_date_data['exp'] = exp_date
+                    min_exp_date_data['id'] = data.sku.id
+
+                elif exp_date == min_exp_date_data.get('exp'):
+                    visibility_changes[min_exp_date_data['id']] = True
+                    min_exp_date_data['exp'] = exp_date
+                    min_exp_date_data['id'] = data.sku.id
+
+                elif exp_date < min_exp_date_data.get('exp'):
+                    visibility_changes[min_exp_date_data['id']] = False
+                    min_exp_date_data['exp'] = exp_date
+                    min_exp_date_data['id'] = data.sku.id
+                else:
+                    visibility_changes[child.id] = False
     if min_exp_date_data.get('id'):
         visibility_changes[min_exp_date_data['id']] = True
     return visibility_changes
@@ -770,7 +777,7 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
                                               sku=Product.objects.get(id=order_product.sku.id),
                                               inventory_state=InventoryState.objects.filter(
                                                   inventory_state='ordered').last(),
-                                              quantity=reserved_qty, in_stock=True,
+                                              quantity=order_product.warehouse_internal_inventory_reserve.quantity, in_stock=True,
                                               inventory_type=InventoryType.objects.filter(
                                                   inventory_type='normal').last())
         WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
@@ -900,7 +907,8 @@ def cancel_order_with_pick(instance):
     """
     with transaction.atomic():
         # get the queryset object from Pickup Bin Inventory Model
-        pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)
+        pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
+                                                      .exclude(pickup__status='picking_cancelled')
         # iterate over the PickupBin Inventory object
         for pickup_bin in pickup_bin_object:
             # if pick up status is pickup creation
@@ -982,7 +990,7 @@ def cancel_order_with_pick(instance):
                                                          putaway=pu, bin=pickup_bin.bin, putaway_status=False,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
             # get the queryset filter from Pickup model
-        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
+        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
         # iterate the pickup objects and set the status picking cancelled
         for obj in pickup_obj:
             obj.status = 'picking_cancelled'
@@ -1259,7 +1267,7 @@ def common_on_return_and_partial(shipment, flag):
             for shipment_product_batch in shipment_product.rt_ordered_product_mapping.all():
                 # first bin with non 0 inventory for a batch or last empty bin
                 shipment_product_batch_bin_list = PickupBinInventory.objects.filter(
-                    shipment_batch=shipment_product_batch)
+                    shipment_batch=shipment_product_batch).exclude(pickup__status='picking_cancelled')
                 bin_id_for_input = None
                 shipment_product_batch_bin_temp = None
                 for shipment_product_batch_bin in shipment_product_batch_bin_list:

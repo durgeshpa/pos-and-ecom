@@ -338,7 +338,8 @@ def ordered_product_mapping_shipment(request):
             shipment_product = list(filter(lambda product: product['product'] == item['cart_product'],
                                            shipment_products))
             pick_up_obj = Pickup.objects.filter(sku=Product.objects.filter(id=item['cart_product'])[0],
-                                                pickup_type_id=Order.objects.filter(id=order_id).last().order_no)
+                                                pickup_type_id=Order.objects.filter(id=order_id).last().order_no)\
+                                        .exclude(status='picking_cancelled')
             if shipment_product:
                 shipment_product_dict = shipment_product[0]
                 already_shipped_qty = shipment_product_dict.get('delivered_qty__sum')
@@ -432,7 +433,8 @@ def assign_picker(request, shop_id=None):
                 # updating order status
                 Order.objects.filter(picker_order__in=selected_orders) \
                     .update(order_status=Order.PICKING_ASSIGNED)
-                Pickup.objects.filter(pickup_type_id=selected_orders[0].order.order_no).update(
+                Pickup.objects.filter(pickup_type_id=selected_orders[0].order.order_no,
+                                      status='pickup_creation').update(
                     status='picking_assigned')
 
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
@@ -921,13 +923,15 @@ def pick_list_dashboard(request, pobject, shipment_id, template_name, file_prefi
         file_name = create_file_name(file_prefix, pobject)
         shipment = ''
         if obj_type == 'repackaging':
-            picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=pobject.repackaging_no)
+            picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=pobject.repackaging_no).exclude(
+                pickup__status='picking_cancelled')
         else:
             if shipment_id != "0":
                 shipment = OrderedProduct.objects.get(id=shipment_id)
             else:
                 shipment = pobject.rt_order_order_product.last()
-                picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=pobject.order_no)
+            picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=pobject.order_no).exclude(
+                pickup__status='picking_cancelled')
         data_list = []
         new_list = []
         for i in picku_bin_inv:
@@ -1585,7 +1589,7 @@ class OrderCancellation(object):
 @receiver(post_save, sender=Order)
 def order_cancellation(sender, instance=None, created=False, **kwargs):
     if instance.order_status == 'CANCELLED':
-        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
+        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
         if not pickup_obj:
             cancel_order(instance)
         else:
