@@ -1686,7 +1686,8 @@ class PicklistRefresh:
                 bin_inv_dict = {}
                 pickup_obj = obj
                 qty = obj.quantity
-                bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0,
+                bin_lists = obj.sku.rt_product_sku.filter(warehouse=shop,
+                                                          quantity__gt=0,
                                                           inventory_type__inventory_type='normal').order_by(
                     '-batch_id',
                     'quantity')
@@ -1701,7 +1702,8 @@ class PicklistRefresh:
                                 datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
                                                   "%d-%m-%Y"))
                 else:
-                    bin_lists = obj.sku.rt_product_sku.filter(quantity=0,
+                    bin_lists = obj.sku.rt_product_sku.filter(warehouse=shop,
+                                                              quantity=0,
                                                               inventory_type__inventory_type='normal').order_by(
                         '-batch_id',
                         'quantity').last()
