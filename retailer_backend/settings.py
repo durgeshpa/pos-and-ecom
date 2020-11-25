@@ -340,10 +340,10 @@ CRONJOBS = [
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
     ('0 1 * * *', 'audit.views.start_automated_inventory_audit'),
     ('0 3 * * *', 'wms.views.move_expired_inventory_cron'),
-    # ('*/5 * * * *', 'audit.cron.update_audit_status_cron'),
-    # ('*/6 * * * *', 'audit.cron.create_audit_tickets_cron'),
-    # ('*/5 * * * *', 'audit.cron.create_picklist_cron'),
-    ('*/6 * * * *', 'audit.cron.release_products_from_audit')
+    ('0 23 * * *', 'audit.cron.update_audit_status_cron'),
+    ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
+    ('*/5 * * * *', 'audit.cron.create_picklist_cron'),
+    ('0 */1 * * *', 'audit.cron.release_products_from_audit')
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
