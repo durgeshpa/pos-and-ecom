@@ -23,7 +23,8 @@ from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_TYPE_C
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist
 from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
 from ...utils import is_audit_started, is_diff_batch_in_this_bin
-from ...views import BlockUnblockProduct, create_pick_list_by_audit, create_audit_tickets_by_audit
+from ...views import BlockUnblockProduct, create_pick_list_by_audit, create_audit_tickets_by_audit, \
+    update_audit_status_by_audit
 from rest_framework.permissions import BasePermission
 
 info_logger = logging.getLogger('file-info')
@@ -349,9 +350,9 @@ class AuditEndView(APIView):
         audit_run_qs.update(status=AUDIT_RUN_STATUS_CHOICES.COMPLETED, completed_at=timezone.now())
         audit.state = AUDIT_DETAIL_STATE_CHOICES.ENDED
         audit.save()
-        update_audit_status.delay(audit.id)
-        generate_pick_list.delay(audit.id)
+        update_audit_status_by_audit(audit.id)
         create_audit_tickets.delay(audit.id)
+        generate_pick_list.delay(audit.id)
         return True
 
     def end_audit_for_bin(self, audit, audit_run, bin_id):
