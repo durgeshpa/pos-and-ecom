@@ -49,14 +49,14 @@ class ProductImageFormSet(forms.models.BaseInlineFormSet):
                 valid = False
         if valid:
             if self.instance.use_parent_image:
-                if not self.instance.parent_product.parent_product_pro_image.exists():
-                    raise ValidationError(_(f"Parent Product Images could not be found. Please upload Child Images."))
+                if self.instance.parent_product and not self.instance.parent_product.parent_product_pro_image.exists():
+                    raise ValidationError(_(f"Parent Product Image Not Available. Please Upload Child Product Image(s)."))
             elif count < 1 or count == delete_count:
-                if self.instance.parent_product.parent_product_pro_image.exists():
+                if self.instance.parent_product and self.instance.parent_product.parent_product_pro_image.exists():
                     self.instance.use_parent_image = True
                 else:
                     raise ValidationError(
-                        _(f"Parent product image not available. Please upload child product image(s)."))
+                        _(f"Parent Product Image Not Available. Please Upload Child Product Image(s)."))
             return self.cleaned_data
 
     class Meta:
