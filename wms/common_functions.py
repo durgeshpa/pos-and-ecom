@@ -19,7 +19,7 @@ from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, Wa
 import retailer_to_sp.models
 
 from shops.models import Shop
-from products.models import Product, ParentProduct
+from products.models import Product, ParentProduct, ProductPrice
 
 # Logger
 
@@ -347,17 +347,24 @@ def get_visibility_changes(shop, product):
             Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
         )
         for data in bin_data:
-            exp_date_str = get_expiry_date(batch_id=data.batch_id)
-            exp_date = datetime.strptime(exp_date_str, "%d/%m/%Y")
-            if not min_exp_date_data.get('exp', None):
-                min_exp_date_data['exp'] = exp_date
-                min_exp_date_data['id'] = data.sku.id
-            elif exp_date < min_exp_date_data.get('exp'):
-                visibility_changes[min_exp_date_data['id']] = False
-                min_exp_date_data['exp'] = exp_date
-                min_exp_date_data['id'] = data.sku.id
-            else:
-                visibility_changes[child.id] = False
+            if ProductPrice.objects.filter(product=data.sku, approval_status=2, seller_shop=shop).exists():
+                exp_date_str = get_expiry_date(batch_id=data.batch_id)
+                exp_date = datetime.strptime(exp_date_str, "%d/%m/%Y")
+                if not min_exp_date_data.get('exp', None):
+                    min_exp_date_data['exp'] = exp_date
+                    min_exp_date_data['id'] = data.sku.id
+
+                elif exp_date == min_exp_date_data.get('exp'):
+                    visibility_changes[min_exp_date_data['id']] = True
+                    min_exp_date_data['exp'] = exp_date
+                    min_exp_date_data['id'] = data.sku.id
+
+                elif exp_date < min_exp_date_data.get('exp'):
+                    visibility_changes[min_exp_date_data['id']] = False
+                    min_exp_date_data['exp'] = exp_date
+                    min_exp_date_data['id'] = data.sku.id
+                else:
+                    visibility_changes[child.id] = False
     if min_exp_date_data.get('id'):
         visibility_changes[min_exp_date_data['id']] = True
     return visibility_changes
