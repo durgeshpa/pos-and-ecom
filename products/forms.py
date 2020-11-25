@@ -47,8 +47,9 @@ class ProductImageFormSet(forms.models.BaseInlineFormSet):
                     delete_count += 1
             else:
                 valid = False
-        if self.instance.use_parent_image and not self.instance.parent_product.parent_product_pro_image.exists():
-            raise ValidationError(_(f"Parent Product Images could not be found. Please upload Child Images."))
+        if self.instance.use_parent_image:
+            if not self.instance.parent_product.parent_product_pro_image.exists():
+                raise ValidationError(_(f"Parent Product Images could not be found. Please upload Child Images."))
         elif count < 1 or count == delete_count:
             raise ValidationError(_(f"Child Product Images should be uploaded when not using Parent Product Images."))
         if valid:
