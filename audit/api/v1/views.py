@@ -15,7 +15,7 @@ from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from wms.common_functions import InternalInventoryChange, WareHouseInternalInventoryChange, \
     CommonWarehouseInventoryFunctions, CommonBinInventoryFunctions
 from wms.models import BinInventory, Bin, InventoryType, PickupBinInventory, WarehouseInventory, InventoryState, Pickup, \
-    BinInternalInventoryChange
+    BinInternalInventoryChange, In
 from wms.views import PicklistRefresh
 from .serializers import AuditDetailSerializer
 from ...cron import release_products_from_audit
@@ -473,7 +473,8 @@ class AuditBinsBySKUList(APIView):
         bin_ids = BinInventory.objects.filter(warehouse=audit.warehouse,
                                               sku=audit_sku).values_list('bin_id', flat=True)
         bins_to_audit = Bin.objects.filter(id__in=bin_ids).values('bin_id')
-        bins_audited = AuditRunItem.objects.filter(audit_run__audit=audit).values_list('bin__bin_id', flat=True)
+        bins_audited = AuditRunItem.objects.filter(audit_run__audit=audit, sku=audit_sku)\
+                                           .values_list('bin__bin_id', flat=True)
         for b in bins_to_audit:
             audit_done = False
             if b['bin_id'] in bins_audited:
@@ -567,13 +568,12 @@ class AuditInventory(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         retry = request.data.get('retry')
         warehouse = audit.warehouse
-        bin_inventory = BinInventory.objects.filter(batch_id=batch_id, bin=bin).last()
-        if not bin_inventory:
+        sku = self.get_sku_from_batch(batch_id)
+        if not sku:
             msg = {'is_success': False,
-                   'message': ERROR_MESSAGES['BATCH_BIN_ISSUE'].format(batch_id, bin_id),
+                   'message': ERROR_MESSAGES['SOME_ISSUE'],
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        sku = bin_inventory.sku
         current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
         is_inventory_changed = False
         is_update_done = False
@@ -627,6 +627,16 @@ class AuditInventory(APIView):
         msg = {'is_success': True, 'message': 'OK', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
 
+    def get_sku_from_batch(self, batch_id):
+        sku = None
+        bin_inventory = BinInventory.objects.filter(batch_id=batch_id).last()
+        if bin_inventory:
+            sku = bin_inventory.sku
+        else:
+            in_entry = In.objects.filter(batch_id=batch_id).last()
+            if in_entry:
+                sku = in_entry.sku
+        return sku
 
     @staticmethod
     def update_inventory(audit_no, warehouse, batch_id, bin, sku, inventory_type, inventory_state,
