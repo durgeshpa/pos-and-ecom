@@ -76,15 +76,16 @@ class GetSubBrandsListView(APIView):
             if product_subbrands.exists():
                 brand_data_serializer = SubBrandSerializer(product_subbrands, many=True)
             else:
-                parent = ParentRetailerMapping.objects.get(retailer=shop_id, status= True).parent
-                grns = OrderedProductMapping.get_brand_in_shop_stock(shop=parent, brand=brand, show_available=True)
+                # parent = ParentRetailerMapping.objects.get(retailer=shop_id, status= True).parent
+                # grns = OrderedProductMapping.get_brand_in_shop_stock(shop=parent, brand=brand, show_available=True)
+                # product_subbrands = []
+                #
+                # for grn in grns:
+                #     if grn.product.product_brand in product_subbrands:
+                #         continue
+                #     product_subbrands.append(grn.product.product_brand)
+
                 product_subbrands = []
-
-                for grn in grns:
-                    if grn.product.product_brand in product_subbrands:
-                        continue
-                    product_subbrands.append(grn.product.product_brand)
-
                 brand_data_serializer = SubBrandSerializer(product_subbrands,many=True)
         else:
             product_subbrands = brand.brnd_parent.filter(active_status='active')
