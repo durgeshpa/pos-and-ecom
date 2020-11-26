@@ -1553,7 +1553,7 @@ class InventoryMovement(object):
             warehouse_inventory_to.quantity = warehouse_inventory_to.quantity + qty_to_move
             warehouse_inventory_to.save()
 
-        WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, tr_type, tr_id,
+        WarehouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, tr_type, tr_id,
                                                                            inventory_type_from, inventory_state,
                                                                            inventory_type_to, inventory_state, qty_to_move)
 
