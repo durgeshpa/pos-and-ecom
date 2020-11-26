@@ -8,6 +8,8 @@ import requests
 import json
 from django.db.models import F,Sum, Q
 from elasticsearch import Elasticsearch
+
+from audit.models import AuditProduct, AUDIT_PRODUCT_STATUS
 from shops.models import Shop
 from sp_to_gram import models
 from products.models import Product, ProductPrice
@@ -141,13 +143,19 @@ def upload_shop_stock(shop=None,product=None):
 	es_index = shop if shop else 'all_products'
 	for product in all_products:
 		if shop is not None:
+			status = True
+			if AuditProduct.objects.filter(warehouse=shop, sku=product, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
+				status = False
 			visibility_changes = get_visibility_changes(shop, product['id'])
 			if visibility_changes:
 				for prod_id, visibility in visibility_changes.items():
 					if prod_id == product['id']:
 						product['visible'] = visibility
 					else:
-						es.update(index=create_es_index(es_index), doc_type='product', id=prod_id, body={"doc":{"visible": visibility}})
+						es.update(index=create_es_index(es_index), doc_type='product', id=prod_id,
+								  body={"doc": {"visible": visibility, "status": status}})
+
+		product['status'] = status
 		es.index(index=create_es_index(es_index), doc_type='product',id=product['id'], body=product)
 
 @task

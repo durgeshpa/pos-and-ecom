@@ -830,6 +830,14 @@ class ReservedOrder(generics.ListAPIView):
                 ).filter(
                     cart=cart
                 )
+
+                # Check and remove if any product blocked for audit
+                for p in cart_products:
+                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+                                                                                            parent_mapping.parent)
+                    if is_blocked_for_audit:
+                        p.delete()
+
                 # Check if products available in cart
                 if cart_products.count() <= 0:
                     msg = {'is_success': False,
@@ -838,12 +846,12 @@ class ReservedOrder(generics.ListAPIView):
                            'is_shop_time_entered': False}
                     return Response(msg, status=status.HTTP_200_OK)
                 # Check if any product blocked for audit
-                for p in cart_products:
-                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
-                                                                                            parent_mapping.parent)
-                    if is_blocked_for_audit:
-                        msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
-                        return Response(msg, status=status.HTTP_200_OK)
+                # for p in cart_products:
+                #     is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+                #                                                                             parent_mapping.parent)
+                #     if is_blocked_for_audit:
+                #         msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
+                #         return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
                 cart_products.update(capping_error_msg='')
@@ -1035,13 +1043,12 @@ class CreateOrder(APIView):
                                        id=cart_id).exists():
                     cart = Cart.objects.get(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
                                             id=cart_id)
-                    # Check if any product blocked for audit
+                    # Check and remove if any product blocked for audit
                     for p in cart.rt_cart_list.all():
                         is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
                                                                                                 parent_mapping.parent)
                         if is_blocked_for_audit:
-                            msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
-                            return Response(msg, status=status.HTTP_200_OK)
+                            p.delete()
 
                     orderitems = []
                     for i in cart.rt_cart_list.all():

@@ -731,6 +731,8 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
     if order_reserve_release.exists():
 
         for order_product in order_reserve_release:
+            if order_product.sku.id not in prod_list:
+                continue
             # call function for release inventory
             release_type = 'manual'
             result = common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status,
