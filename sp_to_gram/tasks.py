@@ -159,9 +159,6 @@ def upload_shop_stock(shop=None,product=None):
 		product['status'] = status
 		es.index(index=create_es_index(es_index), doc_type='product',id=product['id'], body=product)
 
-
-
-
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
 	try:
