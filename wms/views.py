@@ -194,8 +194,7 @@ class CreatePickList(APIView):
     def get(self, request, *args, **kwargs):
         order = get_object_or_404(Order, pk=self.kwargs.get('pk'))
         barcode = barcodeGen(order.order_no)
-        picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no,
-                                                          pickup__status__in=['pickup_creation', 'picking_assigned'])
+        picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no).exclude(pickup__status='picking_cancelled')
         data_list = []
         new_list = []
         for i in picku_bin_inv:
