@@ -104,6 +104,7 @@ User = get_user_model()
 logger = logging.getLogger('django')
 
 today = datetime.today()
+info_logger = logging.getLogger('file-info')
 
 
 class PickerDashboardViewSet(DataWrapperViewSet):
@@ -2300,5 +2301,7 @@ class RefreshEs(APIView):
     def get(self, request, *args, **kwargs):
         shop_id = None
         shop_id = self.request.GET.get('shop_id')
+        info_logger.info('RefreshEs| shop {}, Started'.format(shop_id))
         upload_shop_stock(shop_id)
+        info_logger.info('RefreshEs| shop {}, Ended'.format(shop_id))
         return Response({"message": "Shop data updated on ES", "response_data": None, "is_success": True})
