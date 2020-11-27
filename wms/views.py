@@ -448,12 +448,12 @@ def commit_updates_to_es(shop, product):
     visibility_changes = get_visibility_changes(shop, product)
     try:
         available_qty = int(int(products_available) / int(product.product_inner_case_size))
+        if not available_qty:
+            status = False
     except Exception as e:
         status = False
         update_product_es.delay(shop.id, product.id, available=0, status=status)
         return False
-    if not available_qty:
-        status = False
     info_logger.info("updating ES %s", available_qty)
     if visibility_changes:
         for prod_id, visibility in visibility_changes.items():
