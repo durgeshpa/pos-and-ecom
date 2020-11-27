@@ -18,6 +18,7 @@ import logging
 import time
 
 logger = logging.getLogger(__name__)
+cron_logger = logging.getLogger('cron_log')
 
 
 class CronToDeleteOrderedProductReserved(APIView):
@@ -150,6 +151,8 @@ def sync_es_products():
     shop_list = Shop.objects.filter(shop_type=sp_shop_type).all()
     for shop in shop_list:
         logger.info("sync shop: %s", shop)
+        cron_logger.info('sync_es_products started for Shop {} '.format(shop))
         sp_to_gram.tasks.upload_shop_stock(shop.pk)
+        cron_logger.info('sync_es_products ended for Shop {} '.format(shop))
         logger.info("sleep 10")
         time.sleep(10)

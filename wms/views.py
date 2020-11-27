@@ -32,7 +32,7 @@ from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
-    get_expiry_date_db, get_visibility_changes
+    get_expiry_date_db, get_visibility_changes, WareHouseInternalInventoryChange
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
@@ -1553,7 +1553,7 @@ class InventoryMovement(object):
             warehouse_inventory_to.quantity = warehouse_inventory_to.quantity + qty_to_move
             warehouse_inventory_to.save()
 
-        WarehouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, tr_type, tr_id,
+        WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, tr_type, tr_id,
                                                                            inventory_type_from, inventory_state,
                                                                            inventory_type_to, inventory_state, qty_to_move)
 

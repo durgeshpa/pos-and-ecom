@@ -142,10 +142,11 @@ def upload_shop_stock(shop=None,product=None):
 	all_products = get_warehouse_stock(shop,product)
 	es_index = shop if shop else 'all_products'
 	for product in all_products:
+		status = product['status']
 		if shop is not None:
-			status = True
-			if AuditProduct.objects.filter(warehouse=shop, sku=product, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
+			if AuditProduct.objects.filter(warehouse=shop, sku__id=product['id'], status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
 				status = False
+			info_logger.info('upload_shop_stock| shop {}, product {} status'.format(shop, product['id'], status))
 			visibility_changes = get_visibility_changes(shop, product['id'])
 			if visibility_changes:
 				for prod_id, visibility in visibility_changes.items():
