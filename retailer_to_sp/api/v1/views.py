@@ -369,7 +369,8 @@ class GramGRNProductsList(APIView):
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
                 if not check_price:
                     continue
-                check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
+                # check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
+                check_price_mrp = product.product_mrp
                 p["_source"]["ptr"] = check_price.selling_price
                 p["_source"]["mrp"] = check_price_mrp
                 p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
