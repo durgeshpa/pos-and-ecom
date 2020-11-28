@@ -11,6 +11,7 @@ from django.db.models import Sum, Q
 from django.db import transaction
 
 # app imports
+from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
@@ -340,6 +341,9 @@ def get_visibility_changes(shop, product):
         sum_qty_warehouse_entries = warehouse_entries.aggregate(Sum('quantity'))['quantity__sum']
         if sum_qty_warehouse_entries <= 2*(int(child.product_inner_case_size)):
             visibility_changes[child.id] = True
+            continue
+        if AuditProduct.objects.filter(warehouse=shop, sku=child, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
+            visibility_changes[child.id] = False
             continue
         bin_data = BinInventory.objects.filter(
             Q(warehouse=shop),
