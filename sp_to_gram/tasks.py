@@ -9,7 +9,6 @@ import json
 from django.db.models import F,Sum, Q
 from elasticsearch import Elasticsearch
 
-from audit.models import AuditProduct, AUDIT_PRODUCT_STATUS
 from shops.models import Shop
 from sp_to_gram import models
 from products.models import Product, ProductPrice
@@ -142,21 +141,14 @@ def upload_shop_stock(shop=None,product=None):
 	all_products = get_warehouse_stock(shop,product)
 	es_index = shop if shop else 'all_products'
 	for product in all_products:
-		status = product['status']
-		if shop is not None:
-			if AuditProduct.objects.filter(warehouse=shop, sku__id=product['id'], status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
-				status = False
-			info_logger.info('upload_shop_stock| shop {}, product {} status {}'.format(shop, product['id'], status))
-			visibility_changes = get_visibility_changes(shop, product['id'])
-			if visibility_changes:
-				for prod_id, visibility in visibility_changes.items():
-					if prod_id == product['id']:
-						product['visible'] = visibility
-					else:
-						es.update(index=create_es_index(es_index), doc_type='product', id=prod_id,
-								  body={"doc": {"visible": visibility, "status": status}})
-
-		product['status'] = status
+		visibility_changes = get_visibility_changes(shop, product['id'])
+		if visibility_changes:
+			for prod_id, visibility in visibility_changes.items():
+				if prod_id == product['id']:
+					product['visible'] = visibility
+				else:
+					es.update(index=create_es_index(es_index), doc_type='product', id=prod_id,
+							  body={"doc": {"visible": visibility}})
 		es.index(index=create_es_index(es_index), doc_type='product',id=product['id'], body=product)
 
 @task

@@ -441,9 +441,6 @@ def commit_updates_to_es(shop, product):
     :return:
     """
     status = True
-    # check if product is blocked for Audit
-    if AuditProduct.objects.filter(warehouse=shop, sku=product, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
-        status = False
     db_available_products = get_product_stock(shop, product)
     products_available = db_available_products.aggregate(Sum('quantity'))['quantity__sum']
     visibility_changes = get_visibility_changes(shop, product)
