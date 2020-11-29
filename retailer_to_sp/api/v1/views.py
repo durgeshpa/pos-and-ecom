@@ -1101,14 +1101,14 @@ class CreateOrder(APIView):
                                                               'buyer_shop_id': shop_id,
                                                               'current_url': current_url})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
-                        try:
-                            request = jsonpickle.encode(request, unpicklable=False)
-                            order = jsonpickle.encode(order, unpicklable=False)
-                            pick_list_download.delay(request, order)
-                        except:
-                            msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'],
-                                   'response_data': None}
-                            return Response(msg, status=status.HTTP_200_OK)
+                        # try:
+                        #     request = jsonpickle.encode(request, unpicklable=False)
+                        #     order = jsonpickle.encode(order, unpicklable=False)
+                        #     pick_list_download.delay(request, order)
+                        # except:
+                        #     msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'],
+                        #            'response_data': None}
+                        #     return Response(msg, status=status.HTTP_200_OK)
                     else:
                         msg = {'is_success': False, 'message': ['Sorry! your session has timed out.'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
