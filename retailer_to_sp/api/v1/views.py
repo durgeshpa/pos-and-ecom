@@ -1069,7 +1069,7 @@ class CreateOrder(APIView):
                         cart.seller_shop = parent_mapping.parent
                         cart.save()
 
-                    order_reserve_obj = OrderReserveRelease.objects.filter(warehouse= shop.get_shop_parent.id,
+                    order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
                                                                            transaction_id=cart.order_id,
                                                                            warehouse_internal_inventory_release=None,
                                                                            ).last()
