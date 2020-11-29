@@ -1119,7 +1119,7 @@ class CreateOrder(APIView):
                         #            'response_data': None}
                         #     return Response(msg, status=status.HTTP_200_OK)
                     else:
-                        msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
+                        msg = {'is_success': False, 'message': ['Sorry! your session has timed out.'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
 
                 return Response(msg, status=status.HTTP_200_OK)
