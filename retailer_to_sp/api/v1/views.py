@@ -97,7 +97,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  create_invoice_data)
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
-from wms.models import WarehouseInternalInventoryChange
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease
 
 User = get_user_model()
 
@@ -1069,8 +1069,12 @@ class CreateOrder(APIView):
                         cart.seller_shop = parent_mapping.parent
                         cart.save()
 
-                    if WarehouseInternalInventoryChange.objects.filter(
-                            transaction_id=cart.order_id, transaction_type='reserved').exists():
+                    order_reserve_obj = OrderReserveRelease.objects.filter(warehouse= shop.get_shop_parent.id,
+                                                                           transaction_id=cart.order_id,
+                                                                           warehouse_internal_inventory_release=None,
+                                                                           ).last()
+
+                    if order_reserve_obj:
                         order, _ = Order.objects.get_or_create(last_modified_by=request.user, ordered_by=request.user,
                                                                ordered_cart=cart, order_no=cart.order_id)
 
