@@ -97,7 +97,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  create_invoice_data)
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
-from wms.models import WarehouseInternalInventoryChange
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease
 
 User = get_user_model()
 
@@ -1060,8 +1060,12 @@ class CreateOrder(APIView):
                         cart.seller_shop = parent_mapping.parent
                         cart.save()
 
-                    if WarehouseInternalInventoryChange.objects.filter(
-                            transaction_id=cart.order_id, transaction_type='reserved').exists():
+                    order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
+                                                                           transaction_id=cart.order_id,
+                                                                           warehouse_internal_inventory_release=None,
+                                                                           ).last()
+
+                    if order_reserve_obj:
                         order, _ = Order.objects.get_or_create(last_modified_by=request.user, ordered_by=request.user,
                                                                ordered_cart=cart, order_no=cart.order_id)
 
@@ -1097,16 +1101,16 @@ class CreateOrder(APIView):
                                                               'buyer_shop_id': shop_id,
                                                               'current_url': current_url})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
-                        try:
-                            request = jsonpickle.encode(request, unpicklable=False)
-                            order = jsonpickle.encode(order, unpicklable=False)
-                            pick_list_download.delay(request, order)
-                        except:
-                            msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'],
-                                   'response_data': None}
-                            return Response(msg, status=status.HTTP_200_OK)
+                        # try:
+                        #     request = jsonpickle.encode(request, unpicklable=False)
+                        #     order = jsonpickle.encode(order, unpicklable=False)
+                        #     pick_list_download.delay(request, order)
+                        # except:
+                        #     msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'],
+                        #            'response_data': None}
+                        #     return Response(msg, status=status.HTTP_200_OK)
                     else:
-                        msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
+                        msg = {'is_success': False, 'message': ['Sorry! your session has timed out.'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
 
                 return Response(msg, status=status.HTTP_200_OK)
