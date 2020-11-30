@@ -7,7 +7,7 @@ from celery.contrib import rdb
 import requests
 import json
 from django.db.models import F,Sum, Q
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, NotFoundError
 
 from shops.models import Shop
 from sp_to_gram import models
@@ -56,6 +56,8 @@ def get_warehouse_stock(shop_id=None,product=None):
 		except:
 			margin = 0
 		status = True if (p.product.status in ['active', True]) else False
+		if status:
+			status = True if p.approval_status == ProductPrice.APPROVED else False
 		product_opt = p.product.product_opt_product.all()
 		weight_value = None
 		weight_unit = None
@@ -147,9 +149,13 @@ def upload_shop_stock(shop=None,product=None):
 				if prod_id == product['id']:
 					product['visible'] = visibility
 				else:
-					es.update(index=create_es_index(es_index), doc_type='product', id=prod_id,
-							  body={"doc": {"visible": visibility}})
-		es.index(index=create_es_index(es_index), doc_type='product',id=product['id'], body=product)
+					try:
+						es.update(index=create_es_index(es_index), doc_type='product', id=prod_id,
+								  body={"doc": {"visible": visibility}})
+					except NotFoundError as e:
+						info_logger.info('Exception | upload_shop_stock | product id {}'.format(prod_id))
+						info_logger.error(e)
+		es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
