@@ -322,8 +322,9 @@ def get_visibility_changes(shop, product):
         'exp': None
     }
     for child in child_siblings:
-        product_price_entries = child.product_pro_price.filter(seller_shop=shop)
+        product_price_entries = child.product_pro_price.filter(seller_shop=shop, approval_status=2)
         if not product_price_entries:
+            visibility_changes[child.id] = False
             continue
         warehouse_entries = WarehouseInventory.objects.filter(
             Q(sku=child),
@@ -334,6 +335,7 @@ def get_visibility_changes(shop, product):
             Q(in_stock='t')
         )
         if not warehouse_entries:
+            visibility_changes[child.id] = False
             continue
         if child.reason_for_child_sku == 'offer':
             visibility_changes[child.id] = True
