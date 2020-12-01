@@ -660,6 +660,10 @@ class DestinationRepackagingCostMappingAdmin(admin.TabularInline):
     form = DestinationRepackagingCostMappingForm
     formset = DestinationRepackagingCostMappingFormSet
     extra = 1
+    max_num = 1
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
     class Media:
         pass
