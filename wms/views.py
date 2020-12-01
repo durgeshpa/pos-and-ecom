@@ -23,7 +23,7 @@ from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
-from sp_to_gram.tasks import update_shop_product_es, update_product_es
+from sp_to_gram.tasks import update_shop_product_es, update_product_es, upload_shop_stock
 from django.db.models.signals import post_save
 from django.db.models import Sum
 from django.dispatch import receiver
@@ -32,7 +32,7 @@ from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
-    get_expiry_date_db, get_visibility_changes
+    get_expiry_date_db, get_visibility_changes, WareHouseInternalInventoryChange
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
@@ -219,8 +219,9 @@ def order_picklist(order_id):
     pdf_data = {}
     order = get_object_or_404(Order, pk=order_id)
     barcode = barcodeGen(order.order_no)
-    picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no,
-                                                      pickup__status__in=['pickup_creation', 'picking_assigned'])
+    picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no).exclude(
+        pickup__status='picking_cancelled')
+
     data_list = []
     new_list = []
     for i in picku_bin_inv:
@@ -486,21 +487,21 @@ def commit_updates_to_es(shop, product):
     :return:
     """
     status = True
-    # check if product is blocked for Audit
-    if AuditProduct.objects.filter(warehouse=shop, sku=product, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
-        status = False
-    db_available_products = get_product_stock(shop, product)
-    products_available = db_available_products.aggregate(Sum('quantity'))['quantity__sum']
-    visibility_changes = get_visibility_changes(shop, product)
+    available_qty = 0
     try:
-        available_qty = int(int(products_available) / int(product.product_inner_case_size))
+        db_available_products = get_product_stock(shop, product)
+        if db_available_products:
+            products_available = db_available_products.aggregate(Sum('quantity'))['quantity__sum']
+            available_qty = int(int(products_available) / int(product.product_inner_case_size))
+        if not available_qty:
+            status = False
     except Exception as e:
+        info_logger.info("Exception | WMS | commit_updates_to_es | shop {}, product {}".format(shop.id, product.id))
+        info_logger.error(e)
         status = False
-        update_product_es.delay(shop.id, product.id, available=0, status=status)
-        return False
-    if not available_qty:
-        status = False
-    info_logger.info("updating ES %s", available_qty)
+        # update_product_es.delay(shop.id, product.id, available=0, status=status)
+        # return False
+    visibility_changes = get_visibility_changes(shop, product)
     if visibility_changes:
         for prod_id, visibility in visibility_changes.items():
             if prod_id == product.id:
@@ -519,8 +520,10 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
         if instance.inventory_type.inventory_type == 'normal' and instance.inventory_state.inventory_state == 'available':
             info_logger.info("Inside if condition of post save Warehouse Inventory")
             commit_updates_to_es(instance.warehouse, instance.sku)
-    except:
-        pass
+    except Exception as e:
+        info_logger.info("Exception | Post save | WarehouseInventory | warehouse {}, product {]"
+                         .format(instance.warehous.id, instance.sku.id))
+        info_logger.error(e)
 
 
 def bin_stock_movement_data(upload_data, stock_movement_obj):

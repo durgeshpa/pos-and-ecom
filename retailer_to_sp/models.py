@@ -770,34 +770,39 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                                                                           product.product_inner_case_size),
                                                                       cart_product_price=product_price,
                                                                       discounted_price=0)
-            reserved_args = json.dumps({
-                'shop_id': instance.seller_shop.id,
-                'transaction_id': instance.cart.order_id,
-                'products': products_available,
-                'transaction_type': 'reserved'
-            })
-            OrderManagement.create_reserved_order(reserved_args)
-        order, _ = Order.objects.get_or_create(ordered_cart=instance.cart)
-        order.order_no = instance.cart.order_id
-        order.ordered_cart = instance.cart
-        order.seller_shop = instance.seller_shop
-        order.buyer_shop = instance.buyer_shop
-        order.billing_address = instance.billing_address
-        order.shipping_address = instance.shipping_address
-        user = get_current_user()
-        order.ordered_by = user
-        order.last_modified_by = user
-        order.received_by = user
-        order.order_status = 'ordered'
-        order.save()
-        reserved_args = json.dumps({
-            'shop_id': instance.seller_shop.id,
-            'transaction_id': instance.cart.order_id,
-            'transaction_type': 'ordered',
-            'order_status': order.order_status
-        })
-        sku_id = [i.cart_product.id for i in instance.cart.rt_cart_list.all()]
-        OrderManagement.release_blocking(reserved_args, sku_id)
+                            else:
+                                continue
+            if len(products_available) > 0:
+                reserved_args = json.dumps({
+                    'shop_id': instance.seller_shop.id,
+                    'transaction_id': instance.cart.order_id,
+                    'products': products_available,
+                    'transaction_type': 'reserved'
+                })
+                OrderManagement.create_reserved_order(reserved_args)
+                order, _ = Order.objects.get_or_create(ordered_cart=instance.cart)
+                order.order_no = instance.cart.order_id
+                order.ordered_cart = instance.cart
+                order.seller_shop = instance.seller_shop
+                order.buyer_shop = instance.buyer_shop
+                order.billing_address = instance.billing_address
+                order.shipping_address = instance.shipping_address
+                user = get_current_user()
+                order.ordered_by = user
+                order.last_modified_by = user
+                order.received_by = user
+                order.order_status = 'ordered'
+                order.save()
+                reserved_args = json.dumps({
+                    'shop_id': instance.seller_shop.id,
+                    'transaction_id': instance.cart.order_id,
+                    'transaction_type': 'ordered',
+                    'order_status': order.order_status
+                })
+                sku_id = [i.cart_product.id for i in instance.cart.rt_cart_list.all()]
+                OrderManagement.release_blocking(reserved_args, sku_id)
+            else:
+                pass
 
 
 class CartProductMapping(models.Model):

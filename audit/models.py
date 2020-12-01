@@ -2,7 +2,6 @@ from django.db import models
 from model_utils import Choices
 
 from accounts.middlewares import get_current_user
-from retailer_to_sp.models import Order
 from services.models import InventoryArchiveMaster
 from shops.models import Shop
 from wms.models import Bin, InventoryState, InventoryType

@@ -97,13 +97,14 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  create_invoice_data)
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
-from wms.models import WarehouseInternalInventoryChange
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease
 
 User = get_user_model()
 
 logger = logging.getLogger('django')
 
 today = datetime.today()
+info_logger = logging.getLogger('file-info')
 
 
 class PickerDashboardViewSet(DataWrapperViewSet):
@@ -368,7 +369,8 @@ class GramGRNProductsList(APIView):
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
                 if not check_price:
                     continue
-                check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
+                # check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
+                check_price_mrp = product.product_mrp
                 p["_source"]["ptr"] = check_price.selling_price
                 p["_source"]["mrp"] = check_price_mrp
                 p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
@@ -830,6 +832,14 @@ class ReservedOrder(generics.ListAPIView):
                 ).filter(
                     cart=cart
                 )
+
+                # Check and remove if any product blocked for audit
+                for p in cart_products:
+                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+                                                                                            parent_mapping.parent)
+                    if is_blocked_for_audit:
+                        p.delete()
+
                 # Check if products available in cart
                 if cart_products.count() <= 0:
                     msg = {'is_success': False,
@@ -838,12 +848,12 @@ class ReservedOrder(generics.ListAPIView):
                            'is_shop_time_entered': False}
                     return Response(msg, status=status.HTTP_200_OK)
                 # Check if any product blocked for audit
-                for p in cart_products:
-                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
-                                                                                            parent_mapping.parent)
-                    if is_blocked_for_audit:
-                        msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
-                        return Response(msg, status=status.HTTP_200_OK)
+                # for p in cart_products:
+                #     is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+                #                                                                             parent_mapping.parent)
+                #     if is_blocked_for_audit:
+                #         msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
+                #         return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
                 cart_products.update(capping_error_msg='')
@@ -1035,13 +1045,12 @@ class CreateOrder(APIView):
                                        id=cart_id).exists():
                     cart = Cart.objects.get(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
                                             id=cart_id)
-                    # Check if any product blocked for audit
+                    # Check and remove if any product blocked for audit
                     for p in cart.rt_cart_list.all():
                         is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
                                                                                                 parent_mapping.parent)
                         if is_blocked_for_audit:
-                            msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
-                            return Response(msg, status=status.HTTP_200_OK)
+                            p.delete()
 
                     orderitems = []
                     for i in cart.rt_cart_list.all():
@@ -1060,8 +1069,12 @@ class CreateOrder(APIView):
                         cart.seller_shop = parent_mapping.parent
                         cart.save()
 
-                    if WarehouseInternalInventoryChange.objects.filter(
-                            transaction_id=cart.order_id, transaction_type='reserved').exists():
+                    order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
+                                                                           transaction_id=cart.order_id,
+                                                                           warehouse_internal_inventory_release=None,
+                                                                           ).last()
+
+                    if order_reserve_obj:
                         order, _ = Order.objects.get_or_create(last_modified_by=request.user, ordered_by=request.user,
                                                                ordered_cart=cart, order_no=cart.order_id)
 
@@ -1097,16 +1110,16 @@ class CreateOrder(APIView):
                                                               'buyer_shop_id': shop_id,
                                                               'current_url': current_url})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
-                        try:
-                            request = jsonpickle.encode(request, unpicklable=False)
-                            order = jsonpickle.encode(order, unpicklable=False)
-                            pick_list_download.delay(request, order)
-                        except:
-                            msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'],
-                                   'response_data': None}
-                            return Response(msg, status=status.HTTP_200_OK)
+                        # try:
+                        #     request = jsonpickle.encode(request, unpicklable=False)
+                        #     order = jsonpickle.encode(order, unpicklable=False)
+                        #     pick_list_download.delay(request, order)
+                        # except:
+                        #     msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'],
+                        #            'response_data': None}
+                        #     return Response(msg, status=status.HTTP_200_OK)
                     else:
-                        msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
+                        msg = {'is_success': False, 'message': ['Sorry! your session has timed out.'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
 
                 return Response(msg, status=status.HTTP_200_OK)
@@ -2293,5 +2306,7 @@ class RefreshEs(APIView):
     def get(self, request, *args, **kwargs):
         shop_id = None
         shop_id = self.request.GET.get('shop_id')
+        info_logger.info('RefreshEs| shop {}, Started'.format(shop_id))
         upload_shop_stock(shop_id)
+        info_logger.info('RefreshEs| shop {}, Ended'.format(shop_id))
         return Response({"message": "Shop data updated on ES", "response_data": None, "is_success": True})
