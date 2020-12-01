@@ -1055,7 +1055,7 @@ class CreateOrder(APIView):
                     orderitems = []
                     for i in cart.rt_cart_list.all():
                         orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
-                    if None in orderitems:
+                    if len(orderitems) == 0:
                         CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
                         for cart_price in cart.rt_cart_list.all():
                             cart_price.cart_product_price = None
