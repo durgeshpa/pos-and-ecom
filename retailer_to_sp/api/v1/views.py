@@ -711,6 +711,17 @@ class CartDetail(APIView):
                     cart=cart
                 )
 
+                # Check and remove if any product blocked for audit
+                cart_product_to_be_deleted = []
+                for p in cart_products:
+                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+                                                                                            parent_mapping.parent)
+                    if is_blocked_for_audit:
+                        cart_product_to_be_deleted.append(p.id)
+                if len(cart_product_to_be_deleted) > 0:
+                    CartProductMapping.objects.filter(id__in=cart_product_to_be_deleted).delete()
+                    cart_products = CartProductMapping.objects.select_related('cart_product').filter(cart=cart)
+
                 available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'),
                                                                     quantity__gt=0).values('sku__id').annotate(
                     quantity=Sum('quantity'))
