@@ -622,6 +622,32 @@ class UploadChildProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can not be empty."))
             elif row[6].lower() not in ['gram']:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can only be 'Gram'."))
+            if not row[7]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' can not be empty."))
+            elif row[7] not in [lis[0] for lis in Product.REASON_FOR_NEW_CHILD_CHOICES]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' is invalid."))
+            if row[7] == 'destination':
+                if not row[8]:
+                    raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for Repackaging"
+                                            f" Type 'destination'."))
+                else:
+                    there = False
+                    for pro in row[8].split(','):
+                        pro = pro.strip()
+                        if pro is not '':
+                            if Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                                there = True
+                    if not there:
+                        raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is invalid."))
+
+                dest_cost_fields = ['Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
+                                    'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost']
+                for i in range(0, 7):
+                    if not row[i + 9]:
+                        raise ValidationError(_(f"Row {row_id + 1} | {dest_cost_fields[i]} required for Repackaging"
+                                            f" Type 'destination'."))
+                    elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[i + 9]):
+                        raise ValidationError(_(f"Row {row_id + 1} | {dest_cost_fields[i]} is Invalid"))
         return self.cleaned_data['file']
 
 

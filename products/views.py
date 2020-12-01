@@ -36,7 +36,8 @@ from products.models import (
     ProductImage, ProductHSN, ProductPrice,
     ParentProduct, ParentProductCategory,
     ProductSourceMapping,
-    ParentProductTaxMapping, Tax, ParentProductImage
+    ParentProductTaxMapping, Tax, ParentProductImage,
+    DestinationRepackagingCostMapping
     )
 
 logger = logging.getLogger(__name__)
@@ -989,8 +990,14 @@ def ChildProductsDownloadSampleCSV(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(["Parent Product ID", "Reason for Child SKU", "Product Name", "Product EAN Code", "Product MRP", "Weight Value", "Weight Unit"])
-    writer.writerow(["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram"])
+    writer.writerow(["Parent Product ID", "Reason for Child SKU", "Product Name", "Product EAN Code",
+                     "Product MRP", "Weight Value", "Weight Unit", "Repackaging Type", "Map Source SKU",
+                     'Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
+                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost'])
+    writer.writerow(["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram", "none"])
+    writer.writerow(["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "Gram", "source"])
+    writer.writerow(["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "Gram", "destination",
+                     "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22"])
     return response
 
 
@@ -1018,22 +1025,51 @@ def product_csv_upload(request):
                 elif 'offer' in reason:
                     return 'offer'
             try:
-                for row in reader:
+                for row_id, row in enumerate(reader):
                     if len(row) == 0:
                         continue
                     if '' in row:
                         if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
                             continue
-                    product = Product.objects.create(
-                        parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
-                        reason_for_child_sku=reason_for_child_sku_mapper(row[1]),
-                        product_name=row[2],
-                        product_ean_code=row[3].replace("'", ''),
-                        product_mrp=float(row[4]),
-                        weight_value=float(row[5]),
-                        weight_unit='gm' if 'gram' in row[6].lower() else 'gm'
-                    )
-                    product.save()
+                    source_map = []
+                    if row[7] == 'destination':
+                        for pro in row[8].split(','):
+                            pro = pro.strip()
+                            if pro is not '' and Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                                source_map.append(pro)
+
+                    with transaction.atomic():
+                        product = Product.objects.create(
+                            parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
+                            reason_for_child_sku=reason_for_child_sku_mapper(row[1]),
+                            product_name=row[2],
+                            product_ean_code=row[3].replace("'", ''),
+                            product_mrp=float(row[4]),
+                            weight_value=float(row[5]),
+                            weight_unit='gm' if 'gram' in row[6].lower() else 'gm',
+                            repackaging_type=row[7]
+                        )
+                        product.save()
+                        if row[7] == 'destination':
+                            for sku in source_map:
+                                psm = ProductSourceMapping.objects.create(
+                                    destination_sku=product,
+                                    source_sku=Product.objects.filter(product_sku=sku, repackaging_type='source').last(),
+                                    status=True
+                                )
+                                psm.save()
+                            dcm = DestinationRepackagingCostMapping.objects.create(
+                                destination=product,
+                                raw_material=float(row[9]),
+                                wastage=float(row[10]),
+                                fumigation=float(row[11]),
+                                label_printing=float(row[12]),
+                                packing_labour=float(row[13]),
+                                primary_pm_cost=float(row[14]),
+                                secondary_pm_cost=float(row[15])
+                            )
+                            dcm.save()
+
             except Exception as e:
                 print(e)
             return render(request, 'admin/products/child-product-upload.html', {
