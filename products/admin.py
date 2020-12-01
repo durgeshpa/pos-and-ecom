@@ -602,7 +602,12 @@ class ParentProductAdmin(admin.ModelAdmin):
 
 
 def deactivate_selected_child_products(modeladmin, request, queryset):
-    queryset.update(status='deactivated')
+    # queryset.update(status='deactivated')
+    for item in queryset:
+        item.status = 'deactivated'
+        item.save()
+
+
 deactivate_selected_child_products.short_description = "Deactivate Selected Products"
 
 
