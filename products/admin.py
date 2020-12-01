@@ -86,9 +86,11 @@ class ExportCsvMixin:
         writer = csv.writer(response)
         if self.model._meta.db_table=='products_product':
             field_names_temp = field_names.copy()
-            field_names_temp.append('product_brand')
-            field_names_temp.append('product_category')
-            field_names_temp.append('image')
+            cost_params = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
+                           'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
+            add_fields = ['product_brand', 'product_category', 'image', 'source skus'] + cost_params
+            for field_name in add_fields:
+                field_names_temp.append(field_name)
             writer.writerow(field_names_temp)
         else:
             writer.writerow(field_names)
@@ -103,6 +105,17 @@ class ExportCsvMixin:
                     items.append(obj.product_pro_image.last().image.url)
                 else:
                     items.append('-')
+                if obj.repackaging_type == 'destination':
+                    source_skus = [str(psm.source_sku) for psm in ProductSourceMapping.objects.filter(
+                        destination_sku_id=obj.id, status=True)]
+                    items.append("\n".join(source_skus))
+                    cost_obj = DestinationRepackagingCostMapping.objects.filter(destination_id=obj.id).last()
+                    for param in cost_params:
+                        items.append(str(getattr(cost_obj, param)))
+                else:
+                    items.append('-')
+                    for param in cost_params:
+                        items.append('-')
             row = writer.writerow(items)
         return response
     export_as_csv.short_description = "Download CSV of Selected Objects"
