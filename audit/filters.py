@@ -66,7 +66,8 @@ class SKUComplete(autocomplete.Select2QuerySetView):
         qs = Product.objects.filter(product_sku__in=sku)
 
         if self.q:
-            qs = qs.filter(product_name__istartswith=self.q)
+            self.q=self.q.strip()
+            qs = qs.filter(product_name__istartswith=self.q) | qs.filter(product_sku__istartswith=self.q)
         return qs
 
 

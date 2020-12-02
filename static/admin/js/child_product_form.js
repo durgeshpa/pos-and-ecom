@@ -18,6 +18,10 @@ function getDefaultChildDetails() {
                     $("#id_use_parent_image").prop('checked', false);
                     document.getElementById('id_use_parent_image').disabled = true;
                     $("label[for='id_use_parent_image']").text("Use parent image (Parent Image Not Available)");
+                } else {
+                    $("#id_use_parent_image").prop('checked', true);
+                    document.getElementById('id_use_parent_image').disabled = false;
+                    $("label[for='id_use_parent_image']").text("Use parent image");
                 }
             }
             return true;
