@@ -3,8 +3,6 @@ from collections import defaultdict
 
 from django.db import transaction
 from django.db.models import Sum, Q, F
-from django.db.models.signals import post_save, m2m_changed
-from django.dispatch import receiver
 from django.http import HttpResponse
 import logging
 
@@ -13,9 +11,8 @@ from rest_framework import status, authentication, permissions
 from rest_framework.generics import ListCreateAPIView
 from rest_framework.response import Response
 
-from sp_to_gram.tasks import update_product_es, es_mget_by_ids
 from retailer_to_sp.models import Order, Trip, PickerDashboard
-from wms.views import PicklistRefresh
+from wms.views import PicklistRefresh, commit_updates_to_es
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
                      AUDIT_RUN_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES,
@@ -529,12 +526,13 @@ class BlockUnblockProduct(object):
     def block_product_during_audit(audit, product_list, warehouse):
         # es_product_status = get_es_status(product_list, warehouse)
         for p in product_list:
-            update_product_es.delay(warehouse.id, p.id, status=False)
+            # update_product_es.delay(warehouse.id, p.id, status=False)
             # AuditProduct.objects.update_or_create(audit=audit, warehouse=warehouse, sku=p,
             #                                       defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED,
             #                                                 'es_status': es_product_status[p.id]})
             AuditProduct.objects.update_or_create(audit=audit, warehouse=warehouse, sku=p,
                                                   defaults={'status': AUDIT_PRODUCT_STATUS.BLOCKED})
+            commit_updates_to_es(warehouse, p)
 
     @staticmethod
     def unblock_product_after_audit(audit, product, warehouse):
@@ -542,10 +540,10 @@ class BlockUnblockProduct(object):
         if audit_product:
             audit_product.status = AUDIT_PRODUCT_STATUS.RELEASED
             audit_product.save()
-        is_products_still_blocked = AuditProduct.objects.filter(warehouse=warehouse, sku=product,
-                                                                status=AUDIT_PRODUCT_STATUS.BLOCKED).exists()
-        if not is_products_still_blocked:
-            update_product_es.delay(warehouse.id, product.id, status=True)
+        # is_products_still_blocked = AuditProduct.objects.filter(warehouse=warehouse, sku=product,
+        #                                                         status=AUDIT_PRODUCT_STATUS.BLOCKED).exists()
+        # if not is_products_still_blocked:
+        commit_updates_to_es(warehouse, product)
 
 
     @staticmethod

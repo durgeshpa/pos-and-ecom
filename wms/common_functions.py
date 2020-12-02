@@ -11,6 +11,7 @@ from django.db.models import Sum, Q
 from django.db import transaction
 
 # app imports
+from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
@@ -321,8 +322,9 @@ def get_visibility_changes(shop, product):
         'exp': None
     }
     for child in child_siblings:
-        product_price_entries = child.product_pro_price.filter(seller_shop=shop)
+        product_price_entries = child.product_pro_price.filter(seller_shop=shop, approval_status=2)
         if not product_price_entries:
+            visibility_changes[child.id] = False
             continue
         warehouse_entries = WarehouseInventory.objects.filter(
             Q(sku=child),
@@ -333,6 +335,7 @@ def get_visibility_changes(shop, product):
             Q(in_stock='t')
         )
         if not warehouse_entries:
+            visibility_changes[child.id] = False
             continue
         if child.reason_for_child_sku == 'offer':
             visibility_changes[child.id] = True
@@ -340,6 +343,9 @@ def get_visibility_changes(shop, product):
         sum_qty_warehouse_entries = warehouse_entries.aggregate(Sum('quantity'))['quantity__sum']
         if sum_qty_warehouse_entries <= 2*(int(child.product_inner_case_size)):
             visibility_changes[child.id] = True
+            continue
+        if AuditProduct.objects.filter(warehouse=shop, sku=child, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
+            visibility_changes[child.id] = False
             continue
         bin_data = BinInventory.objects.filter(
             Q(warehouse=shop),
@@ -731,6 +737,8 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
     if order_reserve_release.exists():
 
         for order_product in order_reserve_release:
+            if order_product.sku.id not in prod_list:
+                continue
             # call function for release inventory
             release_type = 'manual'
             result = common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status,

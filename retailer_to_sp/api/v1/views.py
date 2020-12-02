@@ -104,6 +104,7 @@ User = get_user_model()
 logger = logging.getLogger('django')
 
 today = datetime.today()
+info_logger = logging.getLogger('file-info')
 
 
 class PickerDashboardViewSet(DataWrapperViewSet):
@@ -368,7 +369,8 @@ class GramGRNProductsList(APIView):
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
                 if not check_price:
                     continue
-                check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
+                # check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
+                check_price_mrp = product.product_mrp
                 p["_source"]["ptr"] = check_price.selling_price
                 p["_source"]["mrp"] = check_price_mrp
                 p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
@@ -709,6 +711,17 @@ class CartDetail(APIView):
                     cart=cart
                 )
 
+                # Check and remove if any product blocked for audit
+                cart_product_to_be_deleted = []
+                for p in cart_products:
+                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+                                                                                            parent_mapping.parent)
+                    if is_blocked_for_audit:
+                        cart_product_to_be_deleted.append(p.id)
+                if len(cart_product_to_be_deleted) > 0:
+                    CartProductMapping.objects.filter(id__in=cart_product_to_be_deleted).delete()
+                    cart_products = CartProductMapping.objects.select_related('cart_product').filter(cart=cart)
+
                 available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'),
                                                                     quantity__gt=0).values('sku__id').annotate(
                     quantity=Sum('quantity'))
@@ -830,6 +843,14 @@ class ReservedOrder(generics.ListAPIView):
                 ).filter(
                     cart=cart
                 )
+
+                # Check and remove if any product blocked for audit
+                for p in cart_products:
+                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+                                                                                            parent_mapping.parent)
+                    if is_blocked_for_audit:
+                        p.delete()
+
                 # Check if products available in cart
                 if cart_products.count() <= 0:
                     msg = {'is_success': False,
@@ -838,12 +859,12 @@ class ReservedOrder(generics.ListAPIView):
                            'is_shop_time_entered': False}
                     return Response(msg, status=status.HTTP_200_OK)
                 # Check if any product blocked for audit
-                for p in cart_products:
-                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
-                                                                                            parent_mapping.parent)
-                    if is_blocked_for_audit:
-                        msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
-                        return Response(msg, status=status.HTTP_200_OK)
+                # for p in cart_products:
+                #     is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+                #                                                                             parent_mapping.parent)
+                #     if is_blocked_for_audit:
+                #         msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
+                #         return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
                 cart_products.update(capping_error_msg='')
@@ -1035,18 +1056,17 @@ class CreateOrder(APIView):
                                        id=cart_id).exists():
                     cart = Cart.objects.get(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
                                             id=cart_id)
-                    # Check if any product blocked for audit
+                    # Check and remove if any product blocked for audit
                     for p in cart.rt_cart_list.all():
                         is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
                                                                                                 parent_mapping.parent)
                         if is_blocked_for_audit:
-                            msg['message'] = [ERROR_MESSAGES['4019'].format(p)]
-                            return Response(msg, status=status.HTTP_200_OK)
+                            p.delete()
 
                     orderitems = []
                     for i in cart.rt_cart_list.all():
                         orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
-                    if None in orderitems:
+                    if len(orderitems) == 0:
                         CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
                         for cart_price in cart.rt_cart_list.all():
                             cart_price.cart_product_price = None
@@ -2297,5 +2317,7 @@ class RefreshEs(APIView):
     def get(self, request, *args, **kwargs):
         shop_id = None
         shop_id = self.request.GET.get('shop_id')
+        info_logger.info('RefreshEs| shop {}, Started'.format(shop_id))
         upload_shop_stock(shop_id)
+        info_logger.info('RefreshEs| shop {}, Ended'.format(shop_id))
         return Response({"message": "Shop data updated on ES", "response_data": None, "is_success": True})
