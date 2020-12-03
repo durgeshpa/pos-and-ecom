@@ -10,7 +10,7 @@ from rest_framework import status, mixins
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 
-
+from products.models import Product
 from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from wms.common_functions import InternalInventoryChange, WareHouseInternalInventoryChange, \
     CommonWarehouseInventoryFunctions, CommonBinInventoryFunctions
@@ -636,6 +636,9 @@ class AuditInventory(APIView):
             in_entry = In.objects.filter(batch_id=batch_id).last()
             if in_entry:
                 sku = in_entry.sku
+        if not sku:
+            sku_id = batch_id[:-6]
+            sku = Product.objects.filter(product_sku=sku_id).last()
         return sku
 
     @staticmethod
