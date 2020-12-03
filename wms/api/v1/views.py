@@ -5,7 +5,8 @@ from django.utils import timezone
 from model_utils import Choices
 
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
-    PickupBinInventory, StockMovementCSVUpload
+    PickupBinInventory, StockMovementCSVUpload, In
+from products.models import Product
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
     PickupBinInventorySerializer
 from wms.views import PickupInventoryManagement, update_putaway
@@ -697,9 +698,19 @@ class DecodeBarcode(APIView):
                 grn_product = GRNOrderProductMapping.objects.filter(barcode_id=id, batch_id__isnull=False).last()
 
                 if grn_product is None:
-                    barcode_data = {'type': None, 'id': None, 'barcode': barcode}
-                    data_item = {'is_success': False, 'message': 'Batch Id not found', 'data': barcode_data}
-                    data.append(data_item)
+                    batch_id = id[6:]
+                    product_id = id[1:6].lstrip("0")
+                    product_batch_ids = In.objects.filter(sku=Product.objects.filter(id=product_id).last()).values('batch_id').distinct()
+                    if product_batch_ids:
+                        for batch_ids in product_batch_ids:
+                            if batch_ids['batch_id'][-6:] == batch_id:
+                                barcode_data = {'type': 'batch', 'id': batch_ids['batch_id'], 'barcode': barcode}
+                                data_item = {'is_success': True, 'message': '', 'data': barcode_data}
+                                data.append(data_item)
+                    else:
+                        barcode_data = {'type': None, 'id': None, 'barcode': barcode}
+                        data_item = {'is_success': False, 'message': 'Batch Id not found', 'data': barcode_data}
+                        data.append(data_item)
                 else:
                     batch_id = grn_product.batch_id
                     barcode_data = {'type': 'batch', 'id': batch_id, 'barcode': barcode}
