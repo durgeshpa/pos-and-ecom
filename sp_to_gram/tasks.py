@@ -40,10 +40,12 @@ def get_warehouse_stock(shop_id=None,product=None):
 	products = Product.objects.filter(pk__in=product_list).order_by('product_name')
 	if shop_id:
 		products_price = ProductPrice.objects.filter(product__id__in=products, seller_shop=shop,
+													 end_date__gte=datetime.datetime.now(),
 													 status=True, approval_status=ProductPrice.APPROVED)\
 											 .order_by('product_id', '-created_at').distinct('product')
 	else:
 		products_price = ProductPrice.objects.filter(product__id__in=products, status=True,
+													 end_date__gte=datetime.datetime.now(),
 													 approval_status=ProductPrice.APPROVED)\
 											 .order_by('product_id', '-created_at').distinct('product')
 
@@ -255,7 +257,7 @@ def upload_shop_stock(shop=None,product=None):
 					product['visible'] = visibility
 				else:
 					try:
-						es.index(index=create_es_index(es_index), doc_type='product', id=prod_id,
+						es.update(index=create_es_index(es_index), doc_type='product', id=prod_id,
 								  body={"doc": {"visible": visibility}})
 					except NotFoundError as e:
 						info_logger.info('Exception | upload_shop_stock | product id {}'.format(prod_id))
