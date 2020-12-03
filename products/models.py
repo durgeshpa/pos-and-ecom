@@ -456,8 +456,8 @@ class ChildProductImage(models.Model):
 
 
 class ProductSourceMapping(models.Model):
-    destination_sku = models.ForeignKey(Product, related_name='destination_product_pro', blank=True, on_delete=models.DO_NOTHING)
-    source_sku = models.ForeignKey(Product, related_name='source_product_pro', blank=True, on_delete=models.DO_NOTHING)
+    destination_sku = models.ForeignKey(Product, related_name='destination_product_pro', blank=True, on_delete=models.CASCADE)
+    source_sku = models.ForeignKey(Product, related_name='source_product_pro', blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True, blank=True)
