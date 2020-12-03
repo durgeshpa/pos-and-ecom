@@ -23,6 +23,7 @@ from shops.models import Shop, ShopType
 from addresses.models import City, State, Address, Pincode
 from categories.models import Category
 from brand.models import Brand, Vendor
+from wms.models import InventoryType, WarehouseInventory, InventoryState
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
@@ -34,7 +35,9 @@ from products.models import (
     ProductTaxMapping, ProductVendorMapping,
     ProductImage, ProductHSN, ProductPrice,
     ParentProduct, ParentProductCategory,
-    ParentProductTaxMapping, Tax, ParentProductImage
+    ProductSourceMapping,
+    ParentProductTaxMapping, Tax, ParentProductImage,
+    DestinationRepackagingCostMapping
     )
 
 logger = logging.getLogger(__name__)
@@ -987,8 +990,14 @@ def ChildProductsDownloadSampleCSV(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(["Parent Product ID", "Reason for Child SKU", "Product Name", "Product EAN Code", "Product MRP", "Weight Value", "Weight Unit"])
-    writer.writerow(["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram"])
+    writer.writerow(["Parent Product ID", "Reason for Child SKU", "Product Name", "Product EAN Code",
+                     "Product MRP", "Weight Value", "Weight Unit", "Repackaging Type", "Map Source SKU",
+                     'Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
+                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost'])
+    writer.writerow(["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram", "none"])
+    writer.writerow(["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "Gram", "source"])
+    writer.writerow(["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "Gram", "destination",
+                     "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22"])
     return response
 
 
@@ -1016,22 +1025,51 @@ def product_csv_upload(request):
                 elif 'offer' in reason:
                     return 'offer'
             try:
-                for row in reader:
+                for row_id, row in enumerate(reader):
                     if len(row) == 0:
                         continue
                     if '' in row:
                         if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
                             continue
-                    product = Product.objects.create(
-                        parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
-                        reason_for_child_sku=reason_for_child_sku_mapper(row[1]),
-                        product_name=row[2],
-                        product_ean_code=row[3].replace("'", ''),
-                        product_mrp=float(row[4]),
-                        weight_value=float(row[5]),
-                        weight_unit='gm' if 'gram' in row[6].lower() else 'gm'
-                    )
-                    product.save()
+                    source_map = []
+                    if row[7] == 'destination':
+                        for pro in row[8].split(','):
+                            pro = pro.strip()
+                            if pro is not '' and Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                                source_map.append(pro)
+
+                    with transaction.atomic():
+                        product = Product.objects.create(
+                            parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
+                            reason_for_child_sku=reason_for_child_sku_mapper(row[1]),
+                            product_name=row[2],
+                            product_ean_code=row[3].replace("'", ''),
+                            product_mrp=float(row[4]),
+                            weight_value=float(row[5]),
+                            weight_unit='gm' if 'gram' in row[6].lower() else 'gm',
+                            repackaging_type=row[7]
+                        )
+                        product.save()
+                        if row[7] == 'destination':
+                            for sku in source_map:
+                                psm = ProductSourceMapping.objects.create(
+                                    destination_sku=product,
+                                    source_sku=Product.objects.filter(product_sku=sku, repackaging_type='source').last(),
+                                    status=True
+                                )
+                                psm.save()
+                            dcm = DestinationRepackagingCostMapping.objects.create(
+                                destination=product,
+                                raw_material=float(row[9]),
+                                wastage=float(row[10]),
+                                fumigation=float(row[11]),
+                                label_printing=float(row[12]),
+                                packing_labour=float(row[13]),
+                                primary_pm_cost=float(row[14]),
+                                secondary_pm_cost=float(row[15])
+                            )
+                            dcm.save()
+
             except Exception as e:
                 print(e)
             return render(request, 'admin/products/child-product-upload.html', {
@@ -1204,6 +1242,15 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
+class SourceProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Product.objects.filter(repackaging_type='source')
+        if self.q:
+            qs = qs.filter(Q(product_name__icontains=self.q) |
+                           Q(product_sku__icontains=self.q))
+        return qs
+
+
 class PincodeAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         city = self.forwarded.get('city', None)
@@ -1356,4 +1403,67 @@ class VendorAutocomplete(autocomplete.Select2QuerySetView):
             qs = Vendor.objects.filter(
                 Q(vendor_name__icontains=self.q)
             )
+        return qs
+
+
+class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
+
+    def get_queryset(self, *args, **kwargs):
+        seller_shop = self.forwarded.get('seller_shop', None)
+        qs = []
+        if seller_shop:
+            pp = ProductPrice.objects.filter(seller_shop_id=seller_shop).values('product_id')
+            qs = Product.objects.filter(id__in=pp, repackaging_type='source', related_sku__inventory_type=InventoryType.
+                                        objects.filter(inventory_type='normal').last(), related_sku__inventory_state=
+                                        InventoryState.objects.filter(inventory_state='available').last(),
+                                        related_sku__warehouse_id=seller_shop, related_sku__quantity__gt=0)
+            if self.q:
+                qs = qs.filter(product_name__icontains=self.q)
+        return qs
+
+
+class SourceRepackageDetail(View):
+
+    def get(self, *args, **kwargs):
+        product_id = self.request.GET.get('sku_id')
+        shop_id = self.request.GET.get('shop_id')
+        product_obj = Product.objects.values('weight_value', 'product_sku').get(id=product_id)
+
+        if product_obj['weight_value'] is None:
+            return JsonResponse({"success": False, "error": "Source SKU Weight Value Not Found"})
+
+        try:
+            warehouse_available_obj = WarehouseInventory.objects.filter(warehouse_id=shop_id,
+                                              sku_id=product_obj['product_sku'],
+                                              inventory_type=InventoryType.objects.filter(
+                                                  inventory_type='normal').last(),
+                                              inventory_state=InventoryState.objects.filter(
+                                                  inventory_state='available').last())
+            if warehouse_available_obj.exists():
+                w_obj = warehouse_available_obj.last()
+                source_quantity = w_obj.quantity
+                if source_quantity <= 0:
+                    return JsonResponse({"success": False, "error": "Source Not Available In Warehouse"})
+            else:
+                return JsonResponse({"success": False, "error": "Warehouse Inventory Does Not Exist"})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": "Warehouse Inventory Could not be fetched"})
+
+        return JsonResponse({
+            "available_weight": (source_quantity * product_obj['weight_value']) / 1000,
+            "source_sku_weight": product_obj['weight_value'] / 1000,
+            "available_source_quantity": source_quantity,
+            "success": True})
+
+
+class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
+
+    def get_queryset(self, *args, **kwargs):
+        source_sku = self.forwarded.get('source_sku', None)
+        qs = []
+        if source_sku:
+            psm = ProductSourceMapping.objects.filter(source_sku=source_sku, status=True).values('destination_sku')
+            qs = Product.objects.filter(id__in=psm)
+            if self.q:
+                qs = qs.filter(product_name__icontains=self.q)
         return qs
