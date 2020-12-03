@@ -352,6 +352,7 @@ def get_visibility_changes(shop, product):
             Q(warehouse=shop),
             Q(sku=child),
             Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
+            quantity__gt=0
         )
         for data in bin_data:
             if ProductPrice.objects.filter(product=data.sku, approval_status=2, status=True,
