@@ -637,8 +637,11 @@ class UploadChildProductAdminForm(forms.Form):
                         if pro is not '':
                             if Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
                                 there = True
+                            else:
+                                raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' {pro} is invalid."))
                     if not there:
-                        raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is invalid."))
+                        raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for Repackaging"
+                                                f" Type 'destination'."))
 
                 dest_cost_fields = ['Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
                                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost']

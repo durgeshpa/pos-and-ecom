@@ -1035,7 +1035,8 @@ def product_csv_upload(request):
                     if row[7] == 'destination':
                         for pro in row[8].split(','):
                             pro = pro.strip()
-                            if pro is not '' and Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                            if pro is not '' and pro not in source_map and \
+                                    Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
                                 source_map.append(pro)
 
                     with transaction.atomic():
