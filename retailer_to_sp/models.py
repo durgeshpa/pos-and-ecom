@@ -651,7 +651,8 @@ class BulkOrder(models.Model):
                     if warehouse_obj.exists():
                         available_quantity = warehouse_obj[0].quantity
                     else:
-                        continue
+                        available_quantity = 0
+                        # continue
                     product_available = int(
                          int(available_quantity) / int(product.product_inner_case_size))
                     availableQuantity.append(product_available)
