@@ -713,7 +713,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name='cart_products_mapping'
             ),
             url(
-                r'^cart-products-mapping/$',
+                r'^cart-products-list/(?P<order_status_info>(.*))/$',
                 self.admin_site.admin_view(cart_product_list_status),
                 name='cart_products_list_status'
             ),
