@@ -158,15 +158,15 @@ class OrderIdSearch(InputFilter):
 
 
 class OrderNumberSearch(InputFilter):
-    parameter_name = 'order_no'
-    title = 'Order No.(Comma seperated)'
+    parameter_name = 'type_no'
+    title = 'Order / Repackaging No.(Comma separated)'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
             order_no = self.value()
             order_nos = order_no.replace(" ", "").replace("\t","").split(',')
             return queryset.filter(
-                Q(order__order_no__in=order_nos)
+                Q(order__order_no__in=order_nos) | Q(repackaging__repackaging_no__in=order_nos)
             )
 
 
@@ -766,8 +766,8 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     )
     list_display = (
         'picklist', 'picking_status', 'picker_boy',
-        'created_at', 'picker_assigned_date', 'download_pick_list', 'picklist_status', 'order_number', 'order_date',
-        'refreshed_at'
+        'created_at', 'picker_assigned_date', 'download_pick_list', 'picklist_status', 'picker_type', 'order_number',
+        'order_date', 'refreshed_at'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
@@ -779,7 +779,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
-            return self.readonly_fields + ('order', 'shipment', 'picklist_id')
+            return self.readonly_fields + ('order', 'shipment', 'picklist_id', 'repackaging')
         return self.readonly_fields
 
     def get_urls(self):
@@ -840,12 +840,25 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     # def _picklist(self, obj, request):
     #     return obj.picklist(request.user)
     def order_number(self,obj):
-        return obj.order.order_no
-    order_number.short_description = 'Order No'
+        if obj.order:
+            return obj.order.order_no
+        elif obj.repackaging:
+            return obj.repackaging.repackaging_no
+    order_number.short_description = 'Order / Repackaging No'
+
+    def picker_type(self,obj):
+        if obj.repackaging:
+            return 'Repackaging'
+        elif obj.order:
+            return 'Order'
+    picker_type.short_description = 'Type'
 
     def order_date(self,obj):
-        return obj.order.created_at
-    order_date.short_description = 'Order Date'
+        if obj.order:
+            return obj.order.created_at
+        elif obj.repackaging:
+            return obj.repackaging.created_at
+    order_date.short_description = 'Order / Repackaging Date'
 
     def picklist_status(self, obj):
         picklist_status = 'Valid'
@@ -864,10 +877,16 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     picklist.short_description = 'Picklist'
 
     def download_pick_list(self, obj):
-        if obj.order.order_status not in ["active", "pending"]:
+        if obj.order:
+            if obj.order.order_status not in ["active", "pending"]:
+                return format_html(
+                    "<a href= '%s' >Download Pick List</a>" %
+                    (reverse('create-picklist', args=[obj.order.pk]))
+                )
+        elif obj.repackaging:
             return format_html(
                 "<a href= '%s' >Download Pick List</a>" %
-                (reverse('create-picklist', args=[obj.order.pk]))
+                (reverse('create-picklist', kwargs={'pk': obj.repackaging.pk, 'type': 2}))
             )
 
     def download_bulk_pick_list(self, request, *args, **kwargs):
@@ -883,14 +902,17 @@ class PickerDashboardAdmin(admin.ModelAdmin):
             kwargs = {}
             argument_list = []
             for arg in args[ZERO]:
-                if arg.order.order_status not in ["active", "pending"]:
-                    if arg.shipment:
-                        # append pk which are not falling under the order active and pending
-                        kwargs.update({arg.order.pk: arg.shipment.pk})
+                if arg.order:
+                    if arg.order.order_status not in ["active", "pending"]:
+                        if arg.shipment:
+                            # append pk which are not falling under the order active and pending
+                            kwargs.update({arg.order.pk: arg.shipment.pk})
+                        else:
+                            kwargs.update({arg.order.pk: '0'})
                     else:
-                        kwargs.update({arg.order.pk: '0'})
-                else:
-                    pass
+                        pass
+                elif arg.repackaging:
+                    kwargs.update({arg.repackaging.pk: 'repackaging'})
             # call get method under the DownloadPickListPicker class
             response = DownloadPickListPicker.get(self, request, argument_list, kwargs)
             if response[1] is True:
@@ -902,7 +924,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         return response
 
     download_pick_list.short_description = 'Download Pick List'
-    download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders'
+    download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders/Repackagings'
 
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):

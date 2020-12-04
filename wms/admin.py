@@ -211,7 +211,7 @@ class OrderNumberFilterForOrderRelease(InputFilter):
 
 
 class OrderNumberFilterForPickupBinInventory(InputFilter):
-    title = 'Order Number'
+    title = 'Order / Repackaging Number'
     parameter_name = 'pickup'
 
     def queryset(self, request, queryset):
@@ -600,7 +600,7 @@ class PickupAdmin(admin.ModelAdmin):
 class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity',
+    list_display = ('warehouse', 'batch_id', 'order_number', 'pickup_type', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity',
                     'created_at', 'last_picked_at', 'pickup_remarks')
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin',
@@ -612,6 +612,9 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     def order_number(self, obj):
         return obj.pickup.pickup_type_id
 
+    def pickup_type(self, obj):
+        return obj.pickup.pickup_type
+
     def bin_id(self, obj):
         return obj.bin.bin.bin_id
 
@@ -621,7 +624,7 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-    order_number.short_description = 'Order Number'
+    order_number.short_description = 'Order / Repackaging Number'
     bin_id.short_description = 'Bin Id'
 
 

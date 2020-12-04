@@ -662,6 +662,9 @@ class AuditInventory(APIView):
             in_entry = In.objects.filter(batch_id=batch_id).last()
             if in_entry:
                 sku = in_entry.sku
+        if not sku:
+            sku_id = batch_id[:-6]
+            sku = Product.objects.filter(product_sku=sku_id).last()
         return sku
 
     @staticmethod

@@ -40,10 +40,12 @@ def get_warehouse_stock(shop_id=None,product=None):
 	products = Product.objects.filter(pk__in=product_list).order_by('product_name')
 	if shop_id:
 		products_price = ProductPrice.objects.filter(product__id__in=products, seller_shop=shop,
+													 end_date__gte=datetime.datetime.now(),
 													 status=True, approval_status=ProductPrice.APPROVED)\
 											 .order_by('product_id', '-created_at').distinct('product')
 	else:
 		products_price = ProductPrice.objects.filter(product__id__in=products, status=True,
+													 end_date__gte=datetime.datetime.now(),
 													 approval_status=ProductPrice.APPROVED)\
 											 .order_by('product_id', '-created_at').distinct('product')
 
