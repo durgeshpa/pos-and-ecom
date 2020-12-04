@@ -1,6 +1,7 @@
 import logging
 from datetime import timedelta, datetime
 
+from decouple import config
 from django.db import transaction
 from django.db.models import Count, Sum
 from django.utils import timezone
@@ -10,10 +11,10 @@ from rest_framework import status, mixins
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 
-
+from products.models import Product
 from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from wms.common_functions import InternalInventoryChange, WareHouseInternalInventoryChange, \
-    CommonWarehouseInventoryFunctions, CommonBinInventoryFunctions
+    CommonWarehouseInventoryFunctions, CommonBinInventoryFunctions, get_expiry_date
 from wms.models import BinInventory, Bin, InventoryType, PickupBinInventory, WarehouseInventory, InventoryState, Pickup, \
     BinInternalInventoryChange, In
 from wms.views import PicklistRefresh
@@ -22,7 +23,7 @@ from ...cron import release_products_from_audit
 from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist
 from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
-from ...utils import is_audit_started, is_diff_batch_in_this_bin
+from ...utils import is_audit_started, is_diff_batch_in_this_bin, get_product_image
 from ...views import BlockUnblockProduct, create_pick_list_by_audit, create_audit_tickets_by_audit, \
     update_audit_status_by_audit
 from rest_framework.permissions import BasePermission
@@ -78,6 +79,10 @@ class AuditListView(APIView):
 class AuditStartView(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated, IsAuditor)
+    try:
+        audit_start_time_buffer_mins = int(config('AUDIT_START_BUFFER_MINS'))
+    except:
+        audit_start_time_buffer_mins = 15
 
     def post(self, request):
         info_logger.info("Audit Start API called.")
@@ -104,7 +109,8 @@ class AuditStartView(APIView):
         if not self.can_start_audit(audit):
             msg = {'is_success': False,
                    'message': ERROR_MESSAGES['AUDIT_START_TIME_ERROR']
-                       .format(self.audit_start_time(audit).strftime("%d/%m/%Y, %H:%M:%S")),
+                       .format(self.audit_start_time_buffer_mins,
+                               self.audit_start_time(audit).strftime("%d/%m/%Y, %H:%M:%S")),
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         self.initiate_audit(audit)
@@ -113,10 +119,10 @@ class AuditStartView(APIView):
         return Response(msg, status=status.HTTP_200_OK)
 
     def can_start_audit(self, audit):
-        return (audit.created_at <= datetime.now() - timedelta(minutes=30))
+        return (audit.created_at <= datetime.now() - timedelta(minutes=self.audit_start_time_buffer_mins))
 
     def audit_start_time(self, audit):
-        return audit.created_at + timedelta(minutes=30)
+        return audit.created_at + timedelta(minutes=self.audit_start_time_buffer_mins)
 
     @transaction.atomic
     def initiate_audit(self, audit):
@@ -440,7 +446,6 @@ class AuditBinList(APIView):
                     audit_done = True
                 b['audit_done'] = audit_done
 
-
         data = {'bin_count': len(audit_bins), 'sku_count': len(audit_skus), 'sku_to_audit': audit_skus,
                 'bins_to_audit': audit_bins}
         msg = {'is_success': True, 'message': 'OK', 'data': data}
@@ -469,7 +474,11 @@ class AuditBinsBySKUList(APIView):
         if audit_sku is None:
             msg = {'is_success': False, 'message': ERROR_MESSAGES['EMPTY'] % 'sku', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-
+        product = Product.objects.filter(product_sku=audit_sku).last()
+        if not product:
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['SOME_ISSUE'] % 'sku', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        product_image = get_product_image(product)
         bin_ids = BinInventory.objects.filter(warehouse=audit.warehouse,
                                               sku=audit_sku).values_list('bin_id', flat=True)
         bins_to_audit = Bin.objects.filter(id__in=bin_ids).values('bin_id')
@@ -482,7 +491,8 @@ class AuditBinsBySKUList(APIView):
             b['audit_done'] = audit_done
 
 
-        data = {'bin_count': len(bins_to_audit), 'sku': audit_sku,
+        data = {'bin_count': len(bins_to_audit), 'sku': audit_sku, 'product_name': product.product_name,
+                'product_mrp': product.product_mrp, 'product_image': product_image,
                 'sku_bins': bins_to_audit}
         msg = {'is_success': True, 'message': 'OK', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
@@ -527,8 +537,11 @@ class AuditInventory(APIView):
             batch_id = BinInventory.objects.filter(bin=bin, sku=sku).last().batch_id
         warehouse = audit.warehouse
         bin_inventory_dict = self.get_bin_inventory(warehouse, batch_id, bin)
-        data = {'bin_id': bin_id, 'batch_id': batch_id,
-                'inventory': bin_inventory_dict}
+        product = self.get_sku_from_batch(batch_id)
+        product_image = get_product_image(product)
+        data = {'bin_id': bin_id, 'batch_id': batch_id, 'product_sku': product.product_sku,
+                'product_name': product.product_name, 'product_mrp': product.product_mrp,
+                'product_image': product_image, 'inventory': bin_inventory_dict}
         msg = {'is_success': True, 'message': 'OK', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
 
@@ -574,6 +587,20 @@ class AuditInventory(APIView):
                    'message': ERROR_MESSAGES['SOME_ISSUE'],
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+
+        expiry_date_string = get_expiry_date(batch_id)
+        expiry_date = datetime.strptime(expiry_date_string, "%d/%m/%Y")
+
+        if expiry_date > datetime.today():
+            if physical_inventory['expired'] > 0:
+                msg = {'is_success': False, 'message': ERROR_MESSAGES['EXPIRED_NON_ZERO'], 'data': None}
+                return Response(msg, status=status.HTTP_200_OK)
+
+        if expiry_date <= datetime.today():
+            if (physical_inventory['normal']+physical_inventory['damaged']) > 0:
+                msg = {'is_success': False, 'message': ERROR_MESSAGES['NORMAL_NON_ZERO'], 'data': None}
+                return Response(msg, status=status.HTTP_200_OK)
+
         current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
         is_inventory_changed = False
         is_update_done = False
@@ -595,7 +622,6 @@ class AuditInventory(APIView):
                 if is_diff_batch_in_this_bin(warehouse, batch_id, bin, sku):
                     msg = {'is_success': False, 'message': ERROR_MESSAGES['DIFF_BATCH_ONE_BIN'], 'data': None}
                     return Response(msg, status=status.HTTP_200_OK)
-
 
         try:
             with transaction.atomic():
