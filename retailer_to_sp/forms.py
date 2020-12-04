@@ -341,7 +341,7 @@ class EditAssignPickerForm(forms.ModelForm):
 
     class Meta:
         model = PickerDashboard
-        fields = ['order', 'shipment', 'picking_status', 'picklist_id', 'picker_boy']
+        fields = ['order', 'repackaging', 'shipment', 'picking_status', 'picklist_id', 'picker_boy']
 
     class Media:
         js = ('admin/js/select2.min.js',)
@@ -367,7 +367,10 @@ class EditAssignPickerForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(EditAssignPickerForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
-        shop = instance.order.seller_shop  # Shop.objects.get(related_users=user)
+        if instance.order:
+            shop = instance.order.seller_shop  # Shop.objects.get(related_users=user)
+        else:
+            shop = instance.repackaging.seller_shop
         # shop = Shop.objects.get(shop_name="TEST SP 1")
 
         # find all picker for the shop

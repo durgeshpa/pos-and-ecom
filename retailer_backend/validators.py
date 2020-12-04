@@ -123,3 +123,8 @@ PriceValidator2 = RegexValidator(
     message=VALIDATION_ERROR_MESSAGES['INVALID_PRICE'],
     code='INVALID_PRICE'
 )
+PositiveIntegerValidator = RegexValidator(
+    regex='^[1-9]\d*$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_INTEGER_VALUE'],
+    code='INVALID_INTEGER_VALUE'
+)

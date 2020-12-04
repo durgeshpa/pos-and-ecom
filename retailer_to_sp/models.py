@@ -36,7 +36,7 @@ from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, 
     get_expiry_date, OrderManagement
 from brand.models import Brand
 from otp.sms import SendSms
-from products.models import Product, ProductPrice
+from products.models import Product, ProductPrice, Repackaging
 from shops.models import Shop, ShopNameDisplay
 
 from .utils import (order_invoices, order_shipment_amount,
@@ -1802,7 +1802,8 @@ class PickerDashboard(models.Model):
 
     )
 
-    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE, null=True, blank=True)
+    repackaging = models.ForeignKey(Repackaging, related_name="picker_repacks", on_delete=models.CASCADE, null=True, blank=True)
     shipment = models.ForeignKey(
         OrderedProduct, related_name="picker_shipment",
         on_delete=models.DO_NOTHING, null=True, blank=True)
@@ -1825,8 +1826,12 @@ class PickerDashboard(models.Model):
         super(PickerDashboard, self).save(*args, **kwargs)
         if self.picking_status == 'picking_assigned':
             PickerDashboard.objects.filter(id=self.id).update(picker_assigned_date=datetime.datetime.now())
-            Pickup.objects.filter(pickup_type_id=self.order.order_no,
-                                  status='pickup_creation').update(status='picking_assigned')
+            if self.order:
+                Pickup.objects.filter(pickup_type_id=self.order.order_no,
+                                      status='pickup_creation').update(status='picking_assigned')
+            elif self.repackaging:
+                Pickup.objects.filter(pickup_type_id=self.repackaging.repackaging_no,
+                                      status='pickup_creation').update(status='picking_assigned')
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
@@ -2717,8 +2722,12 @@ def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=PickerDashboard)
 def update_order_status_from_picker(sender, instance=None, created=False, **kwargs):
     if instance.picking_status == PickerDashboard.PICKING_ASSIGNED:
-        instance.order.order_status = Order.PICKING_ASSIGNED
-        instance.order.save()
+        if instance.order:
+            instance.order.order_status = Order.PICKING_ASSIGNED
+            instance.order.save()
+        elif instance.repackaging:
+            instance.repackaging.source_picking_status = 'picking_assigned'
+            instance.repackaging.save()
 
 
 # @receiver(post_save, sender=Trip)
