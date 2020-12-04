@@ -6,6 +6,7 @@ import codecs
 import re
 import json
 
+from django.db import models
 from accounts.middlewares import get_current_user
 from celery.task import task
 from django.contrib.auth import get_user_model
