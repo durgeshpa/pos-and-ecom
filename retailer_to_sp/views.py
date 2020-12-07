@@ -196,32 +196,32 @@ class DownloadCreditNote(APIView):
                 if len(list1) > 0:
                     for i in list1:
                         if i["hsn"] == m.product.product_hsn:
-                            i["taxable_value"] = i["taxable_value"] + m.basic_rate * (m.returned_qty + m.damaged_qty)
-                            i["cgst"] = i["cgst"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 200
-                            i["sgst"] = i["sgst"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 200
-                            i["igst"] = i["igst"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 100
-                            i["cess"] = i["cess"] + (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_cess_tax()) / 100
+                            i["taxable_value"] = i["taxable_value"] + m.basic_rate * (m.returned_qty + m.returned_damage_qty)
+                            i["cgst"] = i["cgst"] + (m.basic_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst()) / 200
+                            i["sgst"] = i["sgst"] + (m.basic_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst()) / 200
+                            i["igst"] = i["igst"] + (m.basic_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst()) / 100
+                            i["cess"] = i["cess"] + (m.basic_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst_cess_tax()) / 100
                             i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
                             if m.product.product_special_cess is None:
                                 i["product_special_cess"] = i["product_special_cess"] + 0.0
                             else:
                                 i["product_special_cess"] = i["product_special_cess"] + m.product_cess_amount
-                                i["product_special_cess"] = (i["product_special_cess"] * (m.returned_qty + m.damaged_qty))
+                                i["product_special_cess"] = (i["product_special_cess"] * (m.returned_qty + m.returned_damage_qty))
                             i["total"] = round(i["total"] + m.product_tax_return_amount)
                             flag = 1
 
                 if flag == 0:
                     dict1["hsn"] = m.product.product_hsn
-                    dict1["taxable_value"] = m.basic_rate * (m.returned_qty + m.damaged_qty)
-                    dict1["cgst"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 200
+                    dict1["taxable_value"] = m.basic_rate * (m.returned_qty + m.returned_damage_qty)
+                    dict1["cgst"] = (m.basic_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst()) / 200
                     dict1["cgst_rate"] = m.get_products_gst() / 2
-                    dict1["sgst"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst()) / 200
+                    dict1["sgst"] = (m.basic_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst()) / 200
                     dict1["sgst_rate"] = m.get_products_gst() / 2
-                    dict1["igst"] = (m.basic_rate * (m.returned_qty + m.damaged_qty)* m.get_products_gst()) / 100
+                    dict1["igst"] = (m.basic_rate * (m.returned_qty + m.returned_damage_qty)* m.get_products_gst()) / 100
                     dict1["igst_rate"] = m.get_products_gst()
-                    dict1["cess"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_cess_tax()) / 100
+                    dict1["cess"] = (m.basic_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst_cess_tax()) / 100
                     dict1["cess_rate"] = m.get_products_gst_cess_tax()
-                    dict1["surcharge"] = (m.basic_rate * (m.returned_qty + m.damaged_qty) * m.get_products_gst_surcharge()) / 100
+                    dict1["surcharge"] = (m.basic_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst_surcharge()) / 100
                     # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
                     dict1["surcharge_rate"] = m.get_products_gst_surcharge()
                     dict1["product_special_cess"] = m.product_cess_amount
@@ -229,21 +229,21 @@ class DownloadCreditNote(APIView):
                         dict1["product_special_cess"] = 0.0
                     else:
                         dict1["product_special_cess"] = m.product_cess_amount
-                    dict1["product_special_cess"] = (dict1["product_special_cess"] * (m.returned_qty + m.damaged_qty))
+                    dict1["product_special_cess"] = (dict1["product_special_cess"] * (m.returned_qty + m.returned_damage_qty))
                     dict1["total"] = round(m.product_tax_return_amount)
                     list1.append(dict1)
-                sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
-                sum_basic_amount += m.basic_rate * (m.returned_qty + m.damaged_qty)
-                sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) * m.price_to_retailer)
-                inline_sum_amount = (int(m.returned_qty + m.damaged_qty) * m.price_to_retailer)
+                sum_qty = sum_qty + (int(m.returned_qty + m.returned_damage_qty))
+                sum_basic_amount += m.basic_rate * (m.returned_qty + m.returned_damage_qty)
+                sum_amount = sum_amount + (int(m.returned_qty + m.returned_damage_qty) * m.price_to_retailer)
+                inline_sum_amount = (int(m.returned_qty + m.returned_damage_qty) * m.price_to_retailer)
                 total_product_tax_amount += m.product_tax_return_amount
-                gst_tax = ((m.returned_qty + m.damaged_qty) * m.basic_rate * m.get_products_gst())/100
-                cess_tax = ((m.returned_qty + m.damaged_qty) * m.basic_rate * m.get_products_gst_cess_tax())/100
-                surcharge_tax = ((m.returned_qty + m.damaged_qty) * m.basic_rate * m.get_products_gst_surcharge())/100
+                gst_tax = ((m.returned_qty + m.returned_damage_qty) * m.basic_rate * m.get_products_gst())/100
+                cess_tax = ((m.returned_qty + m.returned_damage_qty) * m.basic_rate * m.get_products_gst_cess_tax())/100
+                surcharge_tax = ((m.returned_qty + m.returned_damage_qty) * m.basic_rate * m.get_products_gst_surcharge())/100
                 gst_tax_list.append(gst_tax)
                 cess_tax_list.append(cess_tax)
                 surcharge_tax_list.append(surcharge_tax)
-                product_special_cess = (round((m.product_cess_amount) * (m.returned_qty + m.damaged_qty)))
+                product_special_cess = (round((m.product_cess_amount) * (m.returned_qty + m.returned_damage_qty)))
                 igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = sum_amount
