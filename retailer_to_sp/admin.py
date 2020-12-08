@@ -1602,7 +1602,7 @@ class NoteAdmin(admin.ModelAdmin):
 
             else:
                 for m in products:
-                    sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) * (m.price_to_retailer))
+                    sum_amount = sum_amount + (int(m.returned_qty + m.returned_damage_qty) * (m.price_to_retailer))
             return sum_amount
 
     note_amount.short_description = 'Note Amount'
