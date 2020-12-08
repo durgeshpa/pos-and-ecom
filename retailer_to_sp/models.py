@@ -576,9 +576,6 @@ class BulkOrder(models.Model):
         return url
 
     def cart_product_list_status(self, order_status_info, available_quantity):
-        """
-
-        """
         info_logger.info(f"[retailer_to_sp:BulkOrder]-cart_product_list_status function called")
         order_status_info.extend([available_quantity, self.cart_id])
         if self.order_type == 'DISCOUNTED':
