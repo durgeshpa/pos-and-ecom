@@ -175,14 +175,14 @@ class AuditTicketManual(BaseTimestampModel):
         verbose_name_plural = "Manual Audit Tickets"
 
 
-class AuditBinRecord(models.Model):
+class AuditedBinRecord(models.Model):
     audit = models.ForeignKey(AuditDetail, null=False, related_name='+', on_delete=models.DO_NOTHING)
     bin = models.ForeignKey(Bin, null=True, related_name='+', on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
     class Meta:
         db_table = "wms_audit_bin_record"
 
-class AuditProductRecord(models.Model):
+class AuditedProductRecord(models.Model):
     audit = models.ForeignKey(AuditDetail, null=False, related_name='+', on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, null=False, to_field='product_sku', related_name='+', on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)

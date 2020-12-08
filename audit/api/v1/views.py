@@ -21,7 +21,7 @@ from .serializers import AuditDetailSerializer
 from ...cron import release_products_from_audit
 from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist, \
-    AuditBinRecord, AuditProductRecord
+    AuditedBinRecord, AuditedProductRecord
 from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
 from ...utils import is_audit_started, is_diff_batch_in_this_bin
 from ...views import BlockUnblockProduct, create_pick_list_by_audit, create_audit_tickets_by_audit, \
@@ -333,7 +333,7 @@ class AuditEndView(APIView):
     def can_end_bin_audit(self, audit):
         expected_bin_count = audit.bin.count()
         # audited_bin_count = AuditRunItem.objects.filter(audit_run__audit=audit).values('bin_id').distinct().count()
-        audited_bin_count = AuditBinRecord.objects.filter(audit=audit).values('bin_id').distinct().count()
+        audited_bin_count = AuditedBinRecord.objects.filter(audit=audit).values('bin_id').distinct().count()
         if expected_bin_count != audited_bin_count:
             return False
         return True
@@ -341,7 +341,7 @@ class AuditEndView(APIView):
     def can_end_product_audit(self, audit):
         expected_sku_count = audit.sku.count()
         # audited_sku_count = AuditRunItem.objects.filter(audit_run__audit=audit).values('sku_id').distinct().count()
-        audited_sku_count = AuditProductRecord.objects.filter(audit=audit).values('sku_id').distinct().count()
+        audited_sku_count = AuditedProductRecord.objects.filter(audit=audit).values('sku_id').distinct().count()
         if expected_sku_count != audited_sku_count:
             return False
         return True
@@ -360,7 +360,7 @@ class AuditEndView(APIView):
 
     def end_audit_for_bin(self, audit, audit_run, bin_id):
         bin = Bin.objects.filter(bin_id=bin_id).last()
-        if AuditBinRecord.objects.filter(audit=audit, bin=bin).exists():
+        if AuditedBinRecord.objects.filter(audit=audit, bin=bin).exists():
             info_logger.info('Audit {} for bin {}, already ended'.format(audit.id, bin_id))
             return
         info_logger.info('End audit {} for bin {}'.format(audit.id, bin_id))
@@ -383,11 +383,11 @@ class AuditEndView(APIView):
                                             bi.inventory_type, inventory_state, bi.quantity, 0)
 
             BlockUnblockProduct.release_product_from_audit(audit, audit_run, bi.sku, audit.warehouse)
-        AuditBinRecord.objects.create(audit=audit, bin=bin)
+        AuditedBinRecord.objects.create(audit=audit, bin=bin)
         info_logger.info('End audit {} for bin {}'.format(audit.id, bin_id))
 
     def end_audit_for_sku(self, audit, audit_run, sku):
-        if AuditProductRecord.objects.filter(audit=audit, sku=sku).exists():
+        if AuditedProductRecord.objects.filter(audit=audit, sku=sku).exists():
             info_logger.info('Audit {} for sku {}, already ended'.format(audit.id, sku))
             return
         info_logger.info('End audit {} for sku {}'.format(audit.id, sku))
@@ -410,7 +410,7 @@ class AuditEndView(APIView):
                                             bi.inventory_type, inventory_state, bi.quantity, 0)
         product = Product.objects.filter(product_sku=sku).last()
         BlockUnblockProduct.release_product_from_audit(audit, audit_run, product, audit.warehouse)
-        AuditProductRecord.objects.create(audit=audit, sku_id=sku)
+        AuditedProductRecord.objects.create(audit=audit, sku_id=sku)
         info_logger.info('End audit {} for sku {}'.format(audit.id, sku))
 
 
@@ -437,7 +437,7 @@ class AuditBinList(APIView):
         if audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
             audit_skus = audit.sku.all().values('id', 'product_sku', 'product_name')
             # skus_audited = AuditRunItem.objects.filter(audit_run__audit=audit).values_list('sku__id', flat=True)
-            skus_audited = AuditProductRecord.objects.filter(audit=audit).values_list('sku__id', flat=True)
+            skus_audited = AuditedProductRecord.objects.filter(audit=audit).values_list('sku__id', flat=True)
             for s in audit_skus:
                 audit_done = False
                 if s['id'] in skus_audited:
@@ -447,7 +447,7 @@ class AuditBinList(APIView):
         elif audit.audit_level == AUDIT_LEVEL_CHOICES.BIN:
             audit_bins = audit.bin.all().values('bin_id')
             # bins_audited = AuditRunItem.objects.filter(audit_run__audit=audit).values_list('bin__bin_id', flat=True)
-            bins_audited = AuditBinRecord.objects.filter(audit=audit).values_list('bin__bin_id', flat=True)
+            bins_audited = AuditedBinRecord.objects.filter(audit=audit).values_list('bin__bin_id', flat=True)
             for b in audit_bins:
                 audit_done = False
                 if b['bin_id'] in bins_audited:
