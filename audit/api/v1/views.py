@@ -192,8 +192,13 @@ class AuditEndView(APIView):
 
         if sku is None and bin_id is None:
             if not self.can_end_audit(audit):
+                error_msg = ERROR_MESSAGES['FAILED_STATE_CHANGE']
+                if audit.audit_level == AUDIT_LEVEL_CHOICES.PRODUCT:
+                    error_msg = ERROR_MESSAGES['AUDIT_END_FAILED'].format('SKUs')
+                elif audit.audit_level == AUDIT_LEVEL_CHOICES.BIN:
+                    error_msg = ERROR_MESSAGES['AUDIT_END_FAILED'].format('BINs')
                 msg = {'is_success': False,
-                       'message': ERROR_MESSAGES['FAILED_STATE_CHANGE'],
+                       'message': error_msg,
                        'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
 
