@@ -57,6 +57,7 @@ from wms.models import WarehouseInventory
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
 logger = logging.getLogger(__name__)
+info_logger = logging.getLogger('file-info')
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
@@ -575,6 +576,10 @@ class BulkOrder(models.Model):
         return url
 
     def cart_product_list_status(self, order_status_info, available_quantity):
+        """
+
+        """
+        info_logger.info(f"[retailer_to_sp:BulkOrder]-cart_product_list_status function called")
         order_status_info.extend([available_quantity, self.cart_id])
         if self.order_type == 'DISCOUNTED':
             status = "Discounted Order"
@@ -653,7 +658,7 @@ class BulkOrder(models.Model):
                         available_quantity = warehouse_obj[0].quantity
                     else:
                         available_quantity = 0
-                        # continue
+                        info_logger.info(f"[retailer_to_sp:BulkOrder]-{row[0]} doesn't exist in warehouse")
                     product_available = int(
                         int(available_quantity) / int(product.product_inner_case_size))
                     availableQuantity.append(product_available)

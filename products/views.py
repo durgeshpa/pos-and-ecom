@@ -46,6 +46,10 @@ from products.models import (
     )
 
 logger = logging.getLogger(__name__)
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+
 from dal import autocomplete
 from django.db.models import Q
 from .utils import products_price_excel
@@ -811,6 +815,7 @@ def cart_product_list_status(request, order_status_info):
         s3 = boto3.resource('s3', aws_access_key_id=config('AWS_ACCESS_KEY_ID'),
                             aws_secret_access_key=config('AWS_SECRET_ACCESS_KEY'))
     except ClientError as err:
+        error_logger.error(f"[products/views.py: cart_product_list_status] - {err}")
         raise err
 
     bucket = s3.Bucket(config('AWS_STORAGE_BUCKET_NAME'))
@@ -818,6 +823,7 @@ def cart_product_list_status(request, order_status_info):
     try:
         res = obj.get()
     except ClientError as err:
+        error_logger.error(f"[products/views.py: cart_product_list_status] - {err}")
         raise err
 
     lines = res['Body'].read()
@@ -847,6 +853,8 @@ def cart_product_list_status(request, order_status_info):
                 else:
                     writer.writerow(row + ["Success"])
                     index = index + 1
+    info_logger.info("[products/views.py: cart_product_list_status] - CSV for cart_product_list_status has been "
+                     "successfully downloaded")
     return response
 
 
