@@ -447,8 +447,6 @@ class OrderManagement(object):
                                                   inventory_state=InventoryState.objects.filter(
                                                       inventory_state='reserved').last(),
                                                   quantity=ordered_qty, in_stock='t')
-                info_logger.info(f"[wms/common_functions.py:create_reserved_order function] Created a row in "
-                                 f"WarehouseInventory table with inventory_type=normal and inventory_state=reserved")
             warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
                                                                         sku=Product.objects.get(id=int(prod_id)),
                                                                         inventory_type=InventoryType.objects.filter(
@@ -472,16 +470,11 @@ class OrderManagement(object):
                                                             final_stage=InventoryState.objects.filter(
                                                                 inventory_state='reserved').last(),
                                                             quantity=ordered_qty)
-            info_logger.info(f"[wms/common_functions.py:create_reserved_order function] Created a row in "
-                             f"WarehouseInternalInventoryChange table from initial(normal, available) to "
-                             f"final(normal, reserved)")
             OrderReserveRelease.objects.create(warehouse=Shop.objects.get(id=shop_id),
                                                sku=Product.objects.get(id=int(prod_id)),
                                                transaction_id=transaction_id,
                                                warehouse_internal_inventory_reserve=WarehouseInternalInventoryChange.objects.all().last(),
                                                reserved_time=WarehouseInternalInventoryChange.objects.all().last().created_at)
-            info_logger.info(f"[wms/common_functions.py:create_reserved_order function] Created a row in "
-                             f"OrderReserveRelease table")
 
     @classmethod
     @task
