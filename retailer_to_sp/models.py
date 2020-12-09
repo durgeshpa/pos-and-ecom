@@ -757,7 +757,6 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                                                                       discounted_price=0)
                             else:
                                 continue
-            info_logger.info(f"Bulk_Order_Success[SKUsID : orderedPieces] :{products_available}")
             if len(products_available) > 0:
                 reserved_args = json.dumps({
                     'shop_id': instance.seller_shop.id,
@@ -765,8 +764,9 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                     'products': products_available,
                     'transaction_type': 'reserved'
                 })
-                OrderManagement.create_reserved_order(reserved_args)
                 info_logger.info(f"reserved_bulk_order:{reserved_args}")
+                OrderManagement.create_reserved_order(reserved_args)
+                info_logger.info("reserved_bulk_order_success")
                 order, _ = Order.objects.get_or_create(ordered_cart=instance.cart)
                 order.order_no = instance.cart.order_id
                 order.ordered_cart = instance.cart
@@ -787,8 +787,9 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                     'order_status': order.order_status
                 })
                 sku_id = [i.cart_product.id for i in instance.cart.rt_cart_list.all()]
-                OrderManagement.release_blocking(reserved_args, sku_id)
                 info_logger.info(f"ordered_bulk_order:{reserved_args}")
+                OrderManagement.release_blocking(reserved_args, sku_id)
+                info_logger.info("ordered_bulk_order_success")
             else:
                 info_logger.info(f"No products available for which order can be placed.")
                 pass

@@ -414,7 +414,6 @@ class OrderManagement(object):
     @classmethod
     @task
     def create_reserved_order(cls, reserved_args, sku_id=False):
-        info_logger.info(f"[wms/common_functions.py]:create_reserved_order function called with args-{reserved_args}")
         params = json.loads(reserved_args)
         transaction_id = params['transaction_id']
         shop_id = params['shop_id']
@@ -479,7 +478,6 @@ class OrderManagement(object):
     @classmethod
     @task
     def release_blocking(cls, reserved_args, sku_id=False):
-        info_logger.info(f"[wms/common_functions.py]:release_blocking function called with args-{reserved_args}")
         params = json.loads(reserved_args)
         transaction_id = params['transaction_id']
         shop_id = params['shop_id']
@@ -737,7 +735,6 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
     :param order_status:
     :return:
     """
-    info_logger.info(f"[wms/common_functions.py]: common_for_release function called]")
     order_reserve_release = OrderReserveRelease.objects.filter(transaction_id=transaction_id,
                                                                warehouse_internal_inventory_release_id=None)
     if order_reserve_release.exists():
@@ -766,7 +763,6 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
     :param order_product:
     :return:
     """
-    info_logger.info(f"[wms/common_functions.py]: common_release_for_inventory function called")
     with transaction.atomic():
         # warehouse condition
         warehouse_product_reserved = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
@@ -810,9 +806,6 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
                                                         final_stage=InventoryState.objects.filter(
                                                             inventory_state=order_status).last(),
                                                         quantity=order_product.warehouse_internal_inventory_reserve.quantity)
-        info_logger.info(f"[wms/common_functions.py:common_release_for_inventory] Created a row in "
-                         f"WarehouseInternalInventoryChange table from initial(normal, reserved) to "
-                         f"final(normal, {order_status})")
 
         order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=Shop.objects.get(id=shop_id),
                                                                sku=Product.objects.get(id=order_product.sku.id),
