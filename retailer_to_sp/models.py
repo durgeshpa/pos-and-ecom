@@ -33,7 +33,7 @@ from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
 from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType, InventoryState
-from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
+,from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
     get_expiry_date, OrderManagement
 from brand.models import Brand
 from otp.sms import SendSms
