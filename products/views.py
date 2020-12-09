@@ -788,6 +788,8 @@ def cart_products_mapping(request,pk=None):
 
 
 def cart_product_list_status(request, order_status_info):
+    info_logger.info(f"[products/views.py]-cart_product_list_status function called for Downloading the CSV file of "
+                     f"Bulk/Discounted Order Status")
     for char in order_status_info:
         if char in "[\]":
             order_status_info.replace(char, '')
@@ -808,22 +810,32 @@ def cart_product_list_status(request, order_status_info):
             available_quantity.append(int(ele))
         except:
             unavailable_skus.append(ele)
-    bulk_order_obj = BulkOrder.objects.filter(cart_id=cart_id)
+
+    info_logger.info(f"[products/views.py:cart_product_list_status]--Unavailable-SKUs:{unavailable_skus}, "
+                     f"Available_Qty_of_Ordered_SKUs:{available_quantity}")
+
+    if cart_id:
+        bulk_order_obj = BulkOrder.objects.filter(cart_id=cart_id)
+    else:
+        info_logger.info(f"[products/views.py:cart_product_list_status] - [cart_id : {cart_id}]")
+
     csv_file_name = bulk_order_obj.values()[0]['cart_products_csv']
 
     try:
         s3 = boto3.resource('s3', aws_access_key_id=config('AWS_ACCESS_KEY_ID'),
                             aws_secret_access_key=config('AWS_SECRET_ACCESS_KEY'))
+        info_logger.info(f"[products/views.py:cart_product_list_status] - Successfully connected with s3")
     except ClientError as err:
-        error_logger.error(f"[products/views.py: cart_product_list_status] - {err}")
+        error_logger.error(f"[products/views.py:cart_product_list_status] Failed to connect with s3 - {err}")
         raise err
 
     bucket = s3.Bucket(config('AWS_STORAGE_BUCKET_NAME'))
     obj = bucket.Object(key=f'media/{csv_file_name}')
     try:
         res = obj.get()
+        info_logger.info(f"[products/views.py:cart_product_list_status] Successfully get the response from s3")
     except ClientError as err:
-        error_logger.error(f"[products/views.py: cart_product_list_status] - {err}")
+        error_logger.error(f"[products/views.py:cart_product_list_status] Failed to get the response from s3 - {err}")
         raise err
 
     lines = res['Body'].read()
@@ -853,8 +865,8 @@ def cart_product_list_status(request, order_status_info):
                 else:
                     writer.writerow(row + ["Success"])
                     index = index + 1
-    info_logger.info("[products/views.py: cart_product_list_status] - CSV for cart_product_list_status has been "
-                     "successfully downloaded")
+    info_logger.info(f"[products/views.py: cart_product_list_status] - CSV for cart_product_list_status has been "
+                     f"successfully downloaded with response [{response}]")
     return response
 
 

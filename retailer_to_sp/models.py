@@ -576,7 +576,7 @@ class BulkOrder(models.Model):
         return url
 
     def cart_product_list_status(self, order_status_info, available_quantity):
-        info_logger.info(f"[retailer_to_sp:BulkOrder]-cart_product_list_status function called")
+        info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]-cart_product_list_status function called")
         order_status_info.extend([available_quantity, self.cart_id])
         if self.order_type == 'DISCOUNTED':
             status = "Discounted Order"
@@ -593,7 +593,7 @@ class BulkOrder(models.Model):
         return url
 
     def clean(self, *args, **kwargs):
-        errors = []
+        unavailable_skus = []
         availableQuantity = []
         if self.cart_products_csv:
             product_ids = []
@@ -662,14 +662,16 @@ class BulkOrder(models.Model):
                     if product_available >= ordered_qty:
                         count += 1
                     if count == 0:
-                        errors.append(row[0])
-        if len(errors) > 0:
+                        unavailable_skus.append(row[0])
+        info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]--Unavailable-SKUs:{unavailable_skus}, "
+                         f"Available_Qty_of_Ordered_SKUs:{availableQuantity}")
+        if len(unavailable_skus) > 0:
             if self.cart_products_csv and self.order_type:
                 self.save()
                 raise ValidationError(mark_safe(f"Order doesn't placed for some SKUs because for those SKUs, Ordered "
                                                 f"qty is greater than Available inventory.Please click the "
                                                 f"below Link for seeing the status"
-                                                f"{self.cart_product_list_status(errors, availableQuantity)}"))
+                                                f"{self.cart_product_list_status(unavailable_skus, availableQuantity)}"))
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
 
@@ -706,6 +708,7 @@ def create_order_id(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=BulkOrder)
 def create_bulk_order(sender, instance=None, created=False, **kwargs):
+    info_logger.info("Post save for Bulk Order called")
     with transaction.atomic():
         if created:
             products_available = {}
@@ -754,6 +757,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                                                                       discounted_price=0)
                             else:
                                 continue
+            info_logger.info(f"Bulk_Order_Success[SKUsID : orderedPieces] :{products_available}")
             if len(products_available) > 0:
                 reserved_args = json.dumps({
                     'shop_id': instance.seller_shop.id,
@@ -762,6 +766,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                     'transaction_type': 'reserved'
                 })
                 OrderManagement.create_reserved_order(reserved_args)
+                info_logger.info(f"reserved_bulk_order:{reserved_args}")
                 order, _ = Order.objects.get_or_create(ordered_cart=instance.cart)
                 order.order_no = instance.cart.order_id
                 order.ordered_cart = instance.cart
@@ -783,7 +788,9 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 })
                 sku_id = [i.cart_product.id for i in instance.cart.rt_cart_list.all()]
                 OrderManagement.release_blocking(reserved_args, sku_id)
+                info_logger.info(f"ordered_bulk_order:{reserved_args}")
             else:
+                info_logger.info(f"No products available for which order can be placed.")
                 pass
 
 
