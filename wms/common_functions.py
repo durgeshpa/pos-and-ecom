@@ -791,8 +791,6 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
                                               quantity=order_product.warehouse_internal_inventory_reserve.quantity, in_stock=True,
                                               inventory_type=InventoryType.objects.filter(
                                                   inventory_type='normal').last())
-            info_logger.info(f"[wms/common_functions.py:common_release_for_inventory] Created a row in "
-                             f"WarehouseInventory table with inventory_state=ordered and inventory_type=normal")
         WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
                                                         sku=Product.objects.get(id=order_product.sku.id),
                                                         transaction_type=transaction_type,
