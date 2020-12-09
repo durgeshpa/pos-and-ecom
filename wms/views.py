@@ -662,7 +662,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                     InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
                                                          stock_movement_obj[0].id,
                                                          Product.objects.get(product_sku=data[2]),
-                                                         batch_id, in_quantity, 0)
+                                                         batch_id, in_quantity, in_quantity)
                     # Create data in Stock Correction change Model
                     InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
                                                                                 Product.objects.get(
