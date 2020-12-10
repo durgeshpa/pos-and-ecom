@@ -393,7 +393,7 @@ class PutAwayAdmin(admin.ModelAdmin):
         writer = csv.writer(f)
         # set the header name
         writer.writerow(["Put Away User", "Warehouse", "Put Away Type", "Put Away Type ID", "SKU", "Batch ID",
-                         "Quantity", "Put Away Quantity"])
+                         "Quantity", "Put Away Quantity", "Created At", "Modified At"])
 
         for query in queryset:
             # iteration for selected id from Admin Dashboard and get the instance
@@ -402,8 +402,8 @@ class PutAwayAdmin(admin.ModelAdmin):
             writer.writerow([putaway.putaway_user, putaway.warehouse_id,
                              putaway.putaway_type, putaway.putaway_type_id,
                              putaway.sku.product_name + '-' + putaway.sku.product_sku,
-                             putaway.batch_id,
-                             putaway.quantity, putaway.putaway_quantity])
+                             putaway.batch_id, putaway.quantity, putaway.putaway_quantity,
+                             putaway.created_at, putaway.modified_at])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
@@ -439,8 +439,9 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
         f = StringIO()
         writer = csv.writer(f)
         # set the header name
-        writer.writerow(["Warehouse", "SKU", "Batch ID ",
-                         "Put Away Type", "Put Away ID", "Bin ID", "Put Away Quantity", "Put Away Status"])
+        writer.writerow(["Warehouse", "SKU", "Batch ID ", "Put Away Type",
+                         "Put Away ID", "Bin ID", "Put Away Quantity", "Put Away Status",
+                         "Created At", "Modified At"])
 
         for query in queryset:
             # iteration for selected id from Admin Dashboard and get the instance
@@ -452,7 +453,9 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
                              putaway_bin_inventory.putaway_id,
                              putaway_bin_inventory.bin.bin.bin_id,
                              putaway_bin_inventory.putaway_quantity,
-                             putaway_bin_inventory.putaway_status])
+                             putaway_bin_inventory.putaway_status,
+                             putaway_bin_inventory.created_at,
+                             putaway_bin_inventory.modified_at])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
