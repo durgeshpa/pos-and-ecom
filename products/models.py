@@ -475,7 +475,7 @@ class ProductPrice(models.Model):
     APPROVAL_PENDING = 1
     DEACTIVATED = 0
     APPROVAL_CHOICES = (
-        (APPROVED, 'Approved'),
+        (APPROVED, 'Active'),
         (APPROVAL_PENDING, 'Approval Pending'),
         (DEACTIVATED, 'Deactivated'),
     )
@@ -574,6 +574,7 @@ class ProductPrice(models.Model):
                 )
             product_price.update(approval_status=ProductPrice.DEACTIVATED)
             self.approval_status = ProductPrice.APPROVED
+            self.end_date = self.start_date + datetime.timedelta(days=365)
         super().save(*args, **kwargs)
 
     @property

@@ -329,7 +329,7 @@ class ProductPriceNewForm(forms.ModelForm):
         model = ProductPrice
         fields = ('product', 'mrp', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
-                  'start_date', 'end_date', 'approval_status')
+                  'start_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -675,7 +675,7 @@ class ProductPriceAddPerm(forms.ModelForm):
         model = ProductPrice
         fields = ('product', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
-                  'start_date', 'end_date', 'approval_status')
+                  'start_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -683,7 +683,8 @@ class ProductPriceAddPerm(forms.ModelForm):
         #     self.fields['start_date'].required = True
         #     self.fields['end_date'].required = True
         if 'approval_status' in self.fields:
-            self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
+            self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+            # self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
             self.fields['approval_status'].widget = forms.HiddenInput()
 
 
@@ -701,13 +702,13 @@ class ProductPriceChangePerm(forms.ModelForm):
         model = ProductPrice
         fields = ('product', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
-                  'start_date', 'end_date', 'approval_status')
+                  'start_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         #self.fields['start_date'].required = True
         #self.fields['end_date'].required = True
-        # self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
+        self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
 
 
 class ProductCategoryMappingForm(forms.Form):

@@ -915,7 +915,7 @@ class ExportProductPrice:
             row = [getattr(obj, field) for field in list_display]
             row[2] = Product.objects.get(id=obj.product.id).product_mrp
             if row[-2] == 2:
-                row[-2] = 'Approved'
+                row[-2] = 'Active'
             elif row[-2] == 1:
                 row[-2] = 'Approval Pending'
             else:
@@ -928,7 +928,7 @@ class ExportProductPrice:
 class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
-    actions = ['export_as_csv_productprice', 'approve_product_price', 'disapprove_product_price']
+    actions = ['export_as_csv_productprice']
     list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
                            'pincode')
     list_display = [
@@ -949,7 +949,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         'approval_status']
     fields = ('product', 'mrp', 'selling_price', 'seller_shop',
               'buyer_shop', 'city', 'pincode',
-              'start_date', 'end_date', 'approval_status')
+              'start_date', 'approval_status')
 
     change_form_template = 'admin/products/product_price_change_form.html'
 
@@ -965,7 +965,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
                 return self.readonly_fields + (
                     'product', 'mrp', 'selling_price', 'seller_shop',
                     'buyer_shop', 'city', 'pincode',
-                    'start_date', 'end_date', 'approval_status')
+                    'start_date', 'approval_status')
         return self.readonly_fields
 
     def product_sku(self, obj):
@@ -1021,8 +1021,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             return qs
         return qs.filter(
             Q(seller_shop__related_users=request.user) |
-            Q(seller_shop__shop_owner=request.user),
-            approval_status=ProductPrice.APPROVAL_PENDING
+            Q(seller_shop__shop_owner=request.user)
         ).distinct()
 
 
