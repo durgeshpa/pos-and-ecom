@@ -10,7 +10,8 @@ from django.http import HttpResponse
 from rangefilter.filter import DateRangeFilter
 
 from audit.forms import AuditCreationForm, AuditTicketForm
-from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
+from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES, \
+    AUDIT_DETAIL_STATE_CHOICES, AUDIT_LEVEL_CHOICES
 from retailer_backend.admin import InputFilter
 
 
@@ -159,8 +160,6 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
                (obj.qty_damaged_actual + obj.qty_normal_actual + obj.qty_expired_actual)
 
     def download_tickets(self, request, queryset):
-        audit_type = ['Bin Wise', 'Product Wise']
-        audit_state = ['', 'Created', 'Initiated', 'Ended', 'Pass', 'Fail', 'Ticket Raised', 'Ticket Closed']
         f = StringIO()
         writer = csv.writer(f)
         writer.writerow(['audit_id', 'bin', 'sku', 'batch_id', 'audit_task_number',
@@ -173,11 +172,11 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
         for query in queryset:
             obj = AuditTicketManual.objects.get(id=query.id)
             writer.writerow([obj.audit_run.audit_id, obj.bin, obj.sku, obj.batch_id, obj.audit_run.audit.audit_no,
-                             obj.warehouse, audit_type[obj.audit_run.audit.audit_level],
-                             audit_state[obj.audit_run.audit.state], obj.audit_run.audit.auditor, obj.created_at,
-                             obj.qty_normal_system, obj.qty_normal_actual, self.normal_var(obj), obj.qty_damaged_system,
-                             obj.qty_damaged_actual, self.damaged_var(obj), obj.qty_expired_system,
-                             obj.qty_expired_actual, self.expired_var(obj),
+                             obj.warehouse, AUDIT_LEVEL_CHOICES[obj.audit_run.audit.audit_level],
+                             AUDIT_DETAIL_STATE_CHOICES[obj.audit_run.audit.state], obj.audit_run.audit.auditor,
+                             obj.created_at, obj.qty_normal_system, obj.qty_normal_actual, self.normal_var(obj),
+                             obj.qty_damaged_system, obj.qty_damaged_actual, self.damaged_var(obj),
+                             obj.qty_expired_system, obj.qty_expired_actual, self.expired_var(obj),
                              self.total_var(obj), AUDIT_TICKET_STATUS_CHOICES[obj.status]])
 
         f.seek(0)
