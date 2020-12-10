@@ -11,7 +11,7 @@ def run():
     reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
     first_row = next(reader)
     set_inactive_status(reader)
-    set_subbrand_and_brand(reader)
+    set_sub_brand_and_brand(reader)
     set_sub_category_and_category(reader)
     set_parent_data(reader)
     set_child_parent(reader)
@@ -20,6 +20,7 @@ def run():
 
 def set_inactive_status(reader):
     """
+    This method is used for to set inactive status for Product
 
     :param reader: CSV reader
     :return:
@@ -37,7 +38,13 @@ def set_inactive_status(reader):
     print("Script Complete to set the Inactive status from csv file")
 
 
-def set_subbrand_and_brand(reader):
+def set_sub_brand_and_brand(reader):
+    """
+    This method is used for match sub_brand to brand
+
+    :param reader: CSV reader
+    :return:
+    """
     print("Script Start to set the Sub-brand to Brand mapping from csv file")
     count = 0
     for row_id, row in enumerate(reader):
@@ -53,6 +60,12 @@ def set_subbrand_and_brand(reader):
 
 
 def set_sub_category_and_category(reader):
+    """
+    This method is used for match sub_category to category
+
+    :param reader: CSV reader
+    :return:
+    """
     print("Script Start to set the Sub-Category to Category mapping from csv file")
     count = 0
     for row_id, row in enumerate(reader):
@@ -68,6 +81,12 @@ def set_sub_category_and_category(reader):
 
 
 def set_parent_data(reader):
+    """
+    This method is used to set parent sku data from csv file
+
+    :param reader: CSV reader
+    :return:
+    """
     print("Script Start to set the data for Parent SKU")
     count = 0
     for row_id, row in enumerate(reader):
@@ -96,6 +115,12 @@ def set_parent_data(reader):
 
 
 def set_child_parent(reader):
+    """
+    This method is used to set child sku to parent sku
+
+    :param reader: CSV reader
+    :return:
+    """
     print("Script Start to set the Child to Parent mapping from csv file")
     count = 0
     for row_id, row in enumerate(reader):
@@ -114,6 +139,12 @@ def set_child_parent(reader):
 
 
 def set_child_data(reader):
+    """
+    This method is used to set child sku data from csv
+
+    :param reader: CSV reader
+    :return:
+    """
     print("Script Start to set the Child data")
     count = 0
     for row_id, row in enumerate(reader):
