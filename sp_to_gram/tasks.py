@@ -152,6 +152,7 @@ def get_warehouse_stock(shop_id=None,product=None):
 			"sub_total": sub_total,
 			"available": available_qty
 		}
+		print(product_details)
 		yield(product_details)
 
 	# for p in products_price:
