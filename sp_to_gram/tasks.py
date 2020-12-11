@@ -252,18 +252,20 @@ def upload_shop_stock(shop=None,product=None):
 	for product in all_products:
 		print(product)
 		visibility_changes = get_visibility_changes(shop, product['id'])
+		print(visibility_changes)
 		if visibility_changes:
 			for prod_id, visibility in visibility_changes.items():
 				if prod_id == product['id']:
 					product['visible'] = visibility
 				else:
 					try:
-						es.index(index=create_es_index(es_index), doc_type='product', id=prod_id,
+						es.update(index=create_es_index(es_index), doc_type='product', id=prod_id,
 								  body={"doc": {"visible": visibility}})
 					except NotFoundError as e:
 						info_logger.info('Exception | upload_shop_stock | product id {}'.format(prod_id))
 						info_logger.error(e)
 		es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
+		print(product['id'])
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
