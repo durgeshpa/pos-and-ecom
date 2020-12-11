@@ -130,7 +130,7 @@ def get_warehouse_stock(shop_id=None,product=None):
 		category = [str(c.category) for c in product.product_pro_category.filter(status=True)]
 		product_categories = [str(c.category) for c in
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
-		print(product_categoriess)
+		print(product_categories)
 		product_details = {
 			"name": product.product_name,
 			"name_lower": product.product_name.lower(),
