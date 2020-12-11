@@ -59,6 +59,7 @@ def get_warehouse_stock(shop_id=None,product=None):
 		status = True if (product.status in ['active', True]) else False
 		mrp = product.product_mrp
 		product_price = product_price_dict.get(product.id)
+		print(product_price)
 		margin = 0
 		ptr = 0
 		if product_price:
@@ -85,6 +86,7 @@ def get_warehouse_stock(shop_id=None,product=None):
 				status = False
 			else:
 				available_qty = int(int(product_dict[product.id]) / int(pack_size))
+		print(available_qty)
 		try:
 			for p_o in product_opt:
 				weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
@@ -124,9 +126,11 @@ def get_warehouse_stock(shop_id=None,product=None):
 					}
 					for p_i in product.child_product_pro_image.all()
 				]
+		print(product_images)
 		category = [str(c.category) for c in product.product_pro_category.filter(status=True)]
 		product_categories = [str(c.category) for c in
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
+		print(product_categoriess)
 		product_details = {
 			"name": product.product_name,
 			"name_lower": product.product_name.lower(),
