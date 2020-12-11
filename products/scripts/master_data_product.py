@@ -71,7 +71,10 @@ def set_sub_category_and_category():
     for row_id, row in enumerate(reader):
         count += 1
         try:
-            Category.objects.filter(id=row[16]).update(category_parent=row[14])
+            if row[16] == row[14]:
+                continue
+            else:
+                Category.objects.filter(id=row[16]).update(category_parent=row[14])
         except:
             sub_category.append(str(row_id))
     print("Total row executed :" + str(count))
