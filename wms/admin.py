@@ -556,7 +556,7 @@ class BinInventoryAdmin(admin.ModelAdmin):
 
             temp_data = {"qty": 1, "data": {"SKU": obj.sku.product_name,
                                             "Batch":obj.batch_id,
-                                            "MRP": product_mrp.product_mrp if product_mrp else ''}}
+                                            "MRP": product_mrp.product_mrp if product_mrp.product_mrp else ''}}
             product_id = str(obj.sku.id).zfill(5)
             barcode_id = str("2" + product_id + str(obj.batch_id[-6:]))
             bin_id_list[barcode_id] = temp_data
