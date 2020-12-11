@@ -461,6 +461,16 @@ class ProductForm(forms.ModelForm):
         fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status',
                   'product_special_cess',)
 
+    def clean(self):
+        if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active':
+            error = True
+            if self.instance.id and ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
+                                                                product_id=self.instance.id).exists():
+                error = False
+            if error:
+                raise forms.ValidationError("Product cannot be made active until an active Product Price exists")
+        return self.cleaned_data
+
 
 class UploadChildProductAdminForm(forms.Form):
     """

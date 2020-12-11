@@ -596,8 +596,14 @@ deactivate_selected_child_products.short_description = "Deactivate Selected Prod
 def approve_selected_child_products(modeladmin, request, queryset):
     fail_skus = []
     success_skus = []
+    price_fail = ''
+    message = "All selected Child SKUs were successfully approved"
     for record in queryset:
         parent_sku = ParentProduct.objects.filter(parent_id=record.parent_product.parent_id).last()
+        if not ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED, product_id=record.id).exists():
+            price_fail += ' ' + str(record.product_sku) + ','
+            continue
+
         if parent_sku.status:
             record.status = 'active'
             record.save()
@@ -608,14 +614,16 @@ def approve_selected_child_products(modeladmin, request, queryset):
             record.status = 'active'
             record.save()
             fail_skus.append(record.product_sku)
+
     if fail_skus:
-        modeladmin.message_user(
-            request,
-            "All selected Child SKUs were successfully approved along with their Parent SKU activation where required",
-            level=messages.SUCCESS
-        )
-    else:
-        modeladmin.message_user(request, "All selected Child SKUs were successfully approved", level=messages.SUCCESS)
+        message = "All selected Child SKUs were successfully approved along with their Parent SKU activation where required"
+
+    modeladmin.message_user(request, message, level=messages.SUCCESS)
+
+    if price_fail != '':
+        price_fail = price_fail.strip(',')
+        modeladmin.message_user(request, "Products" + price_fail + " were not be approved due to non existent active Product Price",
+                                level=messages.ERROR)
 approve_selected_child_products.short_description = "Approve Selected Products"
 
 
