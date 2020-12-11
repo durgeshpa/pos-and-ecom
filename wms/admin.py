@@ -422,10 +422,10 @@ class PutAwayAdmin(admin.ModelAdmin):
 class PutawayBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Bin Inventory Admin has been called.")
     form = PutAwayBinInventoryForm
-    list_display = ('warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_id', 'bin_id', 'putaway_quantity',
-                    'putaway_status', 'created_at', 'modified_at')
+    list_display = ('warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_id', 'bin_id', 'inventory_type',
+                    'putaway_quantity', 'putaway_status', 'created_at', 'modified_at')
     actions = ['download_bulk_put_away_bin_inventory_csv', 'bulk_approval_for_putaway']
-    readonly_fields = ['warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway','putaway_quantity']
+    readonly_fields = ['warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway', 'inventory_type', 'putaway_quantity']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin__bin_id')
     list_filter = [
         Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, ('putaway_type', DropdownFilter), 'putaway_status',
@@ -487,6 +487,9 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
 
     def putaway_id(self, obj):
         return obj.putaway_id
+
+    def inventory_type(self, obj):
+        return obj.putaway.inventory_type
 
     def bin_id(self, obj):
         try:
@@ -732,8 +735,8 @@ class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
 
 class StockCorrectionChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id',
-                    'correction_type', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
-    readonly_fields = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id', 'correction_type', 'quantity',
+                    'correction_type', 'inventory_type', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
+    readonly_fields = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id', 'correction_type', 'inventory_type', 'quantity',
                        'created_at', 'modified_at', 'inventory_csv')
     list_per_page = 50
 

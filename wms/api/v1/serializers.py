@@ -36,7 +36,8 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
     warehouse = ShopSerializer()
     sku = ProductSerializer()
     product_sku = serializers.SerializerMethodField('product_sku_dt')
-    is_success= serializers.SerializerMethodField('is_success_dt')
+    is_success = serializers.SerializerMethodField('is_success_dt')
+    inventory_type = serializers.SerializerMethodField('inventory_type_dt')
     quantity = serializers.SerializerMethodField('grned_quantity_dt')
     putaway_quantity = serializers.SerializerMethodField('putaway_quantity_dt')
     product_name = serializers.SerializerMethodField('product_name_dt')
@@ -44,13 +45,17 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
 
     class Meta:
         model = Putaway
-        fields = ('is_success','id','warehouse', 'putaway_type', 'putaway_type_id', 'sku','product_sku', 'batch_id', 'quantity', 'putaway_quantity', 'created_at', 'modified_at', 'product_name', 'max_putaway_qty')
+        fields = ('is_success','id','warehouse', 'putaway_type', 'putaway_type_id', 'sku','product_sku', 'batch_id',
+                  'inventory_type', 'quantity', 'putaway_quantity', 'created_at', 'modified_at', 'product_name', 'max_putaway_qty')
 
     def product_sku_dt(self, obj):
         return obj.sku.product_sku
 
     def is_success_dt(self,obj):
         return True
+
+    def inventory_type_dt(self, obj):
+        return obj.inventory_type.inventory_type
 
     def grned_quantity_dt(self, obj):
         return Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('quantity'))['total']

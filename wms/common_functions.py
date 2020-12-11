@@ -91,9 +91,7 @@ class PutawayCommonFunctions(object):
 class InCommonFunctions(object):
 
     @classmethod
-    def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type=None):
-        if inventory_type is None:
-            inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+    def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type):
         if warehouse.shop_type.shop_type == 'sp':
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, inventory_type=inventory_type,
@@ -1297,13 +1295,13 @@ def common_on_return_and_partial(shipment, flag):
                         bin_id_for_input = shipment_product_batch_bin.bin
                         break
                 batch_id = shipment_product_batch.batch_id
+                warehouse = shipment_product_batch.rt_pickup_batch_mapping.last().warehouse
                 putaway_user = shipment.last_modified_by
                 if flag == "return":
                     putaway_qty = shipment_product_batch.returned_qty + shipment_product_batch.returned_damage_qty
                     if putaway_qty == 0:
                         continue
                     else:
-                        warehouse = shipment_product_batch.rt_pickup_batch_mapping.last().warehouse
                         product = shipment_product_batch.ordered_product_mapping.product
                         in_type_id = shipment.id
                         putaway_type_id = shipment.invoice_no
@@ -1354,8 +1352,14 @@ def common_on_return_and_partial(shipment, flag):
                         #                                              putaway=pu, bin=bin_id_for_input,
                         #                                              putaway_status=False,
                         #                                              defaults={'putaway_quantity': partial_ship_qty})
-                        create_putaway(warehouse, shipment_product_batch.pickup.sku, batch_id, bin_id_for_input,
-                                       inv_type['N'], 'PAR_SHIPMENT', shipment.order.order_no, putaway_user, partial_ship_qty)
+                        expired_qty = shipment_product_batch.expired_qty
+                        if expired_qty > 0:
+                            create_putaway(warehouse, shipment_product_batch.pickup.sku, batch_id, bin_id_for_input,
+                                           inv_type['E'], 'PAR_SHIPMENT', shipment.order.order_no, putaway_user, expired_qty)
+                        damaged_qty = shipment_product_batch.damaged_qty
+                        if damaged_qty > 0:
+                            create_putaway(warehouse, shipment_product_batch.pickup.sku, batch_id, bin_id_for_input,
+                                           inv_type['D'], 'PAR_SHIPMENT', shipment.order.order_no, putaway_user, damaged_qty)
                 else:
                     pass
 
@@ -1383,7 +1387,7 @@ def create_putaway(warehouse, sku, batch_id, bin, inventory_type, putaway_type, 
     PutawayBinInventory.objects.update_or_create(warehouse=warehouse,
                                                  sku=sku,
                                                  batch_id=batch_id,
-                                                 putaway_type='RETURNED',
+                                                 putaway_type=putaway_type,
                                                  putaway=pu, bin=bin,
                                                  putaway_status=False,
                                                  defaults={'putaway_quantity': quantity})
@@ -1627,7 +1631,7 @@ def putaway_repackaging(request, obj, initial_stage, bin_id):
         obj.save()
 
 
-def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id):
+def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id, inventory_type):
     if obj.putaway.putaway_quantity == 0:
         obj.putaway.putaway_quantity = obj.putaway_quantity
     else:
@@ -1655,93 +1659,101 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
             if obj.sku_id == shipped_obj.bin.sku.product_sku:
                 for pick_bin in shipped_obj.rt_pickup_batch_mapping.all():
                     if pick_bin.bin.bin.bin_id == obj.bin.bin.bin_id:
-                        expired_qty = shipped_obj.expired_qty
-                        damaged_qty = shipped_obj.damaged_qty
-                        if expired_qty > 0:
-                            bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
-                                                                      bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
-                                                                      batch_id=batch_id,
-                                                                      inventory_type=type_expired,
-                                                                      in_stock=True).last()
-                            if bin_inv_obj:
-                                bin_quantity = bin_inv_obj.quantity
-                                final_quantity = bin_quantity + expired_qty
-                                bin_inv_obj.quantity = final_quantity
-                                bin_inv_obj.save()
-                            else:
+                        if inventory_type == type_expired:
+                            expired_qty = shipped_obj.expired_qty
+                            if expired_qty > 0:
+                                bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
+                                                                          bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
+                                                                          batch_id=batch_id,
+                                                                          inventory_type=type_expired,
+                                                                          in_stock=True).last()
+                                if bin_inv_obj:
+                                    bin_quantity = bin_inv_obj.quantity
+                                    final_quantity = bin_quantity + expired_qty
+                                    bin_inv_obj.quantity = final_quantity
+                                    bin_inv_obj.save()
+                                else:
 
-                                BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku,
-                                                                   batch_id=batch_id,
-                                                                   inventory_type=type_expired, quantity=expired_qty,
-                                                                   in_stock=True)
-                        if damaged_qty > 0:
-                            bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
-                                                                      bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
-                                                                      batch_id=batch_id,
-                                                                      inventory_type=type_damaged,
-                                                                      in_stock=True).last()
-                            if bin_inv_obj:
-                                bin_quantity = bin_inv_obj.quantity
-                                final_quantity = bin_quantity + damaged_qty
-                                bin_inv_obj.quantity = final_quantity
-                                bin_inv_obj.save()
-                            else:
+                                    BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku,
+                                                                       batch_id=batch_id,
+                                                                       inventory_type=type_expired, quantity=expired_qty,
+                                                                       in_stock=True)
+                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
+                                                                                             expired_inventory_type[0],
+                                                                                             available_inventory_state[
+                                                                                                 0],
+                                                                                             expired_qty, True)
+                                WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse,
+                                                                                                   obj.sku,
+                                                                                                   transaction_type,
+                                                                                                   transaction_id,
+                                                                                                   initial_type[0],
+                                                                                                   initial_stage[0],
+                                                                                                   type_expired,
+                                                                                                   final_stage[0],
+                                                                                                   expired_qty)
+                                BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
+                                                                          batch_id=batch_id,
+                                                                          initial_bin=Bin.objects.get(
+                                                                              bin_id=initial_bin_id,
+                                                                              warehouse=obj.warehouse),
+                                                                          final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                                                    warehouse=obj.warehouse),
+                                                                          initial_inventory_type=initial_type[0],
+                                                                          final_inventory_type=type_expired,
+                                                                          transaction_type=transaction_type,
+                                                                          transaction_id=transaction_id,
+                                                                          quantity=expired_qty)
+                                deduct_quantity = expired_qty
+                        elif inventory_type == type_damaged:
+                            damaged_qty = shipped_obj.damaged_qty
+                            if damaged_qty > 0:
+                                bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
+                                                                          bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
+                                                                          batch_id=batch_id,
+                                                                          inventory_type=type_damaged,
+                                                                          in_stock=True).last()
+                                if bin_inv_obj:
+                                    bin_quantity = bin_inv_obj.quantity
+                                    final_quantity = bin_quantity + damaged_qty
+                                    bin_inv_obj.quantity = final_quantity
+                                    bin_inv_obj.save()
+                                else:
 
-                                BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku,
-                                                                   batch_id=batch_id,
-                                                                   inventory_type=type_damaged, quantity=damaged_qty,
-                                                                   in_stock=True)
-                        deduct_quantity = expired_qty + damaged_qty
+                                    BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku,
+                                                                       batch_id=batch_id,
+                                                                       inventory_type=type_damaged, quantity=damaged_qty,
+                                                                       in_stock=True)
+                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
+                                                                                             damaged_inventory_type[0],
+                                                                                             available_inventory_state[
+                                                                                                 0],
+                                                                                             damaged_qty, True)
+                                WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse,
+                                                                                                   obj.sku,
+                                                                                                   transaction_type,
+                                                                                                   transaction_id,
+                                                                                                   initial_type[0],
+                                                                                                   initial_stage[0],
+                                                                                                   type_damaged,
+                                                                                                   final_stage[0],
+                                                                                                   damaged_qty)
+                                BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
+                                                                          batch_id=batch_id,
+                                                                          initial_bin=Bin.objects.get(
+                                                                              bin_id=initial_bin_id,
+                                                                              warehouse=obj.warehouse),
+                                                                          final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                                                    warehouse=obj.warehouse),
+                                                                          initial_inventory_type=initial_type[0],
+                                                                          final_inventory_type=type_damaged,
+                                                                          transaction_type=transaction_type,
+                                                                          transaction_id=transaction_id,
+                                                                          quantity=damaged_qty)
+                                deduct_quantity = damaged_qty
                         ordered_quantity = int(-deduct_quantity)
                         obj.putaway_status = True
-                        if expired_qty > 0:
-                            CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                                         expired_inventory_type[0],
-                                                                                         available_inventory_state[0],
-                                                                                         expired_qty, True)
-                            WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse, obj.sku,
-                                                                                               transaction_type,
-                                                                                               transaction_id,
-                                                                                               initial_type[0],
-                                                                                               initial_stage[0],
-                                                                                               type_expired,
-                                                                                               final_stage[0],
-                                                                                               expired_qty)
-                            BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
-                                                                      batch_id=batch_id,
-                                                                      initial_bin=Bin.objects.get(bin_id=initial_bin_id,
-                                                                                                  warehouse=obj.warehouse),
-                                                                      final_bin=Bin.objects.get(bin_id=final_bin_id,
-                                                                                                warehouse=obj.warehouse),
-                                                                      initial_inventory_type=initial_type[0],
-                                                                      final_inventory_type=type_expired,
-                                                                      transaction_type=transaction_type,
-                                                                      transaction_id=transaction_id,
-                                                                      quantity=expired_qty)
-                        if damaged_qty > 0:
-                            CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                                         damaged_inventory_type[0],
-                                                                                         available_inventory_state[0],
-                                                                                         damaged_qty, True)
-                            WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse, obj.sku,
-                                                                                               transaction_type,
-                                                                                               transaction_id,
-                                                                                               initial_type[0],
-                                                                                               initial_stage[0],
-                                                                                               type_damaged,
-                                                                                               final_stage[0],
-                                                                                               damaged_qty)
-                            BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
-                                                                      batch_id=batch_id,
-                                                                      initial_bin=Bin.objects.get(bin_id=initial_bin_id,
-                                                                                                  warehouse=obj.warehouse),
-                                                                      final_bin=Bin.objects.get(bin_id=final_bin_id,
-                                                                                                warehouse=obj.warehouse),
-                                                                      initial_inventory_type=initial_type[0],
-                                                                      final_inventory_type=type_damaged,
-                                                                      transaction_type=transaction_type,
-                                                                      transaction_id=transaction_id,
-                                                                      quantity=damaged_qty)
+
                         CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
                                                                                      normal_inventory_type[0],
                                                                                      ordered_inventory_state[0],
@@ -1754,7 +1766,7 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
                 pass
 
 
-def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id):
+def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id, inventory_type):
     if obj.putaway.putaway_quantity == 0:
         obj.putaway.putaway_quantity = obj.putaway_quantity
     else:
@@ -1782,93 +1794,102 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
                     if pick_bin.bin.bin.bin_id == obj.bin.bin.bin_id:
                         normal_qty = shipped_obj.returned_qty
                         returned_damaged_qty = shipped_obj.returned_damage_qty
-                        if normal_qty > 0:
-                            bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
-                                                                      bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
-                                                                      batch_id=batch_id,
-                                                                      inventory_type=initial_type[0],
-                                                                      in_stock=True).last()
-                            if bin_inv_obj:
-                                bin_quantity = bin_inv_obj.quantity
-                                final_quantity = bin_quantity + normal_qty
-                                bin_inv_obj.quantity = final_quantity
-                                bin_inv_obj.save()
-                            else:
+                        if inventory_type == initial_type[0]:
+                            if normal_qty > 0:
+                                bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
+                                                                          bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
+                                                                          batch_id=batch_id,
+                                                                          inventory_type=initial_type[0],
+                                                                          in_stock=True).last()
+                                if bin_inv_obj:
+                                    bin_quantity = bin_inv_obj.quantity
+                                    final_quantity = bin_quantity + normal_qty
+                                    bin_inv_obj.quantity = final_quantity
+                                    bin_inv_obj.save()
+                                else:
 
-                                BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku,
-                                                                   batch_id=batch_id,
-                                                                   inventory_type=initial_type[0], quantity=normal_qty,
-                                                                   in_stock=True)
-                        if returned_damaged_qty > 0:
-                            bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
-                                                                      bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
-                                                                      batch_id=batch_id,
-                                                                      inventory_type=type_damaged,
-                                                                      in_stock=True).last()
-                            if bin_inv_obj:
-                                bin_quantity = bin_inv_obj.quantity
-                                final_quantity = bin_quantity + returned_damaged_qty
-                                bin_inv_obj.quantity = final_quantity
-                                bin_inv_obj.save()
-                            else:
+                                    BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku,
+                                                                       batch_id=batch_id,
+                                                                       inventory_type=initial_type[0], quantity=normal_qty,
+                                                                       in_stock=True)
+                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
+                                                                                             normal_inventory_type[0],
+                                                                                             available_inventory_state[
+                                                                                                 0],
+                                                                                             normal_qty, True)
+                                WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse,
+                                                                                                   obj.sku,
+                                                                                                   transaction_type,
+                                                                                                   transaction_id,
+                                                                                                   initial_type[0],
+                                                                                                   initial_stage[0],
+                                                                                                   initial_type[0],
+                                                                                                   final_stage[0],
+                                                                                                   normal_qty)
+                                BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
+                                                                          batch_id=batch_id,
+                                                                          initial_bin=Bin.objects.get(
+                                                                              bin_id=initial_bin_id,
+                                                                              warehouse=obj.warehouse),
+                                                                          final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                                                    warehouse=obj.warehouse),
+                                                                          initial_inventory_type=initial_type[0],
+                                                                          final_inventory_type=initial_type[0],
+                                                                          transaction_type=transaction_type,
+                                                                          transaction_id=transaction_id,
+                                                                          quantity=normal_qty)
+                            deduct_quantity = normal_qty
+                        elif inventory_type == type_damaged:
+                            if returned_damaged_qty > 0:
+                                bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
+                                                                          bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
+                                                                          batch_id=batch_id,
+                                                                          inventory_type=type_damaged,
+                                                                          in_stock=True).last()
+                                if bin_inv_obj:
+                                    bin_quantity = bin_inv_obj.quantity
+                                    final_quantity = bin_quantity + returned_damaged_qty
+                                    bin_inv_obj.quantity = final_quantity
+                                    bin_inv_obj.save()
+                                else:
 
-                                BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku,
-                                                                   batch_id=batch_id,
-                                                                   inventory_type=type_damaged,
-                                                                   quantity=returned_damaged_qty,
-                                                                   in_stock=True)
+                                    BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku,
+                                                                       batch_id=batch_id,
+                                                                       inventory_type=type_damaged,
+                                                                       quantity=returned_damaged_qty,
+                                                                       in_stock=True)
 
-                        deduct_quantity = normal_qty + returned_damaged_qty
+                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
+                                                                                             damaged_inventory_type[0],
+                                                                                             available_inventory_state[
+                                                                                                 0],
+                                                                                             returned_damaged_qty, True)
+                                WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse,
+                                                                                                   obj.sku,
+                                                                                                   transaction_type,
+                                                                                                   transaction_id,
+                                                                                                   initial_type[0],
+                                                                                                   initial_stage[0],
+                                                                                                   type_damaged,
+                                                                                                   final_stage[0],
+                                                                                                   returned_damaged_qty)
+                                BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
+                                                                          batch_id=batch_id,
+                                                                          initial_bin=Bin.objects.get(
+                                                                              bin_id=initial_bin_id,
+                                                                              warehouse=obj.warehouse),
+                                                                          final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                                                    warehouse=obj.warehouse),
+                                                                          initial_inventory_type=initial_type[0],
+                                                                          final_inventory_type=type_damaged,
+                                                                          transaction_type=transaction_type,
+                                                                          transaction_id=transaction_id,
+                                                                          quantity=returned_damaged_qty)
+
+                            deduct_quantity = returned_damaged_qty
                         ordered_quantity = int(-deduct_quantity)
                         obj.putaway_status = True
-                        if normal_qty > 0:
-                            CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                                         normal_inventory_type[0],
-                                                                                         available_inventory_state[0],
-                                                                                         normal_qty, True)
-                            WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse, obj.sku,
-                                                                                               transaction_type,
-                                                                                               transaction_id,
-                                                                                               initial_type[0],
-                                                                                               initial_stage[0],
-                                                                                               initial_type[0],
-                                                                                               final_stage[0],
-                                                                                               normal_qty)
-                            BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
-                                                                      batch_id=batch_id,
-                                                                      initial_bin=Bin.objects.get(bin_id=initial_bin_id,
-                                                                                                  warehouse=obj.warehouse),
-                                                                      final_bin=Bin.objects.get(bin_id=final_bin_id,
-                                                                                                warehouse=obj.warehouse),
-                                                                      initial_inventory_type=initial_type[0],
-                                                                      final_inventory_type=initial_type[0],
-                                                                      transaction_type=transaction_type,
-                                                                      transaction_id=transaction_id,
-                                                                      quantity=normal_qty)
-                        if returned_damaged_qty > 0:
-                            CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                                         damaged_inventory_type[0],
-                                                                                         available_inventory_state[0],
-                                                                                         returned_damaged_qty, True)
-                            WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse, obj.sku,
-                                                                                               transaction_type,
-                                                                                               transaction_id,
-                                                                                               initial_type[0],
-                                                                                               initial_stage[0],
-                                                                                               type_damaged,
-                                                                                               final_stage[0],
-                                                                                               returned_damaged_qty)
-                            BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
-                                                                      batch_id=batch_id,
-                                                                      initial_bin=Bin.objects.get(bin_id=initial_bin_id,
-                                                                                                  warehouse=obj.warehouse),
-                                                                      final_bin=Bin.objects.get(bin_id=final_bin_id,
-                                                                                                warehouse=obj.warehouse),
-                                                                      initial_inventory_type=initial_type[0],
-                                                                      final_inventory_type=type_damaged,
-                                                                      transaction_type=transaction_type,
-                                                                      transaction_id=transaction_id,
-                                                                      quantity=returned_damaged_qty)
+
                         CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
                                                                                      normal_inventory_type[0],
                                                                                      ordered_inventory_state[0],
