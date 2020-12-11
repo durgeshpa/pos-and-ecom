@@ -47,7 +47,10 @@ def set_sub_brand_and_brand():
     for row_id, row in enumerate(reader):
         count += 1
         try:
-            Brand.objects.filter(id=row[7]).update(brand_parent=row[5])
+            if row[7] == row[5]:
+                continue
+            else:
+                Brand.objects.filter(id=row[7]).update(brand_parent=row[5])
         except:
             sub_brand.append(str(row_id))
     print("Total row executed :" + str(count))
