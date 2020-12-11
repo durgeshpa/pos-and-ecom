@@ -494,6 +494,7 @@ class ParentProductAdmin(admin.ModelAdmin):
         ParentProductCategoryAdmin, ParentProductImageAdmin, ParentProductTaxMappingAdmin
     ]
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
+    list_per_page = 50
     autocomplete_fields = ['product_hsn', 'parent_brand']
 
     def product_gst(self, obj):
@@ -515,10 +516,13 @@ class ParentProductAdmin(admin.ModelAdmin):
     product_surcharge.short_description = 'Product Surcharge'
 
     def product_category(self, obj):
-        if obj.parent_product_pro_category.exists():
-            cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
-            return "\n".join(cats)
-        return ''
+        try:
+            if obj.parent_product_pro_category.exists():
+                cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
     product_category.short_description = 'Product Category'
 
     def product_image(self, obj):
@@ -821,6 +825,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     search_fields = ['product_name', 'id']
     # list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
     list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status']
+    list_per_page = 50
     # prepopulated_fields = {'product_slug': ('product_name',)}
     # inlines = [
     #     ProductCategoryAdmin, ProductOptionAdmin,
@@ -867,10 +872,13 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     product_gst.short_description = 'Product GST'
 
     def product_category(self, obj):
-        if obj.parent_product.parent_product_pro_category.exists():
-            cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
-            return "\n".join(cats)
-        return ''
+        try:
+            if obj.parent_product.parent_product_pro_category.exists():
+                cats = [str(c.category) for c in obj.parent_product.parent_product_pro_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
     product_category.short_description = 'Product Category'
 
     def get_changeform_initial_data(self, request):
