@@ -51,6 +51,7 @@ ERROR_MESSAGES = {
     "AUDIT_STARTED": "Audit already started.",
     'AUDIT_START_TIME_ERROR': "Audit Task can be initiated only after 30 mins from Audit Creation time. Start Time: {}",
     'FAILED_STATE_CHANGE': "Audit state could not be changed",
+    'AUDIT_END_FAILED': "Audit can be ended only when audit has been ended for all {}",
     'NO_RECORD': 'No %s record found',
     'SOME_ISSUE': 'There seems to be some issue.',
     'BATCH_BIN_ISSUE': 'This batch {} is not found in this bin {}',

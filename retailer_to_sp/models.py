@@ -13,7 +13,6 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
-
 from django.db.models import F, FloatField, Sum, Func, Q, Count, Case, Value, When
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
@@ -32,7 +31,8 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
-from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType, InventoryState
+from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType, \
+    InventoryState
 from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
     get_expiry_date, OrderManagement
 from brand.models import Brand
@@ -57,6 +57,7 @@ from wms.models import WarehouseInventory
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
 logger = logging.getLogger(__name__)
+info_logger = logging.getLogger('file-info')
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
@@ -574,8 +575,9 @@ class BulkOrder(models.Model):
             url = """<h3><a href="#">Download Products List</a></h3>"""
         return url
 
-    @property
-    def cart_product_list_status(self):
+    def cart_product_list_status(self, order_status_info, available_quantity):
+        info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]-cart_product_list_status function called")
+        order_status_info.extend([available_quantity, self.cart_id])
         if self.order_type == 'DISCOUNTED':
             status = "Discounted Order"
         else:
@@ -584,13 +586,14 @@ class BulkOrder(models.Model):
                             Download {status} List Status</a></h2>""" % \
               (
                   reverse(
-                      'admin:cart_products_list_status'
+                      'admin:cart_products_list_status',
+                      args=(str(order_status_info),)
                   )
               )
         return url
 
     def clean(self, *args, **kwargs):
-        errors = []
+        unavailable_skus = []
         availableQuantity = []
         if self.cart_products_csv:
             product_ids = []
@@ -652,43 +655,23 @@ class BulkOrder(models.Model):
                         available_quantity = warehouse_obj[0].quantity
                     else:
                         available_quantity = 0
-                        # continue
+                        info_logger.info(f"[retailer_to_sp:BulkOrder]-{row[0]} doesn't exist in warehouse")
                     product_available = int(
-                         int(available_quantity) / int(product.product_inner_case_size))
+                        int(available_quantity) / int(product.product_inner_case_size))
                     availableQuantity.append(product_available)
                     if product_available >= ordered_qty:
                         count += 1
                     if count == 0:
-                        errors.append(row[0])
-        if len(errors) > 0:
+                        unavailable_skus.append(row[0])
+        info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]--Unavailable-SKUs:{unavailable_skus}, "
+                         f"Available_Qty_of_Ordered_SKUs:{availableQuantity}")
+        if len(unavailable_skus) > 0:
             if self.cart_products_csv and self.order_type:
-                reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
-                headers = next(reader, None)
-                with open("cart_product_list.csv", 'w') as csvFile:
-                    writer = csv.writer(csvFile)
-                    writer.writerow(headers)
-                    for id, row in enumerate(reader):
-                        writer.writerow(row)
-
-                index = 0
-                with open("cart_product_list.csv", 'r') as csvinput:
-                    with open("ordered_cart_product_list.csv", 'w') as csvoutput:
-                        writer = csv.writer(csvoutput)
-                        for new_row in csv.reader(csvinput):
-                            if new_row == headers:
-                                writer.writerow(new_row+["Order_Status"])
-                            else:
-                                if new_row[0] in errors:
-                                    writer.writerow(new_row + [f"Failed because of ordered_quantity({new_row[2]}) > available_quantity({availableQuantity[index]})"])
-                                    index = index + 1
-                                else:
-                                    writer.writerow(new_row + ["Success"])
-                                    index = index + 1
                 self.save()
                 raise ValidationError(mark_safe(f"Order doesn't placed for some SKUs because for those SKUs, Ordered "
                                                 f"qty is greater than Available inventory.Please click the "
                                                 f"below Link for seeing the status"
-                                                f"{self.cart_product_list_status}"))
+                                                f"{self.cart_product_list_status(unavailable_skus, availableQuantity)}"))
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
 
@@ -725,17 +708,18 @@ def create_order_id(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=BulkOrder)
 def create_bulk_order(sender, instance=None, created=False, **kwargs):
+    info_logger.info("Post save for Bulk Order called")
     with transaction.atomic():
         if created:
             products_available = {}
             if instance.cart_products_csv:
                 product_ids = []
-                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8',  errors='ignore'))
+                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8', errors='ignore'))
                 headers = next(reader, None)
                 product_skus = [x[0] for x in reader if x]
                 for sku in product_skus:
                     product_ids.append(Product.objects.get(product_sku=sku).id)
-                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8',  errors='ignore'))
+                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8', errors='ignore'))
                 for id, row in enumerate(reader):
                     for row in reader:
                         if row[0]:
@@ -749,7 +733,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                                     sku__product_sku=row[0],
                                     inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
                                     inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-                                warehouse=Shop.objects.filter(id=instance.seller_shop_id).last())[
+                                    warehouse=Shop.objects.filter(id=instance.seller_shop_id).last())[
                                     0].quantity
                             except:
                                 continue
@@ -780,7 +764,9 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                     'products': products_available,
                     'transaction_type': 'reserved'
                 })
+                info_logger.info(f"reserved_bulk_order:{reserved_args}")
                 OrderManagement.create_reserved_order(reserved_args)
+                info_logger.info("reserved_bulk_order_success")
                 order, _ = Order.objects.get_or_create(ordered_cart=instance.cart)
                 order.order_no = instance.cart.order_id
                 order.ordered_cart = instance.cart
@@ -801,8 +787,11 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                     'order_status': order.order_status
                 })
                 sku_id = [i.cart_product.id for i in instance.cart.rt_cart_list.all()]
+                info_logger.info(f"ordered_bulk_order:{reserved_args}")
                 OrderManagement.release_blocking(reserved_args, sku_id)
+                info_logger.info("ordered_bulk_order_success")
             else:
+                info_logger.info(f"No products available for which order can be placed.")
                 pass
 
 
@@ -2048,7 +2037,7 @@ class OrderedProductMapping(models.Model):
     @property
     def basic_rate(self):
         get_tax_val = self.get_product_tax_json() / 100
-        basic_rate = (float(self.effective_price)-float(self.product_cess_amount)) / (float(get_tax_val) + 1)
+        basic_rate = (float(self.effective_price) - float(self.product_cess_amount)) / (float(get_tax_val) + 1)
         return round(basic_rate, 2)
 
     @property
@@ -2063,9 +2052,9 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_tax_amount(self):
-        #product_special_cess = self.total_product_cess_amount
-        #get_tax_val = self.get_product_tax_json() / 100
-        return round(float(self.product_sub_total) -float(self.base_price), 2)
+        # product_special_cess = self.total_product_cess_amount
+        # get_tax_val = self.get_product_tax_json() / 100
+        return round(float(self.product_sub_total) - float(self.base_price), 2)
 
     @property
     def total_product_cess_amount(self):
@@ -2082,10 +2071,10 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_tax_return_amount(self):
-        #get_tax_val = self.get_product_tax_json() / 100
-        #return round(float(self.basic_rate * (self.returned_qty + self.damaged_qty)) * float(get_tax_val), 2)
+        # get_tax_val = self.get_product_tax_json() / 100
+        # return round(float(self.basic_rate * (self.returned_qty + self.damaged_qty)) * float(get_tax_val), 2)
         quantity = self.returned_damage_qty + self.returned_qty
-        return round(float(self.effective_price * quantity), 2) -self.basic_rate * quantity
+        return round(float(self.effective_price * quantity), 2) - self.basic_rate * quantity
 
     @property
     def product_tax_discount_amount(self):
@@ -2096,6 +2085,7 @@ class OrderedProductMapping(models.Model):
     def product_sub_total(self):
         return round(float(self.effective_price * self.shipped_qty), 2)
         # round(float(self.effective_price * self.shipped_qty) + float(self.product_cess_amount), 2)
+
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             seller_shop__shop_type__shop_type='sp', status=True
@@ -2821,7 +2811,7 @@ def populate_data_on_qc_pass(order):
 
 @receiver(post_save, sender=OrderedProductBatch)
 def create_putaway(sender, created=False, instance=None, *args, **kwargs):
-    if instance.returned_qty == 0 and instance.delivered_qty == 0 and created==False:
+    if instance.returned_qty == 0 and instance.delivered_qty == 0 and created == False:
         add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
 
 
