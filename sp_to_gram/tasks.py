@@ -51,7 +51,6 @@ def get_warehouse_stock(shop_id=None,product=None):
 
 	product_price_dict = {pp.product_id: pp for pp in products_price}
 	for product in products:
-		print(product)
 		user_selected_qty = None
 		no_of_pieces = None
 		sub_total = None
@@ -59,7 +58,6 @@ def get_warehouse_stock(shop_id=None,product=None):
 		status = True if (product.status in ['active', True]) else False
 		mrp = product.product_mrp
 		product_price = product_price_dict.get(product.id)
-		print(product_price)
 		margin = 0
 		ptr = 0
 		if product_price:
@@ -86,7 +84,6 @@ def get_warehouse_stock(shop_id=None,product=None):
 				status = False
 			else:
 				available_qty = int(int(product_dict[product.id]) / int(pack_size))
-		print(available_qty)
 		try:
 			for p_o in product_opt:
 				weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
@@ -126,11 +123,9 @@ def get_warehouse_stock(shop_id=None,product=None):
 					}
 					for p_i in product.child_product_pro_image.all()
 				]
-		print(product_images)
 		category = [str(c.category) for c in product.product_pro_category.filter(status=True)]
 		product_categories = [str(c.category) for c in
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
-		print(product_categories)
 		product_details = {
 			"name": product.product_name,
 			"name_lower": product.product_name.lower(),
@@ -152,7 +147,6 @@ def get_warehouse_stock(shop_id=None,product=None):
 			"sub_total": sub_total,
 			"available": available_qty
 		}
-		print(product_details)
 		yield(product_details)
 
 	# for p in products_price:
@@ -257,21 +251,21 @@ def upload_shop_stock(shop=None,product=None):
 	es_index = shop if shop else 'all_products'
 	for product in all_products:
 		print(product)
-		# visibility_changes = get_visibility_changes(shop, product['id'])
-		# print(visibility_changes)
-		# if visibility_changes:
-		# 	for prod_id, visibility in visibility_changes.items():
-		# 		if prod_id == product['id']:
-		# 			product['visible'] = visibility
-		# 		else:
-		# 			try:
-		# 				es.update(index=create_es_index(es_index), doc_type='product', id=prod_id,
-		# 						  body={"doc": {"visible": visibility}})
-		# 			except NotFoundError as e:
-		# 				info_logger.info('Exception | upload_shop_stock | product id {}'.format(prod_id))
-		# 				info_logger.error(e)
-		# es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
-		# print(product['id'])
+		visibility_changes = get_visibility_changes(shop, product['id'])
+		print(visibility_changes)
+		if visibility_changes:
+			for prod_id, visibility in visibility_changes.items():
+				if prod_id == product['id']:
+					product['visible'] = visibility
+				else:
+					try:
+						es.update(index=create_es_index(es_index), doc_type='product', id=prod_id,
+								  body={"doc": {"visible": visibility}})
+					except NotFoundError as e:
+						info_logger.info('Exception | upload_shop_stock | product id {}'.format(prod_id))
+						info_logger.error(e)
+		es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
+		print(product['id'])
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
