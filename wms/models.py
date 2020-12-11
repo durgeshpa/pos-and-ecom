@@ -154,7 +154,7 @@ class In(models.Model):
     in_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING, related_name='ins+')
     batch_id = models.CharField(max_length=50, null=True, blank=True)
-    inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
+    inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='+')
     quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

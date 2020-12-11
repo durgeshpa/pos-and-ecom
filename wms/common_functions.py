@@ -107,6 +107,7 @@ class InCommonFunctions(object):
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, quantity=quantity, expiry_date=get_expiry_date_db(batch_id),
                                        inventory_type=inventory_type)
+            return in_obj
 
     @classmethod
     def get_filtered_in(cls, **kwargs):
@@ -142,8 +143,10 @@ class CommonBinInventoryFunctions(object):
             bin_inv_obj.quantity = final_quantity
             bin_inv_obj.save()
         else:
-            BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
-                                               inventory_type=inventory_type, quantity=quantity, in_stock=in_stock)
+            bin_inv_obj, created = BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin, sku=sku,
+                                                                      batch_id=batch_id, inventory_type=inventory_type,
+                                                                      quantity=quantity, in_stock=in_stock)
+        return bin_inv_obj
 
     @classmethod
     def create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
