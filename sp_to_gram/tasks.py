@@ -51,6 +51,7 @@ def get_warehouse_stock(shop_id=None,product=None):
 
 	product_price_dict = {pp.product_id: pp for pp in products_price}
 	for product in products:
+		print(product)
 		user_selected_qty = None
 		no_of_pieces = None
 		sub_total = None
