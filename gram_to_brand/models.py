@@ -661,8 +661,10 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     )
                 putaway_quantity = 0
                 if instance.batch_id:
-                    InCommonFunctions.create_in(shop.retailer, 'GRN', instance.grn_order.grn_id,instance.product,
-                                                instance.batch_id, int(instance.delivered_qty), putaway_quantity)
+                    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+                    InCommonFunctions.create_in(shop.retailer, 'GRN', instance.grn_order.grn_id, instance.product,
+                                                instance.batch_id, int(instance.delivered_qty), putaway_quantity,
+                                                type_normal)
         # ends here
         instance.available_qty = 0
         instance.save()
