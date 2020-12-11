@@ -512,7 +512,6 @@ class ParentProductAdmin(admin.ModelAdmin):
         ParentProductCategoryAdmin, ParentProductImageAdmin, ParentProductTaxMappingAdmin
     ]
     list_filter = [ParentCategorySearch, ParentBrandFilter, ParentIDFilter, 'status']
-    list_per_page = 20
     autocomplete_fields = ['product_hsn', 'parent_brand']
 
     def product_gst(self, obj):
@@ -888,7 +887,6 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     search_fields = ['product_name', 'id']
     # list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
     list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status']
-    list_per_page = 20
     # prepopulated_fields = {'product_slug': ('product_name',)}
     # inlines = [
     #     ProductCategoryAdmin, ProductOptionAdmin,
