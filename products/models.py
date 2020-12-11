@@ -125,8 +125,7 @@ class ParentProduct(models.Model):
     parent_id = models.CharField(max_length=255, validators=[ParentIDValidator])
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
     parent_slug = models.SlugField(max_length=255)
-    parent_brand = models.ForeignKey(Brand, related_name='parent_brand_product', blank=False, on_delete=models.CASCADE,
-                                     db_index=True)
+    parent_brand = models.ForeignKey(Brand, related_name='parent_brand_product', blank=False, on_delete=models.CASCADE)
     # category = models.ForeignKey(Category, related_name='category_parent_category', on_delete=models.CASCADE)
     product_hsn = models.ForeignKey(ProductHSN, related_name='parent_hsn', blank=False, on_delete=models.CASCADE)
     # GST_CHOICES = (
