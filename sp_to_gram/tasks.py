@@ -250,6 +250,7 @@ def upload_shop_stock(shop=None,product=None):
 	all_products = get_warehouse_stock(shop,product)
 	es_index = shop if shop else 'all_products'
 	for product in all_products:
+		print(product)
 		visibility_changes = get_visibility_changes(shop, product['id'])
 		if visibility_changes:
 			for prod_id, visibility in visibility_changes.items():
