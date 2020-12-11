@@ -147,7 +147,7 @@ class AuditProduct(BaseTimestampModel):
 class AuditCancelledPicklist(BaseTimestampModel):
     audit = models.ForeignKey(AuditDetail, null=False, on_delete=models.DO_NOTHING, related_name='+')
     order_no = models.CharField(max_length=20, null=False)
-    is_picklist_refreshed = models.BooleanField(default=False)
+    is_picklist_refreshed = models.BooleanField(default=False, verbose_name='Picklist Refreshed')
 
     class Meta:
         db_table = "wms_audit_cancelled_picklists"
