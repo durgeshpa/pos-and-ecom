@@ -250,7 +250,9 @@ def upload_shop_stock(shop=None,product=None):
 	all_products = get_warehouse_stock(shop,product)
 	es_index = shop if shop else 'all_products'
 	for product in all_products:
+		print(product)
 		visibility_changes = get_visibility_changes(shop, product['id'])
+		print(visibility_changes)
 		if visibility_changes:
 			for prod_id, visibility in visibility_changes.items():
 				if prod_id == product['id']:
@@ -263,6 +265,7 @@ def upload_shop_stock(shop=None,product=None):
 						info_logger.info('Exception | upload_shop_stock | product id {}'.format(prod_id))
 						info_logger.error(e)
 		es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
+		print(product['id'])
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
