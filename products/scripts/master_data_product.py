@@ -92,27 +92,42 @@ def set_parent_data():
     print("Script Start to set the data for Parent SKU")
     count = 0
     parent_data = []
+    parent_brand = []
+    parent_hsn = []
+    parent_category = []
     for row_id, row in enumerate(reader):
         if not row[12] == 'In-Active':
             count += 1
             try:
                 parent_product = ParentProduct.objects.filter(parent_id=row[1])
+            except Exception as e:
+                parent_data.append(str(row_id))
+            try:
                 ParentProduct.objects.filter(parent_id=row[1]).update(parent_brand=Brand.objects.filter(id=row[7].strip()).last(),
-                                                                      product_hsn=ProductHSN.objects.filter(product_hsn_code=row[9].replace("'", '')).last(),
                                                                       brand_case_size=row[10], inner_case_size=row[11])
+            except:
+                parent_brand.append(str(row_id))
+            try:
+                ParentProduct.objects.filter(parent_id=row[1]).update(product_hsn=ProductHSN.objects.filter(product_hsn_code=row[9].replace("'", '')).last())
+            except:
+                parent_hsn.append(str(row_id))
+            try:
                 ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(category=Category.objects.filter(id=row[16].strip()).last())
+            except:
+                parent_category.append(str(row_id))
                 if not row[17] == '':
                     tax = Tax.objects.filter(tax_name=row[17])
                     ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(tax=tax[0])
                 if not row[18] == '':
                     tax = Tax.objects.filter(tax_name=row[18])
                     ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(tax=tax[0])
-            except Exception as e:
-                parent_data.append(str(row_id))
         else:
             continue
     print("Total row executed :" + str(count))
     print("Parent id is not exist in these row :" + str(parent_data))
+    print("Parent Brand is not exist in these row :" + str(parent_brand))
+    print("Parent HSN is not exist in these row :" + str(parent_hsn))
+    print("Parent Category is not exist in these row :" + str(parent_category))
     print("Script Complete to set the data for Parent SKU")
 
 
