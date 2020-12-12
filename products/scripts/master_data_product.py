@@ -7,12 +7,12 @@ from brand.models import Brand
 from categories.models import Category
 
 def run():
-    #set_inactive_status()
-    #set_sub_brand_and_brand()
-    #set_sub_category_and_category()
+    set_inactive_status()
+    set_sub_brand_and_brand()
+    set_sub_category_and_category()
     set_parent_data()
-    #set_child_parent()
-    #set_child_data()
+    set_child_parent()
+    set_child_data()
 
 
 def set_inactive_status():
