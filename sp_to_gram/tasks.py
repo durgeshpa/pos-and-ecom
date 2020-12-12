@@ -258,7 +258,7 @@ def upload_shop_stock(shop=None,product=None):
 					product['visible'] = visibility
 				else:
 					try:
-						es.index(index=create_es_index(es_index), doc_type='product', id=prod_id,
+						es.update(index=create_es_index(es_index), doc_type='product', id=prod_id,
 								  body={"doc": {"visible": visibility}})
 					except NotFoundError as e:
 						info_logger.info('Exception | upload_shop_stock | product id {}'.format(prod_id))
