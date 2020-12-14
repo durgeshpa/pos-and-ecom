@@ -11,9 +11,10 @@ from rangefilter.filter import DateRangeFilter
 
 from audit.forms import AuditCreationForm, AuditTicketForm
 from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES, \
-    AUDIT_DETAIL_STATE_CHOICES, AUDIT_LEVEL_CHOICES
+    AuditCancelledPicklist, AuditProduct, AUDIT_LEVEL_CHOICES, AUDIT_DETAIL_STATE_CHOICES
+from products.models import Product
 from retailer_backend.admin import InputFilter
-
+from retailer_to_sp.models import CartProductMapping
 
 info_logger = logging.getLogger('file-info')
 
@@ -48,6 +49,16 @@ class AuditNoFilterForTickets(InputFilter):
         value = self.value()
         if value:
             return queryset.filter(audit_run__audit__audit_no=value)
+        return queryset
+
+class OrderNoFilter(InputFilter):
+    title = 'Order No'
+    parameter_name = 'order_no'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(order_no=value)
         return queryset
 
 class Warehouse(AutocompleteFilter):
@@ -187,6 +198,41 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
+@admin.register(AuditCancelledPicklist)
+class AuditCancelledPicklistAdmin(admin.ModelAdmin):
+    list_display = ('audit_no', 'order_no', 'is_picklist_refreshed', 'audit_skus', 'created_at')
+    list_filter = [OrderNoFilter, 'is_picklist_refreshed',  ('created_at', DateRangeFilter)]
+    actions = ['download_csv']
+
+    def audit_no(self, obj):
+        return obj.audit.audit_no
+
+    def audit_skus(self, obj):
+        audit_skus = AuditProduct.objects.filter(audit=obj.audit).values_list('sku_id', flat=True)
+        product_ids = Product.objects.only('id').filter(product_sku__in=audit_skus)
+        cart_products = CartProductMapping.objects.filter(cart__order_id=obj.order_no,
+                                                          cart_product_id__in=product_ids)\
+                                                  .values_list('cart_product__product_sku', flat=True)
+        return list(cart_products)
+
+    def download_csv(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(['Audit No', 'Order No', 'Picklist Refreshed', 'SKUs', 'Cancelled At'])
+
+        for query in queryset:
+            obj = AuditCancelledPicklist.objects.get(id=query.id)
+            writer.writerow([obj.audit.audit_no, obj.order_no, obj.is_picklist_refreshed, self.audit_skus(obj),
+                             obj.created_at])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=audit-cancelled-picklist.csv'
+        return response
+
+    class Media:
+        pass
 
 
 
