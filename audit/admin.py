@@ -116,8 +116,9 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
    
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        fields = []
-        fields = [field for field in meta.get_fields()]
+        exclude_fields = ['auditrun','updated_at','id','audit_from']
+        fields = [field for field in meta.get_fields() if field.name not in exclude_fields]
+        
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
@@ -128,16 +129,13 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
             row = []
           
             for field in fields:
-
+                print(field.name)
                 if field.many_to_many == True or field.one_to_many == True:
                     try:
                         if field.name == "bin":
                             val = list(getattr(obj,field.name).all().values_list('bin_id', flat=True))
                         elif field.name == "sku":
                             val = list(getattr(obj,field.name).all().values_list('product_sku', flat=True))
-                        elif field.name == "auditrun":
-                            val = list(getattr(obj,field.name).all().values_list('audit_run_type', flat=True))
-                           
                     except:
                         val = str(obj).replace(";", "")
                 else:
@@ -147,6 +145,7 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
             writer.writerow(row)
         return response
     export_as_csv.short_description = "Download CSV for selected Audit Tasks"
+ 
 
     change_list_template = 'admin/audit/audit_ticket_change_list.html'
    
