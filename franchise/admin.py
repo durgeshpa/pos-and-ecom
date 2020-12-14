@@ -2,16 +2,21 @@
 
 from django.contrib import admin
 from django.db.models import Q
+from rangefilter.filter import DateTimeRangeFilter
+from django_admin_listfilter_dropdown.filters import DropdownFilter
 
 from franchise.models import Fbin, Faudit
 from franchise.forms import FranchiseBinForm, FranchiseAuditCreationForm
-from wms.admin import BinAdmin
-from audit.admin import AuditDetailAdmin
+from wms.admin import BinAdmin, BinIdFilter
+from audit.admin import AuditDetailAdmin, AuditNoFilter, AuditorFilter
 
 
 @admin.register(Fbin)
 class FranchiseBinAdmin(BinAdmin):
     form = FranchiseBinForm
+
+    list_filter = [BinIdFilter, ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter),
+                   ('bin_type', DropdownFilter)]
 
     def get_queryset(self, request):
         qs = super(FranchiseBinAdmin, self).get_queryset(request)
@@ -24,6 +29,8 @@ class FranchiseBinAdmin(BinAdmin):
 @admin.register(Faudit)
 class FranchiseAuditAdmin(AuditDetailAdmin):
     form = FranchiseAuditCreationForm
+
+    list_filter = [AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
 
     def get_queryset(self, request):
         qs = super(FranchiseAuditAdmin, self).get_queryset(request)
