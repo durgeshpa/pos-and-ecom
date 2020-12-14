@@ -13,17 +13,17 @@ class FranchiseBinForm(BinForm):
         franchise_shop = Shop.objects.filter(shop_type__shop_type__in=['f'])
         user = get_current_user()
         if not user.is_superuser:
-            franchise_shop = franchise_shop.filter(Q(related_users=user) | Q(shop_owner=user)).last()
+            franchise_shop = franchise_shop.filter(Q(related_users=user) | Q(shop_owner=user))
 
         self.fields['warehouse'].queryset = franchise_shop
         self.fields['warehouse'].empty_label = None
 
     def clean(self):
-        user = get_current_user()
-        if not user.is_superuser:
-            franchise_shop = Shop.objects.filter(shop_type__shop_type__in=['f'])
-            franchise_shop = franchise_shop.filter(Q(related_users=user) | Q(shop_owner=user)).last()
-            self.cleaned_data['warehouse'] = franchise_shop
+        # user = get_current_user()
+        # if not user.is_superuser:
+        #     franchise_shop = Shop.objects.filter(shop_type__shop_type__in=['f'])
+        #     franchise_shop = franchise_shop.filter(Q(related_users=user) | Q(shop_owner=user)).last()
+        #     self.cleaned_data['warehouse'] = franchise_shop
         return self.cleaned_data
 
 
@@ -34,15 +34,15 @@ class FranchiseAuditCreationForm(AuditCreationForm):
         franchise_shop = Shop.objects.filter(shop_type__shop_type__in=['f'])
         user = get_current_user()
         if not user.is_superuser:
-            franchise_shop = franchise_shop.filter(Q(related_users=user) | Q(shop_owner=user)).last()
+            franchise_shop = franchise_shop.filter(Q(related_users=user) | Q(shop_owner=user))
 
         self.fields['warehouse'].queryset = franchise_shop
         self.fields['warehouse'].empty_label = None
 
     def clean(self):
-        user = get_current_user()
-        if not user.is_superuser:
-            franchise_shop = Shop.objects.filter(shop_type__shop_type__in=['f'])
-            franchise_shop = franchise_shop.filter(Q(related_users=user) | Q(shop_owner=user)).last()
-            self.cleaned_data['warehouse'] = franchise_shop
+        # user = get_current_user()
+        # if not user.is_superuser:
+        #     franchise_shop = Shop.objects.filter(shop_type__shop_type__in=['f'])
+        #     franchise_shop = franchise_shop.filter(Q(related_users=user) | Q(shop_owner=user)).last()
+        #     self.cleaned_data['warehouse'] = franchise_shop
         return self.cleaned_data
