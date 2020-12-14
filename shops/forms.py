@@ -26,7 +26,7 @@ class ParentRetailerMappingForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='shop-parent-autocomplete', )
     )
     retailer = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp', 'r']),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp', 'r', 'f']),
         widget=autocomplete.ModelSelect2(url='shop-retailer-autocomplete', )
     )
 

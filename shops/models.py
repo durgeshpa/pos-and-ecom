@@ -25,6 +25,7 @@ SHOP_TYPE_CHOICES = (
     ("r", "Retailer"),
     ("sr", "Super Retailer"),
     ("gf", "Gram Factory"),
+    ("f", "Franchise")
 )
 
 RETAILER_TYPE_CHOICES = (

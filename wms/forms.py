@@ -23,7 +23,7 @@ info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 
-warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
+warehouse_choices = Shop.objects.filter(shop_type__shop_type__in=['sp', 'f'])
 
 
 class BulkBinUpdation(forms.Form):
