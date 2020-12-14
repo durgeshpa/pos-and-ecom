@@ -804,6 +804,7 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
                                                         final_stage=InventoryState.objects.filter(
                                                             inventory_state=order_status).last(),
                                                         quantity=order_product.warehouse_internal_inventory_reserve.quantity)
+
         order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=Shop.objects.get(id=shop_id),
                                                                sku=Product.objects.get(id=order_product.sku.id),
                                                                warehouse_internal_inventory_release=None,

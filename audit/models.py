@@ -151,6 +151,8 @@ class AuditCancelledPicklist(BaseTimestampModel):
 
     class Meta:
         db_table = "wms_audit_cancelled_picklists"
+        verbose_name = "Audit Cancelled Picklist"
+        verbose_name_plural = "Audit Cancelled Picklists"
 
 
 class AuditTicketManual(BaseTimestampModel):

@@ -67,13 +67,19 @@ class ShopMappedProduct(TemplateView):
                     product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
                 else:
                     # product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop_obj, approval_status=2)
+                    try:
+                        parent_id = myproduct.sku.parent_product.parent_id
+                        parent_name = myproduct.sku.parent_product.name
+                    except:
+                        parent_id = ''
+                        parent_name = ''
                     product_temp = {
                         'sku': myproduct.sku.product_sku,
                         'name': myproduct.sku.product_name,
                         myproduct.inventory_type.inventory_type: myproduct.quantity,
                         'mrp': myproduct.sku.product_mrp,
-                        'parent_id': myproduct.sku.parent_product.parent_id,
-                        'parent_name': myproduct.sku.parent_product.name
+                        'parent_id': parent_id,
+                        'parent_name': parent_name
                         # 'mrp': product_mrp.last().mrp if product_mrp.exists() else ''}
                     }
 

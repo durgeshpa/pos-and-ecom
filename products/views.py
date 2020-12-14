@@ -4,6 +4,10 @@ import datetime
 import os
 import logging
 import re
+
+import boto3
+from botocore.exceptions import ClientError
+from decouple import config
 import openpyxl
 
 from django.http import HttpResponse, JsonResponse
@@ -19,6 +23,7 @@ from rest_framework.response import Response
 
 from decimal import Decimal
 
+from retailer_to_sp.models import BulkOrder
 from shops.models import Shop, ShopType
 from addresses.models import City, State, Address, Pincode
 from categories.models import Category
@@ -41,6 +46,10 @@ from products.models import (
     )
 
 logger = logging.getLogger(__name__)
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+
 from dal import autocomplete
 from django.db.models import Q
 from .utils import products_price_excel
@@ -777,15 +786,88 @@ def cart_products_mapping(request,pk=None):
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
     return response
 
-def cart_product_list_status(request):
-        filename = "Cart_Product_List_Status.csv"
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
-        with open("ordered_cart_product_list.csv", 'r') as csvinput:
-            writer = csv.writer(response)
-            for new_row in csv.reader(csvinput):
-                writer.writerow(new_row)
-        return response
+
+def cart_product_list_status(request, order_status_info):
+    info_logger.info(f"[products/views.py]-cart_product_list_status function called for Downloading the CSV file of "
+                     f"Bulk/Discounted Order Status")
+    for char in order_status_info:
+        if char in "[\]":
+            order_status_info.replace(char, '')
+    order_status_info1 = order_status_info.replace('[', '')
+    order_status_info2 = order_status_info1.replace(']', '')
+    order_status_info3 = order_status_info2.split(',')
+    order_status_info4 = []
+    for ele in order_status_info3:
+        order_status_info4.append(ele.replace("'", ''))
+    order_status_info5 = []
+    for ele in order_status_info4:
+        order_status_info5.append(ele.replace(" ", ''))
+    cart_id = int(order_status_info5.pop())
+    available_quantity = []
+    unavailable_skus = []
+    for ele in order_status_info5:
+        try:
+            available_quantity.append(int(ele))
+        except:
+            unavailable_skus.append(ele)
+
+    info_logger.info(f"[products/views.py:cart_product_list_status]--Unavailable-SKUs:{unavailable_skus}, "
+                     f"Available_Qty_of_Ordered_SKUs:{available_quantity}")
+
+    if cart_id:
+        bulk_order_obj = BulkOrder.objects.filter(cart_id=cart_id)
+    else:
+        info_logger.info(f"[products/views.py:cart_product_list_status] - [cart_id : {cart_id}]")
+
+    csv_file_name = bulk_order_obj.values()[0]['cart_products_csv']
+
+    try:
+        s3 = boto3.resource('s3', aws_access_key_id=config('AWS_ACCESS_KEY_ID'),
+                            aws_secret_access_key=config('AWS_SECRET_ACCESS_KEY'))
+        info_logger.info(f"[products/views.py:cart_product_list_status] - Successfully connected with s3")
+    except ClientError as err:
+        error_logger.error(f"[products/views.py:cart_product_list_status] Failed to connect with s3 - {err}")
+        raise err
+
+    bucket = s3.Bucket(config('AWS_STORAGE_BUCKET_NAME'))
+    obj = bucket.Object(key=f'media/{csv_file_name}')
+    try:
+        res = obj.get()
+        info_logger.info(f"[products/views.py:cart_product_list_status] Successfully get the response from s3")
+    except ClientError as err:
+        error_logger.error(f"[products/views.py:cart_product_list_status] Failed to get the response from s3 - {err}")
+        raise err
+
+    lines = res['Body'].read()
+    lines_list = lines.decode('utf-8')
+    csv_data = lines_list.split('\n')
+    reader = csv.reader(csv_data)
+    header = csv_data[0].split(',')
+    headers = []
+    for ele in header:
+        headers.append(ele.replace('"', ''))
+
+    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+    filename = str(dt) + " - Cart_Product_List_Status.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    index = 0
+    for row in reader:
+        if len(row) > 0:
+            if row == headers:
+                writer.writerow(row + ["order_status"])
+            else:
+                if row[0] in unavailable_skus:
+                    writer.writerow(row + [f"Failed because of ordered_quantity({row[2]}) > "
+                                           f"available_quantity({available_quantity[index]})"])
+                    index = index + 1
+                else:
+                    writer.writerow(row + ["Success"])
+                    index = index + 1
+    info_logger.info(f"[products/views.py: cart_product_list_status] - CSV for cart_product_list_status has been "
+                     f"successfully downloaded with response [{response}]")
+    return response
 
 
 def ProductsUploadSample(request):
@@ -1010,7 +1092,7 @@ def product_csv_upload(request):
 
         if form.is_valid():
             upload_file = form.cleaned_data.get('file')
-            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
             first_row = next(reader)
             def reason_for_child_sku_mapper(reason):
                 reason = reason.lower()
