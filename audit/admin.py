@@ -129,7 +129,7 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
             row = []
           
             for field in fields:
-                print(field.name)
+        
                 if field.many_to_many == True or field.one_to_many == True:
                     try:
                         if field.name == "bin":

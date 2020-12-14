@@ -1066,7 +1066,7 @@ class UploadBulkAuditAdminForm(forms.Form):
          
             if not row[0]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Audit Run Type' can not be empty."))
-            elif row[0].lower() not in ['manual']:
+            elif row[0] not in ['Manual']:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Audit Run Type' can only be Manual."))
            
             if not row[1]:
@@ -1094,7 +1094,6 @@ class UploadBulkAuditAdminForm(forms.Form):
             
             elif row[2] == "Product Wise" and not row[4]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'SKU ID' is mandatory."))
-            
             
             elif row[2] == "Bin Wise" and row[3]:
                 try:

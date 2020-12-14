@@ -710,34 +710,36 @@ def bulk_audit_csv_upload_view(request):
                         if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' ):
                             continue
                     phone_number = row[1].split('–')[0].strip()
+                    if row[0]=='Manual':
+                        audit_run_type = 0
                     if row[2] == "Bin Wise":
+                        audit_level = 0
                         bins = []
                         for row in row[3].split(","):
-                          
                             bin_value = Bin.objects.get(bin_id=row.strip())
                             bins.append(bin_value)
-                    
+
                         audit_item = AuditDetail.objects.create(
                             warehouse=Shop.objects.get(shop_id=warehouse_id),
-                            audit_run_type=0,
+                            audit_run_type=audit_run_type,
                             auditor = User.objects.get(phone_number=phone_number),
-                            audit_level=0,
+                            audit_level=audit_level,
                         )
                         for bin_value in bins:
                             audit_item.bin.add(bin_value)
             
                     elif row[2] == "Product Wise":
+                        audit_level = 1
                         skus = []
-
                         for row in row[4].split(","):
                             sku_value= Product.objects.get(product_sku=row.strip())
                             skus.append(sku_value)
                        
                         audit_item = AuditDetail.objects.create(
                             warehouse=Shop.objects.get(shop_id=warehouse_id),
-                            audit_run_type=0,
+                            audit_run_type=audit_run_type,
                             auditor = User.objects.get(phone_number=phone_number),
-                            audit_level=1,
+                            audit_level=audit_level,
                         )
                         for sku_value in skus:
                             audit_item.sku.add(sku_value)
