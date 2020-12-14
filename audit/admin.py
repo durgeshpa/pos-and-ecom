@@ -11,7 +11,7 @@ from rangefilter.filter import DateRangeFilter
 
 from audit.forms import AuditCreationForm, AuditTicketForm
 from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES, \
-    AuditCancelledPicklist, AuditProduct, AUDIT_LEVEL_CHOICES, AUDIT_DETAIL_STATE_CHOICES
+    AuditCancelledPicklist, AuditProduct, AUDIT_LEVEL_CHOICES, AUDIT_DETAIL_STATE_CHOICES, AUDIT_DETAIL_STATUS_CHOICES
 from products.models import Product
 from retailer_backend.admin import InputFilter
 from retailer_to_sp.models import CartProductMapping
@@ -49,6 +49,17 @@ class AuditNoFilterForTickets(InputFilter):
         value = self.value()
         if value:
             return queryset.filter(audit_run__audit__audit_no=value)
+        return queryset
+
+
+class AuditNoFilterForCancelledPicklists(InputFilter):
+    title = 'Audit No'
+    parameter_name = 'audit_no'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(audit__audit_no=value)
         return queryset
 
 class OrderNoFilter(InputFilter):
@@ -201,12 +212,18 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
 
 @admin.register(AuditCancelledPicklist)
 class AuditCancelledPicklistAdmin(admin.ModelAdmin):
-    list_display = ('audit_no', 'order_no', 'is_picklist_refreshed', 'audit_skus', 'created_at')
-    list_filter = [OrderNoFilter, 'is_picklist_refreshed',  ('created_at', DateRangeFilter)]
+    list_display = ('audit_no', 'audit_state', 'audit_status', 'order_no', 'is_picklist_refreshed', 'audit_skus', 'created_at')
+    list_filter = [OrderNoFilter, AuditNoFilterForCancelledPicklists, 'is_picklist_refreshed',  ('created_at', DateRangeFilter)]
     actions = ['download_csv']
 
     def audit_no(self, obj):
         return obj.audit.audit_no
+
+    def audit_state(self, obj):
+        return AUDIT_DETAIL_STATE_CHOICES[obj.audit.state]
+
+    def audit_status(self, obj):
+        return AUDIT_DETAIL_STATUS_CHOICES[obj.audit.status]
 
     def audit_skus(self, obj):
         audit_skus = AuditProduct.objects.filter(audit=obj.audit).values_list('sku_id', flat=True)
