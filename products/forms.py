@@ -2,7 +2,7 @@ import codecs
 import csv
 import datetime
 import re
-
+from audit.models import AuditDetail
 from dal import autocomplete
 from django import forms
 from django.core.exceptions import ValidationError
@@ -24,7 +24,9 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
-
+from wms.models import Bin
+from accounts.models import User
+from accounts.middlewares import get_current_user
 
 class ProductImageForm(forms.ModelForm):
     class Meta:
@@ -1037,3 +1039,75 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
             return self.cleaned_data
         else:
             raise forms.ValidationError("CSV file is required!")
+
+
+class UploadBulkAuditAdminForm(forms.Form):
+    """
+      Upload Bulk Audit Form
+    """
+    file = forms.FileField(label='Upload Bulk Audit list')
+
+    class Meta:
+        model = AuditDetail
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        for row_id, row in enumerate(reader):
+            
+            if len(row) == 0:
+                continue
+            if '' in row:
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == ''):
+                    continue
+         
+            if not row[0]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Audit Run Type' can not be empty."))
+            elif row[0].lower() not in ['manual']:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Audit Run Type' can only be Manual."))
+           
+            if not row[1]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Auditor' can not be empty."))
+                
+            elif not User.objects.filter(phone_number=row[1].split('–')[0].strip()):
+                raise ValidationError(_(f"Row {row_id + 1} | 'Auditor' Invalid Auditor."))
+            
+            elif User.objects.filter(phone_number=row[1].split('–')[0].strip()):
+           
+                phone_number = row[1].split('–')[0].strip()
+                user=User.objects.get(phone_number=phone_number)
+                try:
+                    user and user.groups.filter(name='Warehouse-Auditor').exists()
+                except:
+                    raise ValidationError(_(f"Row {row_id + 1} | 'Auditor' Invalid Auditor."))
+              
+            if not row[2]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Audit Type can not be empty."))
+            elif row[2] not in ['Bin Wise', 'Product Wise']:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Audit Type' can only be Bin Wise or Product Wise."))
+          
+            if row[2] == "Bin Wise" and not row[3]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Bin ID' is mandatory."))
+            
+            elif row[2] == "Product Wise" and not row[4]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'SKU ID' is mandatory."))
+            
+            
+            elif row[2] == "Bin Wise" and row[3]:
+                try:
+                    for row in row[3].split(","):
+                        Bin.objects.values('id').get(bin_id=row.strip())
+                except:
+                    raise ValidationError(_(f"Row {row_id + 1} | 'Invalid Bin IDs"))
+            
+            elif row[2] == "Product Wise" and row[4]:
+                try:
+                    for sku in row[4].split(","):
+                        Product.objects.values('id').get(product_sku=sku.strip())
+                except:
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid SKU IDs."))
+            
+        return self.cleaned_data['file']

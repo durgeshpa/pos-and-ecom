@@ -4,13 +4,12 @@ from django.core.exceptions import ValidationError
 
 from accounts.middlewares import get_current_user
 from accounts.models import User
-from audit.models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
+from audit.models import AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
     AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
 from audit.views import get_existing_audit_for_product, get_existing_audit_for_bin
 from products.models import Product
 from shops.models import Shop
 from wms.models import Bin
-
 
 class AuditCreationForm(forms.ModelForm):
     warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
@@ -116,3 +115,7 @@ class AuditTicketForm(forms.ModelForm):
     class Meta:
         model = AuditTicketManual
         fields = ('warehouse', 'status', 'assigned_user')
+
+
+class WarehouseSelectionForm(forms.ModelForm):
+    warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')

@@ -13,7 +13,7 @@ from audit.forms import AuditCreationForm, AuditTicketForm
 from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
 from retailer_backend.admin import InputFilter
 
-
+from .views import bulk_audit_csv_upload_view,AuditDownloadSampleCSV
 info_logger = logging.getLogger('file-info')
 
 
@@ -72,9 +72,26 @@ class AuditorFilter(AutocompleteFilter):
     field_name = 'auditor'
     autocomplete_url = 'auditor-autocomplete'
 
+class ExportCsvMixin:
+    def export_as_csv(self, request, queryset):
+
+        meta = self.model._meta
+        field_names = [field.name for field in meta.fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+
+        return response
+
+    export_as_csv.short_description = "Export Selected"
 
 @admin.register(AuditDetail)
-class AuditDetailAdmin(admin.ModelAdmin):
+class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
     list_display = ('audit_no', 'warehouse', 'audit_run_type', 'audit_inventory_type', 'audit_level',
                     'state', 'status', 'user', 'auditor', 'created_at')
 
@@ -94,10 +111,45 @@ class AuditDetailAdmin(admin.ModelAdmin):
     )
     list_filter = [Warehouse, AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
     form = AuditCreationForm
-    actions_on_top = False
+    # actions_on_top = False
+    actions = ['export_as_csv']
+   
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        fields = []
+        fields = [field for field in meta.get_fields()]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+
+        writer.writerow([field.name.title() for field in fields])
+        for obj in queryset:
+          
+            row = []
+          
+            for field in fields:
+
+                if field.many_to_many == True or field.one_to_many == True:
+                    try:
+                        if field.name == "bin":
+                            val = list(getattr(obj,field.name).all().values_list('bin_id', flat=True))
+                        elif field.name == "sku":
+                            val = list(getattr(obj,field.name).all().values_list('product_sku', flat=True))
+                        elif field.name == "auditrun":
+                            val = list(getattr(obj,field.name).all().values_list('audit_run_type', flat=True))
+                           
+                    except:
+                        val = str(obj).replace(";", "")
+                else:
+                    val = str(getattr(obj, field.name)).replace(";", "")
+              
+                row.append(val)
+            writer.writerow(row)
+        return response
+    export_as_csv.short_description = "Download CSV for selected Audit Tasks"
 
     change_list_template = 'admin/audit/audit_ticket_change_list.html'
-
+   
     def get_readonly_fields(self, request, obj=None):
         if obj:
             return self.readonly_fields + ('warehouse', 'audit_run_type', 'audit_inventory_type', 'audit_level',
@@ -106,6 +158,24 @@ class AuditDetailAdmin(admin.ModelAdmin):
 
     class Media:
         js = ("admin/js/audit_admin_form.js",)
+    
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(AuditDetailAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^audit-csv-upload/$',
+                self.admin_site.admin_view(bulk_audit_csv_upload_view),
+                name="audit-csv-upload"
+            ),
+            url(
+                r'^audit-csv-sample/$',
+                self.admin_site.admin_view(AuditDownloadSampleCSV),
+                name="audit-csv-sample"
+            ),
+           
+        ] + urls
+        return urls
 
 
 @admin.register(AuditTicket)
@@ -126,7 +196,6 @@ class AuditTicketAdmin(admin.ModelAdmin):
 
     class Media:
         pass
-
 
 @admin.register(AuditTicketManual)
 class AuditTicketManualAdmin(admin.ModelAdmin):
@@ -180,7 +249,3 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
 
     class Media:
         pass
-
-
-
-

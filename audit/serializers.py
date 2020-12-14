@@ -3,7 +3,7 @@ from rest_framework import serializers
 from wms.models import WarehouseInternalInventoryChange, WarehouseInventory, BinInventory, BinInternalInventoryChange, \
     Pickup
 
-
+from audit.models import AuditDetail
 class WarehouseInventorySerializer(serializers.ModelSerializer):
     inventory_type = serializers.SerializerMethodField('get_type')
     inventory_state = serializers.SerializerMethodField('get_state')
@@ -97,3 +97,9 @@ class PickupBlockedQuantitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Pickup
         fields = ('warehouse', 'pickup_type_id', 'status', 'sku_id', 'quantity')
+
+
+class AuditBulkCreation(serializers.ModelSerializer):
+    class Meta:
+        model = AuditDetail
+        fields = '__all__'
