@@ -20,7 +20,7 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
-                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet)
+                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -44,7 +44,8 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     parent_product_upload, ParentProductsDownloadSampleCSV,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
-                    ParentProductMultiPhotoUploadView, cart_product_list_status)
+                    ParentProductMultiPhotoUploadView, cart_product_list_status, upload_master_data_view,
+                    UploadMasterDataSampleExcelFile)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
@@ -853,9 +854,19 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="product-csv-upload"
             ),
             url(
+                r'^upload-master-data/$',
+                self.admin_site.admin_view(upload_master_data_view),
+                name="upload-master-data"
+            ),
+            url(
                 r'^chld-products-download-sample-csv/$',
                 self.admin_site.admin_view(ChildProductsDownloadSampleCSV),
                 name="child-products-download-sample-csv"
+            ),
+            url(
+                r'^upload-master-data-sample-excel-file/$',
+                self.admin_site.admin_view(UploadMasterDataSampleExcelFile),
+                name="upload-master-data-sample-excel-file"
             ),
             url(
                 r'^parent-product-autocomplete/$',

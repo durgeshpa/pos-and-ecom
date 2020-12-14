@@ -6,9 +6,11 @@ import logging
 import re
 
 import boto3
+import xlwt
 from botocore.exceptions import ClientError
 from decouple import config
 import openpyxl
+from pyexcel_xlsx import get_data as xlsx_get
 
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
@@ -33,8 +35,8 @@ from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
     ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
-    UploadChildProductAdminForm, ParentProductImageForm
-    )
+    UploadChildProductAdminForm, ParentProductImageForm, UploadMasterDataAdminForm
+)
 from products.models import (
     Product, ProductCategory, ProductOption,
     ProductTaxMapping, ProductVendorMapping,
@@ -1154,7 +1156,7 @@ def product_csv_upload(request):
                             dcm.save()
 
             except Exception as e:
-                print(e)
+                attributeprint(e)
             return render(request, 'admin/products/child-product-upload.html', {
                 'form': form,
                 'success': 'Child Product CSV uploaded successfully !',
@@ -1162,6 +1164,54 @@ def product_csv_upload(request):
     else:
         form = UploadChildProductAdminForm()
     return render(request, 'admin/products/child-product-upload.html', {'form': form})
+
+
+def UploadMasterDataSampleExcelFile(request):
+    response = HttpResponse(content_type='application/ms-excel')
+    response['Content-Disposition'] = 'attachment; filename="sample_file_for_product_attributes.xlsx"'
+
+    wb = xlwt.Workbook(encoding='utf-8')
+    ws = wb.add_sheet('Users')
+
+    # Sheet header, first row
+    row_num = 0
+
+    font_style = xlwt.XFStyle()
+    font_style.font.bold = True
+
+    columns = ['SKU_ID', 'SKU_Name', 'Parent_ID', 'Parent_Name', 'EAN', 'MRP', 'Weight_Unit', 'Weight_Value', 'HSN',
+               'GST', 'Cess/Surcharge', 'Brand_Case_Size', 'Inner_Case_Size', 'Brand_Name', 'Brand_ID',
+               'Sub_Brand_ID', 'Category_Name', 'Category_ID', 'Sub_Category_Name', 'Sub_Category_ID', 'Status', ]
+
+    for col_num in range(len(columns)):
+        ws.write(row_num, col_num, columns[col_num], font_style)
+
+    row_num = 1
+    font_style = xlwt.XFStyle()
+
+    column_list = ['SSJSNGTAT00000006', 'Tata Salt 500 gm', 'PSSJTAT0002', 'Parent_Name', '8901192106223', '30.00', '1',
+                  '1', 'asafaf','12%', '5%', '1', '1', 'TATA', '145', '37', 'Home & Supplies', '342', 'home_and_supplies',
+                  '123', 'Active', ]
+
+    for col_num in range(len(column_list)):
+        ws.write(row_num, col_num, column_list[col_num], font_style)
+
+    wb.save(response)
+    return response
+
+
+def upload_master_data_view(request):
+    if request.method == 'POST':
+        excel_file = request.FILES['file']
+        data = xlsx_get(excel_file)
+        form = UploadMasterDataAdminForm(request.POST, request.FILES, data)
+
+        if form.errors:
+            return render(request, 'admin/products/child-product-upload.html', {'form': form})
+
+    else:
+        form = UploadMasterDataAdminForm()
+    return render(request, 'admin/products/upload-master-data.html', {'form': form})
 
 
 def FetchDefaultChildDdetails(request):
