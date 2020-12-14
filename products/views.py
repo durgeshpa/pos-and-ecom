@@ -1094,7 +1094,7 @@ def product_csv_upload(request):
 
         if form.is_valid():
             upload_file = form.cleaned_data.get('file')
-            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
             first_row = next(reader)
             def reason_for_child_sku_mapper(reason):
                 reason = reason.lower()
