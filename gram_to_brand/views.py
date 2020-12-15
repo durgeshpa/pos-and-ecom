@@ -102,7 +102,7 @@ class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
         if supplier_id is None:
             return qs
 
-        product_qs = Product.objects.all()
+        product_qs = Product.objects.exclude(repackaging_type='destination')
         product_id = ProductVendorMapping.objects \
             .filter(vendor__id=supplier_id, case_size__gt=0, status=True).values('product')
         parent_product_ids = product_qs.filter(id__in=[product_id]).values('parent_product')
@@ -340,7 +340,7 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
         supplier_id = self.forwarded.get('supplier_name', None)
         parent_product_pk = self.forwarded.get('cart_parent_product', None)
         if supplier_id:
-            qs = Product.objects.filter(parent_product__pk=parent_product_pk)
+            qs = Product.objects.filter(parent_product__pk=parent_product_pk).exclude(repackaging_type='destination')
             product_id = ProductVendorMapping.objects \
                 .filter(vendor__id=supplier_id, case_size__gt=0, status=True).values('product')
             qs = qs.filter(id__in=[product_id])
