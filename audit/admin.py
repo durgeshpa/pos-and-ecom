@@ -236,12 +236,12 @@ class AuditCancelledPicklistAdmin(admin.ModelAdmin):
     def download_csv(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['Audit No', 'Order No', 'Picklist Refreshed', 'SKUs', 'Cancelled At'])
+        writer.writerow(['Audit No', 'Audit State', 'Audit Status', 'Order No', 'Picklist Refreshed', 'SKUs', 'Cancelled At'])
 
         for query in queryset:
             obj = AuditCancelledPicklist.objects.get(id=query.id)
-            writer.writerow([obj.audit.audit_no, obj.order_no, obj.is_picklist_refreshed, self.audit_skus(obj),
-                             obj.created_at])
+            writer.writerow([obj.audit.audit_no, self.audit_state(obj), self.audit_status(obj), obj.order_no,
+                             obj.is_picklist_refreshed, self.audit_skus(obj), obj.created_at])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
