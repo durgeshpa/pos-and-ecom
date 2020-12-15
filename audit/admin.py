@@ -10,9 +10,9 @@ from django.http import HttpResponse
 from rangefilter.filter import DateRangeFilter
 
 from audit.forms import AuditCreationForm, AuditTicketForm
-from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
+from audit.models import AuditDetail, AuditTicket, AuditTicketManual,AUDIT_DETAIL_STATUS_CHOICES,AUDIT_DETAIL_STATE_CHOICES,AUDIT_RUN_STATUS_CHOICES, AUDIT_TICKET_STATUS_CHOICES,AUDIT_INVENTORY_CHOICES,AUDIT_RUN_TYPE_CHOICES,AUDIT_LEVEL_CHOICES
 from retailer_backend.admin import InputFilter
-
+from wms.models import Bin
 from .views import bulk_audit_csv_upload_view,AuditDownloadSampleCSV
 info_logger = logging.getLogger('file-info')
 
@@ -111,42 +111,26 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
     )
     list_filter = [Warehouse, AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
     form = AuditCreationForm
-    # actions_on_top = False
     actions = ['export_as_csv']
    
     def export_as_csv(self, request, queryset):
-        meta = self.model._meta
-        exclude_fields = ['auditrun','updated_at','id','audit_from']
-        fields = [field for field in meta.get_fields() if field.name not in exclude_fields]
-        
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
-        writer = csv.writer(response)
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(['audit_no','warehouse','audit_run_type','audit_level','state',
+                        'status','created_by','auditor','created_at','bin','sku'])
 
-        writer.writerow([field.name.title() for field in fields])
-        for obj in queryset:
-          
-            row = []
-          
-            for field in fields:
-        
-                if field.many_to_many == True or field.one_to_many == True:
-                    try:
-                        if field.name == "bin":
-                            val = list(getattr(obj,field.name).all().values_list('bin_id', flat=True))
-                        elif field.name == "sku":
-                            val = list(getattr(obj,field.name).all().values_list('product_sku', flat=True))
-                    except:
-                        val = str(obj).replace(";", "")
-                else:
-                    val = str(getattr(obj, field.name)).replace(";", "")
-              
-                row.append(val)
-            writer.writerow(row)
+        for query in queryset:
+            obj = AuditDetail.objects.get(id=query.id)
+            writer.writerow([obj.audit_no,obj.warehouse,AUDIT_RUN_TYPE_CHOICES[obj.audit_run_type],
+            AUDIT_LEVEL_CHOICES[obj.audit_level],AUDIT_DETAIL_STATE_CHOICES[obj.state],
+            AUDIT_DETAIL_STATUS_CHOICES[obj.status],obj.user,obj.auditor,obj.created_at,
+            list(getattr(obj,"bin").all().values_list('bin_id', flat=True)),
+            list(getattr(obj,"sku").all().values_list('product_sku', flat=True))])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=auditDetails.csv'
         return response
-    export_as_csv.short_description = "Download CSV for selected Audit Tasks"
- 
-
     change_list_template = 'admin/audit/audit_ticket_change_list.html'
    
     def get_readonly_fields(self, request, obj=None):
