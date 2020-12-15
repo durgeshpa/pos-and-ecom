@@ -211,7 +211,7 @@ class OrderNumberFilterForOrderRelease(InputFilter):
 
 
 class OrderNumberFilterForPickupBinInventory(InputFilter):
-    title = 'Order Number'
+    title = 'Order / Repackaging Number'
     parameter_name = 'pickup'
 
     def queryset(self, request, queryset):
@@ -393,7 +393,7 @@ class PutAwayAdmin(admin.ModelAdmin):
         writer = csv.writer(f)
         # set the header name
         writer.writerow(["Put Away User", "Warehouse", "Put Away Type", "Put Away Type ID", "SKU", "Batch ID",
-                         "Quantity", "Put Away Quantity"])
+                         "Quantity", "Put Away Quantity", "Created At", "Modified At"])
 
         for query in queryset:
             # iteration for selected id from Admin Dashboard and get the instance
@@ -402,8 +402,8 @@ class PutAwayAdmin(admin.ModelAdmin):
             writer.writerow([putaway.putaway_user, putaway.warehouse_id,
                              putaway.putaway_type, putaway.putaway_type_id,
                              putaway.sku.product_name + '-' + putaway.sku.product_sku,
-                             putaway.batch_id,
-                             putaway.quantity, putaway.putaway_quantity])
+                             putaway.batch_id, putaway.quantity, putaway.putaway_quantity,
+                             putaway.created_at, putaway.modified_at])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
@@ -439,8 +439,9 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
         f = StringIO()
         writer = csv.writer(f)
         # set the header name
-        writer.writerow(["Warehouse", "SKU", "Batch ID ",
-                         "Put Away Type", "Put Away ID", "Bin ID", "Put Away Quantity", "Put Away Status"])
+        writer.writerow(["Warehouse", "SKU", "Batch ID ", "Put Away Type",
+                         "Put Away ID", "Bin ID", "Put Away Quantity", "Put Away Status",
+                         "Created At", "Modified At"])
 
         for query in queryset:
             # iteration for selected id from Admin Dashboard and get the instance
@@ -452,7 +453,9 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
                              putaway_bin_inventory.putaway_id,
                              putaway_bin_inventory.bin.bin.bin_id,
                              putaway_bin_inventory.putaway_quantity,
-                             putaway_bin_inventory.putaway_status])
+                             putaway_bin_inventory.putaway_status,
+                             putaway_bin_inventory.created_at,
+                             putaway_bin_inventory.modified_at])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
@@ -600,7 +603,7 @@ class PickupAdmin(admin.ModelAdmin):
 class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity',
+    list_display = ('warehouse', 'batch_id', 'order_number', 'pickup_type', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity',
                     'created_at', 'last_picked_at', 'pickup_remarks')
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin',
@@ -612,6 +615,9 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     def order_number(self, obj):
         return obj.pickup.pickup_type_id
 
+    def pickup_type(self, obj):
+        return obj.pickup.pickup_type
+
     def bin_id(self, obj):
         return obj.bin.bin.bin_id
 
@@ -621,7 +627,7 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-    order_number.short_description = 'Order Number'
+    order_number.short_description = 'Order / Repackaging Number'
     bin_id.short_description = 'Bin Id'
 
 

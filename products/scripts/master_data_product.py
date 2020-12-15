@@ -108,7 +108,7 @@ def set_parent_data():
             except:
                 parent_brand.append(str(row_id))
             try:
-                ParentProduct.objects.filter(parent_id=row[1]).update(product_hsn=ProductHSN.objects.filter(product_hsn_code=row[9].replace("'", '')).last())
+                ParentProduct.objects.filter(parent_id=row[1]).update(product_hsn=ProductHSN.objects.filter(product_hsn_code=row[9].strip()).last())
             except:
                 parent_hsn.append(str(row_id))
             try:

@@ -67,3 +67,14 @@ def is_diff_batch_in_this_bin(warehouse, batch_id, bin, sku):
                                        sku=sku,
                                        quantity__gt=0).exists()
 
+
+def get_product_image(product):
+    image_url = ''
+    if product.use_parent_image and product.parent_product.parent_product_pro_image.exists():
+        image_url = product.parent_product.parent_product_pro_image.last().image.url
+    elif not product.use_parent_image and product.product_pro_image.exists():
+        image_url = product.product_pro_image.last().image.url
+    elif not product.use_parent_image and product.child_product_pro_image.exists():
+        image_url = product.child_product_pro_image.last().image.url
+    return image_url
+

@@ -247,6 +247,10 @@ def required_fields(form, fields_list):
         form.fields[field].required = True
 
 
+def repackaging_no_pattern(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "RP")
+
+
 @task
 def generate_invoice_number(field, instance_id, address, invoice_amount):
     instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)

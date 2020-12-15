@@ -6,6 +6,7 @@ import urllib.request
 
 from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
+from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -247,6 +248,12 @@ class Product(models.Model):
     reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
     use_parent_image = models.BooleanField(default=False)
     # child_product_image = models.ImageField(upload_to='child_product_image', blank=True, null=True)
+    REASON_FOR_NEW_CHILD_CHOICES = (
+        ('none', 'None'),
+        ('source', 'Source'),
+        ('destination', 'Destination'),
+    )
+    repackaging_type = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='none')
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
@@ -446,6 +453,18 @@ class ChildProductImage(models.Model):
 
     def __str__(self):
         return self.image.name
+
+
+class ProductSourceMapping(models.Model):
+    destination_sku = models.ForeignKey(Product, related_name='destination_product_pro', blank=True, on_delete=models.CASCADE)
+    source_sku = models.ForeignKey(Product, related_name='source_product_pro', blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Product Source Mapping")
+        verbose_name_plural = _("Product Source Mappings")
 
 
 class ProductOption(models.Model):
@@ -704,6 +723,30 @@ class ParentProductTaxMapping(models.Model):
     #     return self.parent_product.product_pro_tax.filter(tax__tax_type='surcharge')
 
 
+class DestinationRepackagingCostMapping(models.Model):
+    destination = models.ForeignKey(Product, related_name='destination_product_repackaging', on_delete=models.CASCADE)
+    raw_material = models.DecimalField(max_digits=10, decimal_places=2)
+    wastage = models.DecimalField(max_digits=10, decimal_places=2)
+    fumigation = models.DecimalField(max_digits=10, decimal_places=2)
+    label_printing = models.DecimalField(max_digits=10, decimal_places=2)
+    packing_labour = models.DecimalField(max_digits=10, decimal_places=2)
+    primary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    secondary_pm_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    final_fg_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    conversion_cost = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return "{}".format(self.destination)
+
+
+@receiver(pre_save, sender=DestinationRepackagingCostMapping)
+def calculate_fg_and_conversion_cost(sender, instance=None, created=False, **kwargs):
+    instance.final_fg_cost = instance.raw_material + instance.wastage + \
+        instance.fumigation + instance.label_printing + instance.packing_labour + \
+        instance.primary_pm_cost + instance.secondary_pm_cost
+    instance.conversion_cost = instance.final_fg_cost - instance.raw_material
+
+
 class ProductCSV(models.Model):
     file = models.FileField(upload_to='products/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -847,3 +890,51 @@ class BulkUploadForGSTChange(models.Model):
 
     def __str__(self):
         return f"BulkUpload updated at {self.created_at} by {self.updated_by}"
+
+
+class Repackaging(models.Model):
+    REPACKAGING_STATUS = [
+        ('started', 'Started'),
+        ('completed', 'Completed'),
+    ]
+    SOURCE_PICKING_STATUS = [
+        ('pickup_created', 'Pickup Created'),
+        ('picking_assigned', 'Picking Assigned'),
+        ('picking_complete', 'Picking Complete'),
+    ]
+    id = models.AutoField(primary_key=True, verbose_name='Repackaging ID')
+    repackaging_no = models.CharField(max_length=255, null=True, blank=True)
+    seller_shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+    status = models.CharField(max_length=50, choices=REPACKAGING_STATUS, verbose_name='Repackaging Status',
+                              default='started')
+    source_sku = models.ForeignKey(Product, related_name='source_sku_repackaging', on_delete=models.CASCADE, null=True)
+    source_picking_status = models.CharField(max_length=50, choices=SOURCE_PICKING_STATUS, default='')
+    destination_sku = models.ForeignKey(Product, related_name='destination_sku_repackaging', on_delete=models.CASCADE,
+                                        null=True)
+    destination_batch_id = models.CharField(max_length=50, null=True, blank=True)
+    source_repackage_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
+                                                            verbose_name='No Of Pieces Of Source SKU To Be Repackaged')
+    available_source_weight = models.FloatField(default=0, verbose_name='Available Source SKU Weight (Kg)')
+    available_source_quantity = models.PositiveIntegerField(default=0, verbose_name='Available Source SKU Qty(pcs)')
+    destination_sku_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
+                                                           verbose_name='Created Destination SKU Qty (pcs)')
+    remarks = models.TextField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True, validators=[MinValueValidator(datetime.date.today())])
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def source_sku_name(self):
+        return self.source_sku.product_name
+
+    def destination_sku_name(self):
+        return self.destination_sku.product_name
+
+    def source_product_sku(self):
+        return self.source_sku.product_sku
+
+    def destination_product_sku(self):
+        return self.destination_sku.product_sku
+
+    def __str__(self):
+        return self.repackaging_no
+
