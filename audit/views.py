@@ -763,5 +763,5 @@ def AuditDownloadSampleCSV(request):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(["Audit Run Type", "Auditor", "Audit Level", "Bin ID", "SKU ID"])
-    writer.writerow(["manual", "7088491957 – Ankit", "bin wise", "B2BZ01SR001-0001,B2BZ01SR001-0002"])
+    writer.writerow(["Manual", "7088491957 – Ankit", "Bin Wise", "B2BZ01SR001-0001,B2BZ01SR001-0002"," "])
     return response
