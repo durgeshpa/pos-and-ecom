@@ -207,6 +207,16 @@ class Shop(models.Model):
         )
 
 
+@receiver(post_save, sender=Shop)
+def create_default_bin_franchise(sender, instance=None, created=False, **kwargs):
+    if instance.shop_type.shop_type == 'f' and instance.approval_status == 2:
+        from wms.models import Bin
+        from franchise.models import get_default_virtual_bin_id
+        virtual_bin_id = get_default_virtual_bin_id()
+        if not Bin.objects.filter(warehouse=instance, bin_id=virtual_bin_id).exists():
+            Bin.objects.create(warehouse=instance, bin_id=virtual_bin_id, bin_type='SR', is_active=1)
+
+
 class FavouriteProduct(models.Model):
     # user = models.ForeignKey(get_user_model(), related_name='user_favourite',on_delete=models.CASCADE)
     buyer_shop = models.ForeignKey(Shop, related_name='shop_favourite', on_delete=models.CASCADE)

@@ -13,3 +13,6 @@ class Faudit(AuditDetail):
     class Meta:
         proxy = True
         verbose_name = 'Audit'
+
+def get_default_virtual_bin_id():
+    return 'V2VZ01SR001-0001'

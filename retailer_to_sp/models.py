@@ -32,9 +32,10 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
-from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType, InventoryState
+from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory,\
+    InventoryType, InventoryState, Bin
 from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
-    get_expiry_date, OrderManagement
+    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
@@ -2831,3 +2832,33 @@ def cancel_status_picker_dashboard(sender, instance=None, created=False, *args, 
     if instance.status == 'picking_cancelled':
         picker_dashboard = PickerDashboard.objects.filter(order__order_no=instance.pickup_type_id)
         picker_dashboard.update(picking_status='picking_cancelled')
+
+
+@receiver(post_save, sender=Trip)
+def check_franchise_inventory_update(sender, instance=None, created=False, **kwargs):
+    if instance.trip_status == Trip.RETURN_VERIFIED:
+        shipments = instance.rt_invoice_trip.all()
+        for shipment in shipments:
+            if (shipment.order.buyer_shop and shipment.order.buyer_shop.shop_type.shop_type == 'f' and
+                    shipment.rt_order_product_order_product_mapping.last()):
+                franchise_inventory_update(shipment)
+
+
+def franchise_inventory_update(shipment):
+    initial_type = InventoryType.objects.filter(inventory_type='new').last(),
+    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
+    initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
+    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+    warehouse = shipment.order.buyer_shop
+    from franchise.models import get_default_virtual_bin_id
+    bin_obj = Bin.objects.filter(warehouse=warehouse, bin_id=get_default_virtual_bin_id()).last()
+
+    for shipment_product in shipment.rt_order_product_order_product_mapping.all():
+        for shipment_product_batch in shipment_product.rt_ordered_product_mapping.all():
+            product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_product_batch, initial_type,
+                                                     final_type, initial_stage, final_stage)
+
+
+
+
+
