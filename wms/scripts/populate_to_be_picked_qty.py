@@ -3,7 +3,7 @@ from django.db.models import Q, Sum
 from shops.models import Shop
 from wms.models import Pickup, PickupBinInventory, BinInventory
 
-warehouse_list = [Shop.objects.get(pk=1393)]
+warehouse_list = [Shop.objects.get(pk=1393), Shop.objects.get(pk=600), Shop.objects.get(pk=32154)]
 
 
 def run():

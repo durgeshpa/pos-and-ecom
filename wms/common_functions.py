@@ -911,8 +911,20 @@ def cancel_order(instance):
 #                                                         inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
 #                                                         quantity=qty)
 
-
 def cancel_pickup(pickup_object):
+    """
+    Cancels the Pickup
+    Iterates over all the items in PickupBinInventory for particular Pickup,
+    and add item inventory reserved for Pickup back to the BinInventory.
+    Updates quantity in respective BinInventory
+    Updates to_be_picked_quantity in respective BinInventory
+    Makes entry in BinInternalInventoryChange as transaction type 'picking_cancelled'
+    Marks Pickup status as 'picking_cancelled'
+
+    Parameters :
+        pickup_object : instance of Pickup
+
+    """
     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
     with transaction.atomic():
         pickup_bin_qs = PickupBinInventory.objects.filter(pickup=pickup_object)
@@ -951,6 +963,8 @@ def cancel_order_with_pick(instance):
 
         if pickup_object.status in ['pickup_creation', 'picking_assigned']:
             cancel_pickup(pickup_object)
+            info_logger.info('cancel_order_with_pick| Order No-{}, Cancelled Pickup'
+                             .format(instance.order_no))
             return
         # get the queryset object from Pickup Bin Inventory Model
         pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
