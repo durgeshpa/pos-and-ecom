@@ -698,8 +698,8 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     exclude = ('product_sku',)
 
-    # change_list_template = 'admin/products/product_change_list.html'
-    # change_form_template = 'admin/products/product_change_form.html'
+    change_list_template = 'admin/products/product_change_list.html'
+    change_form_template = 'admin/products/product_change_form.html'
 
     def get_urls(self):
         from django.conf.urls import url
