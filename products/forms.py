@@ -331,7 +331,7 @@ class ProductPriceNewForm(forms.ModelForm):
         model = ProductPrice
         fields = ('product', 'mrp', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
-                  'start_date', 'end_date', 'approval_status')
+                  'start_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -500,6 +500,16 @@ class ProductForm(forms.ModelForm):
         model = Product
         fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status', 'repackaging_type',
                   'product_special_cess',)
+
+    def clean(self):
+        if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active':
+            error = True
+            if self.instance.id and ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
+                                                                product_id=self.instance.id).exists():
+                error = False
+            if error:
+                raise forms.ValidationError("Product cannot be made active until an active Product Price exists")
+        return self.cleaned_data
 
 
 class ProductSourceMappingForm(forms.ModelForm):
@@ -815,7 +825,7 @@ class ProductPriceAddPerm(forms.ModelForm):
         model = ProductPrice
         fields = ('product', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
-                  'start_date', 'end_date', 'approval_status')
+                  'start_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -823,7 +833,8 @@ class ProductPriceAddPerm(forms.ModelForm):
         #     self.fields['start_date'].required = True
         #     self.fields['end_date'].required = True
         if 'approval_status' in self.fields:
-            self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
+            self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+            # self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
             self.fields['approval_status'].widget = forms.HiddenInput()
 
 
@@ -841,13 +852,13 @@ class ProductPriceChangePerm(forms.ModelForm):
         model = ProductPrice
         fields = ('product', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
-                  'start_date', 'end_date', 'approval_status')
+                  'start_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         #self.fields['start_date'].required = True
         #self.fields['end_date'].required = True
-        # self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
+        self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
 
 
 class ProductCategoryMappingForm(forms.Form):
