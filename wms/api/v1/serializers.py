@@ -1,7 +1,7 @@
 from django.utils.safestring import mark_safe
 from rest_framework import serializers
 from wms.models import Bin, Putaway, Out, Pickup, BinInventory, PickupBinInventory
-from retailer_to_sp.models import Order
+from retailer_to_sp.models import Order, Repackaging
 from shops.api.v1.serializers import ShopSerializer
 from retailer_to_sp.api.v1.serializers import ProductSerializer
 from django.db.models import Sum
@@ -36,7 +36,8 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
     warehouse = ShopSerializer()
     sku = ProductSerializer()
     product_sku = serializers.SerializerMethodField('product_sku_dt')
-    is_success= serializers.SerializerMethodField('is_success_dt')
+    is_success = serializers.SerializerMethodField('is_success_dt')
+    inventory_type = serializers.SerializerMethodField('inventory_type_dt')
     quantity = serializers.SerializerMethodField('grned_quantity_dt')
     putaway_quantity = serializers.SerializerMethodField('putaway_quantity_dt')
     product_name = serializers.SerializerMethodField('product_name_dt')
@@ -44,13 +45,17 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
 
     class Meta:
         model = Putaway
-        fields = ('is_success','id','warehouse', 'putaway_type', 'putaway_type_id', 'sku','product_sku', 'batch_id', 'quantity', 'putaway_quantity', 'created_at', 'modified_at', 'product_name', 'max_putaway_qty')
+        fields = ('is_success','id','warehouse', 'putaway_type', 'putaway_type_id', 'sku','product_sku', 'batch_id',
+                  'inventory_type', 'quantity', 'putaway_quantity', 'created_at', 'modified_at', 'product_name', 'max_putaway_qty')
 
     def product_sku_dt(self, obj):
         return obj.sku.product_sku
 
     def is_success_dt(self,obj):
         return True
+
+    def inventory_type_dt(self, obj):
+        return obj.inventory_type.inventory_type
 
     def grned_quantity_dt(self, obj):
         return Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('quantity'))['total']
@@ -186,6 +191,29 @@ class PickupBinInventorySerializer(serializers.ModelSerializer):
     def m_product_image(self,obj):
         if obj.pickup.sku.product_pro_image.exists():
             return obj.pickup.sku.product_pro_image.last().image.url
+
+
+class RepackagingSerializer(serializers.ModelSerializer):
+    picker_status = serializers.SerializerMethodField('picker_status_dt')
+    order_create_date = serializers.SerializerMethodField()
+    delivery_location = serializers.SerializerMethodField('m_delivery_location')
+    order_no = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Repackaging
+        fields = ('id', 'order_no', 'picker_status', 'order_create_date', 'delivery_location',)
+
+    def picker_status_dt(self, obj):
+        return str(obj.source_picking_status).lower()
+
+    def get_order_create_date(self, obj):
+        return obj.created_at.strftime("%d-%m-%Y")
+
+    def m_delivery_location(self, obj):
+        return ''
+
+    def get_order_no(self, obj):
+        return obj.repackaging_no
 
 
     # def bin_id_dt(self, obj):

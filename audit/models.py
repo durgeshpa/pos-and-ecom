@@ -147,10 +147,12 @@ class AuditProduct(BaseTimestampModel):
 class AuditCancelledPicklist(BaseTimestampModel):
     audit = models.ForeignKey(AuditDetail, null=False, on_delete=models.DO_NOTHING, related_name='+')
     order_no = models.CharField(max_length=20, null=False)
-    is_picklist_refreshed = models.BooleanField(default=False)
+    is_picklist_refreshed = models.BooleanField(default=False, verbose_name='Picklist Refreshed')
 
     class Meta:
         db_table = "wms_audit_cancelled_picklists"
+        verbose_name = "Audit Cancelled Picklist"
+        verbose_name_plural = "Audit Cancelled Picklists"
 
 
 class AuditTicketManual(BaseTimestampModel):
@@ -173,3 +175,18 @@ class AuditTicketManual(BaseTimestampModel):
         db_table = "wms_audit_tickets_manual"
         verbose_name = "Manual Audit Ticket"
         verbose_name_plural = "Manual Audit Tickets"
+
+
+class AuditedBinRecord(models.Model):
+    audit = models.ForeignKey(AuditDetail, null=False, related_name='+', on_delete=models.DO_NOTHING)
+    bin = models.ForeignKey(Bin, null=True, related_name='+', on_delete=models.DO_NOTHING)
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
+    class Meta:
+        db_table = "wms_audit_bin_record"
+
+class AuditedProductRecord(models.Model):
+    audit = models.ForeignKey(AuditDetail, null=False, related_name='+', on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, null=False, to_field='product_sku', related_name='+', on_delete=models.DO_NOTHING)
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
+    class Meta:
+        db_table = "wms_audit_product_record"

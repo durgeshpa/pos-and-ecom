@@ -48,7 +48,7 @@ def findReturnTax(r, per, product_cess_amount, returned_qty, damaged_qty, *args,
     # you would need to do any localization of the result here
     qty = returned_qty + damaged_qty
     special_cess= float(product_cess_amount)
-    return round((((float((r-special_cess)*100)/(100+per)*per)/100) + special_cess)*qty)
+    return round((((float((float(r)-special_cess)*100)/(100+per)*per)/100) + special_cess)*qty)
 
 
 @register.simple_tag(name='addition')

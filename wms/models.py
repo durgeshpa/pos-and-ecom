@@ -44,7 +44,8 @@ INVENTORY_STATE_CHOICES = (
     ('ordered', 'Ordered'),  # Inventory Ordered
     ('picked', 'PICKED'),  # Inventory picked
     ('canceled', 'Canceled'),  # Inventory Canceled
-    ('new', 'New')
+    ('new', 'New'),
+    ('repackaging', 'Repackaging')
 )
 
 
@@ -153,6 +154,7 @@ class In(models.Model):
     in_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING, related_name='ins+')
     batch_id = models.CharField(max_length=50, null=True, blank=True)
+    inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='+')
     quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -167,6 +169,7 @@ class Putaway(models.Model):
     putaway_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
+    inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     putaway_quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -214,6 +217,7 @@ class Out(models.Model):
     out_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
+    inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -306,11 +310,11 @@ class WarehouseInternalInventoryChange(models.Model):
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('reschedule', 'Reschedule'),
         ('expired', 'Expired'),
+        ('repackaging', 'Repackaging'),
         ('manual_audit_add', 'Manual Audit Add'),
         ('manual_audit_deduct', 'Manual Audit Deduct'),
         ('audit_correction_add', 'Audit Correction Add'),
         ('audit_correction_deduct', 'Audit Correction Deduct'),
-
     )
 
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -386,6 +390,7 @@ class StockCorrectionChange(models.Model):
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     stock_bin_id = models.ForeignKey(Bin, related_name='bin', null=True, blank=True, on_delete=models.DO_NOTHING)
     correction_type = models.CharField(max_length=10, null=True, blank=True)
+    inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
