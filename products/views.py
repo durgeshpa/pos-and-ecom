@@ -45,7 +45,7 @@ from products.models import (
     ProductSourceMapping,
     ParentProductTaxMapping, Tax, ParentProductImage,
     DestinationRepackagingCostMapping
-    )
+)
 
 logger = logging.getLogger(__name__)
 
@@ -357,7 +357,7 @@ def products_filter_view(request):
             )
         if form.is_valid():
             dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-            filename = str(dt)+"product_list.csv"
+            filename = str(dt) + "product_list.csv"
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
             writer = csv.writer(response)
@@ -369,7 +369,7 @@ def products_filter_view(request):
             brands = form.cleaned_data.get('brand')
             products = Product.objects.select_related(
                 'product_hsn'
-                ).filter(
+            ).filter(
                 product_brand__in=brands
             )
             for product in products:
@@ -408,7 +408,7 @@ def products_price_filter_view(request):
             sp_sr = form.cleaned_data.get('sp_sr_choice').shop_type
             shops = form.cleaned_data.get('sp_sr_list')
             dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-            filename = str(dt)+"product_price_list.csv"
+            filename = str(dt) + "product_price_list.csv"
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
             writer = csv.writer(response)
@@ -463,7 +463,7 @@ def products_price_filter_view(request):
                         ])
             if sp_sr == "gf":
                 writer.writerow([
-                    'product_id', 'product_name',  'gf_code', 'product_hsn',
+                    'product_id', 'product_name', 'gf_code', 'product_hsn',
                     'mrp', 'ptsp', 'ptsr', 'ptr', 'cash_discount', 'loyalty_incentive', 'price_start_date',
                     'price_end_date', 'sr_name'
                 ])
@@ -535,7 +535,7 @@ def products_csv_upload_view(request):
                 except Exception as e:
                     logger.exception("Brand Does not exist")
                     message.error(request, "Brand doesn't exist for  {}".format(row[1]))
-                    return render(request, 'admin/products/productscsvupload.html',{'form': form})
+                    return render(request, 'admin/products/productscsvupload.html', {'form': form})
 
                 try:
                     product = Product.objects.get(product_gf_code=row[3])
@@ -568,11 +568,11 @@ def products_csv_upload_view(request):
                 for c in row[6].split(','):
                     if c is not '':
                         try:
-                            product_category, _ = ProductCategory.objects.\
+                            product_category, _ = ProductCategory.objects. \
                                 get_or_create(
-                                            product=product,
-                                            category_id=c.strip()
-                                )
+                                product=product,
+                                category_id=c.strip()
+                            )
                         except Exception as e:
                             logger.exception(
                                 "unable to get or create product "
@@ -613,11 +613,11 @@ def products_csv_upload_view(request):
                 for t in row[7].split(','):
                     if t is not '':
                         try:
-                            product_tax, _ = ProductTaxMapping.objects\
+                            product_tax, _ = ProductTaxMapping.objects \
                                 .get_or_create(
-                                                product=product,
-                                                tax_id=t.strip()
-                                )
+                                product=product,
+                                tax_id=t.strip()
+                            )
                         except Exception as e:
                             logger.error(e)
                             messages.error(
@@ -645,6 +645,7 @@ class MultiPhotoUploadView(View):
     """
     Bulk images upload with Child SKU ID as photo name
     """
+
     def get(self, request):
         photos_list = ProductImage.objects.all()
         return render(
@@ -690,6 +691,7 @@ class ParentProductMultiPhotoUploadView(View):
     """
     Bulk images upload with Parent ID as photo name
     """
+
     def get(self, request):
         photos_list = ParentProductImage.objects.all()
         return render(
@@ -733,24 +735,25 @@ class ParentProductMultiPhotoUploadView(View):
 
 def export(request):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-    filename = str(dt)+"product_list.csv"
+    filename = str(dt) + "product_list.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['id','product_name', 'mrp', 'ptsp', 'ptsr', 'ptr'])
-    products = Product.objects.values_list('id','product_name')
+    writer.writerow(['id', 'product_name', 'mrp', 'ptsp', 'ptsr', 'ptr'])
+    products = Product.objects.values_list('id', 'product_name')
     for product in products:
-        writer.writerow([product[0],product[1],'','','',''])
+        writer.writerow([product[0], product[1], '', '', '', ''])
     return response
+
 
 def products_export_for_vendor(request):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-    filename = str(dt)+"product_list.csv"
+    filename = str(dt) + "product_list.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     # writer.writerow(['id','product_name','product_gf_code','product_sku', 'mrp', 'brand_to_gram_price','case_size'])
-    writer.writerow(['id','product_name', 'product_sku', 'mrp', 'brand_to_gram_price', 'case_size'])
+    writer.writerow(['id', 'product_name', 'product_sku', 'mrp', 'brand_to_gram_price', 'case_size'])
     # products = Product.objects.values_list('id','product_name','product_gf_code','product_sku','product_case_size')
     products = Product.objects.all().only('id', 'product_name', 'product_sku', 'product_mrp')
     for product in products:
@@ -758,32 +761,40 @@ def products_export_for_vendor(request):
         writer.writerow([product.id, product.product_name, product.product_sku, '', '', product.product_case_size])
     return response
 
-def products_vendor_mapping(request,pk=None):
+
+def products_vendor_mapping(request, pk=None):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-    filename = str(dt)+"vendor_product_list.csv"
+    filename = str(dt) + "vendor_product_list.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     try:
-        writer.writerow(['parent_id','parent_name', 'id','product_name','sku','case_size','number_of_cases','mrp','brand_to_gram_price'])
-        vendor_products = ProductVendorMapping.objects.filter(vendor_id=int(pk),case_size__gt=0,status=True)
+        writer.writerow(['parent_id', 'parent_name', 'id', 'product_name', 'sku', 'case_size', 'number_of_cases', 'mrp',
+                         'brand_to_gram_price'])
+        vendor_products = ProductVendorMapping.objects.filter(vendor_id=int(pk), case_size__gt=0, status=True)
         for p in vendor_products:
-            writer.writerow([p.product.parent_product.parent_id, p.product.parent_name, p.product_id,p.product.product_name,p.product.product_sku,p.case_size,'',p.product_mrp,p.product_price])
+            writer.writerow(
+                [p.product.parent_product.parent_id, p.product.parent_name, p.product_id, p.product.product_name,
+                 p.product.product_sku, p.case_size, '', p.product_mrp, p.product_price])
     except:
         writer.writerow(["Make sure you have selected vendor before downloading CSV file"])
     return response
 
-def cart_products_mapping(request,pk=None):
+
+def cart_products_mapping(request, pk=None):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
     current_time = datetime.datetime.now()
-    filename = str(dt)+"cart_product_list.csv"
+    filename = str(dt) + "cart_product_list.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     try:
-        writer.writerow(['SKU', 'product_name','qty', 'discounted_price'])
-        cart_products = ProductPrice.objects.values('product__product_sku', 'product__product_name').filter(seller_shop_id=int(pk), approval_status = 2, start_date__lte =  current_time, end_date__gte = current_time)
-        writer.writerows([(product.get('product__product_sku'), product.get('product__product_name'), '', '') for product in cart_products])
+        writer.writerow(['SKU', 'product_name', 'qty', 'discounted_price'])
+        cart_products = ProductPrice.objects.values('product__product_sku', 'product__product_name').filter(
+            seller_shop_id=int(pk), approval_status=2, start_date__lte=current_time, end_date__gte=current_time)
+        writer.writerows(
+            [(product.get('product__product_sku'), product.get('product__product_name'), '', '') for product in
+             cart_products])
     except:
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
     return response
@@ -877,16 +888,26 @@ def ProductsUploadSample(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_name','product_short_description','product_long_description','product_gf_code','product_ean_code','p_brand_id','p_cat_id','p_tax_id','p_size_id','p_color_id','p_fragrance_id','p_flavor_id','weight_value(gm)','p_package_size_id','p_inner_case_size','p_case_size','product_hsn_code'])
-    writer.writerow(['fortune sunflowers oil','Fortune Sun Lite Refined Sunflower Oil is a healthy','Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.','12BBPRG00000121','1234567890123','1','1','1','1','1','1','1','1','1','4','2','HSN Code'])
+    writer.writerow(
+        ['product_name', 'product_short_description', 'product_long_description', 'product_gf_code', 'product_ean_code',
+         'p_brand_id', 'p_cat_id', 'p_tax_id', 'p_size_id', 'p_color_id', 'p_fragrance_id', 'p_flavor_id',
+         'weight_value(gm)', 'p_package_size_id', 'p_inner_case_size', 'p_case_size', 'product_hsn_code'])
+    writer.writerow(['fortune sunflowers oil', 'Fortune Sun Lite Refined Sunflower Oil is a healthy',
+                     'Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.',
+                     '12BBPRG00000121', '1234567890123', '1', '1', '1', '1', '1', '1', '1', '1', '1', '4', '2',
+                     'HSN Code'])
     return response
+
 
 def NameIDCSV(request):
     filename = "name_id.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['BRAND NAME','BRAND ID','CATEGORY NAME','CATEGORY ID','TAX NAME','TAX ID','SIZE NAME','SIZE ID','COLOR NAME','COLOR ID','FRAGRANCE NAME','FRAGRANCE ID','FLAVOR NAME','FLAVOR ID','WEIGHT NAME','WEIGHT ID','PACKSIZE NAME','PACKSIZE ID'])
+    writer.writerow(
+        ['BRAND NAME', 'BRAND ID', 'CATEGORY NAME', 'CATEGORY ID', 'TAX NAME', 'TAX ID', 'SIZE NAME', 'SIZE ID',
+         'COLOR NAME', 'COLOR ID', 'FRAGRANCE NAME', 'FRAGRANCE ID', 'FLAVOR NAME', 'FLAVOR ID', 'WEIGHT NAME',
+         'WEIGHT ID', 'PACKSIZE NAME', 'PACKSIZE ID'])
     return response
 
 
@@ -900,12 +921,13 @@ class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
             )
         return qs
 
+
 class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = None
         if self.q:
             qs = Category.objects.filter(category_name__icontains=self.q),
-            #qs = Product.objects.filter(product_name__icontains=self.q)
+            # qs = Product.objects.filter(product_name__icontains=self.q)
         return qs
 
 
@@ -929,7 +951,7 @@ def download_all_products(request):
         'mrp', 'ptsp', 'ptsr', 'ptr', 'cash_discount', 'loyalty_incentive'
     ])
     writer.writerows([[i['id'], i['product_name'], i['product_gf_code'],
-                      i['product_hsn'], '', '', '', '']
+                       i['product_hsn'], '', '', '', '']
                       for i in products_list])
     return response
 
@@ -939,8 +961,12 @@ def ParentProductsDownloadSampleCSV(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(["Name", "Brand", "Category", "HSN", "GST", "CESS", "Surcharge", "Brand Case Size", "Inner Case Size", "Product Type"])
-    writer.writerow(["testparent2", "Nestle", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100", "10", "10", "b2c"])
+    writer.writerow(
+        ["Name", "Brand", "Category", "HSN", "GST", "CESS", "Surcharge", "Brand Case Size", "Inner Case Size",
+         "Product Type"])
+    writer.writerow(
+        ["testparent2", "Nestle", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100", "10", "10",
+         "b2c"])
     return response
 
 
@@ -955,6 +981,7 @@ def parent_product_upload(request):
             upload_file = form.cleaned_data.get('file')
             reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
             first_row = next(reader)
+
             def gst_mapper(gst):
                 if '0' in gst:
                     return 0
@@ -966,18 +993,20 @@ def parent_product_upload(request):
                     return 18
                 elif '28' in gst:
                     return 28
+
             def cess_mapper(cess):
                 if '0' in cess:
                     return 0
                 elif '12' in cess:
                     return 12
+
             try:
                 for row in reader:
                     if len(row) == 0:
                         continue
                     if '' in row:
                         if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
-                            row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                                row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
                             continue
                     parent_product = ParentProduct.objects.create(
                         name=row[0].strip(),
@@ -1000,8 +1029,8 @@ def parent_product_upload(request):
                     ).save()
                     parent_surcharge = float(row[6]) if row[6] else 0
                     if Tax.objects.filter(
-                        tax_type='surcharge',
-                        tax_percentage=parent_surcharge
+                            tax_type='surcharge',
+                            tax_percentage=parent_surcharge
                     ).exists():
                         ParentProductTaxMapping.objects.create(
                             parent_product=parent_product,
@@ -1068,7 +1097,6 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
-
 def ChildProductsDownloadSampleCSV(request):
     filename = "child_products_sample.csv"
     response = HttpResponse(content_type='text/csv')
@@ -1096,6 +1124,7 @@ def product_csv_upload(request):
             upload_file = form.cleaned_data.get('file')
             reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
             first_row = next(reader)
+
             def reason_for_child_sku_mapper(reason):
                 reason = reason.lower()
                 if 'default' in reason:
@@ -1108,12 +1137,14 @@ def product_csv_upload(request):
                     return 'different_ean'
                 elif 'offer' in reason:
                     return 'offer'
+
             try:
                 for row_id, row in enumerate(reader):
                     if len(row) == 0:
                         continue
                     if '' in row:
-                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[
+                            5] == '' and row[6] == ''):
                             continue
                     source_map = []
                     if row[7] == 'destination':
@@ -1139,7 +1170,8 @@ def product_csv_upload(request):
                             for sku in source_map:
                                 psm = ProductSourceMapping.objects.create(
                                     destination_sku=product,
-                                    source_sku=Product.objects.filter(product_sku=sku, repackaging_type='source').last(),
+                                    source_sku=Product.objects.filter(product_sku=sku,
+                                                                      repackaging_type='source').last(),
                                     status=True
                                 )
                                 psm.save()
@@ -1180,8 +1212,8 @@ def UploadMasterDataSampleExcelFile(request):
     font_style.font.bold = True
 
     columns = ['SKU_ID', 'SKU_Name', 'Parent_ID', 'Parent_Name', 'EAN', 'MRP', 'Weight_Unit', 'Weight_Value', 'HSN',
-               'GST', 'Cess/Surcharge', 'Brand_Case_Size', 'Inner_Case_Size', 'Brand_Name', 'Brand_ID',
-               'Sub_Brand_ID', 'Category_Name', 'Category_ID', 'Sub_Category_Name', 'Sub_Category_ID', 'Status', ]
+               'Tax_1(GST)', 'Tax_2(Cess/Surcharge)', 'Brand_Case_Size', 'Inner_Case_Size', 'Brand_Name', 'Brand_ID',
+               'Sub_Brand_Name', 'Sub_Brand_ID', 'Category_Name', 'Category_ID', 'Sub_Category_Name', 'Sub_Category_ID', 'Status', ]
 
     for col_num in range(len(columns)):
         ws.write(row_num, col_num, columns[col_num], font_style)
@@ -1189,9 +1221,10 @@ def UploadMasterDataSampleExcelFile(request):
     row_num = 1
     font_style = xlwt.XFStyle()
 
-    column_list = ['SSJSNGTAT00000006', 'Tata Salt 500 gm', 'PSSJTAT0002', 'Parent_Name', '8901192106223', '30.00', '1',
-                  '1', 'asafaf','12%', '5%', '1', '1', 'TATA', '145', '37', 'Home & Supplies', '342', 'home_and_supplies',
-                  '123', 'Active', ]
+    column_list = ['NDPPROMAG00000018', 'Maggi Magic masala, 6.2 gm (Buy 4 + get 1 Free)', 'PSNGNES0016',
+                   'Maggi Magic masala, 6.2 gm', '89010588772972', '5.00', 'Gram', '10', '910',
+                   'GST-12', '', '2304', '12', 'Nestle', '34', 'Maggi', '35', 'Staples & Grocery', '114',
+                   'Spices, Herb & Seasoning', '118', 'Active', ]
 
     for col_num in range(len(column_list)):
         ws.write(row_num, col_num, column_list[col_num], font_style)
@@ -1203,11 +1236,132 @@ def UploadMasterDataSampleExcelFile(request):
 def upload_master_data_view(request):
     if request.method == 'POST':
         excel_file = request.FILES['file']
-        data = xlsx_get(excel_file)
-        form = UploadMasterDataAdminForm(request.POST, request.FILES, data)
+        if excel_file.name[-5:] == '.xlsx':
+            data = xlsx_get(excel_file)
+            form = UploadMasterDataAdminForm(request.POST, request.FILES, data)
+
+        if not excel_file.name[-5:] == '.xlsx':
+            form = UploadMasterDataAdminForm(request.POST, request.FILES)
 
         if form.errors:
-            return render(request, 'admin/products/child-product-upload.html', {'form': form})
+            return render(request, 'admin/products/upload-master-data.html', {'form': form})
+
+        if form.is_valid():
+            excel_file_data = xlsx_get(excel_file)
+            header_list = excel_file_data.pop(0)  # remove the header from the list
+            excel_file_list = []
+            excel_dict = {}
+            count = 0
+            for row in excel_file_data:
+                for ele in row:
+                    excel_dict[header_list[count]] = ele
+                    count += 1
+                excel_file_list.append(excel_dict)
+                excel_dict = {}
+                count = 0
+
+            # Set inactive status for Product
+            count = 0
+            if 'Status' and 'SKU_ID' in header_list:
+                logger.info("Method Start to set Inactive status from excel file")
+                for row in excel_file_list:
+                    if row['Status'] == 'Deactivated':
+                        count += 1
+                        Product.objects.filter(product_sku=row['SKU_ID']).update(status='deactivated')
+                    else:
+                        continue
+                print("Inactive row id count :" + str(count))
+                print("Method Complete to set the Inactive status from excel file")
+
+            # match sub_brand to brand
+            count = 0
+            row_num = 1
+            if 'Brand_ID' and 'Sub_Brand_ID' in header_list:
+                logger.info('Method Start to set the Sub-brand to Brand mapping from excel file')
+                sub_brand = []
+                for row in excel_file_list:
+                    count += 1
+                    row_num += 1
+                    try:
+                        if row['Sub_Brand_ID'] == row['Brand_ID']:
+                            continue
+                        else:
+                            Brand.objects.filter(id=row['Sub_Brand_ID']).update(brand_parent=row['Brand_ID'])
+                    except:
+                        sub_brand.append(str(row_num))
+                logger.info("Total row executed :" + str(count))
+                logger.info("Sub brand is not updated in these row :" + str(sub_brand))
+                logger.info("Method complete to set the Sub-Brand to Brand mapping from csv file")
+
+            # match sub_category to category
+            count = 0
+            row_num = 1
+            if 'Category_ID' and 'Sub_Category_ID' in header_list:
+                logger.info("Method Start to set the Sub-Category to Category mapping from excel file")
+                sub_category = []
+                for row in excel_file_list:
+                    count += 1
+                    row_num += 1
+                    try:
+                        if row['Sub_Category_ID'] == row['Category_ID']:
+                            continue
+                        else:
+                            Category.objects.filter(id=row['Sub_category_ID']).update(category_parent=row['Category_ID'])
+                    except:
+                        sub_category.append(str(row_num))
+                logger.info("Total row executed :" + str(count))
+                logger.info("Sub Category is not updated in these row :" + str(sub_category))
+                logger.info("Method Complete to set the Sub-Category to Category mapping from excel file")
+
+            # set parent sku data from excel file
+            count = 0
+            row_num = 1
+            if 'Status' in header_list:
+                logger.info("Method Start to set the data for Parent SKU")
+                parent_data = []
+                parent_brand = []
+                parent_hsn = []
+                parent_category = []
+                for row in excel_file_list:
+                    row_num += 1
+                    if not row['Status'] == 'Deactivated':
+                        count += 1
+                        try:
+                            parent_product = ParentProduct.objects.filter(parent_id=row['Parent_ID'])
+                        except Exception as e:
+                            parent_data.append(str(row_num))
+                        try:
+                            ParentProduct.objects.filter(parent_id=row['Parent_ID']).update(
+                                parent_brand=Brand.objects.filter(id=row['Sub_Brand_ID'].strip()).last(),
+                                brand_case_size=row['Brand_Case_Size'], inner_case_size=row['Inner_Case_Size'])
+                        except:
+                            parent_brand.append(str(row_num))
+                        try:
+                            ParentProduct.objects.filter(parent_id=row['Parent_ID']).update(
+                                product_hsn=ProductHSN.objects.filter(product_hsn_code=row['HSN'].replace("'", '')).last())
+                        except:
+                            parent_hsn.append(str(row_num))
+                        try:
+                            ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(
+                                category=Category.objects.filter(id=row['Sub_Category_ID'].strip()).last())
+                        except:
+                            parent_category.append(str(row_num))
+                            if not row['Tax_1(GST)'] == '':
+                                tax = tax.objects.filter(tax_name=row['Tax_1(GST)'])
+                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
+                                    tax=tax[0])
+                            if not row['Tax_2(Cess/Surcharge)'] == '':
+                                tax = tax.objects.filter(tax_name=row['Tax_2(Cess/Surcharge)'])
+                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
+                                    tax=tax[0])
+                    else:
+                        continue
+                logger.info("Total row executed :" + str(count))
+                logger.info("Parent_ID is not exist in these row:" + str(parent_data))
+                logger.info("Parent Brand is not exist in these row :" + str(parent_brand))
+                logger.info("Parent HSN is not exist in these row :" + str(parent_hsn))
+                logger.info("Parent Category is not exist in these row :" + str(parent_category))
+                logger.info("Method Complete to set the data for Parent SKU")
 
     else:
         form = UploadMasterDataAdminForm()
@@ -1221,7 +1375,8 @@ def FetchDefaultChildDdetails(request):
     }
     if not parent_product_id:
         return JsonResponse(data)
-    def_child = Product.objects.filter(parent_product=parent_product_id, reason_for_child_sku__icontains='default').last()
+    def_child = Product.objects.filter(parent_product=parent_product_id,
+                                       reason_for_child_sku__icontains='default').last()
     if def_child:
         data = {
             'found': True,
@@ -1250,7 +1405,7 @@ class ParentProductsAutocompleteView(AutocompleteJsonView):
 
 
 def FetchAllParentCategories(request):
-    data = { 'categories': [] }
+    data = {'categories': []}
     categories = Category.objects.all()
     for category in categories:
         data['categories'].append(category.category_name)
@@ -1259,7 +1414,7 @@ def FetchAllParentCategories(request):
 
 
 def FetchAllProductBrands(request):
-    data = { 'brands': [] }
+    data = {'brands': []}
     brands = Brand.objects.all()
     for brand in brands:
         data['brands'].append(brand.brand_name)
@@ -1412,7 +1567,7 @@ class ProductPriceUpload(View):
             qs = qs.filter(city=data['city'])
         if data['pincode_from'] and data['pincode_to']:
             pincode_range = [i for i in range(int(data['pincode_from']),
-                             int(data['pincode_to']))]
+                                              int(data['pincode_to']))]
             qs = qs.filter(pincode__in=pincode_range)
         if data['buyer_shop']:
             qs = qs.filter(buyer_shop=data['buyer_shop'])
@@ -1471,8 +1626,8 @@ class ProductPriceUpload(View):
                     if 'mrp' in col.lower():
                         mrp_col_present = True
                 for row_id, row in enumerate(sheet_obj.iter_rows(
-                    min_row=2, max_row=None, min_col=None, max_col=None,
-                    values_only=True
+                        min_row=2, max_row=None, min_col=None, max_col=None,
+                        values_only=True
                 )):
                     self.validate_row(first_row, row, mrp_col_present)
                     product = Product.objects.get(product_sku=row[0])
@@ -1567,11 +1722,11 @@ class SourceRepackageDetail(View):
 
         try:
             warehouse_available_obj = WarehouseInventory.objects.filter(warehouse_id=shop_id,
-                                              sku_id=product_obj['product_sku'],
-                                              inventory_type=InventoryType.objects.filter(
-                                                  inventory_type='normal').last(),
-                                              inventory_state=InventoryState.objects.filter(
-                                                  inventory_state='available').last())
+                                                                        sku_id=product_obj['product_sku'],
+                                                                        inventory_type=InventoryType.objects.filter(
+                                                                            inventory_type='normal').last(),
+                                                                        inventory_state=InventoryState.objects.filter(
+                                                                            inventory_state='available').last())
             if warehouse_available_obj.exists():
                 w_obj = warehouse_available_obj.last()
                 source_quantity = w_obj.quantity

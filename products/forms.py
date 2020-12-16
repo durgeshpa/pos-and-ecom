@@ -509,9 +509,9 @@ class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
         fields = (
-        'parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value',
-        'weight_unit', 'use_parent_image', 'status', 'repackaging_type',
-        'product_special_cess',)
+            'parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value',
+            'weight_unit', 'use_parent_image', 'status', 'repackaging_type',
+            'product_special_cess',)
 
 
 class ProductSourceMappingForm(forms.ModelForm):
@@ -674,39 +674,147 @@ class UploadMasterDataAdminForm(forms.Form):
     """
     file = forms.FileField(label='Upload Master Data')
 
-    def clean_file(self):
-        if not self.cleaned_data['file'].name[-5:] in ('.xlsx'):
-            raise forms.ValidationError("Sorry! Only excel(xlsx) file accepted.")
-
-        row_num = 2
-        excel_file_data = self.auto_id['Users']
-        for row in range(1, len(excel_file_data)):
-            if not row[0] and row[2]:
-                raise ValidationError(_(f"Row {row_num} | 'SKU ID and Parent ID' can not be empty."))
-            if not row[0]:
-                raise ValidationError(_(f"Row {row_num} | 'SKU ID' can not be empty."))
-            if not row[2]:
-                raise ValidationError(_(f"Row {row_num} | 'Parent ID' can not be empty."))
-            if not 'Active' or 'Deactivated' in row[20]:
-                raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!"))
-            if not Product.objects.filter(product_sku=row[0]).exists():
-                raise ValidationError(_(f"Row {row_num} | 'SKU ID' doesn't exist."))
-            if not ParentProduct.objects.filter(parent_id=row[2]).exists():
-                raise ValidationError(_(f"Row {row_num} | 'Parent ID' doesn't exist."))
-            if row[4]:
-                if not re.match("^[a-zA-Z0-9\+\.\-]*$", row[4].replace("'", '')):
-                    raise ValidationError(_(f"Row {row_num} | 'Product EAN Code' can only contain alphanumeric input."))
-            if row[5]:
-                if not re.match("^\d+[.]?[\d]{0,2}$", row[5]):
-                    raise ValidationError(_(f"Row {row_num + 1} | 'Product MRP' can only be a numeric value."))
-            if row[6]:
-                if row[6].lower() not in ['gram']:
+    def validate_row(self, uploaded_data_list, header_list):
+        """
+        This method will check that Data uploaded by user is valid or not.
+        """
+        row_num = 1
+        for row in uploaded_data_list:
+            row_num += 1
+            if not Product.objects.filter(product_sku=row['SKU_ID']).exists():
+                raise ValidationError(_(f"Row {row_num} | {row['SKU_ID']} | 'SKU ID' doesn't exist."))
+            if not ParentProduct.objects.filter(parent_id=row['Parent_ID']).exists():
+                raise ValidationError(_(f"Row {row_num} | {row['Parent_ID']} | 'Parent ID' doesn't exist."))
+            if 'Status' in header_list and row['Status'] != '':
+                if not row['Status'] == 'Active' or row['Status'] == 'Deactivated':
+                    raise ValidationError(
+                        _(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!"))
+            if 'EAN' in header_list and row['EAN'] != '':
+                if not Product.objects.filter(product_ean_code=row['EAN']).exists():
+                    raise ValidationError(_(f"Row {row_num} | {row['EAN']} |'HSN' doesn't exist in the system."))
+            if 'MRP' in header_list and row['MRP'] != '':
+                if not re.match("^\d+[.]?[\d]{0,2}$", str(row['MRP'])):
+                    raise ValidationError(
+                        _(f"Row {row_num + 1} | 'Product MRP' can only be a numeric value."))
+            if 'Weight_Unit' in header_list and row['Weight_Unit'] != '':
+                if str(row['Weight_Unit']).lower() not in ['gram']:
                     raise ValidationError(_(f"Row {row_num} | 'Weight Unit' can only be 'Gram'."))
-            if row[7]:
-                if not re.match("^\d+[.]?[\d]{0,2}$", row[7]):
+            if 'Weight_Value' in header_list and row['Weight_Value'] != '':
+                if not re.match("^\d+[.]?[\d]{0,2}$", str(row['Weight_Value'])):
                     raise ValidationError(_(f"Row {row_num} | 'Weight Value' can only be a numeric value."))
+            if 'HSN' in header_list and row['HSN'] != '':
+                if not ProductHSN.objects.filter(
+                        product_hsn_code=str(row['HSN']).replace("'", '')).exists():
+                    raise ValidationError(_(f"Row {row_num} | {row['HSN']} |'HSN' doesn't exist in the system."))
+            if 'Tax_1(GST)' in header_list and row['Tax_1(GST)'] != '':
+                if not Tax.objects.filter(tax_name=row['Tax_1(GST)']).exists():
+                    raise ValidationError(_(f"Row {row_num} | {row['Tax_1(GST)']} | Invalid Tax(GST)!"))
+            if 'Tax_2(Cess/Surcharge)' in header_list and row['Tax_2(Cess/Surcharge)'] != '':
+                if not Tax.objects.filter(tax_name=row['Tax_2(Cess/Surcharge)']).exists():
+                    raise ValidationError(_(f"Row {row_num} | {row['Tax_2(Cess/Surcharge)']} "
+                                            f"| Invalid Tax(CESS/SURCHARGE)!"))
+            if 'Brand_Case_Size' in header_list and row['Brand_Case_Size'] != '':
+                if not re.match("^\d+$", str(row['Brand_Case_Size'])):
+                    raise ValidationError(
+                        _(f"Row {row_num} | {row['Brand_Case_Size']} |'Brand Case Size' can only be a numeric value."))
+            if 'Inner_Case_Size' in header_list and row['Inner_Case_Size'] != '':
+                if not re.match("^\d+$", str(row['Inner_Case_Size'])):
+                    raise ValidationError(
+                        _(f"Row {row_num} | {row['Inner_Case_Size']} |'Inner Case Size' can only be a numeric value."))
+            if 'Brand_Name' in header_list and row['Brand_Name'] != '':
+                if not Brand.objects.filter(brand_name=str(row['Brand_Name']).strip()).exists():
+                    raise ValidationError(_(f"Row {row_num} | {row['Brand_Name']} |"
+                                            f"'Brand' doesn't exist in the system."))
+            if 'Brand_ID' in header_list and row['Brand_ID'] != '':
+                if not Brand.objects.filter(brand_parent=int(row['Brand_ID'])).exists():
+                    raise ValidationError(_(f"Row {row_num} | {row['Brand_ID']} | "
+                                            f"'Brand_ID' doesn't exist in the system "))
+            if 'Sub_Brand_ID' in header_list and row['Sub_Brand_ID'] != '':
+                if not Brand.objects.filter(id=int(row['Sub_Brand_ID'])).exists():
+                    raise ValidationError(_(f"Row {row_num} | {row['Sub_Brand_ID']} | "
+                                            f"'Sub_Brand_ID' doesn't exist in the system "))
+            if 'Category_Name' in header_list and row['Category_Name'] != '':
+                if not Category.objects.filter(category_name=str(row['Category_Name']).strip()).exists():
+                    categories = str(row['Category_Name']).split(',')
+                    for cat in categories:
+                        cat = cat.strip().replace("'", '')
+                        if not Category.objects.filter(category_name=cat).exists():
+                            raise ValidationError(_(f"Row {row_num} | 'Category' {cat.strip()} "
+                                                    f"doesn't exist in the system."))
+            if 'Category_ID' in header_list and row['Category_ID'] != '':
+                if not Category.objects.filter(category_parent=int(row['Category_ID'])).exists():
+                    raise ValidationError(_(f"Row {row_num} | {row['Category_ID']} | "
+                                            f"'Category_ID' doesn't exist in the system "))
+            if 'Sub_Category_ID' in header_list and row['Sub_Category_ID'] != '':
+                if not Category.objects.filter(id=int(row['Sub_Category_ID'])).exists():
+                    raise ValidationError(_(f"Row {row_num} | {row['Sub_Category_ID']} | "
+                                            f"'Sub_Category_ID' doesn't exist in the system "))
 
-        return self.cleaned_data['file']
+    def check_mandatory_columns(self, uploaded_data_list, header_list):
+        """
+        Mandatory Columns Check(SKU_ID and Parent_ID are mandatory columns)
+        """
+        if 'SKU_ID' and 'Parent_ID' in header_list:
+            row_num = 2
+            for row in uploaded_data_list:
+                if row['SKU_ID'] == '' and row['Parent_ID'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'SKU_ID and Parent_ID' are mandatory fields"))
+                elif row['SKU_ID'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'SKU_ID' is a mandatory field"))
+                elif row['Parent_ID'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'Parent_ID' is a mandatory field"))
+                else:
+                    self.validate_row(uploaded_data_list, header_list)
+        else:
+            raise ValidationError("'SKU_ID' and 'Parent_ID' are mandatory headers!")
+
+    def read_file(self, excel_file):
+        """
+        Template Validation (Checking, whether the excel file uploaded by user is correct or not!)
+        """
+        # Checking the headers of the excel file
+        required_header_list = ['SKU_ID', 'SKU_Name', 'Parent_ID', 'Parent_Name', 'EAN', 'MRP', 'Weight_Unit',
+                                'Weight_Value', 'HSN', 'Tax_1(GST)', 'Tax_2(Cess/Surcharge)', 'Brand_Case_Size',
+                                'Inner_Case_Size', 'Brand_Name', 'Brand_ID', 'Sub_Brand_Name', 'Sub_Brand_ID',
+                                'Category_Name', 'Category_ID', 'Sub_Category_Name', 'Sub_Category_ID', 'Status']
+        excel_file_header_list = excel_file.pop(0)  # headers of the uploaded excel file
+        for head in excel_file_header_list:
+            if head in required_header_list:
+                pass
+            else:
+                raise ValidationError(_(f"Invalid Header | {head} | Allowable headers for the upload are: "
+                                        f"{required_header_list}"))
+
+        # Checking, whether the user uploaded the data below the headings or not!
+        if len(excel_file) > 0:
+            uploaded_data_by_user_list = []
+            excel_dict = {}
+            count = 0
+            for row in excel_file:
+                for ele in row:
+                    excel_dict[excel_file_header_list[count]] = ele
+                    count += 1
+                uploaded_data_by_user_list.append(excel_dict)
+                excel_dict = {}
+                count = 0
+            self.check_mandatory_columns(uploaded_data_by_user_list, excel_file_header_list)
+        else:
+            raise ValidationError("Please add some data below the headers to upload it!")
+
+    def clean_file(self):
+        if self.cleaned_data.get('file'):
+            if not self.cleaned_data['file'].name[-5:] in ('.xlsx'):
+                raise forms.ValidationError("Sorry! Only excel(xlsx) file accepted.")
+            excel_file_data = self.auto_id['Users']
+            if excel_file_data:
+                self.read_file(excel_file_data)
+            else:
+                raise ValidationError("Excel File cannot be empty.Please add some data to upload it!")
+
+            return self.cleaned_data['file']
+        else:
+            raise ValidationError("Excel File cannot be empty.Please add some data to upload it!")
+
 
 class ProductsFilterForm(forms.Form):
     category = forms.ModelMultipleChoiceField(

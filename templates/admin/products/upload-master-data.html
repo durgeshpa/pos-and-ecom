@@ -22,8 +22,8 @@
                <div>
                   <fieldset class="module aligned ">
                      {% csrf_token %}
-                     {{form.as_p}}
-                     <a href="{% url 'admin:upload-master-data-sample-excel-file'%}" style="margin-left: 10px;">Download Sample Excel File</a>
+                     <h1 style="font-weight: bold">{{form.as_p}}</h1>
+                     <h3><a href="{% url 'admin:upload-master-data-sample-excel-file'%}" style="margin-left: 0px;">Download Sample Excel File</a></h3>
                   </fieldset>
                   <div class="submit-row">
                      <input type="submit" value="Save" class="button" name="_save">
