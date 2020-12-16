@@ -30,11 +30,10 @@ from wms.models import WarehouseInventory, WarehouseInternalInventoryChange, Inv
     PutawayBinInventory
 from products.models import Product
 import datetime
-from products.forms import UploadBulkAuditAdminForm
+from audit.forms import UploadBulkAuditAdminForm
 from .serializers import WarehouseInventoryTransactionSerializer, WarehouseInventorySerializer, \
     BinInventoryTransactionSerializer, BinInventorySerializer, PickupBlockedQuantitySerializer
 from .utils import get_products_by_audit
-# from .forms import UploadBulkAuditAdminForm
 
 from audit.serializers import AuditBulkCreation
 info_logger = logging.getLogger('file-info')
@@ -675,18 +674,7 @@ def create_audit_tickets_by_audit(audit_id):
     audit.save()
 
 
-def get_existing_audit_for_product(warehouse, sku):
-    return sku.audit_product_mapping.filter(warehouse=warehouse,
-                                            status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
-                                            state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
-                                                       AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')
 
-
-def get_existing_audit_for_bin(warehouse, bin):
-    return bin.audit_bin_mapping.filter(warehouse=warehouse,
-                                        status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
-                                        state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
-                                                   AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')
 
 def bulk_audit_csv_upload_view(request):
     warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
