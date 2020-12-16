@@ -158,6 +158,7 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
         response = HttpResponse(f, content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename=auditDetails.csv'
         return response
+        
     change_list_template = 'admin/audit/audit_ticket_change_list.html'
    
     def get_readonly_fields(self, request, obj=None):
