@@ -239,7 +239,7 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                                                          sku=product)
                 for bin_in in bin_in_obj:
                     if not (bin_in.batch_id == self.instance.batch_id):
-                        if bin_in.bin.bin_id == self.cleaned_data['bin'].bin_id:
+                        if bin_in.bin.bin_id == bin_selected.bin_id:
                             qty_present_in_bin = bin_in.quantity + bin_in.to_be_picked_qty
                             if qty_present_in_bin == 0:
                                 pass
