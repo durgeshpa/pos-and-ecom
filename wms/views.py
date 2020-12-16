@@ -588,219 +588,162 @@ def stock_correction_data(upload_data, stock_movement_obj):
             for data in upload_data:
                 in_quantity = 0
                 out_quantity = 0
+                in_quantity_dict = {}
+                out_quantity_dict = {}
+
+                type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+                type_damaged = InventoryType.objects.filter(inventory_type='damaged').last()
+                type_expired = InventoryType.objects.filter(inventory_type='expired').last()
+                type_missing = InventoryType.objects.filter(inventory_type='missing').last()
                 # get the type of stock
                 stock_correction_type = 'stock_adjustment'
-                # Create data in IN Model
-                sku = data[2]
+                warehouse_id = data[0]
+                warehouse_obj = Shop.objects.get(id=warehouse_id)
                 expiry_date = data[3]
+                bin_id = data[4]
+                bin_obj = Bin.objects.filter(bin_id=bin_id, warehouse=warehouse_id).last()
+                sku = data[2]
+                product_obj = Product.objects.filter(product_sku=sku).last()
                 # create batch id
                 batch_id = create_batch_id(sku, expiry_date)
 
                 # to check normal quantity is available or not in Bin Inventory object
-                bin_inv_normal = BinInventory.objects.filter(warehouse=data[0],
-                                            bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
-                                            sku=Product.objects.filter(
-                                                product_sku=data[2]).last(),
-                                            batch_id=batch_id,
-                                            inventory_type__id=InventoryType.objects.filter(inventory_type='normal')[
-                                                0].id).last()
+                bin_inv_normal = BinInventory.objects.filter(warehouse=warehouse_id,
+                                                             bin=bin_obj,
+                                                             sku=product_obj,
+                                                             batch_id=batch_id,
+                                                             inventory_type__id=type_normal.id).last()
 
                 # if exists
                 if bin_inv_normal:
                     # check whether the given quantity is greater or lower than normal quantity
                     if bin_inv_normal.quantity <= int(data[5]):
-
-                        # add into in in_quantity
-                        in_quantity = in_quantity + int(data[5])
+                        in_quantity_dict[type_normal] = int(data[5])
                     else:
-                        # add into in out quantity
-                        out_quantity = out_quantity + int(data[5])
+                        out_quantity_dict[type_normal] = int(data[5])
                 else:
                     # if Norma quanity is not available in Bin Inventory object then create the data into Bin Inventory
-                    BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=data[0])[0],
-                                                       bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                    BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=warehouse_id)[0],
+                                                       bin=bin_obj,
                                                        batch_id=batch_id,
-                                                       sku=Product.objects.filter(
-                                                           product_sku=data[2]).last(),
+                                                       sku=product_obj,
                                                        in_stock=True, quantity=int(data[5]),
-                                                       inventory_type=InventoryType.objects.filter(
-                                                           inventory_type='normal').last())
-                    in_quantity = in_quantity + int(data[5])
+                                                       inventory_type=type_normal)
+                    in_quantity_dict[type_normal] = int(data[5])
 
                 # to check normal damaged is available or not in Bin Inventory object
-                bin_inv_damaged = BinInventory.objects.filter(warehouse=data[0],
-                                                          bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
-                                                          sku=Product.objects.filter(
-                                                              product_sku=data[2]).last(),
-                                                          batch_id=batch_id,
-                                                          inventory_type__id=
-                                                          InventoryType.objects.filter(inventory_type='damaged')[
-                                                              0].id).last()
+                bin_inv_damaged = BinInventory.objects.filter(warehouse=warehouse_id,
+                                                              bin=bin_obj,
+                                                              sku=product_obj,
+                                                              batch_id=batch_id,
+                                                              inventory_type__id=type_damaged.id).last()
                 if bin_inv_damaged:
                     if bin_inv_damaged.quantity <= int(data[6]):
-                        in_quantity = in_quantity + int(data[6])
+                        in_quantity_dict[type_damaged] = int(data[6])
                     else:
-                        out_quantity = out_quantity + int(data[6])
+                        out_quantity_dict[type_damaged] = int(data[6])
                 else:
-                    BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=data[0])[0],
-                                                       bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                    BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=warehouse_id)[0],
+                                                       bin=bin_obj,
                                                        batch_id=batch_id,
-                                                       sku=Product.objects.filter(product_sku=data[2]).last(),
+                                                       sku=product_obj,
                                                        in_stock=True, quantity=int(data[6]),
-                                                       inventory_type=InventoryType.objects.filter(
-                                                           inventory_type='damaged').last())
+                                                       inventory_type=type_damaged)
 
-                    in_quantity = in_quantity + int(data[6])
+                    in_quantity_dict[type_damaged] = int(data[6])
 
                 # to check expired quantity is available or not in Bin Inventory object
-                bin_inv_expired = BinInventory.objects.filter(warehouse=data[0],
-                                                          bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
-                                                          sku=Product.objects.filter(
-                                                              product_sku=data[2]).last(),
-                                                          batch_id=batch_id,
-                                                          inventory_type__id=
-                                                          InventoryType.objects.filter(inventory_type='expired')[
-                                                              0].id).last()
+                bin_inv_expired = BinInventory.objects.filter(warehouse=warehouse_id,
+                                                              bin=bin_obj,
+                                                              sku=product_obj,
+                                                              batch_id=batch_id,
+                                                              inventory_type__id=type_expired.id).last()
                 if bin_inv_expired:
                     if bin_inv_expired.quantity <= int(data[7]):
-                        in_quantity = in_quantity + int(data[7])
+                        in_quantity_dict[type_expired] = int(data[7])
                     else:
-                        out_quantity = out_quantity + int(data[7])
+                        out_quantity_dict[type_expired] = int(data[7])
                 else:
                     BinInventory.objects.get_or_create(
-                        warehouse=Shop.objects.filter(id=data[0])[0],
-                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                        warehouse=Shop.objects.filter(id=warehouse_id)[0],
+                        bin=bin_obj,
                         batch_id=batch_id,
-                        sku=Product.objects.filter(
-                            product_sku=data[2]).last(),
+                        sku=product_obj,
                         in_stock=True, quantity=int(data[7]),
-                        inventory_type=InventoryType.objects.filter(
-                            inventory_type='expired').last())
+                        inventory_type=type_expired)
 
-                    in_quantity = in_quantity + int(data[7])
+                    in_quantity_dict[type_expired] = int(data[7])
 
                 # to check missing quantity is available or not in Bin Inventory object
-                bin_inv_missing = BinInventory.objects.filter(warehouse=data[0],
-                                                          bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
-                                                          sku=Product.objects.filter(
-                                                              product_sku=data[2]).last(),
-                                                          batch_id=batch_id,
-                                                          inventory_type__id=
-                                                          InventoryType.objects.filter(inventory_type='missing')[
-                                                              0].id).last()
+                bin_inv_missing = BinInventory.objects.filter(warehouse=warehouse_id,
+                                                              bin=bin_obj,
+                                                              sku=product_obj,
+                                                              batch_id=batch_id,
+                                                              inventory_type__id=type_missing.id).last()
                 if bin_inv_missing:
                     if bin_inv_missing.quantity <= int(data[8]):
-                        in_quantity = in_quantity + int(data[8])
+                        in_quantity_dict[type_missing] = int(data[8])
                     else:
-                        out_quantity = out_quantity + int(data[8])
+                        out_quantity_dict[type_missing] = int(data[8])
                 else:
                     BinInventory.objects.get_or_create(
-                        warehouse=Shop.objects.filter(id=data[0])[0],
-                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                        warehouse=Shop.objects.filter(id=warehouse_id)[0],
+                        bin=bin_obj,
                         batch_id=batch_id,
-                        sku=Product.objects.filter(
-                            product_sku=data[2]).last(),
+                        sku=product_obj,
                         in_stock=True, quantity=int(data[8]),
-                        inventory_type=InventoryType.objects.filter(
-                            inventory_type='missing').last())
-                    in_quantity = in_quantity + int(data[8])
+                        inventory_type=type_missing)
+                    in_quantity_dict[type_missing] = int(data[8])
 
-                if in_quantity >= 0:
-                    InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
-                                                         stock_movement_obj[0].id,
-                                                         Product.objects.get(product_sku=data[2]),
-                                                         batch_id, in_quantity, in_quantity)
-                    # Create data in Stock Correction change Model
-                    InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
-                                                                                Product.objects.get(
-                                                                                    product_sku=data[2]),
-                                                                                batch_id,
-                                                                                Bin.objects.get(bin_id=data[4],
-                                                                                                warehouse=Shop.objects.get(
-                                                                                                    id=data[0])),
-                                                                                'In', in_quantity,
-                                                                                stock_movement_obj[0])
-                if out_quantity >= 0:
-                    Out.objects.create(warehouse=Shop.objects.get(id=data[0]),
-                                       out_type='stock_correction_out_type',
-                                       out_type_id=stock_movement_obj[0].id,
-                                       sku=Product.objects.get(product_sku=data[2]),
-                                       batch_id=batch_id, quantity=out_quantity)
-                    # Create data in Stock Correction change Model
-                    InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
-                                                                                Product.objects.get(
-                                                                                    product_sku=data[2]),
-                                                                                batch_id,
-                                                                                Bin.objects.get(bin_id=data[4],
-                                                                                                warehouse=Shop.objects.get(
-                                                                                                    id=data[0])),
-                                                                                'Out', out_quantity,
-                                                                                stock_movement_obj[0])
-                # Create date in BinInventory, Put Away BinInventory and WarehouseInventory
-                # inventory_type = 'normal'
                 inventory_state = 'available'
                 status = True
-                iter_list = iterate_quantity_type(data)
-                for key, value in iter_list.items():
-                    transaction_type_obj, transaction_type = check_transaction_type(key, value, data,
-                                                                                    stock_movement_obj,
-                                                                                    stock_correction_type,
-                                                                                    in_quantity, out_quantity)
-                    inventory_in_and_out(Shop.objects.get(id=data[0]), data[4],
-                                         Product.objects.get(product_sku=data[2]), batch_id, key,
-                                         inventory_state, status, value, status, transaction_type_obj,
-                                         transaction_type, data[5])
+                transaction_type = 'stock_correction_in_type'
+                for inv_type, qty in in_quantity_dict.items():
+                    if qty <= 0:
+                        continue
+                    in_obj = InCommonFunctions.create_in(warehouse_obj, stock_correction_type,
+                                                         stock_movement_obj[0].id, product_obj,
+                                                         batch_id, qty, 0, inv_type)
+                    transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(warehouse=in_obj.warehouse,
+                                                                                        putaway_type=in_obj.in_type,
+                                                                                        putaway_type_id=in_obj.id,
+                                                                                        sku=in_obj.sku,
+                                                                                        batch_id=in_obj.batch_id,
+                                                                                        quantity=in_obj.quantity,
+                                                                                        inventory_type=inv_type)
+                    inventory_in_and_out(warehouse_obj, bin_id, product_obj, batch_id, inv_type,
+                                         inventory_state, status, qty, status, transaction_type_obj,
+                                         transaction_type, qty)
+                    # Create data in Stock Correction change Model
+                    InternalStockCorrectionChange.create_stock_inventory_change(warehouse_obj, product_obj,
+                                                                                batch_id, bin_obj,
+                                                                                'In', qty,
+                                                                                stock_movement_obj[0], inv_type)
 
+                transaction_type = 'stock_correction_out_type'
+                for inv_type, qty in out_quantity_dict.items():
+                    if qty <= 0:
+                        continue
+                    Out.objects.create(warehouse=warehouse_obj,
+                                       out_type='stock_correction_out_type',
+                                       out_type_id=stock_movement_obj[0].id,
+                                       sku=Product.objects.get(product_sku=sku),
+                                       batch_id=batch_id, quantity=qty, inventory_type=inv_type)
+                    transaction_type_obj = Out.objects.filter(batch_id=batch_id,
+                                                              warehouse=warehouse_obj,
+                                                              quantity=qty,
+                                                              inventory_type=inv_type)
+                    inventory_in_and_out(warehouse_obj, bin_id, product_obj, batch_id, inv_type,
+                                         inventory_state, status, qty, status, transaction_type_obj,
+                                         transaction_type, qty)
+                    # Create data in Stock Correction change Model
+                    InternalStockCorrectionChange.create_stock_inventory_change(warehouse_obj, product_obj,
+                                                                                batch_id, bin_obj,
+                                                                                'Out', qty,
+                                                                                stock_movement_obj[0], inv_type)
             return True
     except Exception as e:
         return e
-
-
-def check_transaction_type(key, value, data, stock_movement_obj, stock_correction_type, in_quantity, out_quantity):
-    """
-
-    :param key:
-    :param value:
-    :param data:
-    :param stock_movement_obj:
-    :param stock_correction_type:
-    :param in_quantity:
-    :param out_quantity:
-    :return:
-    """
-    sku = data[2]
-    expiry_date = data[3]
-    batch_id = create_batch_id(sku, expiry_date)
-    bin_inv_normal = BinInventory.objects.filter(warehouse=data[0],
-                                                 bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
-                                                 sku=Product.objects.filter(
-                                                     product_sku=data[2]).last(),
-                                                 batch_id=batch_id,
-                                                 inventory_type__id=
-                                                 InventoryType.objects.filter(inventory_type=key)[
-                                                     0].id).last()
-    if bin_inv_normal:
-        if bin_inv_normal.quantity <= int(value):
-            in_obj = InCommonFunctions.get_filtered_in(warehouse=Shop.objects.get(id=data[0]),
-                                                       in_type=stock_correction_type,
-                                                       in_type_id=stock_movement_obj[0].id,
-                                                       sku=Product.objects.get(product_sku=data[2]),
-                                                       batch_id=batch_id, quantity=in_quantity).last()
-
-            transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(warehouse=in_obj.warehouse,
-                                                                                putaway_type=in_obj.in_type,
-                                                                                putaway_type_id=in_obj.id,
-                                                                                sku=in_obj.sku,
-                                                                                batch_id=in_obj.batch_id,
-                                                                                quantity=in_obj.quantity)
-            transaction_type = 'stock_correction_in_type'
-        else:
-            # add into in out quantity
-            transaction_type_obj = Out.objects.filter(batch_id=batch_id, warehouse=Shop.objects.get(
-                id=data[0]), quantity=out_quantity)
-            transaction_type = 'stock_correction_out_type'
-
-        return transaction_type_obj, transaction_type
 
 
 def iterate_quantity_type(data):
@@ -1359,7 +1302,7 @@ def shipment_out_inventory_change(shipment_list, final_status):
                     for shipment_batch in shipment_batch_list:
                         OutCommonFunctions.create_out(shipment.order.seller_shop, 'ship_out',
                                                       shipment.pk, shipment_item.product, shipment_batch.batch_id,
-                                                      shipment_batch.quantity)
+                                                      shipment_batch.quantity, type_normal)
 
 
         else:
@@ -1434,6 +1377,7 @@ def bulk_putaway(self, request, argument_list):
                                           " single SKU can’t be saved in the same Bin ID."
                                 return message, False
                 bin_id = obj.bin
+                putaway_inventory_type = obj.putaway.inventory_type
                 if obj.putaway_type == 'Order_Cancelled':
                     ordered_inventory_state = 'ordered',
                     initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
@@ -1455,7 +1399,8 @@ def bulk_putaway(self, request, argument_list):
                     shipment_obj = OrderedProduct.objects.filter(
                         order__order_no=obj.putaway.putaway_type_id)[
                         0].rt_order_product_order_product_mapping.all()
-                    cancel_shipment(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id)
+                    cancel_shipment(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id,
+                                    putaway_inventory_type)
 
                 elif obj.putaway_type == 'RETURNED':
                     ordered_inventory_state = 'shipped',
@@ -1463,7 +1408,8 @@ def bulk_putaway(self, request, argument_list):
                     shipment_obj = OrderedProduct.objects.filter(
                         invoice__invoice_no=obj.putaway.putaway_type_id)[
                         0].rt_order_product_order_product_mapping.all()
-                    cancel_returned(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id)
+                    cancel_returned(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id,
+                                    putaway_inventory_type)
 
         message = "Bulk Approval for Put Away has been done successfully."
         return message, True
@@ -1481,7 +1427,8 @@ def shipment_reschedule_inventory_change(shipment_list):
                     shipment_batch_list = OrderedProductBatch.objects.filter(ordered_product_mapping=shipment_item).all()
                     for shipment_batch in shipment_batch_list:
                         InCommonFunctions.create_only_in(shipment.order.seller_shop, 'reschedule', shipment.pk,
-                                                     shipment_item.product, shipment_batch.batch_id,shipment_batch.quantity)
+                                                         shipment_item.product, shipment_batch.batch_id,
+                                                         shipment_batch.quantity, type_normal)
                     CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
                                                                                  shipment_item.product,
                                                                                  "normal", "shipped",
@@ -1819,6 +1766,7 @@ class PicklistRefresh:
                                                                                      already_picked)
             info_logger.info('RefreshPicklist|create_picklist_by_order| completed for order {}'
                              .format(order.order_no))
+
 
 def audit_ordered_data(request):
     start_time = '2020-08-29 01:01:06.067349'

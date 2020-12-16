@@ -14,9 +14,10 @@ from rest_framework import permissions, authentication
 from products.models import Product
 from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from wms.common_functions import InternalInventoryChange, WareHouseInternalInventoryChange, \
-    CommonWarehouseInventoryFunctions, CommonBinInventoryFunctions, get_expiry_date
+    CommonWarehouseInventoryFunctions, CommonBinInventoryFunctions, InCommonFunctions, PutawayCommonFunctions, \
+    get_expiry_date
 from wms.models import BinInventory, Bin, InventoryType, PickupBinInventory, WarehouseInventory, InventoryState, Pickup, \
-    BinInternalInventoryChange, In
+    BinInternalInventoryChange, In, Out, PutawayBinInventory
 from wms.views import PicklistRefresh
 from .serializers import AuditDetailSerializer
 from ...cron import release_products_from_audit
@@ -700,12 +701,9 @@ class AuditInventory(APIView):
         if qty_diff < 0:
             tr_type = 'manual_audit_deduct'
 
-        CommonBinInventoryFunctions.update_or_create_bin_inventory(warehouse, bin, sku,
-                                                                   batch_id, inventory_type, qty_diff, True)
-        # InternalInventoryChange.create_bin_internal_inventory_change(warehouse, sku, batch_id, bin,
-        #                                                              inventory_type,
-        #                                                              inventory_type, tr_type,
-        #                                                              audit_no, abs(qty_diff))
+        bin_inventory_object = CommonBinInventoryFunctions.update_or_create_bin_inventory(warehouse, bin, sku, batch_id,
+                                                                                          inventory_type, qty_diff,
+                                                                                          True)
         BinInternalInventoryChange.objects.create(warehouse=warehouse, sku=sku,
                                                   batch_id=batch_id,
                                                   final_bin=bin,
@@ -732,6 +730,8 @@ class AuditInventory(APIView):
                                                                                initial_inventory_state,
                                                                                inventory_type, inventory_state,
                                                                                abs(qty_diff))
+        AuditInventory.create_in_out_entry(warehouse, sku, batch_id, bin_inventory_object, tr_type, audit_no,
+                                           inventory_type, abs(qty_diff))
         info_logger.info('AuditInventory | update_inventory | completed')
 
     @staticmethod
@@ -802,3 +802,21 @@ class AuditInventory(APIView):
                 PicklistRefresh.cancel_picklist_by_order(order_no)
 
         info_logger.info('AuditInventory|cancel_picklist|picklist cancelled')
+
+    @classmethod
+    def create_in_out_entry(cls, warehouse, sku, batch_id, bin, tr_type, tr_type_id, inventory_type, qty):
+        """
+        This function creates entry in IN or OUT model based on tr_type (the transaction type)
+        """
+        if tr_type == 'manual_audit_deduct':
+            Out.objects.create(warehouse=warehouse, out_type=tr_type, out_type_id=tr_type_id, sku=sku,
+                               batch_id=batch_id, inventory_type=inventory_type, quantity=qty)
+            info_logger.info('AuditInventory | update_inventory | OUT entry done ')
+        elif tr_type == 'manual_audit_add':
+            InCommonFunctions.create_only_in(warehouse, tr_type, tr_type_id, sku, batch_id, qty, inventory_type)
+            putaway_object = PutawayCommonFunctions.create_putaway(warehouse, tr_type, tr_type_id, sku, batch_id,
+                                                                   qty, qty, inventory_type)
+            PutawayBinInventory.objects.create(warehouse=warehouse, sku=sku, batch_id=batch_id, bin=bin,
+                                               putaway_type=tr_type, putaway=putaway_object, putaway_status=True,
+                                               putaway_quantity=qty)
+            info_logger.info('AuditInventory | update_inventory | IN entry done ')

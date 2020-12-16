@@ -212,29 +212,31 @@ class PutAwayBinInventoryForm(forms.ModelForm):
             if self.instance.bin:
                 self.fields['bin'].initial = self.instance.bin.bin.bin_id
             self.fields['bin'].disabled = True
+        warehouse = self.instance.warehouse
         if self.instance.putaway_status is False:
             if self.instance.bin:
                 self.fields['bin_id'].initial = self.instance.bin.bin.bin_id
             self.fields['bin_id'].disabled = True
             self.fields['bin'] = forms.ModelChoiceField(queryset=Bin.objects.filter(
-                warehouse=self.instance.warehouse).distinct(), widget=autocomplete.ModelSelect2())
-        bin_obj = BinInventory.objects.filter(
-            bin=Bin.objects.filter(bin_id=self.cleaned_data['bin'], warehouse=self.instance.warehouse).last(),
-            warehouse=self.instance.warehouse).last()
+                warehouse=warehouse).distinct(), widget=autocomplete.ModelSelect2())
+        inventory_type = self.instance.putaway.inventory_type
+        bin_selected = self.cleaned_data['bin']
+        bin_obj = BinInventory.objects.filter(bin=Bin.objects.filter(bin_id=bin_selected, warehouse=warehouse).last(),
+                                              warehouse=warehouse,
+                                              inventory_type=inventory_type).last()
         if bin_obj:
             return bin_obj
         else:
-            bin_exp_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse,
+            product = Product.objects.filter(product_sku=self.instance.sku_id).last()
+            bin_exp_obj = BinInventory.objects.filter(warehouse=warehouse,
                                                       bin=Bin.objects.filter(
-                                                          bin_id=self.cleaned_data['bin'].bin_id,
-                                                      warehouse=self.instance.warehouse).last(),
-                                                      sku=Product.objects.filter(
-                                                          product_sku=self.instance.sku_id).last(),
+                                                          bin_id=bin_selected.bin_id,
+                                                      warehouse=warehouse).last(),
+                                                      sku=product,
                                                       batch_id=self.instance.batch_id)
             if not bin_exp_obj.exists():
-                bin_in_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse,
-                                                         sku=Product.objects.filter(
-                                                             product_sku=self.instance.sku_id).last())
+                bin_in_obj = BinInventory.objects.filter(warehouse=warehouse,
+                                                         sku=product)
                 for bin_in in bin_in_obj:
                     if not (bin_in.batch_id == self.instance.batch_id):
                         if bin_in.bin.bin_id == self.cleaned_data['bin'].bin_id:
@@ -246,13 +248,11 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                                                             " Non zero qty of more than one Batch ID of a single"
                                                             " SKU can’t be saved in the same Bin ID.")
                 with transaction.atomic():
-                    initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
-                    bin_obj, created = BinInventory.objects.get_or_create(warehouse=self.instance.warehouse,
-                                                                          bin=self.cleaned_data['bin'],
-                                                                          sku=Product.objects.filter(
-                                                                              product_sku=self.instance.sku_id).last(),
+                    # initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
+                    bin_obj, created = BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin_selected,
+                                                                          sku=product,
                                                                           batch_id=self.instance.batch_id,
-                                                                          inventory_type=initial_type[0],
+                                                                          inventory_type=inventory_type,
                                                                           quantity=int(0),
                                                                           in_stock=True)
                     if created:
@@ -275,9 +275,8 @@ class PutAwayBinInventoryForm(forms.ModelForm):
             if PutawayBinInventory.objects.filter(id=self.instance.id)[0].putaway_status is True:
                 raise forms.ValidationError("You can't perform this action, PutAway has already done.")
             else:
-                bin_in_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse,
-                                                         sku=Product.objects.filter(
-                                                             product_sku=self.instance.sku_id).last())
+                product = Product.objects.filter(product_sku=self.instance.sku_id).last()
+                bin_in_obj = BinInventory.objects.filter(warehouse=self.instance.warehouse, sku=product)
                 for bin_in in bin_in_obj:
                     if not (bin_in.batch_id == self.instance.batch_id):
                         if bin_in.bin.bin_id == self.cleaned_data['bin'].bin.bin_id:
@@ -289,6 +288,8 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                                                             " Non zero qty of more than one Batch ID of a single"
                                                             " SKU can’t be saved in the same Bin ID.")
                 bin_id = self.cleaned_data['bin']
+                putaway_inventory_type = self.instance.putaway.inventory_type
+                putaway_product = self.instance.sku
                 if self.instance.putaway_type == 'Order_Cancelled':
                     ordered_inventory_state = 'ordered',
                     initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
@@ -307,18 +308,18 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                 elif self.instance.putaway_type == 'PAR_SHIPMENT':
                     ordered_inventory_state = 'picked',
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                    shipment_obj = OrderedProduct.objects.filter(
-                        order__order_no=self.instance.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
-                    cancel_shipment(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_obj,
-                                    bin_id)
+                    shipment_object = OrderedProduct.objects.filter(order__order_no=self.instance.putaway.putaway_type_id)[0]
+                    shipment_product = shipment_object.rt_order_product_order_product_mapping.all()
+                    cancel_shipment(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_product,
+                                    bin_id, putaway_inventory_type)
 
                 elif self.instance.putaway_type == 'RETURNED':
                     ordered_inventory_state = 'shipped',
                     initial_stage = InventoryState.objects.filter(inventory_state='shipped').last(),
-                    shipment_obj = OrderedProduct.objects.filter(
+                    shipment_product = OrderedProduct.objects.filter(
                         invoice__invoice_no=self.instance.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
-                    cancel_returned(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_obj,
-                                    bin_id)
+                    cancel_returned(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_product,
+                                    bin_id, putaway_inventory_type)
                 elif self.instance.putaway_type == 'REPACKAGING':
                     initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
                     putaway_repackaging(self.request.user, self.instance, initial_stage, bin_id)
