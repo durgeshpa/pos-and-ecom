@@ -1462,10 +1462,9 @@ def populate_expiry_date(request):
     This function populates the expiry_date in IN table.
     Expiry date is calculated based on the batch Id.
     """
-    pickup_entry_creation_with_cron()
-    # for i in In.objects.all():
-    #     i.expiry_date = get_expiry_date_db(i.batch_id)
-    #     i.save()
+    for i in In.objects.all():
+        i.expiry_date = get_expiry_date_db(i.batch_id)
+        i.save()
 
 
 class InventoryMovement(object):
