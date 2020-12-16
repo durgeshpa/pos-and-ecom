@@ -1596,9 +1596,9 @@ class ProductPriceUpload(View):
             if not row[10]:
                 raise Exception("{} - Please enter a valid {}"
                                 "".format(row[10], first_row[10]))
-            if not row[11]:
-                raise Exception("{} - Please enter a valid {}"
-                                "".format(row[11], first_row[11]))
+            # if not row[11]:
+            #     raise Exception("{} - Please enter a valid {}"
+            #                     "".format(row[11], first_row[11]))
         else:
             if ((row[3] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[3]))) or
                     not row[3]):
@@ -1646,8 +1646,8 @@ class ProductPriceUpload(View):
                             buyer_shop_id=int(row[8]) if row[8] else None,
                             city_id=int(row[5]) if row[5] else None,
                             pincode=pincode,
-                            start_date=row[10], end_date=row[11],
-                            approval_status=ProductPrice.APPROVAL_PENDING)
+                            start_date=row[10],
+                            approval_status=ProductPrice.APPROVED)
                     else:
                         if row[6] and Pincode.objects.filter(Q(pincode=row[6]) | Q(id=row[6])).exists():
                             # pincode = Pincode.objects.values('id').get(pincode=row[6])['id']
@@ -1661,8 +1661,8 @@ class ProductPriceUpload(View):
                             buyer_shop_id=int(row[7]) if row[7] else None,
                             city_id=int(row[4]) if row[4] else None,
                             pincode=pincode,
-                            start_date=row[9], end_date=row[10],
-                            approval_status=ProductPrice.APPROVAL_PENDING)
+                            start_date=row[9],
+                            approval_status=ProductPrice.APPROVED)
 
                 messages.success(request, 'Prices uploaded successfully')
 
