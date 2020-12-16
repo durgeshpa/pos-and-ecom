@@ -9,11 +9,12 @@ from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, Inventor
     PickupBinInventory, StockMovementCSVUpload, In
 from products.models import Product
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
-    PickupBinInventorySerializer
+    PickupBinInventorySerializer, RepackagingSerializer
 from wms.views import PickupInventoryManagement, update_putaway
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop
+from products.models import Repackaging
 from retailer_to_sp.models import Order, PickerDashboard
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
@@ -122,6 +123,13 @@ class PutAwayViewSet(APIView):
                              'message': 'User is not mapped with associated Warehouse.',
                              'data': None}, status=status.HTTP_200_OK)
 
+        # putaway_type = request.GET.get('type')
+        # if putaway_type:
+        #     putaway_type = int(putaway_type)
+        # if putaway_type not in [1, 2]:
+        #     msg = {'is_success': False, 'message': 'Please provide a valid type', 'data': None}
+        #     return Response(msg, status=status.HTTP_200_OK)
+
         if batch_id:
             put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse).order_by(
                 'created_at')
@@ -187,6 +195,12 @@ class PutAwayViewSet(APIView):
         for i, value in diction.items():
             key += 1
             val = value
+            put_away_rep = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse, putaway_type='REPACKAGING')
+            if put_away_rep.count() > 0:
+                msg = {'is_success': False, "message": "Putaway for batch_id {} is for repackaging.".format(i),
+                       'batch_id': i}
+                lis_data.append(msg)
+                continue
             put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse).order_by(
                 'created_at')
             ids = [i.id for i in put_away]
@@ -331,27 +345,53 @@ class PickupList(APIView):
                    'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         picker_boy = request.GET.get('picker_boy')
-        orders = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
-                                      Q(picker_order__picking_status__in=['picking_assigned', 'picking_complete']),
-                                      Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete']),
-                                      Q(picker_order__picker_assigned_date__startswith=date.date())).order_by(
-            '-created_at')
 
-        if not orders:
+        # repackaging OR order
+        pickuptype = request.GET.get('type')
+        if pickuptype:
+            pickuptype = int(pickuptype)
+        if pickuptype not in [1, 2]:
+            msg = {'is_success': False, 'message': 'Please provide a valid type', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+
+        data_found = 0
+        if pickuptype == 1:
+            orders = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
+                                          Q(picker_order__picking_status__in=['picking_assigned', 'picking_complete']),
+                                          Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete'])).order_by(
+                '-created_at')
+            if orders:
+                data_found = 1
+                serializer = OrderSerializer(orders, many=True)
+                picking_complete = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
+                                                        Q(picker_order__picking_status__in=['picking_complete']),
+                                                        Q(order_status__in=['picking_complete']),
+                                                        Q(
+                                                            picker_order__picker_assigned_date__startswith=date.date())).order_by(
+                    '-created_at').count()
+                picking_assigned = orders.count()
+        elif pickuptype == 2:
+            repacks = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
+                                          Q(picker_repacks__picking_status__in=['picking_assigned', 'picking_complete']),
+                                          Q(picker_repacks__picker_assigned_date__startswith=date.date())).order_by(
+                '-created_at')
+            if repacks:
+                data_found = 1
+                serializer = RepackagingSerializer(repacks, many=True)
+                picking_complete = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
+                                                        Q(picker_repacks__picking_status__in=['picking_complete']),
+                                                        Q(picker_repacks__picker_assigned_date__startswith=date.date())
+                                                              ).order_by('-created_at').count()
+                picking_assigned = repacks.count()
+
+        if data_found:
+            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data, 'picking_complete': picking_complete,
+                   'picking_assigned': picking_assigned}
+            return Response(msg, status=status.HTTP_200_OK)
+        else:
             picking_complete = 0
             picking_assigned = 0
             msg = {'is_success': False, 'message': 'No data found.', 'data': None, 'picking_complete': picking_complete,
-                   'picking_assigned':picking_assigned}
-            return Response(msg, status=status.HTTP_200_OK)
-        else:
-            serializer = OrderSerializer(orders, many=True)
-            picking_complete = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
-                                      Q(picker_order__picking_status__in=['picking_complete']),
-                                      Q(order_status__in=['picking_complete']),
-                                      Q(picker_order__picker_assigned_date__startswith=date.date())).order_by(
-            '-created_at').count()
-            picking_assigned = orders.count()
-            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data, 'picking_complete': picking_complete,
                    'picking_assigned':picking_assigned}
             return Response(msg, status=status.HTTP_200_OK)
 
@@ -382,7 +422,10 @@ class BinIDList(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         pickup_orders = Order.objects.filter(order_no=order_no).last()
         if pickup_orders is None:
-            msg = {'is_success': True, 'message': 'Order number does not exist.', 'data': None}
+            pickup_orders = Repackaging.objects.filter(repackaging_no=order_no).last()
+
+        if pickup_orders is None:
+            msg = {'is_success': True, 'message': 'Order/Repackaging number does not exist.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         else:
             pick_list = []
@@ -567,9 +610,20 @@ class PickupComplete(APIView):
         if not order_no:
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+
+        is_repackaging = 0
+
         order_qs = Order.objects.filter(order_no=order_no)
         order_obj = order_qs.last()
-        pd_obj = PickerDashboard.objects.filter(order_id=order_obj).exclude(picking_status='picking_cancelled')
+
+        if order_obj:
+            pd_obj = PickerDashboard.objects.filter(order_id=order_obj).exclude(picking_status='picking_cancelled')
+        else:
+            is_repackaging = 1
+            rep_qs = Repackaging.objects.filter(repackaging_no=order_no)
+            rep_obj = rep_qs.last()
+            pd_obj = PickerDashboard.objects.filter(repackaging_id=rep_obj).exclude(picking_status='picking_cancelled')
+
         if pd_obj.count() > 1:
             msg = {'is_success': True, 'message': 'Multiple picklists exist for this order', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
@@ -592,6 +646,10 @@ class PickupComplete(APIView):
                     state_available = InventoryState.objects.filter(inventory_state="available").last()
                     state_picked = InventoryState.objects.filter(inventory_state="picked").last()
                     state_ordered = InventoryState.objects.filter(inventory_state="ordered").last()
+                    wh_inv_state = 'ordered'
+                    if is_repackaging == 1:
+                        state_ordered = InventoryState.objects.filter(inventory_state="repackaging").last()
+                        wh_inv_state = 'repackaging'
 
                     for pickup in pick_obj:
                         info_logger.info("PickupComplete : Starting to complete pickup for order - {}, sku - {}"
@@ -614,7 +672,7 @@ class PickupComplete(APIView):
                             # Entry in warehouse Table
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
                                                                                          pickup_bin.pickup.sku,
-                                                                                         "normal", "ordered",
+                                                                                         "normal", wh_inv_state,
                                                                                          pickup_bin.quantity * -1,
                                                                                          True)
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
@@ -662,7 +720,11 @@ class PickupComplete(APIView):
                         info_logger.info("PickupComplete : Pickup completed for order - {}, sku - {}"
                                          .format(pickup.pickup_type_id, pickup.sku))
 
-                    order_qs.update(order_status='picking_complete')
+                    if is_repackaging == 1:
+                        rep_qs.update(source_picking_status='picking_complete')
+                    else:
+                        order_qs.update(order_status='picking_complete')
+
                     pd_obj.update(picking_status='picking_complete')
                     pick_obj.update(status='picking_complete', completed_at=timezone.now())
 

@@ -20,10 +20,12 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductCategory, ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax, Weight,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
-                             ParentProduct, ProductHSN, ParentProductImage)
+                             Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
+                             DestinationRepackagingCostMapping, ParentProductImage)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
+from wms.models import InventoryType, WarehouseInventory, InventoryState
 
 
 class ProductImageForm(forms.ModelForm):
@@ -329,7 +331,7 @@ class ProductPriceNewForm(forms.ModelForm):
         model = ProductPrice
         fields = ('product', 'mrp', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
-                  'start_date', 'end_date', 'approval_status')
+                  'start_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -355,6 +357,44 @@ class ProductPriceNewForm(forms.ModelForm):
         #     )
         #else:
         return cleaned_data
+
+
+class DestinationRepackagingCostMappingForm(forms.ModelForm):
+
+    class Meta:
+        model = DestinationRepackagingCostMapping
+        fields = ('raw_material', 'wastage', 'fumigation',
+                    'label_printing', 'packing_labour', \
+                    'primary_pm_cost', 'secondary_pm_cost', \
+                    'final_fg_cost', 'conversion_cost')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['final_fg_cost'].disabled = True
+        self.fields['final_fg_cost'].required = False
+        self.fields['conversion_cost'].disabled = True
+        self.fields['conversion_cost'].required = False
+        self.fields['raw_material'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['wastage'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['fumigation'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['label_printing'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['packing_labour'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['primary_pm_cost'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
+        self.fields['secondary_pm_cost'].widget.attrs = {
+            'onChange': 'calc_final_fg_and_conversion_cost(this)'
+        }
 
 
 class ParentProductForm(forms.ModelForm):
@@ -458,8 +498,89 @@ class ProductForm(forms.ModelForm):
 
     class Meta:
         model = Product
-        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status',
+        fields = ('parent_product', 'reason_for_child_sku', 'product_name', 'product_ean_code', 'product_mrp', 'weight_value', 'weight_unit', 'use_parent_image', 'status', 'repackaging_type',
                   'product_special_cess',)
+
+    def clean(self):
+        if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active':
+            error = True
+            if self.instance.id and ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
+                                                                product_id=self.instance.id).exists():
+                error = False
+            if error:
+                raise forms.ValidationError("Product cannot be made active until an active Product Price exists")
+        return self.cleaned_data
+
+
+class ProductSourceMappingForm(forms.ModelForm):
+    source_sku = forms.ModelChoiceField(
+        queryset=Product.objects.filter(repackaging_type='source'),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='source-product-autocomplete'
+        )
+    )
+
+    class Meta:
+        model = ProductSourceMapping
+        fields = ('source_sku', 'status')
+
+
+class ProductSourceMappingFormSet(forms.models.BaseInlineFormSet):
+
+    def clean(self):
+        super(ProductSourceMappingFormSet, self).clean()
+        count = 0
+        delete_count = 0
+        valid = True
+        for form in self:
+            if form.is_valid():
+                if form.cleaned_data:
+                    count += 1
+                if self.instance.repackaging_type != 'destination':
+                    form.cleaned_data['DELETE'] = True
+                if 'DELETE' in form.cleaned_data and form.cleaned_data['DELETE'] is True:
+                    delete_count += 1
+            else:
+                valid = False
+
+        if self.instance.repackaging_type == 'destination':
+            if count < 1 or count == delete_count:
+                raise ValidationError("At least one source mapping is required")
+
+        if valid:
+            return self.cleaned_data
+
+    class Meta:
+        model = ProductSourceMapping
+
+
+class DestinationRepackagingCostMappingFormSet(forms.models.BaseInlineFormSet):
+
+    def clean(self):
+        super(DestinationRepackagingCostMappingFormSet, self).clean()
+        count = 0
+        delete_count = 0
+        valid = True
+        for form in self:
+            if form.is_valid():
+                if form.cleaned_data:
+                    count += 1
+                if self.instance.repackaging_type != 'destination' and form.cleaned_data:
+                    form.cleaned_data['DELETE'] = True
+                if 'DELETE' in form.cleaned_data and form.cleaned_data['DELETE'] is True:
+                    delete_count += 1
+            else:
+                valid = False
+
+        if self.instance.repackaging_type == 'destination':
+            if count < 1 or count == delete_count:
+                raise ValidationError("At least one cost mapping is required")
+        if valid:
+            return self.cleaned_data
+
+    class Meta:
+        model = DestinationRepackagingCostMapping
 
 
 class UploadChildProductAdminForm(forms.Form):
@@ -511,6 +632,35 @@ class UploadChildProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can not be empty."))
             elif row[6].lower() not in ['gram']:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can only be 'Gram'."))
+            if not row[7]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' can not be empty."))
+            elif row[7] not in [lis[0] for lis in Product.REASON_FOR_NEW_CHILD_CHOICES]:
+                raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' is invalid."))
+            if row[7] == 'destination':
+                if not row[8]:
+                    raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for Repackaging"
+                                            f" Type 'destination'."))
+                else:
+                    there = False
+                    for pro in row[8].split(','):
+                        pro = pro.strip()
+                        if pro is not '':
+                            if Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                                there = True
+                            else:
+                                raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' {pro} is invalid."))
+                    if not there:
+                        raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for Repackaging"
+                                                f" Type 'destination'."))
+
+                dest_cost_fields = ['Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
+                                    'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost']
+                for i in range(0, 7):
+                    if not row[i + 9]:
+                        raise ValidationError(_(f"Row {row_id + 1} | {dest_cost_fields[i]} required for Repackaging"
+                                            f" Type 'destination'."))
+                    elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[i + 9]):
+                        raise ValidationError(_(f"Row {row_id + 1} | {dest_cost_fields[i]} is Invalid"))
         return self.cleaned_data['file']
 
 
@@ -675,7 +825,7 @@ class ProductPriceAddPerm(forms.ModelForm):
         model = ProductPrice
         fields = ('product', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
-                  'start_date', 'end_date', 'approval_status')
+                  'start_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -683,7 +833,8 @@ class ProductPriceAddPerm(forms.ModelForm):
         #     self.fields['start_date'].required = True
         #     self.fields['end_date'].required = True
         if 'approval_status' in self.fields:
-            self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
+            self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+            # self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
             self.fields['approval_status'].widget = forms.HiddenInput()
 
 
@@ -701,13 +852,13 @@ class ProductPriceChangePerm(forms.ModelForm):
         model = ProductPrice
         fields = ('product', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
-                  'start_date', 'end_date', 'approval_status')
+                  'start_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         #self.fields['start_date'].required = True
         #self.fields['end_date'].required = True
-        # self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
+        self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
 
 
 class ProductCategoryMappingForm(forms.Form):
@@ -1037,3 +1188,63 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
             return self.cleaned_data
         else:
             raise forms.ValidationError("CSV file is required!")
+
+
+class RepackagingForm(forms.ModelForm):
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete'),
+    )
+
+    source_sku = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-shop-autocomplete', forward=['seller_shop']),
+    )
+
+    destination_sku = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:destination-product-autocomplete', forward=['source_sku'])
+    )
+
+    class Meta:
+        model = Repackaging
+        fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity', 'status',
+                  "available_source_weight", "available_source_quantity", "destination_sku_quantity", "remarks",
+                  "expiry_date", "source_picking_status")
+        widgets = {
+            'remarks': forms.Textarea(attrs={'rows': 2}),
+        }
+
+    def clean(self):
+        if 'source_sku' in self.cleaned_data:
+            try:
+                warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=self.cleaned_data['seller_shop'],
+                                                                            sku=self.cleaned_data['source_sku'],
+                                                                            inventory_type=InventoryType.objects.filter(
+                                                                                inventory_type='normal').last(),
+                                                                            inventory_state=InventoryState.objects.filter(
+                                                                                inventory_state='available').last())
+                if warehouse_available_obj.exists():
+                    w_obj = warehouse_available_obj.last()
+                    source_quantity = w_obj.quantity
+                else:
+                    raise forms.ValidationError("Warehouse Inventory Does Not Exist")
+            except Exception as e:
+                raise forms.ValidationError("Warehouse Inventory Could not be fetched")
+            if self.cleaned_data['source_repackage_quantity'] + self.cleaned_data['available_source_quantity'] !=\
+                    source_quantity:
+                raise forms.ValidationError("Source Quantity Changed! Please Input Again")
+        if self.instance.source_picking_status in ['pickup_created', 'picking_assigned']:
+            raise forms.ValidationError("Source pickup is still not complete.")
+        return self.cleaned_data
+
+    def __init__(self, *args, **kwargs):
+        super(RepackagingForm, self).__init__(*args, **kwargs)
+        if self.instance.pk and 'expiry_date' in self.fields:
+            self.fields['expiry_date'].required = True
+        readonly = ['available_source_weight', 'available_source_quantity']
+        for key in readonly:
+            if key in self.fields:
+                self.fields[key].widget.attrs['readonly'] = True

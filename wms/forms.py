@@ -16,7 +16,7 @@ from django.db.models import Sum, Q
 from .common_functions import create_batch_id
 from retailer_to_sp.models import OrderedProduct
 from django.db import transaction
-from .common_functions import cancel_ordered, cancel_shipment, cancel_returned
+from .common_functions import cancel_ordered, cancel_shipment, cancel_returned, putaway_repackaging
 from dal import autocomplete
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -189,24 +189,32 @@ class PutAwayBinInventoryForm(forms.ModelForm):
             # self.fields['putaway_quantity'].initial = 0
             if instance.putaway_status is True:
                 self.fields['putaway_status'].disabled = True
-                self.fields['bin_id'].initial = instance.bin.bin.bin_id
+                if instance.bin:
+                    self.fields['bin_id'].initial = instance.bin.bin.bin_id
                 self.fields['bin_id'].disabled = True
-                self.fields['bin'].initial = instance.bin.bin.bin_id
+                if instance.bin:
+                    self.fields['bin'].initial = instance.bin.bin.bin_id
                 self.fields['bin'].disabled = True
             if instance.putaway_status is False:
-                self.fields['bin_id'].initial = instance.bin.bin.bin_id
+                if instance.bin:
+                    self.fields['bin_id'].initial = instance.bin.bin.bin_id
                 self.fields['bin_id'].disabled = True
                 self.fields['bin'] = forms.ModelChoiceField(queryset=Bin.objects.filter(
                     warehouse=instance.warehouse, is_active=True).distinct(), widget=autocomplete.ModelSelect2())
+            if not instance.bin:
+                self.fields['bin_id'].required = False
     def clean_bin(self):
         if self.instance.putaway_status is True:
             self.fields['putaway_status'].disabled = True
-            self.fields['bin_id'].initial = self.instance.bin.bin.bin_id
+            if self.instance.bin:
+                self.fields['bin_id'].initial = self.instance.bin.bin.bin_id
             self.fields['bin_id'].disabled = True
-            self.fields['bin'].initial = self.instance.bin.bin.bin_id
+            if self.instance.bin:
+                self.fields['bin'].initial = self.instance.bin.bin.bin_id
             self.fields['bin'].disabled = True
         if self.instance.putaway_status is False:
-            self.fields['bin_id'].initial = self.instance.bin.bin.bin_id
+            if self.instance.bin:
+                self.fields['bin_id'].initial = self.instance.bin.bin.bin_id
             self.fields['bin_id'].disabled = True
             self.fields['bin'] = forms.ModelChoiceField(queryset=Bin.objects.filter(
                 warehouse=self.instance.warehouse).distinct(), widget=autocomplete.ModelSelect2())
@@ -311,6 +319,9 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                         invoice__invoice_no=self.instance.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
                     cancel_returned(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_obj,
                                     bin_id)
+                elif self.instance.putaway_type == 'REPACKAGING':
+                    initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
+                    putaway_repackaging(self.request.user, self.instance, initial_stage, bin_id)
 
 
 class BinInventoryForm(forms.ModelForm):

@@ -10,9 +10,11 @@ from django.http import HttpResponse
 from rangefilter.filter import DateRangeFilter
 
 from audit.forms import AuditCreationForm, AuditTicketForm
-from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES
+from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES, \
+    AuditCancelledPicklist, AuditProduct, AUDIT_LEVEL_CHOICES, AUDIT_DETAIL_STATE_CHOICES, AUDIT_DETAIL_STATUS_CHOICES
+from products.models import Product
 from retailer_backend.admin import InputFilter
-
+from retailer_to_sp.models import CartProductMapping
 
 info_logger = logging.getLogger('file-info')
 
@@ -47,6 +49,27 @@ class AuditNoFilterForTickets(InputFilter):
         value = self.value()
         if value:
             return queryset.filter(audit_run__audit__audit_no=value)
+        return queryset
+
+
+class AuditNoFilterForCancelledPicklists(InputFilter):
+    title = 'Audit No'
+    parameter_name = 'audit_no'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(audit__audit_no=value)
+        return queryset
+
+class OrderNoFilter(InputFilter):
+    title = 'Order No'
+    parameter_name = 'order_no'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(order_no=value)
         return queryset
 
 class Warehouse(AutocompleteFilter):
@@ -161,16 +184,21 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
     def download_tickets(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['audit_id', 'bin', 'sku', 'batch_id', 'qty_normal_system', 'qty_normal_actual', 'normal_var',
+        writer.writerow(['audit_id', 'bin', 'sku', 'batch_id', 'audit_task_number',
+                         'warehouse_name', 'audit_type', 'audit_state', 'auditor', 'created_at',
+                         'qty_normal_system', 'qty_normal_actual', 'normal_var',
                          'qty_damaged_system', 'qty_damaged_actual', 'damaged_var',
                          'qty_expired_system', 'qty_expired_actual', 'expired_var',
                          'total_var', 'status'])
 
         for query in queryset:
             obj = AuditTicketManual.objects.get(id=query.id)
-            writer.writerow([obj.audit_run.audit_id, obj.bin, obj.sku, obj.batch_id, obj.qty_normal_system,
-                             obj.qty_normal_actual, self.normal_var(obj), obj.qty_damaged_system, obj.qty_damaged_actual,
-                             self.damaged_var(obj), obj.qty_expired_system, obj.qty_expired_actual, self.expired_var(obj),
+            writer.writerow([obj.audit_run.audit_id, obj.bin, obj.sku, obj.batch_id, obj.audit_run.audit.audit_no,
+                             obj.warehouse, AUDIT_LEVEL_CHOICES[obj.audit_run.audit.audit_level],
+                             AUDIT_DETAIL_STATE_CHOICES[obj.audit_run.audit.state], obj.audit_run.audit.auditor,
+                             obj.created_at, obj.qty_normal_system, obj.qty_normal_actual, self.normal_var(obj),
+                             obj.qty_damaged_system, obj.qty_damaged_actual, self.damaged_var(obj),
+                             obj.qty_expired_system, obj.qty_expired_actual, self.expired_var(obj),
                              self.total_var(obj), AUDIT_TICKET_STATUS_CHOICES[obj.status]])
 
         f.seek(0)
@@ -181,6 +209,47 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
+@admin.register(AuditCancelledPicklist)
+class AuditCancelledPicklistAdmin(admin.ModelAdmin):
+    list_display = ('audit_no', 'audit_state', 'audit_status', 'order_no', 'is_picklist_refreshed', 'audit_skus', 'created_at')
+    list_filter = [OrderNoFilter, AuditNoFilterForCancelledPicklists, 'is_picklist_refreshed',  ('created_at', DateRangeFilter)]
+    actions = ['download_csv']
+
+    def audit_no(self, obj):
+        return obj.audit.audit_no
+
+    def audit_state(self, obj):
+        return AUDIT_DETAIL_STATE_CHOICES[obj.audit.state]
+
+    def audit_status(self, obj):
+        return AUDIT_DETAIL_STATUS_CHOICES[obj.audit.status]
+
+    def audit_skus(self, obj):
+        audit_skus = AuditProduct.objects.filter(audit=obj.audit).values_list('sku_id', flat=True)
+        product_ids = Product.objects.only('id').filter(product_sku__in=audit_skus)
+        cart_products = CartProductMapping.objects.filter(cart__order_id=obj.order_no,
+                                                          cart_product_id__in=product_ids)\
+                                                  .values_list('cart_product__product_sku', flat=True)
+        return list(cart_products)
+
+    def download_csv(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(['Audit No', 'Audit State', 'Audit Status', 'Order No', 'Picklist Refreshed', 'SKUs', 'Cancelled At'])
+
+        for query in queryset:
+            obj = AuditCancelledPicklist.objects.get(id=query.id)
+            writer.writerow([obj.audit.audit_no, self.audit_state(obj), self.audit_status(obj), obj.order_no,
+                             obj.is_picklist_refreshed, self.audit_skus(obj), obj.created_at])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=audit-cancelled-picklist.csv'
+        return response
+
+    class Media:
+        pass
 
 
 

@@ -2,7 +2,7 @@ from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django_filters import BooleanFilter
 from rangefilter.filter import DateTimeRangeFilter
-
+from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter
 from django.contrib import admin, messages
 from django.contrib.admin import TabularInline, SimpleListFilter
 from django.core.exceptions import ValidationError
@@ -19,7 +19,9 @@ from retailer_backend.filters import CityFilter, ProductCategoryFilter
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
-                    ParentProductForm, ProductImageFormSet)
+                    RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
+                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet)
+
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
                         PackageSizeResource, ProductPriceResource,
@@ -37,12 +39,15 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     product_category_mapping_sample, products_csv_upload_view,
                     products_export_for_vendor, products_filter_view,
                     products_price_filter_view, products_vendor_mapping,
+                    ProductShopAutocomplete, SourceRepackageDetail,
+                    DestinationProductAutocomplete,
                     parent_product_upload, ParentProductsDownloadSampleCSV,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
                     ParentProductMultiPhotoUploadView, cart_product_list_status)
-from .filters import BulkTaxUpdatedBySearch
 
+from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
+from wms.models import Out
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
@@ -81,9 +86,11 @@ class ExportCsvMixin:
         writer = csv.writer(response)
         if self.model._meta.db_table=='products_product':
             field_names_temp = field_names.copy()
-            field_names_temp.append('product_brand')
-            field_names_temp.append('product_category')
-            field_names_temp.append('image')
+            cost_params = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
+                           'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
+            add_fields = ['product_brand', 'product_category', 'image', 'source skus'] + cost_params
+            for field_name in add_fields:
+                field_names_temp.append(field_name)
             writer.writerow(field_names_temp)
         else:
             writer.writerow(field_names)
@@ -98,6 +105,17 @@ class ExportCsvMixin:
                     items.append(obj.product_pro_image.last().image.url)
                 else:
                     items.append('-')
+                if obj.repackaging_type == 'destination':
+                    source_skus = [str(psm.source_sku) for psm in ProductSourceMapping.objects.filter(
+                        destination_sku_id=obj.id, status=True)]
+                    items.append("\n".join(source_skus))
+                    cost_obj = DestinationRepackagingCostMapping.objects.filter(destination_id=obj.id).last()
+                    for param in cost_params:
+                        items.append(str(getattr(cost_obj, param)))
+                else:
+                    items.append('-')
+                    for param in cost_params:
+                        items.append('-')
             row = writer.writerow(items)
         return response
     export_as_csv.short_description = "Download CSV of Selected Objects"
@@ -600,8 +618,14 @@ deactivate_selected_child_products.short_description = "Deactivate Selected Prod
 def approve_selected_child_products(modeladmin, request, queryset):
     fail_skus = []
     success_skus = []
+    price_fail = ''
+    message = "All selected Child SKUs were successfully approved"
     for record in queryset:
         parent_sku = ParentProduct.objects.filter(parent_id=record.parent_product.parent_id).last()
+        if not ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED, product_id=record.id).exists():
+            price_fail += ' ' + str(record.product_sku) + ','
+            continue
+
         if parent_sku.status:
             record.status = 'active'
             record.save()
@@ -612,19 +636,54 @@ def approve_selected_child_products(modeladmin, request, queryset):
             record.status = 'active'
             record.save()
             fail_skus.append(record.product_sku)
+
     if fail_skus:
-        modeladmin.message_user(
-            request,
-            "All selected Child SKUs were successfully approved along with their Parent SKU activation where required",
-            level=messages.SUCCESS
-        )
-    else:
-        modeladmin.message_user(request, "All selected Child SKUs were successfully approved", level=messages.SUCCESS)
+        message = "All selected Child SKUs were successfully approved along with their Parent SKU activation where required"
+
+    modeladmin.message_user(request, message, level=messages.SUCCESS)
+
+    if price_fail != '':
+        price_fail = price_fail.strip(',')
+        modeladmin.message_user(request, "Products" + price_fail + " were not be approved due to non existent active Product Price",
+                                level=messages.ERROR)
 approve_selected_child_products.short_description = "Approve Selected Products"
+
+
+class ProductSourceMappingAdmin(admin.TabularInline):
+    model = ProductSourceMapping
+    fk_name = "destination_sku"
+    form = ProductSourceMappingForm
+    formset = ProductSourceMappingFormSet
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ProductSourceMappingAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^source-product-autocomplete/$',
+                self.admin_site.admin_view(SourceProductAutocomplete.as_view()),
+                name='source-product-autocomplete',
+            ),
+        ] + urls
+        return urls
 
 
 class ChildProductImageAdmin(admin.TabularInline):
     model = ChildProductImage
+
+
+class DestinationRepackagingCostMappingAdmin(admin.TabularInline):
+    model = DestinationRepackagingCostMapping
+    form = DestinationRepackagingCostMappingForm
+    formset = DestinationRepackagingCostMappingFormSet
+    extra = 1
+    max_num = 1
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
 
 
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
@@ -722,7 +781,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name='cart_products_mapping'
             ),
             url(
-                r'^cart-products-mapping/$',
+                r'^cart-products-list/(?P<order_status_info>(.*))/$',
                 self.admin_site.admin_view(cart_product_list_status),
                 name='cart_products_list_status'
             ),
@@ -782,6 +841,21 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="pincode_autocomplete"
             ),
             url(
+                r'^product-shop-autocomplete/$',
+                self.admin_site.admin_view(ProductShopAutocomplete.as_view()),
+                name="product-shop-autocomplete"
+            ),
+            url(
+                r'^destination-product-autocomplete/$',
+                self.admin_site.admin_view(DestinationProductAutocomplete.as_view()),
+                name="destination-product-autocomplete"
+            ),
+            url(
+                r'^source-repackage-detail/$',
+                self.admin_site.admin_view(SourceRepackageDetail.as_view()),
+                name="source-repackage-detail"
+            ),
+            url(
                 r'^product-csv-upload/$',
                 self.admin_site.admin_view(product_csv_upload),
                 name="product-csv-upload"
@@ -832,7 +906,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     #     ProductImageAdmin, ProductTaxMappingAdmin
     # ]
     # inlines = [ChildProductImageAdmin]
-    inlines = [ProductImageAdmin]
+    inlines = [ProductImageAdmin, ProductSourceMappingAdmin, DestinationRepackagingCostMappingAdmin]
     # autocomplete_fields = ['product_hsn', 'product_brand']
     autocomplete_fields = ['parent_product']
 
@@ -889,6 +963,18 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
             }
         return super().get_changeform_initial_data(request)
 
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return ['repackaging_type']
+        return self.readonly_fields
+
+    def get_form(self, request, obj=None, **kwargs):
+        self.inlines = [ProductImageAdmin, ProductSourceMappingAdmin, DestinationRepackagingCostMappingAdmin]
+        if obj and obj.repackaging_type != 'destination':
+            self.inlines.remove(ProductSourceMappingAdmin)
+            self.inlines.remove(DestinationRepackagingCostMappingAdmin)
+        return super(ProductAdmin, self).get_form(request, obj, **kwargs)
+
 
 class MRPSearch(InputFilter):
     parameter_name = 'mrp'
@@ -923,7 +1009,7 @@ class ExportProductPrice:
             row = [getattr(obj, field) for field in list_display]
             row[2] = Product.objects.get(id=obj.product.id).product_mrp
             if row[-2] == 2:
-                row[-2] = 'Approved'
+                row[-2] = 'Active'
             elif row[-2] == 1:
                 row[-2] = 'Approval Pending'
             else:
@@ -936,7 +1022,7 @@ class ExportProductPrice:
 class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
-    actions = ['export_as_csv_productprice', 'approve_product_price', 'disapprove_product_price']
+    actions = ['export_as_csv_productprice']
     list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
                            'pincode')
     list_display = [
@@ -957,7 +1043,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         'approval_status']
     fields = ('product', 'mrp', 'selling_price', 'seller_shop',
               'buyer_shop', 'city', 'pincode',
-              'start_date', 'end_date', 'approval_status')
+              'start_date', 'approval_status')
 
     change_form_template = 'admin/products/product_price_change_form.html'
 
@@ -973,7 +1059,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
                 return self.readonly_fields + (
                     'product', 'mrp', 'selling_price', 'seller_shop',
                     'buyer_shop', 'city', 'pincode',
-                    'start_date', 'end_date', 'approval_status')
+                    'start_date', 'approval_status')
         return self.readonly_fields
 
     def product_sku(self, obj):
@@ -1029,8 +1115,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             return qs
         return qs.filter(
             Q(seller_shop__related_users=request.user) |
-            Q(seller_shop__shop_owner=request.user),
-            approval_status=ProductPrice.APPROVAL_PENDING
+            Q(seller_shop__shop_owner=request.user)
         ).distinct()
 
 
@@ -1134,6 +1219,94 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     download_sample_file.short_description = 'Download Sample File'
 
 
+class ExportRepackaging:
+    def export_as_csv_products_repackaging(self, request, queryset):
+        meta = self.model._meta
+        list_display = ['Repackaging ID', 'Repackaging Status', 'Source SKU Name', 'Source SKU ID',
+                        'Destination SKU Name', 'Destination SKU ID', 'Destination SKU Batch ID',
+                        'Source SKU Qty to be Repackaged', 'Destination SKU Qty Created',
+                        'Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
+                        'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost', 'Final FG Cost',
+                        'Conversion Cost', 'Created At']
+        field_names = ['destination_batch_id', 'source_repackage_quantity', 'destination_sku_quantity']
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            items = [obj.repackaging_no, obj.status, obj.source_sku_name(), obj.source_product_sku(),
+                     obj.destination_sku_name(), obj.destination_product_sku()]
+            items1 = [getattr(obj, field) for field in field_names]
+            items = items + items1
+            rep = obj.destination_sku.destination_product_repackaging.all()
+            add = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
+                   'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
+            for key in add:
+                if rep:
+                    join_all = ", ".join([str(getattr(k, key)) for k in rep])
+                else:
+                    join_all = ""
+                items.append(join_all)
+            items = items + [getattr(obj, 'created_at').strftime("%b. %d, %Y, %-I:%M %p")]
+            writer.writerow(items)
+        return response
+    export_as_csv_products_repackaging.short_description = "Download CSV of Selected Repackaging"
+
+
+class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
+    form = RepackagingForm
+    list_display = ('repackaging_no', 'status', 'source_sku_name', 'source_product_sku', 'destination_sku_name',
+                    'destination_product_sku', 'destination_batch_id', 'destination_sku_quantity',
+                    'download_batch_id_barcode', 'created_at')
+    actions = ["export_as_csv_products_repackaging"]
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            add_f = []
+            if request.method == "GET":
+                if obj.status == 'completed':
+                    add_f = ['destination_sku_quantity', 'status', 'expiry_date', 'remarks']
+            return ['seller_shop', 'source_sku', "destination_sku", "source_repackage_quantity",
+                    "available_source_weight", "available_source_quantity", "source_picking_status"] + add_f
+        else:
+            return ['status', 'destination_sku_quantity', 'remarks', 'expiry_date', 'source_picking_status']
+    list_filter = [SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName,
+                   ('status', ChoiceDropdownFilter), ('created_at', DateTimeRangeFilter)]
+    list_per_page = 10
+
+    def download_batch_id_barcode(self, obj):
+        html_ret = '';
+        if obj.source_sku:
+            outs = Out.objects.filter(out_type='repackaging', out_type_id=obj.id, sku=obj.source_sku)
+            if outs.exists():
+                for out_obj in outs:
+                    if out_obj.batch_id:
+                        grn_order_pro = obj.source_sku.product_grn_order_product.filter(batch_id=out_obj.batch_id).last()
+                        if grn_order_pro is not None:
+                            if grn_order_pro.barcode_id is None:
+                                product_id = str(grn_order_pro.product_id).zfill(5)
+                                expiry_date = datetime.datetime.strptime(str(grn_order_pro.expiry_date), '%Y-%m-%d').strftime(
+                                    '%d%m%y')
+                                barcode_id = str("2" + product_id + str(expiry_date))
+                            else:
+                                barcode_id = grn_order_pro.barcode_id
+                            html_ret += "<a href= '{0}' >{1}</a><br>".format(reverse('batch_barcodes', args=[grn_order_pro.pk]), barcode_id)
+                        else:
+                            html_ret += '{0}<br>'.format(out_obj.batch_id);
+                    else:
+                        html_ret += '--<br>'
+        html_ret = '-' if html_ret == '' else html_ret;
+        return format_html(html_ret)
+
+    def has_change_permission(self, request, obj=None):
+        if obj and obj.status and obj.status == 'completed' and request.method == "GET":
+            return False
+        return True
+
+    class Media:
+        js = ("admin/js/repackaging.js",)
+
+
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 admin.site.register(Size, SizeAdmin)
@@ -1149,5 +1322,6 @@ admin.site.register(ProductHSN, ProductHSNAdmin)
 admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)
 admin.site.register(BulkProductTaxUpdate, BulkProductTaxUpdateAdmin)
-admin.site.register(ParentProduct, ParentProductAdmin)
 admin.site.register(BulkUploadForGSTChange, BulkUploadForGSTChangeAdmin)
+admin.site.register(Repackaging, RepackagingAdmin)
+admin.site.register(ParentProduct, ParentProductAdmin)
