@@ -25,11 +25,6 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
-
-from wms.models import Bin
-from accounts.models import User
-from accounts.middlewares import get_current_user
-
 from wms.models import InventoryType, WarehouseInventory, InventoryState
 
 
