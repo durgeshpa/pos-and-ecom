@@ -44,7 +44,8 @@ INVENTORY_STATE_CHOICES = (
     ('ordered', 'Ordered'),  # Inventory Ordered
     ('picked', 'PICKED'),  # Inventory picked
     ('canceled', 'Canceled'),  # Inventory Canceled
-    ('new', 'New')
+    ('new', 'New'),
+    ('repackaging', 'Repackaging')
 )
 
 
@@ -306,6 +307,7 @@ class WarehouseInternalInventoryChange(models.Model):
         ('stock_correction_out_type', 'stock_correction_out_type'),
         ('reschedule', 'Reschedule'),
         ('expired', 'Expired'),
+        ('repackaging', 'Repackaging'),
         ('manual_audit_add', 'Manual Audit Add'),
         ('manual_audit_deduct', 'Manual Audit Deduct'),
         ('audit_correction_add', 'Audit Correction Add'),

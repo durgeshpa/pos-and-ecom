@@ -14,15 +14,24 @@
 <div class="container-fluid" >
   <div class="col-md-6" >
     <div class="barcode">
+      {% if type == 'Repackaging' %}
+      <div class="pull-right">Repackaging No:<img src="data:image/png;base64,{{barcode}}" height="130px">
+      {% else %}
       <div class="pull-right">Order No:<img src="data:image/png;base64,{{barcode}}" height="130px">
+        {% endif %}
     </div>
   </div>
   </div>
 
   	<table class="table">
 	<thead>
+    {% if type == 'Repackaging' %}
+        <tr>
+            <th class="no-border">Repackaging ID : {{repackaging_obj.repackaging_no}}</th>
+        </tr>
+    {% else %}
       <tr>
-        <th class="no-border">Order ID : {{order_obj.order_no}}</th>
+          <th class="no-border">Order ID : {{order_obj.order_no}}</th>
       </tr>
       <tr>
         <th class="no-border">Store Name : {{buyer_shop}}</th>
@@ -36,6 +45,7 @@
       <tr>
         <th class="no-border">Contact No : {{buyer_contact_no}}</th>
       </tr>
+    {% endif %}
     </thead>
 	</table>
   <table class="table table-bordered">
