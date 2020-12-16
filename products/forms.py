@@ -28,6 +28,7 @@ from shops.models import Shop, ShopType
 from wms.models import InventoryType, WarehouseInventory, InventoryState
 
 
+
 class ProductImageForm(forms.ModelForm):
     class Meta:
         model = ProductImage
@@ -942,10 +943,26 @@ class ProductVendorMappingForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='admin:product-price-autocomplete', )
     )
-
+    
     class Meta:
         model = ProductVendorMapping
-        fields = ('vendor', 'product', 'product_price', 'product_mrp', 'case_size', )
+        fields = ['vendor', 'product', 'product_price','product_price_pack', 'product_mrp', 'case_size']
+    
+    # this function will be used for the validation
+    def clean(self):
+
+        # data from the form is fetched using super function
+        super(ProductVendorMappingForm, self).clean()
+        product_price = self.cleaned_data.get('product_price')
+        product_price_pack = self.cleaned_data.get('product_price_pack')
+
+
+        if product_price == None and product_price_pack == None:
+            raise forms.ValidationError("Please enter one Brand to Gram Price")
+        
+        if not (product_price == None or product_price_pack == None):
+            raise forms.ValidationError("Please enter only one Brand to Gram Price")
+       
 
 class ProductCappingForm(forms.ModelForm):
     product = forms.ModelChoiceField(
@@ -1190,6 +1207,9 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
             raise forms.ValidationError("CSV file is required!")
 
 
+
+
+
 class RepackagingForm(forms.ModelForm):
     seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='sp'),
@@ -1248,3 +1268,4 @@ class RepackagingForm(forms.ModelForm):
         for key in readonly:
             if key in self.fields:
                 self.fields[key].widget.attrs['readonly'] = True
+
