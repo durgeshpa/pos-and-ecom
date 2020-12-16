@@ -10,19 +10,19 @@ from django.http import HttpResponse
 from rangefilter.filter import DateRangeFilter
 
 from audit.forms import AuditCreationForm, AuditTicketForm
-<<<<<<< HEAD
+
 from audit.models import AuditDetail, AuditTicket, AuditTicketManual,AUDIT_DETAIL_STATUS_CHOICES,AUDIT_DETAIL_STATE_CHOICES,AUDIT_RUN_STATUS_CHOICES, AUDIT_TICKET_STATUS_CHOICES,AUDIT_INVENTORY_CHOICES,AUDIT_RUN_TYPE_CHOICES,AUDIT_LEVEL_CHOICES
 from retailer_backend.admin import InputFilter
 from wms.models import Bin
 from .views import bulk_audit_csv_upload_view,AuditDownloadSampleCSV
-=======
+
 from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES, \
     AuditCancelledPicklist, AuditProduct, AUDIT_LEVEL_CHOICES, AUDIT_DETAIL_STATE_CHOICES, AUDIT_DETAIL_STATUS_CHOICES
 from products.models import Product
 from retailer_backend.admin import InputFilter
 from retailer_to_sp.models import CartProductMapping
 
->>>>>>> dev
+
 info_logger = logging.getLogger('file-info')
 
 
@@ -267,9 +267,6 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
 
     class Media:
         pass
-<<<<<<< HEAD
-=======
-
 
 @admin.register(AuditCancelledPicklist)
 class AuditCancelledPicklistAdmin(admin.ModelAdmin):
@@ -312,6 +309,3 @@ class AuditCancelledPicklistAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-
-
->>>>>>> dev
