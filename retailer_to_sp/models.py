@@ -2834,20 +2834,30 @@ def cancel_status_picker_dashboard(sender, instance=None, created=False, *args, 
 
 @receiver(post_save, sender=Trip)
 def check_franchise_inventory_update(sender, instance=None, created=False, **kwargs):
+    """
+        1. Check if products were bought for Franchise Shops.
+        2. Add delivered quantity as inventory for all product batches in all shipments to Franchise / Buyer Shop
+    """
+
     if instance.trip_status == Trip.RETURN_VERIFIED:
         shipments = instance.rt_invoice_trip.all()
         for shipment in shipments:
             if (shipment.order.buyer_shop and shipment.order.buyer_shop.shop_type.shop_type == 'f' and
                     shipment.rt_order_product_order_product_mapping.last()):
-                franchise_inventory_update(shipment)
+                warehouse = shipment.order.buyer_shop
+                info_logger.info("Franchise inventory update after Trip. Shop: {}, Order: {}".format(warehouse, shipment.order))
+                franchise_inventory_update(shipment, warehouse)
 
 
-def franchise_inventory_update(shipment):
+def franchise_inventory_update(shipment, warehouse):
+    """
+        Franchise Inventory update for a single shipment delivered to a Franchise shop after the trip is closed
+    """
+
     initial_type = InventoryType.objects.filter(inventory_type='new').last(),
     final_type = InventoryType.objects.filter(inventory_type='normal').last(),
     initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
     final_stage = InventoryState.objects.filter(inventory_state='available').last(),
-    warehouse = shipment.order.buyer_shop
     from franchise.models import get_default_virtual_bin_id
     bin_obj = Bin.objects.filter(warehouse=warehouse, bin_id=get_default_virtual_bin_id()).last()
 

@@ -1917,10 +1917,18 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
 
 def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_product_batch, initial_type, final_type,
                                              initial_stage, final_stage):
+    """
+        Add single delivered product batch to franchise shop Inventory after trip is closed. From new to normal, available
+        warehouse: Franchise Shop / Buyer Shop
+        bin_obj: Virtual default bin for Franchise Shop
+        shipment_product_batch: OrderedProductBatch
+    """
 
     if shipment_product_batch.delivered_qty > 0:
         sku = shipment_product_batch.ordered_product_mapping.product
         batch_id = shipment_product_batch.batch_id
+        info_logger.info("Franchise Product Batch update after Trip. Shop: {}, Batch: {}, Shipment Product Batch Id: {}".
+                         format(warehouse, batch_id, shipment_product_batch.id))
         quantity = shipment_product_batch.delivered_qty
         transaction_type = 'franchise_batch_in'
         transaction_id = shipment_product_batch.id

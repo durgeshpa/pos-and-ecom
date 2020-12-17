@@ -13,7 +13,7 @@ from wms.models import Bin
 
 
 class AuditCreationForm(forms.ModelForm):
-    warehouse_choices = Shop.objects.filter(shop_type__shop_type__in=['sp'])
+    warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
     bin = forms.ModelMultipleChoiceField(
         required=False,
