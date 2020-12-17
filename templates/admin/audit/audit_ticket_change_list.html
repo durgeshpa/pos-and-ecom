@@ -54,3 +54,9 @@
     </div>
     {{ block.super }}
 {% endblock %}
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="{% url 'admin:audit-csv-upload' %}" class="addlink">Bulk Upload Audit Details</a>
+    </li>
+{% endblock %}
