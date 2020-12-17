@@ -11,7 +11,7 @@ from audit.utils import get_existing_audit_for_product, get_existing_audit_for_b
 from products.models import Product
 from shops.models import Shop
 from wms.models import Bin
-
+from django.utils.translation import gettext as _
 
 class AuditCreationForm(forms.ModelForm):
     warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
