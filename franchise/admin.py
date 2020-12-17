@@ -18,6 +18,10 @@ class FranchiseBinAdmin(BinAdmin):
     list_filter = [BinIdFilter, ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter),
                    ('bin_type', DropdownFilter)]
 
+    def get_urls(self):
+        urls = super(BinAdmin, self).get_urls()
+        return urls
+
     def get_queryset(self, request):
         qs = super(FranchiseBinAdmin, self).get_queryset(request)
         qs = qs.filter(warehouse__shop_type__shop_type='f')
@@ -40,6 +44,8 @@ class FranchiseAuditAdmin(AuditDetailAdmin):
     form = FranchiseAuditCreationForm
 
     list_filter = [AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
+
+    change_list_template = 'admin/change_list.html'
 
     def get_queryset(self, request):
         qs = super(FranchiseAuditAdmin, self).get_queryset(request)
