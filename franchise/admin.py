@@ -25,6 +25,15 @@ class FranchiseBinAdmin(BinAdmin):
             qs = qs.filter(Q(warehouse__related_users=request.user) | Q(warehouse__shop_owner=request.user))
         return qs
 
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(Faudit)
 class FranchiseAuditAdmin(AuditDetailAdmin):

@@ -3,6 +3,7 @@ from django.db.models import Q
 from accounts.middlewares import get_current_user
 from wms.forms import BinForm
 from audit.forms import AuditCreationForm
+from audit.models import AUDIT_LEVEL_CHOICES
 from shops.models import Shop
 
 
@@ -38,6 +39,7 @@ class FranchiseAuditCreationForm(AuditCreationForm):
 
         self.fields['warehouse'].queryset = franchise_shop
         self.fields['warehouse'].empty_label = None
+        self.fields['audit_level'].choices = [c for c in self.fields['audit_level'].choices if c[0] == 1]
 
     def clean(self):
         # user = get_current_user()
