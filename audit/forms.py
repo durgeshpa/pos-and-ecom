@@ -149,12 +149,12 @@ class UploadBulkAuditAdminForm(forms.Form):
             if not row[1]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Auditor' can not be empty."))
                 
-            elif not User.objects.filter(phone_number=row[1].split('–')[0].strip()):
+            elif not User.objects.filter(phone_number=row[1].split('-')[0].strip()):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Auditor' Invalid Auditor."))
             
-            elif User.objects.filter(phone_number=row[1].split('–')[0].strip()):
+            elif User.objects.filter(phone_number=row[1].split('-')[0].strip()):
            
-                phone_number = row[1].split('–')[0].strip()
+                phone_number = row[1].split('-')[0].strip()
                 user=User.objects.get(phone_number=phone_number)
                 try:
                     user and user.groups.filter(name='Warehouse-Auditor').exists()
