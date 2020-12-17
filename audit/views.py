@@ -5,12 +5,16 @@ from django.db import transaction
 from django.db.models import Sum, Q, F
 from django.http import HttpResponse
 import logging
-
+from django.shortcuts import render, redirect
 from django.utils import timezone
 from rest_framework import status, authentication, permissions
 from rest_framework.generics import ListCreateAPIView
 from rest_framework.response import Response
-
+from shops.models import Shop
+import csv
+import codecs
+from wms.models import Bin
+from accounts.models import User
 from retailer_to_sp.models import Order, Trip, PickerDashboard
 from wms.views import PicklistRefresh, commit_updates_to_es
 from .models import (AuditRun, AuditRunItem, AuditDetail,
@@ -26,11 +30,12 @@ from wms.models import WarehouseInventory, WarehouseInternalInventoryChange, Inv
     PutawayBinInventory
 from products.models import Product
 import datetime
-
+from audit.forms import UploadBulkAuditAdminForm
 from .serializers import WarehouseInventoryTransactionSerializer, WarehouseInventorySerializer, \
     BinInventoryTransactionSerializer, BinInventorySerializer, PickupBlockedQuantitySerializer
 from .utils import get_products_by_audit
 
+from audit.serializers import AuditBulkCreation
 info_logger = logging.getLogger('file-info')
 cron_logger = logging.getLogger('cron_log')
 
@@ -669,16 +674,82 @@ def create_audit_tickets_by_audit(audit_id):
     audit.save()
 
 
-def get_existing_audit_for_product(warehouse, sku):
-    return sku.audit_product_mapping.filter(warehouse=warehouse,
-                                            status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
-                                            state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
-                                                       AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')
 
 
-def get_existing_audit_for_bin(warehouse, bin):
-    return bin.audit_bin_mapping.filter(warehouse=warehouse,
-                                        status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
-                                        state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
-                                                   AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')
+def bulk_audit_csv_upload_view(request):
+    warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
+    
+    if request.method == 'POST':
+        form = UploadBulkAuditAdminForm(request.POST, request.FILES)
+        
+        if form.errors:
+            return render(request, 'admin/audit/bulk-upload-audit-details.html', {'warehouses': warehouse_choices.values(),'form': form})
 
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            warehouse_id = request.POST.get('select')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            first_row = next(reader)
+            try:
+                for row in reader:
+                    if len(row) == 0:
+                        continue
+                    if '' in row:
+                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' ):
+                            continue
+                    phone_number = row[1].split('–')[0].strip()
+                    if row[0]=='Manual':
+                        audit_run_type = 0
+                    if row[2] == "Bin Wise":
+                        audit_level = 0
+                        bins = []
+                        for row in row[3].split(","):
+                            bin_value = Bin.objects.get(bin_id=row.strip())
+                            bins.append(bin_value)
+
+                        audit_item = AuditDetail.objects.create(
+                            warehouse=Shop.objects.get(shop_id=warehouse_id),
+                            audit_run_type=audit_run_type,
+                            auditor = User.objects.get(phone_number=phone_number),
+                            audit_level=audit_level,
+                        )
+                        for bin_value in bins:
+                            audit_item.bin.add(bin_value)
+            
+                    elif row[2] == "Product Wise":
+                        audit_level = 1
+                        skus = []
+                        for row in row[4].split(","):
+                            sku_value= Product.objects.get(product_sku=row.strip())
+                            skus.append(sku_value)
+                       
+                        audit_item = AuditDetail.objects.create(
+                            warehouse=Shop.objects.get(shop_id=warehouse_id),
+                            audit_run_type=audit_run_type,
+                            auditor = User.objects.get(phone_number=phone_number),
+                            audit_level=audit_level,
+                        )
+                        for sku_value in skus:
+                            audit_item.sku.add(sku_value)
+                      
+                    audit_item.save()
+            except Exception as e:
+                print(e)
+            return render(request, 'admin/audit/bulk-upload-audit-details.html', {
+                'form': form,
+                'warehouses': warehouse_choices.values(),
+                'success': 'Audit CSV uploaded successfully !',
+            })
+    else:
+        form = UploadBulkAuditAdminForm()
+    return render(request, 'admin/audit/bulk-upload-audit-details.html', {'warehouses': warehouse_choices.values(),'form': form})
+
+    
+def AuditDownloadSampleCSV(request):
+    filename = "audit_sample.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(["Audit Run Type", "Auditor", "Audit Level", "Bin ID", "SKU ID"])
+    writer.writerow(["Manual", "7088491957 – Ankit", "Bin Wise", "B2BZ01SR001-0001,B2BZ01SR001-0002"," "])
+    return response
