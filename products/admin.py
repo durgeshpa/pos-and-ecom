@@ -1230,6 +1230,18 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     download_sample_file.short_description = 'Download Sample File'
 
 
+class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'updated_by', 'file',)
+    fields = ('file', 'updated_by')
+    readonly_fields = ('updated_by', 'file',)
+
+    # def get_readonly_fields(self, request, obj=None):
+    #     readonly_fields = super().get_readonly_fields(request, obj)
+    #     if obj:
+    #         readonly_fields = readonly_fields + ('file',)
+    #     return readonly_fields
+
+
 class ExportRepackaging:
     def export_as_csv_products_repackaging(self, request, queryset):
         meta = self.model._meta
@@ -1334,5 +1346,6 @@ admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)
 admin.site.register(BulkProductTaxUpdate, BulkProductTaxUpdateAdmin)
 admin.site.register(BulkUploadForGSTChange, BulkUploadForGSTChangeAdmin)
+admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttributesAdmin)
 admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)
