@@ -1,0 +1,45 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block breadcrumb1 %}<a href="/admin/audit/">Audit</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/audit/auditdetail/">Audit Tasks<a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Upload Audit List</a>{% endblock %}
+
+{% block content %}
+<div id="content" class="colM">
+     
+      <h1>{% block content_header %}{% endblock %}</h1>
+      <div id="content-main">
+         <ul class="object-tools">
+         </ul>
+         {% if error %}
+            <span class="errornote">{{ error|escape }}</span>
+         {% endif %}
+         {% if success %}
+            <ul class="messagelist">
+            <li class="success">{{ success|escape }}</li>
+            </ul>
+         {% endif %}
+         <div>
+            <form method="post" enctype="multipart/form-data">
+               <div>
+                  warehouse:
+                  <select name ="select" required>
+                     <option value="">Please select</option>
+                  {% for warehouse in warehouses %}
+                        <option value="{{ warehouse.id }}">{{ warehouse.shop_name }}</option>
+                  {% endfor %}
+                  </select>
+                 
+                  <fieldset class="module aligned ">
+                     {% csrf_token %}
+                     {{form.as_p}}
+                  </fieldset>
+                  <div class="submit-row">
+                     <a href="{% url 'admin:audit-csv-sample' %}" class="button">Get CSV sample</a>
+                     <input type="submit" value="Save" class="button" name="_save" > 
+                  </div>
+               </div>
+            </form>
+         </div>
+      </div>
+   </div>
+{% endblock %}

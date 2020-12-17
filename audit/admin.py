@@ -10,12 +10,16 @@ from django.http import HttpResponse
 from rangefilter.filter import DateRangeFilter
 
 from audit.forms import AuditCreationForm, AuditTicketForm
+
+from audit.models import AuditDetail, AuditTicket, AuditTicketManual,AUDIT_DETAIL_STATUS_CHOICES,AUDIT_DETAIL_STATE_CHOICES,AUDIT_RUN_STATUS_CHOICES, AUDIT_TICKET_STATUS_CHOICES,AUDIT_INVENTORY_CHOICES,AUDIT_RUN_TYPE_CHOICES,AUDIT_LEVEL_CHOICES
+from retailer_backend.admin import InputFilter
+from wms.models import Bin
+from .views import bulk_audit_csv_upload_view,AuditDownloadSampleCSV
 from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES, \
     AuditCancelledPicklist, AuditProduct, AUDIT_LEVEL_CHOICES, AUDIT_DETAIL_STATE_CHOICES, AUDIT_DETAIL_STATUS_CHOICES
 from products.models import Product
 from retailer_backend.admin import InputFilter
 from retailer_to_sp.models import CartProductMapping
-
 info_logger = logging.getLogger('file-info')
 
 
@@ -95,9 +99,26 @@ class AuditorFilter(AutocompleteFilter):
     field_name = 'auditor'
     autocomplete_url = 'auditor-autocomplete'
 
+class ExportCsvMixin:
+    def export_as_csv(self, request, queryset):
+
+        meta = self.model._meta
+        field_names = [field.name for field in meta.fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+
+        return response
+
+    export_as_csv.short_description = "Export Selected"
 
 @admin.register(AuditDetail)
-class AuditDetailAdmin(admin.ModelAdmin):
+class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
     list_display = ('audit_no', 'warehouse', 'audit_run_type', 'audit_inventory_type', 'audit_level',
                     'state', 'status', 'user', 'auditor', 'created_at')
 
@@ -117,10 +138,29 @@ class AuditDetailAdmin(admin.ModelAdmin):
     )
     list_filter = [Warehouse, AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
     form = AuditCreationForm
-    actions_on_top = False
+    actions = ['export_as_csv']
+   
+    def export_as_csv(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(['audit_no','warehouse','audit_run_type','audit_level','state',
+                        'status','created_by','auditor','created_at','bin','sku'])
 
+        for query in queryset:
+            obj = AuditDetail.objects.get(id=query.id)
+            writer.writerow([obj.audit_no,obj.warehouse,AUDIT_RUN_TYPE_CHOICES[obj.audit_run_type],
+            AUDIT_LEVEL_CHOICES[obj.audit_level],AUDIT_DETAIL_STATE_CHOICES[obj.state],
+            AUDIT_DETAIL_STATUS_CHOICES[obj.status],obj.user,obj.auditor,obj.created_at,
+            list(getattr(obj,"bin").all().values_list('bin_id', flat=True)),
+            list(getattr(obj,"sku").all().values_list('product_sku', flat=True))])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=auditDetails.csv'
+        return response
+        
     change_list_template = 'admin/audit/audit_ticket_change_list.html'
-
+   
     def get_readonly_fields(self, request, obj=None):
         if obj:
             return self.readonly_fields + ('warehouse', 'audit_run_type', 'audit_inventory_type', 'audit_level',
@@ -129,6 +169,24 @@ class AuditDetailAdmin(admin.ModelAdmin):
 
     class Media:
         js = ("admin/js/audit_admin_form.js",)
+    
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(AuditDetailAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^audit-csv-upload/$',
+                self.admin_site.admin_view(bulk_audit_csv_upload_view),
+                name="audit-csv-upload"
+            ),
+            url(
+                r'^audit-csv-sample/$',
+                self.admin_site.admin_view(AuditDownloadSampleCSV),
+                name="audit-csv-sample"
+            ),
+           
+        ] + urls
+        return urls
 
 
 @admin.register(AuditTicket)
@@ -149,7 +207,6 @@ class AuditTicketAdmin(admin.ModelAdmin):
 
     class Media:
         pass
-
 
 @admin.register(AuditTicketManual)
 class AuditTicketManualAdmin(admin.ModelAdmin):
@@ -208,8 +265,6 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
 
     class Media:
         pass
-
-
 @admin.register(AuditCancelledPicklist)
 class AuditCancelledPicklistAdmin(admin.ModelAdmin):
     list_display = ('audit_no', 'audit_state', 'audit_status', 'order_no', 'is_picklist_refreshed', 'audit_skus', 'created_at')
@@ -250,6 +305,4 @@ class AuditCancelledPicklistAdmin(admin.ModelAdmin):
 
     class Media:
         pass
-
-
 
