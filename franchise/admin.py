@@ -45,6 +45,10 @@ class FranchiseAuditAdmin(AuditDetailAdmin):
 
     list_filter = [AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
 
+    def get_urls(self):
+        urls = super(AuditDetailAdmin, self).get_urls()
+        return urls
+
     change_list_template = 'admin/change_list.html'
 
     def get_queryset(self, request):
