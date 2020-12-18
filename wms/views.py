@@ -1,5 +1,7 @@
 # python imports
 import csv
+import time
+import traceback
 from io import StringIO
 import codecs
 import itertools
@@ -50,7 +52,7 @@ from .common_functions import InternalInventoryChange, CommonBinInventoryFunctio
     InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV, \
     InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory, inventory_in_and_out
 from barCodeGenerator import barcodeGen, merged_barcode_gen
-from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
+from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster, CronRunLog
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -908,27 +910,50 @@ def pickup_entry_exists_for_order(order_id):
 
 
 def pickup_entry_creation_with_cron():
-    cron_logger.info("pickup_entry_creation_with_cron started")
+    cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
     current_time = datetime.now() - timedelta(minutes=1)
     start_time = datetime.now() - timedelta(days=30)
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
                                      created_at__gt=start_time)
-    with transaction.atomic():
-        if order_obj.exists():
-            for order in order_obj:
-                pincode = "00"
-                if pickup_entry_exists_for_order(order.id):
-                    cron_logger.info('pickup extry exists for order {}'.format(order.id))
-                    continue
-                PickerDashboard.objects.create(order=order, picking_status="picking_pending",
-                                               picklist_id=generate_picklist_id(pincode))
-                cron_logger.info('picker dashboard entry created for order {}, order status updated to {}'
-                                 .format(order.id, order.PICKUP_CREATED))
-                PicklistRefresh.create_picklist_by_order(order)
-                order_obj.update(order_status='PICKUP_CREATED')
-                cron_logger.info('pickup entry created for order {}'.format(order.order_no))
+    if order_obj.count() == 0:
+        cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
+        return
+
+    if CronRunLog.objects.filter(cron_name=cron_name,
+                                 status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+        cron_logger.info("{} already running".format(cron_name))
+        return
+
+    cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
+    cron_logger.info("{} started, cron log entry-{}"
+                     .format(cron_log_entry.cron_name, cron_log_entry.id))
+    try:
+        with transaction.atomic():
+            if order_obj.exists():
+                for order in order_obj:
+                    pincode = "00"
+                    if pickup_entry_exists_for_order(order.id):
+                        cron_logger.info('pickup extry exists for order {}'.format(order.id))
+                        continue
+                    PickerDashboard.objects.create(order=order, picking_status="picking_pending",
+                                                   picklist_id=generate_picklist_id(pincode))
+                    cron_logger.info('picker dashboard entry created for order {}, order status updated to {}'
+                                     .format(order.id, order.PICKUP_CREATED))
+                    PicklistRefresh.create_picklist_by_order(order)
+                    order_obj.update(order_status='PICKUP_CREATED')
+                    cron_logger.info('pickup entry created for order {}'.format(order.order_no))
+        cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
+        cron_log_entry.completed_at = timezone.now()
+    except Exception as e:
+        cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.ABORTED
+        cron_logger.info("{} aborted, cron log entry-{}"
+                         .format(cron_name, cron_log_entry.id))
+        traceback.print_exc()
+    cron_log_entry.save()
+
+
 
 class DownloadBinCSV(View):
     """

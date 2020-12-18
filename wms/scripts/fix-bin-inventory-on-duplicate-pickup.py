@@ -9,12 +9,12 @@ def run():
 
 @transaction.atomic
 def fix_bin_inventory():
-    type_normal = InventoryType.objects.filter(inventoy_type='normal').last()
+    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
     cart_products = CartProductMapping.objects.filter(cart__order_id='BOR2009010000690')
     for p in cart_products:
         pickup_obj = Pickup.objects.filter(pickup_type_id='BOR2009010000690',
                                            status='picking_cancelled',
-                                           sku=p).last()
+                                           sku=p.cart_product).last()
         pickup_bin_qs = PickupBinInventory.objects.filter(pickup=pickup_obj)
         for item in pickup_bin_qs:
             bi_qs = BinInventory.objects.filter(id=item.bin_id)
