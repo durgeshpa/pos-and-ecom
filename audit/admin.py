@@ -21,6 +21,7 @@ from products.models import Product
 from retailer_backend.admin import InputFilter
 from retailer_to_sp.models import CartProductMapping
 info_logger = logging.getLogger('file-info')
+import traceback
 
 class SKUFilter(InputFilter):
     title = 'SKU'
@@ -140,8 +141,11 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
     actions = ['export_as_csv']
 
     def audit_level(self, obj):
-        if AUDIT_LEVEL_CHOICES[obj.audit_level]:
-            return AUDIT_LEVEL_CHOICES[obj.audit_level]
+        try:
+            if not AUDIT_LEVEL_CHOICES[obj.audit_level] == None:
+                return AUDIT_LEVEL_CHOICES[obj.audit_level]
+        except KeyError:
+            print(f"{obj.audit_level}")
 
     def export_as_csv(self, request, queryset):
         f = StringIO()
@@ -159,8 +163,11 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
                 AUDIT_DETAIL_STATUS_CHOICES[obj.status],obj.user,obj.auditor,obj.created_at,
                 list(getattr(obj,"bin").all().values_list('bin_id', flat=True)),
                 list(getattr(obj,"sku").all().values_list('product_sku', flat=True))])
+
             except Exception as exc:
-                print("AUDIT_LEVEL_CHOICES EMPTY",exc)
+                trace_back = traceback.format_exc()
+                message = str(exc)+ " " + str(trace_back)
+                print(message)
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
