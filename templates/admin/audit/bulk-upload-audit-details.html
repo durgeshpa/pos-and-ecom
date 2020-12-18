@@ -25,7 +25,7 @@
                   <select name ="select" required>
                      <option value="">Please select</option>
                   {% for warehouse in warehouses %}
-                        <option value="{{ warehouse.id }}">{{ warehouse.shop_name }}</option>
+                        <option value="{{ warehouse.id }}">  {{ warehouse.shop_name }} - {{ warehouse.id }} </option>
                   {% endfor %}
                   </select>
                  

@@ -1664,17 +1664,18 @@ class PicklistRefresh:
             pd_qs.update(is_valid=False)
 
     @staticmethod
-    def create_picklist_by_order(order):
+    def create_picklist_by_order(order, inventory_type=None):
         info_logger.info('RefreshPicklist|create_picklist_by_order| order {}'.format(order.order_no))
-        type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+        if inventory_type is None:
+            inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
         shop = Shop.objects.filter(id=order.seller_shop.id).last()
         with transaction.atomic():
             for order_product in order.ordered_cart.rt_cart_list.all():
                 CommonPickupFunctions.create_pickup_entry(shop, 'Order', order.order_no, order_product.cart_product,
                                                           order_product.no_of_pieces,
-                                                          'pickup_creation')
-                info_logger.info('pickup entry created for order {}, order_product {}'
-                                 .format(order.id, order_product.cart_product))
+                                                          'pickup_creation', inventory_type)
+                info_logger.info('pickup entry created for order {}, order_product {}, inventory_type {}'
+                                 .format(order.id, order_product.cart_product, inventory_type))
             pu = Pickup.objects.filter(pickup_type_id=order.order_no, status='pickup_creation')
 
             for obj in pu:
@@ -1683,7 +1684,7 @@ class PicklistRefresh:
                 qty = obj.quantity
                 bin_lists = obj.sku.rt_product_sku.filter(warehouse=shop,
                                                           quantity__gt=0,
-                                                          inventory_type__inventory_type='normal').order_by(
+                                                          inventory_type=inventory_type).order_by(
                     '-batch_id',
                     'quantity')
                 if bin_lists.exists():
@@ -1699,7 +1700,7 @@ class PicklistRefresh:
                 else:
                     bin_lists = obj.sku.rt_product_sku.filter(warehouse=shop,
                                                               quantity=0,
-                                                              inventory_type__inventory_type='normal').order_by(
+                                                              inventory_type = inventory_type).order_by(
                         '-batch_id',
                         'quantity').last()
                     if len(bin_lists.batch_id) == 23:
@@ -1734,7 +1735,7 @@ class PicklistRefresh:
                                                                            pickup_quantity=None)
                         InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
                                                                                      bin_inv.bin,
-                                                                                     type_normal, type_normal,
+                                                                                     inventory_type, inventory_type,
                                                                                      "pickup_created",
                                                                                      pickup_obj.pk,
                                                                                      already_picked)
@@ -1750,7 +1751,7 @@ class PicklistRefresh:
                                                                            pickup_quantity=None)
                         InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
                                                                                      bin_inv.bin,
-                                                                                     type_normal, type_normal,
+                                                                                     inventory_type, inventory_type,
                                                                                      "pickup_created",
                                                                                      pickup_obj.pk,
                                                                                      already_picked)

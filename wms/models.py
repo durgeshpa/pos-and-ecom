@@ -237,6 +237,7 @@ class Pickup(models.Model):
     pickup_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', related_name='rt_product_pickup',
                             on_delete=models.DO_NOTHING)
+    inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
     out = models.ForeignKey(Out, null=True, blank=True, on_delete=models.DO_NOTHING)

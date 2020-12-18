@@ -678,7 +678,7 @@ def create_audit_tickets_by_audit(audit_id):
 
 def bulk_audit_csv_upload_view(request):
     warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
-    
+   
     if request.method == 'POST':
         form = UploadBulkAuditAdminForm(request.POST, request.FILES)
         
@@ -697,7 +697,7 @@ def bulk_audit_csv_upload_view(request):
                     if '' in row:
                         if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' ):
                             continue
-                    phone_number = row[1].split('–')[0].strip()
+                    phone_number = row[1].split('-')[0].strip()
                     if row[0]=='Manual':
                         audit_run_type = 0
                     if row[2] == "Bin Wise":
@@ -708,7 +708,7 @@ def bulk_audit_csv_upload_view(request):
                             bins.append(bin_value)
 
                         audit_item = AuditDetail.objects.create(
-                            warehouse=Shop.objects.get(shop_id=warehouse_id),
+                            warehouse=Shop.objects.get(id=warehouse_id),
                             audit_run_type=audit_run_type,
                             auditor = User.objects.get(phone_number=phone_number),
                             audit_level=audit_level,
@@ -724,7 +724,7 @@ def bulk_audit_csv_upload_view(request):
                             skus.append(sku_value)
                        
                         audit_item = AuditDetail.objects.create(
-                            warehouse=Shop.objects.get(shop_id=warehouse_id),
+                            warehouse=Shop.objects.get(id=warehouse_id),
                             audit_run_type=audit_run_type,
                             auditor = User.objects.get(phone_number=phone_number),
                             audit_level=audit_level,
@@ -751,5 +751,5 @@ def AuditDownloadSampleCSV(request):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(["Audit Run Type", "Auditor", "Audit Level", "Bin ID", "SKU ID"])
-    writer.writerow(["Manual", "7088491957 – Ankit", "Bin Wise", "B2BZ01SR001-0001,B2BZ01SR001-0002"," "])
+    writer.writerow(["Manual", "7088491957 - Ankit", "Bin Wise", "B2BZ01SR001-0001,B2BZ01SR001-0002"," "])
     return response

@@ -214,14 +214,15 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
 
                 PickerDashboard.objects.create(
                     repackaging=rep_obj,
-                    picking_status="pickup_created",
+                    picking_status="picking_pending",
                     picklist_id=generate_picklist_id("00")
                 )
                 rep_obj.source_picking_status = 'pickup_created'
                 rep_obj.save()
                 shop = Shop.objects.filter(id=rep_obj.seller_shop.id).last()
                 CommonPickupFunctions.create_pickup_entry(shop, 'Repackaging', rep_obj.repackaging_no,
-                                                          rep_obj.source_sku, repackage_quantity, 'pickup_creation')
+                                                          rep_obj.source_sku, repackage_quantity, 'pickup_creation',
+                                                          type_normal)
                 pu = Pickup.objects.filter(pickup_type_id=rep_obj.repackaging_no)
                 for obj in pu:
                     bin_inv_dict = {}

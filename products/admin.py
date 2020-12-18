@@ -1107,8 +1107,8 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     disapprove_product_price.allowed_permissions = ('change',)
 
     def has_delete_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
+        # if request.user.is_superuser:
+        #     return True
         return False
 
     def get_form(self, request, obj=None, **kwargs):
