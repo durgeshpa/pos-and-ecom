@@ -221,7 +221,8 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                 rep_obj.save()
                 shop = Shop.objects.filter(id=rep_obj.seller_shop.id).last()
                 CommonPickupFunctions.create_pickup_entry(shop, 'Repackaging', rep_obj.repackaging_no,
-                                                          rep_obj.source_sku, repackage_quantity, 'pickup_creation')
+                                                          rep_obj.source_sku, repackage_quantity, 'pickup_creation',
+                                                          type_normal)
                 pu = Pickup.objects.filter(pickup_type_id=rep_obj.repackaging_no)
                 for obj in pu:
                     bin_inv_dict = {}
