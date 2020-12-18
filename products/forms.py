@@ -667,7 +667,8 @@ class UploadChildProductAdminForm(forms.Form):
 
 class UploadMasterDataAdminForm(forms.Form):
     """
-    Upload Master Data Form
+    This Form Class is used for checking, whether the details required for "upload_master_data" functionality are
+    correct or not.
     """
     file = forms.FileField(label='Upload Master Data')
 
@@ -683,10 +684,10 @@ class UploadMasterDataAdminForm(forms.Form):
             if not ParentProduct.objects.filter(parent_id=row['parent_id']).exists():
                 raise ValidationError(_(f"Row {row_num} | {row['parent_id']} | 'Parent ID' doesn't exist."))
             if 'status' in header_list and row['status'] != '':
-                row['status'] = str(row['status']).lower()
-                if not row['status'] == 'active' or row['status'] == 'deactivated':
+                status_list = ['Active', 'Deactivated']
+                if row['status'] not in status_list:
                     raise ValidationError(
-                        _(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!"))
+                        _(f"Row {row_num} | {row['status']} | 'Status can either be 'Active' or 'Deactivated'!"))
             if 'sku_name' in header_list and row['sku_name'] != '':
                 if not Product.objects.filter(product_name=str(row['sku_name']).strip()).exists():
                     raise ValidationError(_(f"Row {row_num} | {row['sku_name']} |"

@@ -1199,6 +1199,9 @@ def product_csv_upload(request):
 
 
 def UploadMasterDataSampleExcelFile(request):
+    """
+    This function will return an Sample Excel File in xlsx format which can be used for uploading the master_data
+    """
     response = HttpResponse(content_type='application/ms-excel')
     response['Content-Disposition'] = 'attachment; filename="sample_file_for_product_attributes.xlsx"'
 
@@ -1211,11 +1214,11 @@ def UploadMasterDataSampleExcelFile(request):
     font_style = xlwt.XFStyle()
     font_style.font.bold = True
 
-    columns = required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit',
-                                      'weight_value', 'hsn', 'tax_1(gst)', 'tax_2(cess/surcharge)', 'brand_case_size',
-                                      'inner_case_size', 'brand_name', 'brand_id', 'sub_brand_name', 'sub_brand_id',
-                                      'category_name', 'category_id', 'sub_category_name', 'sub_category_id',
-                                      'status', ]
+    columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit',
+               'weight_value', 'hsn', 'tax_1(gst)', 'tax_2(cess/surcharge)', 'brand_case_size',
+               'inner_case_size', 'brand_name', 'brand_id', 'sub_brand_name', 'sub_brand_id',
+               'category_name', 'category_id', 'sub_category_name', 'sub_category_id',
+               'status', ]
 
     for col_num in range(len(columns)):
         ws.write(row_num, col_num, columns[col_num], font_style)
@@ -1236,6 +1239,15 @@ def UploadMasterDataSampleExcelFile(request):
 
 
 def upload_master_data_view(request):
+    """
+    This function will be used for following operations:
+    a)Set the Status to "Deactivated" for a Product
+    b)Mapping of "Sub Brand" to "Brand"
+    c)Mapping of "Sub Category" to "Category"
+    d)Set the data for "Parent SKU"
+    e)Mapping of Child SKU to Parent SKU
+    f)Set the Child SKU Data
+    """
     if request.method == 'POST':
         excel_file = request.FILES['file']
         if excel_file.name[-5:] == '.xlsx':
@@ -1249,11 +1261,11 @@ def upload_master_data_view(request):
             return render(request, 'admin/products/upload-master-data.html', {'form': form})
 
         if form.is_valid():
-            excel_file_data = xlsx_get(excel_file)
+            excel_file_data = xlsx_get(excel_file)['Users']
             header_list = excel_file_data.pop(0)  # remove the header from the list
             excel_file_headers = [str(ele).lower() for ele in
                                   header_list]  # Converting headers into lowercase
-            excel_file_list = []
+            excel_file_list = []  # It will be a list of dictionaries with format [{'sku_id': 'NDPPROMAG00000018', ...}]
             excel_dict = {}
             count = 0
             for row in excel_file_data:
@@ -1265,25 +1277,40 @@ def upload_master_data_view(request):
                 count = 0
 
             # Set inactive status for Product
-            count = 0
-            if 'status' and 'sku_id' in header_list:
+            required_inactive_data_list = ['sku_id', 'status']
+            required_data = False
+            for ele in required_inactive_data_list:
+                if ele in excel_file_headers:
+                    required_data = True
+                else:
+                    required_data = False
+                    break
+            if required_data:
+                count = 0
                 logger.info("Method Start to set Inactive status from excel file")
                 for row in excel_file_list:
-                    row['status'] = row['status'].lower()
-                    if row['status'] == 'deactivated':
+                    if row['status'] == 'Deactivated':
                         count += 1
-                        Product.objects.filter(product_sku=row['SKU_ID']).update(status='deactivated')
+                        Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated')
                     else:
                         continue
-                print("Inactive row id count :" + str(count))
-                print("Method Complete to set the Inactive status from excel file")
+                logger.info("Inactive row id count :" + str(count))
+                logger.info("Method Complete to set the Inactive status from excel file")
 
             # match sub_brand to brand
-            count = 0
-            row_num = 1
-            if 'brand_id' and 'sub_brand_id' in header_list:
-                logger.info('Method Start to set the Sub-brand to Brand mapping from excel file')
+            required_sub_brand_to_brand_data_list = ['brand_id', 'sub_brand_id']
+            required_data = False
+            for ele in required_sub_brand_to_brand_data_list:
+                if ele in excel_file_headers:
+                    required_data = True
+                else:
+                    required_data = False
+                    break
+            if required_data:
+                count = 0
+                row_num = 1
                 sub_brand = []
+                logger.info('Method Start to set the Sub-brand to Brand mapping from excel file')
                 for row in excel_file_list:
                     count += 1
                     row_num += 1
@@ -1299,11 +1326,19 @@ def upload_master_data_view(request):
                 logger.info("Method complete to set the Sub-Brand to Brand mapping from csv file")
 
             # match sub_category to category
-            count = 0
-            row_num = 1
-            if 'category_id' and 'sub_category_id' in header_list:
-                logger.info("Method Start to set the Sub-Category to Category mapping from excel file")
+            required_sub_category_to_category_data_list = ['category_id', 'sub_category_id']
+            required_data = False
+            for ele in required_sub_category_to_category_data_list:
+                if ele in excel_file_headers:
+                    required_data = True
+                else:
+                    required_data = False
+                    break
+            if required_data:
+                count = 0
+                row_num = 1
                 sub_category = []
+                logger.info("Method Start to set the Sub-Category to Category mapping from excel file")
                 for row in excel_file_list:
                     count += 1
                     row_num += 1
@@ -1320,21 +1355,21 @@ def upload_master_data_view(request):
                 logger.info("Method Complete to set the Sub-Category to Category mapping from excel file")
 
             # set parent sku data from excel file
-            count = 0
-            row_num = 1
-            if 'status' in header_list:
-                logger.info("Method Start to set the data for Parent SKU")
+            if 'status' in excel_file_headers:
+                count = 0
+                row_num = 1
                 parent_data = []
                 parent_brand = []
                 parent_hsn = []
                 parent_category = []
+                logger.info("Method Start to set the data for Parent SKU")
                 for row in excel_file_list:
                     row_num += 1
-                    row['status'] = row['status'].lower()
-                    if not row['status'] == 'deactivated':
+                    if not row['status'] == 'Deactivated':
                         count += 1
                         try:
-                            parent_product = ParentProduct.objects.filter(parent_id=row['parent_id'])
+                            if 'parent_id' in excel_file_headers:
+                                parent_product = ParentProduct.objects.filter(parent_id=row['parent_id'])
                         except Exception as e:
                             parent_data.append(str(row_num))
                         try:
@@ -1344,24 +1379,43 @@ def upload_master_data_view(request):
                         except:
                             parent_brand.append(str(row_num))
                         try:
-                            ParentProduct.objects.filter(parent_id=row['parent_id']).update(
-                                product_hsn=ProductHSN.objects.filter(
-                                    product_hsn_code=row['hsn'].replace("'", '')).last())
+                            required_parent_hsn_data_list = ['parent_id', 'hsn']
+                            required_data = False
+                            for ele in required_parent_hsn_data_list:
+                                if ele in excel_file_headers:
+                                    required_data = True
+                                else:
+                                    required_data = False
+                                    break
+                            if required_data:
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update(
+                                    product_hsn=ProductHSN.objects.filter(
+                                        product_hsn_code=row['hsn'].replace("'", '')).last())
                         except:
                             parent_hsn.append(str(row_num))
                         try:
-                            ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(
-                                category=Category.objects.filter(id=row['sub_category_id'].strip()).last())
+                            if 'sub_category_id' in excel_file_headers:
+                                ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(
+                                    category=Category.objects.filter(id=row['sub_category_id'].strip()).last())
                         except:
                             parent_category.append(str(row_num))
-                            if not row['tax_1(gst)'] == '':
-                                tax = tax.objects.filter(tax_name=row['tax_1(gst)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
-                                    tax=tax[0])
-                            if not row['Tax_2(cess/surcharge)'] == '':
-                                tax = tax.objects.filter(tax_name=row['tax_2(cess/surcharge)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
-                                    tax=tax[0])
+                            required_parent_hsn_data_list = ['tax_1(gst)', 'Tax_2(cess/surcharge)']
+                            required_data = False
+                            for ele in required_parent_hsn_data_list:
+                                if ele in excel_file_headers:
+                                    required_data = True
+                                else:
+                                    required_data = False
+                                    break
+                            if required_data:
+                                if not row['tax_1(gst)'] == '':
+                                    tax = tax.objects.filter(tax_name=row['tax_1(gst)'])
+                                    ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
+                                        tax=tax[0])
+                                if not row['Tax_2(cess/surcharge)'] == '':
+                                    tax = tax.objects.filter(tax_name=row['tax_2(cess/surcharge)'])
+                                    ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
+                                        tax=tax[0])
                     else:
                         continue
                 logger.info("Total row executed :" + str(count))
@@ -1372,15 +1426,22 @@ def upload_master_data_view(request):
                 logger.info("Method Complete to set the data for Parent SKU")
 
             # set child sku to parent sku
-            count = 0
-            row_num = 1
-            if 'status' in header_list:
+            required_child_sku_to_parent_sku_data_list = ['sku_id', 'parent_id', 'status']
+            required_data = False
+            for ele in required_child_sku_to_parent_sku_data_list:
+                if ele in excel_file_headers:
+                    required_data = True
+                else:
+                    required_data = False
+                    break
+            if required_data:
                 logger.info("Method Start to set the Child to Parent mapping from excel file")
+                count = 0
+                row_num = 1
                 set_child = []
                 for row in excel_file_list:
                     row_num += 1
-                    row['status'] = row['status'].lower()
-                    if not row['status'] == 'deactivated':
+                    if not row['status'] == 'Deactivated':
                         count += 1
                         try:
                             Product.objects.filter(product_sku=row['sku_id']).update(
@@ -1394,15 +1455,22 @@ def upload_master_data_view(request):
                 logger.info("Method complete to set the Child to Parent mapping from excel file")
 
             # set child sku data from excel file
-            count = 0
-            row_num = 1
-            if 'status' in header_list:
+            required_child_sku_data_list = ['sku_id', 'status', 'ean', 'sku_name']
+            required_data = False
+            for ele in required_child_sku_data_list:
+                if ele in excel_file_headers:
+                    required_data = True
+                else:
+                    required_data = False
+                    break
+            if required_data:
                 logger.info("Method Start to set the Child data from excel file")
+                count = 0
+                row_num = 1
                 child_data = []
                 for row in excel_file_list:
                     row_num += 1
-                    row['status'] = row['status'].lower()
-                    if not row['status'] == 'deactivated':
+                    if not row['status'] == 'Deactivated':
                         count += 1
                         try:
                             Product.objects.filter(product_sku=row['sku_id']).update(product_ean_code=row['ean'],
