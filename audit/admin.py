@@ -141,11 +141,12 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
     actions = ['export_as_csv']
 
     def audit_level(self, obj):
-        try:
-            if not AUDIT_LEVEL_CHOICES[obj.audit_level] == None:
-                return AUDIT_LEVEL_CHOICES[obj.audit_level]
-        except KeyError:
-            print(f"{obj.audit_level}")
+        audit_level = ""
+        if obj.audit_level:
+            audit_level = AUDIT_LEVEL_CHOICES[obj.audit_level]
+            return audit_level
+        else:
+            return audit_level
 
     def export_as_csv(self, request, queryset):
         f = StringIO()
