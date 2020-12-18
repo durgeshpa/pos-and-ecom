@@ -214,7 +214,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
 
                 PickerDashboard.objects.create(
                     repackaging=rep_obj,
-                    picking_status="pickup_created",
+                    picking_status="picking_pending",
                     picklist_id=generate_picklist_id("00")
                 )
                 rep_obj.source_picking_status = 'pickup_created'
