@@ -22,7 +22,6 @@ from retailer_backend.admin import InputFilter
 from retailer_to_sp.models import CartProductMapping
 info_logger = logging.getLogger('file-info')
 
-
 class SKUFilter(InputFilter):
     title = 'SKU'
     parameter_name = 'sku'
@@ -139,20 +138,29 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
     list_filter = [Warehouse, AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
     form = AuditCreationForm
     actions = ['export_as_csv']
-   
+
+    def audit_level(self, obj):
+        if AUDIT_LEVEL_CHOICES[obj.audit_level]:
+            return AUDIT_LEVEL_CHOICES[obj.audit_level]
+
     def export_as_csv(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
         writer.writerow(['audit_no','warehouse','audit_run_type','audit_level','state',
                         'status','created_by','auditor','created_at','bin','sku'])
-
+    
+        queryset = queryset.filter(audit_run_type = AUDIT_RUN_TYPE_CHOICES.MANUAL )
         for query in queryset:
+            
             obj = AuditDetail.objects.get(id=query.id)
-            writer.writerow([obj.audit_no,obj.warehouse,AUDIT_RUN_TYPE_CHOICES[obj.audit_run_type],
-            AUDIT_LEVEL_CHOICES[obj.audit_level],AUDIT_DETAIL_STATE_CHOICES[obj.state],
-            AUDIT_DETAIL_STATUS_CHOICES[obj.status],obj.user,obj.auditor,obj.created_at,
-            list(getattr(obj,"bin").all().values_list('bin_id', flat=True)),
-            list(getattr(obj,"sku").all().values_list('product_sku', flat=True))])
+            try:
+                writer.writerow([obj.audit_no,obj.warehouse,AUDIT_RUN_TYPE_CHOICES[obj.audit_run_type],
+                self.audit_level(obj),AUDIT_DETAIL_STATE_CHOICES[obj.state],
+                AUDIT_DETAIL_STATUS_CHOICES[obj.status],obj.user,obj.auditor,obj.created_at,
+                list(getattr(obj,"bin").all().values_list('bin_id', flat=True)),
+                list(getattr(obj,"sku").all().values_list('product_sku', flat=True))])
+            except Exception as exc:
+                print("AUDIT_LEVEL_CHOICES EMPTY",exc)
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
