@@ -372,16 +372,25 @@ def FetchLastGRNProduct(request):
 
 class VendorProductPrice(APIView):
     permission_classes = (AllowAny,)
+    
 
     def get(self, *args, **kwargs):
         supplier_id = self.request.GET.get('supplier_id')
         product_id = self.request.GET.get('product_id')
         vendor_product_price, vendor_product_mrp, product_case_size, product_inner_case_size = 0, 0, 0, 0
         vendor_mapping = ProductVendorMapping.objects.filter(vendor__id=supplier_id, product__id=product_id)
+
         if vendor_mapping.exists():
+            # import pdb 
+            # pdb.set_trace()
             product = vendor_mapping.last().product
             product_sku = vendor_mapping.last().product.product_sku
-            vendor_product_price = vendor_mapping.last().product_price
+            if vendor_mapping.last().product_price:
+                print("here in if",vendor_mapping.last().product_price)
+                vendor_product_price = vendor_mapping.last().product_price
+            elif vendor_mapping.last().product_price_pack:
+                print(vendor_mapping.last().product_price_pack)
+                vendor_product_price = vendor_mapping.last().product_price_pack
             vendor_product_mrp = vendor_mapping.last().product_mrp
             product_case_size = vendor_mapping.last().case_size if vendor_mapping.last().case_size else vendor_mapping.last().product.product_case_size
             product_inner_case_size = vendor_mapping.last().product.product_inner_case_size

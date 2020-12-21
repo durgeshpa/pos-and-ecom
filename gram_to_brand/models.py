@@ -237,20 +237,24 @@ class CartProductMapping(models.Model):
             return int(self.no_of_pieces)
         return int(int(self.cart_product.product_inner_case_size) * int(self.cart_product.product_case_size) * float(self.number_of_cases))
 
-    # @property
-    # def total_price(self):
-    #     if self.vendor_product:
-    #         return float(self.no_of_pieces)*float(self.vendor_product.product_price)
-    #     return float(self.qty) * float(self.price)
-
     @property
     def total_price(self):
         if self.vendor_product:
-            if self.vendor_product.product_price:
-                return float(self.no_of_pieces)*float(self.vendor_product.product_price)
-            elif self.vendor_product.product_price_pack:
-                return round (float(self.vendor_product.product_price_pack)/(self.case_size),4)
+            return float(self.no_of_pieces)*float(self.vendor_product.product_price)
         return float(self.qty) * float(self.price)
+
+    # @property
+    # def total_price(self):
+    #    
+    #     if self.vendor_product:
+    #         print(self.vendor_product)
+    #         if self.vendor_product.product_price:
+    #             print(self.vendor_product.product_price)
+    #             return float(self.no_of_pieces)*float(self.vendor_product.product_price)
+    #         elif self.vendor_product.product_price_pack:
+    #             print(self.vendor_product.product_price_pack)
+    #             return round (float(self.vendor_product.product_price_pack)/(self.case_size),4)
+    #     return float(self.qty) * float(self.price)
 
     @property
     def gf_code(self):
