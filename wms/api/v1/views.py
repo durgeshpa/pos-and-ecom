@@ -697,7 +697,7 @@ class PickupComplete(APIView):
                                                                                           "pickup_complete",
                                                                                           pickup.pk, inventory_type,
                                                                                           state_ordered,
-                                                                                          type_normal, state_available,
+                                                                                          inventory_type, state_available,
                                                                                           reverse_quantity, None)
 
                         info_logger.info("PickupComplete : Pickup completed for order - {}, sku - {}"
