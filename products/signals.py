@@ -165,6 +165,7 @@ def update_product_tax_mapping(product):
 
 @receiver(post_save, sender=Repackaging)
 def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
+    type_normal = InventoryType.objects.filter(inventory_type="normal").last()
     if created:
         instance.repackaging_no = common_function.repackaging_no_pattern(
             Repackaging, 'id', instance.pk,
@@ -173,8 +174,6 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
         with transaction.atomic():
             rep_obj = Repackaging.objects.get(pk=instance.pk)
             repackage_quantity = rep_obj.source_repackage_quantity
-            type_normal = InventoryType.objects.filter(inventory_type="normal").last()
-
             warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=rep_obj.seller_shop,
                                                                         sku__id=rep_obj.source_sku.id,
                                                                         inventory_type=type_normal,
@@ -215,14 +214,15 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
 
                 PickerDashboard.objects.create(
                     repackaging=rep_obj,
-                    picking_status="pickup_created",
+                    picking_status="picking_pending",
                     picklist_id=generate_picklist_id("00")
                 )
                 rep_obj.source_picking_status = 'pickup_created'
                 rep_obj.save()
                 shop = Shop.objects.filter(id=rep_obj.seller_shop.id).last()
                 CommonPickupFunctions.create_pickup_entry(shop, 'Repackaging', rep_obj.repackaging_no,
-                                                          rep_obj.source_sku, repackage_quantity, 'pickup_creation')
+                                                          rep_obj.source_sku, repackage_quantity, 'pickup_creation',
+                                                          type_normal)
                 pu = Pickup.objects.filter(pickup_type_id=rep_obj.repackaging_no)
                 for obj in pu:
                     bin_inv_dict = {}
@@ -276,7 +276,8 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                out_type='repackaging',
                                                out_type_id=rep_obj.id,
                                                sku=rep_obj.source_sku,
-                                               batch_id=batch_id, quantity=already_picked)
+                                               batch_id=batch_id, quantity=already_picked,
+                                               inventory_type=type_normal)
                             CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
                                                                                quantity=already_picked,
                                                                                bin_quantity=qty_in_bin,
@@ -297,7 +298,8 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                out_type='repackaging',
                                                out_type_id=rep_obj.id,
                                                sku=rep_obj.source_sku,
-                                               batch_id=batch_id, quantity=already_picked)
+                                               batch_id=batch_id, quantity=already_picked,
+                                               inventory_type=type_normal)
                             CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
                                                                                quantity=already_picked,
                                                                                bin_quantity=qty_in_bin,
@@ -317,12 +319,15 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                              rep_obj.expiry_date.strftime('%d%m%y'))
                 rep_obj.save()
                 In.objects.create(warehouse=rep_obj.seller_shop, in_type='REPACKAGING', in_type_id=rep_obj.repackaging_no,
-                                  sku=rep_obj.destination_sku, batch_id=rep_obj.destination_batch_id, quantity=rep_obj.destination_sku_quantity, expiry_date=rep_obj.expiry_date)
+                                  sku=rep_obj.destination_sku, batch_id=rep_obj.destination_batch_id,
+                                  inventory_type=type_normal,
+                                  quantity=rep_obj.destination_sku_quantity, expiry_date=rep_obj.expiry_date)
                 pu = Putaway.objects.create(warehouse=rep_obj.seller_shop,
                                             putaway_type='REPACKAGING',
                                             putaway_type_id=rep_obj.repackaging_no,
                                             sku=rep_obj.destination_sku,
                                             batch_id=rep_obj.destination_batch_id,
+                                            inventory_type=type_normal,
                                             quantity=rep_obj.destination_sku_quantity,
                                             putaway_quantity=0)
 

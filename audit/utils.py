@@ -5,7 +5,18 @@ from audit.models import AuditRun, AUDIT_RUN_STATUS_CHOICES, AuditNumberGenerato
 from sp_to_gram.tasks import es_mget_by_ids
 from wms.models import BinInventory
 
+def get_existing_audit_for_product(warehouse, sku):
+    return sku.audit_product_mapping.filter(warehouse=warehouse,
+                                            status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
+                                            state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
+                                                       AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')
 
+
+def get_existing_audit_for_bin(warehouse, bin):
+    return bin.audit_bin_mapping.filter(warehouse=warehouse,
+                                        status=AUDIT_DETAIL_STATUS_CHOICES.ACTIVE,
+                                        state__in=[AUDIT_DETAIL_STATE_CHOICES.CREATED,
+                                                   AUDIT_DETAIL_STATE_CHOICES.INITIATED]).order_by('pk')
 def get_next_audit_no(audit):
     audit_no_generator = AuditNumberGenerator.objects.filter(audit_run_type=audit.audit_run_type,
                                                              audit_level=audit.audit_level).last()

@@ -130,11 +130,12 @@ class PutAwayViewSet(APIView):
         #     return Response(msg, status=status.HTTP_200_OK)
 
         if batch_id:
-            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse).order_by(
-                'created_at')
+            type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
+                                                                    inventory_type=type_normal).order_by('created_at')
             if put_away.exists():
                 serializer = PutAwaySerializer(put_away.last(), fields=(
-                    'is_success', 'product_sku', 'batch_id', 'product_name', 'putaway_quantity', 'max_putaway_qty'))
+                    'is_success', 'product_sku', 'batch_id', 'product_name', 'inventory_type', 'putaway_quantity', 'max_putaway_qty'))
                 msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
@@ -166,8 +167,7 @@ class PutAwayViewSet(APIView):
         if not bin_obj:
             msg = {'is_success': False, 'message': "Bin id is not activated.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        bin_ware_obj = Bin.objects.filter(bin_id=bin_id, is_active=True,
-                                          warehouse=warehouse)
+        bin_ware_obj = Bin.objects.filter(bin_id=bin_id, is_active=True, warehouse=warehouse)
         if not bin_ware_obj:
             msg = {'is_success': False, 'message': "Bin id is not associated with the user's warehouse.", 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
@@ -185,7 +185,7 @@ class PutAwayViewSet(APIView):
         inventory_type = 'normal'
         if not InventoryType.objects.filter(inventory_type=inventory_type).exists():
             InventoryType.objects.create(inventory_type=inventory_type)
-
+        type_normal = InventoryType.objects.filter(inventory_type=inventory_type).last()
         if len(batch_id) != len(put_away_quantity):
             return Response({'is_success': False,
                              'message': 'The number of batches entered should be equal to number of qty entered.',
@@ -194,14 +194,16 @@ class PutAwayViewSet(APIView):
         for i, value in diction.items():
             key += 1
             val = value
-            put_away_rep = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse, putaway_type='REPACKAGING')
+            put_away_rep = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse,
+                                                                        putaway_type='REPACKAGING',
+                                                                        inventory_type=type_normal)
             if put_away_rep.count() > 0:
                 msg = {'is_success': False, "message": "Putaway for batch_id {} is for repackaging.".format(i),
                        'batch_id': i}
                 lis_data.append(msg)
                 continue
-            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse).order_by(
-                'created_at')
+            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse,
+                                                                    inventory_type=type_normal).order_by('created_at')
             ids = [i.id for i in put_away]
             updated_putaway_value = put_away.aggregate(total=Sum('putaway_quantity'))['total'] if \
                 put_away.aggregate(total=Sum('putaway_quantity'))['total'] else 0
@@ -241,8 +243,7 @@ class PutAwayViewSet(APIView):
             sh = Shop.objects.filter(id=int(warehouse)).last()
             if sh.shop_type.shop_type == 'sp':
                 bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=bin_id)
-                pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i,
-                                                                  warehouse=warehouse)
+                pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
                 with transaction.atomic():
                     if bin_inventory.exists():
                         if i in bin_inventory.values_list('batch_id', flat=True):
@@ -257,8 +258,7 @@ class PutAwayViewSet(APIView):
                         else:
                             if i[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
                                 total = BinInventory.objects.filter(sku=i[:17], bin__bin_id=bin_id,
-                                                                    inventory_type=InventoryType.objects.filter(
-                                                                        inventory_type='normal').last()).aggregate(
+                                                                    inventory_type=type_normal).aggregate(
                                     total=Sum('quantity'))['total']
                                 # bug on production
                                 if total > 0:
@@ -296,8 +296,9 @@ class PutAwayViewSet(APIView):
                         updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val,
                                                    put_away_status, pu)
 
-            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(), fields=(
-                'is_success', 'product_sku', 'batch_id', 'max_putaway_qty', 'putaway_quantity', 'product_name')))
+            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(),
+                                            fields=('is_success', 'product_sku', 'inventory_type', 'batch_id',
+                                                    'max_putaway_qty', 'putaway_quantity', 'product_name')))
             msg = serializer.data
             lis_data.append(msg)
         if len(lis_data) == len(batch_id):
@@ -629,8 +630,9 @@ class PickupComplete(APIView):
 
             else:
                 with transaction.atomic():
-                    # csv_instance = StockMovementCSVUpload.objects.filter(pk=1).last()
-                    type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+                    # # csv_instance = StockMovementCSVUpload.objects.filter(pk=1).last()
+                    # type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+                    inventory_type = pickup.inventory_type
                     state_available = InventoryState.objects.filter(inventory_state="available").last()
                     state_picked = InventoryState.objects.filter(inventory_state="picked").last()
                     state_ordered = InventoryState.objects.filter(inventory_state="ordered").last()
@@ -653,20 +655,20 @@ class PickupComplete(APIView):
                             # Entry in warehouse Table
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
                                                                                          pickup_bin.pickup.sku,
-                                                                                         "normal", wh_inv_state,
+                                                                                         inventory_type, wh_inv_state,
                                                                                          pickup_bin.quantity * -1,
                                                                                          True)
                             CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
                                                                                          pickup_bin.pickup.sku,
-                                                                                         "normal", "picked",
+                                                                                         inventory_type, "picked",
                                                                                          pickup_bin.pickup_quantity,
                                                                                          True)
                             InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
                                                                                       pickup_bin.pickup.sku,
                                                                                       "pickup_complete",
-                                                                                      pickup.pk, type_normal,
+                                                                                      pickup.pk, inventory_type,
                                                                                       state_ordered,
-                                                                                      type_normal, state_picked,
+                                                                                      inventory_type, state_picked,
                                                                                       pickup_bin.pickup_quantity, None)
                             if reverse_quantity != 0:
                                 # Entry in bin table
@@ -674,28 +676,28 @@ class PickupComplete(APIView):
                                                                                            pickup_bin.bin.bin,
                                                                                            pickup_bin.pickup.sku
                                                                                            , pickup_bin.batch_id,
-                                                                                           type_normal,
+                                                                                           inventory_type,
                                                                                            reverse_quantity, True)
                                 InternalInventoryChange.create_bin_internal_inventory_change(pickup_bin.warehouse,
                                                                                              pickup_bin.pickup.sku,
                                                                                              pickup_bin.batch_id,
                                                                                              pickup_bin.bin.bin,
-                                                                                             type_normal, type_normal,
+                                                                                             inventory_type, inventory_type,
                                                                                              "pickup_complete",
                                                                                              pickup.pk,
                                                                                              reverse_quantity)
                                 # Entry in warehouse table
                                 CommonWarehouseInventoryFunctions.create_warehouse_inventory(pickup_bin.warehouse,
                                                                                              pickup_bin.pickup.sku,
-                                                                                             "normal", "available",
+                                                                                             inventory_type, "available",
                                                                                              reverse_quantity, True)
 
                                 InternalWarehouseChange.create_warehouse_inventory_change(pickup_bin.warehouse,
                                                                                           pickup_bin.pickup.sku,
                                                                                           "pickup_complete",
-                                                                                          pickup.pk, type_normal,
+                                                                                          pickup.pk, inventory_type,
                                                                                           state_ordered,
-                                                                                          type_normal, state_available,
+                                                                                          inventory_type, state_available,
                                                                                           reverse_quantity, None)
 
                         info_logger.info("PickupComplete : Pickup completed for order - {}, sku - {}"
