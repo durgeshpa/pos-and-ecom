@@ -494,7 +494,7 @@ class ProductPrice(models.Model):
     APPROVAL_PENDING = 1
     DEACTIVATED = 0
     APPROVAL_CHOICES = (
-        (APPROVED, 'Approved'),
+        (APPROVED, 'Active'),
         (APPROVAL_PENDING, 'Approval Pending'),
         (DEACTIVATED, 'Deactivated'),
     )
@@ -593,6 +593,7 @@ class ProductPrice(models.Model):
                 )
             product_price.update(approval_status=ProductPrice.DEACTIVATED)
             self.approval_status = ProductPrice.APPROVED
+            self.end_date = self.start_date + datetime.timedelta(days=365)
         super().save(*args, **kwargs)
 
     @property
@@ -781,7 +782,8 @@ class ProductPriceCSV(models.Model):
 class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
-    product_price = models.FloatField(verbose_name='Brand To Gram Price')
+    product_price = models.FloatField(verbose_name='Brand to Gram Price ') #(Per piece)
+    # product_price_pack = models.FloatField(verbose_name='Brand to Gram Price (Per pack)')
     product_mrp = models.FloatField(null=True,blank=True)
     case_size = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

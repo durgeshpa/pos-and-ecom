@@ -23,7 +23,7 @@ from gram_to_brand.models import (
 from addresses.models import Address, State
 from brand.models import Brand
 from .serializers import CartProductMappingSerializer
-from gram_to_brand.models import Order, CartProductMapping
+
 from brand.models import Vendor
 from products.models import ProductVendorMapping, ParentProduct
 
