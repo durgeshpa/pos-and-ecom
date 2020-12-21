@@ -176,6 +176,7 @@ class CartProductMappingForm(forms.ModelForm):
     no_of_pieces = forms.CharField(max_length=64,
         widget=forms.TextInput(attrs={'style':'max-width: 8em'}),
         required=False)
+    price_unit = forms.CharField(disabled=True, required=False)
     sub_total = forms.CharField(disabled=True, required=False)
 
     def __init__(self, *args, **kwargs):
@@ -184,12 +185,14 @@ class CartProductMappingForm(forms.ModelForm):
             self.fields['mrp'].initial = kwargs['instance'].mrp
             self.fields['sku'].initial = kwargs['instance'].sku
             self.fields['no_of_cases'].initial = kwargs['instance'].no_of_cases
+            self.fields['price_unit'].initial = kwargs['instance'].price_unit
+           
             self.fields['no_of_pieces'].initial = kwargs['instance'].no_of_pieces if kwargs['instance'].no_of_pieces else \
                 int(kwargs['instance'].cart_product.product_inner_case_size)*int(kwargs['instance'].cart_product.product_case_size)*int(kwargs['instance'].number_of_cases)
-
+    
     class Meta:
         model = CartProductMapping
-        fields = ('cart', 'cart_parent_product', 'cart_product','mrp','sku','tax_percentage','case_sizes','no_of_cases','price','sub_total','no_of_pieces','vendor_product')
+        fields = ('cart', 'cart_parent_product', 'cart_product','mrp','sku','tax_percentage','case_sizes','no_of_cases','price','sub_total','no_of_pieces','vendor_product','price_unit')
         search_fields=('cart_product',)
         exclude = ('qty',)
 

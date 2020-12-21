@@ -73,14 +73,14 @@ class CartProductMappingAdmin(admin.TabularInline):
         )
 
     fields = (
-    'cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total')
-    readonly_fields = ('tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total')
+    'cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes', 'no_of_cases', 'no_of_pieces','price_unit','price', 'sub_total')
+    readonly_fields = ('tax_percentage', 'mrp', 'sku', 'case_sizes','price_unit', 'sub_total')
 
     ##readonly_fields = ('tax_percentage','case_sizes','total_no_of_pieces',)
 
     def get_readonly_fields(self, request, obj=None):
         if request.user.is_superuser:
-            return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total'
+            return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total',''
         elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
             return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total'
         return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total'

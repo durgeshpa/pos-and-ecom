@@ -385,12 +385,17 @@ class VendorProductPrice(APIView):
             # pdb.set_trace()
             product = vendor_mapping.last().product
             product_sku = vendor_mapping.last().product.product_sku
+            
             if vendor_mapping.last().product_price:
-                print("here in if",vendor_mapping.last().product_price)
                 vendor_product_price = vendor_mapping.last().product_price
+              
+                
             elif vendor_mapping.last().product_price_pack:
-                print(vendor_mapping.last().product_price_pack)
                 vendor_product_price = vendor_mapping.last().product_price_pack
+                print(vendor_product_price)
+          
+            vendor_product_price_unit = vendor_mapping.last().brand_to_gram_price_unit
+            
             vendor_product_mrp = vendor_mapping.last().product_mrp
             product_case_size = vendor_mapping.last().case_size if vendor_mapping.last().case_size else vendor_mapping.last().product.product_case_size
             product_inner_case_size = vendor_mapping.last().product.product_inner_case_size
@@ -403,9 +408,11 @@ class VendorProductPrice(APIView):
             taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
             taxes = str(sum(taxes))
             tax_percentage = taxes + '%'
-
+        
+  
         return Response({
             "price": vendor_product_price,
+            "brand_to_gram_price_unit" : vendor_product_price_unit,
             "mrp": vendor_product_mrp,
             "sku": product_sku,
             "case_size": product_case_size,

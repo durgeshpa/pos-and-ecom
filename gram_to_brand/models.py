@@ -201,7 +201,6 @@ class CartProductMapping(models.Model):
     case_size= models.PositiveIntegerField(default=0,null=True,blank=True)
     number_of_cases = models.FloatField(default=0,null=True,blank=True)
     scheme = models.FloatField(default=0, null=True, blank=True, help_text='data into percentage %')
-
     no_of_pieces = models.PositiveIntegerField(null=True,blank=True)
     vendor_product = models.ForeignKey(ProductVendorMapping, related_name='vendor_products',null=True,blank=True, on_delete=models.CASCADE)
     price = models.FloatField( verbose_name='Brand To Gram Price')
@@ -243,19 +242,6 @@ class CartProductMapping(models.Model):
             return float(self.no_of_pieces)*float(self.vendor_product.product_price)
         return float(self.qty) * float(self.price)
 
-    # @property
-    # def total_price(self):
-    #    
-    #     if self.vendor_product:
-    #         print(self.vendor_product)
-    #         if self.vendor_product.product_price:
-    #             print(self.vendor_product.product_price)
-    #             return float(self.no_of_pieces)*float(self.vendor_product.product_price)
-    #         elif self.vendor_product.product_price_pack:
-    #             print(self.vendor_product.product_price_pack)
-    #             return round (float(self.vendor_product.product_price_pack)/(self.case_size),4)
-    #     return float(self.qty) * float(self.price)
-
     @property
     def gf_code(self):
         return self.cart_product.product_gf_code
@@ -287,6 +273,11 @@ class CartProductMapping(models.Model):
     @property
     def sku(self):
         return self.cart_product.product_sku
+
+    @property
+    def price_unit(self):
+        print(self.vendor_product.brand_to_gram_price_unit)
+        return self.vendor_product.brand_to_gram_price_unit
 
     @property
     def mrp(self):

@@ -219,6 +219,7 @@ function getLastGrnProductDetails(parent_id_select) {
 }
 
 function getProductVendorPriceDetails(product_id_select) {
+    console.log("here")
     if (!$) {
         $ = django.jQuery;
     }
@@ -240,6 +241,7 @@ function getProductVendorPriceDetails(product_id_select) {
                 $('#cart_list-'+row_no+' td.field-case_sizes p').text(response.case_size);
                 $('#cart_list-'+row_no+' td.field-sku p').text(response.sku);
                 $('#cart_list-'+row_no+' td.field-mrp p').text(response.mrp);
+                $('#cart_list-'+row_no+'-brand_to_gram_price_unit').text(response.brand_to_gram_price_unit);
             } else {
                 $('#cart_list-'+row_no+' td.field-tax_percentage p').text(response.tax_percentage);
                 $('#id_cart_list-'+row_no+'-price').val(0);
@@ -247,6 +249,7 @@ function getProductVendorPriceDetails(product_id_select) {
                 $('#id_cart_list-'+row_no+'-inner_case_size').val(0);
                 $('#cart_list-'+row_no+' td.field-case_sizes p').text("-");
                 $('#cart_list-'+row_no+' td.field-sku p').text("-");
+                $('#cart_list-'+row_no+' td.field-brand_to_gram_price_unit p').text("-");
                 $('#cart_list-'+row_no+' td.field-mrp p').text("-");
             }
         },
