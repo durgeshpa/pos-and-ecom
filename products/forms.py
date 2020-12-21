@@ -784,6 +784,11 @@ class UploadMasterDataAdminForm(forms.Form):
         excel_file_headers = [str(ele).lower() for ele in excel_file_header_list]  # Converting headers into lowercase
         for head in excel_file_headers:
             if head in required_header_list:
+                # if head == 'sku_id':
+                #     excel_file_headers[excel_file_headers.index('sku_id')] = 'sku_id-mandatory'
+                # elif head == 'parent_id':
+                #     excel_file_headers[excel_file_headers.index('parent_id')] = 'parent_id-mandatory'
+                # else:
                 pass
             else:
                 raise ValidationError(_(f"Invalid Header | {head} | Allowable headers for the upload are: "
