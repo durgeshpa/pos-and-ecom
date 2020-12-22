@@ -1222,6 +1222,10 @@ class RepackagingForm(forms.ModelForm):
         }
 
     def clean(self):
+        if 'expiry_date' in  self.cleaned_data:
+            today_date = datetime.date.today()
+            if self.cleaned_data['expiry_date'] < today_date:
+                raise forms.ValidationError("Expiry Date should be greater than or equal to {}".format(today_date))
         if 'source_sku' in self.cleaned_data:
             try:
                 warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=self.cleaned_data['seller_shop'],
