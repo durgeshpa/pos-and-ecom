@@ -519,7 +519,7 @@ class ProductPrice(models.Model):
     price_to_retailer = models.FloatField(null=True, blank=False)
     start_date = models.DateTimeField(null=True, blank=False)
     end_date = models.DateTimeField(null=True, blank=False)
-    approval_status = models.IntegerField(choices=APPROVAL_CHOICES, null=True, blank=True)
+    approval_status = models.IntegerField(choices=APPROVAL_CHOICES, null=True, blank=True, default=2)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
