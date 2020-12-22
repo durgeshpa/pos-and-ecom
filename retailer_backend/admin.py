@@ -34,3 +34,4 @@ class SelectInputFilter(admin.SimpleListFilter):
             if k != self.parameter_name
         )
         yield all_choice
+
