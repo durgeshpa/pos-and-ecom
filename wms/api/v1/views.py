@@ -781,7 +781,7 @@ class DecodeBarcode(APIView):
                     data_item = {'is_success': True, 'message': '', 'data': barcode_data}
                     data.append(data_item)
             else:
-                barcode_data = {'type': 'batch', 'id': batch_id, 'barcode': barcode}
+                barcode_data = {'type': '', 'id': '', 'barcode': barcode}
                 data_item = {'is_success': False, 'message': 'Barcode type not supported', 'data': barcode_data}
                 data.append(data_item)
         msg = {'is_success': True, 'message': '', 'data': data}
