@@ -28,6 +28,7 @@ from shops.models import Shop, ShopType
 from wms.models import InventoryType, WarehouseInventory, InventoryState
 
 
+
 class ProductImageForm(forms.ModelForm):
     class Meta:
         model = ProductImage
@@ -1190,6 +1191,9 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
             raise forms.ValidationError("CSV file is required!")
 
 
+
+
+
 class RepackagingForm(forms.ModelForm):
     seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='sp'),
@@ -1248,3 +1252,4 @@ class RepackagingForm(forms.ModelForm):
         for key in readonly:
             if key in self.fields:
                 self.fields[key].widget.attrs['readonly'] = True
+

@@ -169,9 +169,9 @@ class CommonBinInventoryFunctions(object):
 class CommonPickupFunctions(object):
 
     @classmethod
-    def create_pickup_entry(cls, warehouse, pickup_type, pickup_type_id, sku, quantity, status):
+    def create_pickup_entry(cls, warehouse, pickup_type, pickup_type_id, sku, quantity, status, inventory_type):
         Pickup.objects.create(warehouse=warehouse, pickup_type=pickup_type, pickup_type_id=pickup_type_id, sku=sku,
-                              quantity=quantity, status=status)
+                              quantity=quantity, status=status, inventory_type=inventory_type)
 
     @classmethod
     def get_filtered_pickup(cls, **kwargs):
@@ -983,6 +983,7 @@ def cancel_order_with_pick(instance):
             if pickup_bin.pickup.status == 'picking_complete':
                 quantity = 0
                 pick_up_bin_quantity = 0
+                type_normal = InventoryType.objects.filter(inventory_type='normal').last()
                 if instance.rt_order_order_product.all():
                     if (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_SHIP') or \
                             (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_DISPATCH'):
@@ -992,7 +993,7 @@ def cancel_order_with_pick(instance):
                                                                  putaway_type_id=instance.order_no,
                                                                  sku=pickup_bin.bin.sku,
                                                                  batch_id=pickup_bin.batch_id,
-                                                                 )
+                                                                 inventory_type=type_normal)
                         if put_away_object.exists():
                             quantity = put_away_object[0].quantity + pickup_order.quantity
                             pick_up_bin_quantity = pickup_order.quantity
@@ -1010,6 +1011,7 @@ def cancel_order_with_pick(instance):
                                                                  putaway_type_id=instance.order_no,
                                                                  sku=pickup_bin.bin.sku,
                                                                  batch_id=pickup_bin.batch_id,
+                                                                 inventory_type=type_normal,
                                                                  )
                         if put_away_object.exists():
                             quantity = put_away_object[0].quantity + pickup_bin.pickup_quantity
@@ -1023,6 +1025,7 @@ def cancel_order_with_pick(instance):
                     put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
                                                              putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
                                                              batch_id=pickup_bin.batch_id,
+                                                             inventory_type=type_normal,
                                                              )
                     if put_away_object.exists():
                         quantity = put_away_object[0].quantity + pickup_bin.pickup_quantity
@@ -1038,6 +1041,7 @@ def cancel_order_with_pick(instance):
                                                      warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
                                                      putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
                                                      batch_id=pickup_bin.batch_id,
+                                                     inventory_type=type_normal,
                                                      defaults={'quantity': quantity,
                                                                'putaway_quantity': 0})
             # update or create put away bin inventory model
