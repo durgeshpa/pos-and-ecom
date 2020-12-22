@@ -103,7 +103,7 @@ class InCommonFunctions(object):
 
     @classmethod
     def create_only_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, inventory_type):
-        if warehouse.shop_type.shop_type == 'sp':
+        if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, quantity=quantity, expiry_date=get_expiry_date_db(batch_id),
                                        inventory_type=inventory_type)
@@ -1980,3 +1980,47 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
                                                                  final_type[0], transaction_type,
                                                                  transaction_id, quantity)
 
+
+def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_product_batch, initial_type, final_type,
+                                             initial_stage, final_stage):
+    """
+        Add single delivered product batch to franchise shop Inventory after trip is closed. From new to normal, available
+        warehouse: Franchise Shop / Buyer Shop
+        bin_obj: Virtual default bin for Franchise Shop
+        shipment_product_batch: OrderedProductBatch
+    """
+
+    if shipment_product_batch.delivered_qty > 0:
+        sku = shipment_product_batch.ordered_product_mapping.product
+        batch_id = shipment_product_batch.batch_id
+        info_logger.info("Franchise Product Batch update after Trip. Shop: {}, Batch: {}, Shipment Product Batch Id: {}".
+                         format(warehouse, batch_id, shipment_product_batch.id))
+        quantity = shipment_product_batch.delivered_qty
+        transaction_type = 'franchise_batch_in'
+        transaction_id = shipment_product_batch.id
+
+        InCommonFunctions.create_only_in(warehouse, 'Franchise In', shipment_product_batch.id,
+                                         shipment_product_batch.ordered_product_mapping.product,
+                                         shipment_product_batch.batch_id, shipment_product_batch.delivered_qty,
+                                         final_type[0])
+
+        bin_inv_obj = BinInventory.objects.filter(warehouse=warehouse, bin=bin_obj, sku=sku,
+                                                  batch_id=batch_id, inventory_type=final_type[0], in_stock=True).last()
+        if bin_inv_obj:
+            bin_quantity = bin_inv_obj.quantity
+            final_quantity = bin_quantity + quantity
+            bin_inv_obj.quantity = final_quantity
+            bin_inv_obj.save()
+        else:
+            BinInventory.objects.create(warehouse=warehouse, bin=bin_obj, sku=sku, batch_id=batch_id,
+                                               inventory_type=final_type[0], quantity=quantity, in_stock=True)
+
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, 'normal', 'available', quantity, True)
+        WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, transaction_type,
+                                                                           transaction_id, initial_type[0],
+                                                                           initial_stage[0], final_type[0],
+                                                                           final_stage[0], quantity)
+
+        BinInternalInventoryChange.objects.create(warehouse_id=warehouse.id, sku=sku, batch_id=batch_id, final_bin=bin_obj,
+                                              initial_inventory_type=initial_type[0], final_inventory_type=final_type[0],
+                                              transaction_type=transaction_type, transaction_id=transaction_id, quantity=quantity)
