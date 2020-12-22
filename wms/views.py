@@ -1396,7 +1396,8 @@ def bulk_putaway(self, request, argument_list):
                 for bin_in in bin_in_obj:
                     if not (bin_in.batch_id == obj.batch_id):
                         if bin_in.bin.bin_id == obj.bin.bin.bin_id:
-                            if bin_in.quantity == 0:
+                            qty_present_in_bin = bin_in.quantity + bin_in.to_be_picked_qty
+                            if qty_present_in_bin == 0:
                                 pass
                             else:
                                 message = "You can't perform this action, Non zero qty of more than one Batch ID of a" \
@@ -1680,7 +1681,14 @@ class PicklistRefresh:
                     bi_qs = BinInventory.objects.filter(id=item.bin_id)
                     bi = bi_qs.last()
                     bin_quantity = bi.quantity + item.quantity
-                    bi_qs.update(quantity=bin_quantity)
+                    picked_qty = item.pickup_quantity
+                    if picked_qty is None:
+                        picked_qty = 0
+                    remaining_qty = item.quantity - picked_qty
+                    to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
+                    if to_be_picked_qty < 0:
+                        to_be_picked_qty = 0
+                    bi_qs.update(quantity=bin_quantity, to_be_picked_qty=to_be_picked_qty)
                     InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
                                                                                  bi.bin,
                                                                                  type_normal, type_normal,
@@ -1754,6 +1762,7 @@ class PicklistRefresh:
                         already_picked += qty
                         remaining_qty = qty_in_bin - already_picked
                         bin_inv.quantity = remaining_qty
+                        bin_inv.to_be_picked_qty = already_picked
                         bin_inv.save()
                         qty = 0
                         CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
@@ -1770,6 +1779,7 @@ class PicklistRefresh:
                         already_picked = qty_in_bin
                         remaining_qty = qty - already_picked
                         bin_inv.quantity = qty_in_bin - already_picked
+                        bin_inv.to_be_picked_qty = already_picked
                         bin_inv.save()
                         qty = remaining_qty
                         CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
@@ -1795,16 +1805,16 @@ def audit_ordered_data(request):
     try:
 
         warehouse_inventory = WarehouseInventory.objects.filter(inventory_type=type_normal,
-                                                                inventory_state=stage_ordered,warehouse=warehouse)\
+                                                                inventory_state=stage_ordered, warehouse=warehouse)\
                                                             .values('sku_id', 'quantity')
 
         orders_placed = Order.objects.filter(order_status__in=[Order.ORDERED,
                                                                Order.PICKUP_CREATED,
-                                                               Order.PICKING_ASSIGNED],seller_shop=warehouse,
+                                                               Order.PICKING_ASSIGNED], seller_shop=warehouse,
                                              created_at__gte=start_time,)
         for o in orders_placed:
             ordered_sku = o.ordered_cart.rt_cart_list.values('cart_product__product_sku')\
-                                                      .annotate(qty=Sum('no_of_pieces'))
+                                                     .annotate(qty=Sum('no_of_pieces'))
             for item in ordered_sku:
                 if inventory_calculated.get(item['cart_product__product_sku']) is None:
                     inventory_calculated[item['cart_product__product_sku']] = 0

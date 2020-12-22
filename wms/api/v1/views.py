@@ -4,6 +4,7 @@ import logging
 from django.utils import timezone
 from model_utils import Choices
 
+from retailer_backend.messages import ERROR_MESSAGES
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState, \
     PickupBinInventory, StockMovementCSVUpload, In
 from products.models import Product
@@ -574,6 +575,17 @@ class PickupDetail(APIView):
                         remarks_text = ''
                         if remarks_dict.get(j) is not None:
                             remarks_text = PickupBinInventory.PICKUP_REMARKS_CHOICES[remarks_dict.get(j)]
+
+                        bin_inv_id = picking_details.last().bin_id
+                        bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(id=bin_inv_id).last()
+                        if not bin_inv_obj:
+                            data_list.append({'is_success': False,
+                                              'message': ERROR_MESSAGES['SOME_ISSUE']})
+                            info_logger.info('PickupDetail|POST API| Bin Inventory Object not found, Bin Inv ID-{}'
+                                             .format(bin_inv_id))
+                            continue
+                        CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(i, bin_inv_obj)
+
                         picking_details.update(pickup_quantity=i + pick_qty, last_picked_at=timezone.now(),
                                                remarks=remarks_text)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
@@ -649,6 +661,13 @@ class PickupComplete(APIView):
                             if pickup_bin.pickup_quantity is None:
                                 pickup_bin.pickup_quantity = 0
                             reverse_quantity = pickup_bin.quantity - pickup_bin.pickup_quantity
+                            bin_inv_id = pickup_bin.bin_id
+                            bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(id=bin_inv_id).last()
+                            if not bin_inv_obj:
+                                info_logger.info('PickupComplete|POST API| Bin Inventory Object not found, '
+                                                 'Bin Inv ID-{}'.format(bin_inv_id))
+                                continue
+                            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(reverse_quantity, bin_inv_obj)
                             info_logger.info("PickupComplete : reverse quantity for SKU {} - {}"
                                              .format(pickup.sku, reverse_quantity))
 

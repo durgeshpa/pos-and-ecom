@@ -16,7 +16,7 @@ import codecs
 from wms.models import Bin
 from accounts.models import User
 from retailer_to_sp.models import Order, Trip, PickerDashboard
-from wms.views import PicklistRefresh, commit_updates_to_es
+from wms.views import commit_updates_to_es, PicklistRefresh
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
                      AUDIT_RUN_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES,
