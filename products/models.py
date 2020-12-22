@@ -921,7 +921,7 @@ class Repackaging(models.Model):
     destination_sku_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
                                                            verbose_name='Created Destination SKU Qty (pcs)')
     remarks = models.TextField(null=True, blank=True)
-    expiry_date = models.DateField(null=True, blank=True, validators=[MinValueValidator(datetime.date.today())])
+    expiry_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
