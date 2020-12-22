@@ -1101,12 +1101,13 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         return False
 
     def get_form(self, request, obj=None, **kwargs):
-        if request.user.is_superuser:
-            kwargs['form'] = ProductPriceNewForm
-        elif request.user.has_perm('products.add_productprice'):
-            kwargs['form'] = ProductPriceAddPerm
-        elif request.user.has_perm('products.change_productprice'):
-            kwargs['form'] = ProductPriceChangePerm
+        kwargs['form'] = ProductPriceNewForm
+        # if request.user.is_superuser:
+        #     kwargs['form'] = ProductPriceNewForm
+        # elif request.user.has_perm('products.add_productprice'):
+        #     kwargs['form'] = ProductPriceAddPerm
+        # elif request.user.has_perm('products.change_productprice'):
+        #     kwargs['form'] = ProductPriceChangePerm
         return super().get_form(request, obj, **kwargs)
 
     def get_queryset(self, request):
