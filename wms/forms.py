@@ -65,7 +65,13 @@ class BulkBinUpdation(forms.Form):
             else:
                 warehouse = Shop.objects.filter(id=int(row[1]))
                 if warehouse.exists():
-                    if Bin.objects.filter(warehouse=warehouse.last(), bin_id=row[3]).exists():
+                    warehouse_obj = warehouse.last()
+                    """
+                        Single virtual bin auto created for franchise shops when shop is approved. More bins cannot be created.
+                    """
+                    if warehouse_obj.shop_type.shop_type == 'f':
+                        raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + ", Bin cannot be added for Franchise Shop."))
+                    if Bin.objects.filter(warehouse=warehouse_obj, bin_id=row[3]).exists():
                         raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + 'Same Bin ID is exists in a system with same Warehouse. Please re-verify at your end.'))
 
             info_logger.info("Validation of File format successfully passed.")
@@ -108,7 +114,7 @@ class BinForm(forms.ModelForm):
         instance = getattr(self, 'instance', None)
 
         if instance:
-            if instance.is_active is True:
+            if instance.is_active is True and 'is_active' in self.fields:
                 self.fields['is_active'].disabled = True
 
 
@@ -406,10 +412,18 @@ def validation_bin_stock_movement(self):
                                   params={'value': row_id + 1}, )
 
         # validation for shop id to check that is exist or not in the database
-        if not Shop.objects.filter(pk=row[0]).exists():
+        check_shop = Shop.objects.filter(pk=row[0]).last()
+        if not check_shop:
             raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
                                     'Warehouse Id does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 1},)
+        elif check_shop.shop_type.shop_type == 'f':
+            """
+                Single virtual bin present for all products in a franchise shop. This stock correction does not apply to Franchise shops.
+            """
+            raise ValidationError(_('The warehouse/shop is of type Franchise. Stock changes not allowed'),
+                                  params={'value': row_id + 1}, )
+
         # validate for product sku
         if not row[1]:
             raise ValidationError(_('Product SKU can not be blank at Row number [%(value)s].'),
@@ -521,10 +535,17 @@ def validation_stock_correction(self):
                                   params={'value': row_id + 2}, )
 
         # validation for shop id to check that is exist or not in the database
-        if not Shop.objects.filter(pk=row[0]).exists():
+        check_shop = Shop.objects.filter(pk=row[0]).last()
+        if not check_shop:
             raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
                                     'Warehouse Id does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 2}, )
+        elif check_shop.shop_type.shop_type == 'f':
+            """
+                Single virtual bin present for all products in a franchise shop. This stock correction does not apply to Franchise shops.
+            """
+            raise ValidationError(_('The warehouse/shop is of type Franchise. Stock changes not allowed'),
+                                  params={'value': row_id + 1}, )
 
         # validate for product name
         if not row[1]:
@@ -720,9 +741,16 @@ def validation_warehouse_inventory(self):
                                   params={'value': row_id + 1}, )
 
         # validation for shop id to check that is exist or not in the database
-        if not Shop.objects.filter(pk=row[0]).exists():
+        check_shop = Shop.objects.filter(pk=row[0]).last()
+        if not check_shop:
             raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
                                     'Warehouse Id does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1}, )
+        elif check_shop.shop_type.shop_type == 'f':
+            """
+                Single virtual bin present for all products in a franchise shop. This stock correction does not apply to Franchise shops.
+            """
+            raise ValidationError(_('The warehouse/shop is of type Franchise. Stock changes not allowed'),
                                   params={'value': row_id + 1}, )
 
         # validation for product sku

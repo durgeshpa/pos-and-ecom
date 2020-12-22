@@ -331,6 +331,19 @@ class BinAdmin(admin.ModelAdmin):
     download_csv_for_bins.short_description = "Download CSV of selected bins"
     download_barcode.short_description = "Download Barcode List"
 
+    """
+        Default single virtual bin is created for Franchise shops. Cannot be added, changed or deleted.
+    """
+    def has_change_permission(self, request, obj=None):
+        if obj and obj.warehouse and obj.warehouse.shop_type.shop_type == 'f':
+            return False
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        if obj and obj.warehouse and obj.warehouse.shop_type.shop_type == 'f':
+            return False
+        return True
+
 
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")

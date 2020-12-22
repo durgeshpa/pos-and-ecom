@@ -634,7 +634,7 @@ def create_pick_list_by_audit(audit_id):
                 pd_obj.save()
         except Exception as e:
             info_logger.error(e)
-            info_logger.error('generate_pick_list|Exception while generating picklist for order {}'.format(o))
+            info_logger.error('generate_pick_list|Exception while generating picklist for order {}'.format(o.order_no))
 
 
 def create_audit_tickets_by_audit(audit_id):

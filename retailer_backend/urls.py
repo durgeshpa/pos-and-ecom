@@ -24,6 +24,7 @@ from django.conf import settings
 from retailer_backend.cron import CronToDeleteOrderedProductReserved, DailyStock
 from accounts.views import (terms_and_conditions, privacy_policy)
 from shops.views import ShopMappedProduct
+from franchise.views import ProductList
 
 from django_ses.views import handle_bounce
 from django.views.decorators.csrf import csrf_exempt
@@ -68,6 +69,7 @@ urlpatterns = [
     url(r'^wms/', include('wms.urls')),
     url(r'^nested_admin/', include('nested_admin.urls')),
     url(r'^audit/', include('audit.urls')),
+    url(r'^admin/franchise/product-list/$', ProductList.as_view(), name='product-list'),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

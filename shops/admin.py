@@ -338,7 +338,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         queryset.update(approval_status=0)
 
     def shop_mapped_product(self, obj):
-        if obj.shop_type.shop_type in ['gf', 'sp']:
+        if obj.shop_type.shop_type in ['gf', 'sp', 'f']:
             return format_html(
                 "<a href = '/admin/shops/shop-mapped/%s/product/' class ='addlink' > Product List</a>" % (obj.id))
 
