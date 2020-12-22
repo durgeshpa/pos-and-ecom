@@ -943,7 +943,7 @@ class ProductVendorMappingForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='admin:product-price-autocomplete', )
     )
-    
+   
     class Meta:
         model = ProductVendorMapping
         fields = ['vendor', 'product', 'product_price','product_price_pack', 'product_mrp', 'case_size']

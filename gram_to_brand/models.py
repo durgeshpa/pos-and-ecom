@@ -204,6 +204,7 @@ class CartProductMapping(models.Model):
     no_of_pieces = models.PositiveIntegerField(null=True,blank=True)
     vendor_product = models.ForeignKey(ProductVendorMapping, related_name='vendor_products',null=True,blank=True, on_delete=models.CASCADE)
     price = models.FloatField( verbose_name='Brand To Gram Price')
+    per_unit_price = models.FloatField(default=0,null=True,blank=True)
 
     def __str__(self):
         return str('')
@@ -212,6 +213,7 @@ class CartProductMapping(models.Model):
         verbose_name = "Select Product"
         unique_together = ('cart', 'cart_product')
 
+  
     @property
     def tax_percentage(self):
         return  self._tax_percentage if self._tax_percentage else '-'
@@ -230,6 +232,14 @@ class CartProductMapping(models.Model):
         tax_percentage = sum(tax_percentage)
         return tax_percentage
 
+    def per_unit_prices(self):
+        if self.vendor_product.product_price:
+            per_unit_price = float(self.vendor_product.product_price)
+            return per_unit_price
+        elif  self.vendor_product.product_price_pack:
+            per_unit_price = round(float(self.vendor_product.product_price_pack)/float(self.vendor_product.case_size),6)
+            return per_unit_price
+
     @property
     def qty(self):
         if self.vendor_product:
@@ -239,7 +249,10 @@ class CartProductMapping(models.Model):
     @property
     def total_price(self):
         if self.vendor_product:
-            return float(self.no_of_pieces)*float(self.vendor_product.product_price)
+            if self.vendor_product.product_price:
+                return float(self.no_of_pieces)*float(self.vendor_product.product_price)
+            else:
+                return float(self.no_of_pieces)*float(self.vendor_product.product_price_pack)
         return float(self.qty) * float(self.price)
 
     @property
@@ -267,7 +280,10 @@ class CartProductMapping(models.Model):
     @property
     def sub_total(self):
         if self.vendor_product:
-            return round(float(self.qty)* float(self.vendor_product.product_price),2)
+            if self.vendor_product.product_price:
+                return round(float(self.qty)* float(self.vendor_product.product_price),2)
+            else:
+                return round(float(self.qty)* float(self.vendor_product.product_price_pack),2)
         return self.total_price
 
     @property
@@ -275,9 +291,10 @@ class CartProductMapping(models.Model):
         return self.cart_product.product_sku
 
     @property
-    def price_unit(self):
-        print(self.vendor_product.brand_to_gram_price_unit)
-        return self.vendor_product.brand_to_gram_price_unit
+    def brand_to_gram_price_units(self):
+        if self.vendor_product:
+            return self.vendor_product.brand_to_gram_price_unit
+        return '-'
 
     @property
     def mrp(self):
@@ -292,17 +309,21 @@ class CartProductMapping(models.Model):
         if not self.tax_percentage or self.tax_percentage == "-":
             self.tax_percentage = self.calculate_tax_percentage()
 
+        
         # if Product mapping exists
         productVendorObj = ProductVendorMapping.objects.filter(vendor=self.cart.supplier_name, product=self.cart_product)
         if productVendorObj.filter(product_price=self.price,status=True).exists():
             self.vendor_product = productVendorObj.filter(product_price=self.price,status=True).last()
+        elif productVendorObj.filter(product_price_pack=self.price,status=True).exists():
+            self.vendor_product = productVendorObj.filter(product_price_pack=self.price,status=True).last()
         else:
             case_size = productVendorObj.last().case_size if productVendorObj.exists() else self.cart_product.product_case_size
             mrp = productVendorObj.last().product_mrp if productVendorObj.exists() else None
             self.vendor_product = ProductVendorMapping.objects.create(vendor=self.cart.supplier_name,
                                                 product=self.cart_product, case_size=case_size,
                                                 product_price=self.price, product_mrp=mrp, status=True)
-
+        self.per_unit_price = self.per_unit_prices()
+      
         super(CartProductMapping, self).save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)

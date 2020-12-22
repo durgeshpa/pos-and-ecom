@@ -240,7 +240,7 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
     list_display = ('vendor', 'product','product_price','product_price_pack','product_mrp','case_size','created_at','status','product_status')
     list_filter = [VendorFilter,ProductFilter,'product__status']
     form = ProductVendorMappingForm
-
+    readonly_fields = ['brand_to_gram_price_unit',]
     def get_urls(self):
         from django.conf.urls import url
         urls = super(ProductVendorMappingAdmin, self).get_urls()
