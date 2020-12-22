@@ -209,6 +209,10 @@ class Shop(models.Model):
 
 @receiver(post_save, sender=Shop)
 def create_default_bin_franchise(sender, instance=None, created=False, **kwargs):
+    """
+        Creating single virtual bin for a Franchise shop to be used for it's bin inventory management.
+        Bin created when the shop is approved
+    """
     if instance.shop_type.shop_type == 'f' and instance.approval_status == 2:
         from wms.models import Bin
         from franchise.models import get_default_virtual_bin_id

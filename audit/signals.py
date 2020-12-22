@@ -26,6 +26,7 @@ def save_audit_no(sender, instance=None, created=False, **kwargs):
             instance.audit_no = audit_no
             instance.save()
 
+# Faudit proxy model for AuditDetail - Signals need to be connected separately (again) for proxy model (if required)
 post_save.connect(save_audit_no, sender=Faudit)
 
 
@@ -39,6 +40,7 @@ def enable_disable_audit_product_on_save(sender, instance=None, created=False, *
     if instance.state == AUDIT_DETAIL_STATE_CHOICES.CREATED:
         BlockUnblockProduct.disable_products(instance)
 
+# Faudit proxy model for AuditDetail - Signals need to be connected separately (again) for proxy model (if required)
 post_save.connect(enable_disable_audit_product_on_save, sender=Faudit)
 
 
@@ -54,6 +56,7 @@ def disable_bin_audit_products(sender, instance, action, *args, **kwargs):
 
 m2m_changed.connect(disable_bin_audit_products, sender=AuditDetail.bin.through)
 m2m_changed.connect(disable_bin_audit_products, sender=AuditDetail.sku.through)
+# Faudit proxy model for AuditDetail - Signals need to be connected separately (again) for proxy model (if required)
 m2m_changed.connect(disable_bin_audit_products, sender=Faudit.bin.through)
 m2m_changed.connect(disable_bin_audit_products, sender=Faudit.sku.through)
 
