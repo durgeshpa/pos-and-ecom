@@ -62,7 +62,7 @@ if (!$) {
         var sub_total = parseFloat($('#id_cart_list-'+row_no+'-price').val()) * (parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val()))
         $('#id_cart_list-'+row_no+'-no_of_pieces').val(parseFloat($(this).val())* parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()));
         $('#cart_list-'+row_no+' td.field-sub_total p').text(sub_total.toFixed(2));
-        // $('#cart_list-'+row_no+' td.field-price_unit p').text();
+        $('#cart_list-'+row_no+' td.field-price_unit p').text();
         $('#id_cart_list-'+row_no+'-no_of_pieces').val(parseFloat($(this).val())* parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()));
 
     });
