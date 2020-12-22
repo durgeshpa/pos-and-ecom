@@ -608,10 +608,10 @@ class OutAdmin(admin.ModelAdmin):
 class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
-    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status',
-                    'completed_at')
+    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity',
+                    'pickup_quantity', 'status', 'completed_at')
     readonly_fields = (
-    'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status', 'out',)
+    'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity', 'pickup_quantity', 'status', 'out',)
     search_fields = ('pickup_type_id', 'sku__product_sku',)
     list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, ('status', DropdownFilter), 'pickup_type']
     list_per_page = 50
@@ -623,8 +623,8 @@ class PickupAdmin(admin.ModelAdmin):
 class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'batch_id', 'order_number', 'pickup_type', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity',
-                    'created_at', 'last_picked_at', 'pickup_remarks')
+    list_display = ('warehouse', 'batch_id', 'order_number', 'pickup_type', 'bin_id', 'inventory_type',
+                    'bin_quantity', 'quantity', 'pickup_quantity', 'created_at', 'last_picked_at', 'pickup_remarks')
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin',
                        'created_at', 'last_picked_at', 'pickup_remarks')
@@ -643,6 +643,9 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
 
     def pickup_remarks(self,obj):
         return obj.remarks;
+
+    def inventory_type(self, obj):
+        return obj.pickup.inventory_type
 
     class Media:
         pass
