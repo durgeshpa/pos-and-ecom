@@ -381,15 +381,12 @@ class VendorProductPrice(APIView):
         vendor_mapping = ProductVendorMapping.objects.filter(vendor__id=supplier_id, product__id=product_id)
 
         if vendor_mapping.exists():
-            # import pdb 
-            # pdb.set_trace()
             product = vendor_mapping.last().product
             product_sku = vendor_mapping.last().product.product_sku
             
             if vendor_mapping.last().product_price:
                 vendor_product_price = vendor_mapping.last().product_price
               
-                
             elif vendor_mapping.last().product_price_pack:
                 vendor_product_price = vendor_mapping.last().product_price_pack
           
@@ -417,7 +414,6 @@ class VendorProductPrice(APIView):
             "inner_case_size": product_inner_case_size,
             "tax_percentage": tax_percentage,
             "success": True})
-
 
 class GRNProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):

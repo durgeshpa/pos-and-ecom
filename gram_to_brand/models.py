@@ -235,7 +235,6 @@ class CartProductMapping(models.Model):
     def per_unit_prices(self):
         if self.vendor_product.product_price:
             per_unit_price = self.vendor_product.product_price
-            print("per Piece",per_unit_price)
             return per_unit_price
         elif  self.vendor_product.product_price_pack:
             per_unit_price = round(float(self.vendor_product.product_price_pack)/float(self.vendor_product.case_size),6)
@@ -260,7 +259,7 @@ class CartProductMapping(models.Model):
     def gf_code(self):
         return self.cart_product.product_gf_code
 
-    @property
+    # @property
     def case_sizes(self):
         if self.vendor_product:
             return self.vendor_product.case_size
@@ -324,18 +323,16 @@ class CartProductMapping(models.Model):
             brand_to_gram_price_unit = self.brand_to_gram_price_units()
             
             if brand_to_gram_price_unit == "Per Piece":
-                print(self.per_unit_price)
                 self.vendor_product = ProductVendorMapping.objects.create(vendor=self.cart.supplier_name,
                                                     product=self.cart_product, case_size=case_size,
                                                     product_price=self.price, product_mrp=mrp, status=True)
             elif brand_to_gram_price_unit == "Per Pack":
-               
                 self.vendor_product = ProductVendorMapping.objects.create(vendor=self.cart.supplier_name,
                                                     product=self.cart_product, case_size=case_size,
                                                     product_price_pack=self.price, product_mrp=mrp, status=True)
+
         self.per_unit_price = self.per_unit_prices()
-        print(self.per_unit_price)
-     
+        self.case_size = self.case_sizes()
         super(CartProductMapping, self).save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)
