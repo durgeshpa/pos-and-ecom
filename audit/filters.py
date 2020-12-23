@@ -12,7 +12,7 @@ class WareHouseComplete(autocomplete.Select2QuerySetView):
         if not self.request.user.is_authenticated:
             return Shop.objects.none()
 
-        qs = Shop.objects.filter(shop_type__shop_type='sp')
+        qs = Shop.objects.filter(shop_type__shop_type__in=['sp', 'f'])
 
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)

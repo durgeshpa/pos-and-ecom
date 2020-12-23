@@ -110,6 +110,7 @@ class BinInventory(models.Model):
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True, blank=True)
+    to_be_picked_qty = models.PositiveIntegerField(verbose_name='To Be Picked', default=0)
     in_stock = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -237,6 +238,7 @@ class Pickup(models.Model):
     pickup_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', related_name='rt_product_pickup',
                             on_delete=models.DO_NOTHING)
+    inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
     out = models.ForeignKey(Out, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -315,6 +317,7 @@ class WarehouseInternalInventoryChange(models.Model):
         ('manual_audit_deduct', 'Manual Audit Deduct'),
         ('audit_correction_add', 'Audit Correction Add'),
         ('audit_correction_deduct', 'Audit Correction Deduct'),
+        ('franchise_batch_in', 'Franchise Batch In')
     )
 
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -362,6 +365,7 @@ class BinInternalInventoryChange(models.Model):
         ('manual_audit_deduct', 'Manual Audit Deduct'),
         ('audit_correction_add', 'Audit Correction Add'),
         ('audit_correction_deduct', 'Audit Correction Deduct'),
+        ('franchise_batch_in', 'Franchise Batch In')
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)

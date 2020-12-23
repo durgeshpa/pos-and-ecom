@@ -331,6 +331,19 @@ class BinAdmin(admin.ModelAdmin):
     download_csv_for_bins.short_description = "Download CSV of selected bins"
     download_barcode.short_description = "Download Barcode List"
 
+    """
+        Default single virtual bin is created for Franchise shops. Cannot be added, changed or deleted.
+    """
+    def has_change_permission(self, request, obj=None):
+        if obj and obj.warehouse and obj.warehouse.shop_type.shop_type == 'f':
+            return False
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        if obj and obj.warehouse and obj.warehouse.shop_type.shop_type == 'f':
+            return False
+        return True
+
 
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
@@ -531,8 +544,8 @@ class BinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
     actions = ['download_barcode']
-    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at',
-                    'modified_at', 'expiry_date')
+    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'to_be_picked_qty', 'in_stock',
+                    'created_at', 'modified_at', 'expiry_date')
     readonly_fields = ['warehouse', 'bin', 'sku', 'batch_id', 'inventory_type', 'quantity', 'in_stock']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at',)
     list_filter = [BinIDFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter,
@@ -595,10 +608,10 @@ class OutAdmin(admin.ModelAdmin):
 class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
-    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status',
-                    'completed_at')
+    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity',
+                    'pickup_quantity', 'status', 'completed_at')
     readonly_fields = (
-    'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status', 'out',)
+    'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'inventory_type', 'quantity', 'pickup_quantity', 'status', 'out',)
     search_fields = ('pickup_type_id', 'sku__product_sku',)
     list_filter = [Warehouse, PicktypeIDFilter, SKUFilter, ('status', DropdownFilter), 'pickup_type']
     list_per_page = 50
@@ -610,8 +623,8 @@ class PickupAdmin(admin.ModelAdmin):
 class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'batch_id', 'order_number', 'pickup_type', 'bin_id', 'bin_quantity', 'quantity', 'pickup_quantity',
-                    'created_at', 'last_picked_at', 'pickup_remarks')
+    list_display = ('warehouse', 'batch_id', 'order_number', 'pickup_type', 'bin_id', 'inventory_type',
+                    'bin_quantity', 'quantity', 'pickup_quantity', 'created_at', 'last_picked_at', 'pickup_remarks')
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin',
                        'created_at', 'last_picked_at', 'pickup_remarks')
@@ -630,6 +643,9 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
 
     def pickup_remarks(self,obj):
         return obj.remarks;
+
+    def inventory_type(self, obj):
+        return obj.pickup.inventory_type
 
     class Media:
         pass

@@ -110,7 +110,7 @@ class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
         if not self.request.user.is_authenticated:
             qs = Shop.objects.none()
             return qs
-        qs = Shop.objects.filter(shop_type__shop_type__in=['sp', 'r'],
+        qs = Shop.objects.filter(shop_type__shop_type__in=['sp', 'r', 'f'],
                                  shop_name_address_mapping__address_type='shipping').distinct('id')
         if self.q:
             qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))

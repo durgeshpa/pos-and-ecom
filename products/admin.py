@@ -1096,17 +1096,18 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     disapprove_product_price.allowed_permissions = ('change',)
 
     def has_delete_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
+        # if request.user.is_superuser:
+        #     return True
         return False
 
     def get_form(self, request, obj=None, **kwargs):
-        if request.user.is_superuser:
-            kwargs['form'] = ProductPriceNewForm
-        elif request.user.has_perm('products.add_productprice'):
-            kwargs['form'] = ProductPriceAddPerm
-        elif request.user.has_perm('products.change_productprice'):
-            kwargs['form'] = ProductPriceChangePerm
+        kwargs['form'] = ProductPriceNewForm
+        # if request.user.is_superuser:
+        #     kwargs['form'] = ProductPriceNewForm
+        # elif request.user.has_perm('products.add_productprice'):
+        #     kwargs['form'] = ProductPriceAddPerm
+        # elif request.user.has_perm('products.change_productprice'):
+        #     kwargs['form'] = ProductPriceChangePerm
         return super().get_form(request, obj, **kwargs)
 
     def get_queryset(self, request):
