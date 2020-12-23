@@ -233,12 +233,14 @@ class CartProductMapping(models.Model):
         return tax_percentage
 
     def per_unit_prices(self):
+
         if self.vendor_product.product_price:
             per_unit_price = self.vendor_product.product_price
             return per_unit_price
-        elif  self.vendor_product.product_price_pack:
+        elif self.vendor_product.product_price_pack:
             per_unit_price = round(float(self.vendor_product.product_price_pack)/float(self.vendor_product.case_size),6)
             return per_unit_price
+        
 
     @property
     def qty(self):
@@ -289,7 +291,7 @@ class CartProductMapping(models.Model):
     @property
     def sku(self):
         return self.cart_product.product_sku
-
+    
     def brand_to_gram_price_units(self):
         if self.vendor_product:
             return self.vendor_product.brand_to_gram_price_unit
@@ -319,9 +321,8 @@ class CartProductMapping(models.Model):
         else:
             case_size = productVendorObj.last().case_size if productVendorObj.exists() else self.cart_product.product_case_size
             mrp = productVendorObj.last().product_mrp if productVendorObj.exists() else None
-
-            brand_to_gram_price_unit = self.brand_to_gram_price_units()
-            
+            brand_to_gram_price_unit = productVendorObj.last().brand_to_gram_price_unit if productVendorObj.exists() else None
+           
             if brand_to_gram_price_unit == "Per Piece":
                 self.vendor_product = ProductVendorMapping.objects.create(vendor=self.cart.supplier_name,
                                                     product=self.cart_product, case_size=case_size,
@@ -330,7 +331,7 @@ class CartProductMapping(models.Model):
                 self.vendor_product = ProductVendorMapping.objects.create(vendor=self.cart.supplier_name,
                                                     product=self.cart_product, case_size=case_size,
                                                     product_price_pack=self.price, product_mrp=mrp, status=True)
-
+          
         self.per_unit_price = self.per_unit_prices()
         self.case_size = self.case_sizes()
         super(CartProductMapping, self).save(*args, **kwargs)
