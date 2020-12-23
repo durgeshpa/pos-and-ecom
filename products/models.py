@@ -519,7 +519,7 @@ class ProductPrice(models.Model):
     price_to_retailer = models.FloatField(null=True, blank=False)
     start_date = models.DateTimeField(null=True, blank=False)
     end_date = models.DateTimeField(null=True, blank=False)
-    approval_status = models.IntegerField(choices=APPROVAL_CHOICES, null=True, blank=True)
+    approval_status = models.IntegerField(choices=APPROVAL_CHOICES, null=True, blank=True, default=2)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -782,8 +782,9 @@ class ProductPriceCSV(models.Model):
 class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
-    product_price = models.FloatField(verbose_name='Brand to Gram Price ') #(Per piece)
-    # product_price_pack = models.FloatField(verbose_name='Brand to Gram Price (Per pack)')
+    product_price = models.FloatField(verbose_name='Brand to Gram Price (Per Piece)',null=True,blank=True) #(Per piece)
+    product_price_pack = models.FloatField(verbose_name='Brand to Gram Price (Per Pack)',null=True,blank=True)
+    brand_to_gram_price_unit = models.CharField(max_length = 100 ,default="Per Piece")
     product_mrp = models.FloatField(null=True,blank=True)
     case_size = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -791,6 +792,13 @@ class ProductVendorMapping(models.Model):
     status = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
+       
+        if self.product_price:
+            self.brand_to_gram_price_unit = "Per Piece"
+            
+        else:
+            self.brand_to_gram_price_unit = "Per Pack"
+           
         ProductVendorMapping.objects.filter(product=self.product,vendor=self.vendor,status=True).update(status=False)
         self.status = True
         super().save(*args, **kwargs)
@@ -921,7 +929,7 @@ class Repackaging(models.Model):
     destination_sku_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
                                                            verbose_name='Created Destination SKU Qty (pcs)')
     remarks = models.TextField(null=True, blank=True)
-    expiry_date = models.DateField(null=True, blank=True, validators=[MinValueValidator(datetime.date.today())])
+    expiry_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
