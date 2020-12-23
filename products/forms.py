@@ -943,10 +943,26 @@ class ProductVendorMappingForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='admin:product-price-autocomplete', )
     )
-
+   
     class Meta:
         model = ProductVendorMapping
-        fields = ('vendor', 'product', 'product_price', 'product_mrp', 'case_size', )
+        fields = ['vendor', 'product', 'product_price','product_price_pack', 'product_mrp', 'case_size']
+    
+    # this function will be used for the validation
+    def clean(self):
+
+        # data from the form is fetched using super function
+        super(ProductVendorMappingForm, self).clean()
+        product_price = self.cleaned_data.get('product_price')
+        product_price_pack = self.cleaned_data.get('product_price_pack')
+
+
+        if product_price == None and product_price_pack == None:
+            raise forms.ValidationError("Please enter one Brand to Gram Price")
+        
+        if not (product_price == None or product_price_pack == None):
+            raise forms.ValidationError("Please enter only one Brand to Gram Price")
+       
 
 class ProductCappingForm(forms.ModelForm):
     product = forms.ModelChoiceField(

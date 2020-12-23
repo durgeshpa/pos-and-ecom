@@ -23,7 +23,6 @@ from gram_to_brand.models import (
 from addresses.models import Address, State
 from brand.models import Brand
 from .serializers import CartProductMappingSerializer
-
 from brand.models import Vendor
 from products.models import ProductVendorMapping, ParentProduct
 
@@ -373,16 +372,26 @@ def FetchLastGRNProduct(request):
 
 class VendorProductPrice(APIView):
     permission_classes = (AllowAny,)
+    
 
     def get(self, *args, **kwargs):
         supplier_id = self.request.GET.get('supplier_id')
         product_id = self.request.GET.get('product_id')
         vendor_product_price, vendor_product_mrp, product_case_size, product_inner_case_size = 0, 0, 0, 0
         vendor_mapping = ProductVendorMapping.objects.filter(vendor__id=supplier_id, product__id=product_id)
+
         if vendor_mapping.exists():
             product = vendor_mapping.last().product
             product_sku = vendor_mapping.last().product.product_sku
-            vendor_product_price = vendor_mapping.last().product_price
+            
+            if vendor_mapping.last().product_price:
+                vendor_product_price = vendor_mapping.last().product_price
+              
+            elif vendor_mapping.last().product_price_pack:
+                vendor_product_price = vendor_mapping.last().product_price_pack
+          
+            vendor_product_price_unit = vendor_mapping.last().brand_to_gram_price_unit
+          
             vendor_product_mrp = vendor_mapping.last().product_mrp
             product_case_size = vendor_mapping.last().case_size if vendor_mapping.last().case_size else vendor_mapping.last().product.product_case_size
             product_inner_case_size = vendor_mapping.last().product.product_inner_case_size
@@ -395,16 +404,16 @@ class VendorProductPrice(APIView):
             taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
             taxes = str(sum(taxes))
             tax_percentage = taxes + '%'
-
+        
         return Response({
             "price": vendor_product_price,
+            "brand_to_gram_price_unit" : vendor_product_price_unit,
             "mrp": vendor_product_mrp,
             "sku": product_sku,
             "case_size": product_case_size,
             "inner_case_size": product_inner_case_size,
             "tax_percentage": tax_percentage,
             "success": True})
-
 
 class GRNProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
