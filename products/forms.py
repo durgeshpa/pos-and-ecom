@@ -672,17 +672,19 @@ class UploadMasterDataAdminForm(forms.Form):
     """
     file = forms.FileField(label='Upload Master Data')
 
-    def validate_row(self, uploaded_data_list, header_list):
+    def validate_row(self, uploaded_data_list, header_list, upload_master_data):
         """
         This method will check that Data uploaded by user is valid or not.
         """
         row_num = 1
         for row in uploaded_data_list:
             row_num += 1
-            if not Product.objects.filter(product_sku=row['sku_id']).exists():
-                raise ValidationError(_(f"Row {row_num} | {row['sku_id']} | 'SKU ID' doesn't exist."))
-            if not ParentProduct.objects.filter(parent_id=row['parent_id']).exists():
-                raise ValidationError(_(f"Row {row_num} | {row['parent_id']} | 'Parent ID' doesn't exist."))
+            if 'sku_id' in header_list and row['sku_id'] != '':
+                if not Product.objects.filter(product_sku=row['sku_id']).exists():
+                    raise ValidationError(_(f"Row {row_num} | {row['sku_id']} | 'SKU ID' doesn't exist."))
+            if 'status' in header_list and row['status'] != '':
+                if not ParentProduct.objects.filter(parent_id=row['parent_id']).exists():
+                    raise ValidationError(_(f"Row {row_num} | {row['parent_id']} | 'Parent ID' doesn't exist."))
             if 'status' in header_list and row['status'] != '':
                 status_list = ['Active', 'Deactivated']
                 if row['status'] not in status_list:
@@ -724,10 +726,6 @@ class UploadMasterDataAdminForm(forms.Form):
                 if not re.match("^\d+$", str(row['inner_case_size'])):
                     raise ValidationError(
                         _(f"Row {row_num} | {row['inner_case_size']} |'Inner Case Size' can only be a numeric value."))
-            if 'brand_name' in header_list and row['brand_name'] != '':
-                if not Brand.objects.filter(brand_name=str(row['brand_name']).strip()).exists():
-                    raise ValidationError(_(f"Row {row_num} | {row['brand_name']} |"
-                                            f"'Brand' doesn't exist in the system."))
             if 'brand_id' in header_list and row['brand_id'] != '':
                 if not Brand.objects.filter(brand_parent=int(row['brand_id'])).exists():
                     raise ValidationError(_(f"Row {row_num} | {row['brand_id']} | "
@@ -736,14 +734,6 @@ class UploadMasterDataAdminForm(forms.Form):
                 if not Brand.objects.filter(id=int(row['sub_brand_id'])).exists():
                     raise ValidationError(_(f"Row {row_num} | {row['sub_brand_id']} | "
                                             f"'Sub_Brand_ID' doesn't exist in the system "))
-            if 'category_name' in header_list and row['category_name'] != '':
-                if not Category.objects.filter(category_name=str(row['category_name']).strip()).exists():
-                    categories = str(row['category_name']).split(',')
-                    for cat in categories:
-                        cat = cat.strip().replace("'", '')
-                        if not Category.objects.filter(category_name=cat).exists():
-                            raise ValidationError(_(f"Row {row_num} | 'Category' {cat.strip()} "
-                                                    f"doesn't exist in the system."))
             if 'category_id' in header_list and row['category_id'] != '':
                 if not Category.objects.filter(category_parent=int(row['category_id'])).exists():
                     raise ValidationError(_(f"Row {row_num} | {row['category_id']} | "
@@ -753,25 +743,106 @@ class UploadMasterDataAdminForm(forms.Form):
                     raise ValidationError(_(f"Row {row_num} | {row['sub_category_id']} | "
                                             f"'Sub_Category_ID' doesn't exist in the system "))
 
-    def check_mandatory_columns(self, uploaded_data_list, header_list):
+    def check_mandatory_columns(self, uploaded_data_list, header_list, upload_master_data):
         """
-        Mandatory Columns Check(SKU_ID and Parent_ID are mandatory columns)
+        Mandatory Columns Check as per condition of  "upload_master_data"
         """
-        if 'sku_id' and 'parent_id' in header_list:
-            row_num = 2
+        if upload_master_data == "master_data":
+            row_num = 1
+            required_columns = ['sku_id', 'parent_id']
+            for ele in required_columns:
+                if ele not in header_list:
+                    raise ValidationError(_(f"{required_columns} are mandatory columns for 'Upload Master Data'"))
             for row in uploaded_data_list:
-                if row['sku_id'] == '' and row['parent_id'] == '':
-                    raise ValidationError(_(f"Row {row_num} | 'SKU_ID and Parent_ID' are mandatory fields"))
-                elif row['sku_id'] == '':
-                    raise ValidationError(_(f"Row {row_num} | 'SKU_ID' is a mandatory field"))
-                elif row['parent_id'] == '':
+                row_num += 1
+                if row['sku_id'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
+                if row['parent_id'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
+        if upload_master_data == "inactive_status":
+            row_num = 1
+            required_columns = ['status', 'sku_id']
+            for ele in required_columns:
+                if ele not in header_list:
+                    raise ValidationError(_(f"{required_columns} are mandatory columns for 'Set Inactive Status'"))
+            for row in uploaded_data_list:
+                row_num += 1
+                if row['status'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
+                                            'Status cannot be empty'))
+                if row['sku_id'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
+        if upload_master_data == "sub_brand_with_brand":
+            row_num = 1
+            required_columns = ['sub_brand_id', 'brand_id']
+            for ele in required_columns:
+                if ele not in header_list:
+                    raise ValidationError(_(f"{required_columns} are mandatory columns for 'Sub Brand and Brand Mapping'"))
+            for row in uploaded_data_list:
+                row_num += 1
+                if row['sub_brand_id'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'Sub_Brand_ID can't be empty"))
+                if row['brand_id'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'Brand_ID' can't be empty"))
+        if upload_master_data == "sub_category_with_category":
+            row_num += 1
+            required_columns = ['sub_category_id', 'category_id']
+            for ele in required_columns:
+                if ele not in header_list:
+                    raise ValidationError(_(f"{required_columns} are mandatory columns"
+                                            f" for 'Sub Category and Category Mapping'"))
+            for row in uploaded_data_list:
+                row_num += 1
+                if row['sub_category_id'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'Sub_Category_ID' can't be empty"))
+                if row['category_id'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'Category_ID' can't be empty"))
+        if upload_master_data == "child_parent":
+            row_num = 1
+            required_columns = ['sku_id', 'parent_id', 'status']
+            for ele in required_columns:
+                if ele not in header_list:
+                    raise ValidationError(_(f"{required_columns} are mandatory column for 'Child and Parent Mapping'"))
+            for row in uploaded_data_list:
+                row_num += 1
+                if row['sku_id'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
+                if row['parent_id'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
+                if row['status'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
+                                            'Status cannot be empty'))
+        if upload_master_data == "child_data":
+            required_columns = ['status', 'sku_id', 'ean']
+            # mandatory_columns = ['status', 'sku_id']
+            row_num = 1
+            for ele in required_columns:
+                if ele not in header_list:
+                    raise ValidationError(_(f"{required_columns} are mandatory columns for 'Set Child Data'"))
+            for row in uploaded_data_list:
+                row_num += 1
+                if row['status'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
+                                            'Status cannot be empty'))
+                if row['sku_id'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
+        if upload_master_data == "parent_data":
+            row_num = 1
+            required_columns = ['parent_id', 'status']
+            for ele in required_columns:
+                if ele not in header_list:
+                    raise ValidationError(_(f"{required_columns} are mandatory columns for 'Set Parent Data'"))
+            for row in uploaded_data_list:
+                row_num += 1
+                if row['parent_id'] == '':
                     raise ValidationError(_(f"Row {row_num} | 'Parent_ID' is a mandatory field"))
-                else:
-                    self.validate_row(uploaded_data_list, header_list)
-        else:
-            raise ValidationError("'SKU_ID' and 'Parent_ID' are mandatory headers!")
+                if row['status'] == '':
+                    raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
+                                            'Status cannot be empty'))
 
-    def read_file(self, excel_file):
+        self.validate_row(uploaded_data_list, header_list, upload_master_data)
+
+    def read_file(self, excel_file, upload_master_data):
         """
         Template Validation (Checking, whether the excel file uploaded by user is correct or not!)
         """
@@ -784,11 +855,6 @@ class UploadMasterDataAdminForm(forms.Form):
         excel_file_headers = [str(ele).lower() for ele in excel_file_header_list]  # Converting headers into lowercase
         for head in excel_file_headers:
             if head in required_header_list:
-                # if head == 'sku_id':
-                #     excel_file_headers[excel_file_headers.index('sku_id')] = 'sku_id-mandatory'
-                # elif head == 'parent_id':
-                #     excel_file_headers[excel_file_headers.index('parent_id')] = 'parent_id-mandatory'
-                # else:
                 pass
             else:
                 raise ValidationError(_(f"Invalid Header | {head} | Allowable headers for the upload are: "
@@ -806,7 +872,7 @@ class UploadMasterDataAdminForm(forms.Form):
                 uploaded_data_by_user_list.append(excel_dict)
                 excel_dict = {}
                 count = 0
-            self.check_mandatory_columns(uploaded_data_by_user_list, excel_file_headers)
+            self.check_mandatory_columns(uploaded_data_by_user_list, excel_file_headers, upload_master_data)
         else:
             raise ValidationError("Please add some data below the headers to upload it!")
 
@@ -818,7 +884,7 @@ class UploadMasterDataAdminForm(forms.Form):
 
             # Checking, whether excel file is empty or not!
             if excel_file_data:
-                self.read_file(excel_file_data)
+                self.read_file(excel_file_data, self.data['upload_master_data'])
             else:
                 raise ValidationError("Excel File cannot be empty.Please add some data to upload it!")
 

@@ -45,7 +45,8 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
                     ParentProductMultiPhotoUploadView, cart_product_list_status, upload_master_data_view,
-                    UploadMasterDataSampleExcelFile)
+                    UploadMasterDataSampleExcelFile,
+                    category_sub_category_mapping_sample_excel_file, brand_sub_brand_mapping_sample_excel_file)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
@@ -867,6 +868,16 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="upload-master-data"
             ),
             url(
+               r'^category-sub-category-mapping/$',
+               self.admin_site.admin_view(category_sub_category_mapping_sample_excel_file),
+               name="category-sub-category-mapping"
+            ),
+            url(
+                r'^brand-sub-brand-mapping/$',
+                self.admin_site.admin_view(brand_sub_brand_mapping_sample_excel_file),
+                name="brand-sub-brand-mapping"
+            ),
+            url(
                 r'^chld-products-download-sample-csv/$',
                 self.admin_site.admin_view(ChildProductsDownloadSampleCSV),
                 name="child-products-download-sample-csv"
@@ -1235,11 +1246,7 @@ class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
     fields = ('file', 'updated_by')
     readonly_fields = ('updated_by', 'file',)
 
-    # def get_readonly_fields(self, request, obj=None):
-    #     readonly_fields = super().get_readonly_fields(request, obj)
-    #     if obj:
-    #         readonly_fields = readonly_fields + ('file',)
-    #     return readonly_fields
+    change_list_template = 'admin/products/product_attributes_change_list.html'
 
 
 class ExportRepackaging:

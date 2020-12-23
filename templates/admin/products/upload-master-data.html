@@ -1,7 +1,8 @@
 {% extends 'admin/retailer_to_sp/trip/base.html' %}
 {% block title %}Upload Master Data | Admin{% endblock %}
 {% block breadcrumb1 %}<a href="/admin/products/">Products</a>{% endblock %}
-{% block breadcrumb2 %}<a href="#">Upload Master Data</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/products/bulkuploadforproductattributes/">Bulk upload for product attributes</a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Upload Master Data</a>{% endblock %}
 
 {% block content %}
    <div id="content" class="colM">
@@ -59,11 +60,11 @@
       }
       if(displaytext==="Sub Brand and Brand Mapping")
       {
-         document.getElementById("id_download").href="{% url 'admin:upload-master-data-sample-excel-file'%}";
+         document.getElementById("id_download").href="{% url 'admin:brand-sub-brand-mapping'%}";
       }
       if(displaytext==="Sub Category and Category Mapping")
       {
-         document.getElementById("id_download").href="{% url 'admin:upload-master-data-sample-excel-file'%}";
+         document.getElementById("id_download").href="{% url 'admin:category-sub-category-mapping'%}";
       }
       if(displaytext==="Set Child with Parent")
       {
