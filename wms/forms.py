@@ -684,17 +684,17 @@ def validation_stock_correction(self):
                                 "Issue in Row" + " " + str(row_id + 2) + "," + "Non zero qty of 2 Different"
                                                                                " Batch ID/Expiry date for same SKU"
                                                                                " can’t save in the same Bin."))
-        else:
-            type_normal = InventoryType.objects.filter(inventory_type='normal').last()
-            normal_bin_inventory_object = bin_exp_obj.filter(inventory_type=type_normal).last()
-            physical_qty_in_bin = normal_bin_inventory_object.quantity + normal_bin_inventory_object.to_be_picked_qty
-            if physical_qty_in_bin == 0:
-                pass
-            else:
-                raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 2) + "," + "Non zero qty of 2 Different"
-                                                                   " Batch ID/Expiry date for same SKU"
-                                                                   " can’t save in the same Bin."))
+        # else:
+        #     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+        #     normal_bin_inventory_object = bin_exp_obj.filter(inventory_type=type_normal).last()
+        #     physical_qty_in_bin = normal_bin_inventory_object.quantity + normal_bin_inventory_object.to_be_picked_qty
+        #     if physical_qty_in_bin == 0:
+        #         pass
+        #     else:
+        #         raise ValidationError(_(
+        #             "Issue in Row" + " " + str(row_id + 2) + "," + "Non zero qty of 2 Different"
+        #                                                            " Batch ID/Expiry date for same SKU"
+        #                                                            " can’t save in the same Bin."))
 
         form_data_list.append(row)
         unique_data_list.append(row[0] + row[2] + row[3] + row[4])

@@ -699,8 +699,8 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 status = True
                 transaction_type = 'stock_correction_in_type'
                 for inv_type, qty in in_quantity_dict.items():
-                    if qty <= 0:
-                        continue
+                    # if qty <= 0:
+                    #     continue
                     in_obj = InCommonFunctions.create_in(warehouse_obj, stock_correction_type,
                                                          stock_movement_obj[0].id, product_obj,
                                                          batch_id, qty, 0, inv_type)
@@ -722,8 +722,8 @@ def stock_correction_data(upload_data, stock_movement_obj):
 
                 transaction_type = 'stock_correction_out_type'
                 for inv_type, qty in out_quantity_dict.items():
-                    if qty <= 0:
-                        continue
+                    # if qty <= 0:
+                    #     continue
                     Out.objects.create(warehouse=warehouse_obj,
                                        out_type='stock_correction_out_type',
                                        out_type_id=stock_movement_obj[0].id,
