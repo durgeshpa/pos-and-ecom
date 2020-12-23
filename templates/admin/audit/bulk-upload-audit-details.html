@@ -18,8 +18,6 @@
             <li class="success">{{ success|escape }}</li>
             </ul>
          {% endif %}
-<<<<<<< HEAD
-=======
          <div class="mt-5 pt-4">
             {% if messages %}
                 {% for message in messages %}
@@ -31,7 +29,6 @@
                 {% endfor %}
             {% endif %}
         </div>
->>>>>>> dev
          <div>
             <form method="post" enctype="multipart/form-data">
                <div>
@@ -39,11 +36,7 @@
                   <select name ="select" required>
                      <option value="">Please select</option>
                   {% for warehouse in warehouses %}
-<<<<<<< HEAD
-                        <option value="{{ warehouse.id }}">{{ warehouse.shop_name }}</option>
-=======
                         <option value="{{ warehouse.id }}">  {{ warehouse.shop_name }} - {{ warehouse.id }} </option>
->>>>>>> dev
                   {% endfor %}
                   </select>
                  
