@@ -1002,6 +1002,7 @@ def cancel_order_with_pick(instance):
                         status = 'Pickup_Cancelled'
 
             # update or create put away model
+            type_normal = InventoryType.objects.filter(inventory_type='normal').last()
             pu, _ = Putaway.objects.update_or_create(putaway_user=instance.last_modified_by,
                                                      warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
                                                      putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
