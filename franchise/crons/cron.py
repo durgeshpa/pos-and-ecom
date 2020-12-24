@@ -21,59 +21,92 @@ CONNECTION_PATH = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + config('HDP
 
 
 def franchise_sales_returns_inventory():
+    """
+        Cron
+        Fetch sales and returns data from hdpos server
+        Process sales and returns data to adjust franchise inventory
+    """
+
     cron_logger.info('Franchise Cron Started')
-    sales_fetch_resp = fetch_franchise_sales()
+    # fetch sales data from hdpos
+    sales_fetch_resp = fetch_franchise_data('sales')
+
     if 'code' in sales_fetch_resp and sales_fetch_resp['code'] == 'success':
-        franchise_inv_resp = franchise_inventory_sales_cron()
-        returns_fetch_resp = fetch_franchise_returns()
+
+        # process sales data to adjust franchise inventory
+        franchise_inv_resp = process_sales_data()
+
+        # fetch returns data from hdpos
+        returns_fetch_resp = fetch_franchise_data('returns')
+
         if 'code' in returns_fetch_resp and returns_fetch_resp['code'] == 'success' \
                 and 'code' in franchise_inv_resp and franchise_inv_resp['code'] == 'success':
-            franchise_inventory_returns_cron()
+
+            # process returns data to adjust franchise inventory
+            process_returns_data()
         else:
-            cron_logger.info('Counld not fetch returns data/sales data not processed')
+            cron_logger.info('Could not fetch returns data/sales data not processed')
     else:
-        cron_logger.info('Counld not fetch sales data')
+        cron_logger.info('Could not fetch sales data')
 
 
-def fetch_franchise_sales():
-    #testing
-    return {'code': 'success'}
-    #testing
+def fetch_franchise_data(fetch_name):
+    # # testing
+    # return {'code': 'success'}
+    # # testing
+
+    """
+        Fetch Sales/Returns Data From Hdpos Server For Franchise Shops
+
+        fetch_name: "sales" or "returns"
+    """
+
     try:
-        if HdposDataFetch.objects.filter(type=0, status__in=[0, 1]).exists():
-            hdpos_obj_last = HdposDataFetch.objects.filter(type=0, status__in=[0, 1]).last()
+        # proceed from last successful time till now
+        fetch_type = 0 if fetch_name == 'sales' else 1
+
+        if HdposDataFetch.objects.filter(type=int(fetch_type), status__in=[0, 1]).exists():
+            hdpos_obj_last = HdposDataFetch.objects.filter(type=int(fetch_type), status__in=[0, 1]).last()
             next_date = hdpos_obj_last.to_date
         else:
             next_date = datetime.datetime(int(config('HDPOS_START_YEAR')), int(config('HDPOS_START_MONTH')),
                                           int(config('HDPOS_START_DATE')), 0, 0, 0)
 
-        cron_logger.info('franchise sales fetch | started {}'.format(next_date))
+        cron_logger.info('franchise {} fetch | started {}'.format(fetch_name, next_date))
+
         if next_date <= datetime.datetime.now():
-            hdpos_obj = HdposDataFetch.objects.create(type=0, from_date=next_date, to_date=datetime.datetime.now())
+            # create log for this run
+            hdpos_obj = HdposDataFetch.objects.create(type=int(fetch_type), from_date=next_date,
+                                                      to_date=datetime.datetime.now())
 
             try:
                 cnxn = pyodbc.connect(CONNECTION_PATH)
-                cron_logger.info('connected to hdpos | sales {}'.format(next_date))
+                cron_logger.info('connected to hdpos | {} {}'.format(fetch_name, next_date))
                 cursor = cnxn.cursor()
 
-                fd = open('franchise/crons/sql/sales.sql', 'r')
+                fd = open('franchise/crons/sql/' + fetch_name + '.sql', 'r')
                 sqlfile = fd.read()
                 fd.close()
 
-                cron_logger.info('file read | sales {}'.format(next_date))
+                cron_logger.info('file read | {} {}'.format(fetch_name, next_date))
                 sqlfile = sqlfile + "'" + str(next_date) + "'"
                 cursor.execute(sqlfile)
 
-                cron_logger.info('writing sales data {}'.format(next_date))
+                cron_logger.info('writing {} data {}'.format(fetch_name, next_date))
 
-                with transaction.atomic():
-                    for row in cursor:
-                        FranchiseSales.objects.create(shop_loc=row[1], barcode=row[8], quantity=row[5], amount=row[6],
-                                                      invoice_date=row[2], invoice_number=row[3])
+                if fetch_type == 1:
+                    with transaction.atomic():
+                        for row in cursor:
+                            FranchiseReturns.objects.create(shop_loc=row[8], barcode=row[6], quantity=row[3], amount=row[4],
+                                                            sr_date=row[0], sr_number=row[1], invoice_number=row[10])
+                else:
+                    with transaction.atomic():
+                        for row in cursor:
+                            FranchiseSales.objects.create(shop_loc=row[1], barcode=row[8], quantity=row[5], amount=row[6],
+                                                          invoice_date=row[2], invoice_number=row[3])
 
                 hdpos_obj.status = 1
                 hdpos_obj.save()
-                return {'code' : 'success'}
 
             except Exception as e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -83,16 +116,21 @@ def fetch_franchise_sales():
                 hdpos_obj.save()
                 return {'code': 'failed'}
 
+        return {'code': 'success'}
+
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        cron_logger.info('Franchise sales fetch exception {} {} {}'.format(exc_type, fname, exc_tb.tb_lineno))
+        cron_logger.info('Franchise {} fetch exception {} {} {}'.format(fetch_name, exc_type, fname, exc_tb.tb_lineno))
         return {'code': 'failed'}
 
 
-def franchise_inventory_sales_cron():
+def process_sales_data():
+    """
+        Proceed Inventory Adjustment Accounting for Sales of Franchise Shops
+    """
     try:
-        sales_objs = FranchiseSales.objects.filter(process_status=0)
+        sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2])
         if sales_objs.exists():
             type_normal = InventoryType.objects.filter(inventory_type='normal').last(),
             state_available = InventoryState.objects.filter(inventory_state='available').last(),
@@ -100,27 +138,25 @@ def franchise_inventory_sales_cron():
 
             for sales_obj in sales_objs:
                 if not ShopLocationMap.objects.filter(location_name=sales_obj.shop_loc).exists():
-                    sales_obj.process_status = 2
-                    sales_obj.error = 'shop mapping not found'
-                    sales_obj.save()
+                    update_sales_ret_obj(sales_obj, 2, 'shop mapping not found')
                     continue
 
                 product_ean_match_count = Product.objects.filter(product_ean_code=sales_obj.barcode).count()
 
                 if product_ean_match_count <= 0:
-                    sales_obj.process_status = 2
-                    sales_obj.error = 'product barcode not found'
-                    sales_obj.save()
+                    update_sales_ret_obj(sales_obj, 2, 'product barcode not found')
                     continue
 
                 if product_ean_match_count > 1:
-                    sales_obj.process_status = 2
-                    sales_obj.error = 'multiple products found'
-                    sales_obj.save()
+                    update_sales_ret_obj(sales_obj, 2, 'multiple products found')
                     continue
 
                 shop_map = ShopLocationMap.objects.filter(location_name=sales_obj.shop_loc).last()
                 warehouse = shop_map.shop
+                if warehouse.approval_status != 2:
+                    update_sales_ret_obj(sales_obj, 2, 'warehouse is not approved')
+                    continue
+
                 bin_obj = Bin.objects.filter(warehouse=warehouse, bin_id=get_default_virtual_bin_id()).last()
                 sku = Product.objects.filter(product_ean_code=sales_obj.barcode).last()
                 sales_inventory_update_franchise(warehouse, bin_obj, sales_obj.quantity, type_normal, state_shipped,
@@ -135,49 +171,50 @@ def franchise_inventory_sales_cron():
 
 def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, state_shipped,
                                              state_available, sku, sales_obj):
+    """
+        Inventory Adjustment (available to shipped) Accounting for Sales of single Franchise Shop.
+
+        warehouse: Franchise shop
+        bin_obj: default virtual bin for warehouse
+        quantity: sold sku quantity
+        type_normal: Tuple containing Inventory Type (normal) object
+        state_shipped: Tuple containing Inventory State (shipped) object
+        sku: Product sold
+        sales_obj: Collected sales record from hdpos
+    """
 
     try:
         with transaction.atomic():
             if quantity > 0:
                 transaction_type = 'franchise_sales'
                 transaction_id = sales_obj.id
+
+                # check if inventory exists to be sold
                 ware_house_inventory_obj = WarehouseInventory.objects.filter(warehouse=warehouse, sku=sku, inventory_state=state_available[0],
                                                                              inventory_type=type_normal[0], in_stock=True).last()
                 if not ware_house_inventory_obj:
-                    sales_obj.process_status = 2
-                    sales_obj.error = 'warehouse object does not exist'
-                    sales_obj.save()
+                    update_sales_ret_obj(sales_obj, 2, 'warehouse object does not exist')
                 elif ware_house_inventory_obj.quantity < quantity:
-                    sales_obj.process_status = 2
-                    sales_obj.error = 'quantity not present in warehouse'
-                    sales_obj.save()
+                    update_sales_ret_obj(sales_obj, 2, 'quantity not present in warehouse')
                 else:
+                    # out quantity from warehouse available
                     CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, type_normal[0], state_available[0],
                                                                                  quantity * -1, True)
+                    # in quantity to warehouse shipped
                     CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, type_normal[0], state_shipped[0],
                                                                                  quantity, True)
+                    # record shift in quantity
                     WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, transaction_type, transaction_id,
                                                                                        type_normal[0], state_available[0], type_normal[0],
                                                                                        state_shipped[0], quantity)
-
+                    # get all warehouse bins where sku quantity is present
                     bin_inv_objs = BinInventory.objects.filter(warehouse=warehouse, bin=bin_obj, sku=sku, quantity__gt=0,
-                                                              inventory_type=type_normal[0], in_stock=True).order_by(
-                        '-batch_id',
-                        'quantity')
-                    bin_inv_dict = {}
+                                                               inventory_type=type_normal[0],
+                                                               in_stock=True).order_by('-batch_id', 'quantity')
+                    # first expiry first out logic
+                    bin_inv_dict = get_bin_inv_dict(bin_inv_objs)
 
-                    for k in bin_inv_objs:
-                        if len(k.batch_id) == 23:
-                            bin_inv_dict[k] = str(datetime.datetime.strptime(
-                                k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],
-                                "%d-%m-%Y"))
-                        else:
-                            bin_inv_dict[k] = str(
-                                datetime.datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
-                                                  "%d-%m-%Y"))
-
-                    bin_inv_list = list(bin_inv_dict.items())
-                    bin_inv_dict = dict(sorted(dict(bin_inv_list).items(), key=lambda x: x[1]))
+                    # adjust full quantity in bin inventory according to first expiry first out
                     qty = quantity
                     for bin_inv in bin_inv_dict.keys():
                         if qty == 0:
@@ -192,12 +229,10 @@ def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, 
                             bin_inv.save()
                             qty = 0
                             OutCommonFunctions.create_out(warehouse, transaction_type, transaction_id, sku, batch_id,
-                                                          quantity,
-                                                          type_normal[0])
-                            InternalInventoryChange.create_bin_internal_inventory_change(warehouse, sku, batch_id,
-                                                                                         bin_obj, type_normal[0],
-                                                                                         type_normal[0], transaction_type,
-                                                                                         transaction_id,
+                                                          already_picked, type_normal[0])
+                            InternalInventoryChange.create_bin_internal_inventory_change(warehouse, sku, batch_id, bin_obj,
+                                                                                         type_normal[0], type_normal[0],
+                                                                                         transaction_type, transaction_id,
                                                                                          already_picked)
                         else:
                             already_picked = qty_in_bin
@@ -206,88 +241,27 @@ def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, 
                             bin_inv.save()
                             qty = remaining_qty
                             OutCommonFunctions.create_out(warehouse, transaction_type, transaction_id, sku, batch_id,
-                                                          quantity,
-                                                          type_normal[0])
-                            InternalInventoryChange.create_bin_internal_inventory_change(warehouse, sku, batch_id,
-                                                                                         bin_obj,
+                                                          already_picked, type_normal[0])
+                            InternalInventoryChange.create_bin_internal_inventory_change(warehouse, sku, batch_id, bin_obj,
                                                                                          type_normal[0], type_normal[0],
-                                                                                         transaction_type,
-                                                                                         transaction_id,
+                                                                                         transaction_type, transaction_id,
                                                                                          already_picked)
-                    sales_obj.process_status = 1
-                    sales_obj.save()
+                    update_sales_ret_obj(sales_obj, 1)
             else:
-                sales_obj.process_status = 2
-                sales_obj.error = 'sales quantity not positive'
-                sales_obj.save()
+                update_sales_ret_obj(sales_obj, 2, 'sales quantity not positive')
 
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        sales_obj.process_status = 2
-        sales_obj.error = "{} {} {}".format(exc_type, fname, exc_tb.tb_lineno)
-        sales_obj.save()
+        update_sales_ret_obj(sales_obj, 2, "{} {} {}".format(exc_type, fname, exc_tb.tb_lineno))
 
 
-def fetch_franchise_returns():
-    # testing
-    return {'code': 'success'}
-    # testing
-
+def process_returns_data():
+    """
+        Proceed Inventory Adjustment Accounting for Returns of Franchise Shops
+    """
     try:
-        if HdposDataFetch.objects.filter(type=1, status__in=[0, 1]).exists():
-            hdpos_obj_last = HdposDataFetch.objects.filter(type=1, status__in=[0, 1]).last()
-            next_date = hdpos_obj_last.to_date
-        else:
-            next_date = datetime.datetime(int(config('HDPOS_START_YEAR')), int(config('HDPOS_START_MONTH')),
-                                          int(config('HDPOS_START_DATE')), 0, 0, 0)
-
-        cron_logger.info('franchise returns fetch | started {}'.format(next_date))
-
-        if next_date <= datetime.datetime.now():
-            hdpos_obj = HdposDataFetch.objects.create(type=1, from_date=next_date, to_date=datetime.datetime.now())
-
-            try:
-                cnxn = pyodbc.connect(CONNECTION_PATH)
-                cron_logger.info('connected to hdpos | returns {}'.format(next_date))
-                cursor = cnxn.cursor()
-
-                fd = open('franchise/crons/sql/returns.sql', 'r')
-                sqlfile = fd.read()
-                fd.close()
-
-                cron_logger.info('file read | returns {}'.format(next_date))
-                sqlfile = sqlfile + "'" + str(next_date) + "'"
-                cursor.execute(sqlfile)
-
-                cron_logger.info('writing returns data {}'.format(next_date))
-
-                with transaction.atomic():
-                    for row in cursor:
-                        FranchiseReturns.objects.create(shop_loc=row[8], barcode=row[6], quantity=row[3], amount=row[4],
-                                                        sr_date=row[0], sr_number=row[1], invoice_number=row[10])
-
-                hdpos_obj.status = 1
-                hdpos_obj.save()
-
-            except Exception as e:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                hdpos_obj.status = 2
-                hdpos_obj.process_text = "{} {} {}".format(exc_type, fname, exc_tb.tb_lineno)
-                hdpos_obj.save()
-
-        return {'code': 'success'}
-    except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        cron_logger.info('Franchise returns fetch exception {} {} {}'.format(exc_type, fname, exc_tb.tb_lineno))
-        return {'code': 'failed'}
-
-
-def franchise_inventory_returns_cron():
-    try:
-        returns_objs = FranchiseReturns.objects.filter(process_status=0)
+        returns_objs = FranchiseReturns.objects.filter(process_status__in=[0, 2])
         if returns_objs.exists():
             initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
             final_type = InventoryType.objects.filter(inventory_type='normal').last(),
@@ -296,33 +270,28 @@ def franchise_inventory_returns_cron():
 
             for return_obj in returns_objs:
                 if not ShopLocationMap.objects.filter(location_name=return_obj.shop_loc).exists():
-                    return_obj.process_status = 2
-                    return_obj.error = 'shop mapping not found'
-                    return_obj.save()
+                    update_sales_ret_obj(return_obj, 2, 'shop mapping not found')
                     continue
 
                 product_ean_match_count = Product.objects.filter(product_ean_code=return_obj.barcode).count()
 
                 if product_ean_match_count <= 0:
-                    return_obj.process_status = 2
-                    return_obj.error = 'product barcode not found'
-                    return_obj.save()
+                    update_sales_ret_obj(return_obj, 2, 'product barcode not found')
                     continue
 
                 if product_ean_match_count > 1:
-                    return_obj.process_status = 2
-                    return_obj.error = 'multiple products found'
-                    return_obj.save()
+                    update_sales_ret_obj(return_obj, 2, 'multiple products found')
                     continue
 
                 if return_obj.quantity >=0:
-                    return_obj.process_status = 2
-                    return_obj.error = 'return quantity is positive'
-                    return_obj.save()
+                    update_sales_ret_obj(return_obj, 2, 'return quantity is positive')
                     continue
 
                 shop_map = ShopLocationMap.objects.filter(location_name=return_obj.shop_loc).last()
                 warehouse = shop_map.shop
+                if warehouse.approval_status != 2:
+                    update_sales_ret_obj(return_obj, 2, 'warehouse is not approved')
+                    continue
                 bin_obj = Bin.objects.filter(warehouse=warehouse, bin_id=get_default_virtual_bin_id()).last()
                 sku = Product.objects.filter(product_ean_code=return_obj.barcode).last()
                 try:
@@ -334,26 +303,19 @@ def franchise_inventory_returns_cron():
                                                                                      inventory_type=initial_type[0],
                                                                                      in_stock=True).last()
                         if not ware_house_inventory_obj:
-                            return_obj.process_status = 2
-                            return_obj.error = 'shipping warehouse object does not exist'
-                            return_obj.save()
+                            update_sales_ret_obj(return_obj, 2, 'shipping warehouse object does not exist')
                         elif ware_house_inventory_obj.quantity < return_obj.quantity * -1:
-                            return_obj.process_status = 2
-                            return_obj.error = 'quantity not present in shipped warehouse entry'
-                            return_obj.save()
+                            update_sales_ret_obj(return_obj, 2, 'quantity not present in shipped warehouse entry')
                         else:
                             franchise_inventory_in(warehouse, sku, batch_id, return_obj.quantity * -1, 'franchise_returns', return_obj.id,
                                                    final_type, initial_type, initial_stage, final_stage, bin_obj)
-                            return_obj.process_status = 1
-                            return_obj.save()
+                            update_sales_ret_obj(return_obj, 1)
 
                 except Exception as e:
 
                     exc_type, exc_obj, exc_tb = sys.exc_info()
                     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                    return_obj.process_status = 2
-                    return_obj.error = "{} {} {}".format(exc_type, fname, exc_tb.tb_lineno)
-                    return_obj.save()
+                    update_sales_ret_obj(return_obj, 2, "{} {} {}".format(exc_type, fname, exc_tb.tb_lineno))
 
         return {'code': 'success'}
     except Exception as e:
@@ -361,3 +323,30 @@ def franchise_inventory_returns_cron():
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         cron_logger.info('Franchise sales inv exception {} {} {}'.format(exc_type, fname, exc_tb.tb_lineno))
         return {'code': 'failed'}
+
+
+def get_bin_inv_dict(bin_inv_objs):
+    # for first expiry first out logic
+
+    bin_inv_dict = {}
+    for k in bin_inv_objs:
+        if len(k.batch_id) == 23:
+            bin_inv_dict[k] = str(datetime.datetime.strptime(
+                k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],
+                "%d-%m-%Y"))
+        else:
+            bin_inv_dict[k] = str(
+                datetime.datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
+                                           "%d-%m-%Y"))
+
+    bin_inv_list = list(bin_inv_dict.items())
+    bin_inv_dict = dict(sorted(dict(bin_inv_list).items(), key=lambda x: x[1]))
+
+    return  bin_inv_dict
+
+
+def update_sales_ret_obj(obj, status, error=''):
+    obj.process_status = status
+    if error != '':
+        obj.error = error
+    obj.save()
