@@ -119,7 +119,7 @@ class OutCommonFunctions(object):
 
     @classmethod
     def create_out(cls, warehouse, out_type, out_type_id, sku, batch_id, quantity, inventory_type):
-        if warehouse.shop_type.shop_type == 'sp':
+        if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = Out.objects.create(warehouse=warehouse, out_type=out_type, out_type_id=out_type_id, sku=sku,
                                         batch_id=batch_id, quantity=quantity, inventory_type=inventory_type)
             return in_obj
