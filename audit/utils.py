@@ -1,7 +1,8 @@
 from django.db import transaction
 from django.db.models import Count, Q
 
-from audit.models import AuditRun, AUDIT_RUN_STATUS_CHOICES, AuditNumberGenerator, AuditDetail
+from audit.models import AuditRun, AUDIT_RUN_STATUS_CHOICES, AuditNumberGenerator, AuditDetail, \
+    AUDIT_DETAIL_STATUS_CHOICES, AUDIT_DETAIL_STATE_CHOICES
 from sp_to_gram.tasks import es_mget_by_ids
 from wms.models import BinInventory
 

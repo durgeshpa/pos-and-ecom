@@ -1762,7 +1762,7 @@ class PicklistRefresh:
                         already_picked += qty
                         remaining_qty = qty_in_bin - already_picked
                         bin_inv.quantity = remaining_qty
-                        bin_inv.to_be_picked_qty = already_picked
+                        bin_inv.to_be_picked_qty += already_picked
                         bin_inv.save()
                         qty = 0
                         CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
@@ -1779,7 +1779,7 @@ class PicklistRefresh:
                         already_picked = qty_in_bin
                         remaining_qty = qty - already_picked
                         bin_inv.quantity = qty_in_bin - already_picked
-                        bin_inv.to_be_picked_qty = already_picked
+                        bin_inv.to_be_picked_qty += already_picked
                         bin_inv.save()
                         qty = remaining_qty
                         CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
