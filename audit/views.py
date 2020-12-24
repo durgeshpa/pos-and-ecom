@@ -1,6 +1,6 @@
 import json
 from collections import defaultdict
-
+from django.contrib import messages
 from django.db import transaction
 from django.db.models import Sum, Q, F
 from django.http import HttpResponse
@@ -16,7 +16,7 @@ import codecs
 from wms.models import Bin
 from accounts.models import User
 from retailer_to_sp.models import Order, Trip, PickerDashboard
-from wms.views import PicklistRefresh, commit_updates_to_es
+from wms.views import commit_updates_to_es, PicklistRefresh
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
                      AUDIT_RUN_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES,
@@ -634,7 +634,7 @@ def create_pick_list_by_audit(audit_id):
                 pd_obj.save()
         except Exception as e:
             info_logger.error(e)
-            info_logger.error('generate_pick_list|Exception while generating picklist for order {}'.format(o))
+            info_logger.error('generate_pick_list|Exception while generating picklist for order {}'.format(o.order_no))
 
 
 def create_audit_tickets_by_audit(audit_id):
@@ -674,11 +674,9 @@ def create_audit_tickets_by_audit(audit_id):
     audit.save()
 
 
-
-
 def bulk_audit_csv_upload_view(request):
     warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
-   
+
     if request.method == 'POST':
         form = UploadBulkAuditAdminForm(request.POST, request.FILES)
         
@@ -688,10 +686,11 @@ def bulk_audit_csv_upload_view(request):
         if form.is_valid():
             upload_file = form.cleaned_data.get('file')
             warehouse_id = request.POST.get('select')
+          
             reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
             first_row = next(reader)
             try:
-                for row in reader:
+                for row_id, row in enumerate(reader):
                     if len(row) == 0:
                         continue
                     if '' in row:
@@ -705,8 +704,17 @@ def bulk_audit_csv_upload_view(request):
                         bins = []
                         for row in row[3].split(","):
                             bin_value = Bin.objects.get(bin_id=row.strip())
-                            bins.append(bin_value)
-
+                            obj = Bin.objects.filter(warehouse=warehouse_id,bin_id=bin_value).exists()
+                            if obj == True:
+                                bins.append(bin_value)
+                            else:
+                                return render(request, 'admin/audit/bulk-upload-audit-details.html', 
+                                {
+                                'form': form,
+                                'warehouses': warehouse_choices.values(),
+                                'error': f"Row {row_id + 1} | 'Invalid Bin IDs"
+                                })
+    
                         audit_item = AuditDetail.objects.create(
                             warehouse=Shop.objects.get(id=warehouse_id),
                             audit_run_type=audit_run_type,
@@ -715,14 +723,24 @@ def bulk_audit_csv_upload_view(request):
                         )
                         for bin_value in bins:
                             audit_item.bin.add(bin_value)
-            
+                        audit_item.save()       
                     elif row[2] == "Product Wise":
                         audit_level = 1
                         skus = []
                         for row in row[4].split(","):
-                            sku_value= Product.objects.get(product_sku=row.strip())
-                            skus.append(sku_value)
-                       
+                            if Product.objects.get(product_sku=row.strip()):
+                                sku_obj = Product.objects.get(product_sku=row.strip())
+                            obj = BinInventory.objects.filter(warehouse=warehouse_id,sku=sku_obj).exists()
+                          
+                            if obj == True:
+                                skus.append(sku_obj)
+                            else:
+                                return render(request, 'admin/audit/bulk-upload-audit-details.html', 
+                                {
+                                'form': form,
+                                'warehouses': warehouse_choices.values(),
+                                'error': f"Row {row_id + 1} | 'Invalid SKU IDs"
+                                })
                         audit_item = AuditDetail.objects.create(
                             warehouse=Shop.objects.get(id=warehouse_id),
                             audit_run_type=audit_run_type,
@@ -731,8 +749,7 @@ def bulk_audit_csv_upload_view(request):
                         )
                         for sku_value in skus:
                             audit_item.sku.add(sku_value)
-                      
-                    audit_item.save()
+                        audit_item.save()
             except Exception as e:
                 print(e)
             return render(request, 'admin/audit/bulk-upload-audit-details.html', {

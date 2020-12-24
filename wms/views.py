@@ -1,5 +1,7 @@
 # python imports
 import csv
+import time
+import traceback
 from io import StringIO
 import codecs
 import itertools
@@ -50,7 +52,7 @@ from .common_functions import InternalInventoryChange, CommonBinInventoryFunctio
     InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV, \
     InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory, inventory_in_and_out
 from barCodeGenerator import barcodeGen, merged_barcode_gen
-from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster
+from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster, CronRunLog
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -699,8 +701,8 @@ def stock_correction_data(upload_data, stock_movement_obj):
                 status = True
                 transaction_type = 'stock_correction_in_type'
                 for inv_type, qty in in_quantity_dict.items():
-                    if qty <= 0:
-                        continue
+                    # if qty <= 0:
+                    #     continue
                     in_obj = InCommonFunctions.create_in(warehouse_obj, stock_correction_type,
                                                          stock_movement_obj[0].id, product_obj,
                                                          batch_id, qty, 0, inv_type)
@@ -722,8 +724,8 @@ def stock_correction_data(upload_data, stock_movement_obj):
 
                 transaction_type = 'stock_correction_out_type'
                 for inv_type, qty in out_quantity_dict.items():
-                    if qty <= 0:
-                        continue
+                    # if qty <= 0:
+                    #     continue
                     Out.objects.create(warehouse=warehouse_obj,
                                        out_type='stock_correction_out_type',
                                        out_type_id=stock_movement_obj[0].id,
@@ -851,16 +853,28 @@ def pickup_entry_exists_for_order(order_id):
 
 
 def pickup_entry_creation_with_cron():
-    cron_logger.info("pickup_entry_creation_with_cron started")
+    cron_name = CronRunLog.CRON_CHOICE.PICKUP_CREATION_CRON
     current_time = datetime.now() - timedelta(minutes=1)
     start_time = datetime.now() - timedelta(days=30)
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
                                      created_at__gt=start_time)
-    with transaction.atomic():
-        if order_obj.exists():
-            for order in order_obj:
+    if order_obj.count() == 0:
+        cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
+        return
+
+    if CronRunLog.objects.filter(cron_name=cron_name,
+                                 status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+        cron_logger.info("{} already running".format(cron_name))
+        return
+
+    cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
+    cron_logger.info("{} started, cron log entry-{}"
+                     .format(cron_log_entry.cron_name, cron_log_entry.id))
+    try:
+        for order in order_obj:
+            with transaction.atomic():
                 pincode = "00"
                 if pickup_entry_exists_for_order(order.id):
                     cron_logger.info('pickup extry exists for order {}'.format(order.id))
@@ -870,8 +884,21 @@ def pickup_entry_creation_with_cron():
                 cron_logger.info('picker dashboard entry created for order {}, order status updated to {}'
                                  .format(order.id, order.PICKUP_CREATED))
                 PicklistRefresh.create_picklist_by_order(order)
-                order_obj.update(order_status='PICKUP_CREATED')
+                order.order_status = 'PICKUP_CREATED'
+                order.save()
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
+        cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
+        cron_log_entry.completed_at = timezone.now()
+        cron_logger.info("{} completed, cron log entry-{}"
+                         .format(cron_log_entry.cron_name, cron_log_entry.id))
+    except Exception as e:
+        cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.ABORTED
+        cron_logger.info("{} aborted, cron log entry-{}"
+                         .format(cron_name, cron_log_entry.id))
+        traceback.print_exc()
+    cron_log_entry.save()
+
+
 
 class DownloadBinCSV(View):
     """
@@ -1369,7 +1396,8 @@ def bulk_putaway(self, request, argument_list):
                 for bin_in in bin_in_obj:
                     if not (bin_in.batch_id == obj.batch_id):
                         if bin_in.bin.bin_id == obj.bin.bin.bin_id:
-                            if bin_in.quantity == 0:
+                            qty_present_in_bin = bin_in.quantity + bin_in.to_be_picked_qty
+                            if qty_present_in_bin == 0:
                                 pass
                             else:
                                 message = "You can't perform this action, Non zero qty of more than one Batch ID of a" \
@@ -1653,7 +1681,14 @@ class PicklistRefresh:
                     bi_qs = BinInventory.objects.filter(id=item.bin_id)
                     bi = bi_qs.last()
                     bin_quantity = bi.quantity + item.quantity
-                    bi_qs.update(quantity=bin_quantity)
+                    picked_qty = item.pickup_quantity
+                    if picked_qty is None:
+                        picked_qty = 0
+                    remaining_qty = item.quantity - picked_qty
+                    to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
+                    if to_be_picked_qty < 0:
+                        to_be_picked_qty = 0
+                    bi_qs.update(quantity=bin_quantity, to_be_picked_qty=to_be_picked_qty)
                     InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
                                                                                  bi.bin,
                                                                                  type_normal, type_normal,
@@ -1727,6 +1762,7 @@ class PicklistRefresh:
                         already_picked += qty
                         remaining_qty = qty_in_bin - already_picked
                         bin_inv.quantity = remaining_qty
+                        bin_inv.to_be_picked_qty += already_picked
                         bin_inv.save()
                         qty = 0
                         CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
@@ -1743,6 +1779,7 @@ class PicklistRefresh:
                         already_picked = qty_in_bin
                         remaining_qty = qty - already_picked
                         bin_inv.quantity = qty_in_bin - already_picked
+                        bin_inv.to_be_picked_qty += already_picked
                         bin_inv.save()
                         qty = remaining_qty
                         CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
@@ -1768,16 +1805,16 @@ def audit_ordered_data(request):
     try:
 
         warehouse_inventory = WarehouseInventory.objects.filter(inventory_type=type_normal,
-                                                                inventory_state=stage_ordered,warehouse=warehouse)\
+                                                                inventory_state=stage_ordered, warehouse=warehouse)\
                                                             .values('sku_id', 'quantity')
 
         orders_placed = Order.objects.filter(order_status__in=[Order.ORDERED,
                                                                Order.PICKUP_CREATED,
-                                                               Order.PICKING_ASSIGNED],seller_shop=warehouse,
+                                                               Order.PICKING_ASSIGNED], seller_shop=warehouse,
                                              created_at__gte=start_time,)
         for o in orders_placed:
             ordered_sku = o.ordered_cart.rt_cart_list.values('cart_product__product_sku')\
-                                                      .annotate(qty=Sum('no_of_pieces'))
+                                                     .annotate(qty=Sum('no_of_pieces'))
             for item in ordered_sku:
                 if inventory_calculated.get(item['cart_product__product_sku']) is None:
                     inventory_calculated[item['cart_product__product_sku']] = 0

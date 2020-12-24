@@ -81,6 +81,14 @@
                 {% endif %}
 
                 {% endif %}
+
+                {% if app.name == "B2C Franchise Management" and user.is_superuser == False%}
+                   {% if model.name == "Bins"%}
+                   <tr>
+                 <th scope="row"><a href="/admin/franchise/product-list/">Product List</a></th>
+                   </tr>
+                    {% endif %}
+                {% endif %}
         {% endfor %}
         </table>
         </div>

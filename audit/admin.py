@@ -142,7 +142,7 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
 
     def audit_level(self, obj):
         audit_level = ""
-        if obj.audit_level:
+        if obj.audit_level is not None:
             audit_level = AUDIT_LEVEL_CHOICES[obj.audit_level]
             return audit_level
         else:
