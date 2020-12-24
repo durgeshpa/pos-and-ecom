@@ -508,7 +508,10 @@ class GRNOrderProductMapping(models.Model):
     @property
     def po_product_price(self):
         if self.vendor_product:
-            return self.vendor_product.product_price
+            if self.vendor_product.product_price:
+                return self.vendor_product.product_price
+            else:
+                return self.vendor_product.product_price_pack
         return self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().price if self.product else ''
 
     @property
