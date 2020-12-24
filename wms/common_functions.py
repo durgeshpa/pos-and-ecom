@@ -64,7 +64,7 @@ class PutawayCommonFunctions(object):
     @classmethod
     def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity,
                        inventory_type):
-        if warehouse.shop_type.shop_type == 'sp':
+        if warehouse.shop_type.shop_type in ['sp', 'f']:
             putaway_obj = Putaway.objects.create(warehouse=warehouse, putaway_type=putaway_type,
                                                  putaway_type_id=putaway_type_id, sku=sku,
                                                  batch_id=batch_id, quantity=quantity,
@@ -1998,29 +1998,43 @@ def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_produc
         quantity = shipment_product_batch.delivered_qty
         transaction_type = 'franchise_batch_in'
         transaction_id = shipment_product_batch.id
+        franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type, transaction_id, final_type,
+                               initial_type, initial_stage, final_stage, bin_obj)
 
-        InCommonFunctions.create_only_in(warehouse, 'Franchise In', shipment_product_batch.id,
-                                         shipment_product_batch.ordered_product_mapping.product,
-                                         shipment_product_batch.batch_id, shipment_product_batch.delivered_qty,
-                                         final_type[0])
 
-        bin_inv_obj = BinInventory.objects.filter(warehouse=warehouse, bin=bin_obj, sku=sku,
-                                                  batch_id=batch_id, inventory_type=final_type[0], in_stock=True).last()
-        if bin_inv_obj:
-            bin_quantity = bin_inv_obj.quantity
-            final_quantity = bin_quantity + quantity
-            bin_inv_obj.quantity = final_quantity
-            bin_inv_obj.save()
-        else:
-            BinInventory.objects.create(warehouse=warehouse, bin=bin_obj, sku=sku, batch_id=batch_id,
-                                               inventory_type=final_type[0], quantity=quantity, in_stock=True)
+def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type, transaction_id, final_type,
+                           initial_type, initial_stage, final_stage, bin_obj):
 
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, 'normal', 'available', quantity, True)
-        WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, transaction_type,
-                                                                           transaction_id, initial_type[0],
-                                                                           initial_stage[0], final_type[0],
-                                                                           final_stage[0], quantity)
+    InCommonFunctions.create_only_in(warehouse, transaction_type, transaction_id, sku, batch_id, quantity,
+                                     final_type[0])
 
-        BinInternalInventoryChange.objects.create(warehouse_id=warehouse.id, sku=sku, batch_id=batch_id, final_bin=bin_obj,
-                                              initial_inventory_type=initial_type[0], final_inventory_type=final_type[0],
-                                              transaction_type=transaction_type, transaction_id=transaction_id, quantity=quantity)
+    putaway = PutawayCommonFunctions.create_putaway(warehouse, transaction_type, transaction_id, sku, batch_id,
+                                                    quantity, quantity, final_type[0])
+
+    bin_inv_obj = BinInventory.objects.filter(warehouse=warehouse, bin=bin_obj, sku=sku,
+                                              batch_id=batch_id, inventory_type=final_type[0], in_stock=True).last()
+    if bin_inv_obj:
+        bin_quantity = bin_inv_obj.quantity
+        final_quantity = bin_quantity + quantity
+        bin_inv_obj.quantity = final_quantity
+        bin_inv_obj.save()
+    else:
+        bin_inv_obj = BinInventory.objects.create(warehouse=warehouse, bin=bin_obj, sku=sku, batch_id=batch_id,
+                                    inventory_type=final_type[0], quantity=quantity, in_stock=True)
+
+    PutawayBinInventory.objects.create(warehouse=warehouse, putaway=putaway, bin=bin_inv_obj, putaway_quantity=quantity,
+                                       putaway_status=True, sku=sku, batch_id=batch_id, putaway_type=transaction_type)
+
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, 'normal', 'available', quantity, True)
+
+    if transaction_type == 'franchise_returns':
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, 'normal', 'shipped', quantity * -1, True)
+    WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, transaction_type, transaction_id,
+                                                                       initial_type[0], initial_stage[0], final_type[0],
+                                                                       final_stage[0], quantity)
+
+    BinInternalInventoryChange.objects.create(warehouse_id=warehouse.id, sku=sku, batch_id=batch_id, final_bin=bin_obj,
+                                              initial_inventory_type=initial_type[0],
+                                              final_inventory_type=final_type[0],
+                                              transaction_type=transaction_type, transaction_id=transaction_id,
+                                              quantity=quantity)
