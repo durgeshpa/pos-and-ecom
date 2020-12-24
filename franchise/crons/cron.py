@@ -114,6 +114,7 @@ def fetch_franchise_data(fetch_name):
                 hdpos_obj.status = 2
                 hdpos_obj.process_text = "{} {} {}".format(exc_type, fname, exc_tb.tb_lineno)
                 hdpos_obj.save()
+                return {'code': 'failed'}
 
         return {'code': 'success'}
 
@@ -129,7 +130,7 @@ def process_sales_data():
         Proceed Inventory Adjustment Accounting for Sales of Franchise Shops
     """
     try:
-        sales_objs = FranchiseSales.objects.filter(process_status=0)
+        sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2])
         if sales_objs.exists():
             type_normal = InventoryType.objects.filter(inventory_type='normal').last(),
             state_available = InventoryState.objects.filter(inventory_state='available').last(),
@@ -260,7 +261,7 @@ def process_returns_data():
         Proceed Inventory Adjustment Accounting for Returns of Franchise Shops
     """
     try:
-        returns_objs = FranchiseReturns.objects.filter(process_status=0)
+        returns_objs = FranchiseReturns.objects.filter(process_status__in=[0, 2])
         if returns_objs.exists():
             initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
             final_type = InventoryType.objects.filter(inventory_type='normal').last(),
