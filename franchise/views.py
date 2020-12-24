@@ -8,7 +8,10 @@ from django.contrib import messages
 
 
 class ProductList(View):
-
+    """
+        Product List to display on admin site under B2C Franchise Management
+        To link to products mapped with the particular Franchise shop mapped with the logged in user
+    """
     def get(self, request, *args, **kwargs):
         user = request.user
         if not user.is_superuser:
