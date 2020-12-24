@@ -428,7 +428,6 @@ class GRNProductAutocomplete(autocomplete.Select2QuerySetView):
 
 class GRNProductPriceMappingData(APIView):
     permission_classes = (AllowAny,)
-
     def get(self, *args, **kwargs):
         order_id = self.request.GET.get('order_id')
         cart_product_id = self.request.GET.get('cart_product_id')
@@ -476,6 +475,7 @@ class GRNProduct1MappingData(APIView):
         )
         product_qty = data.values_list('qty')
         product_price = data.values_list('price')
+        print("grn",product_price)
         return Response({
             "products": products,
             "product_qty": product_qty,

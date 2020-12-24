@@ -279,11 +279,18 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
             for item in ordered_cart.products.order_by('product_name'):
                 already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('delivered_qty'))
                 already_return = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('returned_qty'))
+                def price(self):
+                    if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price:
+                        po_product_price = item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price
+                        return po_product_price
+                    else :
+                        po_product_price =  item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price_pack if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price
+                        return po_product_price
                 initial.append({
                     'product' : item,
                     'product_mrp': item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_mrp if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else '-',
                     'po_product_quantity': item.cart_product_mapping.filter(cart=ordered_cart).last().qty,
-                    'po_product_price':  item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price,
+                    'po_product_price':price(self),
                     'already_grned_product': 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum'),
                     'already_returned_product': 0 if already_return.get('returned_qty__sum') == None else already_return.get('returned_qty__sum'),
                     })
