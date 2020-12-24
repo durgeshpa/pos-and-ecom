@@ -475,7 +475,6 @@ class GRNProduct1MappingData(APIView):
         )
         product_qty = data.values_list('qty')
         product_price = data.values_list('price')
-        print("grn",product_price)
         return Response({
             "products": products,
             "product_qty": product_qty,
