@@ -36,6 +36,9 @@ def franchise_sales_returns_inventory():
 
 
 def fetch_franchise_sales():
+    #testing
+    return {'code': 'success'}
+    #testing
     try:
         if HdposDataFetch.objects.filter(type=0, status__in=[0, 1]).exists():
             hdpos_obj_last = HdposDataFetch.objects.filter(type=0, status__in=[0, 1]).last()
@@ -227,6 +230,9 @@ def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, 
 
 
 def fetch_franchise_returns():
+    # testing
+    return {'code': 'success'}
+    # testing
 
     try:
         if HdposDataFetch.objects.filter(type=1, status__in=[0, 1]).exists():

@@ -5,7 +5,7 @@ from django.db.models import Q
 from rangefilter.filter import DateTimeRangeFilter
 from django_admin_listfilter_dropdown.filters import DropdownFilter
 
-from franchise.models import Fbin, Faudit
+from franchise.models import Fbin, Faudit, HdposDataFetch, FranchiseSales, FranchiseReturns
 from franchise.forms import FranchiseBinForm, FranchiseAuditCreationForm
 from wms.admin import BinAdmin, BinIdFilter
 from audit.admin import AuditDetailAdmin, AuditNoFilter, AuditorFilter
@@ -65,3 +65,43 @@ class FranchiseAuditAdmin(AuditDetailAdmin):
         if not request.user.is_superuser:
             qs = qs.filter(Q(warehouse__related_users=request.user) | Q(warehouse__shop_owner=request.user))
         return qs
+
+
+@admin.register(HdposDataFetch)
+class HdposDataFetchAdmin(admin.ModelAdmin):
+    list_display = [field.name for field in HdposDataFetch._meta.get_fields()]
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(FranchiseSales)
+class FranchiseSalesAdmin(admin.ModelAdmin):
+    list_display = [field.name for field in FranchiseSales._meta.get_fields()]
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(FranchiseReturns)
+class FranchiseReturnsAdmin(admin.ModelAdmin):
+    list_display = [field.name for field in FranchiseReturns._meta.get_fields()]
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
