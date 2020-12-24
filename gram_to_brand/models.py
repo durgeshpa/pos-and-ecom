@@ -354,24 +354,37 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                         product = Product.objects.get(id=int(row[2]))
 
                         vendor_product = ProductVendorMapping.objects.filter(vendor=instance.supplier_name,product_id=row[2]).last()
-                        if vendor_product and (vendor_product.case_size == row[5] or vendor_product.product_price == row[8]):
-                            vendor_product_dt = vendor_product
-                        else:
-                            vendor_product_dt = ProductVendorMapping.objects.create(
-                                vendor=instance.supplier_name,
-                                product_id=row[2],
-                                product_price=row[8],
-                                product_mrp=row[7],
-                                case_size=row[5],
-                                status=True
-                            )
+                        if row[8]=="Per Piece":
+                            if vendor_product and (vendor_product.case_size == row[5] or vendor_product.product_price == row[9]):
+                                vendor_product_dt = vendor_product
+                            else:
+                                vendor_product_dt = ProductVendorMapping.objects.create(
+                                    vendor=instance.supplier_name,
+                                    product_id=row[2],
+                                    product_price=row[9],
+                                    product_mrp=row[7],
+                                    case_size=row[5],
+                                    status=True
+                                )
+                        elif row[8]=="Per Pack":
+                            if vendor_product and (vendor_product.case_size == row[5] or vendor_product.product_price_pack == row[9]):
+                                vendor_product_dt = vendor_product
+                            else:
+                                vendor_product_dt = ProductVendorMapping.objects.create(
+                                    vendor=instance.supplier_name,
+                                    product_id=row[2],
+                                    product_price_pack=row[9],
+                                    product_mrp=row[7],
+                                    case_size=row[5],
+                                    status=True
+                                )
 
                         CartProductMapping.objects.create(
                             cart=instance,
                             cart_parent_product=parent_product,
                             cart_product_id=row[2],
                             no_of_pieces=int(vendor_product_dt.case_size)*int(row[6]),
-                            price=float(row[8]),
+                            price=float(row[9]),
                             vendor_product=vendor_product_dt
                         )
 
