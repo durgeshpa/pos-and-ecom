@@ -56,7 +56,7 @@ class ShopMappedProduct(TemplateView):
             context['shop_products'] = product_sum
 
 
-        elif shop_obj.shop_type.shop_type == 'sp':
+        elif shop_obj.shop_type.shop_type in ['sp', 'f']:
             product_list = {}
             bin_inventory_state = InventoryState.objects.filter(inventory_state="available").last()
             products = WarehouseInventory.objects.filter(warehouse=shop_obj, inventory_state=bin_inventory_state)
