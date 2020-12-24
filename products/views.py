@@ -1229,8 +1229,8 @@ def UploadMasterDataSampleExcelFile(request):
 
     column_list = ['NDPPROMAG00000018', 'Maggi Magic masala, 6.2 gm (Buy 4 + get 1 Free)', 'PSNGNES0016',
                    'Maggi Magic masala, 6.2 gm', '89010588772972', '5.00', 'Gram', '10', '910',
-                   'GST-12', '', '2304', '12', 'Nestle', '34', 'Maggi', '35', 'Staples & Grocery', '114',
-                   'Spices, Herb & Seasoning', '118', 'Active', ]
+                   'GST-12', '', '2304', '12', '35', 'Maggi', '34', 'Nestle', '118', 'Spices, Herb & Seasoning',
+                   '114', 'Staples & Grocery', 'Active', ]
 
     for col_num in range(len(column_list)):
         ws.write(row_num, col_num, column_list[col_num], font_style)
@@ -1256,7 +1256,7 @@ def category_sub_category_mapping_sample_excel_file(request):
     font_style = xlwt.XFStyle()
     font_style.font.bold = True
 
-    columns = ['Sub_Category_ID', 'Sub_Category_Name', 'Category_ID', 'Category_Name', ]
+    columns = ['sub_category_id', 'sub_category_name', 'category_id', 'category_name', ]
 
     for col_num in range(len(columns)):
         ws.write(row_num, col_num, columns[col_num], font_style)
@@ -1297,7 +1297,7 @@ def brand_sub_brand_mapping_sample_excel_file(request):
     font_style = xlwt.XFStyle()
     font_style.font.bold = True
 
-    columns = ['Sub_Brand_ID', 'Sub_Brand_Name', 'Brand_ID', 'Brand_Name', ]
+    columns = ['sub_brand_id', 'sub_brand_name', 'brand_id', 'brand_name', ]
 
     for col_num in range(len(columns)):
         ws.write(row_num, col_num, columns[col_num], font_style)
@@ -1330,6 +1330,8 @@ def upload_master_data_view(request):
     d)Set the data for "Parent SKU"
     e)Mapping of Child SKU to Parent SKU
     f)Set the Child SKU Data
+
+    After following operations, an entry will be created in 'BulkUploadForProductAttributes' Table
     """
     if request.method == 'POST':
         excel_file = request.FILES['file']
@@ -1359,7 +1361,6 @@ def upload_master_data_view(request):
                 excel_dict = {}
                 count = 0
 
-            # Set inactive status for Product
             if request.POST['upload_master_data'] == 'master_data':
                 SetMasterData.set_master_data(excel_file_headers, excel_file_list)
             if request.POST['upload_master_data'] == 'inactive_status':
