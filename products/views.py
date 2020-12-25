@@ -25,6 +25,7 @@ from decimal import Decimal
 
 from retailer_to_sp.models import BulkOrder
 from shops.models import Shop, ShopType
+from brand.models import Vendor
 from addresses.models import City, State, Address, Pincode
 from categories.models import Category
 from brand.models import Brand, Vendor
@@ -33,7 +34,7 @@ from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
     ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
-    UploadChildProductAdminForm, ParentProductImageForm
+    UploadChildProductAdminForm, ParentProductImageForm,BulkProductVendorMapping
     )
 from products.models import (
     Product, ProductCategory, ProductOption,
@@ -748,12 +749,12 @@ def products_export_for_vendor(request):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     # writer.writerow(['id','product_name','product_gf_code','product_sku', 'mrp', 'brand_to_gram_price','case_size'])
-    writer.writerow(['id','product_name', 'product_sku', 'mrp', 'brand_to_gram_price', 'case_size'])
+    writer.writerow(['id','product_name', 'product_sku', 'mrp','brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size'])
     # products = Product.objects.values_list('id','product_name','product_gf_code','product_sku','product_case_size')
     products = Product.objects.all().only('id', 'product_name', 'product_sku', 'product_mrp')
     for product in products:
         # writer.writerow([product[0],product[1],product[2],product[3],'','',product[4]])
-        writer.writerow([product.id, product.product_name, product.product_sku, '', '', product.product_case_size])
+        writer.writerow([product.id, product.product_name, product.product_sku, '', '', '',product.product_case_size])
     return response
 
 def products_vendor_mapping(request,pk=None):
@@ -1554,3 +1555,55 @@ class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
             if self.q:
                 qs = qs.filter(product_name__icontains=self.q)
         return qs
+
+def bulk_product_vendor_csv_upload_view(request):
+    all_vendors = Vendor.objects.all()
+
+    if request.method == 'POST':
+        form = BulkProductVendorMapping(request.POST, request.FILES)
+        
+        if form.errors:
+            return render(request, 'admin/audit/bulk-upload-audit-details.html', {'all_vendor': all_vendors.values(),'form': form})
+
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            vendor_id = request.POST.get('select')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            first_row = next(reader)
+            try:
+                for row_id, row in enumerate(reader):
+                    if len(row) == 0:
+                        continue
+                    if '' in row:
+                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                            continue
+               
+                    if row[4] == "Per Piece":
+                        product_vendor = ProductVendorMapping.objects.create(
+                            vendor = Vendor.objects.get(id=vendor_id),
+                            product=Product.objects.get(id=row[0]),
+                            product_mrp=row[3],
+                            brand_to_gram_price_unit = row[4],
+                            product_price = row[5],
+                            case_size = row[6],
+                        )
+                    else:
+                        product_vendor = ProductVendorMapping.objects.create(
+                            vendor = Vendor.objects.get(id=vendor_id),
+                            product=Product.objects.get(id=row[0]),
+                            product_mrp=row[3],
+                            brand_to_gram_price_unit = row[4],
+                            product_price_pack = row[5],
+                            case_size = row[6],
+                        )
+                    product_vendor.save()       
+            except Exception as e:
+                print(e)
+            return render(request, 'admin/products/bulk-upload-vendor-details.html', {
+                'form': form,
+                'all_vendor': all_vendors.values(),
+                'success': 'Product Vendor Mapping CSV uploaded successfully !',
+            })
+    else:
+        form = BulkProductVendorMapping()
+    return render(request, 'admin/products/bulk-upload-vendor-details.html', {'all_vendor': all_vendors.values(),'form': form})

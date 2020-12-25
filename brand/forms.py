@@ -53,7 +53,6 @@ class VendorForm(forms.ModelForm):
                 for id,row in enumerate(reader):
                     if not row[0]:
                         raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
-
                     try:
                         Product.objects.get(pk=row[0])
                     except:
@@ -87,8 +86,6 @@ class VendorForm(forms.ModelForm):
                     if not row[5] or not re.match("^[\d\,]*$", row[5]):
                         raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("Case_size"))
                 return self.cleaned_data['vendor_products_csv']
-
-
 
 class BrandForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
