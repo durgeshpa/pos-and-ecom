@@ -742,21 +742,6 @@ def export(request):
         writer.writerow([product[0],product[1],'','','',''])
     return response
 
-def products_export_for_vendor(request):
-    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-    filename = str(dt)+"product_list.csv"
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
-    writer = csv.writer(response)
-    # writer.writerow(['id','product_name','product_gf_code','product_sku', 'mrp', 'brand_to_gram_price','case_size'])
-    writer.writerow(['id','product_name', 'product_sku', 'mrp','brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size'])
-    # products = Product.objects.values_list('id','product_name','product_gf_code','product_sku','product_case_size')
-    products = Product.objects.all().only('id', 'product_name', 'product_sku', 'product_mrp')
-    for product in products:
-        # writer.writerow([product[0],product[1],product[2],product[3],'','',product[4]])
-        writer.writerow([product.id, product.product_name, product.product_sku, '', '', '',product.product_case_size])
-        print("wrote")
-    return response
 
 def products_vendor_mapping(request,pk=None):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
@@ -1556,6 +1541,31 @@ class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
             if self.q:
                 qs = qs.filter(product_name__icontains=self.q)
         return qs
+
+def products_export_for_vendor(request, id=None):
+
+    
+
+    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+    filename = str(dt)+"product_list.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+
+    vendor_id = request.GET.get('id',None)
+    vendor = Vendor.objects.get(id=vendor_id)
+    vendor_mapped_product = ProductVendorMapping.objects.filter(vendor=vendor_id)
+
+    if vendor_mapped_product:
+        product_mapped = ProductVendorMapping.objects.filter()
+    
+    else:
+        writer.writerow(['id','product_name', 'product_sku', 'mrp','brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size'])
+        products = Product.objects.all().only('id', 'product_name', 'product_sku', 'product_mrp')
+        for product in products:
+            writer.writerow([product.id, product.product_name, product.product_sku, '', '', '',product.product_case_size])
+   
+    return response
 
 def bulk_product_vendor_csv_upload_view(request):
     all_vendors = Vendor.objects.all()

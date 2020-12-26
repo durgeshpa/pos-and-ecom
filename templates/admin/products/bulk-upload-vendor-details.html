@@ -1,3 +1,4 @@
+
 {% extends 'admin/retailer_to_sp/trip/base.html' %}
 {% block breadcrumb1 %}<a href="/admin/audit/">Audit</a>{% endblock %}
 {% block breadcrumb2 %}<a href="/admin/audit/auditdetail/">Audit Tasks<a>{% endblock %}
@@ -30,28 +31,43 @@
             {% endif %}
         </div>
          <div>
+            
             <form method="post" enctype="multipart/form-data">
                <div>
                 vendors:
-                  <select name ="select" required>
+                  <select name ="select"  id="select" required onChange="selectedValue(this)">
                      <option value="">Please select Vendor</option>
                   {% for vendors in all_vendor %}
-                      
-                        <option value="{{ vendors.id }}">  {{ vendors.vendor_name }} - {{ vendors.mobile }} </option>
+                        <option value="{{ vendors.id }}"> {{ vendors.vendor_name }} - {{ vendors.mobile }} </option>
                   {% endfor %}
                   </select>
-                 
                   <fieldset class="module aligned ">
                      {% csrf_token %}
                      {{form.as_p}}
                   </fieldset>
-                  <a href="{% url 'admin:products_export_for_vendor' %}" target="_blank">Download Products List</a>
+                  
                   <div class="submit-row">
                      <input type="submit" value="Save" class="button" name="_save" > 
                   </div>
                </div>
             </form>
+            
          </div>
+         
       </div>
    </div>
 {% endblock %}
+
+{% block javascript %}
+<script>
+function selectedValue(sel) {
+   var e = document.getElementById("select");
+   var id = e.options[e.selectedIndex].value;
+   var a = document.createElement('a');  
+   var link = document.createTextNode("Download Products List"); 
+   a.appendChild(link);  
+   a.href = "{% url 'admin:products_export_for_vendor' %}?id=ids".replace(/ids/, id);
+   document.body.appendChild(a);  
+ }
+</script>
+ {% endblock javascript %}

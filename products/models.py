@@ -850,7 +850,6 @@ class ProductCapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
-
 class BulkProductTaxUpdate(models.Model):
     file = models.FileField(upload_to='products/producttaxmapping/')
     updated_by = models.ForeignKey(
@@ -866,7 +865,6 @@ class BulkProductTaxUpdate(models.Model):
     def __str__(self):
         return "Product Tax Mapping updated at %s by %s" % (self.created_at,
                                                             self.updated_by)
-
 
 class BulkUploadForGSTChange(models.Model):
     file = models.FileField(upload_to='products/producttaxmapping/')

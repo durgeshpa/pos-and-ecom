@@ -768,7 +768,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name='ajax_load_gf'
             ),
             url(
-                r'^products-export-for-vendor/$',
+                r'^products-export-for-vendor/+(?P<id>\d+)?',
                 self.admin_site.admin_view(products_export_for_vendor),
                 name='products_export_for_vendor'
             ),
