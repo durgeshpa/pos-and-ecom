@@ -755,6 +755,7 @@ def products_export_for_vendor(request):
     for product in products:
         # writer.writerow([product[0],product[1],product[2],product[3],'','',product[4]])
         writer.writerow([product.id, product.product_name, product.product_sku, '', '', '',product.product_case_size])
+        print("wrote")
     return response
 
 def products_vendor_mapping(request,pk=None):
