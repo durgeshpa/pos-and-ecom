@@ -1273,7 +1273,7 @@ class BulkProductVendorMapping(forms.Form):
     """
       Bulk Product Vendor Mapping
     """
-    # Vendor.fields['vendor_products_csv'].help_text = """<h3><a href="%s" target="_blank">Download Products List</a></h3>""" % (reverse('admin:products_export_for_vendor'))
+
     file = forms.FileField(label='Add Bulk Product Vendor Mapping')
 
     class Meta:

@@ -45,8 +45,8 @@
                      {% csrf_token %}
                      {{form.as_p}}
                   </fieldset>
+                  <a href="{% url 'admin:products_export_for_vendor' %}" target="_blank">Download Products List</a>
                   <div class="submit-row">
-                     <a href="{% url 'admin:audit-csv-sample' %}" class="button">Get CSV sample</a>
                      <input type="submit" value="Save" class="button" name="_save" > 
                   </div>
                </div>
