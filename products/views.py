@@ -1544,8 +1544,6 @@ class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
 
 def products_export_for_vendor(request, id=None):
 
-    
-
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
     filename = str(dt)+"product_list.csv"
     response = HttpResponse(content_type='text/csv')
@@ -1556,11 +1554,13 @@ def products_export_for_vendor(request, id=None):
     vendor = Vendor.objects.get(id=vendor_id)
     vendor_mapped_product = ProductVendorMapping.objects.filter(vendor=vendor_id)
 
+    writer.writerow(['id','product_name', 'product_sku', 'mrp','brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size'])
     if vendor_mapped_product:
-        product_mapped = ProductVendorMapping.objects.filter()
-    
+        product_id = ProductVendorMapping.objects.filter(vendor=vendor_id).values('product')
+        products = Product.objects.exclude(id__in=product_id)
+        for product in products:
+            writer.writerow([product.id, product.product_name, product.product_sku, '', '', '',product.product_case_size])
     else:
-        writer.writerow(['id','product_name', 'product_sku', 'mrp','brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size'])
         products = Product.objects.all().only('id', 'product_name', 'product_sku', 'product_mrp')
         for product in products:
             writer.writerow([product.id, product.product_name, product.product_sku, '', '', '',product.product_case_size])
