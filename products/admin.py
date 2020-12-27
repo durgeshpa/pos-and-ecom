@@ -45,7 +45,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
                     ParentProductMultiPhotoUploadView,cart_product_list_status,
-                    bulk_product_vendor_csv_upload_view)
+                    bulk_product_vendor_csv_upload_view,all_product_mapped_to_vendor)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
@@ -771,6 +771,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^products-export-for-vendor/+(?P<id>\d+)?',
                 self.admin_site.admin_view(products_export_for_vendor),
                 name='products_export_for_vendor'
+            ),
+             url(
+                r'^all-product-mapped-to-vendor/+(?P<id>\d+)?',
+                self.admin_site.admin_view(all_product_mapped_to_vendor),
+                name='all_product_mapped_to_vendor'
             ),
             url(
                 r'^multiple-photos-upload/$',

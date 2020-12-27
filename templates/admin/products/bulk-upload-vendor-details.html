@@ -71,12 +71,13 @@ function selectedValue(sel) {
 
    a.appendChild(link);  
    a.target = "_blank";
+   a.style.padding = "20px"
    a.href = "{% url 'admin:products_export_for_vendor' %}?id=ids".replace(/ids/, id);
    document.body.appendChild(a);  
 
    b.appendChild(linkText);  
    b.target = "_blank";
-   b.href = "{% url 'admin:products_export_for_vendor' %}?id=ids".replace(/ids/, id);
+   b.href = "{% url 'admin:all_product_mapped_to_vendor' %}?id=ids".replace(/ids/, id);
    document.body.appendChild(b);  
  }
 </script>
