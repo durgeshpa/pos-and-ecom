@@ -16,7 +16,7 @@ import codecs
 from wms.models import Bin
 from accounts.models import User
 from retailer_to_sp.models import Order, Trip, PickerDashboard
-from wms.views import PicklistRefresh, commit_updates_to_es
+from wms.views import commit_updates_to_es, PicklistRefresh
 from .models import (AuditRun, AuditRunItem, AuditDetail,
                      AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES,
                      AUDIT_RUN_TYPE_CHOICES, AUDIT_STATUS_CHOICES, AuditTicket, AUDIT_TICKET_STATUS_CHOICES,
@@ -634,7 +634,7 @@ def create_pick_list_by_audit(audit_id):
                 pd_obj.save()
         except Exception as e:
             info_logger.error(e)
-            info_logger.error('generate_pick_list|Exception while generating picklist for order {}'.format(o))
+            info_logger.error('generate_pick_list|Exception while generating picklist for order {}'.format(o.order_no))
 
 
 def create_audit_tickets_by_audit(audit_id):

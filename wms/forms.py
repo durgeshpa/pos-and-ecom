@@ -246,7 +246,8 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                 for bin_in in bin_in_obj:
                     if not (bin_in.batch_id == self.instance.batch_id):
                         if bin_in.bin.bin_id == bin_selected.bin_id:
-                            if bin_in.quantity == 0:
+                            qty_present_in_bin = bin_in.quantity + bin_in.to_be_picked_qty
+                            if qty_present_in_bin == 0:
                                 pass
                             else:
                                 raise forms.ValidationError(" You can't perform this action,"
@@ -285,7 +286,8 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                 for bin_in in bin_in_obj:
                     if not (bin_in.batch_id == self.instance.batch_id):
                         if bin_in.bin.bin_id == self.cleaned_data['bin'].bin.bin_id:
-                            if bin_in.quantity == 0:
+                            qty_present_in_bin = bin_in.quantity + bin_in.to_be_picked_qty
+                            if qty_present_in_bin == 0:
                                 pass
                             else:
                                 raise forms.ValidationError(" You can't perform this action,"
@@ -695,14 +697,25 @@ def validation_stock_correction(self):
                 # create batch id
                 if not (bin_in.batch_id == create_batch_id(sku, row[3])):
                     if bin_in.bin.bin_id == row[4]:
-                        if bin_in.quantity == 0:
+                        physical_qty_in_bin = bin_in.quantity + bin_in.to_be_picked_qty
+                        if physical_qty_in_bin == 0:
                             pass
                         else:
                             raise ValidationError(_(
                                 "Issue in Row" + " " + str(row_id + 2) + "," + "Non zero qty of 2 Different"
                                                                                " Batch ID/Expiry date for same SKU"
                                                                                " can’t save in the same Bin."))
-
+        # else:
+        #     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+        #     normal_bin_inventory_object = bin_exp_obj.filter(inventory_type=type_normal).last()
+        #     physical_qty_in_bin = normal_bin_inventory_object.quantity + normal_bin_inventory_object.to_be_picked_qty
+        #     if physical_qty_in_bin == 0:
+        #         pass
+        #     else:
+        #         raise ValidationError(_(
+        #             "Issue in Row" + " " + str(row_id + 2) + "," + "Non zero qty of 2 Different"
+        #                                                            " Batch ID/Expiry date for same SKU"
+        #                                                            " can’t save in the same Bin."))
 
         form_data_list.append(row)
         unique_data_list.append(row[0] + row[2] + row[3] + row[4])

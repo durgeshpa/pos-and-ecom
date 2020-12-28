@@ -2,6 +2,7 @@ import codecs
 import csv
 import datetime
 import re
+from django.urls import reverse
 
 from dal import autocomplete
 from django import forms
@@ -26,7 +27,6 @@ from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
 from wms.models import InventoryType, WarehouseInventory, InventoryState
-
 
 
 class ProductImageForm(forms.ModelForm):
@@ -943,10 +943,26 @@ class ProductVendorMappingForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='admin:product-price-autocomplete', )
     )
-
+   
     class Meta:
         model = ProductVendorMapping
-        fields = ('vendor', 'product', 'product_price', 'product_mrp', 'case_size', )
+        fields = ['vendor', 'product', 'product_price','product_price_pack', 'product_mrp', 'case_size']
+    
+    # this function will be used for the validation
+    def clean(self):
+
+        # data from the form is fetched using super function
+        super(ProductVendorMappingForm, self).clean()
+        product_price = self.cleaned_data.get('product_price')
+        product_price_pack = self.cleaned_data.get('product_price_pack')
+
+
+        if product_price == None and product_price_pack == None:
+            raise forms.ValidationError("Please enter one Brand to Gram Price")
+        
+        if not (product_price == None or product_price_pack == None):
+            raise forms.ValidationError("Please enter only one Brand to Gram Price")
+       
 
 class ProductCappingForm(forms.ModelForm):
     product = forms.ModelChoiceField(
@@ -1190,10 +1206,6 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
         else:
             raise forms.ValidationError("CSV file is required!")
 
-
-
-
-
 class RepackagingForm(forms.ModelForm):
     seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='sp'),
@@ -1222,6 +1234,10 @@ class RepackagingForm(forms.ModelForm):
         }
 
     def clean(self):
+        if 'expiry_date' in  self.cleaned_data:
+            today_date = datetime.date.today()
+            if self.cleaned_data['expiry_date'] < today_date:
+                raise forms.ValidationError("Expiry Date should be greater than or equal to {}".format(today_date))
         if 'source_sku' in self.cleaned_data:
             try:
                 warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=self.cleaned_data['seller_shop'],
@@ -1253,3 +1269,48 @@ class RepackagingForm(forms.ModelForm):
             if key in self.fields:
                 self.fields[key].widget.attrs['readonly'] = True
 
+class BulkProductVendorMapping(forms.Form):
+    """
+      Bulk Product Vendor Mapping
+    """
+
+    file = forms.FileField(label='Add Bulk Product Vendor Mapping')
+
+    class Meta:
+        model = ProductVendorMapping
+       
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted")
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        for id,row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if '' in row:
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                    continue
+            if not row[0]:
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
+            try:
+                Product.objects.get(pk=row[0])
+            except:
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
+
+            if not row[3] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[3]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
+                'EMPTY_OR_NOT_VALID']%("MRP"))
+            
+            if not (row[4] == "Per Piece" or row[4] == "Per Pack"):
+               
+                raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
+                'EMPTY_OR_NOT_VALID_STRING']%("Gram_to_brand_Price_Unit"))
+
+            if not row[5] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[5]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+
+            if not row[6] or not re.match("^[\d\,]*$", row[6]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("Case_size"))
+
+        return self.cleaned_data['file']
+         

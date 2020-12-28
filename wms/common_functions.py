@@ -17,13 +17,10 @@ from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, Wa
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
                      Audit, Out)
 
-import retailer_to_sp.models
-
 from shops.models import Shop
 from products.models import Product, ParentProduct, ProductPrice
 
 # Logger
-
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
@@ -162,6 +159,11 @@ class CommonBinInventoryFunctions(object):
     def get_filtered_bin_inventory(cls, **kwargs):
         bin_inv_data = BinInventory.objects.filter(**kwargs)
         return bin_inv_data
+
+    @classmethod
+    def deduct_to_be_picked_from_bin(cls, qty_picked, bin_inv_obj):
+        bin_inv_obj.to_be_picked_qty = bin_inv_obj.to_be_picked_qty - qty_picked
+        bin_inv_obj.save()
 
 
 class CommonPickupFunctions(object):
@@ -918,6 +920,44 @@ def cancel_order(instance):
 #                                                         inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
 #                                                         quantity=qty)
 
+def cancel_pickup(pickup_object):
+    """
+    Cancels the Pickup
+    Iterates over all the items in PickupBinInventory for particular Pickup,
+    and add item inventory reserved for Pickup back to the BinInventory.
+    Updates quantity in respective BinInventory
+    Updates to_be_picked_quantity in respective BinInventory
+    Makes entry in BinInternalInventoryChange as transaction type 'picking_cancelled'
+    Marks Pickup status as 'picking_cancelled'
+
+    Parameters :
+        pickup_object : instance of Pickup
+
+    """
+    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+    with transaction.atomic():
+        pickup_bin_qs = PickupBinInventory.objects.filter(pickup=pickup_object)
+        for item in pickup_bin_qs:
+            bi_qs = BinInventory.objects.filter(id=item.bin_id)
+            bi = bi_qs.last()
+            bin_quantity = bi.quantity + item.quantity
+            picked_qty = item.pickup_quantity
+            if picked_qty is None:
+                picked_qty = 0
+            remaining_qty = item.quantity - picked_qty
+            to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
+            if to_be_picked_qty < 0:
+                to_be_picked_qty = 0
+            bi_qs.update(quantity=bin_quantity, to_be_picked_qty=to_be_picked_qty)
+            InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
+                                                                         bi.bin,
+                                                                         type_normal, type_normal,
+                                                                         "picking_cancelled",
+                                                                         pickup_object.pk,
+                                                                         item.quantity)
+        pickup_object.status = 'picking_cancelled'
+        pickup_object.save()
+
 
 def cancel_order_with_pick(instance):
     """
@@ -927,25 +967,20 @@ def cancel_order_with_pick(instance):
 
     """
     with transaction.atomic():
+        pickup_object = Pickup.objects.filter(pickup_type_id=instance.order_no)\
+                                      .exclude(status='picking_cancelled').last()
+
+        if pickup_object.status in ['pickup_creation', 'picking_assigned']:
+            cancel_pickup(pickup_object)
+            info_logger.info('cancel_order_with_pick| Order No-{}, Cancelled Pickup'
+                             .format(instance.order_no))
+            return
         # get the queryset object from Pickup Bin Inventory Model
         pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
                                                       .exclude(pickup__status='picking_cancelled')
         # iterate over the PickupBin Inventory object
         for pickup_bin in pickup_bin_object:
-            # if pick up status is pickup creation
-            if (pickup_bin.pickup.status == 'pickup_creation') or (pickup_bin.pickup.status == 'picking_assigned'):
-                put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
-                                                         putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
-                                                         batch_id=pickup_bin.batch_id,
-                                                         )
-                if put_away_object.exists():
-                    quantity = put_away_object[0].quantity + pickup_bin.quantity
-                    pick_up_bin_quantity = pickup_bin.quantity
-                else:
-                    quantity = pickup_bin.quantity
-                    pick_up_bin_quantity = pickup_bin.quantity
-                status = 'Order_Cancelled'
-            elif pickup_bin.pickup.status == 'picking_complete':
+            if pickup_bin.pickup.status == 'picking_complete':
                 quantity = 0
                 pick_up_bin_quantity = 0
                 type_normal = InventoryType.objects.filter(inventory_type='normal').last()

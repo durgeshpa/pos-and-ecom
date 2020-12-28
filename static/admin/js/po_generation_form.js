@@ -60,7 +60,7 @@ if (!$) {
         var row_id = $(this).closest(".form-row").attr("id");
         var row_no = row_id.match(/(\d+)/g);
         var sub_total = parseFloat($('#id_cart_list-'+row_no+'-price').val()) * (parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val()))
-        $('#cart_list-'+row_no+' td.field-total_no_of_pieces p').text(parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val()));
+        $('#id_cart_list-'+row_no+'-no_of_pieces').val(parseFloat($(this).val())* parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()));
         $('#cart_list-'+row_no+' td.field-sub_total p').text(sub_total.toFixed(2));
         $('#id_cart_list-'+row_no+'-no_of_pieces').val(parseFloat($(this).val())* parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()));
 
@@ -101,10 +101,11 @@ function calculateColumn(index) {
 
     $(document).ready(function() {
 
-             $('#mrp').val=$(this).val();
+            $('#mrp').val=$(this).val();
             $('table thead th').each(function(i) {
                 calculateColumn(i);
             });
+       
             $('[id$=no_of_cases]').on('keyup', function(){
                 $('table thead th').each(function(i) {
                 calculateColumn(i);
@@ -112,7 +113,7 @@ function calculateColumn(index) {
             });
 
         $('.field-no_of_pieces input[type="text"]').prop('readonly', true);
-
+      
 
         var row = 0
         var dt = ""
@@ -219,6 +220,7 @@ function getLastGrnProductDetails(parent_id_select) {
 }
 
 function getProductVendorPriceDetails(product_id_select) {
+
     if (!$) {
         $ = django.jQuery;
     }
@@ -240,13 +242,15 @@ function getProductVendorPriceDetails(product_id_select) {
                 $('#cart_list-'+row_no+' td.field-case_sizes p').text(response.case_size);
                 $('#cart_list-'+row_no+' td.field-sku p').text(response.sku);
                 $('#cart_list-'+row_no+' td.field-mrp p').text(response.mrp);
+                $('#cart_list-'+row_no+' td.field-brand_to_gram_price_units p').text(response.brand_to_gram_price_unit);
             } else {
                 $('#cart_list-'+row_no+' td.field-tax_percentage p').text(response.tax_percentage);
                 $('#id_cart_list-'+row_no+'-price').val(0);
                 $('#id_cart_list-'+row_no+'-case_size').val(0);
                 $('#id_cart_list-'+row_no+'-inner_case_size').val(0);
                 $('#cart_list-'+row_no+' td.field-case_sizes p').text("-");
-                $('#cart_list-'+row_no+' td.field-sku p').text("-");
+                $('#cart_list-'+row_no+' td.field-sku-sku p').text("-");
+                $('#cart_list-'+row_no+' td.field-brand_to_gram_price_units p').text("-");
                 $('#cart_list-'+row_no+' td.field-mrp p').text("-");
             }
         },
