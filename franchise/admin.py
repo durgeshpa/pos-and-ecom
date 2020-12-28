@@ -7,7 +7,7 @@ from django_admin_listfilter_dropdown.filters import DropdownFilter, ChoiceDropd
 
 from franchise.models import Fbin, Faudit, HdposDataFetch, FranchiseSales, FranchiseReturns, ShopLocationMap
 from franchise.forms import FranchiseBinForm, FranchiseAuditCreationForm
-from franchise.filters import ShopLocFilter, BarcodeFilter, ShopFilter
+from franchise.filters import ShopLocFilter, BarcodeFilter, ShopFilter, ShopLocFilter1
 from wms.admin import BinAdmin, BinIdFilter
 from audit.admin import AuditDetailAdmin, AuditNoFilter, AuditorFilter
 
@@ -120,7 +120,7 @@ class FranchiseReturnsAdmin(admin.ModelAdmin):
 @admin.register(ShopLocationMap)
 class ShopLocationMapAdmin(admin.ModelAdmin):
     list_display = [field.name for field in ShopLocationMap._meta.get_fields()]
-    list_filter = [ShopFilter]
+    list_filter = [ShopFilter, ShopLocFilter1]
 
     class Media:
         pass

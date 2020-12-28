@@ -16,6 +16,17 @@ class ShopLocFilter(InputFilter):
         return queryset
 
 
+class ShopLocFilter1(InputFilter):
+    title = 'Shop Location'
+    parameter_name = 'location_name'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(location_name__icontains=value)
+        return queryset
+
+
 class BarcodeFilter(InputFilter):
     title = 'Barcode'
     parameter_name = 'barcode'
@@ -29,7 +40,7 @@ class BarcodeFilter(InputFilter):
 
 class ShopFilter(AutocompleteFilter):
     title = 'Warehouse'
-    field_name = 'warehouse'
+    field_name = 'shop'
     autocomplete_url = 'franchise-shop-autocomplete'
 
 
