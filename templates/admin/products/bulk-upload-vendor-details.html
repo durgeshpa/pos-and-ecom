@@ -1,8 +1,8 @@
 
 {% extends 'admin/retailer_to_sp/trip/base.html' %}
-{% block breadcrumb1 %}<a href="/admin/audit/">Audit</a>{% endblock %}
-{% block breadcrumb2 %}<a href="/admin/audit/auditdetail/">Audit Tasks<a>{% endblock %}
-{% block breadcrumb3 %}<a href="#">Upload Audit List</a>{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/products/">Products</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/products/productvendormapping/">Product Vendor Mapping<a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Upload Product Vendor List</a>{% endblock %}
 {% block content %}
 <div id="content" class="colM">
      
@@ -30,22 +30,24 @@
             {% endif %}
         </div>
          <div>
-            
             <form method="post" enctype="multipart/form-data">
                <div>
                 vendors:
                   <select name ="select"  id="select" required onChange="selectedValue(this)">
-                     <option value="">Please select Vendor</option>
+                     <option value="" disabled selected>Please select Vendor</option>
+
                   {% for vendors in all_vendor %}
                         <option value="{{ vendors.id }}"> {{ vendors.vendor_name }} - {{ vendors.mobile }} </option>
                   {% endfor %}
                   </select>
+                  
                   <fieldset class="module aligned ">
                      {% csrf_token %}
                      {{form.as_p}}
                   </fieldset>
                   
                   <div class="submit-row">
+                     <span id="insert"></span>
                      <input type="submit" value="Save" class="button" name="_save" > 
                   </div>
                </div>
@@ -59,27 +61,35 @@
 
 {% block javascript %}
 <script>
-function selectedValue(sel) {
+$(function () {
+  $("select").select2();
+});
+function selectedValue(select) {
+   
    var e = document.getElementById("select");
    var id = e.options[e.selectedIndex].value;
- 
-   var a = document.createElement('a'); 
-   var b = document.createElement('a');  
-   var link = document.createTextNode("Download Products List"); 
-   var linkText = document.createTextNode("Download All Product Vendor Mappings for selected vendor");
    
+   var a = document.createElement('a');
+   
+   var b = document.createElement('a');  
 
-   a.appendChild(link);  
+   var link = document.createTextNode("Download Products List"); 
+  
+   var linkText = document.createTextNode("Download All Product Vendor Mappings for selected vendor");
+
+   a.appendChild(link); 
    a.target = "_blank";
    a.style.padding = "20px"
    a.href = "{% url 'admin:products_export_for_vendor' %}?id=ids".replace(/ids/, id);
-   document.body.appendChild(a);  
+   document.getElementById('insert').appendChild(a);  
 
    b.appendChild(linkText);  
    b.target = "_blank";
    b.href = "{% url 'admin:all_product_mapped_to_vendor' %}?id=ids".replace(/ids/, id);
-   document.body.appendChild(b);  
+   document.getElementById('insert').appendChild(b);  
+   
  }
+
 </script>
   
 
