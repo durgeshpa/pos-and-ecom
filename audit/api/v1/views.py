@@ -466,7 +466,8 @@ class AuditBinList(APIView):
                     audit_done = True
                 b['audit_done'] = audit_done
 
-        data = {'bin_count': len(audit_bins), 'sku_count': len(audit_skus), 'sku_to_audit': audit_skus,
+        data = {'audit_no': audit_no, 'started_at': audit.created_at, 'current_time': timezone.now(),
+                'bin_count': len(audit_bins), 'sku_count': len(audit_skus), 'sku_to_audit': audit_skus,
                 'bins_to_audit': audit_bins}
         msg = {'is_success': True, 'message': 'OK', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
@@ -511,7 +512,8 @@ class AuditBinsBySKUList(APIView):
             b['audit_done'] = audit_done
 
 
-        data = {'bin_count': len(bins_to_audit), 'sku': audit_sku, 'product_name': product.product_name,
+        data = {'audit_no': audit_no, 'started_at': audit.created_at, 'current_time': timezone.now(),
+                'bin_count': len(bins_to_audit), 'sku': audit_sku, 'product_name': product.product_name,
                 'product_mrp': product.product_mrp, 'product_image': product_image,
                 'sku_bins': bins_to_audit}
         msg = {'is_success': True, 'message': 'OK', 'data': data}

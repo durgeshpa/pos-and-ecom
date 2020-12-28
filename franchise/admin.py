@@ -5,7 +5,7 @@ from django.db.models import Q
 from rangefilter.filter import DateTimeRangeFilter
 from django_admin_listfilter_dropdown.filters import DropdownFilter
 
-from franchise.models import Fbin, Faudit
+from franchise.models import Fbin, Faudit, HdposDataFetch, FranchiseSales, FranchiseReturns, ShopLocationMap
 from franchise.forms import FranchiseBinForm, FranchiseAuditCreationForm
 from wms.admin import BinAdmin, BinIdFilter
 from audit.admin import AuditDetailAdmin, AuditNoFilter, AuditorFilter
@@ -19,16 +19,20 @@ class FranchiseBinAdmin(BinAdmin):
                    ('bin_type', DropdownFilter)]
 
     def get_urls(self):
+        # To not overwrite existing url names for BinAdmin
         urls = super(BinAdmin, self).get_urls()
         return urls
 
     def get_queryset(self, request):
         qs = super(FranchiseBinAdmin, self).get_queryset(request)
+        # Only Bins for shop type "Franchise" under B2C Franchise Management
         qs = qs.filter(warehouse__shop_type__shop_type='f')
+        # Show bins for the logged in user warehouse/franchise only
         if not request.user.is_superuser:
             qs = qs.filter(Q(warehouse__related_users=request.user) | Q(warehouse__shop_owner=request.user))
         return qs
 
+    # Default franchise virtual bin is created when franchise shop is approved. Other bins cannot be created.
     def has_add_permission(self, request, obj=None):
         return False
 
@@ -46,14 +50,71 @@ class FranchiseAuditAdmin(AuditDetailAdmin):
     list_filter = [AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
 
     def get_urls(self):
+        # To not overwrite existing url names for AuditDetailAdmin
         urls = super(AuditDetailAdmin, self).get_urls()
         return urls
 
+    # custom template used for AuditDetailAdmin not required here
     change_list_template = 'admin/change_list.html'
 
     def get_queryset(self, request):
         qs = super(FranchiseAuditAdmin, self).get_queryset(request)
+        # Only Audits for shop type "Franchise" under B2C Franchise Management
         qs = qs.filter(warehouse__shop_type__shop_type='f')
+        # Show audits for the logged in user warehouse/franchise only
         if not request.user.is_superuser:
             qs = qs.filter(Q(warehouse__related_users=request.user) | Q(warehouse__shop_owner=request.user))
         return qs
+
+
+@admin.register(HdposDataFetch)
+class HdposDataFetchAdmin(admin.ModelAdmin):
+    list_display = [field.name for field in HdposDataFetch._meta.get_fields()]
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(FranchiseSales)
+class FranchiseSalesAdmin(admin.ModelAdmin):
+    list_display = [field.name for field in FranchiseSales._meta.get_fields()]
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(FranchiseReturns)
+class FranchiseReturnsAdmin(admin.ModelAdmin):
+    list_display = [field.name for field in FranchiseReturns._meta.get_fields()]
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ShopLocationMap)
+class ShopLocationMapAdmin(admin.ModelAdmin):
+    list_display = [field.name for field in ShopLocationMap._meta.get_fields()]
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+

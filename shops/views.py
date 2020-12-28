@@ -56,7 +56,7 @@ class ShopMappedProduct(TemplateView):
             context['shop_products'] = product_sum
 
 
-        elif shop_obj.shop_type.shop_type == 'sp':
+        elif shop_obj.shop_type.shop_type in ['sp', 'f']:
             product_list = {}
             bin_inventory_state = InventoryState.objects.filter(inventory_state="available").last()
             products = WarehouseInventory.objects.filter(warehouse=shop_obj, inventory_state=bin_inventory_state)
@@ -96,7 +96,7 @@ class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
             return qs
         shop_type = self.forwarded.get('shop_type', None)
         if shop_type:
-            dt = {'r': 'sp', 'sp': 'gf'}
+            dt = {'r': 'sp', 'sp': 'gf', 'f': 'sp'}
             qs = Shop.objects.filter(shop_type__shop_type=dt[ShopType.objects.get(id=shop_type).shop_type])
         else:
             qs = Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp'])

@@ -85,16 +85,19 @@ class POGenerationForm(forms.ModelForm):
 
     def clean(self):
         if self.cleaned_data['cart_product_mapping_csv']:
+    
             if not self.cleaned_data['cart_product_mapping_csv'].name[-4:] in ('.csv'):
                 raise forms.ValidationError("Sorry! Only csv file accepted")
             reader = csv.reader(codecs.iterdecode(self.cleaned_data['cart_product_mapping_csv'], 'utf-8'))
             first_row = next(reader)
             for id,row in enumerate(reader):
+                
                 if not row[0]:
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Parent Product ID cannot be empty")
 
                 try:
                     parent_product = ParentProduct.objects.get(parent_id=row[0])
+            
                 except:
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
                     'INVALID_PARENT_ID'])
@@ -113,6 +116,7 @@ class POGenerationForm(forms.ModelForm):
                     'EMPTY']%("Case_Size"))
 
                 if not row[6] or not re.match("^[\d\,]*$", row[6]):
+                
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("No_of_cases"))
 
@@ -120,7 +124,11 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("MRP"))
 
-                if not row[8] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[8]):
+                if not (row[8] == "Per Piece" or row[8] == "Per Pack"):
+                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
+                    'EMPTY_OR_NOT_VALID_STRING']%("Gram_to_brand_Price_Unit"))
+
+                if not row[9] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[9]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("Gram_to_brand"))
 
@@ -279,11 +287,18 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
             for item in ordered_cart.products.order_by('product_name'):
                 already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('delivered_qty'))
                 already_return = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('returned_qty'))
+                def price(self):
+                    if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price:
+                        po_product_price = item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price
+                        return po_product_price
+                    else :
+                        po_product_price =  item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price_pack if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price
+                        return po_product_price
                 initial.append({
                     'product' : item,
                     'product_mrp': item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_mrp if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else '-',
                     'po_product_quantity': item.cart_product_mapping.filter(cart=ordered_cart).last().qty,
-                    'po_product_price':  item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price,
+                    'po_product_price':price(self),
                     'already_grned_product': 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum'),
                     'already_returned_product': 0 if already_return.get('returned_qty__sum') == None else already_return.get('returned_qty__sum'),
                     })
