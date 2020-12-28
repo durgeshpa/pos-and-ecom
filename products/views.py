@@ -1597,7 +1597,6 @@ def bulk_product_vendor_csv_upload_view(request):
         form = BulkProductVendorMapping(request.POST, request.FILES)
         
         if form.errors:
-            print("ok")
             return render(request, 'admin/products/bulk-upload-vendor-details.html', {
                 'form': form,
                 'all_vendor': all_vendors.values(),
