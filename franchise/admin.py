@@ -3,10 +3,11 @@
 from django.contrib import admin
 from django.db.models import Q
 from rangefilter.filter import DateTimeRangeFilter
-from django_admin_listfilter_dropdown.filters import DropdownFilter
+from django_admin_listfilter_dropdown.filters import DropdownFilter, ChoiceDropdownFilter
 
 from franchise.models import Fbin, Faudit, HdposDataFetch, FranchiseSales, FranchiseReturns, ShopLocationMap
 from franchise.forms import FranchiseBinForm, FranchiseAuditCreationForm
+from franchise.filters import ShopLocFilter, BarcodeFilter, ShopFilter, ShopLocFilter1
 from wms.admin import BinAdmin, BinIdFilter
 from audit.admin import AuditDetailAdmin, AuditNoFilter, AuditorFilter
 
@@ -16,7 +17,7 @@ class FranchiseBinAdmin(BinAdmin):
     form = FranchiseBinForm
 
     list_filter = [BinIdFilter, ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter),
-                   ('bin_type', DropdownFilter)]
+                   ShopFilter, ('bin_type', DropdownFilter)]
 
     def get_urls(self):
         # To not overwrite existing url names for BinAdmin
@@ -47,7 +48,7 @@ class FranchiseBinAdmin(BinAdmin):
 class FranchiseAuditAdmin(AuditDetailAdmin):
     form = FranchiseAuditCreationForm
 
-    list_filter = [AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
+    list_filter = [ShopFilter, AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
 
     def get_urls(self):
         # To not overwrite existing url names for AuditDetailAdmin
@@ -83,6 +84,11 @@ class HdposDataFetchAdmin(admin.ModelAdmin):
 @admin.register(FranchiseSales)
 class FranchiseSalesAdmin(admin.ModelAdmin):
     list_display = [field.name for field in FranchiseSales._meta.get_fields()]
+    list_filter = [ShopLocFilter, BarcodeFilter, ('invoice_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
+
+    class Media:
+        pass
+
     def has_add_permission(self, request, obj=None):
         return False
 
@@ -96,6 +102,11 @@ class FranchiseSalesAdmin(admin.ModelAdmin):
 @admin.register(FranchiseReturns)
 class FranchiseReturnsAdmin(admin.ModelAdmin):
     list_display = [field.name for field in FranchiseReturns._meta.get_fields()]
+    list_filter = [ShopLocFilter, BarcodeFilter, ('sr_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
+
+    class Media:
+        pass
+
     def has_add_permission(self, request, obj=None):
         return False
 
@@ -109,6 +120,11 @@ class FranchiseReturnsAdmin(admin.ModelAdmin):
 @admin.register(ShopLocationMap)
 class ShopLocationMapAdmin(admin.ModelAdmin):
     list_display = [field.name for field in ShopLocationMap._meta.get_fields()]
+    list_filter = [ShopFilter, ShopLocFilter1]
+
+    class Media:
+        pass
+
     def has_add_permission(self, request, obj=None):
         return False
 

@@ -35,11 +35,11 @@ class Command(BaseCommand):
                                                       quantity=5, amount=400, invoice_date=datetime.date.today(),
                                                       invoice_number='aaaa')
                         FranchiseReturns.objects.create(shop_loc=slm.location_name, barcode=product.sku.product_ean_code,
-                                                        quantity=-5, amount=400, sr_date=datetime.date.today(),
+                                                        quantity=-2, amount=400, sr_date=datetime.date.today(),
                                                         sr_number='aaaa', invoice_number='iiii')
                         FranchiseReturns.objects.create(shop_loc=slm.location_name,
                                                         barcode=product.sku.product_ean_code,
-                                                        quantity=5, amount=400, sr_date=datetime.date.today(),
+                                                        quantity=2, amount=400, sr_date=datetime.date.today(),
                                                         sr_number='aaaa', invoice_number='iiii')
                         FranchiseReturns.objects.create(shop_loc='Franchise_dummy' + str(count),
                                                         barcode=product.sku.product_ean_code,
