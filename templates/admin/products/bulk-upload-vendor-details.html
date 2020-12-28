@@ -37,7 +37,7 @@
                      <option value="" disabled selected>Please select Vendor</option>
 
                   {% for vendors in all_vendor %}
-                        <option value="{{ vendors.id }}"> {{ vendors.vendor_name }} - {{ vendors.mobile }} </option>
+                        <option value="{{ vendors.id }}" > {{ vendors.vendor_name }} - {{ vendors.mobile }} </option>
                   {% endfor %}
                   </select>
                   
@@ -46,8 +46,9 @@
                      {{form.as_p}}
                   </fieldset>
                   
-                  <div class="submit-row">
-                     <span id="insert"></span>
+                  <div class="submit-row"><pre>
+                     <a id="insert_product">Download Products List</a><pre>
+                     <a id="insert_vendor">Download All Product Vendor Mappings for selected vendor</a></pre>
                      <input type="submit" value="Save" class="button" name="_save" > 
                   </div>
                </div>
@@ -64,29 +65,13 @@
 $(function () {
   $("select").select2();
 });
+
 function selectedValue(select) {
-   
+  
    var e = document.getElementById("select");
    var id = e.options[e.selectedIndex].value;
-   
-   var a = document.createElement('a');
-   
-   var b = document.createElement('a');  
-
-   var link = document.createTextNode("Download Products List"); 
-  
-   var linkText = document.createTextNode("Download All Product Vendor Mappings for selected vendor");
-
-   a.appendChild(link); 
-   a.target = "_blank";
-   a.style.padding = "20px"
-   a.href = "{% url 'admin:products_export_for_vendor' %}?id=ids".replace(/ids/, id);
-   document.getElementById('insert').appendChild(a);  
-
-   b.appendChild(linkText);  
-   b.target = "_blank";
-   b.href = "{% url 'admin:all_product_mapped_to_vendor' %}?id=ids".replace(/ids/, id);
-   document.getElementById('insert').appendChild(b);  
+   document.getElementById("insert_product").href = "{% url 'admin:products_export_for_vendor' %}?id=ids".replace(/ids/, id);
+   document.getElementById("insert_vendor").href = "{% url 'admin:all_product_mapped_to_vendor' %}?id=ids".replace(/ids/, id);
    
  }
 
