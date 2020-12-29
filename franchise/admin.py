@@ -11,6 +11,7 @@ from franchise.forms import FranchiseBinForm, FranchiseAuditCreationForm, ShopLo
 from franchise.filters import ShopLocFilter, BarcodeFilter, ShopFilter, ShopLocFilter1, FranchiseShopAutocomplete
 from wms.admin import BinAdmin, BinIdFilter
 from audit.admin import AuditDetailAdmin, AuditNoFilter, AuditorFilter
+from products.models import Product
 
 
 class ExportCsvMixin:
@@ -102,13 +103,22 @@ class HdposDataFetchAdmin(admin.ModelAdmin):
 
 @admin.register(FranchiseSales)
 class FranchiseSalesAdmin(admin.ModelAdmin, ExportCsvMixin):
-    list_display = [field.name for field in FranchiseSales._meta.get_fields()]
+    list_display = ['id', 'shop_loc', 'shop_name', 'barcode', 'product_sku', 'quantity', 'amount', 'process_status',
+                    'error', 'invoice_number', 'invoice_date', 'created_at', 'modified_at']
     list_per_page = 50
     actions = ["export_as_csv"]
     list_filter = [ShopLocFilter, BarcodeFilter, ('invoice_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
 
     class Media:
         pass
+
+    def shop_name(self, obj):
+        return ShopLocationMap.objects.filter(location_name=obj.shop_loc).last().shop \
+            if ShopLocationMap.objects.filter(location_name=obj.shop_loc).exists() else '-'
+
+    def product_sku(self, obj):
+        return Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
+            if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else '-'
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -122,13 +132,22 @@ class FranchiseSalesAdmin(admin.ModelAdmin, ExportCsvMixin):
 
 @admin.register(FranchiseReturns)
 class FranchiseReturnsAdmin(admin.ModelAdmin, ExportCsvMixin):
-    list_display = [field.name for field in FranchiseReturns._meta.get_fields()]
+    list_display = ['id', 'shop_loc', 'shop_name', 'barcode', 'product_sku', 'quantity', 'amount', 'process_status',
+                    'error', 'sr_number', 'sr_date', 'created_at', 'modified_at']
     list_per_page = 50
     actions = ["export_as_csv"]
     list_filter = [ShopLocFilter, BarcodeFilter, ('sr_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
 
     class Media:
         pass
+
+    def shop_name(self, obj):
+        return ShopLocationMap.objects.filter(location_name=obj.shop_loc).last().shop \
+            if ShopLocationMap.objects.filter(location_name=obj.shop_loc).exists() else '-'
+
+    def product_sku(self, obj):
+        return Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
+            if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else '-'
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -163,14 +182,11 @@ class ShopLocationMapAdmin(admin.ModelAdmin, ExportCsvMixin):
     class Media:
         pass
 
-    def has_add_permission(self, request, obj=None):
-        return True
-
     def has_delete_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
+        if not request.user.is_superuser:
+            return False
 
     def has_change_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
+        if not request.user.is_superuser:
+            return False
 
