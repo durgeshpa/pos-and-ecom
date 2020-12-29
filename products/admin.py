@@ -220,11 +220,6 @@ class VendorFilter(AutocompleteFilter):
     title = 'Vendor Name' # display title
     field_name = 'vendor' # name of the foreign key field
 
-# class StatusFilter(AutocompleteFilter):
-#     title = 'Product Name' # display title
-#     field_name = 'product__status' # name of the foreign key field
-
-
 class ExportProductVendor:
     def export_as_csv_product_vendormapping(self, request, queryset):
         meta = self.model._meta
@@ -245,7 +240,7 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
     fields = ('vendor', 'product', 'product_price','product_price_pack','product_mrp','case_size')
 
     list_display = ('vendor', 'product','product_price','product_price_pack','product_mrp','case_size','created_at','status','product_status')
-    list_filter = [VendorFilter,ProductFilter,'product__status','status']
+    list_filter = [VendorFilter,ProductFilter,product__status,'status']
     form = ProductVendorMappingForm
     readonly_fields = ['brand_to_gram_price_unit',]
     change_list_template = 'admin/products/bulk_product_vendor_mapping_change_list.html'
