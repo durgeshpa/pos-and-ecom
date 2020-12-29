@@ -1578,7 +1578,7 @@ def all_product_mapped_to_vendor(request, id=None):
     if vendor_mapped_product:
         products_vendors = ProductVendorMapping.objects.filter(vendor=vendor_id).only('product','vendor', 'brand_to_gram_price_unit', 'product_price', 'product_price_pack','case_size')
         for product_vendor in products_vendors:
-            if product_vendor.product.status=="active":
+            if product_vendor.status==True:
                 if product_vendor.brand_to_gram_price_unit=="Per Piece":
                     writer.writerow([product_vendor.product.id, product_vendor.product.product_name, product_vendor.product.product_sku, product_vendor.product_mrp,product_vendor.brand_to_gram_price_unit,product_vendor.product_price,product_vendor.case_size])
                 else:
