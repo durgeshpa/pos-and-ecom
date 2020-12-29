@@ -39,7 +39,7 @@ class BarcodeFilter(InputFilter):
 
 
 class ShopFilter(AutocompleteFilter):
-    title = 'Warehouse'
+    title = 'Shop'
     field_name = 'shop'
     autocomplete_url = 'franchise-shop-autocomplete'
 
@@ -54,3 +54,9 @@ class FranchiseShopAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
+
+
+class WarehouseFilter(AutocompleteFilter):
+    title = 'Warehouse'
+    field_name = 'warehouse'
+    autocomplete_url = 'franchise-shop-autocomplete'
