@@ -1,10 +1,12 @@
 from django.db.models import Q
 from django import forms
+from dal import autocomplete
 
 from accounts.middlewares import get_current_user
 from wms.forms import BinForm
 from audit.forms import AuditCreationForm
 from shops.models import Shop
+from franchise.models import ShopLocationMap
 
 
 class FranchiseBinForm(BinForm):
@@ -50,3 +52,14 @@ class FranchiseAuditCreationForm(AuditCreationForm):
         # Audit can only be manual for Franchise shops. Cannot be automated currently.
         if 'audit_run_type' in self.fields:
             self.fields['audit_run_type'].choices = [c for c in self.fields['audit_run_type'].choices if c[0] == 0]
+
+
+class ShopLocationMapForm(forms.ModelForm):
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='f'),
+        widget=autocomplete.ModelSelect2(url='admin:franchise-shop-autocomplete',)
+    )
+
+    class Meta:
+        model = ShopLocationMap
+        fields = ('shop', 'location_name')

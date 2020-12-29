@@ -28,7 +28,7 @@ class ShopLocFilter1(InputFilter):
 
 
 class BarcodeFilter(InputFilter):
-    title = 'Barcode'
+    title = 'Barcode / Product Ean'
     parameter_name = 'barcode'
 
     def queryset(self, request, queryset):
