@@ -1549,7 +1549,6 @@ def products_export_for_vendor(request, id=None):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    
     vendor_id = request.GET.get('id',None)
     vendor_mapped_product = ProductVendorMapping.objects.filter(vendor=vendor_id)
 
@@ -1573,14 +1572,11 @@ def all_product_mapped_to_vendor(request, id=None):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-
     vendor_id = request.GET.get('id',None)
-    vendor = Vendor.objects.get(id=vendor_id)
     vendor_mapped_product = ProductVendorMapping.objects.filter(vendor=vendor_id)
     writer.writerow(['id','product_name', 'product_sku', 'mrp','brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size'])
     if vendor_mapped_product:
         products_vendors = ProductVendorMapping.objects.filter(vendor=vendor_id).only('product','vendor', 'brand_to_gram_price_unit', 'product_price', 'product_price_pack','case_size')
-
         for product_vendor in products_vendors:
             if product_vendor.product.status=="active":
                 if product_vendor.brand_to_gram_price_unit=="Per Piece":
