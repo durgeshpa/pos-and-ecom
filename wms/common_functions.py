@@ -17,13 +17,10 @@ from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, Wa
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease,
                      Audit, Out)
 
-import retailer_to_sp.models
-
 from shops.models import Shop
 from products.models import Product, ParentProduct, ProductPrice
 
 # Logger
-
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
@@ -64,7 +61,7 @@ class PutawayCommonFunctions(object):
     @classmethod
     def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity,
                        inventory_type):
-        if warehouse.shop_type.shop_type == 'sp':
+        if warehouse.shop_type.shop_type in ['sp', 'f']:
             putaway_obj = Putaway.objects.create(warehouse=warehouse, putaway_type=putaway_type,
                                                  putaway_type_id=putaway_type_id, sku=sku,
                                                  batch_id=batch_id, quantity=quantity,
@@ -103,7 +100,7 @@ class InCommonFunctions(object):
 
     @classmethod
     def create_only_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, inventory_type):
-        if warehouse.shop_type.shop_type == 'sp':
+        if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, quantity=quantity, expiry_date=get_expiry_date_db(batch_id),
                                        inventory_type=inventory_type)
@@ -119,7 +116,7 @@ class OutCommonFunctions(object):
 
     @classmethod
     def create_out(cls, warehouse, out_type, out_type_id, sku, batch_id, quantity, inventory_type):
-        if warehouse.shop_type.shop_type == 'sp':
+        if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = Out.objects.create(warehouse=warehouse, out_type=out_type, out_type_id=out_type_id, sku=sku,
                                         batch_id=batch_id, quantity=quantity, inventory_type=inventory_type)
             return in_obj
@@ -162,6 +159,11 @@ class CommonBinInventoryFunctions(object):
     def get_filtered_bin_inventory(cls, **kwargs):
         bin_inv_data = BinInventory.objects.filter(**kwargs)
         return bin_inv_data
+
+    @classmethod
+    def deduct_to_be_picked_from_bin(cls, qty_picked, bin_inv_obj):
+        bin_inv_obj.to_be_picked_qty = bin_inv_obj.to_be_picked_qty - qty_picked
+        bin_inv_obj.save()
 
 
 class CommonPickupFunctions(object):
@@ -918,6 +920,44 @@ def cancel_order(instance):
 #                                                         inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
 #                                                         quantity=qty)
 
+def cancel_pickup(pickup_object):
+    """
+    Cancels the Pickup
+    Iterates over all the items in PickupBinInventory for particular Pickup,
+    and add item inventory reserved for Pickup back to the BinInventory.
+    Updates quantity in respective BinInventory
+    Updates to_be_picked_quantity in respective BinInventory
+    Makes entry in BinInternalInventoryChange as transaction type 'picking_cancelled'
+    Marks Pickup status as 'picking_cancelled'
+
+    Parameters :
+        pickup_object : instance of Pickup
+
+    """
+    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+    with transaction.atomic():
+        pickup_bin_qs = PickupBinInventory.objects.filter(pickup=pickup_object)
+        for item in pickup_bin_qs:
+            bi_qs = BinInventory.objects.filter(id=item.bin_id)
+            bi = bi_qs.last()
+            bin_quantity = bi.quantity + item.quantity
+            picked_qty = item.pickup_quantity
+            if picked_qty is None:
+                picked_qty = 0
+            remaining_qty = item.quantity - picked_qty
+            to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
+            if to_be_picked_qty < 0:
+                to_be_picked_qty = 0
+            bi_qs.update(quantity=bin_quantity, to_be_picked_qty=to_be_picked_qty)
+            InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
+                                                                         bi.bin,
+                                                                         type_normal, type_normal,
+                                                                         "picking_cancelled",
+                                                                         pickup_object.pk,
+                                                                         item.quantity)
+        pickup_object.status = 'picking_cancelled'
+        pickup_object.save()
+
 
 def cancel_order_with_pick(instance):
     """
@@ -927,25 +967,20 @@ def cancel_order_with_pick(instance):
 
     """
     with transaction.atomic():
+        pickup_object = Pickup.objects.filter(pickup_type_id=instance.order_no)\
+                                      .exclude(status='picking_cancelled').last()
+
+        if pickup_object.status in ['pickup_creation', 'picking_assigned']:
+            cancel_pickup(pickup_object)
+            info_logger.info('cancel_order_with_pick| Order No-{}, Cancelled Pickup'
+                             .format(instance.order_no))
+            return
         # get the queryset object from Pickup Bin Inventory Model
         pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
                                                       .exclude(pickup__status='picking_cancelled')
         # iterate over the PickupBin Inventory object
         for pickup_bin in pickup_bin_object:
-            # if pick up status is pickup creation
-            if (pickup_bin.pickup.status == 'pickup_creation') or (pickup_bin.pickup.status == 'picking_assigned'):
-                put_away_object = Putaway.objects.filter(warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
-                                                         putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
-                                                         batch_id=pickup_bin.batch_id,
-                                                         )
-                if put_away_object.exists():
-                    quantity = put_away_object[0].quantity + pickup_bin.quantity
-                    pick_up_bin_quantity = pickup_bin.quantity
-                else:
-                    quantity = pickup_bin.quantity
-                    pick_up_bin_quantity = pickup_bin.quantity
-                status = 'Order_Cancelled'
-            elif pickup_bin.pickup.status == 'picking_complete':
+            if pickup_bin.pickup.status == 'picking_complete':
                 quantity = 0
                 pick_up_bin_quantity = 0
                 type_normal = InventoryType.objects.filter(inventory_type='normal').last()
@@ -1981,3 +2016,61 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
                                                                  final_type[0], transaction_type,
                                                                  transaction_id, quantity)
 
+
+def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_product_batch, initial_type, final_type,
+                                             initial_stage, final_stage):
+    """
+        Add single delivered product batch to franchise shop Inventory after trip is closed. From new to normal, available
+        warehouse: Franchise Shop / Buyer Shop
+        bin_obj: Virtual default bin for Franchise Shop
+        shipment_product_batch: OrderedProductBatch
+    """
+
+    if shipment_product_batch.delivered_qty > 0:
+        sku = shipment_product_batch.ordered_product_mapping.product
+        batch_id = shipment_product_batch.batch_id
+        info_logger.info("Franchise Product Batch update after Trip. Shop: {}, Batch: {}, Shipment Product Batch Id: {}".
+                         format(warehouse, batch_id, shipment_product_batch.id))
+        quantity = shipment_product_batch.delivered_qty
+        transaction_type = 'franchise_batch_in'
+        transaction_id = shipment_product_batch.id
+        franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type, transaction_id, final_type,
+                               initial_type, initial_stage, final_stage, bin_obj)
+
+
+def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type, transaction_id, final_type,
+                           initial_type, initial_stage, final_stage, bin_obj):
+
+    InCommonFunctions.create_only_in(warehouse, transaction_type, transaction_id, sku, batch_id, quantity,
+                                     final_type[0])
+
+    putaway = PutawayCommonFunctions.create_putaway(warehouse, transaction_type, transaction_id, sku, batch_id,
+                                                    quantity, quantity, final_type[0])
+
+    bin_inv_obj = BinInventory.objects.filter(warehouse=warehouse, bin=bin_obj, sku=sku,
+                                              batch_id=batch_id, inventory_type=final_type[0], in_stock=True).last()
+    if bin_inv_obj:
+        bin_quantity = bin_inv_obj.quantity
+        final_quantity = bin_quantity + quantity
+        bin_inv_obj.quantity = final_quantity
+        bin_inv_obj.save()
+    else:
+        bin_inv_obj = BinInventory.objects.create(warehouse=warehouse, bin=bin_obj, sku=sku, batch_id=batch_id,
+                                    inventory_type=final_type[0], quantity=quantity, in_stock=True)
+
+    PutawayBinInventory.objects.create(warehouse=warehouse, putaway=putaway, bin=bin_inv_obj, putaway_quantity=quantity,
+                                       putaway_status=True, sku=sku, batch_id=batch_id, putaway_type=transaction_type)
+
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, 'normal', 'available', quantity, True)
+
+    if transaction_type == 'franchise_returns':
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, 'normal', 'shipped', quantity * -1, True)
+    WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, transaction_type, transaction_id,
+                                                                       initial_type[0], initial_stage[0], final_type[0],
+                                                                       final_stage[0], quantity)
+
+    BinInternalInventoryChange.objects.create(warehouse_id=warehouse.id, sku=sku, batch_id=batch_id, final_bin=bin_obj,
+                                              initial_inventory_type=initial_type[0],
+                                              final_inventory_type=final_type[0],
+                                              transaction_type=transaction_type, transaction_id=transaction_id,
+                                              quantity=quantity)

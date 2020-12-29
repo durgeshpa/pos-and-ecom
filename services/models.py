@@ -352,3 +352,16 @@ class BinInventoryHistoric(models.Model):
     class Meta:
         db_table = "wms_bin_inventory_history"
 
+
+class CronRunLog(models.Model):
+    CRON_CHOICE = Choices(('PICKUP_CREATION_CRON', 'Picklist Generation Cron'),
+                          ('AUDIT_PICKUP_REFRESH_CRON', 'Refresh Picklist After Audit Cron'),
+                          ('FRANCHISE_SALES_RETURNS_CRON', 'Adjust Sales/Returns Franchise Inventory Cron'))
+    CRON_STATUS_CHOICES = Choices((0, 'STARTED', 'Started'),
+                                  (1, 'ABORTED', 'Aborted'),
+                                  (2, 'COMPLETED', 'Completed'))
+    cron_name = models.CharField(choices=CRON_CHOICE, max_length=50)
+    status = models.PositiveSmallIntegerField(choices=CRON_STATUS_CHOICES, default=CRON_STATUS_CHOICES.STARTED)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True)

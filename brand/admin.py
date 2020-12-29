@@ -8,7 +8,7 @@ from import_export.admin import ExportActionMixin
 from .resources import BrandResource
 from products.admin import ExportCsvMixin
 from admin_auto_filters.filters import AutocompleteFilter
-from .forms import BrandForm, ProductVendorMappingForm
+from .forms import BrandForm
 from .views import save_vendor, SearchProduct
 
 class BrandSearch(InputFilter):
@@ -94,20 +94,8 @@ class BrandAdmin( admin.ModelAdmin, ExportCsvMixin):
             kwargs["queryset"] = Brand.objects.all().order_by('brand_slug')
         return super(BrandAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
-class ProductAdmin(admin.TabularInline):
-    model = ProductVendorMapping
-    form = ProductVendorMappingForm
-    def get_queryset(self, request):
-        qs = super(ProductAdmin, self).get_queryset(request)
-        return qs.filter(
-            status=True
-        )
-    readonly_fields = ('sku',)
-    fields = ('product', 'sku', 'product_price', 'product_mrp', 'case_size')
-
 class VendorAdmin(admin.ModelAdmin):
     form = VendorForm
-    inlines = [ProductAdmin]
     list_display = ('vendor_name', 'mobile','state', 'city','vendor_products_brand')
     search_fields = ('vendor_name',)
     list_filter = [VendorNameSearch, VendorContactNoSearch, StateFilter, CityFilter]

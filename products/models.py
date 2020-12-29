@@ -236,7 +236,7 @@ class Product(models.Model):
         ('active', 'Active'),
         ('deactivated', 'Deactivated'),
     )
-    status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False)
+    status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False, verbose_name='Product Status')
     parent_product = models.ForeignKey(ParentProduct, related_name='product_parent_product', null=True, blank=False, on_delete=models.DO_NOTHING)
     REASON_FOR_NEW_CHILD_CHOICES = (
         ('default', 'Default'),
@@ -782,8 +782,9 @@ class ProductPriceCSV(models.Model):
 class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
-    product_price = models.FloatField(verbose_name='Brand to Gram Price ') #(Per piece)
-    # product_price_pack = models.FloatField(verbose_name='Brand to Gram Price (Per pack)')
+    product_price = models.FloatField(verbose_name='Brand to Gram Price (Per Piece)',null=True,blank=True) #(Per piece)
+    product_price_pack = models.FloatField(verbose_name='Brand to Gram Price (Per Pack)',null=True,blank=True)
+    brand_to_gram_price_unit = models.CharField(max_length = 100 ,default="Per Piece")
     product_mrp = models.FloatField(null=True,blank=True)
     case_size = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -791,6 +792,13 @@ class ProductVendorMapping(models.Model):
     status = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
+       
+        if self.product_price:
+            self.brand_to_gram_price_unit = "Per Piece"
+            
+        else:
+            self.brand_to_gram_price_unit = "Per Pack"
+           
         ProductVendorMapping.objects.filter(product=self.product,vendor=self.vendor,status=True).update(status=False)
         self.status = True
         super().save(*args, **kwargs)
@@ -800,24 +808,6 @@ class ProductVendorMapping(models.Model):
 
     def sku(self):
         return self.product.product_sku
-
-@receiver(post_save, sender=Vendor)
-def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs):
-    vendor = instance
-    file = instance.vendor_products_csv
-    if file:
-        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
-        first_row = next(reader)
-        product_mapping = []
-        for row in reader:
-            if row[4]:
-                vendor_product = ProductVendorMapping.objects.filter(vendor=vendor, product_id=row[0])
-                if vendor_product.exists():
-                    vendor_product.update(status=False)
-                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[3], product_price=row[4],case_size=row[5]))
-
-        ProductVendorMapping.objects.bulk_create(product_mapping)
-        #ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
 
 @receiver(pre_save, sender=Product)
 def create_product_sku(sender, instance=None, created=False, **kwargs):
@@ -860,7 +850,6 @@ class ProductCapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
-
 class BulkProductTaxUpdate(models.Model):
     file = models.FileField(upload_to='products/producttaxmapping/')
     updated_by = models.ForeignKey(
@@ -876,7 +865,6 @@ class BulkProductTaxUpdate(models.Model):
     def __str__(self):
         return "Product Tax Mapping updated at %s by %s" % (self.created_at,
                                                             self.updated_by)
-
 
 class BulkUploadForGSTChange(models.Model):
     file = models.FileField(upload_to='products/producttaxmapping/')

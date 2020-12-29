@@ -33,13 +33,13 @@
             <form method="post" enctype="multipart/form-data">
                <div>
                   warehouse:
-                  <select name ="select" required>
-                     <option value="">Please select</option>
+                  <select name ="select" id="select" required>
+                     <option value="" disabled selected>Please Select warehouse</option>
                   {% for warehouse in warehouses %}
                         <option value="{{ warehouse.id }}">  {{ warehouse.shop_name }} - {{ warehouse.id }} </option>
                   {% endfor %}
                   </select>
-                 
+
                   <fieldset class="module aligned ">
                      {% csrf_token %}
                      {{form.as_p}}
@@ -54,3 +54,11 @@
       </div>
    </div>
 {% endblock %}
+{% block javascript %}
+<script>
+
+$(function () {
+  $("select").select2();
+});
+</script>
+{% endblock javascript %}
