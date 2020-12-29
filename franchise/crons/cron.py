@@ -5,6 +5,8 @@ import sys
 import os
 from django.db import transaction
 from decouple import config
+from django.utils import timezone
+import traceback
 
 from franchise.models import FranchiseSales, ShopLocationMap, FranchiseReturns, HdposDataFetch
 from products.models import Product
@@ -12,6 +14,7 @@ from wms.common_functions import (CommonWarehouseInventoryFunctions, WareHouseIn
                                  InternalInventoryChange, franchise_inventory_in, OutCommonFunctions)
 from wms.models import BinInventory, WarehouseInventory, InventoryState, InventoryType, Bin
 from franchise.models import get_default_virtual_bin_id
+from services.models import CronRunLog
 
 cron_logger = logging.getLogger('cron_log')
 CONNECTION_PATH = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + config('HDPOS_DB_HOST')\
@@ -27,27 +30,46 @@ def franchise_sales_returns_inventory():
         Process sales and returns data to adjust franchise inventory
     """
 
-    cron_logger.info('Franchise Cron Started')
-    # fetch sales data from hdpos
-    sales_fetch_resp = fetch_franchise_data('sales')
+    cron_name = CronRunLog.CRON_CHOICE.FRANCHISE_SALES_RETURNS_CRON
+    if CronRunLog.objects.filter(cron_name=cron_name, status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
+        cron_logger.info("{} already running".format(cron_name))
+        return
 
-    if 'code' in sales_fetch_resp and sales_fetch_resp['code'] == 'success':
+    cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
+    cron_logger.info("{} started, cron log entry-{}"
+                     .format(cron_log_entry.cron_name, cron_log_entry.id))
 
-        # process sales data to adjust franchise inventory
-        franchise_inv_resp = process_sales_data()
+    try:
+        # fetch sales data from hdpos
+        sales_fetch_resp = fetch_franchise_data('sales')
 
-        # fetch returns data from hdpos
-        returns_fetch_resp = fetch_franchise_data('returns')
+        if 'code' in sales_fetch_resp and sales_fetch_resp['code'] == 'success':
 
-        if 'code' in returns_fetch_resp and returns_fetch_resp['code'] == 'success' \
-                and 'code' in franchise_inv_resp and franchise_inv_resp['code'] == 'success':
+            # process sales data to adjust franchise inventory
+            franchise_inv_resp = process_sales_data()
 
-            # process returns data to adjust franchise inventory
-            process_returns_data()
+            # fetch returns data from hdpos
+            returns_fetch_resp = fetch_franchise_data('returns')
+
+            if 'code' in returns_fetch_resp and returns_fetch_resp['code'] == 'success' \
+                    and 'code' in franchise_inv_resp and franchise_inv_resp['code'] == 'success':
+
+                # process returns data to adjust franchise inventory
+                process_returns_data()
+            else:
+                cron_logger.info('Could not fetch returns data/sales data not processed')
         else:
-            cron_logger.info('Could not fetch returns data/sales data not processed')
-    else:
-        cron_logger.info('Could not fetch sales data')
+            cron_logger.info('Could not fetch sales data')
+
+        cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
+        cron_log_entry.completed_at = timezone.now()
+        cron_logger.info("{} completed, cron log entry-{}".format(cron_log_entry.cron_name, cron_log_entry.id))
+
+    except Exception as e:
+        cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.ABORTED
+        cron_logger.info("{} aborted, cron log entry-{}".format(cron_name, cron_log_entry.id))
+        traceback.print_exc()
+    cron_log_entry.save()
 
 
 def fetch_franchise_data(fetch_name):

@@ -24,8 +24,11 @@ class Faudit(AuditDetail):
 
 
 class ShopLocationMap(models.Model):
-    shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
-    location_name = models.CharField(max_length=255)
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, unique=True)
+    location_name = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return str(self.shop) + ' | ' + str(self.location_name)
 
 
 class FranchiseSales(models.Model):
@@ -40,6 +43,9 @@ class FranchiseSales(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return str(self.shop_loc) + ' | ' + str(self.barcode)
+
 
 class FranchiseReturns(models.Model):
     shop_loc = models.CharField(max_length=255)
@@ -53,6 +59,9 @@ class FranchiseReturns(models.Model):
     error = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return str(self.shop_loc) + ' | ' + str(self.barcode)
 
 
 class HdposDataFetch(models.Model):
