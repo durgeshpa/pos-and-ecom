@@ -221,6 +221,16 @@ def create_default_bin_franchise(sender, instance=None, created=False, **kwargs)
             Bin.objects.create(warehouse=instance, bin_id=virtual_bin_id, bin_type='SR', is_active=1)
 
 
+@receiver(post_save, sender=Shop)
+def assign_franchise_group_to_user(sender, instance=None, created=False, **kwargs):
+    if instance.shop_type.shop_type == 'f' and instance.approval_status == 2:
+        from django.contrib.auth.models import Group
+        instance.shop_owner.is_staff = True
+        instance.shop_owner.save()
+        my_group = Group.objects.get(name='Franchise')
+        my_group.user_set.add(instance.shop_owner)
+
+
 class FavouriteProduct(models.Model):
     # user = models.ForeignKey(get_user_model(), related_name='user_favourite',on_delete=models.CASCADE)
     buyer_shop = models.ForeignKey(Shop, related_name='shop_favourite', on_delete=models.CASCADE)

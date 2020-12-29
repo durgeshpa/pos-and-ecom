@@ -2832,15 +2832,14 @@ def cancel_status_picker_dashboard(sender, instance=None, created=False, *args, 
         picker_dashboard.update(picking_status='picking_cancelled')
 
 
-@receiver(post_save, sender=Trip)
-def check_franchise_inventory_update(sender, instance=None, created=False, **kwargs):
+def check_franchise_inventory_update(trip):
     """
         1. Check if products were bought for Franchise Shops.
         2. Add delivered quantity as inventory for all product batches in all shipments to Franchise / Buyer Shop
     """
 
-    if instance.trip_status == Trip.RETURN_VERIFIED:
-        shipments = instance.rt_invoice_trip.all()
+    if trip.trip_status == Trip.RETURN_VERIFIED:
+        shipments = trip.rt_invoice_trip.all()
         for shipment in shipments:
             if (shipment.order.buyer_shop and shipment.order.buyer_shop.shop_type.shop_type == 'f' and
                     shipment.rt_order_product_order_product_mapping.last()):

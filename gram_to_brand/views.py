@@ -124,7 +124,7 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(id__in=cp_products).order_by('product_name')
 
         if self.q:
-            qs = qs.filter(product_name__istartswith=self.q)
+            qs = qs.filter(Q(product_name__istartswith=self.q) | Q(product_sku__istartswith=self.q))
         return qs
 
 
@@ -428,7 +428,6 @@ class GRNProductAutocomplete(autocomplete.Select2QuerySetView):
 
 class GRNProductPriceMappingData(APIView):
     permission_classes = (AllowAny,)
-
     def get(self, *args, **kwargs):
         order_id = self.request.GET.get('order_id')
         cart_product_id = self.request.GET.get('cart_product_id')

@@ -20,7 +20,7 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
-                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,)
+                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -46,7 +46,9 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
                     ParentProductMultiPhotoUploadView, cart_product_list_status, upload_master_data_view,
                     UploadMasterDataSampleExcelFile,
-                    category_sub_category_mapping_sample_excel_file, brand_sub_brand_mapping_sample_excel_file)
+                    category_sub_category_mapping_sample_excel_file, brand_sub_brand_mapping_sample_excel_file,
+                    ParentProductMultiPhotoUploadView, cart_product_list_status,
+                    bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
@@ -235,14 +237,15 @@ class ExportProductVendor:
         return response
     export_as_csv_product_vendormapping.short_description = "Download CSV of selected Productvendormapping"
 
-
 class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
     actions = ["export_as_csv_product_vendormapping", ]
     fields = ('vendor', 'product', 'product_price','product_price_pack','product_mrp','case_size')
+
     list_display = ('vendor', 'product','product_price','product_price_pack','product_mrp','case_size','created_at','status','product_status')
     list_filter = [VendorFilter,ProductFilter,'product__status']
     form = ProductVendorMappingForm
     readonly_fields = ['brand_to_gram_price_unit',]
+    change_list_template = 'admin/products/bulk_product_vendor_mapping_change_list.html'
     def get_urls(self):
         from django.conf.urls import url
         urls = super(ProductVendorMappingAdmin, self).get_urls()
@@ -251,6 +254,11 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
                 r'^vendor-autocomplete/$',
                 self.admin_site.admin_view(VendorAutocomplete.as_view()),
                 name="vendor-autocomplete"
+            ),
+            url(
+                r'^product-vendor-csv-upload/$',
+                self.admin_site.admin_view(bulk_product_vendor_csv_upload_view),
+                name="product-vendor-csv-upload"
             ),
         ] + urls
         return urls
@@ -763,9 +771,14 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name='ajax_load_gf'
             ),
             url(
-                r'^products-export-for-vendor/$',
+                r'^products-export-for-vendor/+(?P<id>\d+)?',
                 self.admin_site.admin_view(products_export_for_vendor),
                 name='products_export_for_vendor'
+            ),
+             url(
+                r'^all-product-mapped-to-vendor/+(?P<id>\d+)?',
+                self.admin_site.admin_view(all_product_mapped_to_vendor),
+                name='all_product_mapped_to_vendor'
             ),
             url(
                 r'^multiple-photos-upload/$',

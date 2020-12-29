@@ -27,6 +27,7 @@ from decimal import Decimal
 
 from retailer_to_sp.models import BulkOrder
 from shops.models import Shop, ShopType
+from brand.models import Vendor
 from addresses.models import City, State, Address, Pincode
 from categories.models import Category
 from brand.models import Brand, Vendor
@@ -35,7 +36,8 @@ from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
     ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
-    UploadChildProductAdminForm, ParentProductImageForm, UploadMasterDataAdminForm
+    UploadChildProductAdminForm, ParentProductImageForm,BulkProductVendorMapping,
+    UploadMasterDataAdminForm
 )
 from .master_data import UploadMasterData, SetMasterData
 from products.models import (
@@ -358,7 +360,7 @@ def products_filter_view(request):
             )
         if form.is_valid():
             dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-            filename = str(dt) + "product_list.csv"
+            filename = str(dt)+"product_list.csv"
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
             writer = csv.writer(response)
@@ -370,7 +372,7 @@ def products_filter_view(request):
             brands = form.cleaned_data.get('brand')
             products = Product.objects.select_related(
                 'product_hsn'
-            ).filter(
+                ).filter(
                 product_brand__in=brands
             )
             for product in products:
@@ -409,7 +411,7 @@ def products_price_filter_view(request):
             sp_sr = form.cleaned_data.get('sp_sr_choice').shop_type
             shops = form.cleaned_data.get('sp_sr_list')
             dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-            filename = str(dt) + "product_price_list.csv"
+            filename = str(dt)+"product_price_list.csv"
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
             writer = csv.writer(response)
@@ -464,7 +466,7 @@ def products_price_filter_view(request):
                         ])
             if sp_sr == "gf":
                 writer.writerow([
-                    'product_id', 'product_name', 'gf_code', 'product_hsn',
+                    'product_id', 'product_name',  'gf_code', 'product_hsn',
                     'mrp', 'ptsp', 'ptsr', 'ptr', 'cash_discount', 'loyalty_incentive', 'price_start_date',
                     'price_end_date', 'sr_name'
                 ])
@@ -536,7 +538,7 @@ def products_csv_upload_view(request):
                 except Exception as e:
                     logger.exception("Brand Does not exist")
                     message.error(request, "Brand doesn't exist for  {}".format(row[1]))
-                    return render(request, 'admin/products/productscsvupload.html', {'form': form})
+                    return render(request, 'admin/products/productscsvupload.html',{'form': form})
 
                 try:
                     product = Product.objects.get(product_gf_code=row[3])
@@ -569,11 +571,11 @@ def products_csv_upload_view(request):
                 for c in row[6].split(','):
                     if c is not '':
                         try:
-                            product_category, _ = ProductCategory.objects. \
+                            product_category, _ = ProductCategory.objects.\
                                 get_or_create(
-                                product=product,
-                                category_id=c.strip()
-                            )
+                                            product=product,
+                                            category_id=c.strip()
+                                )
                         except Exception as e:
                             logger.exception(
                                 "unable to get or create product "
@@ -614,11 +616,11 @@ def products_csv_upload_view(request):
                 for t in row[7].split(','):
                     if t is not '':
                         try:
-                            product_tax, _ = ProductTaxMapping.objects \
+                            product_tax, _ = ProductTaxMapping.objects\
                                 .get_or_create(
-                                product=product,
-                                tax_id=t.strip()
-                            )
+                                                product=product,
+                                                tax_id=t.strip()
+                                )
                         except Exception as e:
                             logger.error(e)
                             messages.error(
@@ -646,7 +648,6 @@ class MultiPhotoUploadView(View):
     """
     Bulk images upload with Child SKU ID as photo name
     """
-
     def get(self, request):
         photos_list = ProductImage.objects.all()
         return render(
@@ -692,7 +693,6 @@ class ParentProductMultiPhotoUploadView(View):
     """
     Bulk images upload with Parent ID as photo name
     """
-
     def get(self, request):
         photos_list = ParentProductImage.objects.all()
         return render(
@@ -736,66 +736,47 @@ class ParentProductMultiPhotoUploadView(View):
 
 def export(request):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-    filename = str(dt) + "product_list.csv"
+    filename = str(dt)+"product_list.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['id', 'product_name', 'mrp', 'ptsp', 'ptsr', 'ptr'])
-    products = Product.objects.values_list('id', 'product_name')
+    writer.writerow(['id','product_name', 'mrp', 'ptsp', 'ptsr', 'ptr'])
+    products = Product.objects.values_list('id','product_name')
     for product in products:
-        writer.writerow([product[0], product[1], '', '', '', ''])
+        writer.writerow([product[0],product[1],'','','',''])
     return response
 
 
-def products_export_for_vendor(request):
+def products_vendor_mapping(request,pk=None):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-    filename = str(dt) + "product_list.csv"
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
-    writer = csv.writer(response)
-    # writer.writerow(['id','product_name','product_gf_code','product_sku', 'mrp', 'brand_to_gram_price','case_size'])
-    writer.writerow(['id', 'product_name', 'product_sku', 'mrp', 'brand_to_gram_price', 'case_size'])
-    # products = Product.objects.values_list('id','product_name','product_gf_code','product_sku','product_case_size')
-    products = Product.objects.all().only('id', 'product_name', 'product_sku', 'product_mrp')
-    for product in products:
-        # writer.writerow([product[0],product[1],product[2],product[3],'','',product[4]])
-        writer.writerow([product.id, product.product_name, product.product_sku, '', '', product.product_case_size])
-    return response
-
-
-def products_vendor_mapping(request, pk=None):
-    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
-    filename = str(dt) + "vendor_product_list.csv"
+    filename = str(dt)+"vendor_product_list.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     try:
-        writer.writerow(['parent_id', 'parent_name', 'id', 'product_name', 'sku', 'case_size', 'number_of_cases', 'mrp',
-                         'brand_to_gram_price'])
-        vendor_products = ProductVendorMapping.objects.filter(vendor_id=int(pk), case_size__gt=0, status=True)
+        writer.writerow(['parent_id','parent_name', 'id','product_name','sku','case_size','number_of_cases','mrp','brand_to_gram_price_unit','brand_to_gram_price'])
+        vendor_products = ProductVendorMapping.objects.filter(vendor_id=int(pk),case_size__gt=0,status=True)
+
         for p in vendor_products:
-            writer.writerow(
-                [p.product.parent_product.parent_id, p.product.parent_name, p.product_id, p.product.product_name,
-                 p.product.product_sku, p.case_size, '', p.product_mrp, p.product_price])
+            if p.brand_to_gram_price_unit == "Per Piece":
+                writer.writerow([p.product.parent_product.parent_id, p.product.parent_name, p.product_id,p.product.product_name,p.product.product_sku,p.case_size,'',p.product_mrp,p.brand_to_gram_price_unit,p.product_price])
+            else :
+                writer.writerow([p.product.parent_product.parent_id, p.product.parent_name, p.product_id,p.product.product_name,p.product.product_sku,p.case_size,'',p.product_mrp,p.brand_to_gram_price_unit,p.product_price_pack])
     except:
         writer.writerow(["Make sure you have selected vendor before downloading CSV file"])
     return response
 
-
-def cart_products_mapping(request, pk=None):
+def cart_products_mapping(request,pk=None):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
     current_time = datetime.datetime.now()
-    filename = str(dt) + "cart_product_list.csv"
+    filename = str(dt)+"cart_product_list.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     try:
-        writer.writerow(['SKU', 'product_name', 'qty', 'discounted_price'])
-        cart_products = ProductPrice.objects.values('product__product_sku', 'product__product_name').filter(
-            seller_shop_id=int(pk), approval_status=2, start_date__lte=current_time, end_date__gte=current_time)
-        writer.writerows(
-            [(product.get('product__product_sku'), product.get('product__product_name'), '', '') for product in
-             cart_products])
+        writer.writerow(['SKU', 'product_name','qty', 'discounted_price'])
+        cart_products = ProductPrice.objects.values('product__product_sku', 'product__product_name').filter(seller_shop_id=int(pk), approval_status = 2, start_date__lte =  current_time, end_date__gte = current_time)
+        writer.writerows([(product.get('product__product_sku'), product.get('product__product_name'), '', '') for product in cart_products])
     except:
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
     return response
@@ -889,26 +870,16 @@ def ProductsUploadSample(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(
-        ['product_name', 'product_short_description', 'product_long_description', 'product_gf_code', 'product_ean_code',
-         'p_brand_id', 'p_cat_id', 'p_tax_id', 'p_size_id', 'p_color_id', 'p_fragrance_id', 'p_flavor_id',
-         'weight_value(gm)', 'p_package_size_id', 'p_inner_case_size', 'p_case_size', 'product_hsn_code'])
-    writer.writerow(['fortune sunflowers oil', 'Fortune Sun Lite Refined Sunflower Oil is a healthy',
-                     'Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.',
-                     '12BBPRG00000121', '1234567890123', '1', '1', '1', '1', '1', '1', '1', '1', '1', '4', '2',
-                     'HSN Code'])
+    writer.writerow(['product_name','product_short_description','product_long_description','product_gf_code','product_ean_code','p_brand_id','p_cat_id','p_tax_id','p_size_id','p_color_id','p_fragrance_id','p_flavor_id','weight_value(gm)','p_package_size_id','p_inner_case_size','p_case_size','product_hsn_code'])
+    writer.writerow(['fortune sunflowers oil','Fortune Sun Lite Refined Sunflower Oil is a healthy','Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.','12BBPRG00000121','1234567890123','1','1','1','1','1','1','1','1','1','4','2','HSN Code'])
     return response
-
 
 def NameIDCSV(request):
     filename = "name_id.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(
-        ['BRAND NAME', 'BRAND ID', 'CATEGORY NAME', 'CATEGORY ID', 'TAX NAME', 'TAX ID', 'SIZE NAME', 'SIZE ID',
-         'COLOR NAME', 'COLOR ID', 'FRAGRANCE NAME', 'FRAGRANCE ID', 'FLAVOR NAME', 'FLAVOR ID', 'WEIGHT NAME',
-         'WEIGHT ID', 'PACKSIZE NAME', 'PACKSIZE ID'])
+    writer.writerow(['BRAND NAME','BRAND ID','CATEGORY NAME','CATEGORY ID','TAX NAME','TAX ID','SIZE NAME','SIZE ID','COLOR NAME','COLOR ID','FRAGRANCE NAME','FRAGRANCE ID','FLAVOR NAME','FLAVOR ID','WEIGHT NAME','WEIGHT ID','PACKSIZE NAME','PACKSIZE ID'])
     return response
 
 
@@ -922,13 +893,12 @@ class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
             )
         return qs
 
-
 class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = None
         if self.q:
             qs = Category.objects.filter(category_name__icontains=self.q),
-            # qs = Product.objects.filter(product_name__icontains=self.q)
+            #qs = Product.objects.filter(product_name__icontains=self.q)
         return qs
 
 
@@ -952,7 +922,7 @@ def download_all_products(request):
         'mrp', 'ptsp', 'ptsr', 'ptr', 'cash_discount', 'loyalty_incentive'
     ])
     writer.writerows([[i['id'], i['product_name'], i['product_gf_code'],
-                       i['product_hsn'], '', '', '', '']
+                      i['product_hsn'], '', '', '', '']
                       for i in products_list])
     return response
 
@@ -962,12 +932,8 @@ def ParentProductsDownloadSampleCSV(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(
-        ["Name", "Brand", "Category", "HSN", "GST", "CESS", "Surcharge", "Brand Case Size", "Inner Case Size",
-         "Product Type"])
-    writer.writerow(
-        ["testparent2", "Nestle", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100", "10", "10",
-         "b2c"])
+    writer.writerow(["Name", "Brand", "Category", "HSN", "GST", "CESS", "Surcharge", "Brand Case Size", "Inner Case Size", "Product Type"])
+    writer.writerow(["testparent2", "Nestle", "Health Care, Beverages, Grocery & Staples", "123456", "18", "12", "100", "10", "10", "b2c"])
     return response
 
 
@@ -982,7 +948,6 @@ def parent_product_upload(request):
             upload_file = form.cleaned_data.get('file')
             reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
             first_row = next(reader)
-
             def gst_mapper(gst):
                 if '0' in gst:
                     return 0
@@ -994,20 +959,18 @@ def parent_product_upload(request):
                     return 18
                 elif '28' in gst:
                     return 28
-
             def cess_mapper(cess):
                 if '0' in cess:
                     return 0
                 elif '12' in cess:
                     return 12
-
             try:
                 for row in reader:
                     if len(row) == 0:
                         continue
                     if '' in row:
                         if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
-                                row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                            row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
                             continue
                     parent_product = ParentProduct.objects.create(
                         name=row[0].strip(),
@@ -1030,8 +993,8 @@ def parent_product_upload(request):
                     ).save()
                     parent_surcharge = float(row[6]) if row[6] else 0
                     if Tax.objects.filter(
-                            tax_type='surcharge',
-                            tax_percentage=parent_surcharge
+                        tax_type='surcharge',
+                        tax_percentage=parent_surcharge
                     ).exists():
                         ParentProductTaxMapping.objects.create(
                             parent_product=parent_product,
@@ -1098,6 +1061,7 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
+
 def ChildProductsDownloadSampleCSV(request):
     filename = "child_products_sample.csv"
     response = HttpResponse(content_type='text/csv')
@@ -1125,7 +1089,6 @@ def product_csv_upload(request):
             upload_file = form.cleaned_data.get('file')
             reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
             first_row = next(reader)
-
             def reason_for_child_sku_mapper(reason):
                 reason = reason.lower()
                 if 'default' in reason:
@@ -1138,14 +1101,12 @@ def product_csv_upload(request):
                     return 'different_ean'
                 elif 'offer' in reason:
                     return 'offer'
-
             try:
                 for row_id, row in enumerate(reader):
                     if len(row) == 0:
                         continue
                     if '' in row:
-                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[
-                            5] == '' and row[6] == ''):
+                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
                             continue
                     source_map = []
                     if row[7] == 'destination':
@@ -1171,8 +1132,7 @@ def product_csv_upload(request):
                             for sku in source_map:
                                 psm = ProductSourceMapping.objects.create(
                                     destination_sku=product,
-                                    source_sku=Product.objects.filter(product_sku=sku,
-                                                                      repackaging_type='source').last(),
+                                    source_sku=Product.objects.filter(product_sku=sku, repackaging_type='source').last(),
                                     status=True
                                 )
                                 psm.save()
@@ -1189,7 +1149,7 @@ def product_csv_upload(request):
                             dcm.save()
 
             except Exception as e:
-                attributeprint(e)
+                print(e)
             return render(request, 'admin/products/child-product-upload.html', {
                 'form': form,
                 'success': 'Child Product CSV uploaded successfully !',
@@ -1395,8 +1355,7 @@ def FetchDefaultChildDdetails(request):
     }
     if not parent_product_id:
         return JsonResponse(data)
-    def_child = Product.objects.filter(parent_product=parent_product_id,
-                                       reason_for_child_sku__icontains='default').last()
+    def_child = Product.objects.filter(parent_product=parent_product_id, reason_for_child_sku__icontains='default').last()
     if def_child:
         data = {
             'found': True,
@@ -1425,7 +1384,7 @@ class ParentProductsAutocompleteView(AutocompleteJsonView):
 
 
 def FetchAllParentCategories(request):
-    data = {'categories': []}
+    data = { 'categories': [] }
     categories = Category.objects.all()
     for category in categories:
         data['categories'].append(category.category_name)
@@ -1434,7 +1393,7 @@ def FetchAllParentCategories(request):
 
 
 def FetchAllProductBrands(request):
-    data = {'brands': []}
+    data = { 'brands': [] }
     brands = Brand.objects.all()
     for brand in brands:
         data['brands'].append(brand.brand_name)
@@ -1587,7 +1546,7 @@ class ProductPriceUpload(View):
             qs = qs.filter(city=data['city'])
         if data['pincode_from'] and data['pincode_to']:
             pincode_range = [i for i in range(int(data['pincode_from']),
-                                              int(data['pincode_to']))]
+                             int(data['pincode_to']))]
             qs = qs.filter(pincode__in=pincode_range)
         if data['buyer_shop']:
             qs = qs.filter(buyer_shop=data['buyer_shop'])
@@ -1646,8 +1605,8 @@ class ProductPriceUpload(View):
                     if 'mrp' in col.lower():
                         mrp_col_present = True
                 for row_id, row in enumerate(sheet_obj.iter_rows(
-                        min_row=2, max_row=None, min_col=None, max_col=None,
-                        values_only=True
+                    min_row=2, max_row=None, min_col=None, max_col=None,
+                    values_only=True
                 )):
                     self.validate_row(first_row, row, mrp_col_present)
                     product = Product.objects.get(product_sku=row[0])
@@ -1742,11 +1701,11 @@ class SourceRepackageDetail(View):
 
         try:
             warehouse_available_obj = WarehouseInventory.objects.filter(warehouse_id=shop_id,
-                                                                        sku_id=product_obj['product_sku'],
-                                                                        inventory_type=InventoryType.objects.filter(
-                                                                            inventory_type='normal').last(),
-                                                                        inventory_state=InventoryState.objects.filter(
-                                                                            inventory_state='available').last())
+                                              sku_id=product_obj['product_sku'],
+                                              inventory_type=InventoryType.objects.filter(
+                                                  inventory_type='normal').last(),
+                                              inventory_state=InventoryState.objects.filter(
+                                                  inventory_state='available').last())
             if warehouse_available_obj.exists():
                 w_obj = warehouse_available_obj.last()
                 source_quantity = w_obj.quantity
@@ -1775,3 +1734,105 @@ class DestinationProductAutocomplete(autocomplete.Select2QuerySetView):
             if self.q:
                 qs = qs.filter(product_name__icontains=self.q)
         return qs
+
+def products_export_for_vendor(request, id=None):
+
+    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+    filename = str(dt)+"product_list.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+
+    vendor_id = request.GET.get('id',None)
+    vendor = Vendor.objects.get(id=vendor_id)
+    vendor_mapped_product = ProductVendorMapping.objects.filter(vendor=vendor_id)
+
+    writer.writerow(['id','product_name', 'product_sku', 'mrp','brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size'])
+    if vendor_mapped_product:
+        product_id = ProductVendorMapping.objects.filter(vendor=vendor_id).values('product')
+        products = Product.objects.filter(status="active").exclude(id__in=product_id).only('id', 'product_name', 'product_sku', 'product_mrp')
+        for product in products:
+            writer.writerow([product.id, product.product_name, product.product_sku, '', '', '',product.product_case_size])
+    else:
+        products = Product.objects.filter(status="active").only('id', 'product_name', 'product_sku', 'product_mrp')
+        for product in products:
+            writer.writerow([product.id, product.product_name, product.product_sku, '', '', '',product.product_case_size])
+
+    return response
+
+def all_product_mapped_to_vendor(request, id=None):
+
+    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+    filename = str(dt)+"product_vendor_list.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+
+    vendor_id = request.GET.get('id',None)
+    vendor = Vendor.objects.get(id=vendor_id)
+    vendor_mapped_product = ProductVendorMapping.objects.filter(vendor=vendor_id)
+    writer.writerow(['id','product_name', 'product_sku', 'mrp','brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size'])
+    if vendor_mapped_product:
+        product_id = ProductVendorMapping.objects.filter(vendor=vendor_id).values('product')
+        #products = Product.objects.filter(status="active").exclude(~Q(id__in=product_id)).only('id', 'product_name', 'product_sku', 'product_mrp')
+        productss = ProductVendorMapping.objects.filter(status=True).exclude(~Q(product__in=product_id)).only('product','vendor', 'brand_to_gram_price_unit', 'product_price', 'product_price_pack','case_size')
+        for product_vendor in productss:
+            if product_vendor.brand_to_gram_price_unit=="Per Piece":
+                writer.writerow([product_vendor.product.id, product_vendor.product.product_name, product_vendor.product.product_sku, product_vendor.product_mrp,product_vendor.brand_to_gram_price_unit,product_vendor.product_price,product_vendor.case_size])
+            else:
+                writer.writerow([product_vendor.product.id, product_vendor.product.product_name, product_vendor.product.product_sku, product_vendor.product_mrp,product_vendor.brand_to_gram_price_unit,product_vendor.product_price_pack,product_vendor.case_size])
+    return response
+
+def bulk_product_vendor_csv_upload_view(request):
+    all_vendors = Vendor.objects.all()
+
+    if request.method == 'POST':
+        form = BulkProductVendorMapping(request.POST, request.FILES)
+
+        if form.errors:
+            return render(request, 'admin/products/bulk-upload-vendor-details.html', {
+                'form': form,
+                'all_vendor': all_vendors.values(),
+            })
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            vendor_id = request.POST.get('select')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            first_row = next(reader)
+            try:
+                for row_id, row in enumerate(reader):
+                    if len(row) == 0:
+                        continue
+                    if '' in row:
+                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                            continue
+
+                    if row[4] == "Per Piece":
+                        product_vendor = ProductVendorMapping.objects.create(
+                            vendor = Vendor.objects.get(id=vendor_id),
+                            product=Product.objects.get(id=row[0]),
+                            product_mrp=row[3],
+                            brand_to_gram_price_unit = row[4],
+                            product_price = row[5],
+                            case_size = row[6],
+                        )
+                    else:
+                        product_vendor = ProductVendorMapping.objects.create(
+                            vendor = Vendor.objects.get(id=vendor_id),
+                            product=Product.objects.get(id=row[0]),
+                            product_mrp=row[3],
+                            brand_to_gram_price_unit = row[4],
+                            product_price_pack = row[5],
+                            case_size = row[6],
+                        )
+                    product_vendor.save()
+            except Exception as e:
+                print(e)
+            return render(request, 'admin/products/bulk-upload-vendor-details.html', {
+                'form': form,
+                'all_vendor': all_vendors.values(),
+                'success': 'Product Vendor Mapping CSV uploaded successfully !',
+            })
+    else:
+        form = BulkProductVendorMapping()
+    return render(request, 'admin/products/bulk-upload-vendor-details.html', {'all_vendor': all_vendors.values(),'form': form})
