@@ -236,7 +236,7 @@ class Product(models.Model):
         ('active', 'Active'),
         ('deactivated', 'Deactivated'),
     )
-    status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False)
+    status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False, verbose_name='Product Status')
     parent_product = models.ForeignKey(ParentProduct, related_name='product_parent_product', null=True, blank=False, on_delete=models.DO_NOTHING)
     REASON_FOR_NEW_CHILD_CHOICES = (
         ('default', 'Default'),
