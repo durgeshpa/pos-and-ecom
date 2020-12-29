@@ -6,6 +6,7 @@ from audit.models import AuditDetail, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATU
     AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES, AUDIT_LEVEL_CHOICES
 from audit.utils import get_next_audit_no
 from audit.views import BlockUnblockProduct
+from franchise.models import Faudit
 
 
 @receiver(post_save, sender=AuditDetail)
@@ -25,6 +26,9 @@ def save_audit_no(sender, instance=None, created=False, **kwargs):
             instance.audit_no = audit_no
             instance.save()
 
+# Faudit proxy model for AuditDetail - Signals need to be connected separately (again) for proxy model (if required)
+post_save.connect(save_audit_no, sender=Faudit)
+
 
 @receiver(post_save, sender=AuditDetail)
 def enable_disable_audit_product_on_save(sender, instance=None, created=False, **kwargs):
@@ -35,6 +39,9 @@ def enable_disable_audit_product_on_save(sender, instance=None, created=False, *
         return
     if instance.state == AUDIT_DETAIL_STATE_CHOICES.CREATED:
         BlockUnblockProduct.disable_products(instance)
+
+# Faudit proxy model for AuditDetail - Signals need to be connected separately (again) for proxy model (if required)
+post_save.connect(enable_disable_audit_product_on_save, sender=Faudit)
 
 
 def disable_bin_audit_products(sender, instance, action, *args, **kwargs):
@@ -49,6 +56,9 @@ def disable_bin_audit_products(sender, instance, action, *args, **kwargs):
 
 m2m_changed.connect(disable_bin_audit_products, sender=AuditDetail.bin.through)
 m2m_changed.connect(disable_bin_audit_products, sender=AuditDetail.sku.through)
+# Faudit proxy model for AuditDetail - Signals need to be connected separately (again) for proxy model (if required)
+m2m_changed.connect(disable_bin_audit_products, sender=Faudit.bin.through)
+m2m_changed.connect(disable_bin_audit_products, sender=Faudit.sku.through)
 
 
 @receiver(post_save, sender=AuditTicketManual)

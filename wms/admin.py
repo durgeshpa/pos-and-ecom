@@ -331,6 +331,19 @@ class BinAdmin(admin.ModelAdmin):
     download_csv_for_bins.short_description = "Download CSV of selected bins"
     download_barcode.short_description = "Download Barcode List"
 
+    """
+        Default single virtual bin is created for Franchise shops. Cannot be added, changed or deleted.
+    """
+    def has_change_permission(self, request, obj=None):
+        if obj and obj.warehouse and obj.warehouse.shop_type.shop_type == 'f':
+            return False
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        if obj and obj.warehouse and obj.warehouse.shop_type.shop_type == 'f':
+            return False
+        return True
+
 
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
@@ -531,8 +544,8 @@ class BinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
     actions = ['download_barcode']
-    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock', 'created_at',
-                    'modified_at', 'expiry_date')
+    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'to_be_picked_qty', 'in_stock',
+                    'created_at', 'modified_at', 'expiry_date')
     readonly_fields = ['warehouse', 'bin', 'sku', 'batch_id', 'inventory_type', 'quantity', 'in_stock']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at',)
     list_filter = [BinIDFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter,

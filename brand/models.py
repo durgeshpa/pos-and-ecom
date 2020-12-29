@@ -64,7 +64,7 @@ class Vendor(models.Model):
     cancelled_cheque = models.FileField(upload_to='vendor/cancelled_cheque', null=True)
     list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi',null=True,blank=True)
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
-    vendor_products_csv = models.FileField(upload_to='vendor/vendor_products_csv', null=True,blank=True)
+    #vendor_products_csv = models.FileField(upload_to='vendor/vendor_products_csv', null=True,blank=True)
     vendor_products_brand = ArrayField(models.PositiveIntegerField(),null=True, blank=True,editable=False)
 
     def __str__(self):

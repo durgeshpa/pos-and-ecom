@@ -115,12 +115,12 @@ def set_parent_data():
                 ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(category=Category.objects.filter(id=row[16].strip()).last())
             except:
                 parent_category.append(str(row_id))
-                if not row[17] == '':
-                    tax = Tax.objects.filter(tax_name=row[17])
-                    ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(tax=tax[0])
-                if not row[18] == '':
-                    tax = Tax.objects.filter(tax_name=row[18])
-                    ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(tax=tax[0])
+            if not row[17] == '':
+                tax = Tax.objects.filter(tax_name=row[17])
+                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(tax=tax[0])
+            if not row[18] == '':
+                tax = Tax.objects.filter(tax_name=row[18])
+                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(tax=tax[0])
         else:
             continue
     print("Total row executed :" + str(count))

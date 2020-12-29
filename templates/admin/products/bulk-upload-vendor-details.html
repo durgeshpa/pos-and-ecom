@@ -1,0 +1,83 @@
+
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block breadcrumb1 %}<a href="/admin/products/">Products</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/products/productvendormapping/">Product Vendor Mapping<a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Upload Product Vendor List</a>{% endblock %}
+{% block content %}
+<div id="content" class="colM">
+     
+      <h1>{% block content_header %}{% endblock %}</h1>
+      <div id="content-main">
+         <ul class="object-tools">
+         </ul>
+         {% if error %}
+            <span class="errornote">{{ error|escape }}</span>
+         {% endif %}
+         {% if success %}
+            <ul class="messagelist">
+            <li class="success">{{ success|escape }}</li>
+            </ul>
+         {% endif %}
+         <div class="mt-5 pt-4">
+            {% if messages %}
+                {% for message in messages %}
+                
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    <strong>{{ message }}</strong>
+                </div>
+    
+                {% endfor %}
+            {% endif %}
+        </div>
+         <div>
+            <form method="post" enctype="multipart/form-data">
+               <div>
+                  <div>
+                     Vendors:
+                     <select name ="select"  id="select" required onChange="selectedValue(this)">
+                        <option value="" disabled selected>Please select Vendor</option>
+                        {% for vendors in all_vendor %}
+                              <option value="{{ vendors.id }}" > {{ vendors.vendor_name }} - {{ vendors.mobile }} </option>
+                        {% endfor %}
+                     </select>
+                  </div>
+                  <div class="upload">
+                     <fieldset>
+                        {% csrf_token %}
+               
+                        {{form.as_p}}
+                     </fieldset>
+                  </div>
+                  <div class="submit-row"><pre>
+                     <a id="insert_product">Download Products List</a><pre>
+                     <a id="insert_vendor">Download All Product Vendor Mappings for Selected Vendor</a></pre>
+                     <input type="submit" value="Save" class="button" name="_save" > 
+                  </div>
+               </div>
+            </form>
+            
+         </div>
+         
+      </div>
+   </div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+$(function () {
+  $("select").select2();
+});
+
+function selectedValue(select) {
+  
+   var e = document.getElementById("select");
+   var id = e.options[e.selectedIndex].value;
+   document.getElementById("insert_product").href = "{% url 'admin:products_export_for_vendor' %}?id=ids".replace(/ids/, id);
+   document.getElementById("insert_vendor").href = "{% url 'admin:all_product_mapped_to_vendor' %}?id=ids".replace(/ids/, id);
+   
+ }
+
+</script>
+  
+
+ {% endblock javascript %}
