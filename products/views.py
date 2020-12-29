@@ -1581,11 +1581,13 @@ def all_product_mapped_to_vendor(request, id=None):
     writer.writerow(['id','product_name', 'product_sku', 'mrp','brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size'])
     if vendor_mapped_product:
         product_id = ProductVendorMapping.objects.filter(vendor=vendor_id).values('product')
-        products = Product.objects.filter(status="active").exclude(~Q(id__in=product_id)).only('id', 'product_name', 'product_sku', 'product_mrp')
-
-        for product in products:
-            writer.writerow([product.id, product.product_name, product.product_sku, product.product_mrp, '','',product.product_case_size])
-
+        #products = Product.objects.filter(status="active").exclude(~Q(id__in=product_id)).only('id', 'product_name', 'product_sku', 'product_mrp')
+        productss = ProductVendorMapping.objects.filter(status=True).exclude(~Q(product__in=product_id)).only('product','vendor', 'brand_to_gram_price_unit', 'product_price', 'product_price_pack','case_size')
+        for product_vendor in productss:
+            if product_vendor.brand_to_gram_price_unit=="Per Piece":
+                writer.writerow([product_vendor.product.id, product_vendor.product.product_name, product_vendor.product.product_sku, product_vendor.product_mrp,product_vendor.brand_to_gram_price_unit,product_vendor.product_price,product_vendor.case_size])
+            else:
+                writer.writerow([product_vendor.product.id, product_vendor.product.product_name, product_vendor.product.product_sku, product_vendor.product_mrp,product_vendor.brand_to_gram_price_unit,product_vendor.product_price_pack,product_vendor.case_size])
     return response
 
 def bulk_product_vendor_csv_upload_view(request):
@@ -1595,8 +1597,10 @@ def bulk_product_vendor_csv_upload_view(request):
         form = BulkProductVendorMapping(request.POST, request.FILES)
         
         if form.errors:
-            return render(request, 'admin/audit/bulk-upload-audit-details.html', {'all_vendor': all_vendors.values(),'form': form})
-
+            return render(request, 'admin/products/bulk-upload-vendor-details.html', {
+                'form': form,
+                'all_vendor': all_vendors.values(),
+            })
         if form.is_valid():
             upload_file = form.cleaned_data.get('file')
             vendor_id = request.POST.get('select')

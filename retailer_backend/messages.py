@@ -23,7 +23,7 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_PRODUCT_SKU':'Invalid Product SKU',
     'EMPTY':'%s cant be empty',
     'EMPTY_OR_NOT_VALID':'%s cant be empty or not valid( eg: 11.11)',
-    'EMPTY_OR_NOT_VALID_STRING': '%s cant be empty or only be a "Per Pack" or "Per Price"',
+    'EMPTY_OR_NOT_VALID_STRING': '%s cant be empty or only be a "Per Pack" or "Per Piece"',
     'INVALID_GSTIN_Number': 'Invalid Gstin number',
     'INVALID_MARGIN': '%s has not valid format( eg: 0, 201, 17.11)',
     'ALREADY_ADDED_SHOP':'Already added Sales Executive with this shop',
