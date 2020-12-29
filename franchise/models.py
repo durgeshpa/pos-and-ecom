@@ -24,15 +24,15 @@ class Faudit(AuditDetail):
 
 
 class ShopLocationMap(models.Model):
-    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, unique=True)
-    location_name = models.CharField(max_length=255, unique=True)
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, unique=True, verbose_name='Shop Name')
+    location_name = models.CharField(max_length=255, unique=True, verbose_name='Shop Location')
 
     def __str__(self):
         return str(self.shop) + ' | ' + str(self.location_name)
 
 
 class FranchiseSales(models.Model):
-    shop_loc = models.CharField(max_length=255)
+    shop_loc = models.CharField(max_length=255, verbose_name='Shop Location')
     barcode = models.CharField(max_length=255)
     quantity = models.FloatField(default=0, null=True, blank=True)
     amount = models.FloatField(default=0, null=True, blank=True)
@@ -48,7 +48,7 @@ class FranchiseSales(models.Model):
 
 
 class FranchiseReturns(models.Model):
-    shop_loc = models.CharField(max_length=255)
+    shop_loc = models.CharField(max_length=255, verbose_name='Shop Location')
     barcode = models.CharField(max_length=255)
     quantity = models.FloatField(default=0, null=True, blank=True)
     amount = models.FloatField(default=0, null=True, blank=True)
