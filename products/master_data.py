@@ -18,16 +18,18 @@ class SetMasterData(object):
     def set_master_data(cls, header_list, excel_file_data_list):
         if 'status' in header_list:
             UploadMasterData.set_inactive_status(header_list, excel_file_data_list)
+            UploadMasterData.set_parent_data(header_list, excel_file_data_list)
+            UploadMasterData.set_child_parent(header_list, excel_file_data_list)
+        
         if 'sub_brand_id' in header_list and 'brand_id' in header_list:
             UploadMasterData.set_sub_brand_and_brand(header_list, excel_file_data_list)
+
         if 'sub_category_id' in header_list and 'category_id' in header_list:
             UploadMasterData.set_sub_category_and_category(header_list, excel_file_data_list)
-        if 'status' in header_list:
-            UploadMasterData.set_parent_data(header_list, excel_file_data_list)
+
         if 'status' in header_list and 'sku_name' in header_list:
             UploadMasterData.set_child_data(header_list, excel_file_data_list)
-        if 'status' in header_list:
-            UploadMasterData.set_child_parent(header_list, excel_file_data_list)
+
 
 
 class UploadMasterData(object):
