@@ -182,14 +182,11 @@ class ShopLocationMapAdmin(admin.ModelAdmin, ExportCsvMixin):
     class Media:
         pass
 
-    def has_add_permission(self, request, obj=None):
-        return True
-
     def has_delete_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
+        if not request.user.is_superuser:
+            return False
 
     def has_change_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
+        if not request.user.is_superuser:
+            return False
 
