@@ -8,7 +8,8 @@ from django.http import HttpResponse
 
 from franchise.models import Fbin, Faudit, HdposDataFetch, FranchiseSales, FranchiseReturns, ShopLocationMap
 from franchise.forms import FranchiseBinForm, FranchiseAuditCreationForm, ShopLocationMapForm
-from franchise.filters import ShopLocFilter, BarcodeFilter, ShopFilter, ShopLocFilter1, FranchiseShopAutocomplete
+from franchise.filters import ShopLocFilter, BarcodeFilter, ShopFilter, ShopLocFilter1,\
+    FranchiseShopAutocomplete, WarehouseFilter
 from wms.admin import BinAdmin, BinIdFilter
 from audit.admin import AuditDetailAdmin, AuditNoFilter, AuditorFilter
 from products.models import Product
@@ -35,7 +36,7 @@ class FranchiseBinAdmin(BinAdmin):
     form = FranchiseBinForm
 
     list_filter = [BinIdFilter, ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter),
-                   ShopFilter, ('bin_type', DropdownFilter)]
+                   WarehouseFilter, ('bin_type', DropdownFilter)]
 
     def get_urls(self):
         # To not overwrite existing url names for BinAdmin
@@ -66,7 +67,7 @@ class FranchiseBinAdmin(BinAdmin):
 class FranchiseAuditAdmin(AuditDetailAdmin):
     form = FranchiseAuditCreationForm
 
-    list_filter = [ShopFilter, AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
+    list_filter = [WarehouseFilter, AuditNoFilter, AuditorFilter, 'audit_run_type', 'audit_level', 'state', 'status']
 
     def get_urls(self):
         # To not overwrite existing url names for AuditDetailAdmin
