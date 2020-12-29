@@ -13,7 +13,7 @@ from rest_framework import permissions, authentication
 
 from products.models import Product
 from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
-from wms.common_functions import InternalInventoryChange, WareHouseInternalInventoryChange, \
+from wms.common_functions import InternalInventoryChange, \
     CommonWarehouseInventoryFunctions, CommonBinInventoryFunctions, InCommonFunctions, PutawayCommonFunctions, \
     get_expiry_date
 from wms.models import BinInventory, Bin, InventoryType, PickupBinInventory, WarehouseInventory, InventoryState, Pickup, \
@@ -647,7 +647,7 @@ class AuditInventory(APIView):
 
         try:
             with transaction.atomic():
-                inventory_state = InventoryState.objects.filter(inventory_state='available').last()
+                inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
                 for inv_type, qty in physical_inventory.items():
                     inventory_type = InventoryType.objects.filter(inventory_type=inv_type).last()
                     if self.picklist_cancel_required(warehouse, batch_id, bin,
@@ -694,7 +694,6 @@ class AuditInventory(APIView):
                          expected_qty, physical_qty):
         info_logger.info('AuditInventory | update_inventory | started ')
         initial_inventory_type = InventoryType.objects.filter(inventory_type='new').last()
-        initial_inventory_state = InventoryState.objects.filter(inventory_state='new').last()
         if expected_qty == physical_qty:
             info_logger.info('AuditInventory | update_inventory | Quantity matched, updated not required')
             return
@@ -724,14 +723,11 @@ class AuditInventory(APIView):
                 qty_diff = -1*ware_house_inventory_obj.quantity
         # update warehouse inventory
         if qty_diff != 0:
-            CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, inventory_type, inventory_state,
-                                                                         qty_diff, True)
-            WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku,
-                                                                               tr_type, audit_no,
-                                                                               initial_inventory_type,
-                                                                               initial_inventory_state,
-                                                                               inventory_type, inventory_state,
-                                                                               abs(qty_diff))
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, sku,
+                                                                                              inventory_type,
+                                                                                              inventory_state,
+                                                                                              qty_diff, tr_type,
+                                                                                              audit_no)
         AuditInventory.create_in_out_entry(warehouse, sku, batch_id, bin_inventory_object, tr_type, audit_no,
                                            inventory_type, abs(qty_diff))
         info_logger.info('AuditInventory | update_inventory | completed')

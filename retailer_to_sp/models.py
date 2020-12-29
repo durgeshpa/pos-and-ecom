@@ -34,7 +34,7 @@ from addresses.models import Address
 from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType, \
     InventoryState, Bin
 from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
-    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise
+    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice, Repackaging
@@ -646,13 +646,12 @@ class BulkOrder(models.Model):
                             raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                                 0] + " | Discounted Price can't be more than Product Price."))
                     ordered_qty = int(row[2])
-                    warehouse_obj = WarehouseInventory.objects.filter(
-                        sku__product_sku=row[0],
-                        inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                        inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-                        warehouse=Shop.objects.filter(id=self.seller_shop.id).last())
-                    if warehouse_obj.exists():
-                        available_quantity = warehouse_obj[0].quantity
+                    shop = Shop.objects.filter(id=self.seller_shop.id).last()
+                    product = Product.objects.filter(product_sku=row[0]).last()
+                    inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+                    product_qty_dict = get_stock(shop, inventory_type, [product.id])
+                    if product_qty_dict.get(product.id) is not None:
+                        available_quantity = product_qty_dict[product.id]
                     else:
                         available_quantity = 0
                         info_logger.info(f"[retailer_to_sp:BulkOrder]-{row[0]} doesn't exist in warehouse")
@@ -728,15 +727,13 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                             product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
                             ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
                             ordered_qty = int(row[2])
-                            try:
-                                available_quantity = WarehouseInventory.objects.filter(
-                                    sku__product_sku=row[0],
-                                    inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                                    inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-                                    warehouse=Shop.objects.filter(id=instance.seller_shop_id).last())[
-                                    0].quantity
-                            except:
-                                continue
+                            shop = Shop.objects.filter(id=instance.seller_shop_id).last()
+                            product = Product.objects.filter(product_sku=row[0]).last()
+                            inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+                            product_qty_dict = get_stock(shop, inventory_type, [product.id])
+                            available_quantity = 0
+                            if product_qty_dict.get(product.id) is not None:
+                                available_quantity = product_qty_dict[product.id]
                             product_available = int(
                                 int(available_quantity) / int(product.product_inner_case_size))
                             if product_available >= ordered_qty:
