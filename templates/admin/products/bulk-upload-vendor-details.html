@@ -32,23 +32,25 @@
          <div>
             <form method="post" enctype="multipart/form-data">
                <div>
-                vendors:
-                  <select name ="select"  id="select" required onChange="selectedValue(this)">
-                     <option value="" disabled selected>Please select Vendor</option>
-
-                  {% for vendors in all_vendor %}
-                        <option value="{{ vendors.id }}" > {{ vendors.vendor_name }} - {{ vendors.mobile }} </option>
-                  {% endfor %}
-                  </select>
-                  
-                  <fieldset class="module aligned ">
-                     {% csrf_token %}
-                     {{form.as_p}}
-                  </fieldset>
-                  
+                  <div>
+                     Vendors:
+                     <select name ="select"  id="select" required onChange="selectedValue(this)">
+                        <option value="" disabled selected>Please select Vendor</option>
+                        {% for vendors in all_vendor %}
+                              <option value="{{ vendors.id }}" > {{ vendors.vendor_name }} - {{ vendors.mobile }} </option>
+                        {% endfor %}
+                     </select>
+                  </div>
+                  <div class="upload">
+                     <fieldset>
+                        {% csrf_token %}
+               
+                        {{form.as_p}}
+                     </fieldset>
+                  </div>
                   <div class="submit-row"><pre>
                      <a id="insert_product">Download Products List</a><pre>
-                     <a id="insert_vendor">Download All Product Vendor Mappings for selected vendor</a></pre>
+                     <a id="insert_vendor">Download All Product Vendor Mappings for Selected Vendor</a></pre>
                      <input type="submit" value="Save" class="button" name="_save" > 
                   </div>
                </div>
