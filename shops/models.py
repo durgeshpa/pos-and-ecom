@@ -31,6 +31,8 @@ SHOP_TYPE_CHOICES = (
 RETAILER_TYPE_CHOICES = (
     ("gm", "General Merchant"),
     ("ps", "Pan Shop"),
+    ("foco", "Franchise Company Operated"),
+    ("fofo", "Franchise Franchise Operated")
 )
 
 
