@@ -524,8 +524,8 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
             info_logger.info("Inside if condition of post save Warehouse Inventory")
             commit_updates_to_es(instance.warehouse, instance.sku)
     except Exception as e:
-        info_logger.info("Exception | Post save | WarehouseInventory | warehouse {}, product {]"
-                         .format(instance.warehous.id, instance.sku.id))
+        info_logger.info("Exception | Post save | WarehouseInventory | warehouse {}, product {}"
+                         .format(instance.warehouse.id, instance.sku.id))
         info_logger.error(e)
 
 

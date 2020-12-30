@@ -29,5 +29,5 @@ def fix_warehouse_internal_inventory(warehouse):
         if order_reserve_entry.exists():
             order_reserve_entry.update(warehouse_internal_inventory_reserve=new_tr)
         if order_release_entry.exists():
-            order_reserve_entry.update(warehouse_internal_inventory_release=new_tr)
+            order_release_entry.update(warehouse_internal_inventory_release=new_tr)
         tr.delete()
