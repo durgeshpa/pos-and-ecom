@@ -6,7 +6,6 @@ import logging
 import re
 
 import boto3
-import xlwt
 from botocore.exceptions import ClientError
 from decouple import config
 import openpyxl
@@ -1163,17 +1162,18 @@ def UploadMasterDataSampleExcelFile(request):
     """
     This function will return an Sample Excel File in xlsx format which can be used for uploading the master_data
     """
-    response = HttpResponse(content_type='application/ms-excel')
-    response['Content-Disposition'] = 'attachment; filename="sample_file_for_upload_master_data.xlsx"'
-
-    wb = xlwt.Workbook(encoding='utf-8')
-    ws = wb.add_sheet('Users')
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename={date}-master_data_sample.xlsx'.format(
+        date=datetime.datetime.now().strftime('%d_%b_%y_%I_%M'),
+    )
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'MasterData_SampleExcelFile'
 
     # Sheet header, first row
-    row_num = 0
-
-    font_style = xlwt.XFStyle()
-    font_style.font.bold = True
+    row_num = 1
 
     columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit',
                'weight_value', 'hsn', 'tax_1(gst)', 'tax_2(cess/surcharge)', 'brand_case_size',
@@ -1181,21 +1181,22 @@ def UploadMasterDataSampleExcelFile(request):
                'sub_category_id', 'sub_category_name', 'category_id', 'category_name',
                'status', ]
 
-    for col_num in range(len(columns)):
-        ws.write(row_num, col_num, columns[col_num], font_style)
+    for col_num, column_title in enumerate(columns, 1):
+        cell = worksheet.cell(row=row_num, column=col_num)
+        cell.value = column_title
 
-    row_num = 1
-    font_style = xlwt.XFStyle()
+    row_num = 2
 
     column_list = ['NDPPROMAG00000018', 'Maggi Magic masala, 6.2 gm (Buy 4 + get 1 Free)', 'PSNGNES0016',
                    'Maggi Magic masala, 6.2 gm', '89010588772972', '5.00', 'Gram', '10', '910',
                    'GST-12', '', '2304', '12', '35', 'Maggi', '34', 'Nestle', '118', 'Spices, Herb & Seasoning',
                    '114', 'Staples & Grocery', 'Active', ]
 
-    for col_num in range(len(column_list)):
-        ws.write(row_num, col_num, column_list[col_num], font_style)
+    for col_num, column_title in enumerate(column_list, 1):
+        cell = worksheet.cell(row=row_num, column=col_num)
+        cell.value = column_title
 
-    wb.save(response)
+    workbook.save(response)
     return response
 
 
@@ -1204,39 +1205,41 @@ def category_sub_category_mapping_sample_excel_file(request):
     This function will return an Sample Excel File in xlsx format which can be used for Mapping of
     Sub Category and Category
     """
-    response = HttpResponse(content_type='application/ms-excel')
-    response['Content-Disposition'] = 'attachment; filename="sub_category_and_category_mapping_sample.xlsx"'
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename={date}-subCategory-CategorySample.xlsx'.format(
+        date=datetime.datetime.now().strftime('%d_%b_%y_%I_%M'),
+    )
 
-    wb = xlwt.Workbook(encoding='utf-8')
-    ws = wb.add_sheet('Users')
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Category-SubCategory_SampleFile'
 
     # Sheet header, first row
-    row_num = 0
-
-    font_style = xlwt.XFStyle()
-    font_style.font.bold = True
+    row_num = 1
 
     columns = ['sub_category_id', 'sub_category_name', 'category_id', 'category_name', ]
 
-    for col_num in range(len(columns)):
-        ws.write(row_num, col_num, columns[col_num], font_style)
-
-    font_style = xlwt.XFStyle()
+    for col_num, column_title in enumerate(columns, 1):
+        cell = worksheet.cell(row=row_num, column=col_num)
+        cell.value = column_title
 
     products = Category.objects.all().values_list('id', 'category_name', 'category_parent_id')
     for row in products:
         row = list(row)
         if row[-1]:
             category_parent_name = Category.objects.filter(id=row[-1]).values_list('category_name').first()
+            row.append(category_parent_name[0])
         else:
             category_parent_name = ''
-        row.append(category_parent_name)
-        row = tuple(row)
+            row.append(category_parent_name)
         row_num += 1
-        for col_num in range(len(row)):
-            ws.write(row_num, col_num, row[col_num], font_style)
+        for col_num, cell_value in enumerate(row, 1):
+            cell = worksheet.cell(row=row_num, column=col_num)
+            cell.value = cell_value
 
-    wb.save(response)
+    workbook.save(response)
     return response
 
 
@@ -1245,39 +1248,41 @@ def brand_sub_brand_mapping_sample_excel_file(request):
     This function will return an Sample Excel File in xlsx format which can be used for Mapping of
     Sub Brand and Brand
     """
-    response = HttpResponse(content_type='application/ms-excel')
-    response['Content-Disposition'] = 'attachment; filename="sub_brand_and_brand_mapping_sample.xlsx"'
-
-    wb = xlwt.Workbook(encoding='utf-8')
-    ws = wb.add_sheet('Users')
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response[
+        'Content-Disposition'] = 'attachment; filename={date}-subBrand-BrandMappingSample.xlsx'.format(
+        date=datetime.datetime.now().strftime('%d_%b_%y_%I_%M'),
+    )
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Brand_SubBrand_Sample File'
 
     # Sheet header, first row
-    row_num = 0
-
-    font_style = xlwt.XFStyle()
-    font_style.font.bold = True
+    row_num = 1
 
     columns = ['sub_brand_id', 'sub_brand_name', 'brand_id', 'brand_name', ]
 
-    for col_num in range(len(columns)):
-        ws.write(row_num, col_num, columns[col_num], font_style)
-
-    font_style = xlwt.XFStyle()
+    for col_num, column_title in enumerate(columns, 1):
+        cell = worksheet.cell(row=row_num, column=col_num)
+        cell.value = column_title
 
     products = Brand.objects.all().values_list('id', 'brand_name', 'brand_parent_id')
     for row in products:
         row = list(row)
         if row[-1]:
             brand_parent_name = Brand.objects.filter(id=row[-1]).values_list('brand_name').first()
+            row.append(brand_parent_name[0])
         else:
             brand_parent_name = ''
-        row.append(brand_parent_name)
-        row = tuple(row)
+            row.append(brand_parent_name)
         row_num += 1
-        for col_num in range(len(row)):
-            ws.write(row_num, col_num, row[col_num], font_style)
+        for col_num, cell_value in enumerate(row, 1):
+            cell = worksheet.cell(row=row_num, column=col_num)
+            cell.value = cell_value
 
-    wb.save(response)
+    workbook.save(response)
     return response
 
 
