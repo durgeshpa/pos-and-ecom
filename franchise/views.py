@@ -9,7 +9,7 @@ from io import StringIO
 
 from shops.models import Shop
 from franchise.forms import FranchiseStockForm
-from franchise.models import get_default_virtual_bin_id
+from franchise.models import get_default_virtual_bin_id, ShopLocationMap
 from products.models import Product
 from wms.models import Bin
 
@@ -53,7 +53,7 @@ class StockCsvConvert(View):
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
             writer = csv.writer(response)
             writer.writerow(
-                ['Status', 'Error', 'Barcode', 'Shop Id', 'Stock Qty', 'Warehouse ID', 'Product Name', 'SKU',
+                ['Status', 'Error', 'Barcode', 'Shop Location', 'Stock Qty', 'Warehouse ID', 'Product Name', 'SKU',
                  'Expiry Date', 'Bin ID',
                  'Normal Quantity', 'Damaged Quantity', 'Expired Quantity', 'Missing Quantity'])
 
@@ -66,12 +66,17 @@ class StockCsvConvert(View):
                     writer.writerow(["Error", "Multiple products exist", row[0], row[1], row[2]])
                     continue
                 try:
-                    shop_obj = Shop.objects.get(pk=int(row[1]), shop_type__shop_type='f', approval_status=2)
+                    shop_loc = ShopLocationMap.objects.get(location_name=row[1].strip())
                 except Exception as e:
-                    writer.writerow(["Error", "No approved franchise shop", row[0], row[1], row[2]])
+                    writer.writerow(["Error", "No shop location map exists", row[0], row[1], row[2]])
                     continue
                 try:
-                    bin_obj = Bin.objects.get(warehouse_id=int(row[1]),
+                    shop_obj = Shop.objects.get(pk=shop_loc.shop.id, shop_type__shop_type='f', approval_status=2)
+                except Exception as e:
+                    writer.writerow(["Error", "Shop not approved", row[0], row[1], row[2]])
+                    continue
+                try:
+                    bin_obj = Bin.objects.get(warehouse=shop_obj,
                                               bin_id=get_default_virtual_bin_id())
                 except Exception as e:
                     writer.writerow(["Error", "Bin doesn't exist", row[0], row[1], row[2]])
@@ -79,9 +84,9 @@ class StockCsvConvert(View):
 
                 sku = Product.objects.get(product_ean_code=row[0])
 
-                row[2] = row[2] if int(row[2]) > 0 else 0
+                row[2] = row[2] if int(float(row[2])) > 0 else 0
                 writer.writerow(
-                    ['Processed', '', row[0], row[1], row[2], row[1], sku.product_name, sku.product_sku, '01/01/2024',
+                    ['Processed', '', row[0], row[1], int(float(row[2])), shop_obj.id, sku.product_name, sku.product_sku, '01/01/2024',
                      bin_obj.bin_id, row[2], '0', '0', '0'])
 
             return response
@@ -98,8 +103,8 @@ class DownloadFranchiseStockCSV(View):
         filename = 'sample_franchise_stock' + ".csv"
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['Barcode', 'Shop Id', 'Stock Qty'])
-        writer.writerow(['8901233035567_100', '35040', '500'])
+        writer.writerow(['Barcode', 'Shop Location', 'Stock Qty'])
+        writer.writerow(['8901233035567_100', 'Pepper Tape (K Mart Grocery Store)', '500'])
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)

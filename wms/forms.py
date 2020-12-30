@@ -417,7 +417,7 @@ def validation_bin_stock_movement(self):
             raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
                                     'Warehouse Id does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 1},)
-        elif check_shop.shop_type.shop_type == 'f':
+        elif check_shop.shop_type.shop_type == 'fa':
             """
                 Single virtual bin present for all products in a franchise shop. This stock correction does not apply to Franchise shops.
             """
@@ -540,7 +540,7 @@ def validation_stock_correction(self):
             raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
                                     'Warehouse Id does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 2}, )
-        elif check_shop.shop_type.shop_type == 'f':
+        elif check_shop.shop_type.shop_type == 'fa':
             """
                 Single virtual bin present for all products in a franchise shop. This stock correction does not apply to Franchise shops.
             """
@@ -746,7 +746,7 @@ def validation_warehouse_inventory(self):
             raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
                                     'Warehouse Id does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 1}, )
-        elif check_shop.shop_type.shop_type == 'f':
+        elif check_shop.shop_type.shop_type == 'fa':
             """
                 Single virtual bin present for all products in a franchise shop. This stock correction does not apply to Franchise shops.
             """
