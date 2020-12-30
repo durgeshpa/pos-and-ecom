@@ -240,7 +240,7 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
     fields = ('vendor', 'product', 'product_price','product_price_pack','product_mrp','case_size')
 
     list_display = ('vendor', 'product','product_price','product_price_pack','product_mrp','case_size','created_at','status','product_status')
-    list_filter = [VendorFilter,ProductFilter,product__status,'status']
+    list_filter = [VendorFilter,ProductFilter,'product__status','status']
     form = ProductVendorMappingForm
     readonly_fields = ['brand_to_gram_price_unit',]
     change_list_template = 'admin/products/bulk_product_vendor_mapping_change_list.html'
