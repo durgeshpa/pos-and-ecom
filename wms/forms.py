@@ -297,19 +297,16 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                 putaway_inventory_type = self.instance.putaway.inventory_type
                 putaway_product = self.instance.sku
                 if self.instance.putaway_type == 'Order_Cancelled':
-                    ordered_inventory_state = 'ordered',
                     initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(self.request.user, self.instance, initial_stage, bin_id)
 
-                elif self.instance.putaway_type == 'Pickup_Cancelled':
-                    ordered_inventory_state = 'picked',
+                elif self.instance.putaway_type in ['picking_cancelled', 'Pickup_Cancelled']:
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(self.request.user, self.instance, initial_stage, bin_id)
 
                 elif self.instance.putaway_type == 'Shipment_Cancelled':
-                    ordered_inventory_state = 'picked',
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(self.request.user, self.instance, initial_stage, bin_id)
 
                 elif self.instance.putaway_type == 'PAR_SHIPMENT':
                     ordered_inventory_state = 'picked',
