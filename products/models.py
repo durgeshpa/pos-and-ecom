@@ -791,6 +791,13 @@ class ProductVendorMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def save_vendor(self,vendor):
+        parent_brands = []
+        for brand_dt in vendor.vendor_brand_mapping.filter(status=True):
+            parent_brands.append(vendor.get_parent_or_self(brand_dt))
+        vendor.vendor_products_brand = list(set(parent_brands))
+        vendor.save()
+
     def save(self, *args, **kwargs):
        
         if self.product_price:
@@ -802,6 +809,7 @@ class ProductVendorMapping(models.Model):
         ProductVendorMapping.objects.filter(product=self.product,vendor=self.vendor,status=True).update(status=False)
         self.status = True
         super().save(*args, **kwargs)
+        self.save_vendor(vendor=self.vendor)
 
     def __str__(self):
         return '%s' % (self.vendor)
