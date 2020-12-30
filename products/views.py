@@ -1170,7 +1170,7 @@ def UploadMasterDataSampleExcelFile(request):
     )
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
-    worksheet.title = 'MasterData_SampleExcelFile'
+    worksheet.title = 'Users'
 
     # Sheet header, first row
     row_num = 1
@@ -1214,7 +1214,7 @@ def category_sub_category_mapping_sample_excel_file(request):
 
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
-    worksheet.title = 'Category-SubCategory_SampleFile'
+    worksheet.title = 'Users'
 
     # Sheet header, first row
     row_num = 1
@@ -1257,7 +1257,7 @@ def brand_sub_brand_mapping_sample_excel_file(request):
     )
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
-    worksheet.title = 'Brand_SubBrand_Sample File'
+    worksheet.title = 'Users'
 
     # Sheet header, first row
     row_num = 1
