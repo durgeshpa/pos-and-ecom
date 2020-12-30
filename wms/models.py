@@ -229,7 +229,7 @@ class Out(models.Model):
 class Pickup(models.Model):
 
     objects = Manager()
-    pickup_status_choices = (
+    pickup_status_choices = Choices(
         ('pickup_creation', 'PickUp Creation'),
         ('picking_assigned', 'Pickup Assigned'),
         ('picking_complete', 'Pickup Complete'),
@@ -258,6 +258,11 @@ class PickupBinInventory(models.Model):
                                      (4, 'MRP_DIFF', 'Different MRP'),
                                      (5, 'GRAMMAGE_DIFF', 'Different Grammage'),
                                      (6, 'NOT_CLEAN', 'Item not clean'))
+
+    PICKUP_STATUS_CHOICES = Choices((0, 'PENDING', 'Pickup Pending'),
+                                    (1, 'PARTIAL', 'Partially Completed'),
+                                    (2, 'FULL', 'Fully Completed'),
+                                    (3, 'CANCELLED', 'Pickup Cancelled'))
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)

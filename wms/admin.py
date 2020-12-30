@@ -635,6 +635,7 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     list_filter = [Warehouse, BatchIdFilter, BinIDFilterForPickupBinInventory, OrderNumberFilterForPickupBinInventory,
                    PickupStatusFilter, ('remarks', AllValuesFieldListFilter), ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
+    actions = ['download_csv']
 
     def order_number(self, obj):
         return obj.pickup.pickup_type_id
@@ -652,13 +653,13 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
         return obj.pickup.inventory_type
 
     def pickup_status(self, obj):
-        if obj.pickup.status == 'picking_complete':
+        if obj.pickup.status == Pickup.pickup_status_choices.picking_complete:
             if obj.quantity != obj.pickup_quantity:
-                return 'Partial'
-            return 'Full'
-        elif obj.pickup.status == 'picking_cancelled':
-            return 'Cancelled'
-        return 'Pending'
+                return PickupBinInventory.PICKUP_STATUS_CHOICES[PickupBinInventory.PICKUP_STATUS_CHOICES.PARTIAL]
+            return PickupBinInventory.PICKUP_STATUS_CHOICES[PickupBinInventory.PICKUP_STATUS_CHOICES.FULL]
+        elif obj.pickup.status == Pickup.pickup_status_choices.picking_cancelled:
+            return PickupBinInventory.PICKUP_STATUS_CHOICES[PickupBinInventory.PICKUP_STATUS_CHOICES.CANCELLED]
+        return PickupBinInventory.PICKUP_STATUS_CHOICES[PickupBinInventory.PICKUP_STATUS_CHOICES.PENDING]
 
     def add_audit_link(self, obj):
         if obj.pickup.status == 'picking_complete':
@@ -667,6 +668,24 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
                     "<a href = '/admin/audit/auditdetail/add/?warehouse=%s&audit_level=%s&sku=%s' class ='addlink' > Audit</a>" % (
                     obj.warehouse_id, AUDIT_LEVEL_CHOICES.PRODUCT, obj.pickup.sku.id))
 
+    def download_csv(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        # set the header name
+        writer.writerow(['warehouse', 'batch_id', 'order_number', 'pickup_type', 'bin_id', 'inventory_type',
+                         'bin_quantity', 'quantity', 'pickup_quantity', 'pickup_status',
+                         'pickup_remarks', 'created_at', 'last_picked_at' ])
+
+        for item in queryset:
+            writer.writerow([item.warehouse, item.batch_id, self.order_number(item), self.pickup_type(item),
+                             self.bin_id(item), self.inventory_type(item), item.bin_quantity, item.quantity,
+                             item.pickup_quantity, self.pickup_status(item), self.pickup_remarks(item),
+                             item.created_at, item.last_picked_at])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=pickup_bin_inventory.csv'
+        return response
     add_audit_link.short_description = 'Add Audit'
     class Media:
         pass

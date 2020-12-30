@@ -853,7 +853,7 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
                 return False
             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                 shop, product, type_normal, reserved_state, -1*transaction_quantity, transaction_type, transaction_id)
-        if ordered_state != 'available':
+        if order_status != 'available':
             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                 shop, product, type_normal, ordered_state, transaction_quantity, transaction_type, transaction_id)
 
