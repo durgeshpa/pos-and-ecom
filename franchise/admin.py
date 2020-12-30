@@ -204,7 +204,6 @@ class ShopLocationMapAdmin(admin.ModelAdmin, ExportShopLocationMap):
     list_filter = [ShopFilter, ShopLocFilter1]
     actions = ["export_as_csv_shop_location_map"]
     form = ShopLocationMapForm
-    change_list_template = 'admin/franchise/product_change_list.html'
 
     def get_urls(self):
         from django.conf.urls import url

@@ -88,7 +88,7 @@ class FranchiseStockForm(forms.Form):
                     0] + ":" + row[0] + " | Barcode is required")
             if not row[1] or row[1].isspace():
                 raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[
-                    1] + ":" + row[1] + " | Shop Id is required")
+                    1] + ":" + row[1] + " | Shop Location is required")
             if not row[2] or row[2].isspace():
                 raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[
                     2] + ":" + row[2] + " | Stock Qty is required")
