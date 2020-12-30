@@ -68,7 +68,7 @@ class BannerPositionForm(forms.ModelForm):
         required=False
     )
     buyer_shop = forms.ModelMultipleChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2Multiple(url='admin:retailer-shop-autocomplete', ),
         required=False
     )
