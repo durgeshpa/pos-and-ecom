@@ -44,8 +44,11 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     parent_product_upload, ParentProductsDownloadSampleCSV,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
-                    ParentProductMultiPhotoUploadView,cart_product_list_status,
-                    bulk_product_vendor_csv_upload_view,all_product_mapped_to_vendor)
+                    ParentProductMultiPhotoUploadView, cart_product_list_status, upload_master_data_view,
+                    UploadMasterDataSampleExcelFile,
+                    category_sub_category_mapping_sample_excel_file, brand_sub_brand_mapping_sample_excel_file,
+                    ParentProductMultiPhotoUploadView, cart_product_list_status,
+                    bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
@@ -238,7 +241,7 @@ class ExportProductVendor:
             row = writer.writerow([getattr(obj, field) for field in list_display])
         return response
     export_as_csv_product_vendormapping.short_description = "Download CSV of selected Productvendormapping"
-    
+
 class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
   
     actions = ["export_as_csv_product_vendormapping", ]
@@ -879,9 +882,29 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="product-csv-upload"
             ),
             url(
+                r'^upload-master-data/$',
+                self.admin_site.admin_view(upload_master_data_view),
+                name="upload-master-data"
+            ),
+            url(
+               r'^category-sub-category-mapping/$',
+               self.admin_site.admin_view(category_sub_category_mapping_sample_excel_file),
+               name="category-sub-category-mapping"
+            ),
+            url(
+                r'^brand-sub-brand-mapping/$',
+                self.admin_site.admin_view(brand_sub_brand_mapping_sample_excel_file),
+                name="brand-sub-brand-mapping"
+            ),
+            url(
                 r'^chld-products-download-sample-csv/$',
                 self.admin_site.admin_view(ChildProductsDownloadSampleCSV),
                 name="child-products-download-sample-csv"
+            ),
+            url(
+                r'^upload-master-data-sample-excel-file/$',
+                self.admin_site.admin_view(UploadMasterDataSampleExcelFile),
+                name="upload-master-data-sample-excel-file"
             ),
             url(
                 r'^parent-product-autocomplete/$',
@@ -1238,6 +1261,14 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     download_sample_file.short_description = 'Download Sample File'
 
 
+class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'updated_by', 'file',)
+    fields = ('file', 'updated_by')
+    readonly_fields = ('updated_by', 'file',)
+
+    change_list_template = 'admin/products/product_attributes_change_list.html'
+
+
 class ExportRepackaging:
     def export_as_csv_products_repackaging(self, request, queryset):
         meta = self.model._meta
@@ -1342,5 +1373,6 @@ admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)
 admin.site.register(BulkProductTaxUpdate, BulkProductTaxUpdateAdmin)
 admin.site.register(BulkUploadForGSTChange, BulkUploadForGSTChangeAdmin)
+admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttributesAdmin)
 admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)

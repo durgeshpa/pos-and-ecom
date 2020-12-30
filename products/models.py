@@ -882,6 +882,19 @@ class BulkUploadForGSTChange(models.Model):
         return f"BulkUpload updated at {self.created_at} by {self.updated_by}"
 
 
+class BulkUploadForProductAttributes(models.Model):
+    file = models.FileField(upload_to='products/product_attributes/')
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True, related_name='bulk_upload_for_product_attributes',
+        on_delete=models.DO_NOTHING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"BulkUpload for product_tax_attribute updated at {self.created_at} by {self.updated_by}"
+
+
 class Repackaging(models.Model):
     REPACKAGING_STATUS = [
         ('started', 'Started'),

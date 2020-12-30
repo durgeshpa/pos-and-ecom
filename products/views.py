@@ -6,9 +6,11 @@ import logging
 import re
 
 import boto3
+import xlwt
 from botocore.exceptions import ClientError
 from decouple import config
 import openpyxl
+from pyexcel_xlsx import get_data as xlsx_get
 
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
@@ -34,8 +36,10 @@ from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
     ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
-    UploadChildProductAdminForm, ParentProductImageForm,BulkProductVendorMapping
-    )
+    UploadChildProductAdminForm, ParentProductImageForm,BulkProductVendorMapping,
+    UploadMasterDataAdminForm
+)
+from .master_data import UploadMasterData, SetMasterData
 from products.models import (
     Product, ProductCategory, ProductOption,
     ProductTaxMapping, ProductVendorMapping,
@@ -43,8 +47,8 @@ from products.models import (
     ParentProduct, ParentProductCategory,
     ProductSourceMapping,
     ParentProductTaxMapping, Tax, ParentProductImage,
-    DestinationRepackagingCostMapping
-    )
+    DestinationRepackagingCostMapping, BulkUploadForProductAttributes
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1155,6 +1159,195 @@ def product_csv_upload(request):
     return render(request, 'admin/products/child-product-upload.html', {'form': form})
 
 
+def UploadMasterDataSampleExcelFile(request):
+    """
+    This function will return an Sample Excel File in xlsx format which can be used for uploading the master_data
+    """
+    response = HttpResponse(content_type='application/ms-excel')
+    response['Content-Disposition'] = 'attachment; filename="sample_file_for_upload_master_data.xlsx"'
+
+    wb = xlwt.Workbook(encoding='utf-8')
+    ws = wb.add_sheet('Users')
+
+    # Sheet header, first row
+    row_num = 0
+
+    font_style = xlwt.XFStyle()
+    font_style.font.bold = True
+
+    columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit',
+               'weight_value', 'hsn', 'tax_1(gst)', 'tax_2(cess/surcharge)', 'brand_case_size',
+               'inner_case_size', 'sub_brand_id', 'sub_brand_name', 'brand_id', 'brand_name',
+               'sub_category_id', 'sub_category_name', 'category_id', 'category_name',
+               'status', ]
+
+    for col_num in range(len(columns)):
+        ws.write(row_num, col_num, columns[col_num], font_style)
+
+    row_num = 1
+    font_style = xlwt.XFStyle()
+
+    column_list = ['NDPPROMAG00000018', 'Maggi Magic masala, 6.2 gm (Buy 4 + get 1 Free)', 'PSNGNES0016',
+                   'Maggi Magic masala, 6.2 gm', '89010588772972', '5.00', 'Gram', '10', '910',
+                   'GST-12', '', '2304', '12', '35', 'Maggi', '34', 'Nestle', '118', 'Spices, Herb & Seasoning',
+                   '114', 'Staples & Grocery', 'Active', ]
+
+    for col_num in range(len(column_list)):
+        ws.write(row_num, col_num, column_list[col_num], font_style)
+
+    wb.save(response)
+    return response
+
+
+def category_sub_category_mapping_sample_excel_file(request):
+    """
+    This function will return an Sample Excel File in xlsx format which can be used for Mapping of
+    Sub Category and Category
+    """
+    response = HttpResponse(content_type='application/ms-excel')
+    response['Content-Disposition'] = 'attachment; filename="sub_category_and_category_mapping_sample.xlsx"'
+
+    wb = xlwt.Workbook(encoding='utf-8')
+    ws = wb.add_sheet('Users')
+
+    # Sheet header, first row
+    row_num = 0
+
+    font_style = xlwt.XFStyle()
+    font_style.font.bold = True
+
+    columns = ['sub_category_id', 'sub_category_name', 'category_id', 'category_name', ]
+
+    for col_num in range(len(columns)):
+        ws.write(row_num, col_num, columns[col_num], font_style)
+
+    font_style = xlwt.XFStyle()
+
+    products = Category.objects.all().values_list('id', 'category_name', 'category_parent_id')
+    for row in products:
+        row = list(row)
+        if row[-1]:
+            category_parent_name = Category.objects.filter(id=row[-1]).values_list('category_name').first()
+        else:
+            category_parent_name = ''
+        row.append(category_parent_name)
+        row = tuple(row)
+        row_num += 1
+        for col_num in range(len(row)):
+            ws.write(row_num, col_num, row[col_num], font_style)
+
+    wb.save(response)
+    return response
+
+
+def brand_sub_brand_mapping_sample_excel_file(request):
+    """
+    This function will return an Sample Excel File in xlsx format which can be used for Mapping of
+    Sub Brand and Brand
+    """
+    response = HttpResponse(content_type='application/ms-excel')
+    response['Content-Disposition'] = 'attachment; filename="sub_brand_and_brand_mapping_sample.xlsx"'
+
+    wb = xlwt.Workbook(encoding='utf-8')
+    ws = wb.add_sheet('Users')
+
+    # Sheet header, first row
+    row_num = 0
+
+    font_style = xlwt.XFStyle()
+    font_style.font.bold = True
+
+    columns = ['sub_brand_id', 'sub_brand_name', 'brand_id', 'brand_name', ]
+
+    for col_num in range(len(columns)):
+        ws.write(row_num, col_num, columns[col_num], font_style)
+
+    font_style = xlwt.XFStyle()
+
+    products = Brand.objects.all().values_list('id', 'brand_name', 'brand_parent_id')
+    for row in products:
+        row = list(row)
+        if row[-1]:
+            brand_parent_name = Brand.objects.filter(id=row[-1]).values_list('brand_name').first()
+        else:
+            brand_parent_name = ''
+        row.append(brand_parent_name)
+        row = tuple(row)
+        row_num += 1
+        for col_num in range(len(row)):
+            ws.write(row_num, col_num, row[col_num], font_style)
+
+    wb.save(response)
+    return response
+
+
+def upload_master_data_view(request):
+    """
+    This function will be used for following operations:
+    a)Set the Status to "Deactivated" for a Product
+    b)Mapping of "Sub Brand" to "Brand"
+    c)Mapping of "Sub Category" to "Category"
+    d)Set the data for "Parent SKU"
+    e)Mapping of Child SKU to Parent SKU
+    f)Set the Child SKU Data
+
+    After following operations, an entry will be created in 'BulkUploadForProductAttributes' Table
+    """
+    if request.method == 'POST':
+        excel_file = request.FILES['file']
+        if excel_file.name[-5:] == '.xlsx':
+            data = xlsx_get(excel_file)
+            form = UploadMasterDataAdminForm(request.POST, request.FILES, data)
+
+        if not excel_file.name[-5:] == '.xlsx':
+            form = UploadMasterDataAdminForm(request.POST, request.FILES)
+
+        if form.errors:
+            return render(request, 'admin/products/upload-master-data.html', {'form': form})
+
+        if form.is_valid():
+            excel_file_data = xlsx_get(excel_file)['Users']
+            header_list = excel_file_data.pop(0)  # remove the header from the list
+            excel_file_headers = [str(ele).lower() for ele in
+                                  header_list]  # Converting headers into lowercase
+            excel_file_list = []  # It will be a list of dictionaries with format [{'sku_id': 'NDPPROMAG00000018', ...}]
+            excel_dict = {}
+            count = 0
+            for row in excel_file_data:
+                for ele in row:
+                    excel_dict[excel_file_headers[count]] = ele
+                    count += 1
+                excel_file_list.append(excel_dict)
+                excel_dict = {}
+                count = 0
+
+            if request.POST['upload_master_data'] == 'master_data':
+                SetMasterData.set_master_data(excel_file_headers, excel_file_list)
+            if request.POST['upload_master_data'] == 'inactive_status':
+                UploadMasterData.set_inactive_status(excel_file_headers, excel_file_list)
+            if request.POST['upload_master_data'] == 'sub_brand_with_brand':
+                UploadMasterData.set_sub_brand_and_brand(excel_file_headers, excel_file_list)
+            if request.POST['upload_master_data'] == 'sub_category_with_category':
+                UploadMasterData.set_sub_category_and_category(excel_file_headers, excel_file_list)
+            if request.POST['upload_master_data'] == 'child_parent':
+                UploadMasterData.set_child_parent(excel_file_headers, excel_file_list)
+            if request.POST['upload_master_data'] == 'child_data':
+                UploadMasterData.set_child_data(excel_file_headers, excel_file_list)
+            if request.POST['upload_master_data'] == 'parent_data':
+                UploadMasterData.set_parent_data(excel_file_headers, excel_file_list)
+
+            product_attribute = BulkUploadForProductAttributes.objects.create(file=request.FILES['file'],
+                                                                              updated_by=request.user)
+            product_attribute.save()
+            return render(request, 'admin/products/upload-master-data.html',
+                          {'form': form,
+                           'success': 'Master Data Uploaded Successfully!', })
+
+    else:
+        form = UploadMasterDataAdminForm()
+    return render(request, 'admin/products/upload-master-data.html', {'form': form})
+
+
 def FetchDefaultChildDdetails(request):
     parent_product_id = request.GET.get('parent')
     data = {
@@ -1562,7 +1755,7 @@ def products_export_for_vendor(request, id=None):
         products = Product.objects.filter(status="active").only('id', 'product_name', 'product_sku', 'product_mrp')
         for product in products:
             writer.writerow([product.id, product.product_name, product.product_sku, '', '', '',product.product_case_size])
-   
+
     return response
 
 def all_product_mapped_to_vendor(request, id=None):
@@ -1590,7 +1783,7 @@ def bulk_product_vendor_csv_upload_view(request):
 
     if request.method == 'POST':
         form = BulkProductVendorMapping(request.POST, request.FILES)
-        
+
         if form.errors:
             return render(request, 'admin/products/bulk-upload-vendor-details.html', {
                 'form': form,
@@ -1608,7 +1801,7 @@ def bulk_product_vendor_csv_upload_view(request):
                     if '' in row:
                         if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
                             continue
-               
+
                     if row[4] == "Per Piece":
                         product_vendor = ProductVendorMapping.objects.create(
                             vendor = Vendor.objects.get(id=vendor_id),
@@ -1627,7 +1820,7 @@ def bulk_product_vendor_csv_upload_view(request):
                             product_price_pack = row[5],
                             case_size = row[6],
                         )
-                    product_vendor.save()       
+                    product_vendor.save()
             except Exception as e:
                 print(e)
             return render(request, 'admin/products/bulk-upload-vendor-details.html', {
