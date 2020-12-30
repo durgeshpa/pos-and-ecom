@@ -10,6 +10,7 @@ from franchise.models import Fbin, Faudit, HdposDataFetch, FranchiseSales, Franc
 from franchise.forms import FranchiseBinForm, FranchiseAuditCreationForm, ShopLocationMapForm
 from franchise.filters import ShopLocFilter, BarcodeFilter, ShopFilter, ShopLocFilter1,\
     FranchiseShopAutocomplete, WarehouseFilter
+from franchise.views import StockCsvConvert
 from wms.admin import BinAdmin, BinIdFilter
 from audit.admin import AuditDetailAdmin, AuditNoFilter, AuditorFilter
 from products.models import Product
@@ -203,17 +204,23 @@ class ShopLocationMapAdmin(admin.ModelAdmin, ExportShopLocationMap):
     list_filter = [ShopFilter, ShopLocFilter1]
     actions = ["export_as_csv_shop_location_map"]
     form = ShopLocationMapForm
+    change_list_template = 'admin/franchise/product_change_list.html'
 
     def get_urls(self):
         from django.conf.urls import url
         urls = super(ShopLocationMapAdmin, self).get_urls()
         urls = [
-            url(
-                r'^franchise-shop-autocomplete/$',
-                self.admin_site.admin_view(FranchiseShopAutocomplete.as_view()),
-                name="franchise-shop-autocomplete"
-            ),
-        ] + urls
+                   url(
+                       r'^franchise-shop-autocomplete/$',
+                       self.admin_site.admin_view(FranchiseShopAutocomplete.as_view()),
+                       name="franchise-shop-autocomplete"
+                   ),
+                   url(
+                       r'^stockcsvconvert/$',
+                       self.admin_site.admin_view(StockCsvConvert.as_view()),
+                       name="stockcsvconvert"
+                   ),
+               ] + urls
         return urls
 
     class Media:
