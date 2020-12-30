@@ -887,20 +887,23 @@ class UploadMasterDataAdminForm(forms.Form):
             raise ValidationError("Please add some data below the headers to upload it!")
 
     def clean_file(self):
-        if self.cleaned_data.get('file'):
-            if not self.cleaned_data['file'].name[-5:] in ('.xlsx'):
-                raise forms.ValidationError("Sorry! Only excel(xlsx) file accepted.")
-            excel_file_data = self.auto_id['Users']
+        try:
+            if self.cleaned_data.get('file'):
+                if not self.cleaned_data['file'].name[-5:] in ('.xlsx'):
+                    raise forms.ValidationError("Sorry! Only excel(xlsx) file accepted.")
+                excel_file_data = self.auto_id['Users']
 
-            # Checking, whether excel file is empty or not!
-            if excel_file_data:
-                self.read_file(excel_file_data, self.data['upload_master_data'])
+                # Checking, whether excel file is empty or not!
+                if excel_file_data:
+                    self.read_file(excel_file_data, self.data['upload_master_data'])
+                else:
+                    raise ValidationError("Excel File cannot be empty.Please add some data to upload it!")
+
+                return self.cleaned_data['file']
             else:
-                raise ValidationError("Excel File cannot be empty.Please add some data to upload it!")
-
-            return self.cleaned_data['file']
-        else:
-            raise ValidationError("Excel File is required!")
+                raise ValidationError("Excel File is required!")
+        except Exception as e:
+            raise ValidationError(f"Something went wrong while checking Validations + {str(e)}")
 
 
 class ProductsFilterForm(forms.Form):
