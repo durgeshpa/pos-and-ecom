@@ -1543,24 +1543,17 @@ class InventoryMovement(object):
             info_logger.error('InventoryMovement|move_warehouse_inventory| '
                               'multiple records found in warehouse inventory')
             return False
+
         warehouse_inventory = warehouse_inventory.last()
         qty_to_move = warehouse_inventory.quantity if quantity > warehouse_inventory.quantity else quantity
-        warehouse_inventory_to, created = WarehouseInventory.objects.get_or_create(warehouse=warehouse,
-                                                                          sku=sku,
-                                                                          inventory_state=inventory_state,
-                                                                          inventory_type=inventory_type_to,
-                                                                          defaults={'quantity': qty_to_move,
-                                                                                    'in_stock':True})
-        warehouse_inventory.quantity = warehouse_inventory.quantity-qty_to_move
-        warehouse_inventory.save()
-        if not created:
-            warehouse_inventory_to.quantity = warehouse_inventory_to.quantity + qty_to_move
-            warehouse_inventory_to.save()
 
-        WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, tr_type, tr_id,
-                                                                           inventory_type_from, inventory_state,
-                                                                           inventory_type_to, inventory_state, qty_to_move)
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            warehouse, sku, inventory_type_from, inventory_state, -1*qty_to_move, tr_type, tr_id
+        )
 
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            warehouse, sku, inventory_type_to, inventory_state, qty_to_move, tr_type, tr_id
+        )
         cron_logger.info('InventoryMovement|move_warehouse_inventory| moved successfully')
 
 
@@ -1570,7 +1563,7 @@ def move_expired_inventory_cron():
     transaction_type = 'expired'
     type_normal = InventoryType.objects.get(inventory_type='normal')
     type_expired = InventoryType.objects.get(inventory_type='expired')
-    stage_available = InventoryState.objects.get(inventory_state='available')
+    stage_available = InventoryState.objects.get(inventory_state='total_available')
 
     expired_batch_ids = InventoryMovement.get_inventory_expiring_by_date(today)
     bin_inventory_list = InventoryMovement.get_bin_inventory_to_move(expired_batch_ids, type_normal)
