@@ -1300,9 +1300,9 @@ class BulkProductVendorMapping(forms.Form):
             if not row[3] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[3]):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
                 'EMPTY_OR_NOT_VALID']%("MRP"))
-
-            if not (row[4].lower()  == "per piece" or row[4].lower()  == "per pack"):
-
+      
+            if not (row[4].title()  == "Per Piece" or row[4].title()  == "Per Pack"):
+               
                 raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                 'EMPTY_OR_NOT_VALID_STRING']%("Gram_to_brand_Price_Unit"))
 
