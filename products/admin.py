@@ -220,11 +220,6 @@ class VendorFilter(AutocompleteFilter):
     title = 'Vendor Name' # display title
     field_name = 'vendor' # name of the foreign key field
 
-# class StatusFilter(AutocompleteFilter):
-#     title = 'Product Name' # display title
-#     field_name = 'product__status' # name of the foreign key field
-
-
 class ExportProductVendor:
     def export_as_csv_product_vendormapping(self, request, queryset):
         meta = self.model._meta
