@@ -2019,9 +2019,8 @@ def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type,
                                               final_inventory_type=final_type[0],
                                               transaction_type=transaction_type, transaction_id=transaction_id,
                                               quantity=quantity)
-
     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-        warehouse, sku, 'normal', 'total_available', quantity, transaction_type, transaction_id)
+        warehouse, sku, final_type, final_stage, quantity, transaction_type, transaction_id)
     if transaction_type == 'franchise_returns':
         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-            warehouse, sku, 'normal', 'shipped', quantity * -1, transaction_type, transaction_id)
+            warehouse, sku, initial_type, initial_stage, quantity * -1, transaction_type, transaction_id)
