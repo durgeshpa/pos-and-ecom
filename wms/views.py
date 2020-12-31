@@ -1310,11 +1310,11 @@ def shipment_out_inventory_change(shipment_list, final_status):
             with transaction.atomic():
                 for shipment_item in shipment_item_list:
                     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                        shipment.order.seller_shop, shipment_item.product, "normal", "picked",
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_picked,
                         shipment_item.shipped_qty * -1, "shipped_out", shipment.pk)
 
                     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                        shipment.order.seller_shop, shipment_item.product, "normal", "shipped",
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_shipped,
                         shipment_item.shipped_qty, "shipped_out", shipment.pk)
 
                     shipment_batch_list = OrderedProductBatch.objects.filter(
