@@ -18,6 +18,7 @@ from retailer_to_sp.models import OrderedProduct
 from django.db import transaction
 from .common_functions import cancel_ordered, cancel_shipment, cancel_returned, putaway_repackaging
 from dal import autocomplete
+from accounts.middlewares import get_current_user
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -297,19 +298,16 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                 putaway_inventory_type = self.instance.putaway.inventory_type
                 putaway_product = self.instance.sku
                 if self.instance.putaway_type == 'Order_Cancelled':
-                    ordered_inventory_state = 'ordered',
                     initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(self.request.user, self.instance, initial_stage, bin_id)
 
-                elif self.instance.putaway_type == 'Pickup_Cancelled':
-                    ordered_inventory_state = 'picked',
+                elif self.instance.putaway_type in ['picking_cancelled', 'Pickup_Cancelled']:
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(self.request.user, self.instance, initial_stage, bin_id)
 
                 elif self.instance.putaway_type == 'Shipment_Cancelled':
-                    ordered_inventory_state = 'picked',
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(self.request.user, self.instance, initial_stage, bin_id)
 
                 elif self.instance.putaway_type == 'PAR_SHIPMENT':
                     ordered_inventory_state = 'picked',
@@ -401,6 +399,7 @@ class StockMovementCsvViewForm(forms.Form):
 
 def validation_bin_stock_movement(self):
     reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+    user = get_current_user()
     first_row = next(reader)
     # list which contains csv data and pass into the view file
     form_data_list = []
@@ -417,7 +416,7 @@ def validation_bin_stock_movement(self):
             raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
                                     'Warehouse Id does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 1},)
-        elif check_shop.shop_type.shop_type == 'f':
+        elif check_shop.shop_type.shop_type == 'f' and not user.is_superuser:
             """
                 Single virtual bin present for all products in a franchise shop. This stock correction does not apply to Franchise shops.
             """
@@ -520,6 +519,7 @@ def validation_bin_stock_movement(self):
 
 def validation_stock_correction(self):
     reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+    user = get_current_user()
     first_row = next(reader)
     # list which contains csv data and pass into the view file
     form_data_list = []
@@ -540,7 +540,7 @@ def validation_stock_correction(self):
             raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
                                     'Warehouse Id does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 2}, )
-        elif check_shop.shop_type.shop_type == 'f':
+        elif check_shop.shop_type.shop_type == 'f' and not user.is_superuser:
             """
                 Single virtual bin present for all products in a franchise shop. This stock correction does not apply to Franchise shops.
             """
@@ -730,6 +730,7 @@ def validation_stock_correction(self):
 
 def validation_warehouse_inventory(self):
     reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+    user = get_current_user()
     first_row = next(reader)
     # list which contains csv data and pass into the view file
     form_data_list = []
@@ -746,7 +747,7 @@ def validation_warehouse_inventory(self):
             raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
                                     'Warehouse Id does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 1}, )
-        elif check_shop.shop_type.shop_type == 'f':
+        elif check_shop.shop_type.shop_type == 'f' and not user.is_superuser:
             """
                 Single virtual bin present for all products in a franchise shop. This stock correction does not apply to Franchise shops.
             """

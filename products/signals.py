@@ -10,7 +10,8 @@ import logging
 from django.db import transaction
 from wms.models import Out, In, InventoryType, Pickup, WarehouseInventory, InventoryState,WarehouseInternalInventoryChange, PutawayBinInventory, Putaway
 from retailer_to_sp.models import generate_picklist_id, PickerDashboard
-from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange
+from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, \
+    CommonWarehouseInventoryFunctions
 from datetime import datetime
 from shops.models import Shop
 from retailer_backend import common_function
@@ -174,43 +175,21 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
         with transaction.atomic():
             rep_obj = Repackaging.objects.get(pk=instance.pk)
             repackage_quantity = rep_obj.source_repackage_quantity
+            state_available = InventoryState.objects.filter(inventory_state='total_available').last()
+            state_repackaging = InventoryState.objects.filter(inventory_state='repackaging').last()
             warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=rep_obj.seller_shop,
                                                                         sku__id=rep_obj.source_sku.id,
                                                                         inventory_type=type_normal,
-                                                                        inventory_state=InventoryState.objects.filter(
-                                                                            inventory_state='available').last())
+                                                                        inventory_state=state_available)
             if warehouse_available_obj.exists():
-                w_obj = warehouse_available_obj.last()
-                w_obj.quantity = w_obj.quantity - repackage_quantity
-                w_obj.save()
 
-                warehouse_product_available = WarehouseInventory.objects.filter(warehouse=rep_obj.seller_shop,
-                                                                                sku__id=rep_obj.source_sku.id,
-                                                                                inventory_type__inventory_type='normal',
-                                                                                inventory_state__inventory_state=
-                                                                                'repackaging').last()
-                if warehouse_product_available:
-                    available_qty = warehouse_product_available.quantity
-                    warehouse_product_available.quantity = available_qty + repackage_quantity
-                    warehouse_product_available.save()
-                else:
-                    WarehouseInventory.objects.create(warehouse=rep_obj.seller_shop,
-                                                      sku=rep_obj.source_sku,
-                                                      inventory_state=InventoryState.objects.filter(
-                                                          inventory_state='repackaging').last(),
-                                                      quantity=repackage_quantity, in_stock=True,
-                                                      inventory_type=type_normal)
-                WarehouseInternalInventoryChange.objects.create(warehouse=rep_obj.seller_shop,
-                                                                sku=rep_obj.source_sku,
-                                                                transaction_type='repackaging',
-                                                                transaction_id=rep_obj.repackaging_no,
-                                                                initial_type=type_normal,
-                                                                final_type=type_normal,
-                                                                initial_stage=InventoryState.objects.filter(
-                                                                    inventory_state='available').last(),
-                                                                final_stage=InventoryState.objects.filter(
-                                                                    inventory_state='repackaging').last(),
-                                                                quantity=repackage_quantity)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    rep_obj.seller_shop, rep_obj.source_sku.id, type_normal, state_available, -1*repackage_quantity,
+                    'repackaging', rep_obj.repackaging_no)
+
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    rep_obj.seller_shop, rep_obj.source_sku.id, type_normal, state_repackaging, repackage_quantity,
+                    'repackaging', rep_obj.repackaging_no)
 
                 PickerDashboard.objects.create(
                     repackaging=rep_obj,

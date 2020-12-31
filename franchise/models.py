@@ -26,6 +26,8 @@ class Faudit(AuditDetail):
 class ShopLocationMap(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, unique=True, verbose_name='Shop Name')
     location_name = models.CharField(max_length=255, unique=True, verbose_name='Shop Location')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return str(self.shop) + ' | ' + str(self.location_name)
