@@ -1806,8 +1806,8 @@ def bulk_product_vendor_csv_upload_view(request):
                     if '' in row:
                         if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
                             continue
-
-                    if row[4] == "per piece":
+                   
+                    if row[4].title() == "Per Piece":
                         product_vendor = ProductVendorMapping.objects.create(
                             vendor = Vendor.objects.get(id=vendor_id),
                             product=Product.objects.get(id=row[0]),
