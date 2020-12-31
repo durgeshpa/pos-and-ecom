@@ -124,7 +124,7 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("MRP"))
 
-                if not (row[8].title()  == "Per Piece" or row[8].title() == "Per Pack"):
+                if not (row[8].lower()  == "per piece" or row[8].lower() == "per pack"):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID_STRING']%("Gram_to_brand_Price_Unit"))
 
