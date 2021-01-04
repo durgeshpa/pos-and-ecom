@@ -33,16 +33,33 @@ from django.http import JsonResponse
 from collections import defaultdict
 import itertools
 from io import StringIO
+import django_tables2 as tables
+from django_tables2 import SingleTableView
 
 
 # Create your views here.
 
 logger = logging.getLogger('shop')
+class ProductTable(tables.Table):
+    class Meta:
+        template_name = "django_tables2/bootstrap4.html"
+    sku = tables.Column()
+    name = tables.Column()
+    mrp = tables.Column()
+    parent_id = tables.Column()
+    parent_name = tables.Column()
+    normal = tables.Column()
+    damaged = tables.Column()
+    expired = tables.Column()
+    missing = tables.Column()
 
 class ShopMappedProduct(TemplateView):
-    template_name = "admin/shop/change_list.html"
+    template_name = "admin/shop/change_list1.html"
 
-    def get_context_data(self, **kwargs):
+    def get_queryset(self):
+        return None
+
+    def get_table_data(self, **kwargs):
         shop_obj = get_object_or_404(Shop, pk=self.kwargs.get('pk'))
         context = super().get_context_data(**kwargs)
         context['shop'] = shop_obj
@@ -59,7 +76,7 @@ class ShopMappedProduct(TemplateView):
         elif shop_obj.shop_type.shop_type in ['sp', 'f']:
             product_list = {}
             bin_inventory_state = InventoryState.objects.filter(inventory_state="available").last()
-            products = WarehouseInventory.objects.filter(warehouse=shop_obj, inventory_state=bin_inventory_state)
+            products = WarehouseInventory.objects.filter(warehouse=shop_obj, inventory_state=bin_inventory_state)[0:100]
 
             for myproduct in products:
                 if myproduct.sku.product_sku in product_list:
@@ -84,8 +101,14 @@ class ShopMappedProduct(TemplateView):
                     }
 
                 product_list[myproduct.sku.product_sku] = product_temp
-            context['products'] = product_list
+            product_list_new = []
 
+        for key, value in product_list.items():
+            product_list_new.append(value)
+        return product_list_new
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
         return context
 
 
