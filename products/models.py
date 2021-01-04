@@ -366,29 +366,8 @@ class Product(models.Model):
         we will further filter to city, pincode and buyer shop level.
         '''
         today = datetime.datetime.today()
-        buyer_shop_dt = Address.objects.values('city_id', 'pincode_link')\
-            .filter(shop_name_id=buyer_shop_id, address_type='shipping')
-        if buyer_shop_dt.exists():
-            buyer_shop_dt = buyer_shop_dt.last()
-        product_capping = self.product_pro_capping\
-            .filter(Q(seller_shop_id=seller_shop_id),
-                    Q(city_id=buyer_shop_dt.get('city_id')) | Q(city_id=None),
-                    Q(pincode_id=buyer_shop_dt.get('pincode_link')) | Q(pincode_id=None),
-                    Q(buyer_shop_id=buyer_shop_id) | Q(buyer_shop_id=None),
-                    status=True,
-                    start_date__lte=today, end_date__gte=today)\
-            .order_by('start_date')
-        if product_capping.count() > 1:
-            product_capping = product_capping.filter(
-                city_id=buyer_shop_dt.get('city_id'))
-        if product_capping.count() > 1:
-            product_capping = product_capping.filter(
-                pincode_id=buyer_shop_dt.get('pincode_link', None))
-        if product_capping.count() > 1:
-            product_capping = product_capping.filter(
-                buyer_shop_id=buyer_shop_id)
-        if not product_capping:
-            product_capping = self.product_pro_capping.filter(seller_shop_id=seller_shop_id, status = True, start_date__lte=today, end_date__gte=today).order_by('start_date')
+        product_capping = self.product_pro_capping.filter(seller_shop_id=seller_shop_id, status = True,
+                                                          start_date__lte=today, end_date__gte=today)
         if not product_capping:
             return None
         return product_capping.last()
