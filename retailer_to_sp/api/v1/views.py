@@ -97,7 +97,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  create_invoice_data)
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
-from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
 
 User = get_user_model()
 
@@ -497,10 +497,14 @@ class AddToCart(APIView):
                 msg['message'] = [ERROR_MESSAGES['4019'].format(Product.objects.get(id=cart_product))]
                 return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
-            available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
-                'sku__id').annotate(quantity=Sum('quantity'))
-            shop_products_dict = collections.defaultdict(lambda: 0,
-                                                         {g['sku__id']: int(g['quantity']) for g in available})
+            # available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
+            #     'sku__id').annotate(quantity=Sum('quantity'))
+            #
+            # shop_products_dict = collections.defaultdict(lambda: 0,
+            #                                              {g['sku__id']: int(g['quantity']) for g in available})
+            type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+            available = get_stock(parent_mapping.parent, type_normal, [cart_product])
+            shop_products_dict = available
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 ordered_qty = 0
                 product = Product.objects.get(id=cart_product)
@@ -722,11 +726,12 @@ class CartDetail(APIView):
                     CartProductMapping.objects.filter(id__in=cart_product_to_be_deleted).delete()
                     cart_products = CartProductMapping.objects.select_related('cart_product').filter(cart=cart)
 
-                available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'),
-                                                                    quantity__gt=0).values('sku__id').annotate(
-                    quantity=Sum('quantity'))
-                shop_products_dict = collections.defaultdict(lambda: 0,
-                                                             {g['sku__id']: int(g['quantity']) for g in available})
+                # available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'),
+                #                                                     quantity__gt=0).values('sku__id').annotate(
+                #     quantity=Sum('quantity'))
+                # shop_products_dict = collections.defaultdict(lambda: 0,
+                #                                              {g['sku__id']: int(g['quantity']) for g in available})
+
                 for cart_product in cart_products:
                     item_qty = CartProductMapping.objects.filter(cart=cart,
                                                                  cart_product=cart_product.cart_product).last().qty
@@ -869,11 +874,12 @@ class ReservedOrder(generics.ListAPIView):
                 cart_products.update(qty_error_msg='')
                 cart_products.update(capping_error_msg='')
                 cart_product_ids = cart_products.values('cart_product')
-                shop_products_available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_product_ids,
-                                                                                  quantity__gt=0).values(
-                    'sku__id').annotate(quantity=Sum('quantity'))
-                shop_products_dict = collections.defaultdict(lambda: 0, {g['sku__id']: int(g['quantity']) for g in
-                                                                         shop_products_available})
+                # shop_products_available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_product_ids,
+                #                                                                   quantity__gt=0).values(
+                #     'sku__id').annotate(quantity=Sum('quantity'))
+                type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+                shop_products_available = get_stock(parent_mapping.parent, type_normal, cart_product_ids)
+                shop_products_dict = shop_products_available
 
                 products_available = {}
                 products_unavailable = []

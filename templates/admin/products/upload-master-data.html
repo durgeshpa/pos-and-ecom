@@ -1,0 +1,83 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block title %}Upload Master Data | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/products/">Products</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/products/bulkuploadforproductattributes/">Bulk upload for product attributes</a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Upload Master Data</a>{% endblock %}
+
+{% block content %}
+   <div id="content" class="colM">
+      <h1>{% block content_header %}{% endblock %}</h1>
+      <div id="content-main">
+         <ul class="object-tools">
+         </ul>
+         {% if error %}
+            <span class="errornote">{{ error|escape }}</span>
+         {% endif %}
+         {% if success %}
+            <ul class="messagelist">
+            <li class="success">{{ success|escape }}</li>
+            </ul>
+         {% endif %}
+         <div>
+            <form method="post" enctype="multipart/form-data">
+               <div>
+                  <fieldset class="module aligned ">
+                     {% csrf_token %}
+                     <h1 style="font-weight: bold">{{form.as_p}}</h1>
+                     <label style="margin: 10px" for="upload_master_data">Select an Option:</label>
+                     <select style="margin: 10px" name="upload_master_data" id="upload_master_data" onchange="ddlselect()">
+                       <option value="master_data">Set Master Data</option>
+                       <option value="inactive_status">Set Inactive Status</option>
+                       <option value="sub_brand_with_brand">Sub Brand and Brand Mapping</option>
+                       <option value="sub_category_with_category">Sub Category and Category Mapping</option>
+                       <option value="child_parent">Set Child with Parent</option>
+                       <option value="child_data">Set Child Data</option>
+                       <option value="parent_data">Set Parent Data</option>
+                     </select>
+                     <p style="font-weight: bold;"><a href="{% url 'admin:upload-master-data-sample-excel-file'%}" id="id_download" style="margin-top: 25px;">Download Sample Excel file</a></p>
+                  </fieldset>
+                  <div class="submit-row">
+                     <input type="submit" value="Save" class="button" name="_save">
+                  </div>
+               </div>
+            </form>
+         </div>
+      </div>
+   </div>
+
+<script type="text/javascript">
+   function ddlselect()
+   {
+      var d = document.getElementById("upload_master_data");
+      var displaytext = d.options[d.selectedIndex].text;
+      if(displaytext==="Set Master Data")
+      {
+         document.getElementById("id_download").href="{% url 'admin:upload-master-data-sample-excel-file'%}";
+      }
+      if(displaytext==="Set Inactive Status")
+      {
+         document.getElementById("id_download").href="{% url 'admin:upload-master-data-sample-excel-file'%}";
+      }
+      if(displaytext==="Sub Brand and Brand Mapping")
+      {
+         document.getElementById("id_download").href="{% url 'admin:brand-sub-brand-mapping'%}";
+      }
+      if(displaytext==="Sub Category and Category Mapping")
+      {
+         document.getElementById("id_download").href="{% url 'admin:category-sub-category-mapping'%}";
+      }
+      if(displaytext==="Set Child with Parent")
+      {
+         document.getElementById("id_download").href="{% url 'admin:upload-master-data-sample-excel-file'%}";
+      }
+      if(displaytext==="Set Child Data")
+      {
+         document.getElementById("id_download").href="{% url 'admin:upload-master-data-sample-excel-file'%}";
+      }
+      if(displaytext==="Set Parent Data")
+      {
+         document.getElementById("id_download").href="{% url 'admin:upload-master-data-sample-excel-file'%}";
+      }
+   }
+</script>
+{% endblock %}
