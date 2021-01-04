@@ -16,6 +16,7 @@ from django.utils.safestring import mark_safe
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
+from model_utils import Choices
 
 from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
@@ -42,6 +43,9 @@ WEIGHT_UNIT_CHOICES = (
         # ('l', 'Litre'),
         # ('ml', 'Milliliter'),
     )
+
+CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
+                                   (2, 'MONTHLY', 'Monthly'))
 
 class Size(models.Model):
     size_value = models.CharField(max_length=255, validators=[ValueValidator], null=True, blank=True)
@@ -844,6 +848,7 @@ class ProductCapping(models.Model):
                                 null=True, blank=True,
                                 on_delete=models.CASCADE)
     capping_qty = models.PositiveIntegerField(default=0, null=True)
+    capping_type = models.PositiveSmallIntegerField(choices=CAPPING_TYPE_CHOICES, null=True, blank=True)
     start_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
