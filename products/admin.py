@@ -1000,8 +1000,8 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         return super().get_changeform_initial_data(request)
 
     def get_readonly_fields(self, request, obj=None):
-        if obj:
-            return ['repackaging_type']
+        if obj and obj.repackaging_type != 'none':
+            return self.readonly_fields + ('repackaging_type',)
         return self.readonly_fields
 
     def get_form(self, request, obj=None, **kwargs):
