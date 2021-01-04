@@ -58,6 +58,7 @@ class StockCsvConvert(View):
                  'Normal Quantity', 'Damaged Quantity', 'Expired Quantity', 'Missing Quantity'])
 
             for row in reader:
+                row[2] = int(float(row[2]))
                 product_ean_match_count = Product.objects.filter(product_ean_code=row[0]).count()
                 if product_ean_match_count <= 0:
                     writer.writerow(["Error", "Product doesn't exist", row[0], row[1], row[2]])
@@ -84,9 +85,9 @@ class StockCsvConvert(View):
 
                 sku = Product.objects.get(product_ean_code=row[0])
 
-                row[2] = row[2] if int(float(row[2])) > 0 else 0
+                row[2] = row[2] if row[2] > 0 else 0
                 writer.writerow(
-                    ['Processed', '', row[0], row[1], int(float(row[2])), shop_obj.id, sku.product_name, sku.product_sku, '01/01/2024',
+                    ['Processed', '', row[0], row[1], row[2], shop_obj.id, sku.product_name, sku.product_sku, '01/01/2024',
                      bin_obj.bin_id, row[2], '0', '0', '0'])
 
             return response
