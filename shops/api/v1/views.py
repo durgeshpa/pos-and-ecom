@@ -504,7 +504,7 @@ class SellerShopOrder(generics.ListAPIView):
         return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp', status=True)
 
     def get_shops(self):
-        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), shop__shop_type__shop_type='r', status=True)
+        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
     def get_order(self, shops_list, today, last_day):
         return Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
@@ -525,7 +525,7 @@ class SellerShopOrder(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         data = []
         data_total = []
-        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True)
+        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type__in=['r', 'f'], status=True)
         if not shop_user_obj.exists():
             shop_user_obj = self.get_shops()
             if not shop_user_obj.exists():
@@ -597,7 +597,7 @@ class SellerShopProfile(generics.ListAPIView):
         return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp', status=True)
 
     def get_shops(self):
-        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), shop__shop_type__shop_type='r', status=True)
+        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
     def get_order(self, shops_list):
         return Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop', 'created_at').\
@@ -624,7 +624,7 @@ class SellerShopProfile(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         data = []
-        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True)
+        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type__in=['r', 'f'], status=True)
         if not shop_user_obj:
             shop_user_obj = self.get_shops()
             if not shop_user_obj.exists():
@@ -672,7 +672,7 @@ class SalesPerformanceView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True).values('shop').order_by('shop').distinct('shop')
+        return ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type__in=['r', 'f'], status=True).values('shop').order_by('shop').distinct('shop')
 
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
@@ -710,10 +710,10 @@ class SalesPerformanceUserView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user, shop__shop_type__shop_type='r', status=True).order_by('employee').distinct('employee')
+        return ShopUserMapping.objects.filter(manager=self.request.user, shop__shop_type__shop_type__in=['r', 'f'], status=True).order_by('employee').distinct('employee')
 
     def list(self, request, *args, **kwargs):
-        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type='r' ,employee_group__permissions__codename='can_sales_person_add_shop', status=True)
+        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type__in=['r', 'f'] ,employee_group__permissions__codename='can_sales_person_add_shop', status=True)
         if not shop_emp:
             shop_mangr = self.get_queryset()
             msg = {'is_success': True, 'message': [""], 'response_data': self.get_serializer(shop_mangr, many=True).data, 'user_list': shop_mangr.values('employee')}
@@ -729,7 +729,7 @@ class SellerShopListView(generics.ListAPIView):
     serializer_class = AddressSerializer
 
     def get_queryset(self):
-        shop_mapped = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type='r', status=True).values('shop')
+        shop_mapped = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type__in=['r', 'f'], status=True).values('shop')
         shop_list = Address.objects.filter(id__in=shop_mapped,address_type='shipping').order_by('created_at')
         if self.request.query_params.get('mobile_no'):
             shop_list = shop_list.filter(shop_name__shop_owner__phone_number__icontains=self.request.query_params.get('mobile_no'))
@@ -773,7 +773,7 @@ class CheckUser(generics.ListAPIView):
                    'is_sales': False,'is_sales_manager': False, 'is_delivery_boy': False, 'is_picker': False,
                    'is_putaway': False, 'is_auditor': False }
         else:
-            is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop',shop__shop_type__shop_type='r', status=True).exists() else False
+            is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop',shop__shop_type__shop_type__in=['r', 'f'], status=True).exists() else False
             is_sales_manager = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_manager_add_shop',shop__shop_type__shop_type='sp', status=True).exists() else False
             is_delivery_boy = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='is_delivery_boy', status=True).exists() else False
             is_picker = True if 'Picker Boy' in self.request.user.groups.values_list('name', flat=True) else False
