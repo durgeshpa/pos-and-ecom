@@ -1053,16 +1053,17 @@ class ProductCappingForm(forms.ModelForm):
         """
         Method to check capping is active for the selected sku and warehouse
         """
-        if self.data['seller_shop'] is '':
-            raise ValidationError("Seller Shop can't be Blank.")
 
-        if self.data['product'] is '':
-            raise ValidationError("Product can't be Blank.")
+        if not self.instance.id:
+            if self.data['seller_shop'] is '':
+                raise ValidationError("Seller Shop can't be Blank.")
 
-        if not self.instance.id and ProductCapping.objects.filter(seller_shop=self.cleaned_data['seller_shop'],
+            if self.data['product'] is '':
+                raise ValidationError("Product can't be Blank.")
+            if ProductCapping.objects.filter(seller_shop=self.cleaned_data['seller_shop'],
                                                                   product=self.cleaned_data['product'],
                                                                   status=True).exists():
-            raise ValidationError("Another Capping is Active for the selected SKU for selected warehouse.")
+                raise ValidationError("Another Capping is Active for the selected SKU or selected Warehouse.")
         return self.cleaned_data
 
     def capping_duration_check(self):
