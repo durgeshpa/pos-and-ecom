@@ -730,7 +730,7 @@ class SellerShopListView(generics.ListAPIView):
 
     def get_queryset(self):
         shop_mapped = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type__in=['r', 'f'], status=True).values('shop')
-        shop_list = Address.objects.filter(shop_name_id__in=shop_mapped,address_type='shipping').order_by('created_at')
+        shop_list = Address.objects.filter(shop_name__id__in=shop_mapped,address_type='shipping').order_by('created_at')
         if self.request.query_params.get('mobile_no'):
             shop_list = shop_list.filter(shop_name__shop_owner__phone_number__icontains=self.request.query_params.get('mobile_no'))
         if self.request.query_params.get('shop_name'):
