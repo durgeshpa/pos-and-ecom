@@ -1288,20 +1288,33 @@ class ProductCappingForm(forms.ModelForm):
             self.fields['start_date'].disabled = True
             self.fields['capping_type'].disabled = True
 
+
     def clean(self):
         """
         Method to check capping is active for the selected sku and warehouse
         """
-        if not self.instance.id and ProductCapping.objects.filter(seller_shop=self.cleaned_data['seller_shop'],
+
+        if not self.instance.id:
+            if self.data['seller_shop'] is '':
+                raise ValidationError("Seller Shop can't be Blank.")
+
+            if self.data['product'] is '':
+                raise ValidationError("Product can't be Blank.")
+            if ProductCapping.objects.filter(seller_shop=self.cleaned_data['seller_shop'],
                                                                   product=self.cleaned_data['product'],
                                                                   status=True).exists():
-            raise ValidationError("Another Capping is Active for the selected SKU for selected warehouse.")
+                raise ValidationError("Another Capping is Active for the selected SKU or selected Warehouse.")
         return self.cleaned_data
 
     def capping_duration_check(self):
         """
         Duration check according to capping type
         """
+        if self.cleaned_data['end_date'] is None:
+            raise ValidationError("End date can't be Blank.")
+
+        if self.cleaned_data['start_date'] is None:
+            raise ValidationError("Start date can't be Blank.")
 
         # if capping type is Daily
         if self.cleaned_data['capping_type'] == 0:
