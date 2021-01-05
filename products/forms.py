@@ -1026,7 +1026,7 @@ class ProductCappingForm(forms.ModelForm):
                     self.capping_duration_check()
             return self.cleaned_data['end_date']
         else:
-            if self.cleaned_data['end_date'] == '':
+            if self.cleaned_data['end_date'] is None:
                 raise ValidationError("Please select the End Date.")
 
             if self.cleaned_data['start_date'] > self.cleaned_data['end_date']:
