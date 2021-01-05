@@ -367,7 +367,7 @@ class Product(models.Model):
         '''
         today = datetime.datetime.today()
         product_capping = self.product_pro_capping.filter(seller_shop_id=seller_shop_id, status = True,
-                                                          start_date__lte=today, end_date__gte=today)
+                                                          start_date__lte=today.date(), end_date__gte=today.date())
         if not product_capping:
             return None
         return product_capping.last()

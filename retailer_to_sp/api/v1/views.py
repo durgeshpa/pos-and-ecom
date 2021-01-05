@@ -535,7 +535,7 @@ class AddToCart(APIView):
                     capping_end_date = end_date
                     capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
                                                                 created_at__gte=capping_start_date,
-                                                                created_at__lte=capping_end_date)
+                                                                created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
                     if capping_range_orders:
                         for order in capping_range_orders:
                             if order.ordered_cart.rt_cart_list.filter(cart_product=product).exists():
@@ -942,7 +942,7 @@ class ReservedOrder(generics.ListAPIView):
                         capping_end_date = end_date
                         capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
                                                                     created_at__gte=capping_start_date,
-                                                                    created_at__lte=capping_end_date)
+                                                                    created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
                         if capping_range_orders:
                             for order in capping_range_orders:
                                 if order.ordered_cart.rt_cart_list.filter(
@@ -957,6 +957,10 @@ class ReservedOrder(generics.ListAPIView):
                                 else:
                                     cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                                 cart_product.save()
+                                msg = {'is_success': True,
+                                       'message': cart_product.capping_error_msg, 'response_data': None}
+                                return Response(msg, status=status.HTTP_200_OK)
+
                         else:
                             if (capping.capping_qty - ordered_qty) > 0:
                                 cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
@@ -964,6 +968,15 @@ class ReservedOrder(generics.ListAPIView):
                             else:
                                 cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                             cart_product.save()
+                            msg = {'is_success': True,
+                                   'message': cart_product.capping_error_msg, 'response_data': None}
+                            return Response(msg, status=status.HTTP_200_OK)
+                    else:
+                        cart_product.capping_error_msg = 'Product is not available, Please try after some time.'
+                        msg = {'is_success': True,
+                               'message': cart_product.capping_error_msg, 'response_data': None}
+                        return Response(msg, status=status.HTTP_200_OK)
+
                 if products_unavailable:
                     serializer = CartSerializer(
                         cart,
@@ -1077,6 +1090,7 @@ class CreateOrder(APIView):
         current_url = request.get_host()
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
+            ordered_qty = 0
             # self.sp_mapping_order_reserve()
             with transaction.atomic():
                 if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
@@ -1106,6 +1120,56 @@ class CreateOrder(APIView):
                         cart.buyer_shop = shop
                         cart.seller_shop = parent_mapping.parent
                         cart.save()
+
+                    for cart_product in cart.rt_cart_list.all():
+                        # to check capping is exist or not for warehouse and product with status active
+                        capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent,
+                                                                                     parent_mapping.retailer)
+                        product_qty = int(cart_product.qty)
+                        if capping:
+                            # to get the start and end date according to capping type
+                            start_date, end_date = check_date_range(capping)
+                            capping_start_date = start_date
+                            capping_end_date = end_date
+                            capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
+                                                                        created_at__gte=capping_start_date,
+                                                                        created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
+                            if capping_range_orders:
+                                for order in capping_range_orders:
+                                    if order.ordered_cart.rt_cart_list.filter(
+                                            cart_product=cart_product.cart_product).exists():
+                                        ordered_qty += order.ordered_cart.rt_cart_list.filter(
+                                            cart_product=cart_product.cart_product).last().qty
+                            if capping.capping_qty > ordered_qty:
+                                if (capping.capping_qty - ordered_qty) < product_qty:
+                                    if (capping.capping_qty - ordered_qty) > 0:
+                                        cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
+                                                capping.capping_qty - ordered_qty)
+                                        msg = {'is_success': True,
+                                               'message': cart_product.capping_error_msg, 'response_data': None}
+                                        return Response(msg, status=status.HTTP_200_OK)
+                                    else:
+                                        cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                                        msg = {'is_success': True,
+                                               'message': cart_product.capping_error_msg, 'response_data': None}
+                                        return Response(msg, status=status.HTTP_200_OK)
+                            else:
+                                if (capping.capping_qty - ordered_qty) > 0:
+                                    cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
+                                            capping.capping_qty - ordered_qty)
+                                    msg = {'is_success': True,
+                                           'message': cart_product.capping_error_msg, 'response_data': None}
+                                    return Response(msg, status=status.HTTP_200_OK)
+                                else:
+                                    cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                                    msg = {'is_success': True,
+                                           'message': cart_product.capping_error_msg, 'response_data': None}
+                                    return Response(msg, status=status.HTTP_200_OK)
+                        else:
+                            cart_product.capping_error_msg = 'Product is not available, Please try after some time.'
+                            msg = {'is_success': True,
+                                   'message': cart_product.capping_error_msg, 'response_data': None}
+                            return Response(msg, status=status.HTTP_200_OK)
 
                     order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
                                                                            transaction_id=cart.order_id,
