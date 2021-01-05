@@ -508,6 +508,7 @@ class AddToCart(APIView):
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 ordered_qty = 0
                 product = Product.objects.get(id=cart_product)
+                # to check capping is exist or not for warehouse and product with status active
                 capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
                 if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending']).exists():
@@ -528,8 +529,10 @@ class AddToCart(APIView):
                     cart.save()
 
                 if capping:
-                    capping_start_date = capping.start_date
-                    capping_end_date = capping.end_date
+                    # to get the start and end date according to capping type
+                    start_date, end_date = check_date_range(capping)
+                    capping_start_date = start_date
+                    capping_end_date = end_date
                     capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
                                                                 created_at__gte=capping_start_date,
                                                                 created_at__lte=capping_end_date)
@@ -670,6 +673,21 @@ class AddToCart(APIView):
 
     def gf_mapping_cart(self, qty, product):
         pass
+
+
+def check_date_range(capping):
+    """
+    capping object
+    return start date and end date
+    """
+    if capping.capping_type == 0:
+        return capping.start_date, capping.end_date
+    elif capping.capping_type == 1:
+        end_date = datetime.today()
+        start_date = end_date - timedelta(days=today.weekday())
+        return start_date, end_date
+    elif capping.capping_type == 2:
+        return capping.start_date, capping.end_date
 
 
 class CartDetail(APIView):
@@ -914,11 +932,14 @@ class ReservedOrder(generics.ListAPIView):
                                 cart_product.product_inner_case_size))  # TODO: Needs to be improved
                         cart_product.save()
                         products_unavailable.append(cart_product.id)
+                    # to check capping is exist or not for warehouse and product with status active
                     capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent,
                                                                                  parent_mapping.retailer)
                     if capping:
-                        capping_start_date = capping.start_date
-                        capping_end_date = capping.end_date
+                        # to get the start and end date according to capping type
+                        start_date, end_date = check_date_range(capping)
+                        capping_start_date = start_date
+                        capping_end_date = end_date
                         capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
                                                                     created_at__gte=capping_start_date,
                                                                     created_at__lte=capping_end_date)
@@ -2206,12 +2227,12 @@ class SellerOrderList(generics.ListAPIView):
 
     def get_shops(self):
         return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'),
-                                              shop__shop_type__shop_type='r', status=True)
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
     def get_employee(self):
         return ShopUserMapping.objects.filter(employee=self.request.user,
                                               employee_group__permissions__codename='can_sales_person_add_shop',
-                                              shop__shop_type__shop_type='r', status=True)
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
     def get_queryset(self):
         shop_emp = self.get_employee()

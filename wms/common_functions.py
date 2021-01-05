@@ -109,7 +109,7 @@ class InCommonFunctions(object):
 
     @classmethod
     def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type):
-        if warehouse.shop_type.shop_type == 'sp':
+        if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, inventory_type=inventory_type,
                                        quantity=quantity, expiry_date=get_expiry_date_db(batch_id))
@@ -2019,9 +2019,8 @@ def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type,
                                               final_inventory_type=final_type[0],
                                               transaction_type=transaction_type, transaction_id=transaction_id,
                                               quantity=quantity)
-
     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-        warehouse, sku, 'normal', 'total_available', quantity, transaction_type, transaction_id)
+        warehouse, sku, final_type[0], final_stage[0], quantity, transaction_type, transaction_id)
     if transaction_type == 'franchise_returns':
         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-            warehouse, sku, 'normal', 'shipped', quantity * -1, transaction_type, transaction_id)
+            warehouse, sku, initial_type[0], initial_stage[0], quantity * -1, transaction_type, transaction_id)

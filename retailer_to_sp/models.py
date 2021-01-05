@@ -2853,7 +2853,7 @@ def franchise_inventory_update(shipment, warehouse):
     initial_type = InventoryType.objects.filter(inventory_type='new').last(),
     final_type = InventoryType.objects.filter(inventory_type='normal').last(),
     initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
-    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+    final_stage = InventoryState.objects.filter(inventory_state='total_available').last(),
     from franchise.models import get_default_virtual_bin_id
     bin_obj = Bin.objects.filter(warehouse=warehouse, bin_id=get_default_virtual_bin_id()).last()
 

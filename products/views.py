@@ -1170,7 +1170,7 @@ def UploadMasterDataSampleExcelFile(request):
     )
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
-    worksheet.title = 'MasterData_SampleExcelFile'
+    worksheet.title = 'Users'
 
     # Sheet header, first row
     row_num = 1
@@ -1214,7 +1214,7 @@ def category_sub_category_mapping_sample_excel_file(request):
 
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
-    worksheet.title = 'Category-SubCategory_SampleFile'
+    worksheet.title = 'Users'
 
     # Sheet header, first row
     row_num = 1
@@ -1257,7 +1257,7 @@ def brand_sub_brand_mapping_sample_excel_file(request):
     )
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
-    worksheet.title = 'Brand_SubBrand_Sample File'
+    worksheet.title = 'Users'
 
     # Sheet header, first row
     row_num = 1
@@ -1490,7 +1490,7 @@ class CityAutocomplete(autocomplete.Select2QuerySetView):
 
 class RetailerAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
-        qs = Shop.objects.filter(shop_type__shop_type='r')
+        qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
@@ -1807,12 +1807,12 @@ def bulk_product_vendor_csv_upload_view(request):
                         if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
                             continue
 
-                    if row[4] == "Per Piece":
+                    if row[4].title() == "Per Piece":
                         product_vendor = ProductVendorMapping.objects.create(
                             vendor = Vendor.objects.get(id=vendor_id),
                             product=Product.objects.get(id=row[0]),
                             product_mrp=row[3],
-                            brand_to_gram_price_unit = row[4],
+                            brand_to_gram_price_unit = row[4].title(),
                             product_price = row[5],
                             case_size = row[6],
                         )
@@ -1821,7 +1821,7 @@ def bulk_product_vendor_csv_upload_view(request):
                             vendor = Vendor.objects.get(id=vendor_id),
                             product=Product.objects.get(id=row[0]),
                             product_mrp=row[3],
-                            brand_to_gram_price_unit = row[4],
+                            brand_to_gram_price_unit = row[4].title(),
                             product_price_pack = row[5],
                             case_size = row[6],
                         )

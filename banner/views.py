@@ -79,7 +79,7 @@ class BannerDataAutocomplete(autocomplete.Select2QuerySetView):
 
 class RetailerShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Shop.objects.filter(shop_type__shop_type='r')
+        qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
