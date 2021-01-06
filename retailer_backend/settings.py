@@ -104,7 +104,8 @@ INSTALLED_APPS = [
     'wms',
     'audit',
     'django_extensions',
-    'franchise.apps.FranchiseConfig'
+    'franchise.apps.FranchiseConfig',
+    'marketing'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
