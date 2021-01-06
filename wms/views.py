@@ -698,7 +698,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                         inventory_type=type_missing)
                     in_quantity_dict[type_missing] = int(data[8])
 
-                inventory_state = 'total_available'
+                inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
                 status = True
                 transaction_type = 'stock_correction_in_type'
                 for inv_type, qty in in_quantity_dict.items():
