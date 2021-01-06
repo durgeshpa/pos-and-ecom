@@ -1042,7 +1042,7 @@ class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
         qs = ParentProduct.objects.all()
 
         if self.q:
-            qs = qs.filter(name__istartswith=self.q)
+            qs = qs.filter(parent_id__istartswith=self.q)
 
         return qs
 
