@@ -1230,7 +1230,8 @@ class ProductCappingForm(forms.ModelForm):
         if self.instance.id is None:
             if self.data['capping_type'] == '':
                 raise ValidationError("Please select the Capping Type.")
-            return self.cleaned_data['capping_type']
+            else:
+                return self.cleaned_data['capping_type']
         else:
             return self.cleaned_data['capping_type']
 
@@ -1263,7 +1264,8 @@ class ProductCappingForm(forms.ModelForm):
                 if self.data['start_date_0'] > self.data['end_date_0']:
                     raise ValidationError("End Date should be greater than Start Date.")
                 else:
-                    self.capping_duration_check()
+                    if not self.data['capping_type'] is '':
+                        capping_duration_check(self.cleaned_data)
             return self.cleaned_data['end_date']
         else:
             if self.cleaned_data['end_date'] is None:
@@ -1272,7 +1274,8 @@ class ProductCappingForm(forms.ModelForm):
             if self.cleaned_data['start_date'] > self.cleaned_data['end_date']:
                 raise ValidationError("End Date should be greater than Start Date.")
             else:
-                self.capping_duration_check()
+                if not self.cleaned_data['capping_type'] is '':
+                    capping_duration_check(self.cleaned_data)
             return self.cleaned_data['end_date']
 
     def __init__(self, *args, **kwargs):
@@ -1312,43 +1315,44 @@ class ProductCappingForm(forms.ModelForm):
                 raise ValidationError("Another Capping is Active for the selected SKU or selected Warehouse.")
         return self.cleaned_data
 
-    def capping_duration_check(self):
-        """
-        Duration check according to capping type
-        """
-        if self.cleaned_data['end_date'] is None:
-            raise ValidationError("End date can't be Blank.")
 
-        if self.cleaned_data['start_date'] is None:
-            raise ValidationError("Start date can't be Blank.")
+def capping_duration_check(cleaned_data):
+    """
+    Duration check according to capping type
+    """
+    if cleaned_data['end_date'] is None:
+        raise ValidationError("End date can't be Blank.")
 
-        # if capping type is Daily
-        if self.cleaned_data['capping_type'] == 0:
-            day_difference = self.cleaned_data['end_date'].date() - self.cleaned_data['start_date'].date()
-            if day_difference.days == 0:
-                raise ValidationError("Please enter valid Start Date and End Date.")
-            else:
-                pass
+    if cleaned_data['start_date'] is None:
+        raise ValidationError("Start date can't be Blank.")
 
-        # if capping type is Weekly
-        elif self.cleaned_data['capping_type'] == 1:
-            day_difference = self.cleaned_data['end_date'].date() - self.cleaned_data['start_date'].date()
-            if day_difference.days == 0:
-                raise ValidationError("Please enter valid Start Date and End Date.")
-            elif day_difference.days % 7 == 0:
-                pass
-            else:
-                raise ValidationError("Please enter valid Start Date and End Date.")
+    # if capping type is Daily
+    if cleaned_data['capping_type'] == 0:
+        day_difference = cleaned_data['end_date'].date() - cleaned_data['start_date'].date()
+        if day_difference.days == 0:
+            raise ValidationError("Please enter valid Start Date and End Date.")
+        else:
+            pass
 
-        # if capping type is Monthly
-        elif self.cleaned_data['capping_type'] == 2:
-            day_difference = self.cleaned_data['end_date'].date() - self.cleaned_data['start_date'].date()
-            if day_difference.days == 0:
-                raise ValidationError("Please enter valid Start Date and End Date.")
-            elif day_difference.days % 30 == 0:
-                pass
-            else:
-                raise ValidationError("Please enter valid Start Date and End Date.")
+    # if capping type is Weekly
+    elif cleaned_data['capping_type'] == 1:
+        day_difference = cleaned_data['end_date'].date() - cleaned_data['start_date'].date()
+        if day_difference.days == 0:
+            raise ValidationError("Please enter valid Start Date and End Date.")
+        elif day_difference.days % 7 == 0:
+            pass
+        else:
+            raise ValidationError("Please enter valid Start Date and End Date.")
+
+    # if capping type is Monthly
+    elif cleaned_data['capping_type'] == 2:
+        day_difference = cleaned_data['end_date'].date() - cleaned_data['start_date'].date()
+        if day_difference.days == 0:
+            raise ValidationError("Please enter valid Start Date and End Date.")
+        elif day_difference.days % 30 == 0:
+            pass
+        else:
+            raise ValidationError("Please enter valid Start Date and End Date.")
 
 
 class BulkProductTaxUpdateForm(forms.ModelForm):
