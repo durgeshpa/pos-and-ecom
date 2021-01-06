@@ -1625,7 +1625,7 @@ def putaway_repackaging(request, obj, initial_stage, bin_id):
         transaction_id = obj.putaway_id
         initial_type = InventoryType.objects.filter(inventory_type='new').last(),
         final_type = InventoryType.objects.filter(inventory_type='normal').last(),
-        final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+        final_stage = InventoryState.objects.filter(inventory_state='total_available').last(),
         try:
             initial_bin_id = ''
             if obj.bin:
@@ -1948,7 +1948,7 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
     transaction_id = transaction_type_obj.last().id
     initial_type = InventoryType.objects.filter(inventory_type='new').last(),
     final_type = InventoryType.objects.filter(inventory_type=inv_type).last(),
-    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+    final_stage = InventoryState.objects.filter(inventory_state='total_available').last(),
 
     CommonWarehouseInventoryFunctions.create_warehouse_inventory_stock_correction(sh, sku, inv_type, inv_state, val,
                                                                  True)
