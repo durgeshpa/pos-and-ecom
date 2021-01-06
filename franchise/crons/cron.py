@@ -119,8 +119,8 @@ def fetch_franchise_data(fetch_name):
                 if fetch_type == 1:
                     with transaction.atomic():
                         for row in cursor:
-                            if not row[9]:
-                                row[9] = ''
+                            if not row[11]:
+                                row[11] = ''
                             FranchiseReturns.objects.create(shop_loc=row[8], barcode=row[6], quantity=row[3], amount=row[4],
                                                             sr_date=row[0], sr_number=row[1], invoice_number=row[10],
                                                             product_sku=row[11].strip())
