@@ -94,7 +94,7 @@ from coupon.models import Coupon, CusotmerCouponUsage
 from products.models import Product
 from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data)
+                                 create_invoice_data, check_date_range, capping_check)
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
@@ -675,21 +675,6 @@ class AddToCart(APIView):
         pass
 
 
-def check_date_range(capping):
-    """
-    capping object
-    return start date and end date
-    """
-    if capping.capping_type == 0:
-        return capping.start_date, capping.end_date
-    elif capping.capping_type == 1:
-        end_date = datetime.today()
-        start_date = end_date - timedelta(days=today.weekday())
-        return start_date, end_date
-    elif capping.capping_type == 2:
-        return capping.start_date, capping.end_date
-
-
 class CartDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -936,40 +921,10 @@ class ReservedOrder(generics.ListAPIView):
                     capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent,
                                                                                  parent_mapping.retailer)
                     if capping:
-                        # to get the start and end date according to capping type
-                        start_date, end_date = check_date_range(capping)
-                        capping_start_date = start_date
-                        capping_end_date = end_date
-                        capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                                    created_at__gte=capping_start_date,
-                                                                    created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
-                        if capping_range_orders:
-                            for order in capping_range_orders:
-                                if order.ordered_cart.rt_cart_list.filter(
-                                        cart_product=cart_product.cart_product).exists():
-                                    ordered_qty += order.ordered_cart.rt_cart_list.filter(
-                                        cart_product=cart_product.cart_product).last().qty
-                        if capping.capping_qty > ordered_qty:
-                            if (capping.capping_qty - ordered_qty) < product_qty:
-                                if (capping.capping_qty - ordered_qty) > 0:
-                                    cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                            capping.capping_qty - ordered_qty)
-                                else:
-                                    cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
-                                cart_product.save()
-                                msg = {'is_success': True,
-                                       'message': cart_product.capping_error_msg, 'response_data': None}
-                                return Response(msg, status=status.HTTP_200_OK)
-
-                        else:
-                            if (capping.capping_qty - ordered_qty) > 0:
-                                cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                        capping.capping_qty - ordered_qty)
-                            else:
-                                cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
-                            cart_product.save()
+                        msg = capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty)
+                        if msg[0] is False:
                             msg = {'is_success': True,
-                                   'message': cart_product.capping_error_msg, 'response_data': None}
+                                   'message': msg[1], 'response_data': None}
                             return Response(msg, status=status.HTTP_200_OK)
                     else:
                         cart_product.capping_error_msg = 'Product is not available, Please try after some time.'
@@ -1127,44 +1082,11 @@ class CreateOrder(APIView):
                                                                                      parent_mapping.retailer)
                         product_qty = int(cart_product.qty)
                         if capping:
-                            # to get the start and end date according to capping type
-                            start_date, end_date = check_date_range(capping)
-                            capping_start_date = start_date
-                            capping_end_date = end_date
-                            capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                                        created_at__gte=capping_start_date,
-                                                                        created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
-                            if capping_range_orders:
-                                for order in capping_range_orders:
-                                    if order.ordered_cart.rt_cart_list.filter(
-                                            cart_product=cart_product.cart_product).exists():
-                                        ordered_qty += order.ordered_cart.rt_cart_list.filter(
-                                            cart_product=cart_product.cart_product).last().qty
-                            if capping.capping_qty > ordered_qty:
-                                if (capping.capping_qty - ordered_qty) < product_qty:
-                                    if (capping.capping_qty - ordered_qty) > 0:
-                                        cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                                capping.capping_qty - ordered_qty)
-                                        msg = {'is_success': True,
-                                               'message': cart_product.capping_error_msg, 'response_data': None}
-                                        return Response(msg, status=status.HTTP_200_OK)
-                                    else:
-                                        cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
-                                        msg = {'is_success': True,
-                                               'message': cart_product.capping_error_msg, 'response_data': None}
-                                        return Response(msg, status=status.HTTP_200_OK)
-                            else:
-                                if (capping.capping_qty - ordered_qty) > 0:
-                                    cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                            capping.capping_qty - ordered_qty)
-                                    msg = {'is_success': True,
-                                           'message': cart_product.capping_error_msg, 'response_data': None}
-                                    return Response(msg, status=status.HTTP_200_OK)
-                                else:
-                                    cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
-                                    msg = {'is_success': True,
-                                           'message': cart_product.capping_error_msg, 'response_data': None}
-                                    return Response(msg, status=status.HTTP_200_OK)
+                            msg = capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty)
+                            if msg[0] is False:
+                                msg = {'is_success': True,
+                                       'message': msg[1], 'response_data': None}
+                                return Response(msg, status=status.HTTP_200_OK)
                         else:
                             cart_product.capping_error_msg = 'Product is not available, Please try after some time.'
                             msg = {'is_success': True,
