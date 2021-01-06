@@ -6,6 +6,8 @@ import csv
 import codecs
 from django.http import HttpResponse
 from io import StringIO
+from decouple import config
+import pyodbc
 
 from shops.models import Shop
 from franchise.forms import FranchiseStockForm
@@ -13,6 +15,10 @@ from franchise.models import get_default_virtual_bin_id, ShopLocationMap
 from products.models import Product
 from wms.models import Bin
 
+CONNECTION_PATH = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + config('HDPOS_DB_HOST') \
+                              + ';DATABASE=' + config('HDPOS_DB_NAME') \
+                              + ';UID=' + config('HDPOS_DB_USER') \
+                              + ';PWD=' + config('HDPOS_DB_PASSWORD')
 
 # Create your views here.
 
@@ -44,51 +50,14 @@ class StockCsvConvert(View):
 
         if form.is_valid():
             file = form.cleaned_data['file']
-            reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
-            first_row = next(reader)
+            reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
 
             # download file
             filename = 'franchise_stock_correction' + ".csv"
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
             writer = csv.writer(response)
-            writer.writerow(
-                ['Status', 'Error', 'Barcode', 'Shop Location', 'Stock Qty', 'Warehouse ID', 'Product Name', 'SKU',
-                 'Expiry Date', 'Bin ID',
-                 'Normal Quantity', 'Damaged Quantity', 'Expired Quantity', 'Missing Quantity'])
-
-            for row in reader:
-                row[2] = int(float(row[2]))
-                product_ean_match_count = Product.objects.filter(product_ean_code=row[0]).count()
-                if product_ean_match_count <= 0:
-                    writer.writerow(["Error", "Product doesn't exist", row[0], row[1], row[2]])
-                    continue
-                if product_ean_match_count > 1:
-                    writer.writerow(["Error", "Multiple products exist", row[0], row[1], row[2]])
-                    continue
-                try:
-                    shop_loc = ShopLocationMap.objects.get(location_name=row[1].strip())
-                except Exception as e:
-                    writer.writerow(["Error", "No shop location map exists", row[0], row[1], row[2]])
-                    continue
-                try:
-                    shop_obj = Shop.objects.get(pk=shop_loc.shop.id, shop_type__shop_type='f', approval_status=2)
-                except Exception as e:
-                    writer.writerow(["Error", "Shop not approved", row[0], row[1], row[2]])
-                    continue
-                try:
-                    bin_obj = Bin.objects.get(warehouse=shop_obj,
-                                              bin_id=get_default_virtual_bin_id())
-                except Exception as e:
-                    writer.writerow(["Error", "Bin doesn't exist", row[0], row[1], row[2]])
-                    continue
-
-                sku = Product.objects.get(product_ean_code=row[0])
-
-                row[2] = row[2] if row[2] > 0 else 0
-                writer.writerow(
-                    ['Processed', '', row[0], row[1], row[2], shop_obj.id, sku.product_name, sku.product_sku, '01/01/2024',
-                     bin_obj.bin_id, row[2], '0', '0', '0'])
+            process_stock_data(reader, writer)
 
             return response
 
@@ -98,14 +67,81 @@ class StockCsvConvert(View):
         return render(request, form_path, {'form': form})
 
 
+def process_stock_data(reader, writer):
+    cnxn = pyodbc.connect(CONNECTION_PATH)
+    fd = open('franchise/management/sku_query.sql', 'r')
+    sqlfile = fd.read()
+    fd.close()
+
+    first_row = next(reader)
+    writer.writerow(first_row + ['Status', 'Error', 'Warehouse ID',
+                                 'Product Name', 'SKU', 'Expiry Date', 'Bin ID', 'Normal Quantity',
+                                 'Damaged Quantity', 'Expired Quantity', 'Missing Quantity'])
+
+    for row in reader:
+        row = [i.strip() for i in row]
+        row[5] = int(float(row[5]))
+        row[4] = int(float(row[4]))
+
+        pro_check = check_product(row[0], cnxn, sqlfile)
+
+        if not pro_check['status']:
+            writer.writerow(row + ["Error", pro_check['error']])
+            continue
+        try:
+            shop_loc = ShopLocationMap.objects.get(location_name=row[2])
+        except Exception as e:
+            writer.writerow(row + ["Error", "No shop location map exists"])
+            continue
+        try:
+            shop_obj = Shop.objects.get(pk=shop_loc.shop.id, shop_type__shop_type='f', approval_status=2)
+        except Exception as e:
+            writer.writerow(row + ["Error", "Shop not approved"])
+            continue
+        try:
+            bin_obj = Bin.objects.get(warehouse=shop_obj,
+                                      bin_id=get_default_virtual_bin_id())
+        except Exception as e:
+            writer.writerow(row + ["Error", "Bin doesn't exist"])
+            continue
+
+        sku = pro_check['sku']
+
+        qty = row[5] if row[5] > 0 else 0
+        writer.writerow(row + ['Processed', '', shop_obj.id, sku.product_name, sku.product_sku, '01/01/2024',
+                               bin_obj.bin_id, qty, '0', '0', '0'])
+
+
+def check_product(ean, cnxn, sqlfile):
+    cursor = cnxn.cursor()
+    sqlfile = sqlfile + "'" + ean + "'"
+    cursor.execute(sqlfile)
+    sku = []
+    for row in cursor:
+        sku += [row[0]]
+    if len(sku) < 1:
+        return {'status': False, 'error': 'No Sku found'}
+    elif len(sku) == 1:
+        if not sku[0]:
+            return {'status': False, 'error': 'No Sku found'}
+        try:
+            product = Product.objects.get(product_sku=row[0])
+            return {'status': True, 'sku': product}
+        except:
+            return {'status': False, 'error': 'Could not fetch product {}'.format(row[0])}
+    else:
+        return {'status': False, 'error': 'Multiple Sku found'}
+
+
 class DownloadFranchiseStockCSV(View):
 
     def get(self, request, *args, **kwargs):
         filename = 'sample_franchise_stock' + ".csv"
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['Barcode', 'Shop Location', 'Stock Qty'])
-        writer.writerow(['8901233035567_100', 'Pepper Tape (K Mart Grocery Store)', '500'])
+        writer.writerow(['ITEMCODE (required)', 'ITEMNAME', 'WAREHOUSENAME (required)', 'CATEGORYNAME',
+                         'MRP (required)', 'CURRENTSTOCK (required)', 'STOCKVALUEONMRP'])
+        writer.writerow(['8901233035567_100', '', 'Pepper Tape (K Mart Grocery Store)', '', '50', '500', ''])
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
