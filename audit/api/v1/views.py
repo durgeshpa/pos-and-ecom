@@ -25,7 +25,7 @@ from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_TYPE_C
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist, \
     AuditedBinRecord, AuditedProductRecord
 from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
-from ...utils import is_audit_started, is_diff_batch_in_this_bin, get_product_image
+from ...utils import is_audit_started, is_diff_batch_in_this_bin, get_product_image, get_audit_start_time
 from ...views import BlockUnblockProduct, create_pick_list_by_audit, create_audit_tickets_by_audit, \
     update_audit_status_by_audit
 from rest_framework.permissions import BasePermission
@@ -465,8 +465,8 @@ class AuditBinList(APIView):
                 if b['bin_id'] in bins_audited:
                     audit_done = True
                 b['audit_done'] = audit_done
-
-        data = {'audit_no': audit_no, 'started_at': audit.created_at, 'current_time': timezone.now(),
+        audit_started_at = get_audit_start_time(audit)
+        data = {'audit_no': audit_no, 'started_at': audit_started_at, 'current_time': timezone.now(),
                 'bin_count': len(audit_bins), 'sku_count': len(audit_skus), 'sku_to_audit': audit_skus,
                 'bins_to_audit': audit_bins}
         msg = {'is_success': True, 'message': 'OK', 'data': data}
@@ -512,7 +512,8 @@ class AuditBinsBySKUList(APIView):
             b['audit_done'] = audit_done
 
 
-        data = {'audit_no': audit_no, 'started_at': audit.created_at, 'current_time': timezone.now(),
+        audit_started_at = get_audit_start_time(audit)
+        data = {'audit_no': audit_no, 'started_at': audit_started_at, 'current_time': timezone.now(),
                 'bin_count': len(bins_to_audit), 'sku': audit_sku, 'product_name': product.product_name,
                 'product_mrp': product.product_mrp, 'product_image': product_image,
                 'sku_bins': bins_to_audit}
