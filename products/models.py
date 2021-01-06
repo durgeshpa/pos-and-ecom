@@ -792,9 +792,8 @@ class ProductVendorMapping(models.Model):
     status = models.BooleanField(default=True)
 
     def save_vendor(self,vendor):
-        parent_brands = []
-        for brand_dt in vendor.vendor_brand_mapping.filter(status=True):
-            parent_brands.append(vendor.get_parent_or_self(brand_dt))
+        parent_brands = vendor.vendor_products_brand
+        parent_brand = parent_brands.append(self.product.parent_product.parent_brand_id)
         vendor.vendor_products_brand = list(set(parent_brands))
         vendor.save()
 
