@@ -131,7 +131,7 @@ class POGenerationForm(forms.ModelForm):
 
                 if not row[9] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[9]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
-                    'EMPTY_OR_NOT_VALID']%("Gram_to_brand"))
+                    'EMPTY_OR_NOT_VALID']%("Brand_to_gram"))
 
         if 'po_validity_date' in self.cleaned_data and self.cleaned_data['po_validity_date'] < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))
