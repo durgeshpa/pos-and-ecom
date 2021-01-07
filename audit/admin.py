@@ -132,7 +132,7 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
             'classes': ('automated',)
         }),
         ('Manual Audit', {
-            'fields': ('auditor', 'audit_level', 'bin', 'sku'),
+            'fields': ('auditor', 'audit_level', 'bin', 'sku', 'pbi'),
             'classes': ('manual',)
         }),
     )

@@ -664,9 +664,11 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     def add_audit_link(self, obj):
         if obj.pickup.status == 'picking_complete':
             if obj.quantity != obj.pickup_quantity:
+                if obj.audit_no:
+                    return obj.audit_no
                 return format_html(
-                    "<a href = '/admin/audit/auditdetail/add/?warehouse=%s&audit_level=%s&sku=%s' class ='addlink' > Audit</a>" % (
-                    obj.warehouse_id, AUDIT_LEVEL_CHOICES.PRODUCT, obj.pickup.sku.id))
+                    "<a href = '/admin/audit/auditdetail/add/?warehouse=%s&audit_level=%s&sku=%s&pbi=%s' class ='addlink' > Audit</a>" % (
+                    obj.warehouse_id, AUDIT_LEVEL_CHOICES.PRODUCT, obj.pickup.sku.id, obj.id))
 
     def download_csv(self, request, queryset):
         f = StringIO()
