@@ -9,7 +9,7 @@ from django.http import HttpResponse
 from franchise.models import Fbin, Faudit, HdposDataFetch, FranchiseSales, FranchiseReturns, ShopLocationMap
 from franchise.forms import FranchiseBinForm, FranchiseAuditCreationForm, ShopLocationMapForm
 from franchise.filters import ShopLocFilter, BarcodeFilter, ShopFilter, ShopLocFilter1,\
-    FranchiseShopAutocomplete, WarehouseFilter
+    FranchiseShopAutocomplete, WarehouseFilter, SkuFilter
 from franchise.views import StockCsvConvert
 from wms.admin import BinAdmin, BinIdFilter
 from audit.admin import AuditDetailAdmin, AuditNoFilter, AuditorFilter
@@ -145,7 +145,7 @@ class FranchiseSalesAdmin(admin.ModelAdmin, ExportSalesReturns):
                     'error', 'invoice_number', 'invoice_date', 'created_at', 'modified_at']
     list_per_page = 50
     actions = ["export_as_csv_sales_returns"]
-    list_filter = [ShopLocFilter, BarcodeFilter, ('invoice_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
+    list_filter = [ShopLocFilter, BarcodeFilter, SkuFilter, ('invoice_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
 
     class Media:
         pass
@@ -174,7 +174,7 @@ class FranchiseReturnsAdmin(admin.ModelAdmin, ExportSalesReturns):
                     'error', 'sr_number', 'sr_date', 'created_at', 'modified_at']
     list_per_page = 50
     actions = ["export_as_csv_sales_returns"]
-    list_filter = [ShopLocFilter, BarcodeFilter, ('sr_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
+    list_filter = [ShopLocFilter, BarcodeFilter, SkuFilter, ('sr_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
 
     class Media:
         pass
