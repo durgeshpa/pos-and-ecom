@@ -581,23 +581,15 @@ class AddToCart(APIView):
                         if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                             cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                             if (capping.capping_qty - ordered_qty) > 0:
-                                if (capping.capping_qty - ordered_qty) < 0:
-                                    cart_mapping.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
-                                            0)]
-                                else:
-                                    cart_mapping.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
-                                            capping.capping_qty - ordered_qty)]
+                                cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
+                                        capping.capping_qty - ordered_qty)
                             else:
                                 cart_mapping.capping_error_msg = ['You have already exceeded the purchase limit of this product']
                                 CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
                             # cart_mapping.save()
                         else:
-                            if (capping.capping_qty - ordered_qty) < 0:
-                                msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (
-                                    0, cart_product)], 'response_data': None}
-                            else:
-                                msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (
-                                    capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
+                            msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (
+                                capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
                             return Response(msg, status=status.HTTP_200_OK)
                 else:
                     if int(qty) == 0:
@@ -933,6 +925,8 @@ class ReservedOrder(generics.ListAPIView):
                     capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent,
                                                                                  parent_mapping.retailer)
                     if capping:
+                        ordered_amount = cart_product.qty
+                        products_available[cart_product.cart_product.id] = ordered_amount
                         msg = capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty)
                         if msg[0] is False:
                             serializer = CartSerializer(cart, context={
