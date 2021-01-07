@@ -4,7 +4,7 @@ from model_utils import Choices
 from accounts.middlewares import get_current_user
 from services.models import InventoryArchiveMaster
 from shops.models import Shop
-from wms.models import Bin, InventoryState, InventoryType, PickupBinInventory
+from wms.models import Bin, InventoryState, InventoryType
 from django.contrib.auth import get_user_model
 from products.models import Product
 
