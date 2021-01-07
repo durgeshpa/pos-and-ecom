@@ -14,7 +14,7 @@ from wms.models import Bin
 from django.utils.translation import gettext as _
 
 class AuditCreationForm(forms.ModelForm):
-    pbi = forms.IntegerField(widget=forms.HiddenInput())
+    pbi = forms.IntegerField(required=False, widget=forms.HiddenInput())
     warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
     bin = forms.ModelMultipleChoiceField(
