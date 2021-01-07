@@ -35,7 +35,7 @@ from addresses.models import Address
 from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType, \
     InventoryState, Bin
 from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
-    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise
+    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice, Repackaging
@@ -56,7 +56,6 @@ from retailer_backend import common_function
 from wms.models import WarehouseInventory
 from datetime import datetime, timedelta
 today = datetime.today()
-
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -228,7 +227,7 @@ class Cart(models.Model):
         discount_value = 0
         shop = self.seller_shop
         cart_products = self.rt_cart_list.all()
-        date = datetime.datetime.now()
+        date = datetime.now()
         discount_sum_sku = 0
         discount_sum_brand = 0
         sum = 0
@@ -652,21 +651,19 @@ class BulkOrder(models.Model):
                             raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                                 0] + " | Discounted Price can't be more than Product Price."))
                     ordered_qty = int(row[2])
-                    warehouse_obj = WarehouseInventory.objects.filter(
-                        sku__product_sku=row[0],
-                        inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                        inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-                        warehouse=Shop.objects.filter(id=self.seller_shop.id).last())
-                    if warehouse_obj.exists():
-                        available_quantity = warehouse_obj[0].quantity
+                    shop = Shop.objects.filter(id=self.seller_shop.id).last()
+                    product = Product.objects.filter(product_sku=row[0]).last()
+                    inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+                    product_qty_dict = get_stock(shop, inventory_type, [product.id])
+                    if product_qty_dict.get(product.id) is not None:
+                        available_quantity = product_qty_dict[product.id]
                     else:
                         available_quantity = 0
                         info_logger.info(f"[retailer_to_sp:BulkOrder]-{row[0]} doesn't exist in warehouse")
                     product_available = int(
                         int(available_quantity) / int(product.product_inner_case_size))
                     availableQuantity.append(product_available)
-                    capping = product.get_current_shop_capping(warehouse_obj[0].warehouse,
-                                                                                 self.buyer_shop)
+                    capping = product.get_current_shop_capping(shop,self.buyer_shop)
                     product_qty = int(row[2])
                     parent_mapping = getShopMapping(self.buyer_shop_id)
                     if parent_mapping is None:
@@ -684,7 +681,7 @@ class BulkOrder(models.Model):
                         count += 1
                     if count == 0:
                         #unavailable_skus.append(row[0])
-                        message = "Failed becuase of Ordered quantity is {} > Available quantity {}".format(str(int(row[2])),
+                        message = "Failed because of Ordered quantity is {} > Available quantity {}".format(str(int(row[2])),
                                                                                                             str(available_quantity))
                         error_dict[row[0]] = message
         info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]--Unavailable-SKUs:{unavailable_skus}, "
@@ -692,7 +689,7 @@ class BulkOrder(models.Model):
         if len(error_dict) > 0:
             if self.cart_products_csv and self.order_type:
                 self.save()
-                raise ValidationError(mark_safe(f"Order doesn't placed for some SKUs because for those SKUs, Please click the "
+                raise ValidationError(mark_safe(f"Order can't placed for some SKUs, Please click the "
                                                 f"below Link for seeing the status"
                                                 f"{self.cart_product_list_status(error_dict)}"))
         else:
@@ -752,15 +749,14 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                             product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
                             ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
                             ordered_qty = int(row[2])
-                            try:
-                                available_quantity = WarehouseInventory.objects.filter(
-                                    sku__product_sku=row[0],
-                                    inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                                    inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-                                    warehouse=Shop.objects.filter(id=instance.seller_shop_id).last())[
-                                    0].quantity
-                            except:
-                                continue
+                            shop = Shop.objects.filter(id=instance.seller_shop_id).last()
+                            product = Product.objects.filter(product_sku=row[0]).last()
+                            inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+                            product_qty_dict = get_stock(shop, inventory_type, [product.id])
+                            available_quantity = 0
+                            if product_qty_dict.get(product.id) is not None:
+                                available_quantity = product_qty_dict[product.id]
+
                             capping = product.get_current_shop_capping(instance.seller_shop,
                                                                        instance.buyer_shop)
                             product_qty = int(row[2])
@@ -2894,7 +2890,7 @@ def franchise_inventory_update(shipment, warehouse):
     initial_type = InventoryType.objects.filter(inventory_type='new').last(),
     final_type = InventoryType.objects.filter(inventory_type='normal').last(),
     initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
-    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+    final_stage = InventoryState.objects.filter(inventory_state='total_available').last(),
     from franchise.models import get_default_virtual_bin_id
     bin_obj = Bin.objects.filter(warehouse=warehouse, bin_id=get_default_virtual_bin_id()).last()
 

@@ -774,6 +774,17 @@ class ProductVendorMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def save_vendor(self,vendor):
+        if vendor.vendor_products_brand is None:
+            parent_brands = []
+            parent_brand = parent_brands.append(self.product.parent_product.parent_brand_id)
+            vendor.vendor_products_brand = list(set(parent_brands))
+        else:
+            parent_brands = vendor.vendor_products_brand
+            parent_brand = parent_brands.append(self.product.parent_product.parent_brand_id)
+            vendor.vendor_products_brand = list(set(parent_brands))
+        vendor.save()
+
     def save(self, *args, **kwargs):
        
         if self.product_price:
@@ -785,6 +796,7 @@ class ProductVendorMapping(models.Model):
         ProductVendorMapping.objects.filter(product=self.product,vendor=self.vendor,status=True).update(status=False)
         self.status = True
         super().save(*args, **kwargs)
+        self.save_vendor(vendor=self.vendor)
 
     def __str__(self):
         return '%s' % (self.vendor)
@@ -866,6 +878,19 @@ class BulkUploadForGSTChange(models.Model):
         return f"BulkUpload updated at {self.created_at} by {self.updated_by}"
 
 
+class BulkUploadForProductAttributes(models.Model):
+    file = models.FileField(upload_to='products/product_attributes/')
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True, related_name='bulk_upload_for_product_attributes',
+        on_delete=models.DO_NOTHING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"BulkUpload for product_tax_attribute updated at {self.created_at} by {self.updated_by}"
+
+
 class Repackaging(models.Model):
     REPACKAGING_STATUS = [
         ('started', 'Started'),
@@ -912,3 +937,59 @@ class Repackaging(models.Model):
     def __str__(self):
         return self.repackaging_no
 
+def check_date_range(capping):
+    """
+    capping object
+    return start date and end date
+    """
+    if capping.capping_type == 0:
+        return capping.start_date, capping.end_date
+    elif capping.capping_type == 1:
+        end_date = datetime.today()
+        start_date = end_date - timedelta(days=today.weekday())
+        return start_date, end_date
+    elif capping.capping_type == 2:
+        return capping.start_date, capping.end_date
+
+
+def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty):
+    """
+    capping:- Capping object
+    parent_mapping :- parent mapping object
+    cart_product:- cart products
+    product_qty:- quantity of product
+    ordered_qty:- quantity of order
+    """
+    # to get the start and end date according to capping type
+    start_date, end_date = check_date_range(capping)
+    capping_start_date = start_date
+    capping_end_date = end_date
+    capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
+                                                created_at__gte=capping_start_date,
+                                                created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
+    if capping_range_orders:
+        for order in capping_range_orders:
+            if order.ordered_cart.rt_cart_list.filter(
+                    cart_product=cart_product.cart_product).exists():
+                ordered_qty += order.ordered_cart.rt_cart_list.filter(
+                    cart_product=cart_product.cart_product).last().qty
+    if capping.capping_qty > ordered_qty:
+        if (capping.capping_qty - ordered_qty) < product_qty:
+            if (capping.capping_qty - ordered_qty) > 0:
+                cart_product.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
+                        capping.capping_qty - ordered_qty)]
+            else:
+                cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
+            cart_product.save()
+            return False, cart_product.capping_error_msg
+        else:
+            cart_product.capping_error_msg = ['Allow to reserve the Product']
+            return True, cart_product.capping_error_msg
+    else:
+        if (capping.capping_qty - ordered_qty) > 0:
+            cart_product.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
+                    capping.capping_qty - ordered_qty)]
+        else:
+            cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
+        cart_product.save()
+        return False, cart_product.capping_error_msg

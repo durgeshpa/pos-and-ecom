@@ -90,3 +90,11 @@ def get_product_image(product):
         image_url = product.child_product_pro_image.last().image.url
     return image_url
 
+def get_audit_start_time(audit_detail):
+    '''
+    Takes AuditDetail instance
+    Returns audit start time if audit has been started else None
+    '''
+    if AuditRun.objects.filter(audit=audit_detail).exists():
+        return AuditRun.objects.filter(audit=audit_detail).last().created_at
+    return None

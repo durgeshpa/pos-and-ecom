@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
 
 from dal import autocomplete
-from django.contrib.admin import SimpleListFilter
+from django.contrib.admin import SimpleListFilter, ListFilter, FieldListFilter
+from django.db.models import Q, F
 
 from shops.models import Shop
-from wms.models import InventoryType, InventoryState, In
+from wms.models import InventoryType, InventoryState, In, PickupBinInventory, Pickup
 from accounts.models import User
 
 
@@ -55,6 +56,28 @@ class PutawayUserFilter(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(first_name__icontains=self.q)
         return qs
+
+
+class PickupStatusFilter(SimpleListFilter):
+    title = 'Pickup Status'
+    parameter_name = 'status'
+
+    def lookups(self, request, model_admin):
+        return PickupBinInventory.PICKUP_STATUS_CHOICES
+
+    def queryset(self, request, queryset):
+        if self.value() == '0':
+            queryset = queryset.filter(~Q(pickup__status__in=[Pickup.pickup_status_choices.picking_complete,
+                                                              Pickup.pickup_status_choices.picking_cancelled]))
+        elif self.value() == '1':
+            queryset = queryset.filter(~Q(pickup_quantity=F('quantity')),
+                                       pickup__status=Pickup.pickup_status_choices.picking_complete)
+        elif self.value() == '2':
+            queryset = queryset.filter(Q(pickup_quantity=F('quantity')),
+                                       pickup__status=Pickup.pickup_status_choices.picking_complete)
+        elif self.value() == '3':
+            queryset = queryset.filter(pickup__status=Pickup.pickup_status_choices.picking_cancelled)
+        return queryset
 
 
 class ExpiryDateFilter(SimpleListFilter):

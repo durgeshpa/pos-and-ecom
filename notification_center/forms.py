@@ -30,7 +30,7 @@ class GroupNotificationForm(forms.ModelForm):
     )
 
     buyer_shops = forms.ModelMultipleChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2Multiple(url='admin:retailer_autocomplete'),
         # widget=autocomplete.ModelSelect2(
         #     url='admin:retailer_autocomplete',

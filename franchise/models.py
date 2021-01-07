@@ -26,6 +26,8 @@ class Faudit(AuditDetail):
 class ShopLocationMap(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, unique=True, verbose_name='Shop Name')
     location_name = models.CharField(max_length=255, unique=True, verbose_name='Shop Location')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return str(self.shop) + ' | ' + str(self.location_name)
@@ -33,7 +35,8 @@ class ShopLocationMap(models.Model):
 
 class FranchiseSales(models.Model):
     shop_loc = models.CharField(max_length=255, verbose_name='Shop Location')
-    barcode = models.CharField(max_length=255)
+    barcode = models.CharField(max_length=255, null=True,blank=True)
+    product_sku = models.CharField(max_length=255,null=True,blank=True)
     quantity = models.FloatField(default=0, null=True, blank=True)
     amount = models.FloatField(default=0, null=True, blank=True)
     invoice_date = models.DateTimeField()
@@ -49,7 +52,8 @@ class FranchiseSales(models.Model):
 
 class FranchiseReturns(models.Model):
     shop_loc = models.CharField(max_length=255, verbose_name='Shop Location')
-    barcode = models.CharField(max_length=255)
+    barcode = models.CharField(max_length=255,null=True,blank=True)
+    product_sku = models.CharField(max_length=255,null=True,blank=True)
     quantity = models.FloatField(default=0, null=True, blank=True)
     amount = models.FloatField(default=0, null=True, blank=True)
     sr_date = models.DateTimeField()

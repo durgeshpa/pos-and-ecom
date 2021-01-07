@@ -60,7 +60,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare, Return, Feedback,
                                    OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch
+                                   ShipmentRescheduling, Note, OrderedProductBatch, check_date_range, capping_check
                                    )
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramOrderedProduct,
@@ -97,8 +97,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  create_invoice_data)
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
-from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease
-from retailer_to_sp.models import capping_check, check_date_range
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
 
 User = get_user_model()
 
@@ -498,10 +497,14 @@ class AddToCart(APIView):
                 msg['message'] = [ERROR_MESSAGES['4019'].format(Product.objects.get(id=cart_product))]
                 return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
-            available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
-                'sku__id').annotate(quantity=Sum('quantity'))
-            shop_products_dict = collections.defaultdict(lambda: 0,
-                                                         {g['sku__id']: int(g['quantity']) for g in available})
+            # available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
+            #     'sku__id').annotate(quantity=Sum('quantity'))
+            #
+            # shop_products_dict = collections.defaultdict(lambda: 0,
+            #                                              {g['sku__id']: int(g['quantity']) for g in available})
+            type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+            available = get_stock(parent_mapping.parent, type_normal, [cart_product])
+            shop_products_dict = available
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 ordered_qty = 0
                 product = Product.objects.get(id=cart_product)
@@ -726,11 +729,12 @@ class CartDetail(APIView):
                     CartProductMapping.objects.filter(id__in=cart_product_to_be_deleted).delete()
                     cart_products = CartProductMapping.objects.select_related('cart_product').filter(cart=cart)
 
-                available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'),
-                                                                    quantity__gt=0).values('sku__id').annotate(
-                    quantity=Sum('quantity'))
-                shop_products_dict = collections.defaultdict(lambda: 0,
-                                                             {g['sku__id']: int(g['quantity']) for g in available})
+                # available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'),
+                #                                                     quantity__gt=0).values('sku__id').annotate(
+                #     quantity=Sum('quantity'))
+                # shop_products_dict = collections.defaultdict(lambda: 0,
+                #                                              {g['sku__id']: int(g['quantity']) for g in available})
+
                 for cart_product in cart_products:
                     item_qty = CartProductMapping.objects.filter(cart=cart,
                                                                  cart_product=cart_product.cart_product).last().qty
@@ -873,11 +877,12 @@ class ReservedOrder(generics.ListAPIView):
                 cart_products.update(qty_error_msg='')
                 cart_products.update(capping_error_msg='')
                 cart_product_ids = cart_products.values('cart_product')
-                shop_products_available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_product_ids,
-                                                                                  quantity__gt=0).values(
-                    'sku__id').annotate(quantity=Sum('quantity'))
-                shop_products_dict = collections.defaultdict(lambda: 0, {g['sku__id']: int(g['quantity']) for g in
-                                                                         shop_products_available})
+                # shop_products_available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_product_ids,
+                #                                                                   quantity__gt=0).values(
+                #     'sku__id').annotate(quantity=Sum('quantity'))
+                type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+                shop_products_available = get_stock(parent_mapping.parent, type_normal, cart_product_ids)
+                shop_products_dict = shop_products_available
 
                 products_available = {}
                 products_unavailable = []
@@ -888,13 +893,16 @@ class ReservedOrder(generics.ListAPIView):
                     CartProductMapping.objects.filter(cart=cart, cart_product=cart_product.cart_product).update(
                         no_of_pieces=updated_no_of_pieces)
                     coupon_usage_count = 0
-                    for i in array:
-                        if cart_product.cart_product.id == i['item_id']:
-                            customer_coupon_usage = CusotmerCouponUsage(coupon_id=i['coupon_id'], cart=cart)
-                            customer_coupon_usage.shop = parent_mapping.retailer
-                            customer_coupon_usage.product = cart_product.cart_product
-                            customer_coupon_usage.times_used += coupon_usage_count + 1
-                            customer_coupon_usage.save()
+                    if len(array) is 0:
+                        pass
+                    else:
+                        for i in array:
+                            if cart_product.cart_product.id == i['item_id']:
+                                customer_coupon_usage = CusotmerCouponUsage(coupon_id=i['coupon_id'], cart=cart)
+                                customer_coupon_usage.shop = parent_mapping.retailer
+                                customer_coupon_usage.product = cart_product.cart_product
+                                customer_coupon_usage.times_used += coupon_usage_count + 1
+                                customer_coupon_usage.save()
 
                     product_availability = shop_products_dict.get(cart_product.cart_product.id, 0)
 
@@ -1081,7 +1089,6 @@ class CreateOrder(APIView):
                                 return Response(msg, status=status.HTTP_200_OK)
                         else:
                             pass
-
                     order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
                                                                            transaction_id=cart.order_id,
                                                                            warehouse_internal_inventory_release=None,
@@ -2202,12 +2209,12 @@ class SellerOrderList(generics.ListAPIView):
 
     def get_shops(self):
         return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'),
-                                              shop__shop_type__shop_type='r', status=True)
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
     def get_employee(self):
         return ShopUserMapping.objects.filter(employee=self.request.user,
                                               employee_group__permissions__codename='can_sales_person_add_shop',
-                                              shop__shop_type__shop_type='r', status=True)
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
     def get_queryset(self):
         shop_emp = self.get_employee()

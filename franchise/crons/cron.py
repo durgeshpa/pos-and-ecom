@@ -10,7 +10,7 @@ import traceback
 
 from franchise.models import FranchiseSales, ShopLocationMap, FranchiseReturns, HdposDataFetch
 from products.models import Product
-from wms.common_functions import (CommonWarehouseInventoryFunctions, WareHouseInternalInventoryChange,
+from wms.common_functions import (CommonWarehouseInventoryFunctions,
                                  InternalInventoryChange, franchise_inventory_in, OutCommonFunctions)
 from wms.models import BinInventory, WarehouseInventory, InventoryState, InventoryType, Bin
 from franchise.models import get_default_virtual_bin_id
@@ -119,13 +119,19 @@ def fetch_franchise_data(fetch_name):
                 if fetch_type == 1:
                     with transaction.atomic():
                         for row in cursor:
+                            if not row[11]:
+                                row[11] = ''
                             FranchiseReturns.objects.create(shop_loc=row[8], barcode=row[6], quantity=row[3], amount=row[4],
-                                                            sr_date=row[0], sr_number=row[1], invoice_number=row[10])
+                                                            sr_date=row[0], sr_number=row[1], invoice_number=row[10],
+                                                            product_sku=row[11].strip())
                 else:
                     with transaction.atomic():
                         for row in cursor:
+                            if not row[9]:
+                                row[9] = ''
                             FranchiseSales.objects.create(shop_loc=row[1], barcode=row[8], quantity=row[5], amount=row[6],
-                                                          invoice_date=row[2], invoice_number=row[3])
+                                                          invoice_date=row[2], invoice_number=row[3],
+                                                          product_sku=row[9].strip())
 
                 hdpos_obj.status = 1
                 hdpos_obj.save()
@@ -155,7 +161,7 @@ def process_sales_data():
         sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2])
         if sales_objs.exists():
             type_normal = InventoryType.objects.filter(inventory_type='normal').last(),
-            state_available = InventoryState.objects.filter(inventory_state='available').last(),
+            state_available = InventoryState.objects.filter(inventory_state='total_available').last(),
             state_shipped = InventoryState.objects.filter(inventory_state='shipped').last(),
 
             for sales_obj in sales_objs:
@@ -163,14 +169,10 @@ def process_sales_data():
                     update_sales_ret_obj(sales_obj, 2, 'shop mapping not found')
                     continue
 
-                product_ean_match_count = Product.objects.filter(product_ean_code=sales_obj.barcode).count()
-
-                if product_ean_match_count <= 0:
-                    update_sales_ret_obj(sales_obj, 2, 'product barcode not found')
-                    continue
-
-                if product_ean_match_count > 1:
-                    update_sales_ret_obj(sales_obj, 2, 'multiple products found')
+                try:
+                    sku = Product.objects.get(product_sku=sales_obj.product_sku)
+                except:
+                    update_sales_ret_obj(sales_obj, 2, 'product sku not matched')
                     continue
 
                 shop_map = ShopLocationMap.objects.filter(location_name=sales_obj.shop_loc).last()
@@ -180,7 +182,6 @@ def process_sales_data():
                     continue
 
                 bin_obj = Bin.objects.filter(warehouse=warehouse, bin_id=get_default_virtual_bin_id()).last()
-                sku = Product.objects.filter(product_ean_code=sales_obj.barcode).last()
                 sales_inventory_update_franchise(warehouse, bin_obj, sales_obj.quantity, type_normal, state_shipped,
                                                  state_available, sku, sales_obj)
         return {'code': 'success'}
@@ -220,15 +221,11 @@ def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, 
                     update_sales_ret_obj(sales_obj, 2, 'quantity not present in warehouse')
                 else:
                     # out quantity from warehouse available
-                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, type_normal[0], state_available[0],
-                                                                                 quantity * -1, True)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        warehouse, sku, type_normal[0], state_available[0], quantity * -1, transaction_type, transaction_id)
                     # in quantity to warehouse shipped
-                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, type_normal[0], state_shipped[0],
-                                                                                 quantity, True)
-                    # record shift in quantity
-                    WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, transaction_type, transaction_id,
-                                                                                       type_normal[0], state_available[0], type_normal[0],
-                                                                                       state_shipped[0], quantity)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        warehouse, sku, type_normal[0], state_shipped[0], quantity, transaction_type, transaction_id)
                     # get all warehouse bins where sku quantity is present
                     bin_inv_objs = BinInventory.objects.filter(warehouse=warehouse, bin=bin_obj, sku=sku, quantity__gt=0,
                                                                inventory_type=type_normal[0],
@@ -288,21 +285,17 @@ def process_returns_data():
             initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
             final_type = InventoryType.objects.filter(inventory_type='normal').last(),
             initial_stage = InventoryState.objects.filter(inventory_state='shipped').last(),
-            final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+            final_stage = InventoryState.objects.filter(inventory_state='total_available').last(),
 
             for return_obj in returns_objs:
                 if not ShopLocationMap.objects.filter(location_name=return_obj.shop_loc).exists():
                     update_sales_ret_obj(return_obj, 2, 'shop mapping not found')
                     continue
 
-                product_ean_match_count = Product.objects.filter(product_ean_code=return_obj.barcode).count()
-
-                if product_ean_match_count <= 0:
-                    update_sales_ret_obj(return_obj, 2, 'product barcode not found')
-                    continue
-
-                if product_ean_match_count > 1:
-                    update_sales_ret_obj(return_obj, 2, 'multiple products found')
+                try:
+                    sku = Product.objects.get(product_sku=return_obj.product_sku)
+                except:
+                    update_sales_ret_obj(return_obj, 2, 'product sku not matched')
                     continue
 
                 if return_obj.quantity >=0:
@@ -315,7 +308,6 @@ def process_returns_data():
                     update_sales_ret_obj(return_obj, 2, 'warehouse is not approved')
                     continue
                 bin_obj = Bin.objects.filter(warehouse=warehouse, bin_id=get_default_virtual_bin_id()).last()
-                sku = Product.objects.filter(product_ean_code=return_obj.barcode).last()
                 try:
                     with transaction.atomic():
                         default_expiry = datetime.date(int(config('FRANCHISE_IN_DEFAULT_EXPIRY_YEAR')), 1, 1)
