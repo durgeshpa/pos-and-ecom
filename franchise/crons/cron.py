@@ -111,7 +111,7 @@ def fetch_franchise_data(fetch_name):
                 fd.close()
 
                 cron_logger.info('file read | {} {}'.format(fetch_name, next_date))
-                sqlfile = sqlfile + "'" + str(next_date) + "'"
+                sqlfile = sqlfile + "'" + str(next_date.strftime('%Y-%m-%d %H:%M:%S') ) + "'"
                 cursor.execute(sqlfile)
 
                 cron_logger.info('writing {} data {}'.format(fetch_name, next_date))
