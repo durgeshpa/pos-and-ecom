@@ -1088,7 +1088,7 @@ class CreateOrder(APIView):
                                        'message': msg[1], 'response_data': None}
                                 return Response(msg, status=status.HTTP_200_OK)
                         else:
-                            cart_product.capping_error_msg = 'Product is not available, Please try after some time.'
+                            cart_product.capping_error_msg = ['Product is not available, Please try after some time.']
                             msg = {'is_success': True,
                                    'message': cart_product.capping_error_msg, 'response_data': None}
                             return Response(msg, status=status.HTTP_200_OK)
@@ -2375,20 +2375,20 @@ def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qt
     if capping.capping_qty > ordered_qty:
         if (capping.capping_qty - ordered_qty) < product_qty:
             if (capping.capping_qty - ordered_qty) > 0:
-                cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                        capping.capping_qty - ordered_qty)
+                cart_product.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
+                        capping.capping_qty - ordered_qty)]
             else:
-                cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
             cart_product.save()
             return False, cart_product.capping_error_msg
         else:
-            cart_product.capping_error_msg = 'Allow to reserve the Product'
+            cart_product.capping_error_msg = ['Allow to reserve the Product']
             return True, cart_product.capping_error_msg
     else:
         if (capping.capping_qty - ordered_qty) > 0:
-            cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                    capping.capping_qty - ordered_qty)
+            cart_product.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
+                    capping.capping_qty - ordered_qty)]
         else:
-            cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+            cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
         cart_product.save()
         return False, cart_product.capping_error_msg
