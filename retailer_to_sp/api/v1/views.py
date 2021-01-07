@@ -60,7 +60,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare, Return, Feedback,
                                    OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch
+                                   ShipmentRescheduling, Note, OrderedProductBatch, check_date_range, capping_check
                                    )
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramOrderedProduct,
@@ -893,13 +893,16 @@ class ReservedOrder(generics.ListAPIView):
                     CartProductMapping.objects.filter(cart=cart, cart_product=cart_product.cart_product).update(
                         no_of_pieces=updated_no_of_pieces)
                     coupon_usage_count = 0
-                    for i in array:
-                        if cart_product.cart_product.id == i['item_id']:
-                            customer_coupon_usage = CusotmerCouponUsage(coupon_id=i['coupon_id'], cart=cart)
-                            customer_coupon_usage.shop = parent_mapping.retailer
-                            customer_coupon_usage.product = cart_product.cart_product
-                            customer_coupon_usage.times_used += coupon_usage_count + 1
-                            customer_coupon_usage.save()
+                    if len(array) is 0:
+                        pass
+                    else:
+                        for i in array:
+                            if cart_product.cart_product.id == i['item_id']:
+                                customer_coupon_usage = CusotmerCouponUsage(coupon_id=i['coupon_id'], cart=cart)
+                                customer_coupon_usage.shop = parent_mapping.retailer
+                                customer_coupon_usage.product = cart_product.cart_product
+                                customer_coupon_usage.times_used += coupon_usage_count + 1
+                                customer_coupon_usage.save()
 
                     product_availability = shop_products_dict.get(cart_product.cart_product.id, 0)
 
@@ -2327,61 +2330,3 @@ class RefreshEs(APIView):
         upload_shop_stock(shop_id)
         info_logger.info('RefreshEs| shop {}, Ended'.format(shop_id))
         return Response({"message": "Shop data updated on ES", "response_data": None, "is_success": True})
-
-
-def check_date_range(capping):
-    """
-    capping object
-    return start date and end date
-    """
-    if capping.capping_type == 0:
-        return capping.start_date, capping.end_date
-    elif capping.capping_type == 1:
-        end_date = datetime.today()
-        start_date = end_date - timedelta(days=today.weekday())
-        return start_date, end_date
-    elif capping.capping_type == 2:
-        return capping.start_date, capping.end_date
-
-
-def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty):
-    """
-    capping:- Capping object
-    parent_mapping :- parent mapping object
-    cart_product:- cart products
-    product_qty:- quantity of product
-    ordered_qty:- quantity of order
-    """
-    # to get the start and end date according to capping type
-    start_date, end_date = check_date_range(capping)
-    capping_start_date = start_date
-    capping_end_date = end_date
-    capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                created_at__gte=capping_start_date,
-                                                created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
-    if capping_range_orders:
-        for order in capping_range_orders:
-            if order.ordered_cart.rt_cart_list.filter(
-                    cart_product=cart_product.cart_product).exists():
-                ordered_qty += order.ordered_cart.rt_cart_list.filter(
-                    cart_product=cart_product.cart_product).last().qty
-    if capping.capping_qty > ordered_qty:
-        if (capping.capping_qty - ordered_qty) < product_qty:
-            if (capping.capping_qty - ordered_qty) > 0:
-                cart_product.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
-                        capping.capping_qty - ordered_qty)]
-            else:
-                cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
-            cart_product.save()
-            return False, cart_product.capping_error_msg
-        else:
-            cart_product.capping_error_msg = ['Allow to reserve the Product']
-            return True, cart_product.capping_error_msg
-    else:
-        if (capping.capping_qty - ordered_qty) > 0:
-            cart_product.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
-                    capping.capping_qty - ordered_qty)]
-        else:
-            cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
-        cart_product.save()
-        return False, cart_product.capping_error_msg
