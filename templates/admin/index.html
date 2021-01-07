@@ -82,11 +82,19 @@
 
                 {% endif %}
 
-                {% if app.name == "B2C Franchise Management" and user.is_superuser == False%}
-                   {% if model.name == "Bins"%}
-                   <tr>
-                 <th scope="row"><a href="/admin/franchise/product-list/">Product List</a></th>
-                   </tr>
+                {% if app.name == "B2C Franchise Management" %}
+                   {% if user.is_superuser == False %}
+                        {% if model.name == "Bins" %}
+                        <tr>
+                            <th scope="row"><a href="/admin/franchise/product-list/">Product List</a></th>
+                        </tr>
+                        {% endif %}
+                   {% else %}
+                        {% if model.name == "Shop location maps" %}
+                        <tr>
+                            <th scope="row"><a href="{% url 'admin:stockcsvconvert' %}">Convert Stock CSV</a></th>
+                        </tr>
+                        {% endif %}
                     {% endif %}
                 {% endif %}
         {% endfor %}
