@@ -52,11 +52,11 @@ class ExportSalesReturns:
         writer = csv.writer(response)
         writer.writerow(list_display)
         for obj in queryset:
-            items= ['' if field in ['shop_name', 'product_sku'] else getattr(obj, field) for field in field_names]
+            items= ['' if field in ['shop_name'] else getattr(obj, field) for field in field_names]
             items[2] = ShopLocationMap.objects.filter(location_name=obj.shop_loc).last().shop \
                     if ShopLocationMap.objects.filter(location_name=obj.shop_loc).exists() else ''
-            items[4] = Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
-                    if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else ''
+            # items[4] = Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
+            #         if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else ''
             if items[7] == 2:
                 items[7] = 'Error'
             elif items[7] == 1:
@@ -154,9 +154,9 @@ class FranchiseSalesAdmin(admin.ModelAdmin, ExportSalesReturns):
         return ShopLocationMap.objects.filter(location_name=obj.shop_loc).last().shop \
             if ShopLocationMap.objects.filter(location_name=obj.shop_loc).exists() else '-'
 
-    def product_sku(self, obj):
-        return Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
-            if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else '-'
+    # def product_sku(self, obj):
+    #     return Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
+    #         if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else '-'
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -183,9 +183,9 @@ class FranchiseReturnsAdmin(admin.ModelAdmin, ExportSalesReturns):
         return ShopLocationMap.objects.filter(location_name=obj.shop_loc).last().shop \
             if ShopLocationMap.objects.filter(location_name=obj.shop_loc).exists() else '-'
 
-    def product_sku(self, obj):
-        return Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
-            if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else '-'
+    # def product_sku(self, obj):
+    #     return Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
+    #         if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else '-'
 
     def has_add_permission(self, request, obj=None):
         return False

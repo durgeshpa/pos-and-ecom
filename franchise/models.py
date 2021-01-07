@@ -35,7 +35,8 @@ class ShopLocationMap(models.Model):
 
 class FranchiseSales(models.Model):
     shop_loc = models.CharField(max_length=255, verbose_name='Shop Location')
-    barcode = models.CharField(max_length=255)
+    barcode = models.CharField(max_length=255, null=True,blank=True)
+    product_sku = models.CharField(max_length=255,null=True,blank=True)
     quantity = models.FloatField(default=0, null=True, blank=True)
     amount = models.FloatField(default=0, null=True, blank=True)
     invoice_date = models.DateTimeField()
@@ -51,7 +52,8 @@ class FranchiseSales(models.Model):
 
 class FranchiseReturns(models.Model):
     shop_loc = models.CharField(max_length=255, verbose_name='Shop Location')
-    barcode = models.CharField(max_length=255)
+    barcode = models.CharField(max_length=255,null=True,blank=True)
+    product_sku = models.CharField(max_length=255,null=True,blank=True)
     quantity = models.FloatField(default=0, null=True, blank=True)
     amount = models.FloatField(default=0, null=True, blank=True)
     sr_date = models.DateTimeField()
