@@ -89,7 +89,7 @@ class InCommonFunctions(object):
 
     @classmethod
     def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type):
-        if warehouse.shop_type.shop_type == 'sp':
+        if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, inventory_type=inventory_type,
                                        quantity=quantity, expiry_date=get_expiry_date_db(batch_id))
