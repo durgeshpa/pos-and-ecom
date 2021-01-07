@@ -70,20 +70,20 @@ class Vendor(models.Model):
     def __str__(self):
         return self.vendor_name
 
-    def get_parent_or_self(self, obj):
-        if isinstance(obj.product.product_brand, str):
-            parent = obj.product.parent_product.parent_brand.brand_parent
-            brand = obj.product.parent_product.parent_brand
-            while parent is not None:
-                brand = parent
-                parent = parent.brand_parent
-            return brand.id
-        parent = obj.product.product_brand.brand_parent
-        brand = obj.product.product_brand
-        while parent is not None:
-            brand = parent
-            parent = parent.brand_parent
-        return brand.id
+    # def get_parent_or_self(self, obj):
+    #     if isinstance(obj.product.product_brand, str):
+    #         parent = obj.product.parent_product.parent_brand.brand_parent
+    #         brand = obj.product.parent_product.parent_brand
+    #         while parent is not None:
+    #             brand = parent
+    #             parent = parent.brand_parent
+    #         return brand.id
+    #     parent = obj.product.product_brand.brand_parent
+    #     brand = obj.product.product_brand
+    #     while parent is not None:
+    #         brand = parent
+    #         parent = parent.brand_parent
+    #     return brand.id
 
 
 class Brand(models.Model):

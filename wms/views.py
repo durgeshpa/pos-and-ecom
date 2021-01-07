@@ -698,7 +698,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                         inventory_type=type_missing)
                     in_quantity_dict[type_missing] = int(data[8])
 
-                inventory_state = 'total_available'
+                inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
                 status = True
                 transaction_type = 'stock_correction_in_type'
                 for inv_type, qty in in_quantity_dict.items():
@@ -1411,21 +1411,19 @@ def bulk_putaway(self, request, argument_list):
                     cancel_ordered(self.request.user, obj, initial_stage, bin_id)
 
                 elif obj.putaway_type == 'PAR_SHIPMENT':
-                    ordered_inventory_state = 'picked',
-                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last()
                     shipment_obj = OrderedProduct.objects.filter(
                         order__order_no=obj.putaway.putaway_type_id)[
                         0].rt_order_product_order_product_mapping.all()
-                    cancel_shipment(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id,
+                    cancel_shipment(request.user, obj, initial_stage, shipment_obj, bin_id,
                                     putaway_inventory_type)
 
                 elif obj.putaway_type == 'RETURNED':
-                    ordered_inventory_state = 'shipped',
-                    initial_stage = InventoryState.objects.filter(inventory_state='shipped').last(),
+                    initial_stage = InventoryState.objects.filter(inventory_state='shipped').last()
                     shipment_obj = OrderedProduct.objects.filter(
                         invoice__invoice_no=obj.putaway.putaway_type_id)[
                         0].rt_order_product_order_product_mapping.all()
-                    cancel_returned(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id,
+                    cancel_returned(request.user, obj, initial_stage, shipment_obj, bin_id,
                                     putaway_inventory_type)
 
         message = "Bulk Approval for Put Away has been done successfully."

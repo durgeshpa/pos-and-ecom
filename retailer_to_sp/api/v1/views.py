@@ -60,7 +60,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare, Return, Feedback,
                                    OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch
+                                   ShipmentRescheduling, Note, OrderedProductBatch, check_date_range, capping_check
                                    )
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramOrderedProduct,
@@ -535,7 +535,7 @@ class AddToCart(APIView):
                     capping_end_date = end_date
                     capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
                                                                 created_at__gte=capping_start_date,
-                                                                created_at__lte=capping_end_date)
+                                                                created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
                     if capping_range_orders:
                         for order in capping_range_orders:
                             if order.ordered_cart.rt_cart_list.filter(cart_product=product).exists():
@@ -673,21 +673,6 @@ class AddToCart(APIView):
 
     def gf_mapping_cart(self, qty, product):
         pass
-
-
-def check_date_range(capping):
-    """
-    capping object
-    return start date and end date
-    """
-    if capping.capping_type == 0:
-        return capping.start_date, capping.end_date
-    elif capping.capping_type == 1:
-        end_date = datetime.today()
-        start_date = end_date - timedelta(days=today.weekday())
-        return start_date, end_date
-    elif capping.capping_type == 2:
-        return capping.start_date, capping.end_date
 
 
 class CartDetail(APIView):
@@ -908,13 +893,16 @@ class ReservedOrder(generics.ListAPIView):
                     CartProductMapping.objects.filter(cart=cart, cart_product=cart_product.cart_product).update(
                         no_of_pieces=updated_no_of_pieces)
                     coupon_usage_count = 0
-                    for i in array:
-                        if cart_product.cart_product.id == i['item_id']:
-                            customer_coupon_usage = CusotmerCouponUsage(coupon_id=i['coupon_id'], cart=cart)
-                            customer_coupon_usage.shop = parent_mapping.retailer
-                            customer_coupon_usage.product = cart_product.cart_product
-                            customer_coupon_usage.times_used += coupon_usage_count + 1
-                            customer_coupon_usage.save()
+                    if len(array) is 0:
+                        pass
+                    else:
+                        for i in array:
+                            if cart_product.cart_product.id == i['item_id']:
+                                customer_coupon_usage = CusotmerCouponUsage(coupon_id=i['coupon_id'], cart=cart)
+                                customer_coupon_usage.shop = parent_mapping.retailer
+                                customer_coupon_usage.product = cart_product.cart_product
+                                customer_coupon_usage.times_used += coupon_usage_count + 1
+                                customer_coupon_usage.save()
 
                     product_availability = shop_products_dict.get(cart_product.cart_product.id, 0)
 
@@ -936,34 +924,14 @@ class ReservedOrder(generics.ListAPIView):
                     capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent,
                                                                                  parent_mapping.retailer)
                     if capping:
-                        # to get the start and end date according to capping type
-                        start_date, end_date = check_date_range(capping)
-                        capping_start_date = start_date
-                        capping_end_date = end_date
-                        capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                                    created_at__gte=capping_start_date,
-                                                                    created_at__lte=capping_end_date)
-                        if capping_range_orders:
-                            for order in capping_range_orders:
-                                if order.ordered_cart.rt_cart_list.filter(
-                                        cart_product=cart_product.cart_product).exists():
-                                    ordered_qty += order.ordered_cart.rt_cart_list.filter(
-                                        cart_product=cart_product.cart_product).last().qty
-                        if capping.capping_qty > ordered_qty:
-                            if (capping.capping_qty - ordered_qty) < product_qty:
-                                if (capping.capping_qty - ordered_qty) > 0:
-                                    cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                            capping.capping_qty - ordered_qty)
-                                else:
-                                    cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
-                                cart_product.save()
-                        else:
-                            if (capping.capping_qty - ordered_qty) > 0:
-                                cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                        capping.capping_qty - ordered_qty)
-                            else:
-                                cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
-                            cart_product.save()
+                        msg = capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty)
+                        if msg[0] is False:
+                            msg = {'is_success': True,
+                                   'message': msg[1], 'response_data': None}
+                            return Response(msg, status=status.HTTP_200_OK)
+                    else:
+                        pass
+
                 if products_unavailable:
                     serializer = CartSerializer(
                         cart,
@@ -1077,6 +1045,7 @@ class CreateOrder(APIView):
         current_url = request.get_host()
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
+            ordered_qty = 0
             # self.sp_mapping_order_reserve()
             with transaction.atomic():
                 if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
@@ -1107,6 +1076,19 @@ class CreateOrder(APIView):
                         cart.seller_shop = parent_mapping.parent
                         cart.save()
 
+                    for cart_product in cart.rt_cart_list.all():
+                        # to check capping is exist or not for warehouse and product with status active
+                        capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent,
+                                                                                     parent_mapping.retailer)
+                        product_qty = int(cart_product.qty)
+                        if capping:
+                            msg = capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty)
+                            if msg[0] is False:
+                                msg = {'is_success': True,
+                                       'message': msg[1], 'response_data': None}
+                                return Response(msg, status=status.HTTP_200_OK)
+                        else:
+                            pass
                     order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
                                                                            transaction_id=cart.order_id,
                                                                            warehouse_internal_inventory_release=None,

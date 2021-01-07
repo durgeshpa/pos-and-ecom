@@ -19,6 +19,7 @@ from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html, format_html_join
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils.crypto import get_random_string
 from accounts.middlewares import get_current_user
 from addresses.models import Address
@@ -38,7 +39,7 @@ from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, 
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice, Repackaging
-from shops.models import Shop, ShopNameDisplay
+from shops.models import Shop, ParentRetailerMapping
 
 from .utils import (order_invoices, order_shipment_amount,
                     order_shipment_details_util, order_shipment_status)
@@ -53,8 +54,8 @@ from django.db.models import Q
 from django.urls import reverse
 from retailer_backend import common_function
 from wms.models import WarehouseInventory
-
-# from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
+from datetime import datetime, timedelta
+today = datetime.today()
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -226,7 +227,7 @@ class Cart(models.Model):
         discount_value = 0
         shop = self.seller_shop
         cart_products = self.rt_cart_list.all()
-        date = datetime.datetime.now()
+        date = datetime.now()
         discount_sum_sku = 0
         discount_sum_brand = 0
         sum = 0
@@ -575,9 +576,11 @@ class BulkOrder(models.Model):
             url = """<h3><a href="#">Download Products List</a></h3>"""
         return url
 
-    def cart_product_list_status(self, order_status_info, available_quantity):
+    def cart_product_list_status(self, error_dict):
+        order_status_info =[]
         info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]-cart_product_list_status function called")
-        order_status_info.extend([available_quantity, self.cart_id])
+        error_dict[str('cart_id')] = str(self.cart_id)
+        order_status_info.extend([error_dict])
         if self.order_type == 'DISCOUNTED':
             status = "Discounted Order"
         else:
@@ -587,7 +590,7 @@ class BulkOrder(models.Model):
               (
                   reverse(
                       'admin:cart_products_list_status',
-                      args=(str(order_status_info),)
+                      args=(order_status_info)
                   )
               )
         return url
@@ -595,6 +598,7 @@ class BulkOrder(models.Model):
     def clean(self, *args, **kwargs):
         unavailable_skus = []
         availableQuantity = []
+        error_dict ={}
         if self.cart_products_csv:
             product_ids = []
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
@@ -608,6 +612,7 @@ class BulkOrder(models.Model):
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
             headers = next(reader, None)
             duplicate_products = []
+            qty = 0
             for id, row in enumerate(reader):
                 count = 0
                 if not row[0]:
@@ -658,19 +663,35 @@ class BulkOrder(models.Model):
                     product_available = int(
                         int(available_quantity) / int(product.product_inner_case_size))
                     availableQuantity.append(product_available)
+                    capping = product.get_current_shop_capping(shop,self.buyer_shop)
+                    product_qty = int(row[2])
+                    parent_mapping = getShopMapping(self.buyer_shop_id)
+                    if parent_mapping is None:
+                        #unavailable_skus.append(row[0])
+                        message = "Parent Maaping is not Found"
+                        error_dict[row[0]] = message
+                    if capping:
+                        msg = capping_check(capping, parent_mapping, product, product_qty, qty)
+                        if msg[0] is False:
+                            #unavailable_skus.append(row[0])
+                            error_dict[row[0]] = msg[1]
+                    else:
+                        pass
                     if product_available >= ordered_qty:
                         count += 1
                     if count == 0:
-                        unavailable_skus.append(row[0])
+                        #unavailable_skus.append(row[0])
+                        message = "Failed because of Ordered quantity is {} > Available quantity {}".format(str(int(row[2])),
+                                                                                                            str(available_quantity))
+                        error_dict[row[0]] = message
         info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]--Unavailable-SKUs:{unavailable_skus}, "
                          f"Available_Qty_of_Ordered_SKUs:{availableQuantity}")
-        if len(unavailable_skus) > 0:
+        if len(error_dict) > 0:
             if self.cart_products_csv and self.order_type:
                 self.save()
-                raise ValidationError(mark_safe(f"Order doesn't placed for some SKUs because for those SKUs, Ordered "
-                                                f"qty is greater than Available inventory.Please click the "
+                raise ValidationError(mark_safe(f"Order can't placed for some SKUs, Please click the "
                                                 f"below Link for seeing the status"
-                                                f"{self.cart_product_list_status(unavailable_skus, availableQuantity)}"))
+                                                f"{self.cart_product_list_status(error_dict)}"))
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
 
@@ -719,6 +740,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 for sku in product_skus:
                     product_ids.append(Product.objects.get(product_sku=sku).id)
                 reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8', errors='ignore'))
+                qty = 0
                 for id, row in enumerate(reader):
                     for row in reader:
                         if row[0]:
@@ -734,6 +756,21 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                             available_quantity = 0
                             if product_qty_dict.get(product.id) is not None:
                                 available_quantity = product_qty_dict[product.id]
+
+                            capping = product.get_current_shop_capping(instance.seller_shop,
+                                                                       instance.buyer_shop)
+                            product_qty = int(row[2])
+                            parent_mapping = getShopMapping(instance.buyer_shop_id)
+                            if parent_mapping is None:
+                                continue
+                            if capping:
+                                msg = capping_check(capping, parent_mapping, product, product_qty, qty)
+                                if msg[0] is False:
+                                    continue
+                                else:
+                                    pass
+                            else:
+                                pass
                             product_available = int(
                                 int(available_quantity) / int(product.product_inner_case_size))
                             if product_available >= ordered_qty:
@@ -2862,7 +2899,67 @@ def franchise_inventory_update(shipment, warehouse):
             product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_product_batch, initial_type,
                                                      final_type, initial_stage, final_stage)
 
+def check_date_range(capping):
+    """
+    capping object
+    return start date and end date
+    """
+    if capping.capping_type == 0:
+        return capping.start_date, capping.end_date
+    elif capping.capping_type == 1:
+        end_date = datetime.today()
+        start_date = end_date - timedelta(days=today.weekday())
+        return start_date, end_date
+    elif capping.capping_type == 2:
+        return capping.start_date, capping.end_date
 
 
+def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty):
+    """
+    capping:- Capping object
+    parent_mapping :- parent mapping object
+    cart_product:- cart products
+    product_qty:- quantity of product
+    ordered_qty:- quantity of order
+    """
+    # to get the start and end date according to capping type
+    start_date, end_date = check_date_range(capping)
+    capping_start_date = start_date
+    capping_end_date = end_date
+    capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
+                                                created_at__gte=capping_start_date,
+                                                created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
+    if capping_range_orders:
+        for order in capping_range_orders:
+            if order.ordered_cart.rt_cart_list.filter(
+                    cart_product=cart_product.cart_product).exists():
+                ordered_qty += order.ordered_cart.rt_cart_list.filter(
+                    cart_product=cart_product.cart_product).last().qty
+    if capping.capping_qty > ordered_qty:
+        if (capping.capping_qty - ordered_qty) < product_qty:
+            if (capping.capping_qty - ordered_qty) > 0:
+                cart_product.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
+                        capping.capping_qty - ordered_qty)]
+            else:
+                cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
+            cart_product.save()
+            return False, cart_product.capping_error_msg
+        else:
+            cart_product.capping_error_msg = ['Allow to reserve the Product']
+            return True, cart_product.capping_error_msg
+    else:
+        if (capping.capping_qty - ordered_qty) > 0:
+            cart_product.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
+                    capping.capping_qty - ordered_qty)]
+        else:
+            cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
+        cart_product.save()
+        return False, cart_product.capping_error_msg
 
 
+def getShopMapping(shop_id):
+    try:
+        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id,status=True)
+        return parent_mapping
+    except ObjectDoesNotExist:
+        return None

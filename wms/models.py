@@ -276,6 +276,7 @@ class PickupBinInventory(models.Model):
                                        default=None,on_delete=models.DO_NOTHING)
     last_picked_at = models.DateTimeField(null=True)
     remarks = models.CharField(choices=PICKUP_REMARKS_CHOICES, max_length=100, null=True)
+    audit_no = models.CharField(max_length=100, null=True)
 
     class Meta:
         db_table = "wms_pickup_bin_inventory"
