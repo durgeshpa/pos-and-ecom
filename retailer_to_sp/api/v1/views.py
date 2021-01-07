@@ -581,8 +581,12 @@ class AddToCart(APIView):
                         if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                             cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                             if (capping.capping_qty - ordered_qty) > 0:
-                                cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                        ordered_qty - capping.capping_qty)
+                                if (capping.capping_qty - ordered_qty) < 0:
+                                    cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
+                                            0)
+                                else:
+                                    cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
+                                            capping.capping_qty - ordered_qty)
                             else:
                                 cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                                 CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
