@@ -927,10 +927,7 @@ class ReservedOrder(generics.ListAPIView):
                                    'message': msg[1], 'response_data': None}
                             return Response(msg, status=status.HTTP_200_OK)
                     else:
-                        cart_product.capping_error_msg = 'Product is not available, Please try after some time.'
-                        msg = {'is_success': True,
-                               'message': cart_product.capping_error_msg, 'response_data': None}
-                        return Response(msg, status=status.HTTP_200_OK)
+                        pass
 
                 if products_unavailable:
                     serializer = CartSerializer(
@@ -1088,11 +1085,7 @@ class CreateOrder(APIView):
                                        'message': msg[1], 'response_data': None}
                                 return Response(msg, status=status.HTTP_200_OK)
                         else:
-                            cart_product.capping_error_msg = ['Product is not available, Please try after some time.']
-                            msg = {'is_success': True,
-                                   'message': cart_product.capping_error_msg, 'response_data': None}
-                            return Response(msg, status=status.HTTP_200_OK)
-
+                            pass
                     order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
                                                                            transaction_id=cart.order_id,
                                                                            warehouse_internal_inventory_release=None,
