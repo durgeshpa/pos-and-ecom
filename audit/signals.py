@@ -7,6 +7,7 @@ from audit.models import AuditDetail, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATU
 from audit.utils import get_next_audit_no
 from audit.views import BlockUnblockProduct
 from franchise.models import Faudit
+from wms.models import PickupBinInventory
 
 
 @receiver(post_save, sender=AuditDetail)
@@ -24,6 +25,10 @@ def save_audit_no(sender, instance=None, created=False, **kwargs):
             next_audit_no = get_next_audit_no(instance)
             audit_no += str(next_audit_no)
             instance.audit_no = audit_no
+            if instance.pbi:
+                pbi_obj = PickupBinInventory.objects.filter(id=instance.pbi).last()
+                pbi_obj.audit_no = instance.audit_no
+                pbi_obj.save()
             instance.save()
 
 # Faudit proxy model for AuditDetail - Signals need to be connected separately (again) for proxy model (if required)

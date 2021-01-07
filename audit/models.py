@@ -4,7 +4,7 @@ from model_utils import Choices
 from accounts.middlewares import get_current_user
 from services.models import InventoryArchiveMaster
 from shops.models import Shop
-from wms.models import Bin, InventoryState, InventoryType
+from wms.models import Bin, InventoryState, InventoryType, PickupBinInventory
 from django.contrib.auth import get_user_model
 from products.models import Product
 
@@ -59,6 +59,7 @@ class AuditDetail(BaseTimestampModel):
     auditor = models.ForeignKey(get_user_model(), related_name='audits_assigned', null=True, on_delete=models.DO_NOTHING)
     is_historic = models.BooleanField(default=False)
     audit_from = models.DateField(null=True, blank=True, verbose_name='Start Audit From')
+    pbi = models.PositiveIntegerField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.id:

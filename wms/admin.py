@@ -15,7 +15,7 @@ from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
 from rangefilter.filter import DateTimeRangeFilter, DateRangeFilter
 
-from audit.models import AUDIT_LEVEL_CHOICES
+from audit.models import AUDIT_LEVEL_CHOICES, AuditDetail
 from retailer_to_sp.models import Invoice, Trip
 from gram_to_brand.models import GRNOrder
 from products.models import ProductVendorMapping
@@ -664,9 +664,11 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     def add_audit_link(self, obj):
         if obj.pickup.status == 'picking_complete':
             if obj.quantity != obj.pickup_quantity:
+                if obj.audit_no:
+                    return obj.audit_no
                 return format_html(
-                    "<a href = '/admin/audit/auditdetail/add/?warehouse=%s&audit_level=%s&sku=%s' class ='addlink' > Audit</a>" % (
-                    obj.warehouse_id, AUDIT_LEVEL_CHOICES.PRODUCT, obj.pickup.sku.id))
+                    "<a href = '/admin/audit/auditdetail/add/?warehouse=%s&audit_level=%s&sku=%s&pbi=%s' class ='addlink' > Audit</a>" % (
+                    obj.warehouse_id, AUDIT_LEVEL_CHOICES.PRODUCT, obj.pickup.sku.id, obj.id))
 
     def download_csv(self, request, queryset):
         f = StringIO()
