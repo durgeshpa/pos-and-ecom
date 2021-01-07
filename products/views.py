@@ -4,6 +4,8 @@ import datetime
 import os
 import logging
 import re
+import json
+import re
 
 import boto3
 from botocore.exceptions import ClientError
@@ -777,40 +779,20 @@ def cart_products_mapping(request,pk=None):
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
     return response
 
-
 def cart_product_list_status(request, order_status_info):
+    p = re.compile('(?<!\\\\)\'')
+    order_status_info = p.sub('\"', order_status_info)
+    order_status_info = json.loads(order_status_info)
     info_logger.info(f"[products/views.py]-cart_product_list_status function called for Downloading the CSV file of "
                      f"Bulk/Discounted Order Status")
-    for char in order_status_info:
-        if char in "[\]":
-            order_status_info.replace(char, '')
-    order_status_info1 = order_status_info.replace('[', '')
-    order_status_info2 = order_status_info1.replace(']', '')
-    order_status_info3 = order_status_info2.split(',')
-    order_status_info4 = []
-    for ele in order_status_info3:
-        order_status_info4.append(ele.replace("'", ''))
-    order_status_info5 = []
-    for ele in order_status_info4:
-        order_status_info5.append(ele.replace(" ", ''))
-    cart_id = int(order_status_info5.pop())
-    available_quantity = []
     unavailable_skus = []
-    for ele in order_status_info5:
-        try:
-            available_quantity.append(int(ele))
-        except:
-            unavailable_skus.append(ele)
-
-    info_logger.info(f"[products/views.py:cart_product_list_status]--Unavailable-SKUs:{unavailable_skus}, "
-                     f"Available_Qty_of_Ordered_SKUs:{available_quantity}")
-
-    if cart_id:
-        bulk_order_obj = BulkOrder.objects.filter(cart_id=cart_id)
+    for ele in order_status_info.keys():
+        unavailable_skus.append(ele)
+    bulk_order_obj = BulkOrder.objects.filter(cart_id=int(order_status_info['cart_id']))
+    if bulk_order_obj:
+        csv_file_name = bulk_order_obj.values()[0]['cart_products_csv']
     else:
-        info_logger.info(f"[products/views.py:cart_product_list_status] - [cart_id : {cart_id}]")
-
-    csv_file_name = bulk_order_obj.values()[0]['cart_products_csv']
+        info_logger.info(f"[products/views.py:cart_product_list_status] - [cart_id : {order_status_info['cart_id']}]")
 
     try:
         s3 = boto3.resource('s3', aws_access_key_id=config('AWS_ACCESS_KEY_ID'),
@@ -850,8 +832,7 @@ def cart_product_list_status(request, order_status_info):
                 writer.writerow(row + ["order_status"])
             else:
                 if row[0] in unavailable_skus:
-                    writer.writerow(row + [f"Failed because of ordered_quantity({row[2]}) > "
-                                           f"available_quantity({available_quantity[index]})"])
+                    writer.writerow(row + [order_status_info[row[0]]])
                     index = index + 1
                 else:
                     writer.writerow(row + ["Success"])
