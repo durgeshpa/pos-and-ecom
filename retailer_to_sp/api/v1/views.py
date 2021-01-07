@@ -926,8 +926,11 @@ class ReservedOrder(generics.ListAPIView):
                     if capping:
                         msg = capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty)
                         if msg[0] is False:
+                            serializer = CartSerializer(cart, context={
+                                'parent_mapping_id': parent_mapping.parent.id,
+                                'buyer_shop_id': shop_id})
                             msg = {'is_success': True,
-                                   'message': msg[1], 'response_data': None}
+                                   'message': msg[1], 'response_data': serializer.data}
                             return Response(msg, status=status.HTTP_200_OK)
                     else:
                         pass
