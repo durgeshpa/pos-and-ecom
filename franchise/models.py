@@ -34,13 +34,13 @@ class ShopLocationMap(models.Model):
 
 
 class FranchiseSales(models.Model):
-    shop_loc = models.CharField(max_length=255, verbose_name='Shop Location')
+    shop_loc = models.CharField(max_length=255, verbose_name='Shop Location', null=True, blank=True)
     barcode = models.CharField(max_length=255, null=True,blank=True)
     product_sku = models.CharField(max_length=255,null=True,blank=True)
     quantity = models.FloatField(default=0, null=True, blank=True)
     amount = models.FloatField(default=0, null=True, blank=True)
-    invoice_date = models.DateTimeField()
-    invoice_number = models.CharField(max_length=255)
+    invoice_date = models.DateTimeField(null=True, blank=True)
+    invoice_number = models.CharField(max_length=255, null=True, blank=True)
     process_status = models.IntegerField(choices=((0, 'Started'), (1, 'Processed'), (2, 'Error')), default=0)
     error = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -51,14 +51,14 @@ class FranchiseSales(models.Model):
 
 
 class FranchiseReturns(models.Model):
-    shop_loc = models.CharField(max_length=255, verbose_name='Shop Location')
+    shop_loc = models.CharField(max_length=255, verbose_name='Shop Location', null=True, blank=True)
     barcode = models.CharField(max_length=255,null=True,blank=True)
     product_sku = models.CharField(max_length=255,null=True,blank=True)
     quantity = models.FloatField(default=0, null=True, blank=True)
     amount = models.FloatField(default=0, null=True, blank=True)
-    sr_date = models.DateTimeField()
-    sr_number = models.CharField(max_length=255)
-    invoice_number = models.CharField(max_length=255)
+    sr_date = models.DateTimeField(null=True, blank=True)
+    sr_number = models.CharField(max_length=255, null=True, blank=True)
+    invoice_number = models.CharField(max_length=255, null=True, blank=True)
     process_status = models.IntegerField(choices=((0, 'Started'), (1, 'Processed'), (2, 'Error')), default=0)
     error = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -70,10 +70,10 @@ class FranchiseReturns(models.Model):
 
 class HdposDataFetch(models.Model):
     type = models.IntegerField(choices=((0, 'Sales'), (1, 'Returns')))
-    from_date = models.DateTimeField(null=True)
-    to_date = models.DateTimeField(null=True)
+    from_date = models.DateTimeField(null=True, blank=True)
+    to_date = models.DateTimeField(null=True, blank=True)
     process_text = models.CharField(max_length=255, null=True, blank=True)
-    status = models.IntegerField(choices=((0, 'Started'), (1, 'Completed')), default=0)
+    status = models.IntegerField(choices=((0, 'Started'), (1, 'Completed'), (2, 'Error')), default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
