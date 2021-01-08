@@ -297,8 +297,8 @@ class ShipmentPayment(AbstractDateTime):
     def __str__(self):
         return str(self.shipment.id)
 
-    def get_parent_or_self(self,obj):
-        pass
+    # def get_parent_or_self(self,obj):
+    #     pass
         #return brand.id
     
     @property

@@ -70,7 +70,6 @@ urlpatterns = [
     url(r'^nested_admin/', include('nested_admin.urls')),
     url(r'^audit/', include('audit.urls')),
     url(r'^franchise/', include('franchise.urls')),
-    url(r'^marketing/', include('marketing.urls')),
     url(r'^admin/franchise/product-list/$', ProductList.as_view(), name='product-list'),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -38,6 +38,17 @@ class BarcodeFilter(InputFilter):
         return queryset
 
 
+class SkuFilter(InputFilter):
+    title = 'Product SKU'
+    parameter_name = 'product_sku'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(product_sku=value)
+        return queryset
+
+
 class ShopFilter(AutocompleteFilter):
     title = 'Shop'
     field_name = 'shop'
