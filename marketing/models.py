@@ -50,4 +50,3 @@ class RewardPoint(models.Model):
     reward_point_used = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=2)
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
-
