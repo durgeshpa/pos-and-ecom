@@ -785,7 +785,7 @@ class CartForm(forms.ModelForm):
         required=False
     )
     buyer_shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2(url='admin:retailer-shop-autocomplete', ),
         required=False
     )
@@ -806,12 +806,12 @@ class BulkCartForm(forms.ModelForm):
         required=True
     )
     buyer_shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2(url='admin:buyer-parent-autocomplete', forward=('seller_shop')),
         required=True
     )
     shipping_address = forms.ModelChoiceField(
-        queryset=Address.objects.filter(shop_name__shop_type__shop_type='r'),
+        queryset=Address.objects.filter(shop_name__shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2(
             url='bulk-shipping-address-autocomplete',
             forward=('buyer_shop',)
@@ -819,7 +819,7 @@ class BulkCartForm(forms.ModelForm):
         required=True
     )
     billing_address = forms.ModelChoiceField(
-        queryset=Address.objects.filter(shop_name__shop_type__shop_type='r'),
+        queryset=Address.objects.filter(shop_name__shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2(
             url='bulk-billing-address-autocomplete',
             forward=('buyer_shop',)

@@ -9,7 +9,8 @@ from django.http import HttpResponse
 from franchise.models import Fbin, Faudit, HdposDataFetch, FranchiseSales, FranchiseReturns, ShopLocationMap
 from franchise.forms import FranchiseBinForm, FranchiseAuditCreationForm, ShopLocationMapForm
 from franchise.filters import ShopLocFilter, BarcodeFilter, ShopFilter, ShopLocFilter1,\
-    FranchiseShopAutocomplete, WarehouseFilter
+    FranchiseShopAutocomplete, WarehouseFilter, SkuFilter
+from franchise.views import StockCsvConvert
 from wms.admin import BinAdmin, BinIdFilter
 from audit.admin import AuditDetailAdmin, AuditNoFilter, AuditorFilter
 from products.models import Product
@@ -51,11 +52,11 @@ class ExportSalesReturns:
         writer = csv.writer(response)
         writer.writerow(list_display)
         for obj in queryset:
-            items= ['' if field in ['shop_name', 'product_sku'] else getattr(obj, field) for field in field_names]
+            items= ['' if field in ['shop_name'] else getattr(obj, field) for field in field_names]
             items[2] = ShopLocationMap.objects.filter(location_name=obj.shop_loc).last().shop \
                     if ShopLocationMap.objects.filter(location_name=obj.shop_loc).exists() else ''
-            items[4] = Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
-                    if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else ''
+            # items[4] = Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
+            #         if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else ''
             if items[7] == 2:
                 items[7] = 'Error'
             elif items[7] == 1:
@@ -144,7 +145,7 @@ class FranchiseSalesAdmin(admin.ModelAdmin, ExportSalesReturns):
                     'error', 'invoice_number', 'invoice_date', 'created_at', 'modified_at']
     list_per_page = 50
     actions = ["export_as_csv_sales_returns"]
-    list_filter = [ShopLocFilter, BarcodeFilter, ('invoice_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
+    list_filter = [ShopLocFilter, BarcodeFilter, SkuFilter, ('invoice_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
 
     class Media:
         pass
@@ -153,9 +154,9 @@ class FranchiseSalesAdmin(admin.ModelAdmin, ExportSalesReturns):
         return ShopLocationMap.objects.filter(location_name=obj.shop_loc).last().shop \
             if ShopLocationMap.objects.filter(location_name=obj.shop_loc).exists() else '-'
 
-    def product_sku(self, obj):
-        return Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
-            if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else '-'
+    # def product_sku(self, obj):
+    #     return Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
+    #         if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else '-'
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -173,7 +174,7 @@ class FranchiseReturnsAdmin(admin.ModelAdmin, ExportSalesReturns):
                     'error', 'sr_number', 'sr_date', 'created_at', 'modified_at']
     list_per_page = 50
     actions = ["export_as_csv_sales_returns"]
-    list_filter = [ShopLocFilter, BarcodeFilter, ('sr_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
+    list_filter = [ShopLocFilter, BarcodeFilter, SkuFilter, ('sr_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
 
     class Media:
         pass
@@ -182,9 +183,9 @@ class FranchiseReturnsAdmin(admin.ModelAdmin, ExportSalesReturns):
         return ShopLocationMap.objects.filter(location_name=obj.shop_loc).last().shop \
             if ShopLocationMap.objects.filter(location_name=obj.shop_loc).exists() else '-'
 
-    def product_sku(self, obj):
-        return Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
-            if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else '-'
+    # def product_sku(self, obj):
+    #     return Product.objects.filter(product_ean_code=obj.barcode).last().product_sku \
+    #         if Product.objects.filter(product_ean_code=obj.barcode).count() == 1 else '-'
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -208,12 +209,17 @@ class ShopLocationMapAdmin(admin.ModelAdmin, ExportShopLocationMap):
         from django.conf.urls import url
         urls = super(ShopLocationMapAdmin, self).get_urls()
         urls = [
-            url(
-                r'^franchise-shop-autocomplete/$',
-                self.admin_site.admin_view(FranchiseShopAutocomplete.as_view()),
-                name="franchise-shop-autocomplete"
-            ),
-        ] + urls
+                   url(
+                       r'^franchise-shop-autocomplete/$',
+                       self.admin_site.admin_view(FranchiseShopAutocomplete.as_view()),
+                       name="franchise-shop-autocomplete"
+                   ),
+                   url(
+                       r'^stockcsvconvert/$',
+                       self.admin_site.admin_view(StockCsvConvert.as_view()),
+                       name="stockcsvconvert"
+                   ),
+               ] + urls
         return urls
 
     class Media:
