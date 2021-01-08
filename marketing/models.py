@@ -65,14 +65,13 @@ class Referral(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     @classmethod
-    def generate_unique_referral_code(cls, phone_number):
+    def generate_unique_referral_code(cls):
         """
         This Method generate an unique referral code by using UUID(Universal Unique Identifier),
         a python library which helps in generating random object
         """
-        unique_referral_code = str(uuid.uuid4()).split('-')[-1]
         try:
-            # MLMUserModel.objects.filter(phone_number=phone_number).update(referral_code=unique_referral_code)
+            unique_referral_code = str(uuid.uuid4()).split('-')[-1]
             return unique_referral_code
         except Exception as e:
             info_logger.info("Something Went wrong while saving the referral_code in UserModel " + str(e))
