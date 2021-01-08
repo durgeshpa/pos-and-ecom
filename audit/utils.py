@@ -90,3 +90,59 @@ def get_product_image(product):
         image_url = product.child_product_pro_image.last().image.url
     return image_url
 
+def get_audit_start_time(audit_detail):
+    '''
+    Takes AuditDetail instance
+    Returns audit start time if audit has been started else None
+    '''
+    if audit_detail.state > AUDIT_DETAIL_STATE_CHOICES.CREATED:
+        return AuditRun.objects.filter(audit=audit_detail).last().created_at
+    return None
+
+
+def get_audit_complete_time(audit_detail):
+    '''
+    Takes AuditDetail instance
+    Returns audit completion time if audit has been completed else None
+    '''
+    if audit_detail.state > AUDIT_DETAIL_STATE_CHOICES.INITIATED:
+        return AuditRun.objects.filter(audit=audit_detail).last().completed_at
+    return None
+
+def time_diff_days_hours_mins_secs(dt2, dt1):
+    diff_in_seconds = date_diff_in_seconds(dt2, dt1)
+    days, hours, minutes, seconds = dhms_from_seconds(diff_in_seconds)
+    time_string = ''
+    if days > 0:
+        time_string += '%d days' % days
+    if hours > 0:
+        time_string += ' %d hrs' % hours
+    if minutes > 0:
+        time_string += ' %d mins' % minutes
+    if seconds > 0:
+        time_string += ' %d secs' % seconds
+    return time_string
+
+
+def date_diff_in_seconds(dt2, dt1):
+    timedelta = dt2 - dt1
+    return timedelta.days * 24 * 3600 + timedelta.seconds
+
+
+def dhms_from_seconds(seconds):
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+    return (days, hours, minutes, seconds)
+
+
+def get_audit_completion_time_string(audit_detail):
+    '''
+    Takes AuditDetail instance
+    Returns audit duration if audit has been completed else None
+    '''
+    if audit_detail.state > AUDIT_DETAIL_STATE_CHOICES.INITIATED:
+        audit_run = AuditRun.objects.filter(audit=audit_detail).last()
+        return time_diff_days_hours_mins_secs(audit_run.completed_at, audit_run.created_at)
+    return None
+

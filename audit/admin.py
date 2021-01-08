@@ -11,9 +11,13 @@ from rangefilter.filter import DateRangeFilter
 
 from audit.forms import AuditCreationForm, AuditTicketForm
 
-from audit.models import AuditDetail, AuditTicket, AuditTicketManual,AUDIT_DETAIL_STATUS_CHOICES,AUDIT_DETAIL_STATE_CHOICES,AUDIT_RUN_STATUS_CHOICES, AUDIT_TICKET_STATUS_CHOICES,AUDIT_INVENTORY_CHOICES,AUDIT_RUN_TYPE_CHOICES,AUDIT_LEVEL_CHOICES
+from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_DETAIL_STATUS_CHOICES, \
+    AUDIT_DETAIL_STATE_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_TICKET_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES, \
+    AUDIT_RUN_TYPE_CHOICES, AUDIT_LEVEL_CHOICES, AuditRun
 from retailer_backend.admin import InputFilter
 from wms.models import Bin
+from .utils import get_audit_start_time, get_audit_complete_time, get_audit_completion_time_string, \
+    time_diff_days_hours_mins_secs
 from .views import bulk_audit_csv_upload_view,AuditDownloadSampleCSV
 from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES, \
     AuditCancelledPicklist, AuditProduct, AUDIT_LEVEL_CHOICES, AUDIT_DETAIL_STATE_CHOICES, AUDIT_DETAIL_STATUS_CHOICES
@@ -120,7 +124,7 @@ class ExportCsvMixin:
 @admin.register(AuditDetail)
 class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
     list_display = ('audit_no', 'warehouse', 'audit_run_type', 'audit_inventory_type', 'audit_level',
-                    'state', 'status', 'user', 'auditor', 'created_at')
+                    'state', 'status', 'user', 'auditor', 'created_at', 'started_at', 'completed_at', 'completion_time')
 
     fieldsets = (
         ('Basic', {
@@ -132,7 +136,7 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
             'classes': ('automated',)
         }),
         ('Manual Audit', {
-            'fields': ('auditor', 'audit_level', 'bin', 'sku'),
+            'fields': ('auditor', 'audit_level', 'bin', 'sku', 'pbi'),
             'classes': ('manual',)
         }),
     )
@@ -148,11 +152,23 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
         else:
             return audit_level
 
+
+
+    def started_at(self, obj):
+        return get_audit_start_time(obj)
+
+    def completed_at(self, obj):
+        return get_audit_complete_time(obj)
+
+    def completion_time(self, obj):
+        return get_audit_completion_time_string(obj)
+
     def export_as_csv(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
         writer.writerow(['audit_no','warehouse','audit_run_type','audit_level','state',
-                        'status','created_by','auditor','created_at','bin','sku'])
+                        'status','created_by','auditor','created_at','bin','sku', 'started_at', 'completed_at',
+                         'completion_time'])
     
         queryset = queryset.filter(audit_run_type = AUDIT_RUN_TYPE_CHOICES.MANUAL )
         for query in queryset:
@@ -163,7 +179,8 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
                 self.audit_level(obj),AUDIT_DETAIL_STATE_CHOICES[obj.state],
                 AUDIT_DETAIL_STATUS_CHOICES[obj.status],obj.user,obj.auditor,obj.created_at,
                 list(getattr(obj,"bin").all().values_list('bin_id', flat=True)),
-                list(getattr(obj,"sku").all().values_list('product_sku', flat=True))])
+                list(getattr(obj,"sku").all().values_list('product_sku', flat=True)),
+                self.started_at(obj), self.completed_at(obj), self.completion_time(obj)])
 
             except Exception as exc:
                 trace_back = traceback.format_exc()
@@ -229,7 +246,7 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
     list_display = ('audit_no', 'bin', 'sku', 'batch_id', 'qty_normal_system', 'qty_normal_actual', 'normal_var',
                     'qty_damaged_system', 'qty_damaged_actual', 'damaged_var',
                     'qty_expired_system', 'qty_expired_actual', 'expired_var',
-                    'total_var', 'status', 'assigned_user', 'created_at')
+                    'total_var', 'status', 'assigned_user', 'created_at', 'audit_completion_time')
 
     list_filter = [Warehouse, AuditNoFilterForTickets, SKUFilter, AssignedUserFilter, 'status',  ('created_at', DateRangeFilter)]
     form = AuditTicketForm
@@ -254,6 +271,9 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
         return obj.qty_normal_system + obj.qty_damaged_system + obj.qty_expired_system - \
                (obj.qty_damaged_actual + obj.qty_normal_actual + obj.qty_expired_actual)
 
+    def audit_completion_time(self, obj):
+        return time_diff_days_hours_mins_secs(obj.audit_run.completed_at, obj.audit_run.created_at)
+
     def download_tickets(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
@@ -262,7 +282,7 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
                          'qty_normal_system', 'qty_normal_actual', 'normal_var',
                          'qty_damaged_system', 'qty_damaged_actual', 'damaged_var',
                          'qty_expired_system', 'qty_expired_actual', 'expired_var',
-                         'total_var', 'status'])
+                         'total_var', 'status', 'audit_completion_time'])
 
         for query in queryset:
             obj = AuditTicketManual.objects.get(id=query.id)
@@ -272,7 +292,8 @@ class AuditTicketManualAdmin(admin.ModelAdmin):
                              obj.created_at, obj.qty_normal_system, obj.qty_normal_actual, self.normal_var(obj),
                              obj.qty_damaged_system, obj.qty_damaged_actual, self.damaged_var(obj),
                              obj.qty_expired_system, obj.qty_expired_actual, self.expired_var(obj),
-                             self.total_var(obj), AUDIT_TICKET_STATUS_CHOICES[obj.status]])
+                             self.total_var(obj), AUDIT_TICKET_STATUS_CHOICES[obj.status],
+                             self.audit_completion_time(obj)])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
@@ -307,7 +328,8 @@ class AuditCancelledPicklistAdmin(admin.ModelAdmin):
     def download_csv(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(['Audit No', 'Audit State', 'Audit Status', 'Order No', 'Picklist Refreshed', 'SKUs', 'Cancelled At'])
+        writer.writerow(['Audit No', 'Audit State', 'Audit Status', 'Order No', 'Picklist Refreshed', 'SKUs',
+                         'Cancelled At'])
 
         for query in queryset:
             obj = AuditCancelledPicklist.objects.get(id=query.id)

@@ -28,7 +28,7 @@ class ShopLocFilter1(InputFilter):
 
 
 class BarcodeFilter(InputFilter):
-    title = 'Barcode'
+    title = 'Barcode / Product Ean'
     parameter_name = 'barcode'
 
     def queryset(self, request, queryset):
@@ -38,8 +38,19 @@ class BarcodeFilter(InputFilter):
         return queryset
 
 
+class SkuFilter(InputFilter):
+    title = 'Product SKU'
+    parameter_name = 'product_sku'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(product_sku=value)
+        return queryset
+
+
 class ShopFilter(AutocompleteFilter):
-    title = 'Warehouse'
+    title = 'Shop'
     field_name = 'shop'
     autocomplete_url = 'franchise-shop-autocomplete'
 
@@ -54,3 +65,9 @@ class FranchiseShopAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
+
+
+class WarehouseFilter(AutocompleteFilter):
+    title = 'Warehouse'
+    field_name = 'warehouse'
+    autocomplete_url = 'franchise-shop-autocomplete'

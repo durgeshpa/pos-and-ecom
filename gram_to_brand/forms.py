@@ -124,13 +124,14 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("MRP"))
 
-                if not (row[8].title()  == "Per Piece" or row[8].title() == "Per Pack"):
+                if not (row[8].lower()  == "per piece" or row[8].lower() == "per pack"):
+
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID_STRING']%("Gram_to_brand_Price_Unit"))
 
                 if not row[9] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[9]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
-                    'EMPTY_OR_NOT_VALID']%("Gram_to_brand"))
+                    'EMPTY_OR_NOT_VALID']%("Brand_to_gram"))
 
         if 'po_validity_date' in self.cleaned_data and self.cleaned_data['po_validity_date'] < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))

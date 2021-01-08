@@ -231,7 +231,7 @@ class ShopTimingForm(forms.ModelForm):
         (SAT, 'Saturday'),
     )
     shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type__in=['r']),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2(url='admin:shop-timing-autocomplete', )
     )
     off_day = forms.MultipleChoiceField(

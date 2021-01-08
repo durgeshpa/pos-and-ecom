@@ -238,11 +238,12 @@ class ExportProductVendor:
     export_as_csv_product_vendormapping.short_description = "Download CSV of selected Productvendormapping"
 
 class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
+  
     actions = ["export_as_csv_product_vendormapping", ]
     fields = ('vendor', 'product', 'product_price','product_price_pack','product_mrp','case_size')
 
     list_display = ('vendor', 'product','product_price','product_price_pack','product_mrp','case_size','created_at','status','product_status')
-    list_filter = [VendorFilter,ProductFilter,'product__status']
+    list_filter = [VendorFilter,ProductFilter,'product__status','status']
     form = ProductVendorMappingForm
     readonly_fields = ['brand_to_gram_price_unit',]
     change_list_template = 'admin/products/bulk_product_vendor_mapping_change_list.html'
@@ -999,8 +1000,8 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         return super().get_changeform_initial_data(request)
 
     def get_readonly_fields(self, request, obj=None):
-        if obj:
-            return ['repackaging_type']
+        if obj and obj.repackaging_type != 'none':
+            return self.readonly_fields + ('repackaging_type',)
         return self.readonly_fields
 
     def get_form(self, request, obj=None, **kwargs):

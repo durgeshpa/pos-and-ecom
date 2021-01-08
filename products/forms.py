@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
 from django.db.models import Value, Case, When, F
 from django.db import transaction
+from model_utils import Choices
 
 from tempus_dominus.widgets import DatePicker, DateTimePicker, TimePicker
 
@@ -22,7 +23,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductVendorMapping, Size, Tax, Weight,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
-                             DestinationRepackagingCostMapping, ParentProductImage)
+                             DestinationRepackagingCostMapping, ParentProductImage, ProductCapping)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -300,7 +301,7 @@ class ProductPriceNewForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
     buyer_shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
         required=False
     )
@@ -1129,7 +1130,7 @@ class NewProductPriceUpload(forms.Form):
         required=False
     )
     buyer_shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
         required=False
     )
@@ -1204,6 +1205,10 @@ class ProductVendorMappingForm(forms.ModelForm):
             raise forms.ValidationError("Please enter only one Brand to Gram Price")
        
 
+
+
+CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
+                                   (2, 'MONTHLY', 'Monthly'))
 class ProductCappingForm(forms.ModelForm):
     product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
@@ -1214,6 +1219,140 @@ class ProductCappingForm(forms.ModelForm):
         queryset=Shop.objects.filter(shop_type__shop_type='sp'),
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
+
+
+
+
+    def clean_capping_type(self):
+        """
+        method to check capping type is blank or not
+        """
+        if self.instance.id is None:
+            if self.data['capping_type'] == '':
+                raise ValidationError("Please select the Capping Type.")
+            else:
+                return self.cleaned_data['capping_type']
+        else:
+            return self.cleaned_data['capping_type']
+
+    def clean_start_date(self):
+        """
+        method to check start date
+        """
+        if self.instance.id is None:
+            if self.data['start_date_0'] == '':
+                raise ValidationError("Please select the Start Date.")
+            if self.data['end_date_0'] == '':
+                pass
+            else:
+                if self.data['start_date_0'] > self.data['end_date_0']:
+                    raise ValidationError("Start Date should be less than End Date.")
+            return self.cleaned_data['start_date']
+        else:
+            return self.cleaned_data['start_date']
+
+    def clean_end_date(self):
+        """
+        method to check end date
+        """
+        if self.instance.id is None:
+            if self.data['end_date_0'] == '':
+                raise ValidationError("Please select the End Date.")
+            if self.data['start_date_0'] == '':
+                pass
+            else:
+                if self.data['start_date_0'] > self.data['end_date_0']:
+                    raise ValidationError("End Date should be greater than Start Date.")
+                else:
+                    if not self.data['capping_type'] is '':
+                        capping_duration_check(self.cleaned_data)
+            return self.cleaned_data['end_date']
+        else:
+            if self.cleaned_data['end_date'] is None:
+                raise ValidationError("Please select the End Date.")
+
+            if self.cleaned_data['start_date'] > self.cleaned_data['end_date']:
+                raise ValidationError("End Date should be greater than Start Date.")
+            else:
+                if not self.cleaned_data['capping_type'] is '':
+                    capping_duration_check(self.cleaned_data)
+            return self.cleaned_data['end_date']
+
+    def __init__(self, *args, **kwargs):
+        """
+        args:- non keyword argument
+        kwargs:- keyword argument
+        """
+        self.request = kwargs.pop('request', None)
+        super(ProductCappingForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+
+        if instance.id is None:
+            self.fields['product'].disabled = False
+            self.fields['seller_shop'].disabled = False
+        else:
+            self.fields['product'].disabled = True
+            self.fields['seller_shop'].disabled = True
+            self.fields['start_date'] = forms.DateTimeField()
+            self.fields['start_date'].disabled = True
+            self.fields['capping_type'].disabled = True
+
+
+    def clean(self):
+        """
+        Method to check capping is active for the selected sku and warehouse
+        """
+
+        if not self.instance.id:
+            if self.data['seller_shop'] is '':
+                raise ValidationError("Seller Shop can't be Blank.")
+
+            if self.data['product'] is '':
+                raise ValidationError("Product can't be Blank.")
+            if ProductCapping.objects.filter(seller_shop=self.cleaned_data['seller_shop'],
+                                                                  product=self.cleaned_data['product'],
+                                                                  status=True).exists():
+                raise ValidationError("Another Capping is Active for the selected SKU or selected Warehouse.")
+        return self.cleaned_data
+
+
+def capping_duration_check(cleaned_data):
+    """
+    Duration check according to capping type
+    """
+    if cleaned_data['end_date'] is None:
+        raise ValidationError("End date can't be Blank.")
+
+    if cleaned_data['start_date'] is None:
+        raise ValidationError("Start date can't be Blank.")
+
+    # if capping type is Daily
+    if cleaned_data['capping_type'] == 0:
+        day_difference = cleaned_data['end_date'].date() - cleaned_data['start_date'].date()
+        if day_difference.days == 0:
+            raise ValidationError("Please enter valid Start Date and End Date.")
+        else:
+            pass
+
+    # if capping type is Weekly
+    elif cleaned_data['capping_type'] == 1:
+        day_difference = cleaned_data['end_date'].date() - cleaned_data['start_date'].date()
+        if day_difference.days == 0:
+            raise ValidationError("Please enter valid Start Date and End Date.")
+        elif day_difference.days % 7 == 0:
+            pass
+        else:
+            raise ValidationError("Please enter valid Start Date and End Date.")
+
+    # if capping type is Monthly
+    elif cleaned_data['capping_type'] == 2:
+        day_difference = cleaned_data['end_date'].date() - cleaned_data['start_date'].date()
+        if day_difference.days == 0:
+            raise ValidationError("Please enter valid Start Date and End Date.")
+        elif day_difference.days % 30 == 0:
+            pass
+        else:
+            raise ValidationError("Please enter valid Start Date and End Date.")
 
 
 class BulkProductTaxUpdateForm(forms.ModelForm):

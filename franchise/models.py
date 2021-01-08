@@ -24,43 +24,56 @@ class Faudit(AuditDetail):
 
 
 class ShopLocationMap(models.Model):
-    shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
-    location_name = models.CharField(max_length=255)
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, unique=True, verbose_name='Shop Name')
+    location_name = models.CharField(max_length=255, unique=True, verbose_name='Shop Location')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return str(self.shop) + ' | ' + str(self.location_name)
 
 
 class FranchiseSales(models.Model):
-    shop_loc = models.CharField(max_length=255)
-    barcode = models.CharField(max_length=255)
+    shop_loc = models.CharField(max_length=255, verbose_name='Shop Location', null=True, blank=True)
+    barcode = models.CharField(max_length=255, null=True,blank=True)
+    product_sku = models.CharField(max_length=255,null=True,blank=True)
     quantity = models.FloatField(default=0, null=True, blank=True)
     amount = models.FloatField(default=0, null=True, blank=True)
-    invoice_date = models.DateTimeField()
-    invoice_number = models.CharField(max_length=255)
+    invoice_date = models.DateTimeField(null=True, blank=True)
+    invoice_number = models.CharField(max_length=255, null=True, blank=True)
     process_status = models.IntegerField(choices=((0, 'Started'), (1, 'Processed'), (2, 'Error')), default=0)
     error = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return str(self.shop_loc) + ' | ' + str(self.barcode)
 
 
 class FranchiseReturns(models.Model):
-    shop_loc = models.CharField(max_length=255)
-    barcode = models.CharField(max_length=255)
+    shop_loc = models.CharField(max_length=255, verbose_name='Shop Location', null=True, blank=True)
+    barcode = models.CharField(max_length=255,null=True,blank=True)
+    product_sku = models.CharField(max_length=255,null=True,blank=True)
     quantity = models.FloatField(default=0, null=True, blank=True)
     amount = models.FloatField(default=0, null=True, blank=True)
-    sr_date = models.DateTimeField()
-    sr_number = models.CharField(max_length=255)
-    invoice_number = models.CharField(max_length=255)
+    sr_date = models.DateTimeField(null=True, blank=True)
+    sr_number = models.CharField(max_length=255, null=True, blank=True)
+    invoice_number = models.CharField(max_length=255, null=True, blank=True)
     process_status = models.IntegerField(choices=((0, 'Started'), (1, 'Processed'), (2, 'Error')), default=0)
     error = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return str(self.shop_loc) + ' | ' + str(self.barcode)
 
 
 class HdposDataFetch(models.Model):
     type = models.IntegerField(choices=((0, 'Sales'), (1, 'Returns')))
-    from_date = models.DateTimeField(null=True)
-    to_date = models.DateTimeField(null=True)
+    from_date = models.DateTimeField(null=True, blank=True)
+    to_date = models.DateTimeField(null=True, blank=True)
     process_text = models.CharField(max_length=255, null=True, blank=True)
-    status = models.IntegerField(choices=((0, 'Started'), (1, 'Completed')), default=0)
+    status = models.IntegerField(choices=((0, 'Started'), (1, 'Completed'), (2, 'Error')), default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
 

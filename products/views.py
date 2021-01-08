@@ -4,6 +4,8 @@ import datetime
 import os
 import logging
 import re
+import json
+import re
 
 import boto3
 from botocore.exceptions import ClientError
@@ -780,40 +782,20 @@ def cart_products_mapping(request,pk=None):
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
     return response
 
-
 def cart_product_list_status(request, order_status_info):
+    p = re.compile('(?<!\\\\)\'')
+    order_status_info = p.sub('\"', order_status_info)
+    order_status_info = json.loads(order_status_info)
     info_logger.info(f"[products/views.py]-cart_product_list_status function called for Downloading the CSV file of "
                      f"Bulk/Discounted Order Status")
-    for char in order_status_info:
-        if char in "[\]":
-            order_status_info.replace(char, '')
-    order_status_info1 = order_status_info.replace('[', '')
-    order_status_info2 = order_status_info1.replace(']', '')
-    order_status_info3 = order_status_info2.split(',')
-    order_status_info4 = []
-    for ele in order_status_info3:
-        order_status_info4.append(ele.replace("'", ''))
-    order_status_info5 = []
-    for ele in order_status_info4:
-        order_status_info5.append(ele.replace(" ", ''))
-    cart_id = int(order_status_info5.pop())
-    available_quantity = []
     unavailable_skus = []
-    for ele in order_status_info5:
-        try:
-            available_quantity.append(int(ele))
-        except:
-            unavailable_skus.append(ele)
-
-    info_logger.info(f"[products/views.py:cart_product_list_status]--Unavailable-SKUs:{unavailable_skus}, "
-                     f"Available_Qty_of_Ordered_SKUs:{available_quantity}")
-
-    if cart_id:
-        bulk_order_obj = BulkOrder.objects.filter(cart_id=cart_id)
+    for ele in order_status_info.keys():
+        unavailable_skus.append(ele)
+    bulk_order_obj = BulkOrder.objects.filter(cart_id=int(order_status_info['cart_id']))
+    if bulk_order_obj:
+        csv_file_name = bulk_order_obj.values()[0]['cart_products_csv']
     else:
-        info_logger.info(f"[products/views.py:cart_product_list_status] - [cart_id : {cart_id}]")
-
-    csv_file_name = bulk_order_obj.values()[0]['cart_products_csv']
+        info_logger.info(f"[products/views.py:cart_product_list_status] - [cart_id : {order_status_info['cart_id']}]")
 
     try:
         s3 = boto3.resource('s3', aws_access_key_id=config('AWS_ACCESS_KEY_ID'),
@@ -853,8 +835,7 @@ def cart_product_list_status(request, order_status_info):
                 writer.writerow(row + ["order_status"])
             else:
                 if row[0] in unavailable_skus:
-                    writer.writerow(row + [f"Failed because of ordered_quantity({row[2]}) > "
-                                           f"available_quantity({available_quantity[index]})"])
+                    writer.writerow(row + [order_status_info[row[0]]])
                     index = index + 1
                 else:
                     writer.writerow(row + ["Success"])
@@ -1045,7 +1026,7 @@ class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
         qs = ParentProduct.objects.all()
 
         if self.q:
-            qs = qs.filter(name__istartswith=self.q)
+            qs = qs.filter(Q(name__icontains=self.q) | Q(parent_id__icontains=self.q))
 
         return qs
 
@@ -1490,7 +1471,7 @@ class CityAutocomplete(autocomplete.Select2QuerySetView):
 
 class RetailerAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
-        qs = Shop.objects.filter(shop_type__shop_type='r')
+        qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
@@ -1747,9 +1728,7 @@ def products_export_for_vendor(request, id=None):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-
     vendor_id = request.GET.get('id',None)
-    vendor = Vendor.objects.get(id=vendor_id)
     vendor_mapped_product = ProductVendorMapping.objects.filter(vendor=vendor_id)
 
     writer.writerow(['id','product_name', 'product_sku', 'mrp','brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size'])
@@ -1772,20 +1751,17 @@ def all_product_mapped_to_vendor(request, id=None):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-
     vendor_id = request.GET.get('id',None)
-    vendor = Vendor.objects.get(id=vendor_id)
     vendor_mapped_product = ProductVendorMapping.objects.filter(vendor=vendor_id)
     writer.writerow(['id','product_name', 'product_sku', 'mrp','brand_to_gram_price_unit', 'brand_to_gram_price', 'case_size'])
     if vendor_mapped_product:
-        product_id = ProductVendorMapping.objects.filter(vendor=vendor_id).values('product')
-        #products = Product.objects.filter(status="active").exclude(~Q(id__in=product_id)).only('id', 'product_name', 'product_sku', 'product_mrp')
-        productss = ProductVendorMapping.objects.filter(status=True).exclude(~Q(product__in=product_id)).only('product','vendor', 'brand_to_gram_price_unit', 'product_price', 'product_price_pack','case_size')
-        for product_vendor in productss:
-            if product_vendor.brand_to_gram_price_unit=="Per Piece":
-                writer.writerow([product_vendor.product.id, product_vendor.product.product_name, product_vendor.product.product_sku, product_vendor.product_mrp,product_vendor.brand_to_gram_price_unit,product_vendor.product_price,product_vendor.case_size])
-            else:
-                writer.writerow([product_vendor.product.id, product_vendor.product.product_name, product_vendor.product.product_sku, product_vendor.product_mrp,product_vendor.brand_to_gram_price_unit,product_vendor.product_price_pack,product_vendor.case_size])
+        products_vendors = ProductVendorMapping.objects.filter(vendor=vendor_id).only('product','vendor', 'brand_to_gram_price_unit', 'product_price', 'product_price_pack','case_size')
+        for product_vendor in products_vendors:
+            if product_vendor.status==True:
+                if product_vendor.brand_to_gram_price_unit=="Per Piece":
+                    writer.writerow([product_vendor.product.id, product_vendor.product.product_name, product_vendor.product.product_sku, product_vendor.product_mrp,product_vendor.brand_to_gram_price_unit,product_vendor.product_price,product_vendor.case_size])
+                else:
+                    writer.writerow([product_vendor.product.id, product_vendor.product.product_name, product_vendor.product.product_sku, product_vendor.product_mrp,product_vendor.brand_to_gram_price_unit,product_vendor.product_price_pack,product_vendor.case_size])
     return response
 
 def bulk_product_vendor_csv_upload_view(request):
@@ -1812,12 +1788,12 @@ def bulk_product_vendor_csv_upload_view(request):
                         if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
                             continue
 
-                    if row[4] == "Per Piece":
+                    if row[4].title() == "Per Piece":
                         product_vendor = ProductVendorMapping.objects.create(
                             vendor = Vendor.objects.get(id=vendor_id),
                             product=Product.objects.get(id=row[0]),
                             product_mrp=row[3],
-                            brand_to_gram_price_unit = row[4],
+                            brand_to_gram_price_unit = row[4].title(),
                             product_price = row[5],
                             case_size = row[6],
                         )
@@ -1826,7 +1802,7 @@ def bulk_product_vendor_csv_upload_view(request):
                             vendor = Vendor.objects.get(id=vendor_id),
                             product=Product.objects.get(id=row[0]),
                             product_mrp=row[3],
-                            brand_to_gram_price_unit = row[4],
+                            brand_to_gram_price_unit = row[4].title(),
                             product_price_pack = row[5],
                             case_size = row[6],
                         )
