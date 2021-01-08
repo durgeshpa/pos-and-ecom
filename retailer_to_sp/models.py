@@ -2932,9 +2932,9 @@ def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qt
     if capping_range_orders:
         for order in capping_range_orders:
             if order.ordered_cart.rt_cart_list.filter(
-                    cart_product=cart_product.cart_product).exists():
+                    cart_product=cart_product).exists():
                 ordered_qty += order.ordered_cart.rt_cart_list.filter(
-                    cart_product=cart_product.cart_product).last().qty
+                    cart_product=cart_product).last().qty
     if capping.capping_qty > ordered_qty:
         if (capping.capping_qty - ordered_qty) < product_qty:
             if (capping.capping_qty - ordered_qty) > 0:

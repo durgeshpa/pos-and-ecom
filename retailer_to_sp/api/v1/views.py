@@ -935,7 +935,8 @@ class ReservedOrder(generics.ListAPIView):
                     if capping:
                         ordered_amount = cart_product.qty
                         products_available[cart_product.cart_product.id] = ordered_amount
-                        msg = capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty)
+                        cart_products = cart_product.cart_product
+                        msg = capping_check(capping, parent_mapping, cart_products, product_qty, ordered_qty)
                         if msg[0] is False:
                             serializer = CartSerializer(cart, context={
                                 'parent_mapping_id': parent_mapping.parent.id,
@@ -1096,7 +1097,8 @@ class CreateOrder(APIView):
                                                                                      parent_mapping.retailer)
                         product_qty = int(cart_product.qty)
                         if capping:
-                            msg = capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty)
+                            cart_products = cart_product.cart_product
+                            msg = capping_check(capping, parent_mapping, cart_products, product_qty, ordered_qty)
                             if msg[0] is False:
                                 msg = {'is_success': True,
                                        'message': msg[1], 'response_data': None}
