@@ -10,8 +10,8 @@ class MLMUser(models.Model):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False, unique=True)
     referral_code = models.CharField(max_length=300, blank=True, unique=True)
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.phone_number
@@ -38,8 +38,8 @@ class PhoneOTP(models.Model):
 class Referral(models.Model):
     referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE),
     referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE),
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
 
 class RewardPoint(models.Model):
@@ -48,5 +48,5 @@ class RewardPoint(models.Model):
     indirect_reward_point_earned = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=2)
     total_reward_point_earned = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=2)
     reward_point_used = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=2)
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
