@@ -9,9 +9,19 @@ from retailer_backend.messages import *
 class MLMUser(models.Model):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False, unique=True)
+    name = models.CharField(max_length=100, blank=True, null=True)
+    email = models.EmailField(max_length=70,blank=True, null= True, unique= True)
     referral_code = models.CharField(max_length=300, blank=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    """(Status choice)"""
+    Active_Status = 1
+    Inactive_Status = 0
+    STATUS_CHOICES = (
+        (Active_Status, 'Active'),
+        (Inactive_Status, 'Inactive'),
+    )
+    status = models.IntegerField(choices=STATUS_CHOICES, default=Inactive_Status)
 
     def __str__(self):
         return self.phone_number
