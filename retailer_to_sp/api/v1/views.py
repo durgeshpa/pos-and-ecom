@@ -933,8 +933,6 @@ class ReservedOrder(generics.ListAPIView):
                     capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent,
                                                                                  parent_mapping.retailer)
                     if capping:
-                        ordered_amount = cart_product.qty
-                        products_available[cart_product.cart_product.id] = ordered_amount
                         cart_products = cart_product.cart_product
                         msg = capping_check(capping, parent_mapping, cart_products, product_qty, ordered_qty)
                         if msg[0] is False:
