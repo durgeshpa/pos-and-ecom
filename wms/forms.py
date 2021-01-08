@@ -690,7 +690,7 @@ def validation_stock_correction(file, user):
                                                       product_sku=row[2]).last(),
                                                   batch_id=batch_id)
         # if combination of expiry date and sku is not exist in GRN Order Product Mapping
-        if not bin_exp_obj.exists():
+        if not bin_exp_obj.exists() and check_shop.shop_type.shop_type != 'f':
             bin_in_obj = BinInventory.objects.filter(
                 warehouse=row[0], sku=Product.objects.filter(product_sku=row[2]).last())
             for bin_in in bin_in_obj:
