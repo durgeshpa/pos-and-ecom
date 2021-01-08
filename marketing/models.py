@@ -11,6 +11,7 @@ from retailer_backend.messages import *
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
 
 
 class MLMUser(models.Model):
@@ -74,7 +75,7 @@ class Referral(models.Model):
             unique_referral_code = str(uuid.uuid4()).split('-')[-1]
             return unique_referral_code
         except Exception as e:
-            info_logger.info("Something Went wrong while saving the referral_code in UserModel " + str(e))
+            error_logger.info("Something Went wrong while saving the referral_code in UserModel " + str(e))
 
     @classmethod
     def store_parent_referral_user(cls, parent_referral_code, child_referral_code):
@@ -91,7 +92,7 @@ class Referral(models.Model):
                     Referral.objects.create(referral_to_id=childReferralCode[0][0],
                                             referral_by_id=parentReferralCode[0][0])
         except Exception as e:
-            info_logger.info(
+            error_logger.info(
                 "Something Went wrong while saving the Parent and Child Referrals in Referral Model " + str(e))
 
 
