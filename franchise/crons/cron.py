@@ -15,6 +15,8 @@ from wms.common_functions import (CommonWarehouseInventoryFunctions, WareHouseIn
 from wms.models import BinInventory, WarehouseInventory, InventoryState, InventoryType, Bin
 from franchise.models import get_default_virtual_bin_id
 from services.models import CronRunLog
+from marketing.models import Referral, RewardPoint, MLMUser
+from global_config.models import Config as GlobalConfig
 
 cron_logger = logging.getLogger('cron_log')
 CONNECTION_PATH = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + config('HDPOS_DB_HOST')\
@@ -119,19 +121,25 @@ def fetch_franchise_data(fetch_name):
                 if fetch_type == 1:
                     with transaction.atomic():
                         for row in cursor:
-                            if not row[11]:
-                                row[11] = ''
+                            row[9] = '' if not row[9] else row[9].strip()
+                            row[10] = '' if not row[10] else row[10].strip()
+                            row[11] = '' if not row[11] else row[11].replace(' ', '')
+                            row[11] = '' if len(row[11]) != 10 else row[11]
+
                             FranchiseReturns.objects.create(shop_loc=row[8], barcode=row[6], quantity=row[3], amount=row[4],
                                                             sr_date=row[0], sr_number=row[1], invoice_number=row[10],
-                                                            product_sku=row[11].strip())
+                                                            product_sku=row[11].strip(), customer_name=row[10], phone_number=row[11])
                 else:
                     with transaction.atomic():
                         for row in cursor:
-                            if not row[9]:
-                                row[9] = ''
+                            row[9] = '' if not row[9] else row[9].strip()
+                            row[10] = '' if not row[10] else row[10].strip()
+                            row[11] = '' if not row[11] else row[11].replace(' ', '')
+                            row[11] = '' if len(row[11]) != 10 else row[11]
+
                             FranchiseSales.objects.create(shop_loc=row[1], barcode=row[8], quantity=row[5], amount=row[6],
                                                           invoice_date=row[2], invoice_number=row[3],
-                                                          product_sku=row[9].strip())
+                                                          product_sku=row[9], customer_name=row[10], phone_number=row[11])
 
                 hdpos_obj.status = 1
                 hdpos_obj.save()
@@ -270,6 +278,7 @@ def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, 
                                                                                          transaction_type, transaction_id,
                                                                                          already_picked)
                     update_sales_ret_obj(sales_obj, 1)
+                    rewards_account(sales_obj)
             else:
                 update_sales_ret_obj(sales_obj, 2, 'sales quantity not positive')
 
@@ -368,3 +377,85 @@ def update_sales_ret_obj(obj, status, error=''):
     if error != '':
         obj.error = error
     obj.save()
+
+
+def rewards_account(sales_obj):
+    """
+        Account for used rewards by user w.r.t sales order
+        Account for rewards to referrer (direct and indirect) w.r.t sales order
+    """
+
+    if sales_obj.phone_number and sales_obj.phone_number != '':
+        sales_user = MLMUser.objects.filter(phone_number=sales_obj.phone_number).last()
+        if sales_user:
+            referrer_reward(sales_user)
+            discount = 20
+            if discount and discount != '' and discount > 0:
+                used_rewards(sales_user, discount)
+
+
+def referrer_reward(sales_user):
+    """
+        Account for reward (direct and indirect) w.r.t sales order
+    """
+
+    # Check if some user referred sales_user from referral_obj
+
+    # Reward to be considered for "referral_obj.referral_by" only for first purchase made by
+    # sales_user, so checking reward_status
+
+    referral_obj = Referral.objects.filter(referral_to=sales_user).last()
+    if referral_obj and referral_obj.reward_status == 0:
+        referred_by = referral_obj.referral_by
+        try:
+            direct_reward_factor = GlobalConfig.objects.get(key='direct_reward_factor')
+        except:
+            direct_reward_factor = 4
+
+        # account for direct reward to user who referred sales_user
+        reward_obj = RewardPoint.objects.filter(user=referred_by).last()
+        if reward_obj:
+            reward_obj.direct_users += 1
+            reward_obj.direct_earned += direct_reward_factor
+            reward_obj.save()
+        else:
+            RewardPoint.objects.create(user=referred_by, direct_users=1, direct_earned=direct_reward_factor)
+
+        # account for indirect reward to user who referred user who referred sales_user
+        referral_obj_indirect = Referral.objects.filter(referral_to=referred_by).last()
+        if referral_obj_indirect:
+            referral_by_indirect = referral_obj_indirect.referral_by
+            try:
+                indirect_reward_factor = GlobalConfig.objects.get(key='indirect_reward_factor')
+            except:
+                indirect_reward_factor = 3
+
+            reward_obj = RewardPoint.objects.filter(user=referral_by_indirect).last()
+            if reward_obj:
+                reward_obj.indirect_users += 1
+                reward_obj.indirect_earned += indirect_reward_factor
+                reward_obj.save()
+            else:
+                RewardPoint.objects.create(user=referred_by, indirect_users=1, indirect_earned=indirect_reward_factor)
+
+        referral_obj.reward_status = 1
+        referral_obj.save()
+
+
+def used_rewards(sales_user, discount):
+    """
+        Account for used rewards by sales_user
+    """
+    try:
+        used_reward_factor = GlobalConfig.objects.get(key='used_reward_factor')
+    except:
+        used_reward_factor = 2
+
+    reward_obj = RewardPoint.objects.filter(user=sales_user).last()
+    points_used = discount / used_reward_factor
+    if reward_obj:
+        reward_obj.points_used += points_used
+        reward_obj.save()
+    else:
+        RewardPoint.objects.create(user=sales_user, points_used=points_used)
+
