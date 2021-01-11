@@ -127,8 +127,10 @@ def get_warehouse_stock(shop_id=None,product=None):
 		product_categories = [str(c.category) for c in
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
 		visible=False
-		if product_dict[product.id]['visible']:
+		if  product_dict:
 			visible=product_dict[product.id]['visible']
+		else:
+			visible=True
 
 		product_details = {
 			"name": product.product_name,
@@ -150,7 +152,7 @@ def get_warehouse_stock(shop_id=None,product=None):
 			"no_of_pieces": no_of_pieces,
 			"sub_total": sub_total,
 			"available": available_qty,
-			"visible":product_dict[product.id]['visible']
+			"visible":visible
 		}
 		yield(product_details)
 
@@ -165,7 +167,6 @@ def upload_shop_stock(shop=None,product=None):
 	for product in all_products:
 		print(product)
 		es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
-		print(count)
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
