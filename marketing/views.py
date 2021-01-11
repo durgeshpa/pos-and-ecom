@@ -139,8 +139,7 @@ class Login(GenericAPIView):
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 user_referral_code = Referral.generate_unique_referral_code()
-                print(user_referral_code)
-                user = MLMUser.objects.create_otp_for_number(phone_number=phone_number)
+                user = MLMUser.objects.create(phone_number=phone_number, referral_code=user_referral_code)
                 user.save()
                 msg = requests.post('http://127.0.0.1:8000/marketing/validate/', data=request.POST)
                 return Response(msg, status=status.HTTP_200_OK)
