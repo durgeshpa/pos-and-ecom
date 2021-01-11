@@ -1256,12 +1256,12 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     download_sample_file.short_description = 'Download Sample File'
 
 
-class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
-    list_display = ('created_at', 'updated_by', 'file',)
-    fields = ('file', 'updated_by')
-    readonly_fields = ('updated_by', 'file',)
-
-    change_list_template = 'admin/products/product_attributes_change_list.html'
+# class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
+#     list_display = ('created_at', 'updated_by', 'file',)
+#     fields = ('file', 'updated_by')
+#     readonly_fields = ('updated_by', 'file',)
+#
+#     change_list_template = 'admin/products/product_attributes_change_list.html'
 
     def has_add_permission(self, request):
         return False
@@ -1371,6 +1371,6 @@ admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)
 admin.site.register(BulkProductTaxUpdate, BulkProductTaxUpdateAdmin)
 admin.site.register(BulkUploadForGSTChange, BulkUploadForGSTChangeAdmin)
-admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttributesAdmin)
+# admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttributesAdmin)
 admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)

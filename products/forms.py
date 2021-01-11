@@ -1220,8 +1220,20 @@ class ProductCappingForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
 
-
-
+    def clean_capping_qty(self):
+        """
+        method to check capping quantity is zero or not
+        """
+        if self.instance.id is None:
+            if self.data['capping_qty'] == '0':
+                raise ValidationError("Capping qty should be greater than 0.")
+            else:
+                return self.cleaned_data['capping_qty']
+        else:
+            if self.cleaned_data['capping_qty'] == 0:
+                raise ValidationError("Capping qty should be greater than 0.")
+            else:
+                return self.cleaned_data['capping_qty']
 
     def clean_capping_type(self):
         """
