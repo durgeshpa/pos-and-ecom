@@ -103,7 +103,7 @@ class Registrations(GenericAPIView):
                 user.save()
                 Referral.store_parent_referral_user(referral_code, user_referral_code)
                 msg = ValidateOTP(data=request.POST)
-                return Response(msg, status=status.HTTP_200_OK)
+                return Response(msg.data, status=status.HTTP_200_OK)
         except Exception:
             return Response(Exception, status=status.HTTP_403_FORBIDDEN)
 
@@ -152,7 +152,7 @@ def ValidateOTP(data):
     if user.exists():
         user = user.last()
         msg, status_code = verify(otp, user)
-        return Response(msg)
+        return Response(msg, status=status_code)
     else:
         msg = {'is_success': False,
                'message': VALIDATION_ERROR_MESSAGES['USER_NOT_EXIST'],
