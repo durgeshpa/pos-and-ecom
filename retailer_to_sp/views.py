@@ -54,6 +54,7 @@ from common.common_utils import create_file_name, create_merge_pdf_name, merge_p
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
+from global_config.models import GlobalConfig
 
 logger = logging.getLogger('django')
 
@@ -619,7 +620,9 @@ def trip_planning_change(request, pk):
                                             shipment_product_batch.save()
                                     shipment.shipment_status='FULLY_DELIVERED_AND_VERIFIED'
                                     shipment.save()
-                        check_franchise_inventory_update(trip)
+                        franchise_inv_add_trip_block = GlobalConfig.objects.filter(key='franchise_inv_add_trip_block').last()
+                        if not franchise_inv_add_trip_block or franchise_inv_add_trip_block.value != 1:
+                            check_franchise_inventory_update(trip)
 
                         return redirect('/admin/retailer_to_sp/trip/')
 
