@@ -1243,7 +1243,7 @@ def brand_sub_brand_mapping_sample_excel_file(request):
     # Sheet header, first row
     row_num = 1
 
-    columns = ['sub_brand_id', 'sub_brand_name', 'brand_id', 'brand_name', ]
+    columns = ['brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', ]
 
     for col_num, column_title in enumerate(columns, 1):
         cell = worksheet.cell(row=row_num, column=col_num)

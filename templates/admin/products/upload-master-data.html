@@ -24,16 +24,24 @@
                   <fieldset class="module aligned ">
                      {% csrf_token %}
                      <h1 style="font-weight: bold">{{form.as_p}}</h1>
-                     <label style="margin: 10px" for="upload_master_data">Select an Option:</label>
-                     <select style="margin: 10px" name="upload_master_data" id="upload_master_data" onchange="ddlselect()">
-                       <option value="master_data">Set Master Data</option>
-                       <option value="inactive_status">Set Inactive Status</option>
-                       <option value="sub_brand_with_brand">Sub Brand and Brand Mapping</option>
-                       <option value="sub_category_with_category">Sub Category and Category Mapping</option>
-                       <option value="child_parent">Set Child with Parent</option>
-                       <option value="child_data">Set Child Data</option>
-                       <option value="parent_data">Set Parent Data</option>
-                     </select>
+                     <form id="parent_categories_select_form" method="GET" action="">
+                        <label style="margin-left: 10px" for="category">Select Category:</label>
+                        <select style="margin-left: 20px" name="category" id="parent_categories_select">
+                            <option value="">-----------</option>
+                        </select>
+                     </form>
+                     <form>
+                        <label style="margin: 10px" for="upload_master_data">Select an Option:</label>
+                        <select style="margin: 10px" name="upload_master_data" id="upload_master_data" onchange="ddlselect()">
+                          <option value="master_data">Set Master Data</option>
+                          <option value="inactive_status">Set Inactive Status</option>
+                          <option value="sub_brand_with_brand">Sub Brand and Brand Mapping</option>
+                          <option value="sub_category_with_category">Sub Category and Category Mapping</option>
+                          <option value="child_parent">Set Child with Parent</option>
+                          <option value="child_data">Set Child Data</option>
+                          <option value="parent_data">Set Parent Data</option>
+                        </select>
+                     </form>
                      <p style="font-weight: bold;"><a href="{% url 'admin:upload-master-data-sample-excel-file'%}" id="id_download" style="margin-top: 25px;">Download Sample Excel file</a></p>
                   </fieldset>
                   <div class="submit-row">
@@ -79,5 +87,31 @@
          document.getElementById("id_download").href="{% url 'admin:upload-master-data-sample-excel-file'%}";
       }
    }
+</script>
+<script>
+    parent_categories_select = document.getElementById("parent_categories_select");
+    ajax_url = "/product/fetch-all-parent-categories/";
+    $.ajax({
+        url: ajax_url,
+        type : 'GET',
+        contentType: "application/json; charset=utf-8",
+        success: function (data) {
+            (data.categories).forEach(element => {
+                var opt = document.createElement("option");
+                opt.value = element;
+                opt.innerHTML = element;
+                parent_categories_select.appendChild(opt);
+            });
+            parent_categories_select.onchange = function(event){
+                    document.getElementById("parent_categories_select_form").submit();
+            }
+        },
+        error: function (data) {
+            console.log("ERROR");
+            console.error(data);
+            return true;
+        },
+        cache: false
+    });
 </script>
 {% endblock %}

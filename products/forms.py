@@ -904,7 +904,7 @@ class UploadMasterDataAdminForm(forms.Form):
             else:
                 raise ValidationError("Excel File is required!")
         except Exception as e:
-            raise ValidationError(f"Something went wrong while checking Validations + {str(e)}")
+            raise ValidationError(str(e))
 
 
 class ProductsFilterForm(forms.Form):
