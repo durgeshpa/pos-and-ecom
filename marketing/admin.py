@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import MLMUser, Referral, PhoneOTP
-# Register your models here.
+
 
 class PhoneOTPAdmin(admin.ModelAdmin):
     list_display = ('phone_number', 'otp', 'is_verified', 'attempts', 'expires_in', 'created_at', 'last_otp', 'resend_in')
@@ -19,7 +19,7 @@ class PhoneOTPAdmin(admin.ModelAdmin):
 
 class MLMUserAdmin(admin.ModelAdmin):
     model = MLMUser
-    list_display = ['phone_number', 'name', 'email' ]
+    list_display = ['phone_number', 'name', 'email']
 
 
 class ReferralAdmin(admin.ModelAdmin):
