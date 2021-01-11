@@ -58,7 +58,7 @@ class ShopMappedProduct(TemplateView):
 
         elif shop_obj.shop_type.shop_type in ['sp', 'f']:
             product_list = {}
-            bin_inventory_state = InventoryState.objects.filter(inventory_state="available").last()
+            bin_inventory_state = InventoryState.objects.filter(inventory_state="total_available").last()
             products = WarehouseInventory.objects.filter(warehouse=shop_obj, inventory_state=bin_inventory_state)
 
             for myproduct in products:
