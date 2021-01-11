@@ -36,6 +36,7 @@ urlpatterns = [
     url(r'^api-auth/', include('rest_framework.urls')),
     url(r'^rest-auth/', include('rest_auth.urls')),
     url(r'^otp/', include('otp.urls')),
+    url(r'^marketing/', include('marketing.urls')),
     url(r'^api/', include('api.urls')),
     url(r'^accounts/', include('accounts.urls')),
     url(r'^addresses/', include('addresses.urls')),

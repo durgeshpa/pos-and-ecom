@@ -1,13 +1,12 @@
 from __future__ import unicode_literals
-
 import logging
 import uuid
-
 from django.db import models
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.utils import timezone
 from retailer_backend.messages import *
+from django.utils.crypto import get_random_string
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -21,8 +20,8 @@ class MLMUser(models.Model):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False, unique=True)
     name = models.CharField(max_length=100, blank=True, null=True)
-    email = models.EmailField(max_length=70, blank=True, null=True, unique=True)
-    referral_code = models.CharField(max_length=300, blank=True, unique=True)
+    email = models.EmailField(max_length=70, blank=True, null=True, unique= True)
+    referral_code = models.CharField(max_length=300, blank=True, null=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     """(Status choice)"""
@@ -37,8 +36,13 @@ class MLMUser(models.Model):
     def __str__(self):
         return self.phone_number
 
+    def save(self, *args, **kwargs):
+        super(MLMUser, self).save(*args, **kwargs)
 
 class PhoneOTP(models.Model):
+    """
+       This model will be used to store the details of a User by their phone_number, otp
+    """
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'])
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False)
     otp = models.CharField(max_length=10)
@@ -55,11 +59,37 @@ class PhoneOTP(models.Model):
     def __str__(self):
         return "{} - {}".format(self.phone_number, self.otp)
 
+    @classmethod
+    def create_otp_for_number(cls, number):
+        otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
+                               allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789')
+                               )
+        phone_otp = PhoneOTP.objects.create(phone_number=number, otp=otp)
+        return phone_otp, otp
+
+    @classmethod
+    def update_otp_for_number(cls, number):
+        otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
+                               allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789')
+                               )
+        user = PhoneOTP.objects.filter(phone_number=number).last()
+        user.otp = otp
+        user.attempts = 0
+        user.created_at = timezone.now()
+        user.save()
+        return user, otp
+
+    @classmethod
+    def generate_otp(cls, length=6, allowed_chars='0123456789'):
+        otp = get_random_string(length, allowed_chars)
+        return otp
+
 
 class Referral(models.Model):
     """
     This model will be used to store the parent and child referral mapping details
     """
+
     referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE, null=True, blank=True)
     referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
