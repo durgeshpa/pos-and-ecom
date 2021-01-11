@@ -126,6 +126,10 @@ def get_warehouse_stock(shop_id=None,product=None):
 		category = [str(c.category) for c in product.product_pro_category.filter(status=True)]
 		product_categories = [str(c.category) for c in
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
+		visible=False
+		if product_dict[product.id]['visible']:
+			visible=product_dict[product.id]['visible']
+
 		product_details = {
 			"name": product.product_name,
 			"name_lower": product.product_name.lower(),
