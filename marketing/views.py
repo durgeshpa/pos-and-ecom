@@ -80,7 +80,6 @@ class Registrations(GenericAPIView):
                 return Response({'error': 'Please provide otp sent in your registered number'},
                                 status=HTTP_400_BAD_REQUEST)
             if referral_code:
-                print(referral_code)
                 user_id = MLMUser.objects.filter(referral_code=referral_code)
                 if not user_id:
                     return Response({'error': 'Please provide valid referral code'},
