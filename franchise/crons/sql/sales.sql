@@ -7,7 +7,7 @@ Select distinct SALESINVOICE_BUSINESSLOCATION.id as bl_id,
     SalesInvoice_InvoiceItem.TotalAmount*SalesInvoice_InvoiceItem.ConversionRate as TotalAmount,
     SalesInvoice_InvoiceItem_Item_Category.Name as CategoryName,
     SalesInvoice_InvoiceItem.Barcode,
-    ITEM_SKU_LOOKUP.Name as product_sku
+    ITEM_SKU_LOOKUP.Name as product_sku,
     SalesInvoice_CUSTOMER.Name as CustomerName,
     SalesInvoice_CUSTOMER_ADDRESS_CONTACT.MobileNumber As MobileNumber
     from tbl_DYN_SalesInvoices SalesInvoice

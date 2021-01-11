@@ -1,19 +1,19 @@
-from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer
-from rest_framework.generics import GenericAPIView, CreateAPIView
-from .models import PhoneOTP, MLMUser, Referral
-from rest_framework import status
-from rest_framework.status import (
-    HTTP_400_BAD_REQUEST,
-)
-from rest_framework.response import Response
+import uuid
 import requests, datetime
+
+from rest_framework.generics import GenericAPIView, CreateAPIView
+from rest_framework import status
+from rest_framework.response import Response
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
+from django.db.models import Q
+from django.conf import settings
+
+from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer
 from retailer_backend.messages import *
 from .sms import SendSms
-from django.db.models import Q
-import uuid
-from django.conf import settings
+from .models import PhoneOTP, MLMUser, Referral, RewardPoint
+from global_config.models import GlobalConfig
 
 
 class SendSmsOTP(CreateAPIView):
@@ -75,15 +75,15 @@ class Registrations(GenericAPIView):
             otp = data.get('otp')
             if phone_number is None:
                 return Response({'error': 'Please provide phone_number '},
-                                status=HTTP_400_BAD_REQUEST)
+                                status=status.HTTP_400_BAD_REQUEST)
             if otp is None:
                 return Response({'error': 'Please provide otp sent in your registered number'},
-                                status=HTTP_400_BAD_REQUEST)
+                                status=status.HTTP_400_BAD_REQUEST)
             if referral_code:
                 user_id = MLMUser.objects.filter(referral_code=referral_code)
                 if not user_id:
                     return Response({'error': 'Please provide valid referral code'},
-                                        status=HTTP_400_BAD_REQUEST)
+                                        status=status.HTTP_400_BAD_REQUEST)
 
             user_phone = MLMUser.objects.filter(
                 Q(phone_number__iexact=phone_number)
@@ -120,10 +120,10 @@ class Login(GenericAPIView):
 
             if phone_number is None:
                 return Response({'error': 'Please provide phone_number '},
-                                status=HTTP_400_BAD_REQUEST)
+                                status=status.HTTP_400_BAD_REQUEST)
             if otp is None:
                 return Response({'error': 'Please provide otp sent in your registered number'},
-                                status=HTTP_400_BAD_REQUEST)
+                                status=status.HTTP_400_BAD_REQUEST)
 
             user_phone = MLMUser.objects.filter(
                 Q(phone_number__iexact=phone_number)
@@ -282,3 +282,36 @@ class RevokeOTP(object):
                'message': "message sent",
                'response_data': None}
         return msg
+
+
+class RewardsDashboard(GenericAPIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        user = request.user
+        ret = {"direct_user_count": '0', "indirect_user_count": '0', "direct_earned": '0', "indirect_earned": '0',
+               "total_earned": '0', 'used': '0', 'remaining': '0'}
+        try:
+            rewards_obj = RewardPoint.objects.get(user=user)
+            ret['direct_user_count'] = str(rewards_obj.direct_users)
+            ret['indirect_user_count'] = str(rewards_obj.indirect_users)
+            ret['direct_earned'] = str(rewards_obj.direct_earned)
+            ret['indirect_earned'] = str(rewards_obj.indirect_earned)
+            ret['total_earned'] = str(rewards_obj.direct_earned + rewards_obj.indirect_earned)
+            ret['used'] = str(rewards_obj.points_used)
+            ret['remaining'] = str(rewards_obj.direct_earned + rewards_obj.indirect_earned - rewards_obj.points_used)
+        except:
+            pass
+        return Response({"data": ret}, status=status.HTTP_200_OK)
+
+
+def welcome_reward(user, referred=0):
+    try:
+        on_referral_points = GlobalConfig.objects.get(key='welcome_reward_points_referral')
+    except:
+        on_referral_points = 10
+
+    points = on_referral_points if referred else on_referral_points / 2
+    reward_obj, created = RewardPoint.objects.get_or_create(user=user)
+    reward_obj.direct_earned += points
+    reward_obj.save()

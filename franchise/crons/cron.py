@@ -16,7 +16,7 @@ from wms.models import BinInventory, WarehouseInventory, InventoryState, Invento
 from franchise.models import get_default_virtual_bin_id
 from services.models import CronRunLog
 from marketing.models import Referral, RewardPoint, MLMUser
-from global_config.models import Config as GlobalConfig
+from global_config.models import GlobalConfig
 
 cron_logger = logging.getLogger('cron_log')
 CONNECTION_PATH = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + config('HDPOS_DB_HOST')\
@@ -121,14 +121,14 @@ def fetch_franchise_data(fetch_name):
                 if fetch_type == 1:
                     with transaction.atomic():
                         for row in cursor:
-                            row[9] = '' if not row[9] else row[9].strip()
-                            row[10] = '' if not row[10] else row[10].strip()
-                            row[11] = '' if not row[11] else row[11].replace(' ', '')
-                            row[11] = '' if len(row[11]) != 10 else row[11]
+                            row[11] = '' if not row[11] else row[11].strip()
+                            row[12] = '' if not row[12] else row[12].strip()
+                            row[13] = '' if not row[13] else row[13].replace(' ', '')
+                            row[13] = '' if len(row[13]) != 10 else row[13]
 
                             FranchiseReturns.objects.create(shop_loc=row[8], barcode=row[6], quantity=row[3], amount=row[4],
                                                             sr_date=row[0], sr_number=row[1], invoice_number=row[10],
-                                                            product_sku=row[11].strip(), customer_name=row[10], phone_number=row[11])
+                                                            product_sku=row[11], customer_name=row[12], phone_number=row[13])
                 else:
                     with transaction.atomic():
                         for row in cursor:
@@ -436,7 +436,7 @@ def referrer_reward(sales_user):
                 reward_obj.indirect_earned += indirect_reward_factor
                 reward_obj.save()
             else:
-                RewardPoint.objects.create(user=referred_by, indirect_users=1, indirect_earned=indirect_reward_factor)
+                RewardPoint.objects.create(user=referral_by_indirect, indirect_users=1, indirect_earned=indirect_reward_factor)
 
         referral_obj.reward_status = 1
         referral_obj.save()

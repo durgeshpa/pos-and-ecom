@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import MLMUser, Referral, PhoneOTP
+from .models import MLMUser, Referral, PhoneOTP, RewardPoint
 
 
 class PhoneOTPAdmin(admin.ModelAdmin):
@@ -27,6 +27,11 @@ class ReferralAdmin(admin.ModelAdmin):
     list_display = ('referral_to', 'referral_by', 'created_at')
     fields = ('referral_to', 'referral_by')
 
+
+@admin.register(RewardPoint)
+class RewardPointAdmin(admin.ModelAdmin):
+    list_display = ("user", "direct_users", "indirect_users", "direct_earned", "indirect_earned", "points_used")
+    pass
 
 admin.site.register(MLMUser, MLMUserAdmin)
 admin.site.register(PhoneOTP, PhoneOTPAdmin)
