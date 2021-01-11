@@ -352,6 +352,9 @@ def get_visibility_changes(shop, product):
             visibility_changes[child.id] = True
             continue
         sum_qty_warehouse_entries = warehouse_entries.aggregate(Sum('quantity'))['quantity__sum']
+        if sum_qty_warehouse_entries == 0 or int(sum_qty_warehouse_entries/child.product_inner_case_size)==0:
+            visibility_changes[child.id] = False
+            continue
         if sum_qty_warehouse_entries <= 2*(int(child.product_inner_case_size)):
             visibility_changes[child.id] = True
             continue
@@ -2074,3 +2077,25 @@ def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type,
                                               final_inventory_type=final_type[0],
                                               transaction_type=transaction_type, transaction_id=transaction_id,
                                               quantity=quantity)
+
+def update_visibility(shop,product,visible):
+    WarehouseInventory.objects.filter(warehouse=shop,sku=product,inventory_state=InventoryState.objects.filter(
+                inventory_state='available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_type='normal').last()).update(visible=visible)
+
+def update_visibility_bulk(shop_id):
+    shop = Shop.objects.filter(pk=shop_id).last()
+    products = WarehouseInventory.objects.filter(warehouse=shop,inventory_state=InventoryState.objects.filter(
+                inventory_state='available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_type='normal').last())
+    parent_list = []
+    for product in products:
+        if product.sku.parent_product.id in parent_list:
+            continue
+        visibility_changes = get_visibility_changes(shop, product.sku)
+        if visibility_changes:
+            for prod_id, visibility in visibility_changes.items():
+                sibling = Product.objects.filter(pk=prod_id).last()
+                print(sibling,visibility)
+                update_visibility(shop, sibling, visibility)
+        parent_list.append(product.sku.parent_product.id)

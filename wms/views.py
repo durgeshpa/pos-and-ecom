@@ -34,7 +34,7 @@ from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
-    get_expiry_date_db, get_visibility_changes, WareHouseInternalInventoryChange
+    get_expiry_date_db, get_visibility_changes, WareHouseInternalInventoryChange, update_visibility
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
@@ -506,6 +506,7 @@ def commit_updates_to_es(shop, product):
     visibility_changes = get_visibility_changes(shop, product)
     if visibility_changes:
         for prod_id, visibility in visibility_changes.items():
+            update_visibility.delay(shop,product,visibility)
             if prod_id == product.id:
                 update_product_es.delay(shop.id, product.id, available=available_qty, status=status, visible=visibility)
             else:

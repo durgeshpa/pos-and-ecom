@@ -1,10 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_list %}
+{% load i18n admin_static admin_list %}
+{% load export_url from django_tables2 %}
+{% load render_table from django_tables2 %}
 
-</body>
-</html>
+
+{% block content %}
+     <a style="float: right;" href={{ request.path }}?_export=csv>Download</a>
+    `<form action="" method="get">
+	{{ filter.form }}
+    <input class="btn btn-primary btn-sm mt-1 mb-1" type="submit" />
+</form>
+</br>
+        {% render_table table %}
+{% endblock %}
