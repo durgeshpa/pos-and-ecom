@@ -1263,6 +1263,9 @@ class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
 
     change_list_template = 'admin/products/product_attributes_change_list.html'
 
+    def has_add_permission(self, request):
+        return False
+
 
 class ExportRepackaging:
     def export_as_csv_products_repackaging(self, request, queryset):
