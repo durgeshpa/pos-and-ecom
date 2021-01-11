@@ -121,7 +121,7 @@ def shop_stock_download(request, shop_id):
     filename = "shop_stock_" + shop_id + ".csv"
     shop = Shop.objects.get(pk=shop_id)
     product_list = {}
-    bin_inventory_state = InventoryState.objects.filter(inventory_state="available").last()
+    bin_inventory_state = InventoryState.objects.filter(inventory_state="total_available").last()
     products = WarehouseInventory.objects.filter(warehouse=shop, inventory_state=bin_inventory_state)
 
     for myproduct in products:
