@@ -1,5 +1,9 @@
 from django.conf.urls import url
+<<<<<<< HEAD
 from .views import (Registrations, ValidateOTP, SendSmsOTP,Login, RewardsDashboard)
+=======
+from .views import (Registrations, SendSmsOTP, Login)
+>>>>>>> 9827cf96ef2457e9c2f379db5c1eb01cf1f110f7
 
 
 urlpatterns = [
