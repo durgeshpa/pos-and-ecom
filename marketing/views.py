@@ -49,7 +49,7 @@ class SendSmsOTP(CreateAPIView):
                             )
         else:
             msg = {'is_success': False,
-                    'message': "please enter valid phone number, it should be 10 digit",
+                    'message': serializer.errors['phone_number'][0],
                     'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
