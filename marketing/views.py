@@ -89,6 +89,7 @@ class Registrations(GenericAPIView):
                 Q(phone_number__iexact=phone_number)
             )
             if user_phone.exists():
+                print("here")
                 user_referral_code_none = MLMUser.objects.filter(phone_number=phone_number, referral_code=None)
                 if user_referral_code_none:
                     user_referral_code = Referral.generate_unique_referral_code()
@@ -96,14 +97,14 @@ class Registrations(GenericAPIView):
                     obj, created = MLMUser.objects.update_or_create(phone_number=phone_number, defaults=updated_values)
                     obj.save()
                 msg = ValidateOTP(data=request.POST)
-                return Response(msg.data, status=status.HTTP_200_OK)
+                return Response(msg.data, status=msg.status_code)
             else:
                 user_referral_code = Referral.generate_unique_referral_code()
                 user = MLMUser.objects.create(phone_number=phone_number, referral_code=user_referral_code)
                 user.save()
                 Referral.store_parent_referral_user(referral_code, user_referral_code)
                 msg = ValidateOTP(data=request.POST)
-                return Response(msg.data, status=status.HTTP_200_OK)
+                return Response(msg.data, status=msg.status_code)
         except Exception:
             return Response(Exception, status=status.HTTP_403_FORBIDDEN)
 
@@ -135,13 +136,13 @@ class Login(GenericAPIView):
                     obj, created = MLMUser.objects.update_or_create(phone_number=phone_number, defaults=updated_values)
                     obj.save()
                 msg = ValidateOTP(data=request.POST)
-                return Response(msg.data, status=status.HTTP_200_OK)
+                return Response(msg.data, status=msg.status_code)
             else:
                 user_referral_code = Referral.generate_unique_referral_code()
                 user = MLMUser.objects.create(phone_number=phone_number, referral_code=user_referral_code)
                 user.save()
-                msg = ValidateOTP(data=request.POST)
-                return Response(msg.data, status=status.HTTP_200_OK)
+                msg, status_code = ValidateOTP(data=request.POST)
+                return Response(msg.data, status=msg.status_code)
         except Exception:
             return Response(Exception, status=status.HTTP_403_FORBIDDEN)
 
