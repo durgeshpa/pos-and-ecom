@@ -34,6 +34,10 @@ AUTH_USER_MODEL = 'accounts.user'
 
 ENVIRONMENT = config('ENVIRONMENT')
 
+# CORS settings
+
+CORS_ORIGIN_ALLOW_ALL = True
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -106,7 +110,7 @@ INSTALLED_APPS = [
     'django_extensions',
     'franchise.apps.FranchiseConfig',
     'marketing',
-
+    'global_config'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -138,6 +142,7 @@ if DEBUG:
 else:
     MIDDLEWARE = []
 MIDDLEWARE += [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -364,6 +369,7 @@ CRONJOBS = [
     ('*/5 * * * *', 'audit.cron.create_picklist_cron'),
     ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
     ('00 2 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
+    ('00 00 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron')
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
