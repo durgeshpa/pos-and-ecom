@@ -183,7 +183,7 @@ def verify(otp, user):
             user_obj.save()
             token = uuid.uuid4()
             updated_values = {'token': token}
-            obj, created = Token.objects.update_or_create(user_id=user_id, defaults=updated_values)
+            obj, created = Token.objects.update_or_create(user=user_obj, defaults=updated_values)
             obj.save()
             msg = {'phone_number': user_obj.phone_number,
                    'token': token,
@@ -262,7 +262,7 @@ class RewardsDashboard(GenericAPIView):
             resp = MLMUser.authenticate(auth)
             if not isinstance(resp, str):
                 try:
-                    rewards_obj = RewardPoint.objects.filter(user=resp).last()
+                    rewards_obj = RewardPoint.objects.get(user=resp)
                     serializer = (RewardsSerializer(rewards_obj))
                     data = serializer.data
                 except:
