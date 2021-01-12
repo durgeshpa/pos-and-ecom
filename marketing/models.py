@@ -151,7 +151,7 @@ class RewardPoint(models.Model):
 
 class Token(models.Model):
     """
-    This model will be used to store the details of a User by their phone_number, referral_code
+    This model will be used to store the user id & user token
     """
     user_id = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
     token = models.UUIDField()
