@@ -14,6 +14,8 @@ error_logger = logging.getLogger('file-error')
 
 from django.dispatch import receiver
 from django.db.models.signals import pre_save
+from global_config.models import GlobalConfig
+from decimal import Decimal
 
 
 class MLMUser(models.Model):
@@ -161,6 +163,18 @@ class RewardPoint(models.Model):
     points_used = models.DecimalField(max_digits=10, decimal_places=2, default='0.00')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @staticmethod
+    def welcome_reward(user, referred=0):
+        try:
+            on_referral_points = GlobalConfig.objects.get(key='welcome_reward_points_referral')
+        except:
+            on_referral_points = 10
+
+        points = on_referral_points if referred else on_referral_points / 2
+        reward_obj, created = RewardPoint.objects.get_or_create(user=user)
+        reward_obj.direct_earned += round(Decimal(points), 2)
+        reward_obj.save()
 
 
 class Token(models.Model):
