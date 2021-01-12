@@ -108,27 +108,25 @@ class Registrations(GenericAPIView):
             )
             if user_phone.exists():
                 user = user_phone.last()
-
                 if user.status == 1:
                     return Response({'message': VALIDATION_ERROR_MESSAGES['User_Already_Exist'],
                                      'is_success': False,
                                      'response_data': None},
                                     status=status.HTTP_409_CONFLICT)
 
-                user_referral_code_none = MLMUser.objects.filter(phone_number=phone_number, referral_code=None)
-
-                if user_referral_code_none:
+                if not user.referral_code or user.referral_code == '':
                     save_user_referral_code(phone_number)
-
-                msg = ValidateOTP(phone_number, otp)
-                return Response(msg.data, status=msg.status_code)
+                user_referral_code = user.referral_code
             else:
                 user_referral_code = save_user_referral_code(phone_number)
-                if referral_code:
-                    Referral.store_parent_referral_user(referral_code, user_referral_code)
-                msg = ValidateOTP(phone_number, otp)
-                return Response(msg.data, status=msg.status_code)
-        except Exception:
+
+            referred = 1 if referral_code else 0
+            msg = ValidateOTP(phone_number, otp, referred)
+            if referral_code:
+                Referral.store_parent_referral_user(referral_code, user_referral_code)
+            return Response(msg.data, status=msg.status_code)
+
+        except Exception as e:
             return Response({'message': "Data is not valid.", 'is_success': False, 'response_data': None}, status=status.HTTP_403_FORBIDDEN)
 
 class Login(GenericAPIView):
@@ -189,16 +187,4 @@ class RewardsDashboard(GenericAPIView):
         else:
             return Response({"error": 'Authentication credentials were not provided.'},
                             status=status.HTTP_401_UNAUTHORIZED)
-
-
-def welcome_reward(user, referred=0):
-    try:
-        on_referral_points = GlobalConfig.objects.get(key='welcome_reward_points_referral')
-    except:
-        on_referral_points = 10
-
-    points = on_referral_points if referred else on_referral_points / 2
-    reward_obj, created = RewardPoint.objects.get_or_create(user=user)
-    reward_obj.direct_earned += points
-    reward_obj.save()
 
