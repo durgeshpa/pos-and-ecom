@@ -48,16 +48,8 @@ class SendSmsOTP(CreateAPIView):
                             status=status.HTTP_200_OK
                             )
         else:
-            errors = []
-            for field in serializer.errors:
-                for error in serializer.errors[field]:
-                    if 'non_field_errors' in field:
-                        result = error
-                    else:
-                        result = ''.join('{} : {}'.format(field, error))
-                    errors.append(result)
             msg = {'is_success': False,
-                    'message': [error for error in errors],
+                    'message': serializer.errors['phone_number'][0],
                     'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
@@ -74,19 +66,21 @@ class Registrations(GenericAPIView):
             referral_code = data.get('referral_code')
             otp = data.get('otp')
             if phone_number is None:
-                return Response({'error': 'Please provide phone_number '},
+                return Response({'message': 'Please provide phone_number ', 'is_success': False, 'response_data': None},
                                 status=HTTP_400_BAD_REQUEST)
             if otp is None:
-                return Response({'error': 'Please provide otp sent in your registered number'},
+                return Response({'message': 'Please provide otp sent in your registered number',
+                                 'is_success': False, 'response_data': None},
                                 status=HTTP_400_BAD_REQUEST)
             if referral_code:
                 user_id = MLMUser.objects.filter(referral_code=referral_code)
                 if not user_id:
-                    return Response({'error': 'Please provide valid referral code'},
+                    return Response({'message': 'Please provide valid referral code', 'is_success': False,
+                                     'response_data': None},
                                         status=HTTP_400_BAD_REQUEST)
 
             user_phone = MLMUser.objects.filter(
-                Q(phone_number__iexact=phone_number)
+                Q(phone_number=phone_number)
             )
             if user_phone.exists():
                 user_referral_code_none = MLMUser.objects.filter(phone_number=phone_number, referral_code=None)
@@ -95,17 +89,17 @@ class Registrations(GenericAPIView):
                     updated_values = {'referral_code': user_referral_code}
                     obj, created = MLMUser.objects.update_or_create(phone_number=phone_number, defaults=updated_values)
                     obj.save()
-                msg = ValidateOTP(data=request.POST)
+                msg = ValidateOTP(phone_number, otp)
                 return Response(msg.data, status=msg.status_code)
             else:
                 user_referral_code = Referral.generate_unique_referral_code()
                 user = MLMUser.objects.create(phone_number=phone_number, referral_code=user_referral_code)
                 user.save()
                 Referral.store_parent_referral_user(referral_code, user_referral_code)
-                msg = ValidateOTP(data=request.POST)
+                msg = ValidateOTP(phone_number, otp)
                 return Response(msg.data, status=msg.status_code)
         except Exception:
-            return Response(Exception, status=status.HTTP_403_FORBIDDEN)
+            return Response({'message': "Data is not valid.", 'is_success': False, 'response_data': None}, status=status.HTTP_403_FORBIDDEN)
 
 class Login(GenericAPIView):
 
@@ -125,7 +119,7 @@ class Login(GenericAPIView):
                                 status=HTTP_400_BAD_REQUEST)
 
             user_phone = MLMUser.objects.filter(
-                Q(phone_number__iexact=phone_number)
+                Q(phone_number=phone_number)
             )
             if user_phone.exists():
                 user_referral_code_none = MLMUser.objects.filter(phone_number=phone_number, referral_code=None)
@@ -134,21 +128,21 @@ class Login(GenericAPIView):
                     updated_values = {'referral_code': user_referral_code}
                     obj, created = MLMUser.objects.update_or_create(phone_number=phone_number, defaults=updated_values)
                     obj.save()
-                msg = ValidateOTP(data=request.POST)
+                msg = ValidateOTP(phone_number, otp)
                 return Response(msg.data, status=msg.status_code)
             else:
                 user_referral_code = Referral.generate_unique_referral_code()
                 user = MLMUser.objects.create(phone_number=phone_number, referral_code=user_referral_code)
                 user.save()
-                msg, status_code = ValidateOTP(data=request.POST)
+                msg = ValidateOTP(phone_number, otp)
                 return Response(msg.data, status=msg.status_code)
         except Exception:
             return Response(Exception, status=status.HTTP_403_FORBIDDEN)
 
-def ValidateOTP(data):
-    number = data.get("phone_number")
-    otp = data.get("otp")
-    user = PhoneOTP.objects.filter(phone_number=number)
+def ValidateOTP(phone_number, otp):
+    # number = data.get("phone_number")
+    # otp = data.get("otp")
+    user = PhoneOTP.objects.filter(phone_number=phone_number)
     if user.exists():
         user = user.last()
         msg, status_code = verify(otp, user)
@@ -247,7 +241,7 @@ class RevokeOTP(object):
         message.send()
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
-        msg = {'is_success': True,
+        msg = {'is_success': False,
                'message': "you entered otp is expired,new otp sent in your registered number",
                'response_data': None}
         return msg

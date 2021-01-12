@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
-
+import uuid
+from django.dispatch import receiver
+from django.db.models.signals import pre_save
 class MLMUser(models.Model):
     """
     This model will be used to store the details of a User by their phone_number, referral_code
@@ -37,7 +39,16 @@ class MLMUser(models.Model):
         return self.phone_number
 
     def save(self, *args, **kwargs):
+        if self.email is not None and self.email.strip() == '':
+            self.email = None
         super(MLMUser, self).save(*args, **kwargs)
+
+
+@receiver(pre_save, sender=MLMUser)
+def generate_referral_code(sender, instance=None, created=False, **kwargs):
+    if not instance.referral_code: # check for status also ????
+        instance.referral_code = str(uuid.uuid4()).split('-')[-1]
+
 
 class PhoneOTP(models.Model):
     """
@@ -92,6 +103,7 @@ class Referral(models.Model):
 
     referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE, null=True, blank=True)
     referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
+    reward_status = models.IntegerField(choices=((0, 'not considered'), (1, 'considered')), default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -127,10 +139,11 @@ class Referral(models.Model):
 
 
 class RewardPoint(models.Model):
-    reward_user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
-    direct_reward_point_earned = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=2)
-    indirect_reward_point_earned = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=2)
-    total_reward_point_earned = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=2)
-    reward_point_used = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=2)
+    user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE),
+    direct_users = models.IntegerField(default=0)
+    indirect_users = models.IntegerField(default=0)
+    direct_earned = models.DecimalField(max_digits=10, decimal_places=2, default='0.00')
+    indirect_earned = models.DecimalField(max_digits=10, decimal_places=2, default='0.00')
+    points_used = models.DecimalField(max_digits=10, decimal_places=2, default='0.00')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
