@@ -1,6 +1,6 @@
 from .token import tokenGeneartion
 from django.conf import settings
-from .models import PhoneOTP, MLMUser
+from .models import PhoneOTP, MLMUser, RewardPoint
 from rest_framework import status
 from rest_framework.response import Response
 import datetime
@@ -9,15 +9,15 @@ from .sms import SendSms
 from django.utils import timezone
 
 
-def ValidateOTP(phone_number, otp):
+def ValidateOTP(phone_number, otp, referred = 0):
     """
          Check otp is validated or not.
     """
 
-    user = PhoneOTP.objects.filter(phone_number=phone_number)
-    if user.exists():
-        user = user.last()
-        msg, status_code = verify(otp, user)
+    phone_otp = PhoneOTP.objects.filter(phone_number=phone_number)
+    if phone_otp.exists():
+        phone_otp_obj = phone_otp.last()
+        msg, status_code = verify(otp, phone_otp_obj, referred)
         return Response(msg, status=status_code)
     else:
         msg = {'is_success': False,
@@ -41,21 +41,22 @@ def max_attempts(user, attempts):
     else:
         return True
 
-def verify(otp, user):
-    if otp == user.otp:
+def verify(otp, phone_otp_obj, referred=0):
+    if otp == phone_otp_obj.otp:
         """if OTP matched with Registered OTP"""
 
-        if not expired(user) and not max_attempts(user, 5):
+        if not expired(phone_otp_obj) and not max_attempts(phone_otp_obj, 5):
             """if OTP is not expired or not max attempts exceeds"""
 
-            user.is_verified = 1
-            user.save()
-            user_id = MLMUser.objects.get(phone_number=user.phone_number)
-            id = user_id.id
-            user_obj = MLMUser.objects.get(pk=id)
-            user_obj.status = 1
-            user_obj.save()
-            token = tokenGeneartion(user_id)
+            phone_otp_obj.is_verified = 1
+            phone_otp_obj.save()
+            user_obj = MLMUser.objects.get(phone_number=phone_otp_obj.phone_number)
+            if user_obj.status == 0:
+                user_obj.status = 1
+                user_obj.save()
+                RewardPoint.welcome_reward(user_obj, referred)
+
+            token = tokenGeneartion(user_obj)
             msg = {'phone_number': user_obj.phone_number,
                    'token': token,
                    'referral_code': user_obj.referral_code,
@@ -65,44 +66,44 @@ def verify(otp, user):
             status_code = status.HTTP_200_OK
             return msg, status_code
 
-        elif max_attempts(user, 5):
+        elif max_attempts(phone_otp_obj, 5):
             """if OTP max attempts exceeds, Resend OTP"""
 
             error_msg = VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED']
             status_code = status.HTTP_406_NOT_ACCEPTABLE
-            revoke = RevokeOTP(user.phone_number, error_msg)
+            revoke = RevokeOTP(phone_otp_obj.phone_number, error_msg)
             msg = revoke.update()
             return msg, status_code
-        elif expired(user):
+        elif expired(phone_otp_obj):
             """if OTP is expired, Resend OTP"""
 
             error_msg = VALIDATION_ERROR_MESSAGES['OTP_EXPIRED']
             status_code = status.HTTP_406_NOT_ACCEPTABLE
-            revoke = RevokeOTP(user.phone_number, error_msg)
+            revoke = RevokeOTP(phone_otp_obj.phone_number, error_msg)
             msg = revoke.update()
             return msg, status_code
 
     else:
         """if OTP doesn't matched with Registered OTP"""
 
-        if max_attempts(user, 5):
+        if max_attempts(phone_otp_obj, 5):
             """if OTP max attempts exceeds, Resend OTP"""
 
             error_msg = VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED']
             status_code = status.HTTP_406_NOT_ACCEPTABLE
-            revoke = RevokeOTP(user.phone_number, error_msg)
+            revoke = RevokeOTP(phone_otp_obj.phone_number, error_msg)
             msg = revoke.update()
             return msg, status_code
-        elif expired(user):
+        elif expired(phone_otp_obj):
             """if OTP is expired, Resend OTP"""
 
             error_msg = VALIDATION_ERROR_MESSAGES['OTP_EXPIRED']
             status_code = status.HTTP_406_NOT_ACCEPTABLE
-            revoke = RevokeOTP(user.phone_number, error_msg)
+            revoke = RevokeOTP(phone_otp_obj.phone_number, error_msg)
             msg = revoke.update()
             return msg, status_code
-        user.attempts += 1
-        user.save()
+        phone_otp_obj.attempts += 1
+        phone_otp_obj.save()
         msg = {'is_success': False,
                'message': VALIDATION_ERROR_MESSAGES['OTP_NOT_MATCHED'],
                'response_data': None}
