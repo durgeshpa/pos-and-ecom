@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import MLMUser, Referral, PhoneOTP, RewardPoint
+from .models import MLMUser, Referral, PhoneOTP, Token, RewardPoint
 
 
 class PhoneOTPAdmin(admin.ModelAdmin):
@@ -36,3 +36,4 @@ class RewardPointAdmin(admin.ModelAdmin):
 admin.site.register(MLMUser, MLMUserAdmin)
 admin.site.register(PhoneOTP, PhoneOTPAdmin)
 admin.site.register(Referral, ReferralAdmin)
+admin.site.register(Token)
