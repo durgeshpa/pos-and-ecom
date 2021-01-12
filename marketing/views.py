@@ -89,7 +89,6 @@ class Registrations(GenericAPIView):
                 Q(phone_number__iexact=phone_number)
             )
             if user_phone.exists():
-                print("here")
                 user_referral_code_none = MLMUser.objects.filter(phone_number=phone_number, referral_code=None)
                 if user_referral_code_none:
                     user_referral_code = Referral.generate_unique_referral_code()
