@@ -9,7 +9,7 @@ from rest_framework.permissions import AllowAny
 from django.db.models import Q
 from django.conf import settings
 
-from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer
+from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer, RewardsSerializer
 from retailer_backend.messages import *
 from .sms import SendSms
 from .models import PhoneOTP, MLMUser, Referral, RewardPoint
@@ -257,21 +257,24 @@ class RewardsDashboard(GenericAPIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        user = request.user
-        ret = {"direct_user_count": '0', "indirect_user_count": '0', "direct_earned": '0', "indirect_earned": '0',
-               "total_earned": '0', 'used': '0', 'remaining': '0'}
-        try:
-            rewards_obj = RewardPoint.objects.get(user=user)
-            ret['direct_user_count'] = str(rewards_obj.direct_users)
-            ret['indirect_user_count'] = str(rewards_obj.indirect_users)
-            ret['direct_earned'] = str(rewards_obj.direct_earned)
-            ret['indirect_earned'] = str(rewards_obj.indirect_earned)
-            ret['total_earned'] = str(rewards_obj.direct_earned + rewards_obj.indirect_earned)
-            ret['used'] = str(rewards_obj.points_used)
-            ret['remaining'] = str(rewards_obj.direct_earned + rewards_obj.indirect_earned - rewards_obj.points_used)
-        except:
-            pass
-        return Response({"data": ret}, status=status.HTTP_200_OK)
+        if request.META['HTTP_AUTHORIZATION']:
+            auth = request.META['HTTP_AUTHORIZATION']
+            resp = MLMUser.authenticate(auth)
+            if not isinstance(resp, str):
+                try:
+                    rewards_obj = RewardPoint.objects.filter(user=resp).last()
+                    serializer = (RewardsSerializer(rewards_obj))
+                    data = serializer.data
+                except:
+                    data = {"direct_user_count": '0', "indirect_user_count": '0', "direct_earned": '0',
+                            "indirect_earned": '0', "total_earned": '0', 'used': '0', 'remaining': '0'}
+
+                return Response({"data": data}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": resp}, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            return Response({"error": 'Authentication credentials were not provided.'},
+                            status=status.HTTP_401_UNAUTHORIZED)
 
 
 def welcome_reward(user, referred=0):

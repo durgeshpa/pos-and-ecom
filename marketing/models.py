@@ -38,6 +38,17 @@ class MLMUser(models.Model):
     def __str__(self):
         return self.phone_number
 
+    @staticmethod
+    def authenticate(auth):
+        try:
+            auth_token = auth.split(" ")[1] if auth else ''
+            if auth_token == '':
+                return 'Invalid token header. No credentials provided.'
+            user = MLMUser.objects.get(token=auth_token)
+            return user
+        except:
+            return 'Invalid Token.'
+
     def save(self, *args, **kwargs):
         if self.email is not None and self.email.strip() == '':
             self.email = None
@@ -46,7 +57,7 @@ class MLMUser(models.Model):
 
 @receiver(pre_save, sender=MLMUser)
 def generate_referral_code(sender, instance=None, created=False, **kwargs):
-    if not instance.referral_code: # check for status also ????
+    if not instance.referral_code:
         instance.referral_code = str(uuid.uuid4()).split('-')[-1]
 
 
