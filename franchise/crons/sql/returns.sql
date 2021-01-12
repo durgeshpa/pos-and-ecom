@@ -9,7 +9,9 @@ Select Distinct SalesReturn.Date as SR_Date,
     SalesReturn_BusinessLocation.LocationName as BS_Location_Name,
     SalesReturn_SalesInvoice.Date,
     SalesReturn_SalesInvoice.InvNumber,
-    ITEM_SKU_LOOKUP.Name as product_sku
+    ITEM_SKU_LOOKUP.Name as product_sku,
+    SalesReturn_Customer.Name as CustomerName,
+    SalesReturn_Customer_Address_Contact.MobileNumber As MobileNumber
     from tbl_DYN_SalesReturns SalesReturn
     Left outer join tbl_DYN_SALESRETURNs_SALESRETURNITEMs SalesReturn_SALESRETURNITEMs on SalesReturn_SALESRETURNITEMs.SALESRETURNId = SalesReturn.Id
     Left outer join tbl_DYN_InvoiceItems_ITEMs SALESRETURN_SALESRETURNITEM_ITEMs on SALESRETURN_SALESRETURNITEM_ITEMs.InvoiceItemId = SalesReturn_SALESRETURNITEMs.SALESRETURNITEMId
@@ -21,6 +23,11 @@ Select Distinct SalesReturn.Date as SR_Date,
     Left outer join tbl_DYN_BusinessLocations SALESRETURN_BUSINESSLOCATION on SALESRETURN_BUSINESSLOCATION.Id = SalesReturn_BUSINESSLOCATIONs.BUSINESSLOCATIONId
     Left outer join tbl_DYN_SALESRETURNs_SALESINVOICEs SalesReturn_SALESINVOICEs on SalesReturn_SALESINVOICEs.SALESRETURNId = SalesReturn.Id
     Left outer join tbl_DYN_SalesInvoices SALESRETURN_SALESINVOICE on SALESRETURN_SALESINVOICE.Id = SalesReturn_SALESINVOICEs.SALESINVOICEId
+    Left outer join tbl_DYN_SALESRETURNs_CUSTOMERs SalesReturn_CUSTOMERs on SalesReturn_CUSTOMERs.SALESRETURNId = SalesReturn.Id
+    Left outer join tbl_DYN_Customers SALESRETURN_CUSTOMER on SALESRETURN_CUSTOMER.Id = SalesReturn_CUSTOMERs.CUSTOMERId
+    Left outer join tbl_DYN_Customers_ADDRESSes SALESRETURN_CUSTOMER_ADDRESSes on SALESRETURN_CUSTOMER_ADDRESSes.CustomerId = SalesReturn_CUSTOMERs.CUSTOMERId
+    Left outer join tbl_DYN_Addresses_CONTACTs SALESRETURN_CUSTOMER_ADDRESS_CONTACTs on SALESRETURN_CUSTOMER_ADDRESS_CONTACTs.AddressId = SALESRETURN_CUSTOMER_ADDRESSes.ADDRESSId
+    Left outer join tbl_DYN_Contacts SALESRETURN_CUSTOMER_ADDRESS_CONTACT on SALESRETURN_CUSTOMER_ADDRESS_CONTACT.Id = SALESRETURN_CUSTOMER_ADDRESS_CONTACTs.CONTACTId
     Left outer join tbl_DYN_Items_UserFieldDatas ITEM_INFO on SALESRETURN_SALESRETURNITEM_ITEM.Id=ITEM_INFO.ItemId
     Left outer join tbl_DYN_UserFieldDatas_ufSellerSKUIDs ITEM_SKU_INFO on ITEM_INFO.UserFieldDataId=ITEM_SKU_INFO.UserFieldDataId
     Left outer join tbl_DYN_LookupValues ITEM_SKU_LOOKUP on ITEM_SKU_INFO.ufSellerSKUIDId = ITEM_SKU_LOOKUP.Id
