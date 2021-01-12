@@ -158,9 +158,9 @@ class RewardPoint(models.Model):
     user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
     direct_users = models.IntegerField(default=0)
     indirect_users = models.IntegerField(default=0)
-    direct_earned = models.DecimalField(max_digits=10, decimal_places=2, default='0.00')
-    indirect_earned = models.DecimalField(max_digits=10, decimal_places=2, default='0.00')
-    points_used = models.DecimalField(max_digits=10, decimal_places=2, default='0.00')
+    direct_earned = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
+    indirect_earned = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
+    points_used = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
