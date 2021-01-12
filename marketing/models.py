@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
-import uuid
 from django.dispatch import receiver
 from django.db.models.signals import pre_save
 class MLMUser(models.Model):
@@ -34,6 +33,7 @@ class MLMUser(models.Model):
         (Inactive_Status, 'Inactive'),
     )
     status = models.IntegerField(choices=STATUS_CHOICES, default=Inactive_Status)
+
 
     def __str__(self):
         return self.phone_number
@@ -147,3 +147,12 @@ class RewardPoint(models.Model):
     points_used = models.DecimalField(max_digits=10, decimal_places=2, default='0.00')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+
+class Token(models.Model):
+    """
+    This model will be used to store the details of a User by their phone_number, referral_code
+    """
+    user_id = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
+    token = models.UUIDField()
+
