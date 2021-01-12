@@ -1,6 +1,6 @@
 from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer
 from rest_framework.generics import GenericAPIView, CreateAPIView
-from .models import PhoneOTP, MLMUser, Referral
+from .models import PhoneOTP, MLMUser, Referral, Token
 from rest_framework import status
 from rest_framework.status import (
     HTTP_400_BAD_REQUEST,
@@ -49,7 +49,7 @@ class SendSmsOTP(CreateAPIView):
                             )
         else:
             msg = {'is_success': False,
-                    'message': serializer.errors['phone_number'][0],
+                    'message': "please enter valid phone number, it should be 10 digit",
                     'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
@@ -170,15 +170,21 @@ def max_attempts(user, attempts):
         return True
 
 def verify(otp, user):
+    # number = data.get("phone_number")
+    # otp = data.get("otp")
     if otp == user.otp:
         if not expired(user) and not max_attempts(user, 5):
             user.is_verified = 1
             user.save()
-            id = MLMUser.objects.get(phone_number=user.phone_number).id
+            user_id = MLMUser.objects.get(phone_number=user.phone_number)
+            id = user_id.id
             user_obj = MLMUser.objects.get(pk=id)
             user_obj.status = 1
             user_obj.save()
-            token = user_obj.id = uuid.uuid4()
+            token = uuid.uuid4()
+            updated_values = {'token': token}
+            obj, created = Token.objects.update_or_create(user_id=user_id, defaults=updated_values)
+            obj.save()
             msg = {'phone_number': user_obj.phone_number,
                    'token': token,
                    'referral_code': user_obj.referral_code,

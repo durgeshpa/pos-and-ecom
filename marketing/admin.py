@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import MLMUser, Referral, PhoneOTP
+from .models import MLMUser, Referral, PhoneOTP, Token
 
 
 class PhoneOTPAdmin(admin.ModelAdmin):
@@ -31,3 +31,4 @@ class ReferralAdmin(admin.ModelAdmin):
 admin.site.register(MLMUser, MLMUserAdmin)
 admin.site.register(PhoneOTP, PhoneOTPAdmin)
 admin.site.register(Referral, ReferralAdmin)
+admin.site.register(Token)
