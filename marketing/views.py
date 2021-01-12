@@ -1,19 +1,19 @@
-from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer
-from rest_framework.generics import GenericAPIView, CreateAPIView
-from .models import PhoneOTP, MLMUser, Referral, Token
-from rest_framework import status
-from rest_framework.status import (
-    HTTP_400_BAD_REQUEST,
-)
-from rest_framework.response import Response
+import uuid
 import requests, datetime
+
+from rest_framework.generics import GenericAPIView, CreateAPIView
+from rest_framework import status
+from rest_framework.response import Response
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
+from django.db.models import Q
+from django.conf import settings
+
+from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer, RewardsSerializer
 from retailer_backend.messages import *
 from .sms import SendSms
-from django.db.models import Q
-import uuid
-from django.conf import settings
+from .models import PhoneOTP, MLMUser, Referral, Token, RewardPoint
+from global_config.models import GlobalConfig
 
 
 class SendSmsOTP(CreateAPIView):
@@ -67,17 +67,17 @@ class Registrations(GenericAPIView):
             otp = data.get('otp')
             if phone_number is None:
                 return Response({'message': 'Please provide phone_number ', 'is_success': False, 'response_data': None},
-                                status=HTTP_400_BAD_REQUEST)
+                                status=status.HTTP_400_BAD_REQUEST)
             if otp is None:
                 return Response({'message': 'Please provide otp sent in your registered number',
                                  'is_success': False, 'response_data': None},
-                                status=HTTP_400_BAD_REQUEST)
+                                status=status.HTTP_400_BAD_REQUEST)
             if referral_code:
                 user_id = MLMUser.objects.filter(referral_code=referral_code)
                 if not user_id:
                     return Response({'message': 'Please provide valid referral code', 'is_success': False,
                                      'response_data': None},
-                                        status=HTTP_400_BAD_REQUEST)
+                                        status=status.HTTP_400_BAD_REQUEST)
 
             user_phone = MLMUser.objects.filter(
                 Q(phone_number=phone_number)
@@ -113,10 +113,10 @@ class Login(GenericAPIView):
             otp = data.get('otp')
             if phone_number is None:
                 return Response({'error': 'Please provide phone_number '},
-                                status=HTTP_400_BAD_REQUEST)
+                                status=status.HTTP_400_BAD_REQUEST)
             if otp is None:
                 return Response({'error': 'Please provide otp sent in your registered number'},
-                                status=HTTP_400_BAD_REQUEST)
+                                status=status.HTTP_400_BAD_REQUEST)
 
             user_phone = MLMUser.objects.filter(
                 Q(phone_number=phone_number)
@@ -183,7 +183,7 @@ def verify(otp, user):
             user_obj.save()
             token = uuid.uuid4()
             updated_values = {'token': token}
-            obj, created = Token.objects.update_or_create(user_id=user_id, defaults=updated_values)
+            obj, created = Token.objects.update_or_create(user=user_obj, defaults=updated_values)
             obj.save()
             msg = {'phone_number': user_obj.phone_number,
                    'token': token,
@@ -251,3 +251,39 @@ class RevokeOTP(object):
                'message': "you entered otp is expired,new otp sent in your registered number",
                'response_data': None}
         return msg
+
+
+class RewardsDashboard(GenericAPIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        if request.META['HTTP_AUTHORIZATION']:
+            auth = request.META['HTTP_AUTHORIZATION']
+            resp = MLMUser.authenticate(auth)
+            if not isinstance(resp, str):
+                try:
+                    rewards_obj = RewardPoint.objects.get(user=resp)
+                    serializer = (RewardsSerializer(rewards_obj))
+                    data = serializer.data
+                except:
+                    data = {"direct_user_count": '0', "indirect_user_count": '0', "direct_earned": '0',
+                            "indirect_earned": '0', "total_earned": '0', 'used': '0', 'remaining': '0'}
+
+                return Response({"data": data}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": resp}, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            return Response({"error": 'Authentication credentials were not provided.'},
+                            status=status.HTTP_401_UNAUTHORIZED)
+
+
+def welcome_reward(user, referred=0):
+    try:
+        on_referral_points = GlobalConfig.objects.get(key='welcome_reward_points_referral')
+    except:
+        on_referral_points = 10
+
+    points = on_referral_points if referred else on_referral_points / 2
+    reward_obj, created = RewardPoint.objects.get_or_create(user=user)
+    reward_obj.direct_earned += points
+    reward_obj.save()
