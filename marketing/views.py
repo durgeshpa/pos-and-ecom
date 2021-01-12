@@ -86,7 +86,7 @@ class Registrations(GenericAPIView):
                                         status=HTTP_400_BAD_REQUEST)
 
             user_phone = MLMUser.objects.filter(
-                Q(phone_number__iexact=phone_number)
+                Q(phone_number=phone_number)
             )
             if user_phone.exists():
                 user_referral_code_none = MLMUser.objects.filter(phone_number=phone_number, referral_code=None)
@@ -125,7 +125,7 @@ class Login(GenericAPIView):
                                 status=HTTP_400_BAD_REQUEST)
 
             user_phone = MLMUser.objects.filter(
-                Q(phone_number__iexact=phone_number)
+                Q(phone_number=phone_number)
             )
             if user_phone.exists():
                 user_referral_code_none = MLMUser.objects.filter(phone_number=phone_number, referral_code=None)
