@@ -14,6 +14,8 @@ error_logger = logging.getLogger('file-error')
 
 from django.dispatch import receiver
 from django.db.models.signals import pre_save
+
+
 class MLMUser(models.Model):
     """
     This model will be used to store the details of a User by their phone_number, referral_code
@@ -38,6 +40,18 @@ class MLMUser(models.Model):
     def __str__(self):
         return self.phone_number
 
+    @staticmethod
+    def authenticate(auth):
+        try:
+            auth_token = auth.split(" ")[1] if auth else ''
+            if auth_token == '':
+                return 'Invalid token header. No credentials provided.'
+            token = Token.objects.get(token=auth_token)
+            user = token.user
+            return user
+        except:
+            return 'Invalid Token.'
+
     def save(self, *args, **kwargs):
         if self.email is not None and self.email.strip() == '':
             self.email = None
@@ -46,7 +60,7 @@ class MLMUser(models.Model):
 
 @receiver(pre_save, sender=MLMUser)
 def generate_referral_code(sender, instance=None, created=False, **kwargs):
-    if not instance.referral_code: # check for status also ????
+    if not instance.referral_code:
         instance.referral_code = str(uuid.uuid4()).split('-')[-1]
 
 
@@ -139,7 +153,7 @@ class Referral(models.Model):
 
 
 class RewardPoint(models.Model):
-    user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE),
+    user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
     direct_users = models.IntegerField(default=0)
     indirect_users = models.IntegerField(default=0)
     direct_earned = models.DecimalField(max_digits=10, decimal_places=2, default='0.00')
@@ -153,6 +167,9 @@ class Token(models.Model):
     """
     This model will be used to store the user id & user token
     """
-    user_id = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
     token = models.UUIDField()
+
+    def __str__(self):
+        return "{} - {}".format(self.user, self.token)
 

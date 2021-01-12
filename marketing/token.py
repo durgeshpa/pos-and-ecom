@@ -1,4 +1,4 @@
-from .models import MLMUser, Token
+from .models import Token
 import uuid
 
 
@@ -8,6 +8,6 @@ def tokenGeneartion(user_id):
     """
 
     token = uuid.uuid4()
-    Token.objects.create(user_id=user_id, token=token)
+    Token.objects.create(user=user_id, token=token)
     return token
 

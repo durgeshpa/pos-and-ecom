@@ -5,12 +5,22 @@ from rest_framework import status
 from rest_framework.status import HTTP_400_BAD_REQUEST
 from rest_framework.response import Response
 import datetime
+import uuid
+import requests, datetime
+from rest_framework.generics import GenericAPIView, CreateAPIView
+from rest_framework import status
+from rest_framework.response import Response
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
-from retailer_backend.messages import *
-from .sms import SendSms
 from django.db.models import Q
 from .validation import ValidateOTP
+from django.conf import settings
+from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer, RewardsSerializer
+from retailer_backend.messages import *
+from .sms import SendSms
+from .models import PhoneOTP, MLMUser, Referral, Token, RewardPoint
+from global_config.models import GlobalConfig
+
 
 class SendSmsOTP(CreateAPIView):
     permission_classes = (AllowAny,)
@@ -75,6 +85,7 @@ class Registrations(GenericAPIView):
                 return Response({'message': VALIDATION_ERROR_MESSAGES['Phone_Number'],
                                  'is_success': False, 'response_data': None},
                                 status=HTTP_400_BAD_REQUEST)
+
             if otp is None:
                 return Response({'message': VALIDATION_ERROR_MESSAGES['Enter_OTP'],
                                  'is_success': False, 'response_data': None},
@@ -90,6 +101,7 @@ class Registrations(GenericAPIView):
                                      'is_success': False,
                                      'response_data': None},
                                     status=HTTP_400_BAD_REQUEST)
+
 
             user_phone = MLMUser.objects.filter(
                 Q(phone_number=phone_number)
@@ -138,6 +150,7 @@ class Login(GenericAPIView):
                                  'is_success': False, 'response_data': None},
                                 status=HTTP_400_BAD_REQUEST)
 
+
             user_phone = MLMUser.objects.filter(
                 Q(phone_number=phone_number)
             )
@@ -154,6 +167,38 @@ class Login(GenericAPIView):
         except Exception:
             return Response(Exception, status=status.HTTP_403_FORBIDDEN)
 
+class RewardsDashboard(GenericAPIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        if request.META['HTTP_AUTHORIZATION']:
+            auth = request.META['HTTP_AUTHORIZATION']
+            resp = MLMUser.authenticate(auth)
+            if not isinstance(resp, str):
+                try:
+                    rewards_obj = RewardPoint.objects.get(user=resp)
+                    serializer = (RewardsSerializer(rewards_obj))
+                    data = serializer.data
+                except:
+                    data = {"direct_user_count": '0', "indirect_user_count": '0', "direct_earned": '0',
+                            "indirect_earned": '0', "total_earned": '0', 'used': '0', 'remaining': '0'}
+
+                return Response({"data": data}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": resp}, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            return Response({"error": 'Authentication credentials were not provided.'},
+                            status=status.HTTP_401_UNAUTHORIZED)
 
 
+def welcome_reward(user, referred=0):
+    try:
+        on_referral_points = GlobalConfig.objects.get(key='welcome_reward_points_referral')
+    except:
+        on_referral_points = 10
+
+    points = on_referral_points if referred else on_referral_points / 2
+    reward_obj, created = RewardPoint.objects.get_or_create(user=user)
+    reward_obj.direct_earned += points
+    reward_obj.save()
 
