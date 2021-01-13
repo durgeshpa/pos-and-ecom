@@ -1,6 +1,8 @@
 # python imports
 import csv
 import logging
+from datetime import datetime
+
 import jsonpickle
 # django imports
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
@@ -21,6 +23,7 @@ from django.shortcuts import redirect
 # app imports
 from rangefilter.filter import DateTimeRangeFilter
 from retailer_backend.admin import InputFilter
+from retailer_backend.utils import time_diff_days_hours_mins_secs
 from retailer_to_sp.api.v1.views import DownloadInvoiceSP, pdf_generation
 from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, load_dispatches, order_invoices,
                                   ordered_product_mapping_shipment, trip_planning, trip_planning_change,
@@ -33,6 +36,7 @@ from sp_to_gram.models import (
 )
 from sp_to_gram.models import OrderedProductReserved
 from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
+from wms.models import Pickup
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
                     OrderedProductReschedule, OrderedProductMappingRescheduleForm, OrderForm, EditAssignPickerForm,
@@ -767,8 +771,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     list_display = (
         'picklist', 'picking_status', 'picker_boy',
         'created_at', 'picker_assigned_date', 'download_pick_list', 'picklist_status', 'picker_type', 'order_number',
-        'order_date', 'refreshed_at'
-        )
+        'order_date', 'refreshed_at', 'picking_completion_time')
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
     list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,('created_at', DateTimeRangeFilter),]
@@ -825,7 +828,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
     def change_picking_status(self, request, queryset):
         # queryset.filter(Q(order__picking_status='picking_in_progress')).update(Q(order__picking_status='picking_complete'))
-        queryset.update(picking_status='picking_complete')
+        queryset.update(picking_status='picking_complete', completed_at=datetime.now())
     change_picking_status.short_description = "Mark selected orders as picking completed"
 
     def get_queryset(self, request):
@@ -865,6 +868,23 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         if not obj.is_valid:
             picklist_status = 'Cancelled'
         return picklist_status
+
+
+    def completed_at(self, obj):
+        if obj.completed_at:
+            return obj.completed_at
+        if obj.order is None:
+            return None
+        if Pickup.objects.filter(pickup_type_id=obj.order.order_no, status='picking_complete').exists():
+            return Pickup.objects.filter(pickup_type_id=obj.order.order_no,
+                                         status='picking_complete').last().completed_at
+
+    def picking_completion_time(self, obj):
+        completed_at = self.completed_at(obj)
+        if completed_at:
+            return time_diff_days_hours_mins_secs(completed_at, obj.created_at)
+
+
 
     def picklist(self, obj):
         return mark_safe("<a href='/admin/retailer_to_sp/pickerdashboard/%s/change/'>%s<a/>" % (obj.pk,
@@ -954,7 +974,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy',
-                    'pickup_completed_at' #'damaged_amount',
+                    'pickup_completed_at', 'picking_completion_time' #'damaged_amount',
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
@@ -1027,6 +1047,12 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
     def total_mrp_amount(self,obj):
         return obj.total_mrp_amount
+
+    def picking_completion_time(self, obj):
+        pickup_object = Pickup.objects.filter(pickup_type_id=obj.order_no,
+                                              status='picking_complete')
+        if pickup_object.exists():
+            return time_diff_days_hours_mins_secs(pickup_object.last().completed_at, pickup_object.last().created_at)
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
 

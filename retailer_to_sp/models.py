@@ -1866,6 +1866,7 @@ class PickerDashboard(models.Model):
     refreshed_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True)
 
     def save(self, *args, **kwargs):
         super(PickerDashboard, self).save(*args, **kwargs)

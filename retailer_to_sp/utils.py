@@ -15,6 +15,7 @@ from django.http import HttpResponse
 from django.db.models import Sum, F, FloatField, OuterRef, Subquery
 
 from products.models import Product
+from wms.models import Pickup
 
 
 def add_cart_user(form, request):
