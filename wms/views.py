@@ -482,7 +482,6 @@ class StockMovementCsvView(FormView):
             status = '400'
         return JsonResponse(result, status)
 
-@task
 def commit_updates_to_es(shop, product):
     """
     :param shop:
@@ -509,11 +508,11 @@ def commit_updates_to_es(shop, product):
         for prod_id, visibility in visibility_changes.items():
             update_visibility(shop,product,visibility)
             if prod_id == product.id:
-                update_product_es(shop.id, product.id, available=available_qty, status=status, visible=visibility)
+                update_product_es.delay(shop.id, product.id, available=available_qty, status=status, visible=visibility)
             else:
-                update_product_es(shop.id, prod_id, visible=visibility)
+                update_product_es.delay(shop.id, prod_id, visible=visibility)
     else:
-        update_product_es(shop.id, product.id, available=available_qty, status=status)
+        update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
 
 
 
@@ -523,7 +522,7 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     try:
         if instance.inventory_type.inventory_type == 'normal' and instance.inventory_state.inventory_state == 'available':
             info_logger.info("Inside if condition of post save Warehouse Inventory")
-            commit_updates_to_es.delay(instance.warehouse, instance.sku)
+            commit_updates_to_es.(instance.warehouse, instance.sku)
     except Exception as e:
         info_logger.info("Exception | Post save | WarehouseInventory | warehouse {}, product {}"
                          .format(instance.warehouse.id, instance.sku.id))
