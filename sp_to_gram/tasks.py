@@ -169,7 +169,7 @@ def upload_shop_stock(shop=None,product=None):
 		try:
 			es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
 		except Exception as e:
-			info_logger.info(e)
+			info_logger.info("error in upload_shop_stock index creation")
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
@@ -190,8 +190,7 @@ def update_product_es(shop_id, product_id,**kwargs):
 		es.update(index=create_es_index(shop_id),id=product_id,body={"doc":kwargs},doc_type='product')
 	except Exception as e:
 		info_logger.info("exception %s",e)
-		shop = Shop.objects.filter(pk=shop_id).last()
-		update_shop_product_es(shop,product_id)
+		update_shop_product_es(shop_id,product_id)
 
 
 def es_search(index, body):

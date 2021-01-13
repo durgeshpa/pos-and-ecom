@@ -8,7 +8,7 @@ from elasticsearch import Elasticsearch
 
 from django.db import transaction
 from products.models import Product
-from sp_to_gram.tasks import upload_shop_stock, create_es_index
+from sp_to_gram.tasks import upload_shop_stock, create_es_index, update_shop_product_es
 from shops.models import Shop
 from wms.common_functions import get_visibility_changes, update_visibility, update_visibility_bulk
 from wms.models import WarehouseInventory, InventoryType, InventoryState
@@ -20,12 +20,13 @@ from wms.models import WarehouseInventory, InventoryType, InventoryState
 # print(visibility_changes)
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
-shop = Shop.object.filter(pk=1393)
-def update_product_es(shop, product_id,**kwargs):
+def update_product_es(shop_id, product_id,**kwargs):
 	try:
-		es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
+		print("Query is")
+		print(kwargs)
+		es.update(index=create_es_index(shop_id),id=product_id,body={"doc":kwargs},doc_type='product')
 	except Exception as e:
-         print(e)
-        pass
+		print("exception %s",e)
+		update_shop_product_es(shop_id,product_id)
 
-update_product_es(shop,24498,visible=True)
+update_product_es(1393,24499,visible=True)
