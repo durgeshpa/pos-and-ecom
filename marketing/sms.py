@@ -1,5 +1,5 @@
 import urllib.parse
-import requests, re
+import re
 from decouple import config
 from django.core.exceptions import ValidationError
 from .tasks import send_gupshup_request
@@ -15,6 +15,7 @@ class SendSms(object):
         self.body = body
 
     def send(self):
+        """To send SMS"""
         message = self.body
         #    message = urllib.parse.quote_plus(self.body)
         number = ValidatePhone(self.phone)
