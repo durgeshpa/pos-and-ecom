@@ -45,7 +45,7 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
         return
     logger.info("Updating Tax Mappings of product")
     update_product_tax_mapping(instance)
-    for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
+    for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product'):
         visibility_changes = get_visibility_changes(prod_price['seller_shop'], prod_price['product'])
         for prod_id, visibility in visibility_changes.items():
             sibling_product = Product.objects.filter(pk=prod_id).last()
