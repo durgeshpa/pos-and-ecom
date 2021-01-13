@@ -7,6 +7,7 @@ from django.db import transaction
 from decouple import config
 from django.utils import timezone
 import traceback
+from decimal import Decimal
 
 from franchise.models import FranchiseSales, ShopLocationMap, FranchiseReturns, HdposDataFetch
 from products.models import Product
@@ -389,7 +390,7 @@ def rewards_account(sales_obj):
         sales_user = MLMUser.objects.filter(phone_number=sales_obj.phone_number).last()
         if sales_user:
             referrer_reward(sales_user)
-            discount = 20
+            discount = 1
             if discount and discount != '' and discount > 0:
                 used_rewards(sales_user, discount)
 
@@ -408,9 +409,11 @@ def referrer_reward(sales_user):
     if referral_obj and referral_obj.reward_status == 0:
         referred_by = referral_obj.referral_by
         try:
-            direct_reward_factor = GlobalConfig.objects.get(key='direct_reward_factor')
+            conf_obj = GlobalConfig.objects.get(key='direct_reward_factor')
+            direct_reward_factor = conf_obj.value
         except:
             direct_reward_factor = 4
+        direct_reward_factor = round(Decimal(direct_reward_factor), 2)
 
         # account for direct reward to user who referred sales_user
         reward_obj = RewardPoint.objects.filter(user=referred_by).last()
@@ -426,9 +429,11 @@ def referrer_reward(sales_user):
         if referral_obj_indirect:
             referral_by_indirect = referral_obj_indirect.referral_by
             try:
-                indirect_reward_factor = GlobalConfig.objects.get(key='indirect_reward_factor')
+                conf_obj = GlobalConfig.objects.get(key='indirect_reward_factor')
+                indirect_reward_factor = conf_obj.value
             except:
                 indirect_reward_factor = 3
+            indirect_reward_factor = round(Decimal(indirect_reward_factor), 2)
 
             reward_obj = RewardPoint.objects.filter(user=referral_by_indirect).last()
             if reward_obj:
@@ -447,12 +452,15 @@ def used_rewards(sales_user, discount):
         Account for used rewards by sales_user
     """
     try:
-        used_reward_factor = GlobalConfig.objects.get(key='used_reward_factor')
+        conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
+        used_reward_factor = conf_obj.value
     except:
         used_reward_factor = 2
+    used_reward_factor = round(Decimal(used_reward_factor), 2)
 
     reward_obj = RewardPoint.objects.filter(user=sales_user).last()
     points_used = discount / used_reward_factor
+    points_used = round(Decimal(points_used), 2)
     if reward_obj:
         reward_obj.points_used += points_used
         reward_obj.save()

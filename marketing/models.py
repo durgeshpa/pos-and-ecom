@@ -167,7 +167,8 @@ class RewardPoint(models.Model):
     @staticmethod
     def welcome_reward(user, referred=0):
         try:
-            on_referral_points = GlobalConfig.objects.get(key='welcome_reward_points_referral')
+            conf_obj = GlobalConfig.objects.get(key='welcome_reward_points_referral')
+            on_referral_points = conf_obj.value
         except:
             on_referral_points = 10
 
