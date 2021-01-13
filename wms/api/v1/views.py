@@ -722,7 +722,7 @@ class PickupComplete(APIView):
                     else:
                         order_qs.update(order_status='picking_complete')
 
-                    pd_obj.update(picking_status='picking_complete')
+                    pd_obj.update(picking_status='picking_complete', completed_at=timezone.now())
                     pick_obj.update(status='picking_complete', completed_at=timezone.now())
 
                 return Response({'is_success': True,
