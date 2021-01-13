@@ -41,7 +41,8 @@ def franchise_sales_returns_inventory():
 
     try:
         # fetch sales data from hdpos
-        sales_fetch_resp = fetch_franchise_data('sales')
+        to_date = datetime.datetime.now() - datetime.timedelta(minutes=60)
+        sales_fetch_resp = fetch_franchise_data('sales', to_date)
 
         if 'code' in sales_fetch_resp and sales_fetch_resp['code'] == 'success':
 
@@ -49,7 +50,7 @@ def franchise_sales_returns_inventory():
             franchise_inv_resp = process_sales_data()
 
             # fetch returns data from hdpos
-            returns_fetch_resp = fetch_franchise_data('returns')
+            returns_fetch_resp = fetch_franchise_data('returns', to_date)
 
             if 'code' in returns_fetch_resp and returns_fetch_resp['code'] == 'success' \
                     and 'code' in franchise_inv_resp and franchise_inv_resp['code'] == 'success':
@@ -72,11 +73,7 @@ def franchise_sales_returns_inventory():
     cron_log_entry.save()
 
 
-def fetch_franchise_data(fetch_name):
-    # # testing
-    # return {'code': 'success'}
-    # # testing
-
+def fetch_franchise_data(fetch_name, to_date):
     """
         Fetch Sales/Returns Data From Hdpos Server For Franchise Shops
 
@@ -89,32 +86,32 @@ def fetch_franchise_data(fetch_name):
 
         if HdposDataFetch.objects.filter(type=int(fetch_type), status__in=[0, 1]).exists():
             hdpos_obj_last = HdposDataFetch.objects.filter(type=int(fetch_type), status__in=[0, 1]).last()
-            next_date = hdpos_obj_last.to_date
+            from_date = hdpos_obj_last.to_date
         else:
-            next_date = datetime.datetime(int(config('HDPOS_START_YEAR')), int(config('HDPOS_START_MONTH')),
+            from_date = datetime.datetime(int(config('HDPOS_START_YEAR')), int(config('HDPOS_START_MONTH')),
                                           int(config('HDPOS_START_DATE')), 0, 0, 0)
 
-        cron_logger.info('franchise {} fetch | started {}'.format(fetch_name, next_date))
+        cron_logger.info('franchise {} fetch | started {}'.format(fetch_name, from_date))
 
-        if next_date <= datetime.datetime.now():
+        if from_date <= datetime.datetime.now():
             # create log for this run
-            hdpos_obj = HdposDataFetch.objects.create(type=int(fetch_type), from_date=next_date,
-                                                      to_date=datetime.datetime.now())
+            hdpos_obj = HdposDataFetch.objects.create(type=int(fetch_type), from_date=from_date,
+                                                      to_date=to_date)
 
             try:
                 cnxn = pyodbc.connect(CONNECTION_PATH)
-                cron_logger.info('connected to hdpos | {} {}'.format(fetch_name, next_date))
+                cron_logger.info('connected to hdpos | {} {}'.format(fetch_name, from_date))
                 cursor = cnxn.cursor()
 
                 fd = open('franchise/crons/sql/' + fetch_name + '.sql', 'r')
                 sqlfile = fd.read()
                 fd.close()
 
-                cron_logger.info('file read | {} {}'.format(fetch_name, next_date))
-                sqlfile = sqlfile + "'" + str(next_date.strftime('%Y-%m-%d %H:%M:%S') ) + "'"
+                cron_logger.info('file read | {} {}'.format(fetch_name, from_date))
+                sqlfile = sqlfile.format(str(from_date.strftime('%Y-%m-%d %H:%M:%S')), str(to_date.strftime('%Y-%m-%d %H:%M:%S')))
                 cursor.execute(sqlfile)
 
-                cron_logger.info('writing {} data {}'.format(fetch_name, next_date))
+                cron_logger.info('writing {} data {}'.format(fetch_name, from_date))
 
                 if fetch_type == 1:
                     with transaction.atomic():
