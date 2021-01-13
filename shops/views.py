@@ -92,6 +92,14 @@ class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 def get_shop_products(shop_obj):
+    """
+    Takes the instance of Shop
+    Returns dictionary of all products for this shop where available quantity > 0
+    params :
+        shop_obj : instance of SHop
+    returns :
+        product_list : dictionary of product id : product details
+    """
     product_list = {}
     inv_type_qs = InventoryType.objects.all()
     for inv_type in inv_type_qs:
