@@ -165,8 +165,11 @@ def upload_shop_stock(shop=None,product=None):
 	es_index = shop if shop else 'all_products'
 	count = 0
 	for product in all_products:
-		print(product)
-		es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
+		info_logger.info(product)
+		try:
+			es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
+		except Exception as e:
+			info_logger.info(e)
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
