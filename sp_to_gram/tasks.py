@@ -180,15 +180,15 @@ def update_shop_product_es(shop, product_id,**kwargs):
 		#upload_shop_stock(shop)
 
 @task
-def update_product_es(shop, product_id,**kwargs):
+def update_product_es(shop_id, product_id,**kwargs):
 	try:
 		info_logger.info("Query is")
 		info_logger.info(kwargs)
-		es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
+		es.update(index=create_es_index(shop_id),id=product_id,body={"doc":kwargs},doc_type='product')
 	except Exception as e:
 		info_logger.info("exception %s",e)
-		pass
-		#upload_shop_stock(shop)
+		shop = Shop.objects.filter(pk=shop_id).last()
+		update_shop_product_es(shop,product_id)
 
 
 def es_search(index, body):
