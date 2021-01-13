@@ -506,7 +506,8 @@ def commit_updates_to_es(shop, product):
     visibility_changes = get_visibility_changes(shop, product)
     if visibility_changes:
         for prod_id, visibility in visibility_changes.items():
-            update_visibility(shop,product,visibility)
+            sibling_product=Product.objects.filter(pk=prod_id)
+            update_visibility(shop,sibling_product,visibility)
             if prod_id == product.id:
                 update_product_es.delay(shop.id, product.id, available=available_qty, status=status, visible=visibility)
             else:
