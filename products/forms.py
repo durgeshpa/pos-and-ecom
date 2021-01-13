@@ -763,9 +763,9 @@ class UploadMasterDataAdminForm(forms.Form):
                     raise ValidationError(_(f"{required_columns} are mandatory columns for 'Upload Master Data'"))
             for row in uploaded_data_list:
                 row_num += 1
-                if row['sku_id'] == '':
+                if 'sku_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
-                if row['parent_id'] == '':
+                if 'parent_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
         if upload_master_data == "inactive_status":
             row_num = 1
@@ -775,10 +775,10 @@ class UploadMasterDataAdminForm(forms.Form):
                     raise ValidationError(_(f"{required_columns} are mandatory columns for 'Set Inactive Status'"))
             for row in uploaded_data_list:
                 row_num += 1
-                if row['status'] == '':
+                if 'status' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
                                             'Status cannot be empty'))
-                if row['sku_id'] == '':
+                if 'sku_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
         if upload_master_data == "sub_brand_with_brand":
             row_num = 1
@@ -788,9 +788,9 @@ class UploadMasterDataAdminForm(forms.Form):
                     raise ValidationError(_(f"{required_columns} are mandatory columns for 'Sub Brand and Brand Mapping'"))
             for row in uploaded_data_list:
                 row_num += 1
-                if row['sub_brand_id'] == '':
+                if 'sub_brand_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Sub_Brand_ID can't be empty"))
-                if row['brand_id'] == '':
+                if 'brand_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Brand_ID' can't be empty"))
         if upload_master_data == "sub_category_with_category":
             row_num = 1
@@ -801,9 +801,9 @@ class UploadMasterDataAdminForm(forms.Form):
                                             f" for 'Sub Category and Category Mapping'"))
             for row in uploaded_data_list:
                 row_num += 1
-                if row['sub_category_id'] == '':
+                if 'sub_category_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Sub_Category_ID' can't be empty"))
-                if row['category_id'] == '':
+                if 'category_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Category_ID' can't be empty"))
         if upload_master_data == "child_parent":
             row_num = 1
@@ -813,11 +813,11 @@ class UploadMasterDataAdminForm(forms.Form):
                     raise ValidationError(_(f"{required_columns} are mandatory column for 'Child and Parent Mapping'"))
             for row in uploaded_data_list:
                 row_num += 1
-                if row['sku_id'] == '':
+                if 'sku_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
-                if row['parent_id'] == '':
+                if 'parent_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
-                if row['status'] == '':
+                if 'status' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active', 'Pending Approval' "
                                             f"or 'Deactivated'!" |
                                             'Status cannot be empty'))
@@ -830,12 +830,12 @@ class UploadMasterDataAdminForm(forms.Form):
                     raise ValidationError(_(f"{required_columns} are mandatory columns for 'Set Child Data'"))
             for row in uploaded_data_list:
                 row_num += 1
-                if row['status'] == '':
+                if 'status' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
                                             'Status cannot be empty'))
-                if row['sku_id'] == '':
+                if 'sku_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
-                if row['sku_name'] == '':
+                if 'sku_name' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_Name' can't be empty"))
         if upload_master_data == "parent_data":
             row_num = 1
@@ -845,9 +845,9 @@ class UploadMasterDataAdminForm(forms.Form):
                     raise ValidationError(_(f"{required_columns} are mandatory columns for 'Set Parent Data'"))
             for row in uploaded_data_list:
                 row_num += 1
-                if row['parent_id'] == '':
+                if 'parent_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Parent_ID' is a mandatory field"))
-                if row['status'] == '':
+                if 'status' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
                                             'Status cannot be empty'))
 
@@ -1220,8 +1220,20 @@ class ProductCappingForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
 
-
-
+    def clean_capping_qty(self):
+        """
+        method to check capping quantity is zero or not
+        """
+        if self.instance.id is None:
+            if self.data['capping_qty'] == '0':
+                raise ValidationError("Capping qty should be greater than 0.")
+            else:
+                return self.cleaned_data['capping_qty']
+        else:
+            if self.cleaned_data['capping_qty'] == 0:
+                raise ValidationError("Capping qty should be greater than 0.")
+            else:
+                return self.cleaned_data['capping_qty']
 
     def clean_capping_type(self):
         """

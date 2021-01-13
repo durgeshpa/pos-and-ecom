@@ -2911,7 +2911,9 @@ def check_date_range(capping):
         start_date = end_date - timedelta(days=today.weekday())
         return start_date, end_date
     elif capping.capping_type == 2:
-        return capping.start_date, capping.end_date
+        end_date = datetime.today()
+        start_date = datetime.today().replace(day=1)
+        return start_date, end_date
 
 
 def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty):
@@ -2932,9 +2934,9 @@ def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qt
     if capping_range_orders:
         for order in capping_range_orders:
             if order.ordered_cart.rt_cart_list.filter(
-                    cart_product=cart_product.cart_product).exists():
+                    cart_product=cart_product).exists():
                 ordered_qty += order.ordered_cart.rt_cart_list.filter(
-                    cart_product=cart_product.cart_product).last().qty
+                    cart_product=cart_product).last().qty
     if capping.capping_qty > ordered_qty:
         if (capping.capping_qty - ordered_qty) < product_qty:
             if (capping.capping_qty - ordered_qty) > 0:

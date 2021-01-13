@@ -56,8 +56,6 @@ class ShopMappedProduct(TemplateView):
                                              'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
             #   'product__product_gf_code',
             context['shop_products'] = product_sum
-
-
         elif shop_obj.shop_type.shop_type in ['sp', 'f']:
             product_list = get_shop_products(shop_obj)
             context['products'] = product_list
@@ -125,7 +123,6 @@ def shop_stock_download(request, shop_id):
     filename = "shop_stock_" + shop_id + ".csv"
     shop = Shop.objects.get(pk=shop_id)
     product_list = get_shop_products(shop)
-
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)

@@ -379,15 +379,15 @@ class StockMovementCsvViewForm(forms.Form):
         # Validate to check the file format, It should be csv file.
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted.")
-
+        user = get_current_user()
         if self.data['inventory_movement_type'] == '2':
-            data = validation_bin_stock_movement(self)
+            data = validation_bin_stock_movement(self.cleaned_data['file'], user)
 
         elif self.data['inventory_movement_type'] == '3':
-            data = validation_stock_correction(self)
+            data = validation_stock_correction(self.cleaned_data['file'], user)
 
         elif self.data['inventory_movement_type'] == '4':
-            data = validation_warehouse_inventory(self)
+            data = validation_warehouse_inventory(self.cleaned_data['file'], user)
         else:
             raise forms.ValidationError("Inventory movement type is not correct, Please re-verify it at"
                                         " your end .")
@@ -395,9 +395,8 @@ class StockMovementCsvViewForm(forms.Form):
         return data
 
 
-def validation_bin_stock_movement(self):
-    reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
-    user = get_current_user()
+def validation_bin_stock_movement(file, user):
+    reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
     first_row = next(reader)
     # list which contains csv data and pass into the view file
     form_data_list = []
@@ -515,9 +514,8 @@ def validation_bin_stock_movement(self):
     return form_data_list
 
 
-def validation_stock_correction(self):
-    reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
-    user = get_current_user()
+def validation_stock_correction(file, user):
+    reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
     first_row = next(reader)
     # list which contains csv data and pass into the view file
     form_data_list = []
@@ -726,9 +724,8 @@ def validation_stock_correction(self):
     return form_data_list
 
 
-def validation_warehouse_inventory(self):
-    reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
-    user = get_current_user()
+def validation_warehouse_inventory(file, user):
+    reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
     first_row = next(reader)
     # list which contains csv data and pass into the view file
     form_data_list = []
