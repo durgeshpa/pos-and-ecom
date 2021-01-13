@@ -975,6 +975,7 @@ def cancel_order_with_pick(instance):
 
         if pickup_object.status in ['pickup_creation', 'picking_assigned']:
             cancel_pickup(pickup_object)
+            cancel_order(instance)
             info_logger.info('cancel_order_with_pick| Order No-{}, Cancelled Pickup'
                              .format(instance.order_no))
             return
