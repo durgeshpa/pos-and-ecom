@@ -41,7 +41,7 @@ def franchise_sales_returns_inventory():
 
     try:
         # fetch sales data from hdpos
-        to_date = datetime.datetime.now()
+        to_date = datetime.datetime.now() - datetime.timedelta(minutes=60)
         sales_fetch_resp = fetch_franchise_data('sales', to_date)
 
         if 'code' in sales_fetch_resp and sales_fetch_resp['code'] == 'success':
