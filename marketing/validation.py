@@ -60,7 +60,7 @@ def verify(otp, phone_otp_obj, referred=0):
             msg = {'phone_number': user_obj.phone_number,
                    'token': token,
                    'referral_code': user_obj.referral_code,
-                   'name': user_obj.name,
+                   'name': user_obj.name.capitalize() if user_obj.name else '',
                    'email_id': user_obj.email
                    }
             status_code = status.HTTP_200_OK
