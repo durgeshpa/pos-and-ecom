@@ -1,10 +1,11 @@
 from django.conf.urls import url
-from .views import (Registrations, SendSmsOTP, Login, RewardsDashboard)
+from .views import (Registrations, SendSmsOTP, Login, RewardsDashboard, Logout)
 
 
 urlpatterns = [
     url(r'^send/sms/$', SendSmsOTP.as_view(), name="send_sms"),
     url(r'^user/$', Registrations.as_view(), name="user"),
     url(r'^login/$', Login.as_view(), name="login"),
-    url(r'^rewards/$', RewardsDashboard.as_view(), name="rewards")
+    url(r'^rewards/$', RewardsDashboard.as_view(), name="rewards"),
+    url(r'^logout/$', Logout.as_view(), name="logout")
     ]
