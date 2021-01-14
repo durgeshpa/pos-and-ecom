@@ -249,10 +249,9 @@ class GramGRNProductsList(APIView):
             filter_list.append({"ids": {"type": "product", "values": self.product_ids}})
             query = {"bool": {"filter": filter_list}}
             return query
-        if self.category or self.brand or self.keyword:
-            query = {"bool": {"filter": filter_list}}
-        else:
-            return {"term": {"status": True}}
+        query = {"bool": {"filter": filter_list}}
+        if not (self.category or self.brand or self.keyword):
+            return query
         if self.brand:
             brand_name = "{} -> {}".format(Brand.objects.filter(id__in=list(self.brand)).last(), self.keyword)
             filter_list.append({"match": {
@@ -337,10 +336,6 @@ class GramGRNProductsList(APIView):
             products_list = es_search(index="all_products", body=body)
 
         for p in products_list['hits']['hits']:
-            visible_flag = p["_source"].get('visible', None)
-            if visible_flag is not None and not visible_flag:
-                logger.info("visible flag false for {}".format(p["_source"].get('name')))
-                continue
             if is_store_active:
                 if not Product.objects.filter(id=p["_source"]["id"]).exists():
                     logger.info("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
