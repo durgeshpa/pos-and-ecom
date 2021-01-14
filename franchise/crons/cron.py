@@ -103,7 +103,9 @@ def fetch_franchise_data(fetch_name, to_date):
                 cron_logger.info('connected to hdpos | {} {}'.format(fetch_name, from_date))
                 cursor = cnxn.cursor()
 
-                fd = open('franchise/crons/sql/' + fetch_name + '.sql', 'r')
+                module_dir = os.path.dirname(__file__)
+                file_path = os.path.join(module_dir, 'sql/' + fetch_name + '.sql')
+                fd = open(file_path, 'r')
                 sqlfile = fd.read()
                 fd.close()
 
