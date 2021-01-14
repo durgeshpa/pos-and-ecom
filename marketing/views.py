@@ -188,3 +188,35 @@ class RewardsDashboard(GenericAPIView):
             return Response({"error": 'Authentication credentials were not provided.'},
                             status=status.HTTP_401_UNAUTHORIZED)
 
+
+class Logout(GenericAPIView):
+    """
+    This class is used only for Logout API
+    """
+    permission_classes = (AllowAny,)
+    http_method_names = ('delete',)
+
+    @staticmethod
+    def delete(request):
+        """
+        request:-Delete
+        response:- Success and error message
+        """
+        if request.META['HTTP_AUTHORIZATION']:
+            auth = request.META['HTTP_AUTHORIZATION']
+            # to validate token is valid or not
+            resp = MLMUser.authenticate(auth)
+            if not isinstance(resp, str):
+                try:
+                    # query to delete the token in Token model
+                    Token.objects.filter(token=auth.split(" ")[1]).delete()
+                except:
+                    return Response({"error": "Token is not valid."}, status=status.HTTP_401_UNAUTHORIZED)
+
+                return Response({"data": "User has been successfully logged out."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": resp}, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            return Response({"error": 'Authentication credentials were not provided.'},
+                            status=status.HTTP_401_UNAUTHORIZED)
+
