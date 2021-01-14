@@ -106,7 +106,8 @@ INSTALLED_APPS = [
     'django_extensions',
     'franchise.apps.FranchiseConfig',
     'django_tables2',
-    'tablib'
+    'tablib',
+    'global_config'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -347,7 +348,7 @@ CRONJOBS = [
     ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
     ('*/5 * * * *', 'audit.cron.create_picklist_cron'),
     ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
-    ('00 2 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
+    ('30 18 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']

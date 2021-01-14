@@ -1042,7 +1042,7 @@ class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
         qs = ParentProduct.objects.all()
 
         if self.q:
-            qs = qs.filter(name__istartswith=self.q)
+            qs = qs.filter(Q(name__icontains=self.q) | Q(parent_id__icontains=self.q))
 
         return qs
 
@@ -1292,7 +1292,7 @@ class CityAutocomplete(autocomplete.Select2QuerySetView):
 
 class RetailerAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
-        qs = Shop.objects.filter(shop_type__shop_type='r')
+        qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs

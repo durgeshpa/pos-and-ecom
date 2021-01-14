@@ -1,0 +1,45 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block title %}Franchise | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/franchise/">B2C Franchise Management</a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Convert Stock Csv</a>{% endblock %}
+
+{% block content %}
+<div id="content" class="colM">
+    <h1>{% block content_header %}{% endblock %}</h1>
+    <div id="content-main">
+        <ul class="object-tools">
+        </ul>
+        {% if error %}
+        <span class="errornote">{{ error|escape }}</span>
+        {% endif %}
+        <form method="post" enctype="multipart/form-data" id="franchise-stock-upload-form">
+            <div>
+                <fieldset class="module aligned ">
+                    {% csrf_token %}
+                    {{form.as_p}}
+                </fieldset>
+                <div class="form-row field-download-csv">
+                    <li>
+                        <a href="/franchise/download/stockconvert/csv/" id="id_download"> Download Sample Franchise
+                            Stock Upload File</a>
+                    </li>
+                </div>
+                <div class="submit-row">
+                    <input type="submit" value="Save" class="default" name="_save" id="save">
+                </div>
+            </div>
+        </form>
+        {% endblock %}
+        <!-- END Content -->
+
+        {% block javascript %}
+        <script>
+$(document).ready(function() {
+      $("#franchise-stock-upload-form").submit(function( event ) {
+      document.getElementById('save').disabled = true;
+    });
+     });
+
+        </script>
+        {% endblock %}
+

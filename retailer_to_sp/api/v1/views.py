@@ -2200,12 +2200,12 @@ class SellerOrderList(generics.ListAPIView):
 
     def get_shops(self):
         return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'),
-                                              shop__shop_type__shop_type='r', status=True)
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
     def get_employee(self):
         return ShopUserMapping.objects.filter(employee=self.request.user,
                                               employee_group__permissions__codename='can_sales_person_add_shop',
-                                              shop__shop_type__shop_type='r', status=True)
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True)
 
     def get_queryset(self):
         shop_emp = self.get_employee()

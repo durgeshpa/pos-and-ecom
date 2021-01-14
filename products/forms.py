@@ -300,7 +300,7 @@ class ProductPriceNewForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
     buyer_shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
         required=False
     )
@@ -889,7 +889,7 @@ class NewProductPriceUpload(forms.Form):
         required=False
     )
     buyer_shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
         widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
         required=False
     )

@@ -54,6 +54,7 @@ from common.common_utils import create_file_name, create_merge_pdf_name, merge_p
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
+from global_config.models import GlobalConfig
 
 logger = logging.getLogger('django')
 
@@ -619,7 +620,9 @@ def trip_planning_change(request, pk):
                                             shipment_product_batch.save()
                                     shipment.shipment_status='FULLY_DELIVERED_AND_VERIFIED'
                                     shipment.save()
-                        check_franchise_inventory_update(trip)
+                        franchise_inv_add_trip_block = GlobalConfig.objects.filter(key='franchise_inv_add_trip_block').last()
+                        if not franchise_inv_add_trip_block or franchise_inv_add_trip_block.value != 1:
+                            check_franchise_inventory_update(trip)
 
                         return redirect('/admin/retailer_to_sp/trip/')
 
@@ -1247,7 +1250,7 @@ class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
         if not self.request.user.is_authenticated:
             return Shop.objects.none()
 
-        qs = Shop.objects.filter(shop_type__shop_type='r', shop_owner=self.request.user)
+        qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'], shop_owner=self.request.user)
 
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
@@ -1258,10 +1261,10 @@ class BuyerParentShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         seller_shop_id = self.forwarded.get('seller_shop', None)
         if seller_shop_id:
-            qs = Shop.objects.filter(shop_type__shop_type='r', retiler_mapping__parent=seller_shop_id,
+            qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'], retiler_mapping__parent=seller_shop_id,
                                      approval_status=2)
         else:
-            qs = Shop.objects.filter(shop_type__shop_type='r')
+            qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
 
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
@@ -1705,7 +1708,7 @@ class ShippingAddressAutocomplete(autocomplete.Select2QuerySetView):
         qs = None
         buyer_shop = self.forwarded.get('buyer_shop', None)
         qs = Address.objects.filter(
-            shop_name__shop_type__shop_type='r',
+            shop_name__shop_type__shop_type__in=['r', 'f'],
             address_type='shipping',
             shop_name=buyer_shop
         )
@@ -1717,7 +1720,7 @@ class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
         qs = None
         buyer_shop = self.forwarded.get('buyer_shop', None)
         qs = Address.objects.filter(
-            shop_name__shop_type__shop_type='r',
+            shop_name__shop_type__shop_type__in=['r', 'f'],
             address_type='billing',
             shop_name=buyer_shop
         )
