@@ -62,7 +62,9 @@ def fetch_hdpos_users():
     cron_logger.info('connected to hdpos marekting users fetch')
     cursor = cnxn.cursor()
 
-    fd = open('marketing/crons/sql/users_sql.sql', 'r')
+    module_dir = os.path.dirname(__file__)
+    file_path = os.path.join(module_dir, 'sql/users_sql.sql')
+    fd = open(file_path, 'r')
     sqlfile = fd.read()
     fd.close()
 

@@ -178,8 +178,9 @@ class RewardsDashboard(GenericAPIView):
                     serializer = (RewardsSerializer(rewards_obj))
                     data = serializer.data
                 except:
-                    data = {"direct_user_count": '0', "indirect_user_count": '0', "direct_earned": '0',
-                            "indirect_earned": '0', "total_earned": '0', 'used': '0', 'remaining': '0'}
+                    data = {"direct_users_count": '0', "indirect_users_count": '0', "direct_earned_points": '0',
+                            "indirect_earned_points": '0', "total_earned_points": '0', 'points_used': '0',
+                            'remaining_points': '0'}
 
                 return Response({"data": data}, status=status.HTTP_200_OK)
             else:
