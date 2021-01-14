@@ -32,14 +32,14 @@ class RewardsSerializer(serializers.ModelSerializer):
     indirect_users_count = serializers.SerializerMethodField('indirect_users')
     direct_earned_points = serializers.SerializerMethodField('direct_earned')
     indirect_earned_points = serializers.SerializerMethodField('indirect_earned')
-    points_used = serializers.SerializerMethodField('points_used')
+    total_points_used = serializers.SerializerMethodField('points_used')
     total_earned_points = serializers.SerializerMethodField('total_earned')
     remaining_points = serializers.SerializerMethodField('remaining')
 
     class Meta:
         model = RewardPoint
-        fields = ('direct_users_count', 'indirect_users_count', 'direct_earned_points', 'indirect_earned_points', 'points_used',
-                  'total_earned_points', 'remaining_points')
+        fields = ('direct_users_count', 'indirect_users_count', 'direct_earned_points', 'indirect_earned_points',
+                  'total_points_used', 'total_earned_points', 'remaining_points')
 
     def direct_users(self, obj):
         return str(obj.direct_users)

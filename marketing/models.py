@@ -158,9 +158,9 @@ class RewardPoint(models.Model):
     user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
     direct_users = models.IntegerField(default=0)
     indirect_users = models.IntegerField(default=0)
-    direct_earned = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
-    indirect_earned = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
-    points_used = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.00))
+    direct_earned = models.IntegerField(default=0)
+    indirect_earned = models.IntegerField(default=0)
+    points_used = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -168,13 +168,13 @@ class RewardPoint(models.Model):
     def welcome_reward(user, referred=0):
         try:
             conf_obj = GlobalConfig.objects.get(key='welcome_reward_points_referral')
-            on_referral_points = conf_obj.value
+            on_referral_points = int(conf_obj.value)
         except:
             on_referral_points = 10
 
-        points = on_referral_points if referred else on_referral_points / 2
+        points = on_referral_points if referred else int(on_referral_points / 2)
         reward_obj, created = RewardPoint.objects.get_or_create(user=user)
-        reward_obj.direct_earned += round(Decimal(points), 2)
+        reward_obj.direct_earned += points
         reward_obj.save()
 
 
