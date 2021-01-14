@@ -2,7 +2,7 @@ import django_filters
 import openpyxl
 import re
 import logging
-
+from distutils.util import strtobool
 from dal_admin_filters import AutocompleteFilter
 from django.shortcuts import render
 from django.views.generic.base import TemplateView
@@ -64,10 +64,12 @@ class ProductFilter(django_filters.FilterSet):
                                           label='  Parent Id  ')
     product_status = django_filters.AllValuesFilter(field_name='sku_id__status', lookup_expr='exact',
                                                     label='  Product Status  ')
+    visible = django_filters.AllValuesFilter(field_name='visible', lookup_expr='exact',
+                                                    label='  visible  ')
 
     class Meta:
         model = WarehouseInventory
-        fields = ['sku_id', 'parent_id', 'visible', 'product_status']
+        fields = ['sku_id', 'parent_id', 'product_status', 'visible']
 
 
 class ProductTable(tables.Table):
@@ -119,7 +121,9 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                                               'sku__parent_product__parent_product_pro_image',
                                               'sku__product_pro_price__seller_shop',
                                               'sku__rt_audit_sku')
-        self.filter = ProductFilter(self.request.GET, queryset=products)
+        filter=self.request.GET.copy()
+        filter['visible']=''
+        self.filter = ProductFilter(filter, queryset=products)
         products = self.filter.qs
         for myproduct in products:
             if myproduct.sku.product_sku in product_list:
@@ -190,7 +194,16 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
         product_list_new = []
 
         for key, value in product_list.items():
-            product_list_new.append(value)
+            if 'visible' in self.request.GET.keys():
+                if self.request.GET['visible'] =='':
+                    product_list_new.append(value)
+                else:
+                    if value['visibility'] == strtobool(self.request.GET['visible']):
+                        product_list_new.append(value)
+            else:
+                product_list_new.append(value)
+
+
         return product_list_new
 
     def get_context_data(self, **kwargs):
