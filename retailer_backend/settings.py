@@ -105,6 +105,8 @@ INSTALLED_APPS = [
     'audit',
     'django_extensions',
     'franchise.apps.FranchiseConfig',
+    'django_tables2',
+    'tablib',
     'global_config'
 ]
 
