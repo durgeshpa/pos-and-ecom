@@ -173,15 +173,16 @@ class RewardsDashboard(GenericAPIView):
             auth = request.META['HTTP_AUTHORIZATION']
             resp = MLMUser.authenticate(auth)
             if not isinstance(resp, str):
+                user_name = resp.name if resp.name else ''
                 try:
                     rewards_obj = RewardPoint.objects.get(user=resp)
                     serializer = (RewardsSerializer(rewards_obj))
                     data = serializer.data
                 except:
                     data = {"direct_users_count": '0', "indirect_users_count": '0', "direct_earned_points": '0',
-                            "indirect_earned_points": '0', "total_earned_points": '0', 'points_used': '0',
+                            "indirect_earned_points": '0', "total_earned_points": '0', 'total_points_used': '0',
                             'remaining_points': '0'}
-
+                data['name'] = user_name
                 return Response({"data": data}, status=status.HTTP_200_OK)
             else:
                 return Response({"error": resp}, status=status.HTTP_401_UNAUTHORIZED)
