@@ -15,9 +15,9 @@ from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_DETA
     AUDIT_DETAIL_STATE_CHOICES, AUDIT_RUN_STATUS_CHOICES, AUDIT_TICKET_STATUS_CHOICES, AUDIT_INVENTORY_CHOICES, \
     AUDIT_RUN_TYPE_CHOICES, AUDIT_LEVEL_CHOICES, AuditRun
 from retailer_backend.admin import InputFilter
+from retailer_backend.utils import time_diff_days_hours_mins_secs
 from wms.models import Bin
-from .utils import get_audit_start_time, get_audit_complete_time, get_audit_completion_time_string, \
-    time_diff_days_hours_mins_secs
+from .utils import get_audit_start_time, get_audit_complete_time, get_audit_completion_time_string
 from .views import bulk_audit_csv_upload_view,AuditDownloadSampleCSV
 from audit.models import AuditDetail, AuditTicket, AuditTicketManual, AUDIT_TICKET_STATUS_CHOICES, \
     AuditCancelledPicklist, AuditProduct, AUDIT_LEVEL_CHOICES, AUDIT_DETAIL_STATE_CHOICES, AUDIT_DETAIL_STATUS_CHOICES
