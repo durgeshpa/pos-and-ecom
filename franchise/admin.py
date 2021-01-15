@@ -180,7 +180,7 @@ class FranchiseSalesAdmin(admin.ModelAdmin, ExportSalesReturns):
 @admin.register(FranchiseReturns)
 class FranchiseReturnsAdmin(admin.ModelAdmin, ExportSalesReturns):
     list_display = ['id', 'shop_loc', 'shop_name', 'barcode', 'product_sku', 'quantity', 'amount', 'process_status',
-                    'error', 'sr_number', 'sr_date', 'sr_date_full', 'created_at', 'modified_at']
+                    'error', 'sr_number', 'sr_date', 'sr_date_full', 'invoice_date', 'created_at', 'modified_at']
     list_per_page = 50
     actions = ["export_as_csv_sales_returns"]
     list_filter = [ShopLocFilter, BarcodeFilter, SkuFilter, ('sr_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
