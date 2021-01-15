@@ -14,6 +14,8 @@ from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjust
     OrderedProductReserved
 from django.db.models import Sum, Q
 from dal import autocomplete
+
+from wms.common_functions import get_stock
 from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm, BeatUserMappingCsvViewForm
 
 from wms.models import BinInventory, InventoryType, InventoryState, WarehouseInventory
@@ -54,38 +56,9 @@ class ShopMappedProduct(TemplateView):
                                              'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
             #   'product__product_gf_code',
             context['shop_products'] = product_sum
-
-
         elif shop_obj.shop_type.shop_type in ['sp', 'f']:
-            product_list = {}
-            bin_inventory_state = InventoryState.objects.filter(inventory_state="total_available").last()
-            products = WarehouseInventory.objects.filter(warehouse=shop_obj, inventory_state=bin_inventory_state)
-
-            for myproduct in products:
-                if myproduct.sku.product_sku in product_list:
-                    product_temp = product_list[myproduct.sku.product_sku]
-                    product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
-                else:
-                    # product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop_obj, approval_status=2)
-                    try:
-                        parent_id = myproduct.sku.parent_product.parent_id
-                        parent_name = myproduct.sku.parent_product.name
-                    except:
-                        parent_id = ''
-                        parent_name = ''
-                    product_temp = {
-                        'sku': myproduct.sku.product_sku,
-                        'name': myproduct.sku.product_name,
-                        myproduct.inventory_type.inventory_type: myproduct.quantity,
-                        'mrp': myproduct.sku.product_mrp,
-                        'parent_id': parent_id,
-                        'parent_name': parent_name
-                        # 'mrp': product_mrp.last().mrp if product_mrp.exists() else ''}
-                    }
-
-                product_list[myproduct.sku.product_sku] = product_temp
+            product_list = get_shop_products(shop_obj)
             context['products'] = product_list
-
         return context
 
 
@@ -116,34 +89,40 @@ class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs
 
+def get_shop_products(shop_obj):
+    """
+    Takes the instance of Shop
+    Returns dictionary of all products for this shop where available quantity > 0
+    params :
+        shop_obj : instance of SHop
+    returns :
+        product_list : dictionary of product id : product details
+    """
+    product_list = {}
+    inv_type_qs = InventoryType.objects.all()
+    for inv_type in inv_type_qs:
+        product_qty_dict = get_stock(shop_obj, inv_type)
+        products = Product.objects.filter(id__in=product_qty_dict.keys())
+
+        for p in products:
+            if product_list.get(p.product_sku) is None:
+                product_temp = {
+                    'sku': p.product_sku,
+                    'name': p.product_name,
+                    'mrp': p.product_mrp,
+                    'parent_id': p.parent_product.parent_id if p.parent_product else '',
+                    'parent_name': p.parent_product.name if p.parent_product else '',
+                    'product_ean_code': p.product_ean_code,
+                    'weight': f'{p.weight_value} {p.weight_unit}'
+                }
+                product_list[p.product_sku] = product_temp
+            product_list[p.product_sku][inv_type.inventory_type] = product_qty_dict[p.id]
+    return product_list
 
 def shop_stock_download(request, shop_id):
     filename = "shop_stock_" + shop_id + ".csv"
     shop = Shop.objects.get(pk=shop_id)
-    product_list = {}
-    bin_inventory_state = InventoryState.objects.filter(inventory_state="total_available").last()
-    products = WarehouseInventory.objects.filter(warehouse=shop, inventory_state=bin_inventory_state)
-
-    for myproduct in products:
-        if myproduct.sku.product_sku in product_list:
-            product_temp = product_list[myproduct.sku.product_sku]
-            product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
-        else:
-            # product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop, approval_status=2)
-            product_temp = {
-                'sku': myproduct.sku.product_sku,
-                'name': myproduct.sku.product_name,
-                myproduct.inventory_type.inventory_type: myproduct.quantity,
-                'mrp': myproduct.sku.product_mrp,
-                'parent_id': myproduct.sku.parent_product.parent_id,
-                'parent_name': myproduct.sku.parent_product.name,
-                'product_ean_code': myproduct.sku.product_ean_code,
-                'weight': f'{myproduct.sku.weight_value} {myproduct.sku.weight_unit}'
-                # 'mrp': product_mrp.last().mrp if product_mrp.exists() else ''
-            }
-
-        product_list[myproduct.sku.product_sku] = product_temp
-
+    product_list = get_shop_products(shop)
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
