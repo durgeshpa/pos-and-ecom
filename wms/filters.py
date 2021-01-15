@@ -39,7 +39,7 @@ class InventoryStateFilter(autocomplete.Select2QuerySetView):
         if not self.request.user.is_authenticated:
             return InventoryState.objects.none()
 
-        qs = InventoryState.objects.all()
+        qs = InventoryState.objects.exclude(inventory_state='available')
 
         if self.q:
             qs = qs.filter(inventory_state_name__icontains=self.q)
