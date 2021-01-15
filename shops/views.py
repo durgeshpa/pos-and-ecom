@@ -27,7 +27,8 @@ from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingC
 from django.views.generic.edit import FormView
 import csv
 import codecs
-from datetime import datetime
+#from datetime import datetime
+import datetime
 from django.db import transaction
 from addresses.models import Address, State, City, Pincode
 from django.contrib.auth import get_user_model
@@ -112,7 +113,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
     def get_table_data(self, **kwargs):
         self.shop = get_object_or_404(Shop, pk=self.kwargs.get('pk'))
         product_list = {}
-        today = datetime.today()
+        today = datetime.datetime.today()
         bin_inventory_state = InventoryState.objects.filter(inventory_state="available").last()
         inventory_type_normal = InventoryType.objects.filter(inventory_type="normal").last()
         products = WarehouseInventory.objects.filter(warehouse=self.shop, inventory_state=
@@ -146,7 +147,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     parent_name = ''
                     case_size = ''
                 binproducts = myproduct.sku.rt_product_sku.all()
-                earliest_expiry_date = datetime.strptime("01/01/2300", "%d/%m/%Y")
+                earliest_expiry_date = datetime.datetime.strptime("01/01/2300", "%d/%m/%Y")
                 product_image = ''
                 if myproduct.sku.use_parent_image:
                     # product_image = myproduct.sku.parent_product.parent_product_pro_image.last()
@@ -155,7 +156,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     product_image = myproduct.sku.child_product_pro_image
                 for binproduct in binproducts:
                     exp_date_str = get_expiry_date(batch_id=binproduct.batch_id)
-                    exp_date = datetime.strptime(exp_date_str, "%d/%m/%Y")
+                    exp_date = datetime.datetime.strptime(exp_date_str, "%d/%m/%Y")
                     if earliest_expiry_date > exp_date:
                         earliest_expiry_date = exp_date
                 price_list = myproduct.sku.product_pro_price.all()
