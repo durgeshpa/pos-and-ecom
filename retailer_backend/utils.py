@@ -1,10 +1,6 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
 
 from rest_framework.pagination import LimitOffsetPagination
 
-from products.models import Product
 
 class SmallOffsetPagination(LimitOffsetPagination):
     """
@@ -59,4 +55,3 @@ def dhms_from_seconds(seconds):
     hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)
     return (days, hours, minutes, seconds)
-

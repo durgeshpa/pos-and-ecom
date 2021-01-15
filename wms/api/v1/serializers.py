@@ -1,4 +1,3 @@
-from datetime import datetime
 
 from django.utils.safestring import mark_safe
 from rest_framework import serializers

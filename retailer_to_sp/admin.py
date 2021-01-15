@@ -1,9 +1,8 @@
 # python imports
 import csv
 import logging
-from datetime import datetime
+import datetime
 
-import jsonpickle
 # django imports
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
 from dal_admin_filters import AutocompleteFilter
@@ -24,7 +23,7 @@ from django.shortcuts import redirect
 from rangefilter.filter import DateTimeRangeFilter
 from retailer_backend.admin import InputFilter
 from retailer_backend.utils import time_diff_days_hours_mins_secs
-from retailer_to_sp.api.v1.views import DownloadInvoiceSP, pdf_generation
+from retailer_to_sp.api.v1.views import DownloadInvoiceSP
 from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, load_dispatches, order_invoices,
                                   ordered_product_mapping_shipment, trip_planning, trip_planning_change,
                                   update_shipment_status_verified, reshedule_update_shipment, RetailerCart, assign_picker,
@@ -754,7 +753,6 @@ class Pincode(InputFilter):
         if value :
             return queryset.filter(shipping_address__pincode=value)
         return queryset
-from django.contrib.admin.views.main import ChangeList
 
 
 class PickerDashboardAdmin(admin.ModelAdmin):
@@ -828,7 +826,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
     def change_picking_status(self, request, queryset):
         # queryset.filter(Q(order__picking_status='picking_in_progress')).update(Q(order__picking_status='picking_complete'))
-        queryset.update(picking_status='picking_complete', completed_at=datetime.now())
+        queryset.update(picking_status='picking_complete', completed_at=datetime.datetime.now())
     change_picking_status.short_description = "Mark selected orders as picking completed"
 
     def get_queryset(self, request):
@@ -871,15 +869,22 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
 
     def completed_at(self, obj):
+        """
+        Returns the time when picking was completed
+        return completed_at if completed_at is set in  else fetch the completed_at from Pickup table
+        """
         if obj.completed_at:
             return obj.completed_at
-        if obj.order is None:
-            return None
-        if Pickup.objects.filter(pickup_type_id=obj.order.order_no, status='picking_complete').exists():
-            return Pickup.objects.filter(pickup_type_id=obj.order.order_no,
-                                         status='picking_complete').last().completed_at
+        if obj.order:
+            if Pickup.objects.filter(pickup_type_id=obj.order.order_no, status='picking_complete').exists():
+                return Pickup.objects.filter(pickup_type_id=obj.order.order_no,
+                                             status='picking_complete').last().completed_at
 
     def picking_completion_time(self, obj):
+        """
+        Returns the duration between picking creation and picking completion
+        returned value format  x days n hrs m mins y secs
+        """
         completed_at = self.completed_at(obj)
         if completed_at:
             return time_diff_days_hours_mins_secs(completed_at, obj.created_at)
