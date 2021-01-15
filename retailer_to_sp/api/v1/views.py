@@ -242,16 +242,16 @@ class GramGRNProductsList(APIView):
     def search_query(self, request):
         filter_list = [
             {"term": {"status": True}},
+            {"term": {"visible": True}},
             {"range": {"available": {"gt": 0}}}
         ]
         if self.product_ids:
             filter_list.append({"ids": {"type": "product", "values": self.product_ids}})
             query = {"bool": {"filter": filter_list}}
             return query
-        if self.category or self.brand or self.keyword:
-            query = {"bool": {"filter": filter_list}}
-        else:
-            return {"term": {"status": True}}
+        query = {"bool": {"filter": filter_list}}
+        if not (self.category or self.brand or self.keyword):
+            return query
         if self.brand:
             brand_name = "{} -> {}".format(Brand.objects.filter(id__in=list(self.brand)).last(), self.keyword)
             filter_list.append({"match": {
@@ -260,21 +260,18 @@ class GramGRNProductsList(APIView):
 
         elif self.keyword:
             q = {
-                "match": {
-                    "name": {"query": self.keyword, "fuzziness": "AUTO", "operator": "and"}
+                    "multi_match": {
+                        "query":     self.keyword,
+                        "fields":    ["name", "category", "brand"],
+                        "type":      "best_fields",
+                        "fuzziness": "AUTO"
+                    }
                 }
-            }
-            # else:
-            #    q = {"match_all":{}}
-            filter_list.append(q)
+            query["bool"]["must"] = [q]
         if self.category:
             category_filter = str(categorymodel.Category.objects.filter(id__in=self.category, status=True).last())
-            q = {
-                "match": {
-                    "category": {"query": category_filter, "operator": "and"}
-                }
-            }
-            filter_list.append(q)
+            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+
         return query
 
     def post(self, request, format=None):
@@ -337,11 +334,8 @@ class GramGRNProductsList(APIView):
                 "_source": {"includes": ["name", "product_images", "pack_size", "weight_unit", "weight_value", "visible"]}
             }
             products_list = es_search(index="all_products", body=body)
+
         for p in products_list['hits']['hits']:
-            visible_flag = p["_source"].get('visible', None)
-            if visible_flag is not None and not visible_flag:
-                logger.info("visible flag false for {}".format(p["_source"].get('name')))
-                continue
             if is_store_active:
                 if not Product.objects.filter(id=p["_source"]["id"]).exists():
                     logger.info("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
@@ -369,13 +363,13 @@ class GramGRNProductsList(APIView):
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
                 if not check_price:
                     continue
-                # check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
+                # # check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
                 check_price_mrp = product.product_mrp
                 p["_source"]["ptr"] = check_price.selling_price
                 p["_source"]["mrp"] = check_price_mrp
                 p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
-                loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
-                cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
+                # loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
+                # cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:

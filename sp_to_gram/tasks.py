@@ -136,6 +136,9 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		product_categories = [str(c.category) for c in
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
 		product_details = {
+			"sku": product.product_sku,
+			"parent_id": product.parent_product.parent_id,
+			"parent_name":product.parent_product.name,
 			"name": product.product_name,
 			"name_lower": product.product_name.lower(),
 			"brand": str(product.product_brand),
@@ -144,7 +147,6 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"mrp": mrp,
 			"ptr": ptr,
 			"status": status,
-			"pack_size": pack_size,
 			"id": product.id,
 			"weight_value": weight_value,
 			"weight_unit": weight_unit,
