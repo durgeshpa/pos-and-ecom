@@ -296,7 +296,7 @@ def get_stock(shop):
        :return: """
     return WarehouseInventory.objects.filter(
         Q(warehouse=shop),
-        Q(quantity__gt=0),
+        # Q(quantity__gt=0),
         Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
         Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
         Q(in_stock='t')
@@ -2046,7 +2046,7 @@ def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_produc
 
 
 def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type, transaction_id, final_type,
-                           initial_type, initial_stage, final_stage, bin_obj):
+                           initial_type, initial_stage, final_stage, bin_obj, shipped=True):
 
     InCommonFunctions.create_only_in(warehouse, transaction_type, transaction_id, sku, batch_id, quantity,
                                      final_type[0])
@@ -2070,7 +2070,7 @@ def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type,
 
     CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, 'normal', 'available', quantity, True)
 
-    if transaction_type == 'franchise_returns':
+    if transaction_type == 'franchise_returns' and shipped:
         CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, 'normal', 'shipped', quantity * -1, True)
     WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, transaction_type, transaction_id,
                                                                        initial_type[0], initial_stage[0], final_type[0],

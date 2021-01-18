@@ -289,6 +289,8 @@ def process_returns_data():
             final_type = InventoryType.objects.filter(inventory_type='normal').last(),
             initial_stage = InventoryState.objects.filter(inventory_state='shipped').last(),
             final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+            initial_type1 = InventoryType.objects.filter(inventory_type='new').last(),
+            initial_stage1 = InventoryState.objects.filter(inventory_state='new').last(),
 
             for return_obj in returns_objs:
                 if not ShopLocationMap.objects.filter(location_name=return_obj.shop_loc).exists():
@@ -319,13 +321,18 @@ def process_returns_data():
                                                                                      inventory_state=initial_stage[0],
                                                                                      inventory_type=initial_type[0],
                                                                                      in_stock=True).last()
-                        if not ware_house_inventory_obj:
+                        shipped = True
+                        if return_obj.invoice_date and return_obj.invoice_date != '' and return_obj.invoice_date < '2020-12-29':
+                            shipped = False
+                            initial_type = initial_type1
+                            initial_stage = initial_stage1
+                        if not ware_house_inventory_obj and shipped:
                             update_sales_ret_obj(return_obj, 2, 'shipping warehouse object does not exist')
-                        elif ware_house_inventory_obj.quantity < return_obj.quantity * -1:
+                        elif ware_house_inventory_obj.quantity < return_obj.quantity * -1 and shipped:
                             update_sales_ret_obj(return_obj, 2, 'quantity not present in shipped warehouse entry')
                         else:
                             franchise_inventory_in(warehouse, sku, batch_id, return_obj.quantity * -1, 'franchise_returns', return_obj.id,
-                                                   final_type, initial_type, initial_stage, final_stage, bin_obj)
+                                                   final_type, initial_type, initial_stage, final_stage, bin_obj, shipped)
                             update_sales_ret_obj(return_obj, 1)
 
                 except Exception as e:
