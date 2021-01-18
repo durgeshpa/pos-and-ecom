@@ -25,12 +25,12 @@ def get_warehouse_stock(shop_id=None,product=None):
 	if shop_id:
 		shop = Shop.objects.get(id=shop_id)
 		if product is None:
-			stock = get_stock(shop).filter(quantity__gt=0,).values('sku__id','visible').annotate(available_qty=Sum('quantity'))
+			stock = get_stock(shop).values('sku__id','visible').annotate(available_qty=Sum('quantity'))
 			product_dict = {g['sku__id']: {'qty':g['available_qty'],'visible':g['visible']} for g in stock}
 		else:
 			stock_p = get_product_stock(shop, product)
 			if stock_p:
-				stock = stock_p.filter(quantity__gt=0, ).values('sku__id','visible').annotate(available_qty=Sum('quantity'))
+				stock = stock_p.values('sku__id','visible').annotate(available_qty=Sum('quantity'))
 				product_dict = {g['sku__id']: {'qty':g['available_qty'],'visible':g['visible']} for g in stock}
 			else:
 				product_dict = {product.id: 0}
@@ -131,7 +131,7 @@ def get_warehouse_stock(shop_id=None,product=None):
 			visible=product_dict[product.id]['visible']
 		else:
 			visible=True
-
+			
 		product_details = {
 			"name": product.product_name,
 			"name_lower": product.product_name.lower(),
