@@ -839,7 +839,7 @@ def cancel_order(instance):
     """
     with transaction.atomic():
         # get the queryset object form warehouse internal inventory model
-        ware_house_internal = WarehouseInternalInventoryChange.objects.filter(
+        ware_house_internal = WarehouseInternalInventoryChange.objects.filter(warehouse=instance.seller_shop_id,
             transaction_id=instance.order_no,
             final_stage=InventoryState.objects.filter(inventory_state='ordered').last(), transaction_type='ordered')
         # fetch all sku
@@ -849,7 +849,7 @@ def cancel_order(instance):
         # iterate over sku and quantity
         for prod, qty in zip(sku_id, quantity):
             # get the queryset from warehouse inventory model for normal and available
-            wim = WarehouseInventory.objects.filter(sku__id=prod,
+            wim = WarehouseInventory.objects.filter(warehouse=instance.seller_shop_id, sku__id=prod,
                                                     inventory_state__inventory_state='available',
                                                     inventory_type__inventory_type='normal').last()
             wim_quantity = wim.quantity
@@ -859,7 +859,7 @@ def cancel_order(instance):
             #wim.update(quantity=wim_quantity + qty)
 
             # get the queryset from warehouse inventory model for ordered and normal
-            wim_ordered = WarehouseInventory.objects.filter(sku__id=prod,
+            wim_ordered = WarehouseInventory.objects.filter(warehouse=instance.seller_shop_id, sku__id=prod,
                                                             inventory_state__inventory_state='ordered',
                                                             inventory_type__inventory_type='normal').last()
             wim_ordered_quantity = wim_ordered.quantity
