@@ -104,7 +104,10 @@ INSTALLED_APPS = [
     'wms',
     'audit',
     'django_extensions',
-    'franchise.apps.FranchiseConfig'
+    'franchise.apps.FranchiseConfig',
+    'django_tables2',
+    'tablib',
+    'global_config'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -347,7 +350,6 @@ CRONJOBS = [
     ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
     ('00 2 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
     ('*/5 * * * *', 'products.cron.deactivate_capping'),
-
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']

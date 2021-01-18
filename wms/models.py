@@ -145,7 +145,7 @@ class WarehouseInventory(models.Model):
     in_stock = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    visible = models.BooleanField(default=True)
+    visible = models.BooleanField(default=False)
 
     class Meta:
         db_table = "wms_warehouse_inventory"

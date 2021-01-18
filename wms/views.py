@@ -9,6 +9,7 @@ import openpyxl
 import re
 import logging
 
+from celery.task import task
 from django.db.models.functions import Length
 from django.utils import timezone
 from rest_framework import status
@@ -34,7 +35,7 @@ from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
-    get_expiry_date_db, get_visibility_changes, get_stock, InternalWarehouseChange
+    get_expiry_date_db, get_visibility_changes,get_stock, update_visibility
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
@@ -481,7 +482,6 @@ class StockMovementCsvView(FormView):
             status = '400'
         return JsonResponse(result, status)
 
-
 def commit_updates_to_es(shop, product):
     """
     :param shop:
@@ -507,6 +507,8 @@ def commit_updates_to_es(shop, product):
     visibility_changes = get_visibility_changes(shop, product)
     if visibility_changes:
         for prod_id, visibility in visibility_changes.items():
+            sibling_product=Product.objects.filter(pk=prod_id).last()
+            update_visibility(shop,sibling_product,visibility)
             if prod_id == product.id:
                 update_product_es.delay(shop.id, product.id, available=available_qty, status=status, visible=visibility)
             else:
