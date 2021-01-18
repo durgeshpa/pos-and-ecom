@@ -19,7 +19,7 @@ from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjust
 from django.db.models import Sum, Q
 from dal import autocomplete
 
-from wms.common_functions import get_stock,get_expiry_date
+from wms.common_functions import get_stock, get_expiry_date
 
 from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm, BeatUserMappingCsvViewForm
 
@@ -28,7 +28,7 @@ from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingC
 from django.views.generic.edit import FormView
 import csv
 import codecs
-#from datetime import datetime
+# from datetime import datetime
 import datetime
 from django.db import transaction
 from addresses.models import Address, State, City, Pincode
@@ -50,6 +50,7 @@ from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 
 logger = logging.getLogger('shop')
 
+
 class Skufilter(AutocompleteFilter):
     title = 'SKU'
     field_name = 'sku__product_sku'
@@ -66,7 +67,7 @@ class ProductFilter(django_filters.FilterSet):
     product_status = django_filters.AllValuesFilter(field_name='sku_id__status', lookup_expr='exact',
                                                     label='  Product Status  ')
     visible = django_filters.AllValuesFilter(field_name='visible', lookup_expr='exact',
-                                                    label='  visible  ')
+                                             label='  visible  ')
 
     class Meta:
         model = WarehouseInventory
@@ -89,7 +90,7 @@ class ProductTable(tables.Table):
     active_product_price = tables.Column()
     price_end_date = tables.Column()
     earliest_expiry_date = tables.Column()
-    audit_blocked=tables.Column()
+    audit_blocked = tables.Column()
     visibility = tables.Column()
     normal = tables.Column()
     damaged = tables.Column()
@@ -114,30 +115,23 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
         self.shop = get_object_or_404(Shop, pk=self.kwargs.get('pk'))
         product_list = {}
         today = datetime.datetime.today()
-        bin_inventory_state = InventoryState.objects.filter(inventory_state="available").last()
+        inventory_state_total_available = InventoryState.objects.filter(inventory_state="total_available").last()
         inventory_type_normal = InventoryType.objects.filter(inventory_type="normal").last()
-        products = WarehouseInventory.objects.filter(warehouse=self.shop, inventory_state=
-        bin_inventory_state).prefetch_related('sku', 'inventory_type', 'sku__product_pro_price', 'sku__rt_product_sku',
-                                              'sku__parent_product', 'sku__child_product_pro_image',
-                                              'sku__parent_product__parent_product_pro_image',
-                                              'sku__product_pro_price__seller_shop',
-                                              'sku__rt_audit_sku')
-        filter=self.request.GET.copy()
-        filter['visible']=''
+        products = WarehouseInventory.objects.filter(warehouse=self.shop).prefetch_related('sku', 'inventory_type',
+                                                                                           'inventory_state',
+                                                                                           'sku__product_pro_price',
+                                                                                           'sku__rt_product_sku',
+                                                                                           'sku__parent_product',
+                                                                                           'sku__child_product_pro_image',
+                                                                                           'sku__parent_product__parent_product_pro_image',
+                                                                                           'sku__product_pro_price__seller_shop',
+                                                                                           'sku__rt_audit_sku')
+        filter = self.request.GET.copy()
+        filter['visible'] = ''
         self.filter = ProductFilter(filter, queryset=products)
         products = self.filter.qs
         for myproduct in products:
-            if myproduct.sku.product_sku in product_list:
-                product_temp = product_list[myproduct.sku.product_sku]
-                product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
-                if myproduct.inventory_type == inventory_type_normal:
-                    product_temp['visibility'] = myproduct.visible
-
-            else:
-                if myproduct.inventory_type == inventory_type_normal:
-                    visible = myproduct.visible
-                else:
-                    visible = False
+            if myproduct.sku.product_sku not in product_list:
                 try:
                     parent_id = myproduct.sku.parent_product.parent_id
                     parent_name = myproduct.sku.parent_product.name
@@ -148,12 +142,6 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     case_size = ''
                 binproducts = myproduct.sku.rt_product_sku.all()
                 earliest_expiry_date = datetime.datetime.strptime("01/01/2300", "%d/%m/%Y")
-                product_image = ''
-                if myproduct.sku.use_parent_image:
-                    # product_image = myproduct.sku.parent_product.parent_product_pro_image.last()
-                    product_image = myproduct.sku.child_product_pro_image
-                else:
-                    product_image = myproduct.sku.child_product_pro_image
                 for binproduct in binproducts:
                     exp_date_str = get_expiry_date(batch_id=binproduct.batch_id)
                     exp_date = datetime.datetime.strptime(exp_date_str, "%d/%m/%Y")
@@ -177,7 +165,6 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                 product_temp = {
                     'sku': myproduct.sku.product_sku,
                     'name': myproduct.sku.product_name,
-                    myproduct.inventory_type.inventory_type: myproduct.quantity,
                     'mrp': myproduct.sku.product_mrp,
                     'parent_id': parent_id,
                     'parent_name': parent_name,
@@ -187,23 +174,34 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     'active_product_price': is_price,
                     'price_end_date': price_end_date,
                     'earliest_expiry_date': earliest_expiry_date.date(),
-                    'visibility': visible,
-                    'audit_blocked':audit_blocked,
+                    'normal':0,
+                    'damaged':0,
+                    'expired':0,
+                    'missing':0,
+                    'visibility':False,
+                    'audit_blocked': audit_blocked,
                 }
+            else:
+                product_temp = product_list[myproduct.sku.product_sku]
+            if myproduct.inventory_state.inventory_state=='total_available':
+                product_temp[myproduct.inventory_type.inventory_type]+=myproduct.quantity
+                if myproduct.inventory_type == inventory_type_normal:
+                    product_temp['visibility'] = myproduct.visible
+            elif myproduct.inventory_state.inventory_state in ('reserved','ordered','to_be_picked'):
+                product_temp[myproduct.inventory_type.inventory_type]-=myproduct.quantity
 
             product_list[myproduct.sku.product_sku] = product_temp
         product_list_new = []
 
         for key, value in product_list.items():
             if 'visible' in self.request.GET.keys():
-                if self.request.GET['visible'] =='':
+                if self.request.GET['visible'] == '':
                     product_list_new.append(value)
                 else:
                     if value['visibility'] == strtobool(self.request.GET['visible']):
                         product_list_new.append(value)
             else:
                 product_list_new.append(value)
-
 
         return product_list_new
 
@@ -239,6 +237,7 @@ class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs
+
 
 def get_shop_products(shop_obj):
     """

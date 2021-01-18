@@ -17,7 +17,7 @@ from wms.common_functions import get_visibility_changes
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 import logging
 
-from wms.models import InventoryType
+from wms.models import InventoryType,WarehouseInventory,InventoryState
 
 info_logger = logging.getLogger('file-info')
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
@@ -89,10 +89,10 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			info_logger.exception("pack size is not defined for {}".format(product.product_name))
 			continue
 		if product_dict:
-			if int(pack_size) > int(product_dict[product.id]['qty']):
+			if int(pack_size) > int(product_dict[product.id]):
 				status = False
 			else:
-				available_qty = int(int(product_dict[product.id]['qty']) / int(pack_size))
+				available_qty = int(int(product_dict[product.id]) / int(pack_size))
 		try:
 			for p_o in product_opt:
 				weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
@@ -136,8 +136,10 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		product_categories = [str(c.category) for c in
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
 		visible=False
-		if  product_dict:
-			visible=product_dict[product.id]['visible']
+		if product_dict:
+			visible=WarehouseInventory.objects.filter(warehouse=shop,sku=product,inventory_state=InventoryState.objects.filter(
+                inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_type='normal').last()).last()
 		else:
 			visible=True
 
@@ -163,7 +165,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"no_of_pieces": no_of_pieces,
 			"sub_total": sub_total,
 			"available": available_qty,
-			"visible":visible
+			"visible":visible.visible
 		}
 		yield(product_details)
 
@@ -175,6 +177,8 @@ def upload_shop_stock(shop=None,product=None):
 	all_products = get_warehouse_stock(shop,product)
 	es_index = shop if shop else 'all_products'
 	count = 0
+	if product is None:
+		es.indices.delete(index=create_es_index(es_index), ignore=[400, 404])
 	for product in all_products:
 		info_logger.info(product)
 		try:

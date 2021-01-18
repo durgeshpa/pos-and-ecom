@@ -2025,13 +2025,13 @@ def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type,
 
 def update_visibility(shop,product,visible):
     WarehouseInventory.objects.filter(warehouse=shop,sku=product,inventory_state=InventoryState.objects.filter(
-                inventory_state='available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
                 inventory_type='normal').last()).update(visible=visible)
 
 def update_visibility_bulk(shop_id):
     shop = Shop.objects.filter(pk=shop_id).last()
     products = WarehouseInventory.objects.filter(warehouse=shop,inventory_state=InventoryState.objects.filter(
-                inventory_state='available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
                 inventory_type='normal').last())
     parent_list = []
     for product in products:
