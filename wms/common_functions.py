@@ -296,7 +296,7 @@ def get_stock(shop):
        :return: """
     return WarehouseInventory.objects.filter(
         Q(warehouse=shop),
-        Q(quantity__gt=0),
+        # Q(quantity__gt=0),
         Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
         Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
         Q(in_stock='t')
