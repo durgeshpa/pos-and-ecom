@@ -1194,9 +1194,6 @@ def UploadMasterDataSampleExcelFile(request, *args):
                                               'product__status',
                                               'product__repackaging_type')\
                                               .filter(category=int(category_id))
-    now = datetime.datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print("Current Time =", current_time)
     for product in products:
         row = []
         tax_list = []
@@ -1209,8 +1206,6 @@ def UploadMasterDataSampleExcelFile(request, *args):
         row.append(product['product__parent_product__product_hsn__product_hsn_code'])
         row.append(product['product__weight_unit'])
         row.append(product['product__weight_value'])
-        # taxes = ProductTaxMapping.objects.values('tax__tax_name', 'tax__tax_type').filter(
-        #     product=product['product__id'])
         taxes = ProductTaxMapping.objects.select_related('tax').filter(product=product['product__id'])
         for tax in taxes:
             if tax.tax.tax_type == 'gst':
@@ -1236,8 +1231,6 @@ def UploadMasterDataSampleExcelFile(request, *args):
             row.append('')
             row.append('')
             row.append('')
-        if row_num == 299 or row_num == 298:
-            print(tax_list)
         row.append(product['product__parent_product__brand_case_size'])
         row.append(product['product__parent_product__inner_case_size'])
 
@@ -1288,9 +1281,6 @@ def UploadMasterDataSampleExcelFile(request, *args):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = cell_value
 
-    now = datetime.datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print("Current Time =", current_time)
     workbook.save(response)
     info_logger.info("Master Data Sample Excel File has been Successfully Downloaded")
     return response
@@ -1425,7 +1415,7 @@ def set_parent_data_sample_excel_file(request, *args):
     parent_products = ParentProductCategory.objects.values('parent_product__id','parent_product__parent_id',
                                                            'parent_product__name',
                                                            'parent_product__product_type',
-                                                           'parent_product__product_hsn',
+                                                           'parent_product__product_hsn__product_hsn_code',
                                                            'parent_product__brand_case_size',
                                                            'parent_product__inner_case_size',
                                                            'parent_product__parent_brand__id',
@@ -1437,16 +1427,13 @@ def set_parent_data_sample_excel_file(request, *args):
                                                            'category__category_parent__category_name',
                                                            'parent_product__status').filter(
                                                             category=int(category_id))
-    now = datetime.datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print("Current Time =", current_time)
     for product in parent_products:
         row = []
         tax_list = []
         row.append(product['parent_product__parent_id'])
         row.append(product['parent_product__name'])
         row.append(product['parent_product__product_type'])
-        row.append(product['parent_product__product_hsn'])
+        row.append(product['parent_product__product_hsn__product_hsn_code'])
         taxes = ParentProductTaxMapping.objects.select_related('tax').filter(parent_product=product['parent_product__id'])
         for tax in taxes:
             if tax.tax.tax_type == 'gst':
@@ -1455,6 +1442,10 @@ def set_parent_data_sample_excel_file(request, *args):
                 tax_list.insert(1, tax.tax.tax_name)
             if tax.tax.tax_type == 'surcharge':
                 tax_list.insert(2, tax.tax.tax_name)
+        if len(tax_list) == 4:
+            row.append(tax_list[0])
+            row.append(tax_list[1])
+            row.append(tax_list[2])
         if len(tax_list) == 3:
             row.extend(tax_list)
         if len(tax_list) == 1:
@@ -1463,6 +1454,10 @@ def set_parent_data_sample_excel_file(request, *args):
             row.append('')
         if len(tax_list) == 2:
             row.extend(tax_list)
+            row.append('')
+        if len(tax_list) == 0:
+            row.append('')
+            row.append('')
             row.append('')
         row.append(product['parent_product__brand_case_size'])
         row.append(product['parent_product__inner_case_size'])
@@ -1498,10 +1493,6 @@ def set_parent_data_sample_excel_file(request, *args):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = cell_value
 
-    now = datetime.datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print("Current Time =", current_time)
-
     workbook.save(response)
     info_logger.info("Parent Data Sample Excel File has been Successfully Downloaded")
     return response
@@ -1525,8 +1516,8 @@ def set_child_data_sample_excel_file(request, *args):
     # Sheet header, first row
     row_num = 1
 
-    columns = ['sku_id', 'sku_name', 'ean', 'mrp', 'hsn', 'weight_unit', 'weight_value', 'status',
-               'repackaging_type', 'source_sku_id', 'source_sku_name', 'raw_material',
+    columns = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value',
+               'status', 'repackaging_type', 'source_sku_id', 'source_sku_name', 'raw_material',
                'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
                'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
     mandatory_columns = ['sku_id', 'sku_name', 'status']
@@ -1541,20 +1532,16 @@ def set_child_data_sample_excel_file(request, *args):
 
     products = ProductCategory.objects.values('product__id', 'product__product_sku', 'product__product_name',
                                               'product__product_ean_code', 'product__product_mrp',
-                                              'product__parent_product__product_hsn__product_hsn_code',
                                               'product__weight_unit', 'product__weight_value',
                                               'product__status', 'product__repackaging_type').filter(
                                                category=Category.objects.get(id=int(category_id)))
-    now = datetime.datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print("Current Time =", current_time)
     for product in products:
         row = []
+        tax_list = []
         row.append(product['product__product_sku'])
         row.append(product['product__product_name'])
         row.append(product['product__product_ean_code'])
         row.append(product['product__product_mrp'])
-        row.append(product['product__parent_product__product_hsn__product_hsn_code'])
         row.append(product['product__weight_unit'])
         row.append(product['product__weight_value'])
         row.append(product['product__status'])
@@ -1582,9 +1569,6 @@ def set_child_data_sample_excel_file(request, *args):
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = cell_value
-    now = datetime.datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print("Current Time =", current_time)
     workbook.save(response)
     info_logger.info("Child Data Sample Excel File has been Successfully Downloaded")
     return response

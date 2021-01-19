@@ -3,7 +3,7 @@ import logging
 from brand.models import Brand
 from categories.models import Category
 from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
-    Repackaging, DestinationRepackagingCostMapping
+    Repackaging, DestinationRepackagingCostMapping, ProductTaxMapping
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -155,6 +155,8 @@ class UploadMasterData(object):
                                 tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
                                 ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
                                     tax=tax[0])
+                                # product = Product.objects.filter(product_sku=row['sku_id'])
+                                # ProductTaxMapping.objects.filter(product=product[0].id).update(tax=tax[0])
                             if col == 'tax_2(cess)':
                                 tax = Tax.objects.filter(tax_name=row['tax_2(cess)'])
                                 ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
@@ -228,7 +230,7 @@ class UploadMasterData(object):
                     try:
                         Product.objects.filter(product_sku=row['sku_id']).update(product_name=row['sku_name'],
                                                                                  status='active')
-                        fields = ['ean', 'mrp', 'hsn', 'weight_unit', 'weight_value']
+                        fields = ['ean', 'mrp', 'weight_unit', 'weight_value']
                         for col in fields:
                             if col in row.keys():
                                 if row[col] != '':
@@ -242,9 +244,6 @@ class UploadMasterData(object):
                                 Product.objects.filter(product_sku=row['sku_id']).update(product_ean_code=row['ean'])
                             if col == 'mrp':
                                 Product.objects.filter(product_sku=row['sku_id']).update(product_mrp=row['mrp'])
-                            if col == 'hsn':
-                                Product.objects.filter(product_sku=row['sku_id']).update(product_hsn=ProductHSN.objects.filter(
-                                                       product_hsn_code=row['hsn']).last())
                             if col == 'weight_value':
                                 Product.objects.filter(product_sku=row['sku_id']).update(weight_value=row['weight_value'])
                         if 'repackaging_type' in row.keys():
@@ -263,7 +262,7 @@ class UploadMasterData(object):
                                                                                  conversion_cost=row['conversion_cost'])
                             else:
                                 continue
-                    except:
+                    except Exception as e:
                         child_data.append(str(row_num) + ' ' + str(e))
                 else:
                     continue

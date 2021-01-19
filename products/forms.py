@@ -741,7 +741,7 @@ class UploadMasterDataAdminForm(forms.Form):
                 if 'hsn' in header_list and 'hsn' in row.keys():
                     if row['hsn'] != '':
                         if not ProductHSN.objects.filter(
-                                product_hsn_code=str(row['hsn']).replace("'", '')).exists():
+                                product_hsn_code=row['hsn']).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['hsn']} |'HSN' doesn't exist in the system."))
                 if 'tax_1(gst)' in header_list and 'tax_1(gst)' in row.keys():
                     if row['tax_1(gst)'] != '':
@@ -843,6 +843,17 @@ class UploadMasterDataAdminForm(forms.Form):
                                 if not Product.objects.filter(product_name=row['source_sku_name']).exists():
                                     raise ValidationError(_(f"Row {row_num} | {row['source_sku_name']} |"
                                                             f"'Source SKU Name' doesn't exist in the system."))
+                if 'source_sku_id' in header_list and 'source_sku_id' in row.keys():
+                    if row['source_sku_id'] != '':
+                        if not Product.objects.filter(product_sku=row['source_sku_id']).exists():
+                            raise ValidationError(
+                                _(f"Row {row_num} | {row['source_sku_id']} | 'Source SKU ID' doesn't exist."))
+                if 'source_sku_name' in header_list and 'source_sku_name' in row.keys():
+                    if row['source_sku_name'] != '':
+                        if not Product.objects.filter(product_name=row['source_sku_name']).exists():
+                            raise ValidationError(_(f"Row {row_num} | {row['source_sku_name']} |"
+                                                    f"'Source SKU Name' doesn't exist in the system."))
+
         except ValueError as e:
             raise ValidationError(_(f"Row {row_num} | ValueError : {e} | Please Enter valid Data"))
         except KeyError as e:
@@ -1019,7 +1030,10 @@ class UploadMasterDataAdminForm(forms.Form):
             self.check_headers(excel_file_headers, required_header_list)
 
         if upload_master_data == "child_data":
-            required_header_list = ['sku_id', 'sku_name', 'ean', 'mrp', 'status']
+            required_header_list = ['sku_id', 'sku_name', 'ean', 'mrp', 'weight_unit', 'weight_value',
+                                    'status', 'repackaging_type', 'source_sku_id', 'source_sku_name',
+                                    'raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
+                                    'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
             excel_file_header_list = excel_file[0]  # headers of the uploaded excel file
             excel_file_headers = [str(ele).lower() for ele in
                                   excel_file_header_list]  # Converting headers into lowercase
@@ -1055,23 +1069,23 @@ class UploadMasterDataAdminForm(forms.Form):
             raise ValidationError("Please add some data below the headers to upload it!")
 
     def clean_file(self):
-        # try:
-        if self.cleaned_data.get('file'):
-            if not self.cleaned_data['file'].name[-5:] in ('.xlsx'):
-                raise forms.ValidationError("Sorry! Only excel(xlsx) file accepted.")
-            excel_file_data = self.auto_id['Users']
+        try:
+            if self.cleaned_data.get('file'):
+                if not self.cleaned_data['file'].name[-5:] in ('.xlsx'):
+                    raise forms.ValidationError("Sorry! Only excel(xlsx) file accepted.")
+                excel_file_data = self.auto_id['Users']
 
-            # Checking, whether excel file is empty or not!
-            if excel_file_data:
-                self.read_file(excel_file_data, self.data['upload_master_data'])
+                # Checking, whether excel file is empty or not!
+                if excel_file_data:
+                    self.read_file(excel_file_data, self.data['upload_master_data'])
+                else:
+                    raise ValidationError("Excel File cannot be empty.Please add some data to upload it!")
+
+                return self.cleaned_data['file']
             else:
-                raise ValidationError("Excel File cannot be empty.Please add some data to upload it!")
-
-            return self.cleaned_data['file']
-        else:
-            raise ValidationError("Excel File is required!")
-        # except Exception as e:
-        #     raise ValidationError(str(e))
+                raise ValidationError("Excel File is required!")
+        except Exception as e:
+            raise ValidationError(str(e))
 
 
 class ProductsFilterForm(forms.Form):
