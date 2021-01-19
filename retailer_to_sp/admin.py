@@ -1060,7 +1060,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
         pickup_object = Pickup.objects.filter(pickup_type_id=obj.order_no, status='picking_complete').last()
         if pickup_object:
-            return time_diff_days_hours_mins_secs(pickup_object.completed_at, pd_entry.picker_assigned_date)
+            return time_diff_days_hours_mins_secs(pickup_object.completed_at, pickup_object.created_at)
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
 
