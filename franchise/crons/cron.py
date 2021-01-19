@@ -317,26 +317,25 @@ def process_returns_data():
                     with transaction.atomic():
                         default_expiry = datetime.date(int(config('FRANCHISE_IN_DEFAULT_EXPIRY_YEAR')), 1, 1)
                         batch_id = '{}{}'.format(sku.product_sku, default_expiry.strftime('%d%m%y'))
-                        ware_house_inventory_obj = WarehouseInventory.objects.filter(warehouse=warehouse, sku=sku,
-                                                                                     inventory_state=initial_stage[0],
-                                                                                     inventory_type=initial_type[0],
-                                                                                     in_stock=True).last()
-                        shipped = True
-                        if return_obj.invoice_date and return_obj.invoice_date != '' and return_obj.invoice_date < '2020-12-29':
-                            shipped = False
-                            initial_type = initial_type1
-                            initial_stage = initial_stage1
-                        if not ware_house_inventory_obj and shipped:
-                            update_sales_ret_obj(return_obj, 2, 'shipping warehouse object does not exist')
-                        elif ware_house_inventory_obj.quantity < return_obj.quantity * -1 and shipped:
-                            update_sales_ret_obj(return_obj, 2, 'quantity not present in shipped warehouse entry')
-                        else:
+
+                        if return_obj.invoice_date and return_obj.invoice_date != '' and return_obj.invoice_date < datetime.datetime(2020, 12, 29, 0, 0, 0):
                             franchise_inventory_in(warehouse, sku, batch_id, return_obj.quantity * -1, 'franchise_returns', return_obj.id,
-                                                   final_type, initial_type, initial_stage, final_stage, bin_obj, shipped)
+                                                   final_type, initial_type1, initial_stage1, final_stage, bin_obj, False)
                             update_sales_ret_obj(return_obj, 1)
-
+                        else:
+                            ware_house_inventory_obj = WarehouseInventory.objects.filter(warehouse=warehouse, sku=sku,
+                                                                                         inventory_state=initial_stage[0],
+                                                                                         inventory_type=initial_type[0],
+                                                                                         in_stock=True).last()
+                            if not ware_house_inventory_obj:
+                                update_sales_ret_obj(return_obj, 2, 'shipping warehouse object does not exist')
+                            elif ware_house_inventory_obj.quantity < return_obj.quantity * -1:
+                                update_sales_ret_obj(return_obj, 2, 'quantity not present in shipped warehouse entry')
+                            else:
+                                franchise_inventory_in(warehouse, sku, batch_id, return_obj.quantity * -1, 'franchise_returns', return_obj.id,
+                                                       final_type, initial_type, initial_stage, final_stage, bin_obj, True)
+                                update_sales_ret_obj(return_obj, 1)
                 except Exception as e:
-
                     exc_type, exc_obj, exc_tb = sys.exc_info()
                     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                     update_sales_ret_obj(return_obj, 2, "{} {} {}".format(exc_type, fname, exc_tb.tb_lineno))
