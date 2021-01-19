@@ -868,7 +868,7 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
         order_reserve_obj.update(
             warehouse_internal_inventory_release=WarehouseInternalInventoryChange.objects.filter(
                 transaction_id=transaction_id).last(),
-            release_time=datetime.now(), release_type=release_type,
+            release_time=datetime.datetime.now(), release_type=release_type,
             ordered_quantity=transaction_quantity)
 
 
