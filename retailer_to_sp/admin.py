@@ -887,7 +887,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         """
         completed_at = self.completed_at(obj)
         if completed_at:
-            return time_diff_days_hours_mins_secs(completed_at, obj.created_at)
+            return time_diff_days_hours_mins_secs(completed_at, obj.picker_assigned_date)
 
 
 
@@ -1054,10 +1054,13 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         return obj.total_mrp_amount
 
     def picking_completion_time(self, obj):
-        pickup_object = Pickup.objects.filter(pickup_type_id=obj.order_no,
-                                              status='picking_complete')
-        if pickup_object.exists():
-            return time_diff_days_hours_mins_secs(pickup_object.last().completed_at, pickup_object.last().created_at)
+        pd_entry = PickerDashboard.objects.filter(order=obj, picking_status='picking_complete').last()
+        if pd_entry and pd_entry.completed_at:
+            return time_diff_days_hours_mins_secs(pd_entry.completed_at, pd_entry.picker_assigned_date)
+
+        pickup_object = Pickup.objects.filter(pickup_type_id=obj.order_no, status='picking_complete').last()
+        if pickup_object:
+            return time_diff_days_hours_mins_secs(pickup_object.completed_at, pd_entry.picker_assigned_date)
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
 
