@@ -11,6 +11,7 @@ import boto3
 from botocore.exceptions import ClientError
 from decouple import config
 import openpyxl
+from openpyxl.styles import Font
 from pyexcel_xlsx import get_data as xlsx_get
 
 from django.http import HttpResponse, JsonResponse
@@ -48,7 +49,7 @@ from products.models import (
     ParentProduct, ParentProductCategory,
     ProductSourceMapping,
     ParentProductTaxMapping, Tax, ParentProductImage,
-    DestinationRepackagingCostMapping, BulkUploadForProductAttributes
+    DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging
 )
 
 logger = logging.getLogger(__name__)
@@ -1139,10 +1140,11 @@ def product_csv_upload(request):
     return render(request, 'admin/products/child-product-upload.html', {'form': form})
 
 
-def UploadMasterDataSampleExcelFile(request):
+def UploadMasterDataSampleExcelFile(request, *args):
     """
     This function will return an Sample Excel File in xlsx format which can be used for uploading the master_data
     """
+    category_id = request.GET['category_id']
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
@@ -1156,28 +1158,435 @@ def UploadMasterDataSampleExcelFile(request):
     # Sheet header, first row
     row_num = 1
 
-    columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'weight_unit',
-               'weight_value', 'hsn', 'tax_1(gst)', 'tax_2(cess/surcharge)', 'brand_case_size',
-               'inner_case_size', 'sub_brand_id', 'sub_brand_name', 'brand_id', 'brand_name',
-               'sub_category_id', 'sub_category_name', 'category_id', 'category_name',
-               'status', ]
+    columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'hsn',
+               'weight_unit', 'weight_value', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
+               'brand_case_size', 'inner_case_size',  'brand_id', 'brand_name', 'sub_brand_id',
+               'sub_brand_name','category_id', 'category_name', 'sub_category_id', 'sub_category_name',
+               'status', 'repackaging_type', 'source_sku_id', 'source_sku_name',  'raw_material',
+               'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
+               'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
+    mandatory_columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status']
 
     for col_num, column_title in enumerate(columns, 1):
         cell = worksheet.cell(row=row_num, column=col_num)
         cell.value = column_title
+        if column_title in mandatory_columns:
+            ft = Font(color="000000FF", name="Arial", b=True)
+        else:
+            ft = Font(color="00000000", name="Arial", b=True)
+        cell.font = ft
 
-    row_num = 2
+    products = ProductCategory.objects.values('product__id', 'product__product_sku', 'product__product_name',
+                                              'product__parent_product__parent_id',
+                                              'product__parent_product__name',
+                                              'product__product_ean_code', 'product__product_mrp',
+                                              'product__parent_product__product_hsn__product_hsn_code',
+                                              'product__weight_unit', 'product__weight_value',
+                                              'product__parent_product__brand_case_size',
+                                              'product__parent_product__inner_case_size',
+                                              'product__parent_product__parent_brand__id',
+                                              'product__parent_product__parent_brand__brand_name',
+                                              'product__parent_product__parent_brand__brand_parent_id',
+                                              'product__parent_product__parent_brand__brand_parent__brand_name',
+                                              'category__id', 'category__category_name',
+                                              'category__category_parent_id',
+                                              'category__category_parent__category_name',
+                                              'product__status',
+                                              'product__repackaging_type')\
+                                              .filter(category=int(category_id))
+    now = datetime.datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    print("Current Time =", current_time)
+    for product in products:
+        row = []
+        tax_list = []
+        row.append(product['product__product_sku'])
+        row.append(product['product__product_name'])
+        row.append(product['product__parent_product__parent_id'])
+        row.append(product['product__parent_product__name'])
+        row.append(product['product__product_ean_code'])
+        row.append(product['product__product_mrp'])
+        row.append(product['product__parent_product__product_hsn__product_hsn_code'])
+        row.append(product['product__weight_unit'])
+        row.append(product['product__weight_value'])
+        # taxes = ProductTaxMapping.objects.values('tax__tax_name', 'tax__tax_type').filter(
+        #     product=product['product__id'])
+        taxes = ProductTaxMapping.objects.select_related('tax').filter(product=product['product__id'])
+        for tax in taxes:
+            if tax.tax.tax_type == 'gst':
+                tax_list.insert(0, tax.tax.tax_name)
+            if tax.tax.tax_type == 'cess':
+                tax_list.insert(1, tax.tax.tax_name)
+            if tax.tax.tax_type == 'surcharge':
+                tax_list.insert(2, tax.tax.tax_name)
+        if len(tax_list) == 4:
+            row.append(tax_list[0])
+            row.append(tax_list[1])
+            row.append(tax_list[2])
+        if len(tax_list) == 3:
+            row.extend(tax_list)
+        if len(tax_list) == 1:
+            row.extend(tax_list)
+            row.append('')
+            row.append('')
+        if len(tax_list) == 2:
+            row.extend(tax_list)
+            row.append('')
+        if len(tax_list) == 0:
+            row.append('')
+            row.append('')
+            row.append('')
+        if row_num == 299 or row_num == 298:
+            print(tax_list)
+        row.append(product['product__parent_product__brand_case_size'])
+        row.append(product['product__parent_product__inner_case_size'])
 
-    column_list = ['NDPPROMAG00000018', 'Maggi Magic masala, 6.2 gm (Buy 4 + get 1 Free)', 'PSNGNES0016',
-                   'Maggi Magic masala, 6.2 gm', '89010588772972', '5.00', 'Gram', '10', '910',
-                   'GST-12', '', '2304', '12', '35', 'Maggi', '34', 'Nestle', '118', 'Spices, Herb & Seasoning',
-                   '114', 'Staples & Grocery', 'Active', ]
+        if product['product__parent_product__parent_brand__brand_parent_id']:
+            row.append(product['product__parent_product__parent_brand__brand_parent_id'])
+            row.append(product['product__parent_product__parent_brand__brand_parent__brand_name'])
+            row.append(product['product__parent_product__parent_brand__id'])
+            row.append(product['product__parent_product__parent_brand__brand_name'])
+        else:
+            row.append(product['product__parent_product__parent_brand__id'])
+            row.append(product['product__parent_product__parent_brand__brand_name'])
+            row.append(product['product__parent_product__parent_brand__brand_parent_id'])
+            row.append(product['product__parent_product__parent_brand__brand_parent__brand_name'])
 
-    for col_num, column_title in enumerate(column_list, 1):
+        if product['category__category_parent_id']:
+            row.append(product['category__category_parent_id'])
+            row.append(product['category__category_parent__category_name'])
+            row.append(product['category__id'])
+            row.append(product['category__category_name'])
+        else:
+            row.append(product['category__id'])
+            row.append(product['category__category_name'])
+            row.append(product['category__category_parent_id'])
+            row.append(product['category__category_parent__category_name'])
+
+        row.append(product['product__status'])
+        source_sku_name = Repackaging.objects.select_related('source_sku').filter(source_sku=product['product__id'])
+        for sourceSKU in source_sku_name:
+            row.append(sourceSKU.source_sku.product_sku)
+            row.append(sourceSKU.source_sku.product_name)
+            break
+        costs = DestinationRepackagingCostMapping.objects.values('raw_material', 'wastage', 'fumigation',
+                                                                 'label_printing', 'packing_labour', 'primary_pm_cost',
+                                                                 'secondary_pm_cost', 'final_fg_cost',
+                                                                 'conversion_cost').filter(destination=product['product__id'])
+        for cost in costs:
+            row.append(cost['raw_material'])
+            row.append(cost['wastage'])
+            row.append(cost['fumigation'])
+            row.append(cost['label_printing'])
+            row.append(cost['packing_labour'])
+            row.append(cost['primary_pm_cost'])
+            row.append(cost['secondary_pm_cost'])
+            row.append(cost['final_fg_cost'])
+            row.append(cost['conversion_cost'])
+        row_num += 1
+        for col_num, cell_value in enumerate(row, 1):
+            cell = worksheet.cell(row=row_num, column=col_num)
+            cell.value = cell_value
+
+    now = datetime.datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    print("Current Time =", current_time)
+    workbook.save(response)
+    info_logger.info("Master Data Sample Excel File has been Successfully Downloaded")
+    return response
+
+
+def set_inactive_status_sample_excel_file(request):
+    """
+    This function will return an Sample Excel File in xlsx format which can be used for set Active Status
+    """
+    category_id = request.GET['category_id']
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename={date}-active_inactive_status_sample.xlsx'.format(
+        date=datetime.datetime.now().strftime('%d_%b_%y_%I_%M'),
+    )
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Users'
+
+    # Sheet header, first row
+    row_num = 1
+
+    columns = ['sku_id', 'sku_name', 'mrp', 'status', ]
+    mandatory_columns = ['sku_id', 'sku_name', 'status']
+
+    for col_num, column_title in enumerate(columns, 1):
         cell = worksheet.cell(row=row_num, column=col_num)
         cell.value = column_title
+        if column_title in mandatory_columns:
+            ft = Font(color="000000FF", name="Arial", b=True)
+        else:
+            ft = Font(color="00000000", name="Arial", b=True)
+        cell.font = ft
+
+    products = ProductCategory.objects.values('product__product_sku', 'product__product_name', 'product__status',
+                                              'product__product_mrp')\
+                                            .filter(category=int(category_id))
+    for product in products:
+        row = [product['product__product_sku'], product['product__product_name'], product['product__product_mrp'],
+               product['product__status']]
+        row_num += 1
+        for col_num, cell_value in enumerate(row, 1):
+            cell = worksheet.cell(row=row_num, column=col_num)
+            cell.value = cell_value
 
     workbook.save(response)
+    info_logger.info("Set Inactive Status Sample Excel File has been Successfully Downloaded")
+    return response
+
+
+def set_child_with_parent_sample_excel_file(request):
+    """
+    This function will return an Sample Excel File in xlsx format which can be used for Child and Parent Mapping
+    """
+    category_id = request.GET['category_id']
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename={date}-child_parent_mapping_data_sample.xlsx'.format(
+        date=datetime.datetime.now().strftime('%d_%b_%y_%I_%M'),
+    )
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Users'
+
+    # Sheet header, first row
+    row_num = 1
+
+    columns = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'status', ]
+
+    for col_num, column_title in enumerate(columns, 1):
+        cell = worksheet.cell(row=row_num, column=col_num)
+        cell.value = column_title
+        ft = Font(color="000000FF", name="Arial", b=True)
+        cell.font = ft
+
+    products = ProductCategory.objects.values('product__product_sku', 'product__product_name',
+                                              'product__parent_product__parent_id', 'product__parent_product__name',
+                                              'product__status').filter(category=int(category_id))
+
+    for product in products:
+        row = []
+        row.append(product['product__product_sku'])
+        row.append(product['product__product_name'])
+        row.append(product['product__parent_product__parent_id'])
+        row.append(product['product__parent_product__name'])
+        row.append(product['product__status'])
+        row_num += 1
+        for col_num, cell_value in enumerate(row, 1):
+            cell = worksheet.cell(row=row_num, column=col_num)
+            cell.value = cell_value
+
+    workbook.save(response)
+    info_logger.info("Child Parent Mapping Sample Excel File has been Successfully Downloaded")
+    return response
+
+
+def set_parent_data_sample_excel_file(request, *args):
+    """
+    This function will return an Sample Excel File in xlsx format which can be used for set parent product data
+    """
+    category_id = request.GET['category_id']
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename={date}-parent_data_sample.xlsx'.format(
+        date=datetime.datetime.now().strftime('%d_%b_%y_%I_%M'),
+    )
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Users'
+
+    # Sheet header, first row
+    row_num = 1
+
+    columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)', 'brand_case_size',
+               'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
+               'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
+               'status', ]
+    mandatory_columns = ['parent_id', 'parent_name', 'status']
+
+    for col_num, column_title in enumerate(columns, 1):
+        cell = worksheet.cell(row=row_num, column=col_num)
+        cell.value = column_title
+        if column_title in mandatory_columns:
+            ft = Font(color="000000FF", name="Arial", b=True)
+        else:
+            ft = Font(color="00000000", name="Arial", b=True)
+        cell.font = ft
+
+    parent_products = ParentProductCategory.objects.values('parent_product__id','parent_product__parent_id',
+                                                           'parent_product__name',
+                                                           'parent_product__product_type',
+                                                           'parent_product__product_hsn',
+                                                           'parent_product__brand_case_size',
+                                                           'parent_product__inner_case_size',
+                                                           'parent_product__parent_brand__id',
+                                                           'parent_product__parent_brand__brand_name',
+                                                           'parent_product__parent_brand__brand_parent_id',
+                                                           'parent_product__parent_brand__brand_parent__brand_name',
+                                                           'category__id', 'category__category_name',
+                                                           'category__category_parent_id',
+                                                           'category__category_parent__category_name',
+                                                           'parent_product__status').filter(
+                                                            category=int(category_id))
+    now = datetime.datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    print("Current Time =", current_time)
+    for product in parent_products:
+        row = []
+        tax_list = []
+        row.append(product['parent_product__parent_id'])
+        row.append(product['parent_product__name'])
+        row.append(product['parent_product__product_type'])
+        row.append(product['parent_product__product_hsn'])
+        taxes = ParentProductTaxMapping.objects.select_related('tax').filter(parent_product=product['parent_product__id'])
+        for tax in taxes:
+            if tax.tax.tax_type == 'gst':
+                tax_list.insert(0, tax.tax.tax_name)
+            if tax.tax.tax_type == 'cess':
+                tax_list.insert(1, tax.tax.tax_name)
+            if tax.tax.tax_type == 'surcharge':
+                tax_list.insert(2, tax.tax.tax_name)
+        if len(tax_list) == 3:
+            row.extend(tax_list)
+        if len(tax_list) == 1:
+            row.extend(tax_list)
+            row.append('')
+            row.append('')
+        if len(tax_list) == 2:
+            row.extend(tax_list)
+            row.append('')
+        row.append(product['parent_product__brand_case_size'])
+        row.append(product['parent_product__inner_case_size'])
+
+        if product['parent_product__parent_brand__brand_parent_id']:
+            row.append(product['parent_product__parent_brand__brand_parent_id'])
+            row.append(product['parent_product__parent_brand__brand_parent__brand_name'])
+            row.append(product['parent_product__parent_brand__id'])
+            row.append(product['parent_product__parent_brand__brand_name'])
+        else:
+            row.append(product['parent_product__parent_brand__id'])
+            row.append(product['parent_product__parent_brand__brand_name'])
+            row.append(product['parent_product__parent_brand__brand_parent_id'])
+            row.append(product['parent_product__parent_brand__brand_parent__brand_name'])
+
+        if product['category__category_parent_id']:
+            row.append(product['category__category_parent_id'])
+            row.append(product['category__category_parent__category_name'])
+            row.append(product['category__id'])
+            row.append(product['category__category_name'])
+        else:
+            row.append(product['category__id'])
+            row.append(product['category__category_name'])
+            row.append(product['category__category_parent_id'])
+            row.append(product['category__category_parent__category_name'])
+
+        if type(product['parent_product__status']):
+            row.append("active")
+        else:
+            row.append("deactivated")
+        row_num += 1
+        for col_num, cell_value in enumerate(row, 1):
+            cell = worksheet.cell(row=row_num, column=col_num)
+            cell.value = cell_value
+
+    now = datetime.datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    print("Current Time =", current_time)
+
+    workbook.save(response)
+    info_logger.info("Parent Data Sample Excel File has been Successfully Downloaded")
+    return response
+
+
+def set_child_data_sample_excel_file(request, *args):
+    """
+    This function will return an Sample Excel File in xlsx format which can be used for uploading the master_data
+    """
+    category_id = request.GET['category_id']
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename={date}-child_data_sample.xlsx'.format(
+        date=datetime.datetime.now().strftime('%d_%b_%y_%I_%M'),
+    )
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Users'
+
+    # Sheet header, first row
+    row_num = 1
+
+    columns = ['sku_id', 'sku_name', 'ean', 'mrp', 'hsn', 'weight_unit', 'weight_value', 'status',
+               'repackaging_type', 'source_sku_id', 'source_sku_name', 'raw_material',
+               'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
+               'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
+    mandatory_columns = ['sku_id', 'sku_name', 'status']
+    for col_num, column_title in enumerate(columns, 1):
+        cell = worksheet.cell(row=row_num, column=col_num)
+        cell.value = column_title
+        if column_title in mandatory_columns:
+            ft = Font(color="000000FF", name="Arial", b=True)
+        else:
+            ft = Font(color="00000000", name="Arial", b=True)
+        cell.font = ft
+
+    products = ProductCategory.objects.values('product__id', 'product__product_sku', 'product__product_name',
+                                              'product__product_ean_code', 'product__product_mrp',
+                                              'product__parent_product__product_hsn__product_hsn_code',
+                                              'product__weight_unit', 'product__weight_value',
+                                              'product__status', 'product__repackaging_type').filter(
+                                               category=Category.objects.get(id=int(category_id)))
+    now = datetime.datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    print("Current Time =", current_time)
+    for product in products:
+        row = []
+        row.append(product['product__product_sku'])
+        row.append(product['product__product_name'])
+        row.append(product['product__product_ean_code'])
+        row.append(product['product__product_mrp'])
+        row.append(product['product__parent_product__product_hsn__product_hsn_code'])
+        row.append(product['product__weight_unit'])
+        row.append(product['product__weight_value'])
+        row.append(product['product__status'])
+        row.append(product['product__repackaging_type'])
+        source_sku_name = Repackaging.objects.select_related('source_sku').filter(source_sku=product['product__id'])
+        for sourceSKU in source_sku_name:
+            row.append(sourceSKU.source_sku.product_sku)
+            row.append(sourceSKU.source_sku.product_name)
+            break
+        costs = DestinationRepackagingCostMapping.objects.values('raw_material', 'wastage', 'fumigation',
+                                                                 'label_printing', 'packing_labour', 'primary_pm_cost',
+                                                                 'secondary_pm_cost', 'final_fg_cost',
+                                                                 'conversion_cost').filter(destination=product['product__id'])
+        for cost in costs:
+            row.append(cost['raw_material'])
+            row.append(cost['wastage'])
+            row.append(cost['fumigation'])
+            row.append(cost['label_printing'])
+            row.append(cost['packing_labour'])
+            row.append(cost['primary_pm_cost'])
+            row.append(cost['secondary_pm_cost'])
+            row.append(cost['final_fg_cost'])
+            row.append(cost['conversion_cost'])
+        row_num += 1
+        for col_num, cell_value in enumerate(row, 1):
+            cell = worksheet.cell(row=row_num, column=col_num)
+            cell.value = cell_value
+    now = datetime.datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    print("Current Time =", current_time)
+    workbook.save(response)
+    info_logger.info("Child Data Sample Excel File has been Successfully Downloaded")
     return response
 
 
@@ -1200,27 +1609,38 @@ def category_sub_category_mapping_sample_excel_file(request):
     # Sheet header, first row
     row_num = 1
 
-    columns = ['sub_category_id', 'sub_category_name', 'category_id', 'category_name', ]
+    columns = ['category_id', 'category_name', 'sub_category_id', 'sub_category_name',]
+    mandatory_columns = ['category_id', 'category_name']
 
     for col_num, column_title in enumerate(columns, 1):
         cell = worksheet.cell(row=row_num, column=col_num)
         cell.value = column_title
-
-    products = Category.objects.all().values_list('id', 'category_name', 'category_parent_id')
-    for row in products:
-        row = list(row)
-        if row[-1]:
-            category_parent_name = Category.objects.filter(id=row[-1]).values_list('category_name').first()
-            row.append(category_parent_name[0])
+        if column_title in mandatory_columns:
+            ft = Font(color="000000FF", name="Arial", b=True)
         else:
-            category_parent_name = ''
-            row.append(category_parent_name)
+            ft = Font(color="00000000", name="Arial", b=True)
+        cell.font = ft
+
+    products = Category.objects.values('id', 'category_name', 'category_parent_id', 'category_parent__category_name')
+    for product in products:
+        row = []
+        if product['category_parent_id']:
+            row.append(product['category_parent_id'])
+            row.append(product['category_parent__category_name'])
+            row.append(product['id'])
+            row.append(product['category_name'])
+        else:
+            row.append(product['id'])
+            row.append(product['category_name'])
+            row.append(product['category_parent_id'])
+            row.append(product['category_parent__category_name'])
         row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = cell_value
 
     workbook.save(response)
+    info_logger.info("Category and Sub Category Mapping Sample Excel File has been Successfully Downloaded")
     return response
 
 
@@ -1244,26 +1664,39 @@ def brand_sub_brand_mapping_sample_excel_file(request):
     row_num = 1
 
     columns = ['brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name', ]
+    mandatory_columns = ['brand_id', 'brand_name']
 
     for col_num, column_title in enumerate(columns, 1):
         cell = worksheet.cell(row=row_num, column=col_num)
         cell.value = column_title
-
-    products = Brand.objects.all().values_list('id', 'brand_name', 'brand_parent_id')
-    for row in products:
-        row = list(row)
-        if row[-1]:
-            brand_parent_name = Brand.objects.filter(id=row[-1]).values_list('brand_name').first()
-            row.append(brand_parent_name[0])
+        if column_title in mandatory_columns:
+            ft = Font(color="000000FF", name="Arial", b=True)
         else:
-            brand_parent_name = ''
-            row.append(brand_parent_name)
+            ft = Font(color="00000000", name="Arial", b=True)
+        cell.font = ft
+
+    products = Brand.objects.values('id', 'brand_name', 'brand_parent_id', 'brand_parent__brand_name')
+    for product in products:
+        row = []
+        if product['brand_parent_id']:
+            row.append(product['brand_parent_id'])
+            row.append(product['brand_parent__brand_name'])
+            row.append(product['id'])
+            row.append(product['brand_name'])
+
+        else:
+            row.append(product['id'])
+            row.append(product['brand_name'])
+            row.append(product['brand_parent_id'])
+            row.append(product['brand_parent__brand_name'])
+
         row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = cell_value
 
     workbook.save(response)
+    info_logger.info("Brand and Sub Brand Mapping Sample Excel File has been Successfully Downloaded")
     return response
 
 
@@ -1377,6 +1810,14 @@ def FetchAllParentCategories(request):
 
     return JsonResponse(data, safe=False)
 
+
+def FetchAllParentCategoriesWithID(request):
+    data = { 'categories': [] }
+    categories = Category.objects.all()
+    for category in categories:
+        data['categories'].append(category.category_name + "@" + str(category.id))
+
+    return JsonResponse(data, safe=False)
 
 def FetchAllProductBrands(request):
     data = { 'brands': [] }

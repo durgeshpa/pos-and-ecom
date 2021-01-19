@@ -45,7 +45,8 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
                     ParentProductMultiPhotoUploadView, cart_product_list_status, upload_master_data_view,
-                    UploadMasterDataSampleExcelFile,
+                    UploadMasterDataSampleExcelFile, set_child_with_parent_sample_excel_file,
+                    set_inactive_status_sample_excel_file, set_child_data_sample_excel_file, set_parent_data_sample_excel_file,
                     category_sub_category_mapping_sample_excel_file, brand_sub_brand_mapping_sample_excel_file,
                     ParentProductMultiPhotoUploadView, cart_product_list_status,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor)
@@ -902,6 +903,26 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="upload-master-data-sample-excel-file"
             ),
             url(
+               r'^parent-data-sample-excel-file/$',
+               self.admin_site.admin_view(set_parent_data_sample_excel_file),
+               name="parent-data-sample-excel-file"
+            ),
+            url(
+               r'^child-data-sample-excel-file/$',
+               self.admin_site.admin_view(set_child_data_sample_excel_file),
+               name="child-data-sample-excel-file"
+            ),
+            url(
+               r'^parent-child-mapping-sample-excel-file/$',
+               self.admin_site.admin_view(set_child_with_parent_sample_excel_file),
+               name="parent-child-mapping-sample-excel-file"
+            ),
+            url(
+               r'^set-inactive-status-sample-file/$',
+               self.admin_site.admin_view(set_inactive_status_sample_excel_file),
+               name="set-inactive-status-sample-file"
+            ),
+            url(
                 r'^parent-product-autocomplete/$',
                 self.admin_site.admin_view(ParentProductAutocomplete.as_view()),
                 name='parent-product-autocomplete',
@@ -1256,12 +1277,12 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     download_sample_file.short_description = 'Download Sample File'
 
 
-# class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
-#     list_display = ('created_at', 'updated_by', 'file',)
-#     fields = ('file', 'updated_by')
-#     readonly_fields = ('updated_by', 'file',)
-#
-#     change_list_template = 'admin/products/product_attributes_change_list.html'
+class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'updated_by', 'file',)
+    fields = ('file', 'updated_by')
+    readonly_fields = ('updated_by', 'file',)
+
+    change_list_template = 'admin/products/product_attributes_change_list.html'
 
     def has_add_permission(self, request):
         return False
@@ -1371,6 +1392,6 @@ admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)
 admin.site.register(BulkProductTaxUpdate, BulkProductTaxUpdateAdmin)
 admin.site.register(BulkUploadForGSTChange, BulkUploadForGSTChangeAdmin)
-# admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttributesAdmin)
+admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttributesAdmin)
 admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)
