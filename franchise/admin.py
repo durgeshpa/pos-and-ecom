@@ -126,7 +126,7 @@ class FranchiseAuditAdmin(AuditDetailAdmin):
 
 @admin.register(HdposDataFetch)
 class HdposDataFetchAdmin(admin.ModelAdmin):
-    list_display = [field.name for field in HdposDataFetch._meta.get_fields()]
+    list_display = ('type', 'from_date_including', 'to_date_excluding', 'process_text', 'status', 'created_at')
     list_per_page = 50
 
     def has_add_permission(self, request, obj=None):
@@ -138,11 +138,17 @@ class HdposDataFetchAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
+    def from_date_including(self, obj):
+        return obj.from_date.strftime("%d %b %Y %H:%M:%S")
+
+    def to_date_excluding(self, obj):
+        return obj.to_date.strftime("%d %b %Y %H:%M:%S")
+
 
 @admin.register(FranchiseSales)
 class FranchiseSalesAdmin(admin.ModelAdmin, ExportSalesReturns):
     list_display = ['id', 'shop_loc', 'shop_name', 'barcode', 'product_sku', 'quantity', 'amount', 'process_status',
-                    'error', 'invoice_number', 'invoice_date', 'created_at', 'modified_at']
+                    'error', 'invoice_number', 'invoice_date', 'invoice_date_full', 'created_at', 'modified_at']
     list_per_page = 50
     actions = ["export_as_csv_sales_returns"]
     list_filter = [ShopLocFilter, BarcodeFilter, SkuFilter, ('invoice_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
@@ -167,11 +173,14 @@ class FranchiseSalesAdmin(admin.ModelAdmin, ExportSalesReturns):
     def has_change_permission(self, request, obj=None):
         return False
 
+    def invoice_date_full(self, obj):
+        return obj.invoice_date.strftime("%d %b %Y %H:%M:%S")
+
 
 @admin.register(FranchiseReturns)
 class FranchiseReturnsAdmin(admin.ModelAdmin, ExportSalesReturns):
     list_display = ['id', 'shop_loc', 'shop_name', 'barcode', 'product_sku', 'quantity', 'amount', 'process_status',
-                    'error', 'sr_number', 'sr_date', 'created_at', 'modified_at']
+                    'error', 'sr_number', 'sr_date', 'sr_date_full', 'invoice_date', 'created_at', 'modified_at']
     list_per_page = 50
     actions = ["export_as_csv_sales_returns"]
     list_filter = [ShopLocFilter, BarcodeFilter, SkuFilter, ('sr_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
@@ -195,6 +204,9 @@ class FranchiseReturnsAdmin(admin.ModelAdmin, ExportSalesReturns):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    def sr_date_full(self, obj):
+        return obj.sr_date.strftime("%d %b %Y %H:%M:%S")
 
 
 @admin.register(ShopLocationMap)

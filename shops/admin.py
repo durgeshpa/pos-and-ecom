@@ -26,7 +26,7 @@ from .views import (StockAdjustmentView,
                     ShopUserMappingCsvSample, ShopTimingAutocomplete,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView,
                     ShopUserMappingCsvSample, ShopTimingAutocomplete)
-from .views import (StockAdjustmentView,shop_stock_download,
+from .views import (StockAdjustmentView,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
 from retailer_backend.admin import InputFilter
@@ -285,11 +285,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                         r'^adjust-stock/(?P<shop_id>\w+)/$',
                         self.admin_site.admin_view(StockAdjustmentView.as_view()),
                         name="StockAdjustment"
-                    ),
-                    url(
-                        r'^shop_stock_download/(?P<shop_id>\w+)/$',
-                        self.admin_site.admin_view(shop_stock_download),
-                        name="ShopStocks"
                     ),
                     url(
                         r'^shop-sales-report/$',

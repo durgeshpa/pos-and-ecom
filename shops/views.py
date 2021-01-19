@@ -1,12 +1,16 @@
+import django_filters
 import openpyxl
 import re
 import logging
+from distutils.util import strtobool
+from dal_admin_filters import AutocompleteFilter
 from django.shortcuts import render
 from django.views.generic.base import TemplateView
 from django.http import HttpResponse
 from django.views import View
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
+from django_filters.views import FilterView
 from shops.models import Shop, ShopType, BeatPlanning, DayBeatPlanning
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
@@ -14,13 +18,17 @@ from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjust
     OrderedProductReserved
 from django.db.models import Sum, Q
 from dal import autocomplete
+
+from wms.common_functions import get_stock, get_expiry_date
+
 from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm, BeatUserMappingCsvViewForm
 
-from wms.models import BinInventory, InventoryType, InventoryState, WarehouseInventory
+from wms.models import BinInventory, InventoryType, InventoryState, WarehouseInventory, PutawayBinInventory
 from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm
 from django.views.generic.edit import FormView
 import csv
 import codecs
+# from datetime import datetime
 import datetime
 from django.db import transaction
 from addresses.models import Address, State, City, Pincode
@@ -33,59 +41,173 @@ from django.http import JsonResponse
 from collections import defaultdict
 import itertools
 from io import StringIO
-
+import django_tables2 as tables
+from django_tables2 import SingleTableView, LazyPaginator
+from django_tables2.export.views import ExportMixin
+from audit.models import AUDIT_PRODUCT_STATUS, AuditProduct
 
 # Create your views here.
 
 logger = logging.getLogger('shop')
 
-class ShopMappedProduct(TemplateView):
-    template_name = "admin/shop/change_list.html"
+
+class Skufilter(AutocompleteFilter):
+    title = 'SKU'
+    field_name = 'sku__product_sku'
+    autocomplete_url = 'sku-autocomplete'
+
+
+class ProductFilter(django_filters.FilterSet):
+    # class Meta:
+    #     model = WarehouseInventory
+    #     fields = ['sku_id', 'sku_id__parent_product', 'visible']
+    sku_id = django_filters.CharFilter(field_name='sku_id', lookup_expr='exact')
+    parent_id = django_filters.CharFilter(field_name='sku_id__parent_product__parent_id', lookup_expr='exact',
+                                          label='  Parent Id  ')
+    product_status = django_filters.AllValuesFilter(field_name='sku_id__status', lookup_expr='exact',
+                                                    label='  Product Status  ')
+    visible = django_filters.AllValuesFilter(field_name='visible', lookup_expr='exact',
+                                             label='  visible  ')
+
+    class Meta:
+        model = WarehouseInventory
+        fields = ['sku_id', 'parent_id', 'product_status', 'visible']
+
+
+class ProductTable(tables.Table):
+    class Meta:
+        template_name = "django_tables2/semantic.html"
+
+    filterset_class = ProductFilter
+    parent_id = tables.Column()
+    parent_name = tables.Column()
+    sku = tables.Column()
+    name = tables.Column()
+    mrp = tables.Column()
+    child_reason = tables.Column()
+    case_size = tables.Column()
+    product_status = tables.Column()
+    active_product_price = tables.Column()
+    price_end_date = tables.Column()
+    earliest_expiry_date = tables.Column()
+    audit_blocked = tables.Column()
+    visibility = tables.Column()
+    normal = tables.Column()
+    damaged = tables.Column()
+    expired = tables.Column()
+    missing = tables.Column()
+
+
+class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
+    template_name = "admin/shop/change_list1.html"
+    table_class = ProductTable
+    paginated_by = 25
+    filter = None
+    shop = None
+
+    def get_export_filename(self, export_format):
+        return "shop_stock_" + self.kwargs.get('pk') + "." + export_format
+
+    def get_queryset(self):
+        return None
+
+    def get_table_data(self, **kwargs):
+        self.shop = get_object_or_404(Shop, pk=self.kwargs.get('pk'))
+        product_list = {}
+        today = datetime.datetime.today()
+        inventory_state_total_available = InventoryState.objects.filter(inventory_state="total_available").last()
+        inventory_type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+        products = WarehouseInventory.objects.filter(warehouse=self.shop).prefetch_related('sku', 'inventory_type',
+                                                                                           'inventory_state',
+                                                                                           'sku__product_pro_price',
+                                                                                           'sku__rt_product_sku',
+                                                                                           'sku__parent_product',
+                                                                                           'sku__child_product_pro_image',
+                                                                                           'sku__parent_product__parent_product_pro_image',
+                                                                                           'sku__product_pro_price__seller_shop',
+                                                                                           'sku__rt_audit_sku')
+        filter = self.request.GET.copy()
+        filter['visible'] = ''
+        self.filter = ProductFilter(filter, queryset=products)
+        products = self.filter.qs
+        for myproduct in products:
+            if myproduct.sku.product_sku not in product_list:
+                try:
+                    parent_id = myproduct.sku.parent_product.parent_id
+                    parent_name = myproduct.sku.parent_product.name
+                    case_size = myproduct.sku.parent_product.inner_case_size
+                except:
+                    parent_id = ''
+                    parent_name = ''
+                    case_size = ''
+                binproducts = myproduct.sku.rt_product_sku.all()
+                earliest_expiry_date = datetime.datetime.strptime("01/01/2300", "%d/%m/%Y")
+                for binproduct in binproducts:
+                    exp_date_str = get_expiry_date(batch_id=binproduct.batch_id)
+                    exp_date = datetime.datetime.strptime(exp_date_str, "%d/%m/%Y")
+                    if earliest_expiry_date > exp_date:
+                        earliest_expiry_date = exp_date
+                price_list = myproduct.sku.product_pro_price.all()
+                is_price = False
+                price_end_date = ''
+                if price_list.count() > 0:
+                    for price in price_list:
+                        if price.end_date and price.seller_shop == self.shop:
+                            if price.end_date >= today and price.approval_status == 2 and price.status:
+                                is_price = True
+                                price_end_date = price.end_date.date()
+                audit_blocked = False
+                product_blocked_list = myproduct.sku.rt_audit_sku.all()
+                for product_blocked in product_blocked_list:
+                    if product_blocked.status == AUDIT_PRODUCT_STATUS.BLOCKED:
+                        audit_blocked = True
+
+                product_temp = {
+                    'sku': myproduct.sku.product_sku,
+                    'name': myproduct.sku.product_name,
+                    'mrp': myproduct.sku.product_mrp,
+                    'parent_id': parent_id,
+                    'parent_name': parent_name,
+                    'child_reason': myproduct.sku.reason_for_child_sku,
+                    'case_size': case_size,
+                    'product_status': myproduct.sku.status,
+                    'active_product_price': is_price,
+                    'price_end_date': price_end_date,
+                    'earliest_expiry_date': earliest_expiry_date.date(),
+                    'normal':0,
+                    'damaged':0,
+                    'expired':0,
+                    'missing':0,
+                    'visibility':False,
+                    'audit_blocked': audit_blocked,
+                }
+            else:
+                product_temp = product_list[myproduct.sku.product_sku]
+            if myproduct.inventory_state.inventory_state=='total_available':
+                product_temp[myproduct.inventory_type.inventory_type]+=myproduct.quantity
+                if myproduct.inventory_type == inventory_type_normal:
+                    product_temp['visibility'] = myproduct.visible
+            elif myproduct.inventory_state.inventory_state in ('reserved','ordered','to_be_picked'):
+                product_temp[myproduct.inventory_type.inventory_type]-=myproduct.quantity
+
+            product_list[myproduct.sku.product_sku] = product_temp
+        product_list_new = []
+
+        for key, value in product_list.items():
+            if 'visible' in self.request.GET.keys():
+                if self.request.GET['visible'] == '':
+                    product_list_new.append(value)
+                else:
+                    if value['visibility'] == strtobool(self.request.GET['visible']):
+                        product_list_new.append(value)
+            else:
+                product_list_new.append(value)
+
+        return product_list_new
 
     def get_context_data(self, **kwargs):
-        shop_obj = get_object_or_404(Shop, pk=self.kwargs.get('pk'))
         context = super().get_context_data(**kwargs)
-        context['shop'] = shop_obj
-        context['user_has_stock_update_perm'] = self.request.user.has_perm('sp_to_gram.add_stockadjustment')
-        if shop_obj.shop_type.shop_type == 'gf':
-            grn_product = GRNOrderProductMapping.objects.filter(
-                grn_order__order__ordered_cart__gf_shipping_address__shop_name=shop_obj)
-            product_sum = grn_product.values('product', 'product__product_name',
-                                             'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
-            #   'product__product_gf_code',
-            context['shop_products'] = product_sum
-
-
-        elif shop_obj.shop_type.shop_type in ['sp', 'f']:
-            product_list = {}
-            bin_inventory_state = InventoryState.objects.filter(inventory_state="total_available").last()
-            products = WarehouseInventory.objects.filter(warehouse=shop_obj, inventory_state=bin_inventory_state)
-
-            for myproduct in products:
-                if myproduct.sku.product_sku in product_list:
-                    product_temp = product_list[myproduct.sku.product_sku]
-                    product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
-                else:
-                    # product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop_obj, approval_status=2)
-                    try:
-                        parent_id = myproduct.sku.parent_product.parent_id
-                        parent_name = myproduct.sku.parent_product.name
-                    except:
-                        parent_id = ''
-                        parent_name = ''
-                    product_temp = {
-                        'sku': myproduct.sku.product_sku,
-                        'name': myproduct.sku.product_name,
-                        myproduct.inventory_type.inventory_type: myproduct.quantity,
-                        'mrp': myproduct.sku.product_mrp,
-                        'parent_id': parent_id,
-                        'parent_name': parent_name
-                        # 'mrp': product_mrp.last().mrp if product_mrp.exists() else ''}
-                    }
-
-                product_list[myproduct.sku.product_sku] = product_temp
-            context['products'] = product_list
-
+        context['filter'] = self.filter
         return context
 
 
@@ -117,49 +239,35 @@ class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
-def shop_stock_download(request, shop_id):
-    filename = "shop_stock_" + shop_id + ".csv"
-    shop = Shop.objects.get(pk=shop_id)
+def get_shop_products(shop_obj):
+    """
+    Takes the instance of Shop
+    Returns dictionary of all products for this shop where available quantity > 0
+    params :
+        shop_obj : instance of SHop
+    returns :
+        product_list : dictionary of product id : product details
+    """
     product_list = {}
-    bin_inventory_state = InventoryState.objects.filter(inventory_state="total_available").last()
-    products = WarehouseInventory.objects.filter(warehouse=shop, inventory_state=bin_inventory_state)
+    inv_type_qs = InventoryType.objects.all()
+    for inv_type in inv_type_qs:
+        product_qty_dict = get_stock(shop_obj, inv_type)
+        products = Product.objects.filter(id__in=product_qty_dict.keys())
 
-    for myproduct in products:
-        if myproduct.sku.product_sku in product_list:
-            product_temp = product_list[myproduct.sku.product_sku]
-            product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
-        else:
-            # product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop, approval_status=2)
-            product_temp = {
-                'sku': myproduct.sku.product_sku,
-                'name': myproduct.sku.product_name,
-                myproduct.inventory_type.inventory_type: myproduct.quantity,
-                'mrp': myproduct.sku.product_mrp,
-                'parent_id': myproduct.sku.parent_product.parent_id,
-                'parent_name': myproduct.sku.parent_product.name,
-                'product_ean_code': myproduct.sku.product_ean_code,
-                'weight': f'{myproduct.sku.weight_value} {myproduct.sku.weight_unit}'
-                # 'mrp': product_mrp.last().mrp if product_mrp.exists() else ''
-            }
-
-        product_list[myproduct.sku.product_sku] = product_temp
-
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
-    writer = csv.writer(response)
-    writer.writerow(['SKU Id', 'Product Name', 'MRP', 'Parent ID', 'Parent Name', 'EAN', 'Weight', 'Normal Qty', 'Damaged Qty', 'Expired Qty', 'Missing Qty'])
-    for key, value in product_list.items():
-        if 'damaged' not in value:
-            value['damaged'] = 0
-        if 'expired' not in value:
-            value['expired'] = 0
-        if 'missing' not in value:
-            value['missing'] = 0
-
-        writer.writerow(
-            [value['sku'], value['name'], value['mrp'], value['parent_id'], value['parent_name'], value['product_ean_code'], value['weight'], value['normal'], value['damaged'], value['expired']
-                , value['missing']])
-    return response
+        for p in products:
+            if product_list.get(p.product_sku) is None:
+                product_temp = {
+                    'sku': p.product_sku,
+                    'name': p.product_name,
+                    'mrp': p.product_mrp,
+                    'parent_id': p.parent_product.parent_id if p.parent_product else '',
+                    'parent_name': p.parent_product.name if p.parent_product else '',
+                    'product_ean_code': p.product_ean_code,
+                    'weight': f'{p.weight_value} {p.weight_unit}'
+                }
+                product_list[p.product_sku] = product_temp
+            product_list[p.product_sku][inv_type.inventory_type] = product_qty_dict[p.id]
+    return product_list
 
 
 class StockAdjustmentView(PermissionRequiredMixin, View):
@@ -425,10 +533,13 @@ class ShopUserMappingCsvSample(View):
 
 
 from django.views.generic import View
+
+
 class BeatUserMappingCsvSample(View):
     """
     This class is used to download the sample beat csv file for individual executive
     """
+
     def get(self, request, *args, **kwargs):
         """
 
@@ -453,7 +564,7 @@ class BeatUserMappingCsvSample(View):
 
         try:
             # name of the csv file
-            filename = shops[0].employee.first_name+'_'+datetime.datetime.today().strftime('%d-%m-%y') + ".csv"
+            filename = shops[0].employee.first_name + '_' + datetime.datetime.today().strftime('%d-%m-%y') + ".csv"
         except Exception as e:
             logger.exception(e)
             user = get_user_model().objects.filter(id=request.GET['shop_user_mapping'])
@@ -477,7 +588,8 @@ class BeatUserMappingCsvSample(View):
                 if shop.shop.approval_status == 2:
                     writer.writerow([shop.employee, shop.shop.shop_name, shop.shop.pk,
                                      shop.shop.shipping_address.address_contact_number,
-                                     shop.shop.shipping_address.address_line1, shop.shop.shipping_address.pincode, '', ''])
+                                     shop.shop.shipping_address.address_line1, shop.shop.shipping_address.pincode, '',
+                                     ''])
                 else:
                     pass
             f.seek(0)
@@ -541,7 +653,7 @@ class BeatUserMappingCsvView(FormView):
 
                         # append the data in a list which is already exist in the database
                         if not created:
-                            not_uploaded_list.append(ERROR_MESSAGES["4004"] % (row+1))
+                            not_uploaded_list.append(ERROR_MESSAGES["4004"] % (row + 1))
 
                     # return success message while csv data is successfully saved
                     if not not_uploaded_list:

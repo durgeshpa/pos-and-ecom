@@ -2,8 +2,9 @@
 import functools
 import json
 import logging
-from datetime import datetime
+import datetime
 from celery.task import task
+from decouple import config
 
 # django imports
 from django import forms
@@ -398,7 +399,7 @@ def get_visibility_changes(shop, product):
     }
     for child in child_siblings:
         product_price_entries = child.product_pro_price.filter(seller_shop=shop, approval_status=2,
-                                                               status=True, end_date__gte=datetime.now())
+                                                               status=True, end_date__gte=datetime.datetime.now())
         if not product_price_entries:
             visibility_changes[child.id] = False
             continue
@@ -419,6 +420,9 @@ def get_visibility_changes(shop, product):
             visibility_changes[child.id] = True
             continue
         sum_qty_warehouse_entries = product_qty_dict[child.id]
+        if sum_qty_warehouse_entries == 0 or int(sum_qty_warehouse_entries/child.product_inner_case_size)==0:
+            visibility_changes[child.id] = False
+            continue
         if sum_qty_warehouse_entries <= 2*(int(child.product_inner_case_size)):
             visibility_changes[child.id] = True
             continue
@@ -433,9 +437,9 @@ def get_visibility_changes(shop, product):
         )
         for data in bin_data:
             if ProductPrice.objects.filter(product=data.sku, approval_status=2, status=True,
-                                           seller_shop=shop,  end_date__gte=datetime.now()).exists():
+                                           seller_shop=shop,  end_date__gte=datetime.datetime.now()).exists():
                 exp_date_str = get_expiry_date(batch_id=data.batch_id)
-                exp_date = datetime.strptime(exp_date_str, "%d/%m/%Y")
+                exp_date = datetime.datetime.strptime(exp_date_str, "%d/%m/%Y")
                 if not min_exp_date_data.get('exp', None):
                     min_exp_date_data['exp'] = exp_date
                     min_exp_date_data['id'] = data.sku.id
@@ -1001,6 +1005,7 @@ def cancel_order_with_pick(instance):
 
         if pickup_object.status in ['pickup_creation', 'picking_assigned']:
             cancel_pickup(pickup_object)
+            cancel_order(instance)
             info_logger.info('cancel_order_with_pick| Order No-{}, Cancelled Pickup'
                              .format(instance.order_no))
             return
@@ -1473,16 +1478,16 @@ def create_batch_id(sku, expiry_date):
     """
     try:
         try:
-            batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d-%m-%y').strftime('%d%m%y'))
+            batch_id = '{}{}'.format(sku, datetime.datetime.strptime(expiry_date, '%d-%m-%y').strftime('%d%m%y'))
 
         except:
             try:
-                batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d-%m-%Y').strftime('%d%m%y'))
+                batch_id = '{}{}'.format(sku, datetime.datetime.strptime(expiry_date, '%d-%m-%Y').strftime('%d%m%y'))
             except:
                 try:
-                    batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%d%m%y'))
+                    batch_id = '{}{}'.format(sku, datetime.datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%d%m%y'))
                 except:
-                    batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d/%m/%y').strftime('%d%m%y'))
+                    batch_id = '{}{}'.format(sku, datetime.datetime.strptime(expiry_date, '%d/%m/%y').strftime('%d%m%y'))
         return batch_id
     except Exception as e:
         error_logger.error(e.message)
@@ -1509,7 +1514,7 @@ def get_expiry_date_db(batch_id):
 
         if len(batch_id) == 25:
             expiry_date = batch_id[-8:-6] + '/' + batch_id[-6:-4] + '/' + batch_id[-4:]
-        expiry_date_db = datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%Y-%m-%d')
+        expiry_date_db = datetime.datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%Y-%m-%d')
     return expiry_date_db
 
 
@@ -1972,7 +1977,9 @@ def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_produc
 
     if shipment_product_batch.delivered_qty > 0:
         sku = shipment_product_batch.ordered_product_mapping.product
-        batch_id = shipment_product_batch.batch_id
+        # batch_id = shipment_product_batch.batch_id
+        default_expiry = datetime.date(int(config('FRANCHISE_IN_DEFAULT_EXPIRY_YEAR')), 1, 1)
+        batch_id = '{}{}'.format(sku.product_sku, default_expiry.strftime('%d%m%y'))
         info_logger.info("Franchise Product Batch update after Trip. Shop: {}, Batch: {}, Shipment Product Batch Id: {}".
                          format(warehouse, batch_id, shipment_product_batch.id))
         quantity = shipment_product_batch.delivered_qty
@@ -2015,3 +2022,25 @@ def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type,
     if transaction_type == 'franchise_returns':
         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
             warehouse, sku, initial_type[0], initial_stage[0], quantity * -1, transaction_type, transaction_id)
+
+def update_visibility(shop,product,visible):
+    WarehouseInventory.objects.filter(warehouse=shop,sku=product,inventory_state=InventoryState.objects.filter(
+                inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_type='normal').last()).update(visible=visible)
+
+def update_visibility_bulk(shop_id):
+    shop = Shop.objects.filter(pk=shop_id).last()
+    products = WarehouseInventory.objects.filter(warehouse=shop,inventory_state=InventoryState.objects.filter(
+                inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_type='normal').last())
+    parent_list = []
+    for product in products:
+        if product.sku.parent_product.id in parent_list:
+            continue
+        visibility_changes = get_visibility_changes(shop, product.sku)
+        if visibility_changes:
+            for prod_id, visibility in visibility_changes.items():
+                sibling = Product.objects.filter(pk=prod_id).last()
+                print(sibling,visibility)
+                update_visibility(shop, sibling, visibility)
+        parent_list.append(product.sku.parent_product.id)

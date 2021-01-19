@@ -427,21 +427,26 @@ class BinIDList(APIView):
         if pickup_orders is None:
             msg = {'is_success': True, 'message': 'Order/Repackaging number does not exist.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        else:
-            pick_list = []
-            pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no)\
-                                                       .exclude(pickup__status='picking_cancelled')
-            for pick_up in pickup_bin_obj:
-                pick_list.append(pick_up.bin.bin)
-            temp_list = []
-            for x in pick_list:
-                if x not in temp_list:
-                    temp_list.append(x)
-            pick_list = temp_list
-            serializer = BinSerializer(pick_list, many=True, fields=('id', 'bin_id'))
-            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
+        pd_qs = PickerDashboard.objects.filter(order=pickup_orders)
+        if not pd_qs.exists():
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
+        pickup_assigned_date = PickerDashboard.objects.filter(order=pickup_orders).last().picker_assigned_date
+        pick_list = []
+        pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no) \
+                                                   .exclude(pickup__status='picking_cancelled')
+        if not pickup_bin_obj.exists():
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKUP_NOT_FOUND'], 'data': {}}
 
+        for pick_up in pickup_bin_obj:
+            if pick_up.bin.bin in pick_list:
+                continue
+            pick_list.append(pick_up.bin.bin)
+        serializer = BinSerializer(pick_list, many=True, fields=('id', 'bin_id'))
+        msg = {'is_success': True, 'message': 'OK',
+               'data': {'bins': serializer.data, 'pickup_created_at': pickup_assigned_date,
+                        'current_time': datetime.datetime.now()}}
+        return Response(msg, status=status.HTTP_200_OK)
 
 pickup = PickupInventoryManagement()
 
@@ -484,9 +489,20 @@ class PickupDetail(APIView):
 
         picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id)\
                                                     .exclude(pickup__status='picking_cancelled')
-        if picking_details.exists():
-            serializer = PickupBinInventorySerializer(picking_details, many=True)
-        msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
+
+        if not picking_details.exists():
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['PICK_BIN_DETAILS_NOT_FOUND'], 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        order = Order.objects.filter(order_no=order_no).last()
+        pd_qs = PickerDashboard.objects.filter(order=order)
+        if not pd_qs.exists():
+            msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        pickup_assigned_date = pd_qs.last().picker_assigned_date
+        serializer = PickupBinInventorySerializer(picking_details, many=True)
+        msg = {'is_success': True, 'message': 'OK',
+               'data': {'picking_details': serializer.data, 'pickup_created_at': pickup_assigned_date,
+                        'current_time': datetime.datetime.now()}}
         return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -716,7 +732,7 @@ class PickupComplete(APIView):
                     else:
                         order_qs.update(order_status='picking_complete')
 
-                    pd_obj.update(picking_status='picking_complete')
+                    pd_obj.update(picking_status='picking_complete', completed_at=timezone.now())
                     pick_obj.update(status='picking_complete', completed_at=timezone.now())
 
                 return Response({'is_success': True,

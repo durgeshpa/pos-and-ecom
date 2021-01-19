@@ -1,3 +1,4 @@
+
 from django.utils.safestring import mark_safe
 from rest_framework import serializers
 from wms.models import Bin, Putaway, Out, Pickup, BinInventory, PickupBinInventory
@@ -141,8 +142,6 @@ class BinSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = Bin
         fields = ('id','warehouse', 'bin_id', 'bin_type', 'is_active', 'bin_barcode','bin_barcode_txt', 'created_at', 'modified_at')
-
-
 
 class BinInventorySerializer(serializers.ModelSerializer):
     bin = BinSerializer()

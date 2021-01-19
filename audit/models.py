@@ -137,7 +137,7 @@ class AuditTicket(BaseTimestampModel):
 class AuditProduct(BaseTimestampModel):
     audit = models.ForeignKey(AuditDetail, null=False, related_name='+', on_delete=models.DO_NOTHING)
     warehouse = models.ForeignKey(Shop, null=False, on_delete=models.DO_NOTHING)
-    sku = models.ForeignKey(Product, null=False, to_field='product_sku', on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, null=False, to_field='product_sku',related_name='rt_audit_sku', on_delete=models.DO_NOTHING)
     status = models.PositiveSmallIntegerField(choices=AUDIT_PRODUCT_STATUS)
     # es_status = models.BooleanField(default=False)
 

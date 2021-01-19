@@ -54,8 +54,8 @@ from django.db.models import Q
 from django.urls import reverse
 from retailer_backend import common_function
 from wms.models import WarehouseInventory
-from datetime import datetime, timedelta
-today = datetime.today()
+# from datetime import datetime, timedelta
+today = datetime.datetime.today()
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -227,7 +227,7 @@ class Cart(models.Model):
         discount_value = 0
         shop = self.seller_shop
         cart_products = self.rt_cart_list.all()
-        date = datetime.now()
+        date = datetime.datetime.now()
         discount_sum_sku = 0
         discount_sum_brand = 0
         sum = 0
@@ -1866,6 +1866,7 @@ class PickerDashboard(models.Model):
     refreshed_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True)
 
     def save(self, *args, **kwargs):
         super(PickerDashboard, self).save(*args, **kwargs)
@@ -2907,12 +2908,12 @@ def check_date_range(capping):
     if capping.capping_type == 0:
         return capping.start_date, capping.end_date
     elif capping.capping_type == 1:
-        end_date = datetime.today()
-        start_date = end_date - timedelta(days=today.weekday())
+        end_date = datetime.datetime.today()
+        start_date = end_date - datetime.timedelta(days=today.weekday())
         return start_date, end_date
     elif capping.capping_type == 2:
-        end_date = datetime.today()
-        start_date = datetime.today().replace(day=1)
+        end_date = datetime.datetime.today()
+        start_date = datetime.datetime.today().replace(day=1)
         return start_date, end_date
 
 
