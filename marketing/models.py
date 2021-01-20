@@ -197,3 +197,10 @@ class Profile(models.Model):
 
     def __str__(self):
         return f'{self.user.phone_number} Profile'
+
+    def create_user_profile(sender, instance, created, **kwargs):
+        if created:
+            Profile.objects.create(user=instance)
+
+    post_save.connect(create_user_profile, sender=MLMUser)
+
