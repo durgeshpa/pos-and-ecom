@@ -14,6 +14,7 @@ error_logger = logging.getLogger('file-error')
 
 from django.dispatch import receiver
 from django.db.models.signals import pre_save
+from django.db.models.signals import post_save
 from global_config.models import GlobalConfig
 from decimal import Decimal
 
