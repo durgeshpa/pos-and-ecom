@@ -563,6 +563,9 @@ class AddToCart(APIView):
                                         int(available_qty))
                                     cart_mapping.save()
                         else:
+                            serializer = CartSerializer(Cart.objects.get(id=cart.id),
+                                                        context={'parent_mapping_id': parent_mapping.parent.id,
+                                                                 'buyer_shop_id': shop_id})
                             if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart,
                                                                                            cart_product=product)
@@ -574,7 +577,7 @@ class AddToCart(APIView):
                                 cart_mapping.save()
                             else:
                                 msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (
-                                    capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
+                                    capping.capping_qty - ordered_qty, cart_product)], 'response_data': serializer.data}
                                 return Response(msg, status=status.HTTP_200_OK)
 
                     else:
@@ -592,12 +595,15 @@ class AddToCart(APIView):
                                 CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
                             # cart_mapping.save()
                         else:
+                            serializer = CartSerializer(Cart.objects.get(id=cart.id),
+                                                        context={'parent_mapping_id': parent_mapping.parent.id,
+                                                                 'buyer_shop_id': shop_id})
                             if (capping.capping_qty - ordered_qty) < 0:
                                 msg = {'is_success': True, 'message': ['You have already exceeded the purchase limit of this product #%s' % (
-                                    cart_product)], 'response_data': None}
+                                    cart_product)], 'response_data': serializer.data}
                             else:
                                 msg = {'is_success': True, 'message': ['You have already exceeded the purchase limit of this product #%s' % (
-                                    cart_product)], 'response_data': None}
+                                    cart_product)], 'response_data': serializer.data}
                             return Response(msg, status=status.HTTP_200_OK)
                 else:
                     if int(qty) == 0:
