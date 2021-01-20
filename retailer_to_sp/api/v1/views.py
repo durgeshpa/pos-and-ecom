@@ -262,9 +262,8 @@ class GramGRNProductsList(APIView):
             q = {
                     "multi_match": {
                         "query":     self.keyword,
-                        "fields":    ["name", "category", "brand"],
-                        "type":      "best_fields",
-                        "fuzziness": "AUTO"
+                        "fields":    ["name^5", "category", "brand"],
+                        "type":      "cross_fields"
                     }
                 }
             query["bool"]["must"] = [q]
