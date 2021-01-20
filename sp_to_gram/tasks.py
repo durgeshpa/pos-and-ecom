@@ -165,7 +165,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"no_of_pieces": no_of_pieces,
 			"sub_total": sub_total,
 			"available": available_qty,
-			"visible":visible.visible
+			"visible":visible
 		}
 		yield(product_details)
 
