@@ -1,24 +1,26 @@
-from .serializers import SendSmsOTPSerializer
+from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer, RewardsSerializer, ProfileUploadSerializer
 from rest_framework.generics import GenericAPIView, CreateAPIView
-from .models import PhoneOTP, MLMUser, Referral
 from rest_framework import status
 from rest_framework.status import HTTP_400_BAD_REQUEST
 from rest_framework.response import Response
-import datetime
-import uuid
-import requests, datetime
 from rest_framework.generics import GenericAPIView, CreateAPIView
 from rest_framework import status
 from rest_framework.response import Response
-from django.utils import timezone
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny
+
+from .models import PhoneOTP, MLMUser, Referral, Token, RewardPoint, Profile
+
+import uuid
+import requests, datetime
+from django.utils import timezone
+
 from django.db.models import Q
 from .validation import ValidateOTP
-from django.conf import settings
-from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer, RewardsSerializer
-from retailer_backend.messages import *
 from .sms import SendSms
-from .models import PhoneOTP, MLMUser, Referral, Token, RewardPoint
+
+from django.conf import settings
+from retailer_backend.messages import *
 from global_config.models import GlobalConfig
 
 
@@ -55,8 +57,8 @@ class SendSmsOTP(CreateAPIView):
                             )
         else:
             msg = {'is_success': False,
-                    'message': serializer.errors['phone_number'][0],
-                    'response_data': None }
+                   'message': serializer.errors['phone_number'][0],
+                   'response_data': None}
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -68,6 +70,7 @@ def save_user_referral_code(phone_number):
     user_referral_code = Referral.generate_unique_referral_code()
     MLMUser.objects.update_or_create(phone_number=phone_number, referral_code=user_referral_code)
     return user_referral_code
+
 
 class Registrations(GenericAPIView):
 
@@ -102,7 +105,6 @@ class Registrations(GenericAPIView):
                                      'response_data': None},
                                     status=HTTP_400_BAD_REQUEST)
 
-
             user_phone = MLMUser.objects.filter(
                 Q(phone_number=phone_number)
             )
@@ -127,7 +129,9 @@ class Registrations(GenericAPIView):
             return Response(msg.data, status=msg.status_code)
 
         except Exception as e:
-            return Response({'message': "Data is not valid.", 'is_success': False, 'response_data': None}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'message': "Data is not valid.", 'is_success': False, 'response_data': None},
+                            status=status.HTTP_403_FORBIDDEN)
+
 
 class Login(GenericAPIView):
 
@@ -148,7 +152,6 @@ class Login(GenericAPIView):
                                  'is_success': False, 'response_data': None},
                                 status=HTTP_400_BAD_REQUEST)
 
-
             user_phone = MLMUser.objects.filter(
                 Q(phone_number=phone_number)
             )
@@ -164,6 +167,7 @@ class Login(GenericAPIView):
                 return Response(msg.data, status=msg.status_code)
         except Exception:
             return Response(Exception, status=status.HTTP_403_FORBIDDEN)
+
 
 class RewardsDashboard(GenericAPIView):
     permission_classes = (AllowAny,)
@@ -208,6 +212,7 @@ class Logout(GenericAPIView):
             auth = request.META['HTTP_AUTHORIZATION']
             # to validate token is valid or not
             resp = MLMUser.authenticate(auth)
+
             if not isinstance(resp, str):
                 try:
                     # query to delete the token in Token model
@@ -222,3 +227,32 @@ class Logout(GenericAPIView):
             return Response({"error": 'Authentication credentials were not provided.'},
                             status=status.HTTP_401_UNAUTHORIZED)
 
+
+class UploadProfile(GenericAPIView):
+    parser_classes = (MultiPartParser, FormParser)
+    serializer_class = ProfileUploadSerializer
+
+    def post(self, request):
+
+        """
+            Determine the current user by their token, and update their profile
+        """
+        if request.META['HTTP_AUTHORIZATION']:
+            auth = request.META['HTTP_AUTHORIZATION']
+            resp = MLMUser.authenticate(auth)
+   
+            try:
+                user_id = Profile.objects.get(user=resp)
+            except:
+                return Response({"error": "Token is not valid."}, status=status.HTTP_401_UNAUTHORIZED)
+
+            serializer = ProfileUploadSerializer(user_id, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"error": 'Authentication credentials were not provided.'},
+
+                            status=status.HTTP_401_UNAUTHORIZED)

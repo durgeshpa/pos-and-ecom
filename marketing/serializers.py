@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PhoneOTP, RewardPoint
+from .models import PhoneOTP, RewardPoint, Profile
 
 
 class PhoneOTPValidateSerializer(serializers.ModelSerializer):
@@ -61,3 +61,9 @@ class RewardsSerializer(serializers.ModelSerializer):
 
     def remaining(self, obj):
         return str(obj.direct_earned + obj.indirect_earned - obj.points_used)
+
+
+class ProfileUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['image']

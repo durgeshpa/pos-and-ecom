@@ -1,5 +1,5 @@
 from django.conf.urls import url
-from .views import (Registrations, SendSmsOTP, Login, RewardsDashboard, Logout)
+from .views import (Registrations, SendSmsOTP, Login, RewardsDashboard, Logout, UploadProfile)
 
 
 urlpatterns = [
@@ -7,5 +7,6 @@ urlpatterns = [
     url(r'^user/$', Registrations.as_view(), name="user"),
     url(r'^login/$', Login.as_view(), name="login"),
     url(r'^rewards/$', RewardsDashboard.as_view(), name="rewards"),
-    url(r'^logout/$', Logout.as_view(), name="logout")
+    url(r'^logout/$', Logout.as_view(), name="logout"),
+    url(r'^profile/$', UploadProfile.as_view(), name="profile"),
     ]
