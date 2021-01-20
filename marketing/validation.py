@@ -7,6 +7,7 @@ import datetime
 from retailer_backend.messages import *
 from .sms import SendSms
 from django.utils import timezone
+from global_config.models import GlobalConfig
 
 
 def ValidateOTP(phone_number, otp, referred = 0):
@@ -57,11 +58,17 @@ def verify(otp, phone_otp_obj, referred=0):
                 RewardPoint.welcome_reward(user_obj, referred)
 
             token = tokenGeneartion(user_obj)
+            # to get reward from global configuration
+            reward = GlobalConfig.objects.filter(key='welcome_reward_points_referral').last().value
+            # to get discount from global configuration
+            discount = (reward * GlobalConfig.objects.filter(key='used_reward_factor').last().value)
             msg = {'phone_number': user_obj.phone_number,
                    'token': token,
                    'referral_code': user_obj.referral_code,
-                   'name': user_obj.name,
-                   'email_id': user_obj.email
+                   'name': user_obj.name.capitalize() if user_obj.name else '',
+                   'email_id': user_obj.email,
+                   'reward': reward,
+                   'discount': discount
                    }
             status_code = status.HTTP_200_OK
             return msg, status_code
