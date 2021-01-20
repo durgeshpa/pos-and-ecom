@@ -25,7 +25,7 @@ class MLMUser(models.Model):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False, unique=True)
     name = models.CharField(max_length=100, blank=True, null=True)
-    email = models.EmailField(max_length=70, blank=True, null=True, unique= True)
+    email = models.EmailField(max_length=70, blank=True, null=True, unique=True)
     referral_code = models.CharField(max_length=300, blank=True, null=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -37,7 +37,6 @@ class MLMUser(models.Model):
         (Inactive_Status, 'Inactive'),
     )
     status = models.IntegerField(choices=STATUS_CHOICES, default=Inactive_Status)
-
 
     def __str__(self):
         return self.phone_number
@@ -75,10 +74,10 @@ class PhoneOTP(models.Model):
     otp = models.CharField(max_length=10)
     is_verified = models.BooleanField(default=False)
     attempts = models.IntegerField(default=0)
-    expires_in = models.IntegerField(default=300)  #in seconds
+    expires_in = models.IntegerField(default=300)  # in seconds
     created_at = models.DateTimeField(default=timezone.now)
     last_otp = models.DateTimeField(default=timezone.now)
-    resend_in = models.IntegerField(default=getattr(settings, 'OTP_RESEND_IN', 30))  #in seconds
+    resend_in = models.IntegerField(default=getattr(settings, 'OTP_RESEND_IN', 30))  # in seconds
 
     class Meta:
         verbose_name = "Phone OTP"
@@ -117,8 +116,10 @@ class Referral(models.Model):
     This model will be used to store the parent and child referral mapping details
     """
 
-    referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE, null=True, blank=True)
-    referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
+    referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE, null=True,
+                                    blank=True)
+    referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True,
+                                    blank=True)
     reward_status = models.IntegerField(choices=((0, 'not considered'), (1, 'considered')), default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -188,3 +189,10 @@ class Token(models.Model):
     def __str__(self):
         return "{} - {}".format(self.user, self.token)
 
+
+class Profile(models.Model):
+    user = models.OneToOneField(MLMUser, on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='profile_pics', blank=True)
+
+    def __str__(self):
+        return f'{self.user.phone_number} Profile'
