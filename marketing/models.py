@@ -14,6 +14,7 @@ error_logger = logging.getLogger('file-error')
 
 from django.dispatch import receiver
 from django.db.models.signals import pre_save
+from django.db.models.signals import post_save
 from global_config.models import GlobalConfig
 from decimal import Decimal
 
@@ -196,3 +197,10 @@ class Profile(models.Model):
 
     def __str__(self):
         return f'{self.user.phone_number} Profile'
+
+    def create_user_profile(sender, instance, created, **kwargs):
+        if created:
+            Profile.objects.create(user=instance)
+
+    post_save.connect(create_user_profile, sender=MLMUser)
+

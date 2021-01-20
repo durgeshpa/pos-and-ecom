@@ -233,14 +233,12 @@ class UploadProfile(GenericAPIView):
     serializer_class = ProfileUploadSerializer
 
     def post(self, request):
-
         """
             Determine the current user by their token, and update their profile
         """
         if request.META['HTTP_AUTHORIZATION']:
             auth = request.META['HTTP_AUTHORIZATION']
             resp = MLMUser.authenticate(auth)
-   
             try:
                 user_id = Profile.objects.get(user=resp)
             except:
@@ -254,5 +252,4 @@ class UploadProfile(GenericAPIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response({"error": 'Authentication credentials were not provided.'},
-
                             status=status.HTTP_401_UNAUTHORIZED)
