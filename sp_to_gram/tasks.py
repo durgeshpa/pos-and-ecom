@@ -140,6 +140,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			visible=WarehouseInventory.objects.filter(warehouse=shop,sku=product,inventory_state=InventoryState.objects.filter(
                 inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
                 inventory_type='normal').last()).last()
+			visible = visible.visible
 		else:
 			visible=True
 
