@@ -185,6 +185,7 @@ def upload_shop_stock(shop=None,product=None):
 			es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
 		except Exception as e:
 			info_logger.info("error in upload_shop_stock index creation")
+			info_logger.info(e)
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
