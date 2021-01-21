@@ -65,6 +65,7 @@ class GetAllCategoryListView(APIView):
     permission_classes = (AllowAny,)
     def get(self, *args, **kwargs):
         categories_to_return = []
+        # get list of category ids with available inventory
         categories_with_products = get_stock_available_category_list()
         all_active_categories = Category.objects.filter(category_parent=None, status=True)
         for c in all_active_categories:

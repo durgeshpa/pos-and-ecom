@@ -54,6 +54,7 @@ class GetSubCategoriesListView(APIView):
     def get(self, *args, **kwargs):
         category_id = kwargs.get('category')
         category = Category.objects.get(pk=category_id)
+        # get list of category ids with available inventory
         categories_with_products = get_stock_available_category_list()
         sub_categories = category.cat_parent.filter(status=True, id__in=categories_with_products)
         sub_category_data_serializer = SubbCategorySerializer(sub_categories,many=True)

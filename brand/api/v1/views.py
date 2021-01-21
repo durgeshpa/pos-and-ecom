@@ -28,6 +28,7 @@ class GetSlotBrandListView(APIView):
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
                 parent = ParentRetailerMapping.objects.get(retailer=shop_id, status = True).parent
                 brand_subbrands = []
+                # get list of brand ids with available inventory
                 stock_available_brands_list = get_stock_available_brand_list(parent)
                 brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=parent).order_by('brand_data_order')
                 for brand_slot in brand_slots:
@@ -62,6 +63,7 @@ class GetSubBrandsListView(APIView):
             parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
             product_subbrands = brand.brnd_parent.filter(active_status='active')
             if product_subbrands.exists():
+                # get list of brand ids with available inventory
                 stock_available_brands_list = get_stock_available_brand_list(parent)
                 sub_brands_with_available_products = []
                 for sub_brand in product_subbrands:
