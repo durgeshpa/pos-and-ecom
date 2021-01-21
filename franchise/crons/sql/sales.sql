@@ -9,7 +9,8 @@ Select distinct SALESINVOICE_BUSINESSLOCATION.id as bl_id,
     SalesInvoice_InvoiceItem.Barcode,
     ITEM_SKU_LOOKUP.Name as product_sku,
     SalesInvoice_CUSTOMER.Name as CustomerName,
-    SalesInvoice_CUSTOMER_ADDRESS_CONTACT.MobileNumber As MobileNumber
+    SalesInvoice_CUSTOMER_ADDRESS_CONTACT.MobileNumber As MobileNumber,
+    SalesInvoice.SpotDiscountAmount as Discount
     from tbl_DYN_SalesInvoices SalesInvoice
     Left outer join tbl_DYN_SALESINVOICEs_INVOICEITEMs SalesInvoice_INVOICEITEMs on SalesInvoice_INVOICEITEMs.SALESINVOICEId = SalesInvoice.Id
     Left outer join tbl_DYN_InvoiceItems_ITEMs SALESINVOICE_INVOICEITEM_ITEMs on SALESINVOICE_INVOICEITEM_ITEMs.InvoiceItemId = SalesInvoice_INVOICEITEMs.INVOICEITEMId

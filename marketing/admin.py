@@ -1,9 +1,12 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django_admin_listfilter_dropdown.filters import DropdownFilter
+from rangefilter.filter import DateTimeRangeFilter
 
 from .models import MLMUser, Referral, PhoneOTP, Token, RewardPoint, Profile, RewardLog
 from global_config.models import GlobalConfig
 from marketing.forms import RewardPointForm
+from franchise.models import FranchiseSales
 
 class PhoneOTPAdmin(admin.ModelAdmin):
     list_display = (
@@ -99,8 +102,9 @@ class RewardPointAdmin(admin.ModelAdmin):
 
 
 class RewardLogAdmin(admin.ModelAdmin):
-    list_display = ('user', 'transaction_type', 'transaction_id', 'points', 'discount', 'changed_by',
-                    'created_at', 'modified_at')
+    list_display = ('user', 'transaction_type', 'transaction_id', 'transaction_points', 'created_at', 'discount', 'changed_by',
+                    'purchase_user', 'purchase_invoice', 'user_purchase_shop_location')
+    list_filter = [('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter)]
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -110,6 +114,27 @@ class RewardLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def transaction_points(self, obj):
+        return obj.points
+
+    def purchase_user(self, obj):
+        if obj.transaction_type == 'direct_reward' or obj.transaction_type == 'indirect_reward':
+            sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
+            return sales_obj.phone_number if sales_obj else '-'
+        return '-'
+
+    def user_purchase_shop_location(self, obj):
+        if obj.transaction_type == 'direct_reward' or obj.transaction_type == 'indirect_reward':
+            sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
+            return sales_obj.shop_loc if sales_obj else '-'
+        return '-'
+
+    def purchase_invoice(self, obj):
+        if obj.transaction_type == 'direct_reward' or obj.transaction_type == 'indirect_reward':
+            sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
+            return sales_obj.invoice_number if sales_obj else '-'
+        return '-'
 
 
 admin.site.register(MLMUser, MLMUserAdmin)

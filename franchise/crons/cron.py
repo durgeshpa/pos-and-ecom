@@ -139,7 +139,8 @@ def fetch_franchise_data(fetch_name):
 
                             FranchiseSales.objects.create(shop_loc=row[1], barcode=row[8], quantity=row[5], amount=row[6],
                                                           invoice_date=row[2], invoice_number=row[3],
-                                                          product_sku=row[9], customer_name=row[10], phone_number=row[11])
+                                                          product_sku=row[9], customer_name=row[10],
+                                                          phone_number=row[11], discount_amount=row[12])
 
                 hdpos_obj.status = 1
                 hdpos_obj.save()
@@ -161,12 +162,15 @@ def fetch_franchise_data(fetch_name):
         return {'code': 'failed'}
 
 
-def process_sales_data():
+def process_sales_data(id=''):
     """
         Proceed Inventory Adjustment Accounting for Sales of Franchise Shops
     """
     try:
-        sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2])
+        if id != '':
+            sales_objs = FranchiseSales.objects.filter(pk=id)
+        else:
+            sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2])
         if sales_objs.exists():
             type_normal = InventoryType.objects.filter(inventory_type='normal').last(),
             state_available = InventoryState.objects.filter(inventory_state='available').last(),
@@ -389,9 +393,6 @@ def rewards_account(sales_obj):
         sales_user = MLMUser.objects.filter(phone_number=sales_obj.phone_number).last()
         if sales_user:
             referrer_reward(sales_user, sales_obj.id)
-            # discount = 0
-            # if discount and discount != '' and discount > 0:
-            #     used_rewards(sales_user, discount)
 
 
 def referrer_reward(sales_user, transaction_id):
@@ -445,23 +446,4 @@ def referrer_reward(sales_user, transaction_id):
 
         referral_obj.reward_status = 1
         referral_obj.save()
-
-
-# def used_rewards(sales_user, discount):
-#     """
-#         Account for used rewards by sales_user
-#     """
-#     try:
-#         conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
-#         used_reward_factor = int(conf_obj.value)
-#     except:
-#         used_reward_factor = 2
-#
-#     reward_obj = RewardPoint.objects.filter(user=sales_user).last()
-#     points_used = int(round(discount / used_reward_factor))
-#     if reward_obj:
-#         reward_obj.points_used += points_used
-#         reward_obj.save()
-#     else:
-#         RewardPoint.objects.create(user=sales_user, points_used=points_used)
 

@@ -187,7 +187,7 @@ class RewardPoint(models.Model):
             reward_obj.direct_earned += points
             reward_obj.save()
             RewardLog.objects.create(user=user, transaction_type='welcome_reward', transaction_id=user.id,
-                                     points=points, changed_by=user)
+                                     points=points)
 
 
 class Token(models.Model):
