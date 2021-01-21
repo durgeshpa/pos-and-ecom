@@ -143,7 +143,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			visible = visible.visible
 		else:
 			visible=True
-
+			
 		product_details = {
 			"sku": product.product_sku,
 			"parent_id": product.parent_product.parent_id,
