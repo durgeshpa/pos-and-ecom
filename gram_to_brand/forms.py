@@ -136,6 +136,9 @@ class POGenerationForm(forms.ModelForm):
         if 'po_validity_date' in self.cleaned_data and self.cleaned_data['po_validity_date'] < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))
 
+        if 'cart_product_mapping_csv' in self.changed_data:
+            print("The following fields changed: %s" % ", ".join(self.changed_data))
+
         return self.cleaned_data
 
     change_form_template = 'admin/gram_to_brand/cart/change_form.html'
