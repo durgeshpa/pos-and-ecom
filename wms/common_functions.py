@@ -2044,3 +2044,29 @@ def update_visibility_bulk(shop_id):
                 print(sibling,visibility)
                 update_visibility(shop, sibling, visibility)
         parent_list.append(product.sku.parent_product.id)
+
+
+def get_stock_available_brand_list(warehouse):
+    """
+    Takes in the Shop instance and returns the list of distinct brands for which normal type inventory is available
+    """
+    return WarehouseInventory.objects.filter(warehouse=warehouse, sku__status='active', visible=True, quantity__gt=0,
+                                             inventory_state=InventoryState.objects.filter(
+                                                 inventory_state='total_available').last(),
+                                             inventory_type=InventoryType.objects.filter(
+                                                 inventory_type='normal').last()) \
+        .values_list('sku__parent_product__parent_brand', flat=True).distinct()
+
+
+def get_stock_available_category_list(warehouse=None):
+    """
+    Takes in the Shop instance(optional) and returns the list of distinct categories for which normal type inventory is available
+    """
+    query_set = WarehouseInventory.objects.filter(sku__status='active', visible=True, quantity__gt=0,
+                                             inventory_state=InventoryState.objects.filter(
+                                                 inventory_state='total_available').last(),
+                                             inventory_type=InventoryType.objects.filter(
+                                                 inventory_type='normal').last())
+    if warehouse:
+        query_set = query_set.filter(warehouse=warehouse)
+    return query_set.values_list('sku__product_pro_category__category', flat=True).distinct()
