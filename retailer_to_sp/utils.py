@@ -15,6 +15,7 @@ from django.http import HttpResponse
 from django.db.models import Sum, F, FloatField, OuterRef, Subquery
 
 from products.models import Product
+from retailer_backend.utils import time_diff_days_hours_mins_secs
 
 
 def add_cart_user(form, request):
@@ -282,7 +283,8 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
         'Pincode(Buyer Shop)', 'Order MRP Amount', 'Order Amount',
         'Order Paid Amount', 'Invoice No', 'Invoice Amount', 'Shipment Status',
         'Shipment Return Reason', 'Shipment Created At', 'Shipment Delivered At',
-        'Shipment Paid Amount', 'Picking Status', 'Picklist ID', 'Picker Boy'])
+        'Shipment Paid Amount', 'Picking Status', 'Picklist ID', 'Picker Boy', 'Picking Completed At',
+        'Picking Completion Time'])
 
     order_payments = OrderPayment.objects.filter(order=OuterRef('pk')).order_by().values('order')
     order_paid_amount = order_payments.annotate(sum=Sum('paid_amount')).values('sum')
@@ -317,7 +319,9 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
                 'shipment_paid_amount',
                 'order_paid_amount',
                 'total_mrp_amount', 'ordered_cart__offers',
-                'total_final_amount')
+                'total_final_amount',
+                'picker_order__picker_assigned_date',
+                'picker_order__completed_at',)
     for order in orders.iterator():
         offers = order.get('ordered_cart__offers')
         if offers:
@@ -353,6 +357,10 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
                                  order.get('picker_order__picking_status')),
             order.get('picker_order__picklist_id'),
             order.get('picker_order__picker_boy__phone_number'),
+            order.get('picker_order__completed_at'),
+            time_diff_days_hours_mins_secs(order.get('picker_order__completed_at'),
+                                           order.get('picker_order__picker_assigned_date'))
+            if order.get('picker_order__completed_at') else None
         ])
     return response
 

@@ -3,6 +3,7 @@ from django.db.models import Count, Q
 
 from audit.models import AuditRun, AUDIT_RUN_STATUS_CHOICES, AuditNumberGenerator, AuditDetail, \
     AUDIT_DETAIL_STATUS_CHOICES, AUDIT_DETAIL_STATE_CHOICES
+from retailer_backend.utils import time_diff_days_hours_mins_secs
 from sp_to_gram.tasks import es_mget_by_ids
 from wms.models import BinInventory
 
@@ -89,4 +90,33 @@ def get_product_image(product):
     elif not product.use_parent_image and product.child_product_pro_image.exists():
         image_url = product.child_product_pro_image.last().image.url
     return image_url
+
+def get_audit_start_time(audit_detail):
+    '''
+    Takes AuditDetail instance
+    Returns audit start time if audit has been started else None
+    '''
+    if audit_detail.state > AUDIT_DETAIL_STATE_CHOICES.CREATED:
+        return AuditRun.objects.filter(audit=audit_detail).last().created_at
+    return None
+
+
+def get_audit_complete_time(audit_detail):
+    '''
+    Takes AuditDetail instance
+    Returns audit completion time if audit has been completed else None
+    '''
+    if audit_detail.state > AUDIT_DETAIL_STATE_CHOICES.INITIATED:
+        return AuditRun.objects.filter(audit=audit_detail).last().completed_at
+    return None
+
+def get_audit_completion_time_string(audit_detail):
+    '''
+    Takes AuditDetail instance
+    Returns audit duration if audit has been completed else None
+    '''
+    if audit_detail.state > AUDIT_DETAIL_STATE_CHOICES.INITIATED:
+        audit_run = AuditRun.objects.filter(audit=audit_detail).last()
+        return time_diff_days_hours_mins_secs(audit_run.completed_at, audit_run.created_at)
+    return None
 
