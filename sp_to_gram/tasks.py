@@ -12,27 +12,36 @@ from elasticsearch import Elasticsearch, NotFoundError
 from shops.models import Shop
 from sp_to_gram import models
 from products.models import Product, ProductPrice
-from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF, get_product_stock
+from wms.common_functions import get_stock, CommonWarehouseInventoryFunctions as CWIF
 from wms.common_functions import get_visibility_changes
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 import logging
+
+from wms.models import InventoryType,WarehouseInventory,InventoryState
+
 info_logger = logging.getLogger('file-info')
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
 
-def get_warehouse_stock(shop_id=None,product=None):
+def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
+	if inventory_type is None:
+		inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
 	product_dict = None
 	if shop_id:
 		shop = Shop.objects.get(id=shop_id)
 		if product is None:
-			stock = get_stock(shop).values('sku__id','visible').annotate(available_qty=Sum('quantity'))
-			product_dict = {g['sku__id']: {'qty':g['available_qty'],'visible':g['visible']} for g in stock}
+			# stock = get_stock(shop).filter(quantity__gt=0,).values('sku__id').annotate(available_qty=Sum('quantity'))
+			# product_dict = {g['sku__id']: g['available_qty'] for g in stock}
+			product_dict = get_stock(shop, inventory_type)
 		else:
-			stock_p = get_product_stock(shop, product)
-			if stock_p:
-				stock = stock_p.values('sku__id','visible').annotate(available_qty=Sum('quantity'))
-				product_dict = {g['sku__id']: {'qty':g['available_qty'],'visible':g['visible']} for g in stock}
-			else:
+			# stock_p = get_product_stock(shop, product)
+			# if stock_p:
+			# 	stock = stock_p.filter(quantity__gt=0, ).values('sku__id').annotate(available_qty=Sum('quantity'))
+			# 	product_dict = {g['sku__id']: g['available_qty'] for g in stock}
+			# else:
+			# 	product_dict = {product.id: 0}
+			product_dict = get_stock(shop, inventory_type, [product.id])
+			if not product_dict.get(product.id):
 				product_dict = {product.id: 0}
 		product_list = product_dict.keys()
 	else:
@@ -80,10 +89,10 @@ def get_warehouse_stock(shop_id=None,product=None):
 			info_logger.exception("pack size is not defined for {}".format(product.product_name))
 			continue
 		if product_dict:
-			if int(pack_size) > int(product_dict[product.id]['qty']):
+			if int(pack_size) > int(product_dict[product.id]):
 				status = False
 			else:
-				available_qty = int(int(product_dict[product.id]['qty']) / int(pack_size))
+				available_qty = int(int(product_dict[product.id]) / int(pack_size))
 		try:
 			for p_o in product_opt:
 				weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
@@ -127,12 +136,18 @@ def get_warehouse_stock(shop_id=None,product=None):
 		product_categories = [str(c.category) for c in
 							  product.parent_product.parent_product_pro_category.filter(status=True)]
 		visible=False
-		if  product_dict:
-			visible=product_dict[product.id]['visible']
+		if product_dict:
+			visible=WarehouseInventory.objects.filter(warehouse=shop,sku=product,inventory_state=InventoryState.objects.filter(
+                inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_type='normal').last()).last()
+			visible = visible.visible
 		else:
 			visible=True
 			
 		product_details = {
+			"sku": product.product_sku,
+			"parent_id": product.parent_product.parent_id,
+			"parent_name":product.parent_product.name,
 			"name": product.product_name,
 			"name_lower": product.product_name.lower(),
 			"brand": str(product.product_brand),
@@ -141,7 +156,6 @@ def get_warehouse_stock(shop_id=None,product=None):
 			"mrp": mrp,
 			"ptr": ptr,
 			"status": status,
-			"pack_size": pack_size,
 			"id": product.id,
 			"weight_value": weight_value,
 			"weight_unit": weight_unit,
@@ -164,12 +178,15 @@ def upload_shop_stock(shop=None,product=None):
 	all_products = get_warehouse_stock(shop,product)
 	es_index = shop if shop else 'all_products'
 	count = 0
+	if product is None:
+		es.indices.delete(index=create_es_index(es_index), ignore=[400, 404])
 	for product in all_products:
 		info_logger.info(product)
 		try:
 			es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
 		except Exception as e:
 			info_logger.info("error in upload_shop_stock index creation")
+			info_logger.info(e)
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):

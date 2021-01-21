@@ -348,7 +348,8 @@ CRONJOBS = [
     ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
     ('*/5 * * * *', 'audit.cron.create_picklist_cron'),
     ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
-    ('30 18 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
+    ('00 2 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
+    ('*/5 * * * *', 'products.cron.deactivate_capping'),
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']

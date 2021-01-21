@@ -10,7 +10,7 @@ import traceback
 
 from franchise.models import FranchiseSales, ShopLocationMap, FranchiseReturns, HdposDataFetch
 from products.models import Product
-from wms.common_functions import (CommonWarehouseInventoryFunctions, WareHouseInternalInventoryChange,
+from wms.common_functions import (CommonWarehouseInventoryFunctions,
                                  InternalInventoryChange, franchise_inventory_in, OutCommonFunctions)
 from wms.models import BinInventory, WarehouseInventory, InventoryState, InventoryType, Bin
 from franchise.models import get_default_virtual_bin_id
@@ -160,7 +160,7 @@ def process_sales_data():
         sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2])
         if sales_objs.exists():
             type_normal = InventoryType.objects.filter(inventory_type='normal').last(),
-            state_available = InventoryState.objects.filter(inventory_state='available').last(),
+            state_available = InventoryState.objects.filter(inventory_state='total_available').last(),
             state_shipped = InventoryState.objects.filter(inventory_state='shipped').last(),
 
             for sales_obj in sales_objs:
@@ -220,15 +220,11 @@ def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, 
                     update_sales_ret_obj(sales_obj, 2, 'quantity not present in warehouse')
                 else:
                     # out quantity from warehouse available
-                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, type_normal[0], state_available[0],
-                                                                                 quantity * -1, True)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        warehouse, sku, type_normal[0], state_available[0], quantity * -1, transaction_type, transaction_id)
                     # in quantity to warehouse shipped
-                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, type_normal[0], state_shipped[0],
-                                                                                 quantity, True)
-                    # record shift in quantity
-                    WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, transaction_type, transaction_id,
-                                                                                       type_normal[0], state_available[0], type_normal[0],
-                                                                                       state_shipped[0], quantity)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        warehouse, sku, type_normal[0], state_shipped[0], quantity, transaction_type, transaction_id)
                     # get all warehouse bins where sku quantity is present
                     bin_inv_objs = BinInventory.objects.filter(warehouse=warehouse, bin=bin_obj, sku=sku, quantity__gt=0,
                                                                inventory_type=type_normal[0],
@@ -288,7 +284,7 @@ def process_returns_data():
             initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
             final_type = InventoryType.objects.filter(inventory_type='normal').last(),
             initial_stage = InventoryState.objects.filter(inventory_state='shipped').last(),
-            final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+            final_stage = InventoryState.objects.filter(inventory_state='total_available').last(),
             initial_type1 = InventoryType.objects.filter(inventory_type='new').last(),
             initial_stage1 = InventoryState.objects.filter(inventory_state='new').last(),
 

@@ -64,20 +64,22 @@
         <th>Product Name</th>
         <th>Product SKU</th>
         <th>Product MRP</th>
-        <th>Ordered Quantity</th>
-        <th>No of Pieces</th>
-        <th>Picked Quantity</th>
+        <th>To Be Picked Qty</th>
+        <th>Batch ID</th>
+        <th>BIN ID</th>
         <th>Remark</th>
       </tr>
     </thead>
     <tbody>
     {% for cart in cart_products %}
       <tr>
-        <td>{{ cart.product_name }}</td>
-        <td>{{ cart.product_sku }}</td>
-        <td>{{ cart.product_mrp }}</td>
-        <td>{{ cart.ordered_qty }}</td>
-        <td>{{ cart.no_of_pieces }}</td>
+        <td>{{ cart.product }}</td>
+        <td>{{ cart.sku }}</td>
+        <td>{{ cart.mrp }}</td>
+        <td>{{ cart.qty }}</td>
+        <td>{{ cart.batch_id }}</td>
+        <td>{{ cart.bin }}</td>
+         <td>--------</td>
         <td></td>
 		<td></td>
       </tr>
