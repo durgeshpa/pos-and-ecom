@@ -7,6 +7,7 @@ from django.core.validators import RegexValidator
 from django.utils import timezone
 from retailer_backend.messages import *
 from django.utils.crypto import get_random_string
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -16,6 +17,7 @@ from django.dispatch import receiver
 from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
 from global_config.models import GlobalConfig
+from accounts.models import User
 from decimal import Decimal
 
 
@@ -166,8 +168,13 @@ class RewardPoint(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name_plural = "Rewards Dashboard"
+
     @staticmethod
     def welcome_reward(user, referred=0):
+        if RewardPoint.objects.filter(user=user).exists():
+            return ''
         try:
             conf_obj = GlobalConfig.objects.get(key='welcome_reward_points_referral')
             on_referral_points = int(conf_obj.value)
@@ -175,9 +182,12 @@ class RewardPoint(models.Model):
             on_referral_points = 10
 
         points = on_referral_points if referred else int(on_referral_points / 2)
-        reward_obj, created = RewardPoint.objects.get_or_create(user=user)
-        reward_obj.direct_earned += points
-        reward_obj.save()
+        with transaction.atomic():
+            reward_obj, created = RewardPoint.objects.get_or_create(user=user)
+            reward_obj.direct_earned += points
+            reward_obj.save()
+            RewardLog.objects.create(user=user, transaction_type='welcome_reward', transaction_id=user.id,
+                                     points=points, changed_by=user)
 
 
 class Token(models.Model):
@@ -203,4 +213,22 @@ class Profile(models.Model):
             Profile.objects.create(user=instance)
 
     post_save.connect(create_user_profile, sender=MLMUser)
+
+
+class RewardLog(models.Model):
+    TRANSACTION_CHOICES = (
+        ('welcome_reward', "Welcome Reward"),
+        ('used_reward', 'Used Reward'),
+        ('direct_reward', 'Direct Reward'),
+        ('indirect_reward', 'Indirect Reward')
+    )
+    user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
+    transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=TRANSACTION_CHOICES)
+    transaction_id = models.CharField(max_length=25, null=True, blank=True)
+    points = models.IntegerField(default=0)
+    discount = models.IntegerField(null=True, blank=True)
+    changed_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
 
