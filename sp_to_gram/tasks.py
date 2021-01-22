@@ -140,9 +140,10 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			visible=WarehouseInventory.objects.filter(warehouse=shop,sku=product,inventory_state=InventoryState.objects.filter(
                 inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
                 inventory_type='normal').last()).last()
+			visible = visible.visible
 		else:
 			visible=True
-
+			
 		product_details = {
 			"sku": product.product_sku,
 			"parent_id": product.parent_product.parent_id,
@@ -165,7 +166,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"no_of_pieces": no_of_pieces,
 			"sub_total": sub_total,
 			"available": available_qty,
-			"visible":visible.visible
+			"visible":visible
 		}
 		yield(product_details)
 
@@ -185,6 +186,7 @@ def upload_shop_stock(shop=None,product=None):
 			es.index(index=create_es_index(es_index), doc_type='product', id=product['id'], body=product)
 		except Exception as e:
 			info_logger.info("error in upload_shop_stock index creation")
+			info_logger.info(e)
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):

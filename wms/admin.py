@@ -156,18 +156,6 @@ class InventoryStateFilter(AutocompleteFilter):
     autocomplete_url = 'inventory-state-autocomplete'
 
 
-class InitialStageFilter(AutocompleteFilter):
-    title = 'Initial Stage'
-    field_name = 'initial_stage'
-    autocomplete_url = 'initial-stage-autocomplete'
-
-
-class FinalStageFilter(AutocompleteFilter):
-    title = 'Final Stage'
-    field_name = 'final_stage'
-    autocomplete_url = 'final-stage-autocomplete'
-
-
 class InTypeIDFilter(InputFilter):
     title = 'In Type ID'
     parameter_name = 'in_type_id'
@@ -770,8 +758,8 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
         'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at')
 
     search_fields = ('sku__product_sku', 'transaction_id',)
-    list_filter = [Warehouse, ProductSKUFilter, TransactionIDFilter, InventoryTypeFilter, InitialStageFilter,
-                   FinalStageFilter, ('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter),
+    list_filter = [Warehouse, ProductSKUFilter, TransactionIDFilter, InventoryTypeFilter, InventoryStateFilter,
+                    ('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter),
                    ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
 

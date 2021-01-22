@@ -355,32 +355,7 @@ def get_stock(shop, inventory_type, product_id_list=None):
             sku_qty_dict[item.sku.id] -= item.quantity
     return sku_qty_dict
 
-# def get_stock(shop):
-#     # For getting available stock of a particular warehouse
-#     """:param shop:
-#        :return: """
-#     return WarehouseInventory.objects.filter(
-#         Q(warehouse=shop),
-#         Q(quantity__gt=0),
-#         Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
-#         Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
-#         Q(in_stock='t')
-#     )
 
-
-# def get_product_stock(shop, sku):
-#     """:param shop:
-#       :param sku:
-#       :return: """
-#
-#     return WarehouseInventory.objects.filter(
-#         Q(sku=sku),
-#         Q(warehouse=shop),
-#         Q(quantity__gt=0),
-#         Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
-#         Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
-#         Q(in_stock='t')
-#     )
 
 
 def get_visibility_changes(shop, product):
@@ -868,7 +843,7 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
         order_reserve_obj.update(
             warehouse_internal_inventory_release=WarehouseInternalInventoryChange.objects.filter(
                 transaction_id=transaction_id).last(),
-            release_time=datetime.now(), release_type=release_type,
+            release_time=datetime.datetime.now(), release_type=release_type,
             ordered_quantity=transaction_quantity)
 
 
@@ -896,7 +871,6 @@ def cancel_order(instance):
             qty = item.quantity
             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                 shop, product, type_normal, state_ordered, -1*qty, transaction_type, transaction_id)
-
 
 
 
@@ -1990,7 +1964,7 @@ def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_produc
 
 
 def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type, transaction_id, final_type,
-                           initial_type, initial_stage, final_stage, bin_obj):
+                           initial_type, initial_stage, final_stage, bin_obj, shipped=True):
 
     InCommonFunctions.create_only_in(warehouse, transaction_type, transaction_id, sku, batch_id, quantity,
                                      final_type[0])
@@ -2019,9 +1993,10 @@ def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type,
                                               quantity=quantity)
     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
         warehouse, sku, final_type[0], final_stage[0], quantity, transaction_type, transaction_id)
-    if transaction_type == 'franchise_returns':
+    if transaction_type == 'franchise_returns'and shipped:
         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
             warehouse, sku, initial_type[0], initial_stage[0], quantity * -1, transaction_type, transaction_id)
+
 
 def update_visibility(shop,product,visible):
     WarehouseInventory.objects.filter(warehouse=shop,sku=product,inventory_state=InventoryState.objects.filter(
