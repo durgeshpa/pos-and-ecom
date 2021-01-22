@@ -4,6 +4,8 @@ from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView, 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+
+from wms.common_functions import get_stock_available_category_list
 from .serializers import CategorySerializer,CategoryDataSerializer, BrandSerializer, AllCategorySerializer
 from categories.models import Category,CategoryData,CategoryPosation
 from rest_framework import viewsets
@@ -62,8 +64,19 @@ class GetAllCategoryListView(APIView):
 
     permission_classes = (AllowAny,)
     def get(self, *args, **kwargs):
-        categories = Category.objects.filter(category_parent=None, status = True)
-        category_subcategory_serializer = AllCategorySerializer(categories,many=True)
+        categories_to_return = []
+        # get list of category ids with available inventory
+        categories_with_products = get_stock_available_category_list()
+        all_active_categories = Category.objects.filter(category_parent=None, status=True)
+        for c in all_active_categories:
+            if c.id in categories_with_products:
+                categories_to_return.append(c)
+            elif c.cat_parent.filter(status=True).count() > 0:
+                for sub_category in c.cat_parent.filter(status=True):
+                    if sub_category.id in categories_with_products:
+                        categories_to_return.append(c)
+                        break
+        category_subcategory_serializer = AllCategorySerializer(categories_to_return, many=True)
 
-        is_success = True if categories else False
+        is_success = True if all_active_categories else False
         return Response({ "message":[""],"response_data": category_subcategory_serializer.data,"is_success":is_success})

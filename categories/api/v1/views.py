@@ -4,6 +4,8 @@ from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView, 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+
+from wms.common_functions import get_stock_available_category_list
 from .serializers import CategorySerializer,CategoryDataSerializer, BrandSerializer, AllCategorySerializer, SubbCategorySerializer
 from categories.models import Category,CategoryData,CategoryPosation
 from rest_framework import viewsets
@@ -52,7 +54,9 @@ class GetSubCategoriesListView(APIView):
     def get(self, *args, **kwargs):
         category_id = kwargs.get('category')
         category = Category.objects.get(pk=category_id)
-        sub_categories = category.cat_parent.filter(status=True)
+        # get list of category ids with available inventory
+        categories_with_products = get_stock_available_category_list()
+        sub_categories = category.cat_parent.filter(status=True, id__in=categories_with_products)
         sub_category_data_serializer = SubbCategorySerializer(sub_categories,many=True)
 
         is_success = True if sub_categories else False
