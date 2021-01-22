@@ -1176,15 +1176,23 @@ class ProductVendorMappingForm(forms.ModelForm):
     vendor = forms.ModelChoiceField(
         queryset=Vendor.objects.all(),
         widget=autocomplete.ModelSelect2(
-            url='admin:vendor-autocomplete', )
+            url='admin:vendor-autocomplete')
     )
 
     product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(
-            url='admin:product-price-autocomplete', )
+            url='admin:product-price-autocomplete',
+            attrs={
+                "onChange": 'getProductMRP(this)'
+            },
+        )
     )
-   
+
+    def __init__(self, *args, **kwargs):
+        super(ProductVendorMappingForm, self).__init__(*args, **kwargs)
+        self.fields['product_mrp'].widget.attrs['readonly'] = True
+
     class Meta:
         model = ProductVendorMapping
         fields = ['vendor', 'product', 'product_price','product_price_pack', 'product_mrp', 'case_size']
@@ -1194,16 +1202,15 @@ class ProductVendorMappingForm(forms.ModelForm):
 
         # data from the form is fetched using super function
         super(ProductVendorMappingForm, self).clean()
+
         product_price = self.cleaned_data.get('product_price')
         product_price_pack = self.cleaned_data.get('product_price_pack')
-
-
         if product_price == None and product_price_pack == None:
             raise forms.ValidationError("Please enter one Brand to Gram Price")
-        
+
         if not (product_price == None or product_price_pack == None):
             raise forms.ValidationError("Please enter only one Brand to Gram Price")
-       
+
 
 
 
