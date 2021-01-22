@@ -189,6 +189,9 @@ class RewardPoint(models.Model):
             RewardLog.objects.create(user=user, transaction_type='welcome_reward', transaction_id=user.id,
                                      points=points)
 
+    def __str__(self):
+        return "Reward Points For - {}".format(self.user)
+
 
 class Token(models.Model):
     """
@@ -230,5 +233,8 @@ class RewardLog(models.Model):
     changed_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "{} - {}".format(self.user, self.transaction_type)
 
 

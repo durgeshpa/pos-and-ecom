@@ -48,9 +48,6 @@ class RewardPointForm(forms.ModelForm):
         if 'discount_given' not in cleaned_data:
             raise forms.ValidationError("Please Enter Discount Value")
 
-        if not str(cleaned_data['discount_given']).isdigit():
-            raise forms.ValidationError("Discount Invalid. Should Be An Integer")
-
         if int(cleaned_data['discount_given']) < 1:
             raise forms.ValidationError("Please Enter Discount Greater Than 0")
 

@@ -7,6 +7,7 @@ from .models import MLMUser, Referral, PhoneOTP, Token, RewardPoint, Profile, Re
 from global_config.models import GlobalConfig
 from marketing.forms import RewardPointForm
 from franchise.models import FranchiseSales
+from marketing.filters import UserFilter, MlmUserAutocomplete
 
 class PhoneOTPAdmin(admin.ModelAdmin):
     list_display = (
@@ -71,6 +72,7 @@ class RewardPointAdmin(admin.ModelAdmin):
     list_display = ("phone_number", "user_name", "email_id", "redeemable_reward_points", "max_available_discount_inr",
                     "created_at", "modified_at",
                     "direct_users", "indirect_users", "direct_earned", "indirect_earned", "points_used")
+    list_filter = [UserFilter]
     try:
         conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
         used_reward_factor = int(conf_obj.value)
@@ -81,10 +83,10 @@ class RewardPointAdmin(admin.ModelAdmin):
         return obj.user
 
     def user_name(self, obj):
-        return format_html('<b>%s</b>' % (obj.user.name))
+        return format_html('<b>%s</b>' % (obj.user.name if obj.user.name else '-'))
 
     def email_id(self, obj):
-        return format_html('<b>%s</b>' % (obj.user.email))
+        return format_html('<b>%s</b>' % (obj.user.email if obj.user.email else '-'))
 
     def max_available_discount_inr(self, obj):
         max_av = self.used_reward_factor * (obj.direct_earned + obj.indirect_earned - obj.points_used)
@@ -100,11 +102,27 @@ class RewardPointAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(RewardPointAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^mlm-user-autocomplete/$',
+                       self.admin_site.admin_view(MlmUserAutocomplete.as_view()),
+                       name="mlm-user-autocomplete"
+                   ),
+               ] + urls
+        return urls
 
+    class Media:
+        pass
+
+
+@admin.register(RewardLog)
 class RewardLogAdmin(admin.ModelAdmin):
     list_display = ('user', 'transaction_type', 'transaction_id', 'transaction_points', 'created_at', 'discount', 'changed_by',
                     'purchase_user', 'purchase_invoice', 'user_purchase_shop_location')
-    list_filter = [('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter)]
+    list_filter = [UserFilter, ('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter)]
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -136,10 +154,24 @@ class RewardLogAdmin(admin.ModelAdmin):
             return sales_obj.invoice_number if sales_obj else '-'
         return '-'
 
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(RewardLogAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^mlm-user-autocomplete/$',
+                       self.admin_site.admin_view(MlmUserAutocomplete.as_view()),
+                       name="mlm-user-autocomplete"
+                   ),
+               ] + urls
+        return urls
+
+    class Media:
+        pass
+
 
 admin.site.register(MLMUser, MLMUserAdmin)
 admin.site.register(PhoneOTP, PhoneOTPAdmin)
 admin.site.register(Referral, ReferralAdmin)
 admin.site.register(Token, TokenAdmin)
 admin.site.register(Profile)
-admin.site.register(RewardLog, RewardLogAdmin)
