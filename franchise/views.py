@@ -12,10 +12,10 @@ from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from decouple import config
-from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.views import APIView
 
 from shops.models import Shop
 from franchise.forms import FranchiseStockForm
@@ -157,26 +157,33 @@ class DownloadFranchiseStockCSV(View):
         return response
 
 
-class AddSales(GenericAPIView):
+class AddSales(APIView):
     permission_classes = (AllowAny,)
 
-    def post(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         try:
-            data = request.data
-            shop_id = data.get('shop_id')
+            shop_id = request.GET.get('shop_id')
             if not shop_id:
                 return Response({"error": "provide shop_id"}, status=status.HTTP_200_OK)
-            product_sku = data.get('product_sku')
+            product_sku = request.GET.get('product_sku')
             if not product_sku:
                 return Response({"error": "provide product_sku"}, status=status.HTTP_200_OK)
-            phone_number = data.get('phone_number')
+            phone_number = request.GET.get('phone_number')
             if not phone_number:
                 return Response({"error": "provide phone_number"}, status=status.HTTP_200_OK)
-            quantity = data.get('quantity')
-            if not phone_number:
+            quantity = request.GET.get('quantity')
+            if not quantity:
                 return Response({"error": "provide quantity"}, status=status.HTTP_200_OK)
-            shop = ShopLocationMap.objects.get(shop_id=shop_id)
-            product = Product.objects.get(product_sku=product_sku)
+            try:
+                shop = ShopLocationMap.objects.get(shop_id=shop_id)
+            except:
+                return Response({"error": "shop not found"}, status=status.HTTP_200_OK)
+
+            try:
+                product = Product.objects.get(product_sku=product_sku)
+            except:
+                return Response({"error": "product not found"}, status=status.HTTP_200_OK)
+
             sales_obj = FranchiseSales.objects.create(shop_loc=shop.location_name, barcode='9999', quantity=quantity,
                                                       amount=100, invoice_date=datetime.date.today(),
                                                       invoice_number='ABCD',
