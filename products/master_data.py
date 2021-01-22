@@ -2,7 +2,8 @@ import logging
 
 from brand.models import Brand
 from categories.models import Category
-from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax
+from products.models import Product, ParentProduct, ParentProductTaxMapping, ProductHSN, ParentProductCategory, Tax, \
+    Repackaging, DestinationRepackagingCostMapping, ProductTaxMapping
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -16,20 +17,12 @@ class SetMasterData(object):
 
     @classmethod
     def set_master_data(cls, header_list, excel_file_data_list):
-        if 'status' in header_list:
-            UploadMasterData.set_inactive_status(header_list, excel_file_data_list)
-            UploadMasterData.set_parent_data(header_list, excel_file_data_list)
-            UploadMasterData.set_child_parent(header_list, excel_file_data_list)
-        
-        if 'sub_brand_id' in header_list and 'brand_id' in header_list:
-            UploadMasterData.set_sub_brand_and_brand(header_list, excel_file_data_list)
-
-        if 'sub_category_id' in header_list and 'category_id' in header_list:
-            UploadMasterData.set_sub_category_and_category(header_list, excel_file_data_list)
-
-        if 'status' in header_list and 'sku_name' in header_list:
-            UploadMasterData.set_child_data(header_list, excel_file_data_list)
-
+        UploadMasterData.set_inactive_status(header_list, excel_file_data_list)
+        UploadMasterData.set_parent_data(header_list, excel_file_data_list)
+        UploadMasterData.set_child_parent(header_list, excel_file_data_list)
+        UploadMasterData.set_sub_brand_and_brand(header_list, excel_file_data_list)
+        UploadMasterData.set_sub_category_and_category(header_list, excel_file_data_list)
+        UploadMasterData.set_child_data(header_list, excel_file_data_list)
 
 
 class UploadMasterData(object):
@@ -49,12 +42,19 @@ class UploadMasterData(object):
             count = 0
             logger.info("Method Start to set Inactive status from excel file")
             for row in excel_file_data_list:
-                if row['status'] == 'Deactivated':
+                if row['status'] == 'deactivated':
                     count += 1
-                    Product.objects.filter(product_sku=str(row['sku_id']).strip()).update(status='deactivated')
+                    if 'mrp' in row.keys():
+                        if row['mrp'] == '':
+                            Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated')
+                        else:
+                            Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated',
+                                                                                     product_mrp=row['mrp'])
+                    else:
+                        Product.objects.filter(product_sku=row['sku_id']).update(status='deactivated')
                 else:
                     continue
-            info_logger.info("Inactive row id count :" + str(count))
+            info_logger.info("Set Inactive Status function called -> Inactive row id count :" + str(count))
             info_logger.info("Method Complete to set the Inactive status from excel file")
         except Exception as e:
             error_logger.info(
@@ -71,10 +71,14 @@ class UploadMasterData(object):
                 count += 1
                 row_num += 1
                 try:
-                    if row['sub_brand_id'] == row['brand_id']:
-                        continue
-                    else:
-                        Brand.objects.filter(id=row['sub_brand_id']).update(brand_parent=row['brand_id'])
+                    if 'sub_brand_id' in row.keys():
+                        if row['sub_brand_id'] == row['brand_id']:
+                            continue
+                        else:
+                            if row['sub_brand_id'] == '':
+                                continue
+                            else:
+                                Brand.objects.filter(id=row['sub_brand_id']).update(brand_parent=row['brand_id'])
                 except:
                     sub_brand.append(str(row_num))
             info_logger.info("Total row executed :" + str(count))
@@ -95,11 +99,15 @@ class UploadMasterData(object):
                 count += 1
                 row_num += 1
                 try:
-                    if row['sub_category_id'] == row['category_id']:
-                        continue
-                    else:
-                        Category.objects.filter(id=row['sub_category_id']).update(
-                            category_parent=row['category_id'])
+                    if 'sub_category_id' in row.keys():
+                        if row['sub_category_id'] == row['category_id']:
+                            continue
+                        else:
+                            if row['sub_category_id'] == '':
+                                continue
+                            else:
+                                Category.objects.filter(id=row['sub_category_id']).update(
+                                    category_parent=row['category_id'])
                 except:
                     sub_category.append(str(row_num))
             info_logger.info("Total row executed :" + str(count))
@@ -115,68 +123,69 @@ class UploadMasterData(object):
             count = 0
             row_num = 1
             parent_data = []
-            parent_brand = []
-            parent_hsn = []
-            parent_category = []
-            parent_tax = []
             info_logger.info("Method Start to set the data for Parent SKU")
             for row in excel_file_data_list:
                 row_num += 1
-                if not row['status'] == 'Deactivated':
+                if not row['status'] == 'deactivated':
                     count += 1
                     try:
-                        if 'parent_id' in header_list:
-                            parent_product = ParentProduct.objects.filter(parent_id=str(row['parent_id']).strip())
-                    except Exception as e:
-                        parent_data.append(str(row_num))
-                    try:
-                        required_parent_brand_data_list = ['sub_brand_id', 'brand_case_size', 'inner_case_size']
-                        required_data = False
-                        for ele in required_parent_brand_data_list:
-                            if ele in header_list:
-                                required_data = True
+                        if 'parent_id' in row.keys():
+                            parent_product = ParentProduct.objects.filter(parent_id=row['parent_id'])
+
+                        fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
+                                  'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
+                                  'sub_brand_id', 'category_id', 'sub_category_id']
+                        for col in fields:
+                            if col in row.keys():
+                                if row[col] != '':
+                                    pass
+                                else:
+                                    fields.remove(col)
                             else:
-                                required_data = False
-                                break
-                        if required_data:
-                            ParentProduct.objects.filter(parent_id=str(row['parent_id']).strip()).update(
-                                parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last(),
-                                brand_case_size=row['brand_case_size'], inner_case_size=row['inner_case_size'])
-                    except:
-                        parent_brand.append(str(row_num))
-                    try:
-                        if 'hsn' in header_list:
-                            ParentProduct.objects.filter(parent_id=str(row['parent_id']).strip()).update(
-                                product_hsn=ProductHSN.objects.filter(
-                                    product_hsn_code=row['hsn'].replace("'", '')).last())
-                    except:
-                        parent_hsn.append(str(row_num))
-                    try:
-                        if 'sub_category_id' in header_list:
-                            ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(
-                                category=Category.objects.filter(id=row['sub_category_id']).last())
-                    except:
-                        parent_category.append(str(row_num))
-                    try:
-                        if 'tax_1(gst)' in header_list and 'tax_2(cess/surcharge)' in header_list:
-                            if not row['tax_1(gst)'] == '':
+                                fields.remove(col)
+                        for col in fields:
+                            if col == 'product_type':
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update\
+                                    (product_type=row['product_type'])
+                            if col == 'hsn':
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update(
+                                    product_hsn=ProductHSN.objects.filter(
+                                        product_hsn_code=row['hsn']).last())
+                            if col == 'tax_1(gst)':
                                 tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
                                 ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
                                     tax=tax[0])
-                            if not row['tax_2(cess/surcharge)'] == '':
-                                tax = Tax.objects.filter(tax_name=row['tax_2(cess/surcharge)'])
+                                # product = Product.objects.filter(product_sku=row['sku_id'])
+                                # ProductTaxMapping.objects.filter(product=product[0].id).update(tax=tax[0])
+                            if col == 'tax_2(cess)':
+                                tax = Tax.objects.filter(tax_name=row['tax_2(cess)'])
                                 ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
                                     tax=tax[0])
-                    except:
-                        parent_tax.append(str(row_num))
+                            if col == 'tax_3(surcharge)':
+                                tax = Tax.objects.filter(tax_name=row['tax_3(surcharge)'])
+                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
+                                    tax=tax[0])
+                            if col == 'brand_case_size':
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update\
+                                    (brand_case_size=row['brand_case_size'])
+                            if col == 'inner_case_size':
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update \
+                                    (inner_case_size=row['inner_case_size'])
+                            if col == 'sub_category_id':
+                                if row['sub_category_id'] == row['category_id']:
+                                    continue
+                                else:
+                                    ParentProductCategory.objects.filter(parent_product=parent_product[0].id).update(
+                                        category=Category.objects.filter(id=row['sub_category_id']).last())
+                            if col == 'sub_brand_id':
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update(
+                                    parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
+                    except Exception as e:
+                        parent_data.append(str(row_num) + ' ' + str(e))
                 else:
                     continue
             info_logger.info("Total row executed :" + str(count))
-            info_logger.info("Parent_ID is not exist in these row:" + str(parent_data))
-            info_logger.info("Parent Brand is not exist in these row :" + str(parent_brand))
-            info_logger.info("Parent HSN is not exist in these row :" + str(parent_hsn))
-            info_logger.info("Parent Category is not exist in these row :" + str(parent_category))
-            info_logger.info("Tax is not exist in these row :" + str(parent_tax))
+            info_logger.info("Some Error Found in these rows, while working with Parent Data Functionality :" + str(parent_data))
             info_logger.info("Method Complete to set the data for Parent SKU")
         except Exception as e:
             error_logger.info(
@@ -191,11 +200,11 @@ class UploadMasterData(object):
             set_child = []
             for row in excel_file_data_list:
                 row_num += 1
-                if not row['status'] == 'Deactivated':
+                if not row['status'] == 'deactivated':
                     count += 1
                     try:
-                        Product.objects.filter(product_sku=str(row['sku_id']).strip()).update(
-                            parent_product=ParentProduct.objects.filter(parent_id=str(row['parent_id']).strip()).last())
+                        Product.objects.filter(product_sku=row['sku_id']).update(
+                            parent_product=ParentProduct.objects.filter(parent_id=row['parent_id']).last())
                     except:
                         set_child.append(str(row_num))
                 else:
@@ -216,19 +225,49 @@ class UploadMasterData(object):
             child_data = []
             for row in excel_file_data_list:
                 row_num += 1
-                if not row['status'] == 'Deactivated':
+                if not row['status'] == 'deactivated':
                     count += 1
                     try:
-                        if 'ean' in header_list:
-                            Product.objects.filter(product_sku=str(row['sku_id']).strip()).update(product_ean_code=row['ean'],
-                                                                                                  product_name=row['sku_name'],
-                                                                                                  status='active', )
-                    except:
-                        child_data.append(str(row_num))
+                        Product.objects.filter(product_sku=row['sku_id']).update(product_name=row['sku_name'],
+                                                                                 status='active')
+                        fields = ['ean', 'mrp', 'weight_unit', 'weight_value']
+                        for col in fields:
+                            if col in row.keys():
+                                if row[col] != '':
+                                    pass
+                                else:
+                                    fields.remove(col)
+                            else:
+                                fields.remove(col)
+                        for col in fields:
+                            if col == 'ean':
+                                Product.objects.filter(product_sku=row['sku_id']).update(product_ean_code=row['ean'])
+                            if col == 'mrp':
+                                Product.objects.filter(product_sku=row['sku_id']).update(product_mrp=row['mrp'])
+                            if col == 'weight_value':
+                                Product.objects.filter(product_sku=row['sku_id']).update(weight_value=row['weight_value'])
+                        if 'repackaging_type' in row.keys():
+                            if row['repackaging_type'] == 'destination':
+                                Product.objects.filter(product_sku=row['source_sku_id']).update(product_name=row['source_sku_name'])
+                                destination_product = Product.objects.filter(product_sku=row['source_sku_id'])
+                                DestinationRepackagingCostMapping.objects.filter(destination=destination_product[0].id)\
+                                                                         .update(raw_material=row['raw_material'],
+                                                                                 wastage=row['wastage'],
+                                                                                 fumigation=row['fumigation'],
+                                                                                 label_printing=row['label_printing'],
+                                                                                 packing_labour=row['packing_labour'],
+                                                                                 primary_pm_cost=row['primary_pm_cost'],
+                                                                                 secondary_pm_cost=row['secondary_pm_cost'],
+                                                                                 final_fg_cost=row['final_fg_cost'],
+                                                                                 conversion_cost=row['conversion_cost'])
+                            else:
+                                continue
+                    except Exception as e:
+                        child_data.append(str(row_num) + ' ' + str(e))
                 else:
                     continue
             info_logger.info("Total row executed :" + str(count))
-            info_logger.info("Child SKU is not exist in these row :" + str(child_data))
+            info_logger.info("Some error found in these row while working with Child data Functionality:" + str(child_data))
             info_logger.info("Script Complete to set the Child data")
         except Exception as e:
             error_logger.info(
