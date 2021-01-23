@@ -69,7 +69,7 @@ def save_user_referral_code(phone_number):
         This method will generate Referral Code & create or update user in database.
     """
     user_referral_code = Referral.generate_unique_referral_code()
-    obj, created = MLMUser.objects.get_or_create(phone_number=phone_number, referral_code=user_referral_code)
+    MLMUser.objects.update_or_create(phone_number=phone_number, referral_code=user_referral_code)
     return user_referral_code
 
 
