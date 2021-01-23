@@ -5,7 +5,7 @@ from rangefilter.filter import DateTimeRangeFilter
 
 from .models import MLMUser, Referral, PhoneOTP, Token, RewardPoint, Profile, RewardLog
 from global_config.models import GlobalConfig
-from marketing.forms import RewardPointForm
+from marketing.forms import RewardPointForm,MLMUserForm
 from franchise.models import FranchiseSales
 from marketing.filters import UserFilter, MlmUserAutocomplete
 
@@ -26,11 +26,13 @@ class PhoneOTPAdmin(admin.ModelAdmin):
 
 
 class MLMUserAdmin(admin.ModelAdmin):
-    model = MLMUser
+    form = MLMUserForm
     list_display = ['phone_number', 'name', 'email']
 
-    def has_add_permission(self, request, obj=None):
-        return False
+    def save_model(self, request, obj, form, change):
+        super(MLMUserAdmin, self).save_model(request, obj, form, change)
+        user_obj = MLMUser.objects.get(pk=obj.id)
+        Referral.store_parent_referral_user(form.cleaned_data.get('referral_code'), user_obj.referral_code)
 
     def has_change_permission(self, request, obj=None):
         return False
