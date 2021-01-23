@@ -27,7 +27,6 @@ class PhoneOTPAdmin(admin.ModelAdmin):
 
 class MLMUserAdmin(admin.ModelAdmin):
     form = MLMUserForm
-    model = MLMUser
     list_display = ['phone_number', 'name', 'email']
 
     def save_model(self, request, obj, form, change):
