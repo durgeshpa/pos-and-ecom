@@ -7,7 +7,7 @@ from global_config.models import GlobalConfig
 
 
 class MLMUserForm(forms.ModelForm):
-
+    phone_number = forms.CharField(required=True, label='Phone number')
     referral_code = forms.CharField(required=False, label='Referral code')
 
     class Meta:
@@ -16,6 +16,9 @@ class MLMUserForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = self.cleaned_data
+        if MLMUser.objects.filter(phone_number=cleaned_data['phone_number']).exists():
+            raise forms.ValidationError("phone number is already exists")
+
         if cleaned_data['referral_code']:
             """Check if value consists only of valid referral_code."""
             user_id = MLMUser.objects.filter(referral_code=cleaned_data['referral_code'])
