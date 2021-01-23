@@ -5,8 +5,6 @@ from accounts.middlewares import get_current_user
 from marketing.models import RewardPoint, RewardLog, MLMUser,Referral
 from global_config.models import GlobalConfig
 
-from .views import save_user_referral_code
-
 
 class MLMUserForm(forms.ModelForm):
 
@@ -23,9 +21,7 @@ class MLMUserForm(forms.ModelForm):
             user_id = MLMUser.objects.filter(referral_code=cleaned_data['referral_code'])
             if not user_id:
                 raise forms.ValidationError("Please Enter Valid Referral Code")
-            # else:
-            #     user_referral_code = save_user_referral_code(cleaned_data['phone_number'])
-            #     Referral.store_parent_referral_user(cleaned_data['referral_code'], user_referral_code)
+        return cleaned_data
 
 
 class RewardPointForm(forms.ModelForm):

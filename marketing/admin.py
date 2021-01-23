@@ -29,8 +29,14 @@ class MLMUserAdmin(admin.ModelAdmin):
     form = MLMUserForm
     list_display = ['phone_number', 'name', 'email']
 
+    def save_model(self, request, obj, form, change):
+        super(MLMUserAdmin, self).save_model(request, obj, form, change)
+        user_obj = MLMUser.objects.get(pk=obj.id)
+        Referral.store_parent_referral_user(form.cleaned_data.get('referral_code'), user_obj.referral_code)
+
     def has_change_permission(self, request, obj=None):
         return False
+
 
 class ReferralAdmin(admin.ModelAdmin):
     model = Referral
