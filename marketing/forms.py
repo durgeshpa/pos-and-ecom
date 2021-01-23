@@ -7,7 +7,7 @@ from global_config.models import GlobalConfig
 
 
 class MLMUserForm(forms.ModelForm):
-    phone_number = forms.CharField(required=True, label='Phone number')
+
     referral_code = forms.CharField(required=False, label='Referral code')
 
     class Meta:
