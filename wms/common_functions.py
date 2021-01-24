@@ -925,6 +925,7 @@ def cancel_pickup(pickup_object):
     pickup_id = pickup_object.pk
     tr_type = "picking_cancelled"
     state_to_be_picked = InventoryState.objects.filter(inventory_state="to_be_picked").last()
+    state_ordered = InventoryState.objects.filter(inventory_state="ordered").last()
     state_picked = InventoryState.objects.filter(inventory_state="picked").last()
     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
     pickup_bin_qs = PickupBinInventory.objects.filter(pickup=pickup_object)
@@ -961,6 +962,10 @@ def cancel_pickup(pickup_object):
             pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
             state_to_be_picked, -1 * total_remaining, tr_type, pickup_id)
 
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
+            state_ordered, total_remaining, tr_type, pickup_id)
+
         pickup_object.status = tr_type
         pickup_object.save()
 
@@ -974,17 +979,20 @@ def cancel_order_with_pick(instance):
     """
     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
     with transaction.atomic():
-        pickup_object = Pickup.objects.filter(pickup_type_id=instance.order_no)\
-                                      .exclude(status='picking_cancelled').last()
-
-        if pickup_object.status in ['pickup_creation', 'picking_assigned']:
-            cancel_pickup(pickup_object)
+        pickup_qs = Pickup.objects.filter(pickup_type_id=instance.order_no)\
+                                      .exclude(status='picking_cancelled')
+        if not pickup_qs.exists():
+            return
+        if pickup_qs.last().status in ['pickup_creation', 'picking_assigned']:
+            for pickup_object in pickup_qs:
+                cancel_pickup(pickup_object)
             info_logger.info('cancel_order_with_pick| Order No-{}, Cancelled Pickup'
                              .format(instance.order_no))
             return
-        if pickup_object.status == 'picking_complete':
+        if pickup_qs.last().status == 'picking_complete':
             # get the queryset object from Pickup Bin Inventory Model
-            pickup_bin_object = PickupBinInventory.objects.filter(pickup=pickup_object)
+            pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
+                                                          .exclude(pickup__status='picking_cancelled')
             # iterate over the PickupBin Inventory object
             for pickup_bin in pickup_bin_object:
                 quantity = 0
@@ -1055,12 +1063,8 @@ def cancel_order_with_pick(instance):
                                                          batch_id=pickup_bin.batch_id, putaway_type=status,
                                                          putaway=pu, bin=pickup_bin.bin, putaway_status=False,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
-            # get the queryset filter from Pickup model
         pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
-        # iterate the pickup objects and set the status picking cancelled
-        for obj in pickup_obj:
-            obj.status = 'picking_cancelled'
-            obj.save()
+        pickup_obj.update(status='picking_cancelled')
 
 
 class AuditInventory(object):
