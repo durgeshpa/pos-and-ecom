@@ -18,7 +18,7 @@ from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
 from global_config.models import GlobalConfig
 from accounts.models import User
-from decimal import Decimal
+from marketing.sms import SendSms
 
 
 class MLMUser(models.Model):
@@ -188,6 +188,18 @@ class RewardPoint(models.Model):
             reward_obj.save()
             RewardLog.objects.create(user=user, transaction_type='welcome_reward', transaction_id=user.id,
                                      points=points)
+        try:
+            conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
+            used_reward_factor = int(conf_obj.value)
+        except:
+            used_reward_factor = 3
+        message = SendSms(phone=user.phone_number,
+                          body="Hi! You have been registered on rewards.peppertap.in and awarded {} reward points." \
+                               " Log in now to avail discounts upto <Z*z> INR and share your referral code:{} with" \
+                               " friends to win more rewards. Shop together at your nearest PepperTap store!"
+                          .format(points, used_reward_factor * points))
+
+        message.send()
 
     def __str__(self):
         return "Reward Points For - {}".format(self.user)

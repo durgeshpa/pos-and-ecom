@@ -10,7 +10,7 @@ import traceback
 
 from services.models import CronRunLog
 from global_config.models import GlobalConfig
-from marketing.models import MLMUser
+from marketing.models import MLMUser, RewardPoint
 
 
 cron_logger = logging.getLogger('cron_log')
@@ -90,7 +90,8 @@ def fetch_hdpos_users():
                 continue
 
             if not MLMUser.objects.filter(phone_number=row[0]).exists():
-                MLMUser.objects.create(phone_number=row[0], email=row[1], name=row[2])
+                user_obj = MLMUser.objects.create(phone_number=row[0], email=row[1], name=row[2])
+                RewardPoint.welcome_reward(user_obj, 0)
 
         if date_config:
             date_config.value = now_date
