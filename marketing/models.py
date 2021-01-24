@@ -195,9 +195,9 @@ class RewardPoint(models.Model):
             used_reward_factor = 3
         message = SendSms(phone=user.phone_number,
                           body="Hi! You have been registered on rewards.peppertap.in and awarded {} reward points." \
-                               " Log in now to avail discounts upto <Z*z> INR and share your referral code:{} with" \
+                               " Log in now to avail discounts upto {} INR and share your referral code:{} with" \
                                " friends to win more rewards. Shop together at your nearest PepperTap store!"
-                          .format(points, used_reward_factor * points))
+                          .format(points, used_reward_factor * points, user.referral_code))
 
         message.send()
 
