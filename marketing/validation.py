@@ -131,11 +131,10 @@ class RevokeOTP(object):
 
         number = self.phone
         phone_otp, otp = PhoneOTP.update_otp_for_number(number)
-        date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
         time = datetime.datetime.now().strftime("%I:%M %p")
         message = SendSms(phone=number,
-                          body="%s is your One Time Password for GramFactory Account." \
-                               " Request time is %s, %s IST." % (otp, date, time))
+                          body="%s is your One Time Password for Peppertap Account." \
+                               " Request time is %s IST." % (otp, time))
         message.send()
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
