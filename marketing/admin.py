@@ -31,9 +31,12 @@ class MLMUserAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super(MLMUserAdmin, self).save_model(request, obj, form, change)
+        user_obj = MLMUser.objects.get(pk=obj.id)
         if form.cleaned_data.get('referral_code'):
             user_obj = MLMUser.objects.get(pk=obj.id)
             Referral.store_parent_referral_user(form.cleaned_data.get('referral_code'), user_obj.referral_code)
+        referred = 1 if form.cleaned_data.get('referral_code') else 0
+        RewardPoint.welcome_reward(user_obj, referred)
 
     def has_change_permission(self, request, obj=None):
         return False
