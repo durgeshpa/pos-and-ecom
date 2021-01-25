@@ -16,14 +16,14 @@ class MLMUserForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        if MLMUser.objects.filter(phone_number=cleaned_data['phone_number']).exists():
-            raise forms.ValidationError("Phone Number is Already Exists")
+        if MLMUser.objects.filter(phone_number=self.data['phone_number']).exists():
+            raise forms.ValidationError("Mobile Number is Already Exists.")
 
         if cleaned_data['referral_code']:
             """Check if value consists only of valid referral_code."""
             user_id = MLMUser.objects.filter(referral_code=cleaned_data['referral_code'])
             if not user_id:
-                raise forms.ValidationError("Please Enter Valid Referral Code")
+                raise forms.ValidationError("Please Enter Valid Referral Code.")
         return cleaned_data
 
 
