@@ -92,7 +92,7 @@ class RewardPointAdmin(admin.ModelAdmin):
         return format_html('<b>%s</b>' % (obj.user.email if obj.user.email else '-'))
 
     def max_available_discount_inr(self, obj):
-        max_av = self.used_reward_factor * (obj.direct_earned + obj.indirect_earned - obj.points_used)
+        max_av = (obj.direct_earned + obj.indirect_earned - obj.points_used)/self.used_reward_factor
         return format_html('<b>%s</b>' % (max_av))
 
     def redeemable_reward_points(self, obj):
