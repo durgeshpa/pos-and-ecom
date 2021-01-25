@@ -14,6 +14,7 @@ from wms.models import Bin
 from django.utils.translation import gettext as _
 
 class AuditCreationForm(forms.ModelForm):
+    pbi = forms.IntegerField(required=False, widget=forms.HiddenInput())
     warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
     bin = forms.ModelMultipleChoiceField(
@@ -48,7 +49,7 @@ class AuditCreationForm(forms.ModelForm):
         warehouse = data.get('warehouse')
         audit_run_type = data.get('audit_run_type')
         if warehouse is None:
-            raise ValidationError('Please select Warehuse!!')
+            raise ValidationError('Please select Warehouse!!')
         if audit_run_type is None:
             raise ValidationError('Please select Audit Run Type!!')
         elif audit_run_type == 0:

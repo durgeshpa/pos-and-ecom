@@ -29,4 +29,4 @@ Select distinct SALESINVOICE_BUSINESSLOCATION.id as bl_id,
     Left outer join tbl_DYN_UserFieldDatas_ufSellerSKUIDs ITEM_SKU_INFO on ITEM_INFO.UserFieldDataId=ITEM_SKU_INFO.UserFieldDataId
     Left outer join tbl_DYN_LookupValues ITEM_SKU_LOOKUP on ITEM_SKU_INFO.ufSellerSKUIDId = ITEM_SKU_LOOKUP.Id
     where SALESINVOICE.INVNUMBER is not null and SalesInvoice.InvNumber !='' and
-    convert(datetime,SalesInvoice.date) >=
+    convert(datetime,SalesInvoice.date) >= '{}' and convert(datetime,SalesInvoice.date) < '{}'

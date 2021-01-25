@@ -2,12 +2,13 @@
 import functools
 import json
 import logging
-from datetime import datetime
+import datetime
 from celery.task import task
+from decouple import config
 
 # django imports
 from django import forms
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, ExpressionWrapper, F, IntegerField
 from django.db import transaction
 
 # app imports
@@ -57,7 +58,27 @@ class CommonBinFunctions(object):
 
 
 class PutawayCommonFunctions(object):
+    @classmethod
+    def create_putaway_with_putaway_bin_inventory(cls, bi, inventory_type, putaway_type, putaway_type_id, qty,
+                                                  putaway_status):
+        """
+        Creates entry in Putaway and PutawayBinInventory
+        Params:
+            bi : BinInventory instance
+            inventory_type : InventoryType instance
+            putaway_type : String type identifier for transaction type
+            putaway_type_id : String type identifier for transaction type
+            qty : Total Quantity to create putaway for
+            putaway_status : True/False
+        """
 
+        pu_obj = cls.create_putaway(bi.warehouse, putaway_type, putaway_type_id, bi.sku, bi.batch_id, qty,
+                                    0, inventory_type)
+        PutawayBinInventory.objects.create(warehouse=pu_obj.warehouse, sku=pu_obj.sku,
+                                           batch_id=pu_obj.batch_id, bin=bi,
+                                           putaway_type=putaway_type, putaway=pu_obj,
+                                           putaway_status=putaway_status,
+                                           putaway_quantity=qty)
     @classmethod
     def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity,
                        inventory_type):
@@ -188,6 +209,25 @@ class CommonInventoryStateFunctions(object):
 
 
 class CommonWarehouseInventoryFunctions(object):
+    @classmethod
+    def create_warehouse_inventory_with_transaction_log(cls, warehouse, product, inventory_type, inventory_state, quantity,
+                                                        transaction_type, transaction_id, in_stock=True):
+        """
+        Create/Update entry in WarehouseInventory
+        Create entry in WarehouseInternalInventoryChange
+        Params :
+        warehouse : Shop instance
+        product : Product instance
+        inventory_type : InventoryType instance
+        inventory_state : InventoryState instance
+        quantity : integer transaction quantity, positive if increasing the quantity, negative is decreasing the quantity
+        transaction_type : string identifier for transaction
+        transaction_id : string identifier for transaction
+        """
+        cls.create_warehouse_inventory(warehouse, product, inventory_type, inventory_state, quantity, in_stock)
+        WarehouseInternalInventoryChange.objects.create(warehouse=warehouse, sku=product, transaction_type=transaction_type,
+                                                        transaction_id=transaction_id, inventory_type=inventory_type,
+                                                        inventory_state=inventory_state, quantity=quantity)
 
     @classmethod
     def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
@@ -209,6 +249,7 @@ class CommonWarehouseInventoryFunctions(object):
                 inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
                 in_stock=in_stock, quantity=quantity)
 
+
     @classmethod
     def create_warehouse_inventory_stock_correction(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
         # This function is only used for update warehouse inventory while stock correction change method
@@ -222,10 +263,10 @@ class CommonWarehouseInventoryFunctions(object):
         :param in_stock:
         :return:
         """
-
+        if inventory_state == "available":
+            inventory_state = InventoryState.objects.filter(inventory_state="total_available").last()
         ware_house_inventory_obj = WarehouseInventory.objects.filter(
-            warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
-                inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
+            warehouse=warehouse, sku=sku, inventory_state=inventory_state, inventory_type=InventoryType.objects.filter(
                 inventory_type=inventory_type).last(), in_stock=in_stock).last()
 
         quantity = BinInventory.objects.filter(Q(warehouse=warehouse),
@@ -244,7 +285,7 @@ class CommonWarehouseInventoryFunctions(object):
             WarehouseInventory.objects.get_or_create(
                 warehouse=warehouse,
                 sku=sku,
-                inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
+                inventory_state=inventory_state,
                 inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
                 in_stock=in_stock, quantity=quantity)
 
@@ -288,33 +329,33 @@ def get_brand_in_shop_stock(shop_id, brand):
 
     return shop_stock
 
+def get_stock(shop, inventory_type, product_id_list=None):
+    inventory_states = InventoryState.objects.filter(inventory_state__in=['reserved', 'ordered',
+                                                                          'to_be_picked', 'total_available'])
+    query_set = WarehouseInventory.objects.filter(warehouse=shop,
+                                                  inventory_type=inventory_type,
+                                                  quantity__gt=0,
+                                                  inventory_state__in=inventory_states)
+    if product_id_list is not None:
+        if len(product_id_list) > 0:
+            query_set = query_set.filter(sku__id__in=product_id_list)
 
-def get_stock(shop):
-    # For getting available stock of a particular warehouse
-    """:param shop:
-       :return: """
-    return WarehouseInventory.objects.filter(
-        Q(warehouse=shop),
-        Q(quantity__gt=0),
-        Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
-        Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
-        Q(in_stock='t')
-    )
+    sku_qty_dict = {}
+    for item in query_set:
+        if sku_qty_dict.get(item.sku.id) is None:
+            sku_qty_dict[item.sku.id] = 0
+        inventory_state = item.inventory_state.inventory_state
+        if inventory_state == 'total_available':
+            sku_qty_dict[item.sku.id] += item.quantity
+        elif inventory_state == 'reserved':
+            sku_qty_dict[item.sku.id] -= item.quantity
+        elif inventory_state == 'ordered':
+            sku_qty_dict[item.sku.id] -= item.quantity
+        elif inventory_state == 'to_be_picked':
+            sku_qty_dict[item.sku.id] -= item.quantity
+    return sku_qty_dict
 
 
-def get_product_stock(shop, sku):
-    """:param shop:
-      :param sku:
-      :return: """
-
-    return WarehouseInventory.objects.filter(
-        Q(sku=sku),
-        Q(warehouse=shop),
-        Q(quantity__gt=0),
-        Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
-        Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
-        Q(in_stock='t')
-    )
 
 
 def get_visibility_changes(shop, product):
@@ -333,25 +374,30 @@ def get_visibility_changes(shop, product):
     }
     for child in child_siblings:
         product_price_entries = child.product_pro_price.filter(seller_shop=shop, approval_status=2,
-                                                               status=True, end_date__gte=datetime.now())
+                                                               status=True, end_date__gte=datetime.datetime.now())
         if not product_price_entries:
             visibility_changes[child.id] = False
             continue
-        warehouse_entries = WarehouseInventory.objects.filter(
-            Q(sku=child),
-            Q(warehouse=shop),
-            Q(quantity__gt=0),
-            Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
-            Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
-            Q(in_stock='t')
-        )
-        if not warehouse_entries:
+        # warehouse_entries = WarehouseInventory.objects.filter(
+        #     Q(sku=child),
+        #     Q(warehouse=shop),
+        #     Q(quantity__gt=0),
+        #     Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
+        #     Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
+        #     Q(in_stock='t')
+        # )
+        type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+        product_qty_dict = get_stock(shop, type_normal, [child.id])
+        if len(product_qty_dict) == 0:
             visibility_changes[child.id] = False
             continue
         if child.reason_for_child_sku == 'offer':
             visibility_changes[child.id] = True
             continue
-        sum_qty_warehouse_entries = warehouse_entries.aggregate(Sum('quantity'))['quantity__sum']
+        sum_qty_warehouse_entries = product_qty_dict[child.id]
+        if sum_qty_warehouse_entries == 0 or int(sum_qty_warehouse_entries/child.product_inner_case_size)==0:
+            visibility_changes[child.id] = False
+            continue
         if sum_qty_warehouse_entries <= 2*(int(child.product_inner_case_size)):
             visibility_changes[child.id] = True
             continue
@@ -366,9 +412,9 @@ def get_visibility_changes(shop, product):
         )
         for data in bin_data:
             if ProductPrice.objects.filter(product=data.sku, approval_status=2, status=True,
-                                           seller_shop=shop,  end_date__gte=datetime.now()).exists():
+                                           seller_shop=shop,  end_date__gte=datetime.datetime.now()).exists():
                 exp_date_str = get_expiry_date(batch_id=data.batch_id)
-                exp_date = datetime.strptime(exp_date_str, "%d/%m/%Y")
+                exp_date = datetime.datetime.strptime(exp_date_str, "%d/%m/%Y")
                 if not min_exp_date_data.get('exp', None):
                     min_exp_date_data['exp'] = exp_date
                     min_exp_date_data['id'] = data.sku.id
@@ -388,35 +434,35 @@ def get_visibility_changes(shop, product):
         visibility_changes[min_exp_date_data['id']] = True
     return visibility_changes
 
-
-def get_warehouse_product_availability(sku_id, shop_id=False):
-    # For getting stock of a sku for a particular warehouse when shop_id is given else stock of sku for all warehouses
-    """
-    :param shop_id:
-    :param sku_id:
-    :return:
-    """
-
-    if shop_id:
-        product_availability = WarehouseInventory.objects.filter(
-            Q(sku__id=sku_id),
-            Q(warehouse__id=shop_id),
-            Q(quantity__gt=0),
-            Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
-            Q(in_stock='t')
-        ).aggregate(total=Sum('quantity')).get('total')
-
-        return product_availability
-
-    else:
-        product_availability = WarehouseInventory.objects.filter(
-            Q(sku__id=sku_id),
-            Q(quantity__gt=0),
-            Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
-            Q(in_stock='t')
-        ).aggregate(total=Sum('quantity')).get('total')
-
-        return product_availability
+#
+# def get_warehouse_product_availability(sku_id, shop_id=False):
+#     # For getting stock of a sku for a particular warehouse when shop_id is given else stock of sku for all warehouses
+#     """
+#     :param shop_id:
+#     :param sku_id:
+#     :return:
+#     """
+#
+#     if shop_id:
+#         product_availability = WarehouseInventory.objects.filter(
+#             Q(sku__id=sku_id),
+#             Q(warehouse__id=shop_id),
+#             Q(quantity__gt=0),
+#             Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
+#             Q(in_stock='t')
+#         ).aggregate(total=Sum('quantity')).get('total')
+#
+#         return product_availability
+#
+#     else:
+#         product_availability = WarehouseInventory.objects.filter(
+#             Q(sku__id=sku_id),
+#             Q(quantity__gt=0),
+#             Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
+#             Q(in_stock='t')
+#         ).aggregate(total=Sum('quantity')).get('total')
+#
+#         return product_availability
 
 
 class OrderManagement(object):
@@ -429,58 +475,66 @@ class OrderManagement(object):
         shop_id = params['shop_id']
         products = params['products']
         transaction_type = params['transaction_type']
-
+        type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+        state_available = InventoryState.objects.filter(inventory_state='available').last()
+        state_reserved = InventoryState.objects.filter(inventory_state='reserved').last()
+        state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
         for prod_id, ordered_qty in products.items():
-            reserved = OrderReserveRelease.objects.filter(warehouse=Shop.objects.get(id=shop_id),
-                                                          sku=Product.objects.get(id=int(prod_id)),
+            shop = Shop.objects.get(id=shop_id)
+            product = Product.objects.get(id=int(prod_id))
+            reserved = OrderReserveRelease.objects.filter(warehouse=shop,
+                                                          sku=product,
                                                           transaction_id=transaction_id).last()
 
             if reserved is not None:
                 if reserved.warehouse_internal_inventory_release is None:
                     continue
-            warehouse_reserve_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
-                                                                      sku=Product.objects.get(id=int(prod_id)),
-                                                                      inventory_type=InventoryType.objects.filter(
-                                                                          inventory_type='normal').last(),
-                                                                      inventory_state=InventoryState.objects.filter(
-                                                                          inventory_state='reserved').last())
-            if warehouse_reserve_obj.exists():
-                w_obj = warehouse_reserve_obj.last()
-                w_obj.quantity = ordered_qty + w_obj.quantity
-                w_obj.save()
-            else:
-                WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=shop_id),
-                                                  sku=Product.objects.get(id=int(prod_id)),
-                                                  inventory_type=InventoryType.objects.filter(
-                                                      inventory_type='normal').last(),
-                                                  inventory_state=InventoryState.objects.filter(
-                                                      inventory_state='reserved').last(),
-                                                  quantity=ordered_qty, in_stock='t')
-            warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
-                                                                        sku=Product.objects.get(id=int(prod_id)),
-                                                                        inventory_type=InventoryType.objects.filter(
-                                                                            inventory_type='normal').last(),
-                                                                        inventory_state=InventoryState.objects.filter(
-                                                                            inventory_state='available').last())
-            if warehouse_available_obj.exists():
-                w_obj = warehouse_available_obj.last()
-                w_obj.quantity = w_obj.quantity - ordered_qty
-                w_obj.save()
-            WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
-                                                            sku=Product.objects.get(id=int(prod_id)),
-                                                            transaction_type=transaction_type,
-                                                            transaction_id=transaction_id,
-                                                            initial_type=InventoryType.objects.filter(
-                                                                inventory_type='normal').last(),
-                                                            final_type=InventoryType.objects.filter(
-                                                                inventory_type='normal').last(),
-                                                            initial_stage=InventoryState.objects.filter(
-                                                                inventory_state='available').last(),
-                                                            final_stage=InventoryState.objects.filter(
-                                                                inventory_state='reserved').last(),
-                                                            quantity=ordered_qty)
-            OrderReserveRelease.objects.create(warehouse=Shop.objects.get(id=shop_id),
-                                               sku=Product.objects.get(id=int(prod_id)),
+            # warehouse_reserve_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
+            #                                                           sku=Product.objects.get(id=int(prod_id)),
+            #                                                           inventory_type=InventoryType.objects.filter(
+            #                                                               inventory_type='normal').last(),
+            #                                                           inventory_state=InventoryState.objects.filter(
+            #                                                               inventory_state='reserved').last())
+            # if warehouse_reserve_obj.exists():
+            #     w_obj = warehouse_reserve_obj.last()
+            #     w_obj.quantity = ordered_qty + w_obj.quantity
+            #     w_obj.save()
+            # else:
+            #     WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=shop_id),
+            #                                       sku=Product.objects.get(id=int(prod_id)),
+            #                                       inventory_type=InventoryType.objects.filter(
+            #                                           inventory_type='normal').last(),
+            #                                       inventory_state=InventoryState.objects.filter(
+            #                                           inventory_state='reserved').last(),
+            #                                       quantity=ordered_qty, in_stock='t')
+            # available_state = InventoryState.objects.filter(inventory_state='available').last()
+            # warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
+            #                                                             sku=Product.objects.get(id=int(prod_id)),
+            #                                                             inventory_type=InventoryType.objects.filter(
+            #                                                                 inventory_type='normal').last(),
+            #                                                             inventory_state=available_state)
+            # if warehouse_available_obj.exists():
+            #     w_obj = warehouse_available_obj.last()
+            #     w_obj.quantity = w_obj.quantity - ordered_qty
+            #     w_obj.save()
+            # WarehouseInternalInventoryChange.objects.create(warehouse=shop,
+            #                                                 sku=product,
+            #                                                 transaction_type=transaction_type,
+            #                                                 transaction_id=transaction_id,
+            #                                                 initial_type=InventoryType.objects.filter(
+            #                                                     inventory_type='normal').last(),
+            #                                                 final_type=InventoryType.objects.filter(
+            #                                                     inventory_type='normal').last(),
+            #                                                 initial_stage=available_state,
+            #                                                 final_stage=InventoryState.objects.filter(
+            #                                                     inventory_state='reserved').last(),
+            #                                                 quantity=ordered_qty)
+
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                shop, product, type_normal, state_reserved, ordered_qty, transaction_type, transaction_id )
+
+            OrderReserveRelease.objects.create(warehouse=shop,
+                                               sku=product,
                                                transaction_id=transaction_id,
                                                warehouse_internal_inventory_reserve=WarehouseInternalInventoryChange.objects.all().last(),
                                                reserved_time=WarehouseInternalInventoryChange.objects.all().last().created_at)
@@ -682,7 +736,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
     :return:
     """
     bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(
-        bin_id=bin_id, warehouse=sh).last(),
+                                                                               bin_id=bin_id, warehouse=sh).last(),
                                                                                sku=put_away.last().sku,
                                                                                batch_id=batch_id,
                                                                                inventory_type=InventoryType.objects.filter(
@@ -693,14 +747,10 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
         bin_quantity = val + bin_inventory_obj.quantity
         bin_inventory_obj.quantity = bin_quantity
         bin_inventory_obj.save()
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, pu[0].sku, inv_type, inv_state, val,
-                                                                     True)
     else:
         BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last(), sku=put_away.last().sku,
                                     batch_id=batch_id, inventory_type=InventoryType.objects.filter(
-                inventory_type=inv_type).last(), quantity=val, in_stock=t)
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, pu[0].sku, inv_type, inv_state, val,
-                                                                     True)
+                                    inventory_type=inv_type).last(), quantity=val, in_stock=t)
 
     if put_away_status is True:
         PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
@@ -714,26 +764,17 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
                                            putaway_quantity=val, putaway_status=False,
                                            sku=pu[0].sku, batch_id=pu[0].batch_id,
                                            putaway_type=pu[0].putaway_type)
-
     transaction_type = 'put_away_type'
     transaction_id = put_away[0].id
     initial_type = InventoryType.objects.filter(inventory_type='new').last(),
-    initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
     final_type = InventoryType.objects.filter(inventory_type='normal').last(),
-    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
-    WareHouseInternalInventoryChange.create_warehouse_inventory_change(sh, pu[0].sku, transaction_type, transaction_id,
-                                                                       initial_type[0], initial_stage[0],
-                                                                       final_type[0], final_stage[0], val)
-
-    final_bin_id = bin_id
-    initial_type = InventoryType.objects.filter(inventory_type='new').last(),
-    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
-    transaction_type = 'put_away_type'
-    transaction_id = put_away[0].id
-    quantity = val
-    InternalInventoryChange.create_bin_internal_inventory_change(sh, pu[0].sku, batch_id, final_bin_id, initial_type[0],
+    InternalInventoryChange.create_bin_internal_inventory_change(sh, pu[0].sku, batch_id, bin_id, initial_type[0],
                                                                  final_type[0], transaction_type,
-                                                                 transaction_id, quantity)
+                                                                 transaction_id, val)
+
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(sh, pu[0].sku, inv_type,
+                                                                                      inv_state, val, transaction_type,
+                                                                                      transaction_id)
 
 
 def common_for_release(prod_list, shop_id, transaction_type, transaction_id, order_status):
@@ -774,116 +815,63 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
     :param order_product:
     :return:
     """
+    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+    ordered_state = InventoryState.objects.filter(inventory_state='ordered').last()
+    reserved_state = InventoryState.objects.filter(inventory_state='reserved').last()
+    transaction_quantity = order_product.warehouse_internal_inventory_reserve.quantity
     with transaction.atomic():
         # warehouse condition
-        warehouse_product_reserved = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
+        shop = Shop.objects.get(id=shop_id)
+        warehouse_product_reserved = WarehouseInventory.objects.filter(warehouse=shop,
                                                                        sku__id=order_product.sku.id,
                                                                        inventory_state__inventory_state='reserved').last()
+        product = Product.objects.get(id=order_product.sku.id)
         if warehouse_product_reserved:
             reserved_qty = warehouse_product_reserved.quantity
             if reserved_qty == 0:
                 return False
-            warehouse_product_reserved.quantity = reserved_qty - order_product.warehouse_internal_inventory_reserve.quantity
-            warehouse_product_reserved.save()
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                shop, product, type_normal, reserved_state, -1*transaction_quantity, transaction_type, transaction_id)
+        if order_status != 'available':
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                shop, product, type_normal, ordered_state, transaction_quantity, transaction_type, transaction_id)
 
-        warehouse_product_available = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
-                                                                        sku__id=order_product.sku.id,
-                                                                        inventory_type__inventory_type='normal',
-                                                                        inventory_state__inventory_state=order_status).last()
-        if warehouse_product_available:
-            available_qty = warehouse_product_available.quantity
-            warehouse_product_available.quantity = available_qty + order_product.warehouse_internal_inventory_reserve.quantity
-            warehouse_product_available.save()
-        else:
-            WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=shop_id),
-                                              sku=Product.objects.get(id=order_product.sku.id),
-                                              inventory_state=InventoryState.objects.filter(
-                                                  inventory_state='ordered').last(),
-                                              quantity=order_product.warehouse_internal_inventory_reserve.quantity, in_stock=True,
-                                              inventory_type=InventoryType.objects.filter(
-                                                  inventory_type='normal').last())
-        WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
-                                                        sku=Product.objects.get(id=order_product.sku.id),
-                                                        transaction_type=transaction_type,
-                                                        transaction_id=transaction_id,
-                                                        initial_type=InventoryType.objects.filter(
-                                                            inventory_type='normal').last(),
-                                                        final_type=InventoryType.objects.filter(
-                                                            inventory_type='normal').last(),
-                                                        initial_stage=InventoryState.objects.filter(
-                                                            inventory_state='reserved').last(),
-                                                        final_stage=InventoryState.objects.filter(
-                                                            inventory_state=order_status).last(),
-                                                        quantity=order_product.warehouse_internal_inventory_reserve.quantity)
-
-        order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=Shop.objects.get(id=shop_id),
-                                                               sku=Product.objects.get(id=order_product.sku.id),
+        order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop,
+                                                               sku=product,
                                                                warehouse_internal_inventory_release=None,
                                                                transaction_id=transaction_id)
         order_reserve_obj.update(
             warehouse_internal_inventory_release=WarehouseInternalInventoryChange.objects.filter(
                 transaction_id=transaction_id).last(),
-            release_time=datetime.now(), release_type=release_type,
-            ordered_quantity=order_product.warehouse_internal_inventory_reserve.quantity)
+            release_time=datetime.datetime.now(), release_type=release_type,
+            ordered_quantity=transaction_quantity)
 
 
 def cancel_order(instance):
     """
+    Revert the WarehouseInventory for the order given
+    Deducts inventory from ordered state
 
     :param instance: order instance
     :return:
     """
     with transaction.atomic():
         # get the queryset object form warehouse internal inventory model
+        type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+        state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
+        transaction_id = instance.order_no
+        transaction_type = 'ordered'
+        shop = instance.seller_shop
         ware_house_internal = WarehouseInternalInventoryChange.objects.filter(
-            transaction_id=instance.order_no,
-            final_stage=InventoryState.objects.filter(inventory_state='ordered').last(), transaction_type='ordered')
-        # fetch all sku
-        sku_id = [p.sku.id for p in ware_house_internal]
-        # fetch all quantity
-        quantity = [p.quantity for p in ware_house_internal]
-        # iterate over sku and quantity
-        for prod, qty in zip(sku_id, quantity):
-            # get the queryset from warehouse inventory model for normal and available
-            wim = WarehouseInventory.objects.filter(sku__id=prod,
-                                                    inventory_state__inventory_state='available',
-                                                    inventory_type__inventory_type='normal').last()
-            wim_quantity = wim.quantity
-            wim.quantity = wim_quantity + qty
-            wim.save()
-            #wim_quantity = wim[0].quantity
-            #wim.update(quantity=wim_quantity + qty)
+            transaction_id=transaction_id,
+            inventory_state=state_ordered, transaction_type=transaction_type)
 
-            # get the queryset from warehouse inventory model for ordered and normal
-            wim_ordered = WarehouseInventory.objects.filter(sku__id=prod,
-                                                            inventory_state__inventory_state='ordered',
-                                                            inventory_type__inventory_type='normal').last()
-            wim_ordered_quantity = wim_ordered.quantity
-            wim_ordered.quantity = wim_ordered_quantity - qty
-            wim_ordered.save()
-            #wim_ordered.update(quantity=wim_ordered_quantity - qty)
-            # initialize the transaction type, initial stage, final stage and inventory type
-            transaction_type = 'canceled'
-            initial_type = 'normal'
-            initial_stage = 'ordered'
-            final_type = 'normal'
-            final_stage = 'available'
-            inventory_type = 'normal'
-            # create the data in Warehouse internal inventory model
-            WarehouseInternalInventoryChange.objects.create(warehouse=wim.warehouse,
-                                                            sku=wim.sku,
-                                                            transaction_type=transaction_type,
-                                                            transaction_id=ware_house_internal[0].transaction_id,
-                                                            initial_stage=InventoryState.objects.get(
-                                                                inventory_state=initial_stage),
-                                                            final_stage=InventoryState.objects.get(
-                                                                inventory_state=final_stage),
-                                                            initial_type=InventoryType.objects.get(
-                                                                inventory_type=initial_type),
-                                                            final_type=InventoryType.objects.get(inventory_type=final_type),
-                                                            inventory_type=InventoryType.objects.get(
-                                                                inventory_type=inventory_type),
-                                                            quantity=qty)
+        for item in ware_house_internal:
+            product = item.sku
+            qty = item.quantity
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                shop, product, type_normal, state_ordered, -1*qty, transaction_type, transaction_id)
+
 
 
 # def cancel_order_for_warehouse(instance):
@@ -934,17 +922,25 @@ def cancel_pickup(pickup_object):
         pickup_object : instance of Pickup
 
     """
+    pickup_id = pickup_object.pk
+    tr_type = "picking_cancelled"
+    state_to_be_picked = InventoryState.objects.filter(inventory_state="to_be_picked").last()
+    state_ordered = InventoryState.objects.filter(inventory_state="ordered").last()
+    state_picked = InventoryState.objects.filter(inventory_state="picked").last()
     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+    pickup_bin_qs = PickupBinInventory.objects.filter(pickup=pickup_object)
     with transaction.atomic():
-        pickup_bin_qs = PickupBinInventory.objects.filter(pickup=pickup_object)
+        total_remaining = 0
         for item in pickup_bin_qs:
             bi_qs = BinInventory.objects.filter(id=item.bin_id)
             bi = bi_qs.last()
-            bin_quantity = bi.quantity + item.quantity
+            # bin_quantity = bi.quantity + item.quantity
             picked_qty = item.pickup_quantity
             if picked_qty is None:
                 picked_qty = 0
             remaining_qty = item.quantity - picked_qty
+            total_remaining += remaining_qty
+            bin_quantity = bi.quantity + remaining_qty
             to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
             if to_be_picked_qty < 0:
                 to_be_picked_qty = 0
@@ -952,10 +948,25 @@ def cancel_pickup(pickup_object):
             InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
                                                                          bi.bin,
                                                                          type_normal, type_normal,
-                                                                         "picking_cancelled",
-                                                                         pickup_object.pk,
-                                                                         item.quantity)
-        pickup_object.status = 'picking_cancelled'
+                                                                         tr_type,
+                                                                         pickup_id,
+                                                                         remaining_qty)
+            if picked_qty > 0:
+                PutawayCommonFunctions.create_putaway_with_putaway_bin_inventory(
+                    bi, type_normal, tr_type, pickup_id, picked_qty, False)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
+                    state_picked, -1 * picked_qty, tr_type, pickup_id)
+
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
+            state_to_be_picked, -1 * total_remaining, tr_type, pickup_id)
+
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
+            state_ordered, total_remaining, tr_type, pickup_id)
+
+        pickup_object.status = tr_type
         pickup_object.save()
 
 
@@ -966,24 +977,26 @@ def cancel_order_with_pick(instance):
     :return:
 
     """
+    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
     with transaction.atomic():
-        pickup_object = Pickup.objects.filter(pickup_type_id=instance.order_no)\
-                                      .exclude(status='picking_cancelled').last()
-
-        if pickup_object.status in ['pickup_creation', 'picking_assigned']:
-            cancel_pickup(pickup_object)
+        pickup_qs = Pickup.objects.filter(pickup_type_id=instance.order_no)\
+                                      .exclude(status='picking_cancelled')
+        if not pickup_qs.exists():
+            return
+        if pickup_qs.last().status in ['pickup_creation', 'picking_assigned']:
+            for pickup_object in pickup_qs:
+                cancel_pickup(pickup_object)
             info_logger.info('cancel_order_with_pick| Order No-{}, Cancelled Pickup'
                              .format(instance.order_no))
             return
-        # get the queryset object from Pickup Bin Inventory Model
-        pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
-                                                      .exclude(pickup__status='picking_cancelled')
-        # iterate over the PickupBin Inventory object
-        for pickup_bin in pickup_bin_object:
-            if pickup_bin.pickup.status == 'picking_complete':
+        if pickup_qs.last().status == 'picking_complete':
+            # get the queryset object from Pickup Bin Inventory Model
+            pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
+                                                          .exclude(pickup__status='picking_cancelled')
+            # iterate over the PickupBin Inventory object
+            for pickup_bin in pickup_bin_object:
                 quantity = 0
                 pick_up_bin_quantity = 0
-                type_normal = InventoryType.objects.filter(inventory_type='normal').last()
                 if instance.rt_order_order_product.all():
                     if (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_SHIP') or \
                             (instance.rt_order_order_product.all()[0].shipment_status == 'READY_TO_DISPATCH'):
@@ -1050,12 +1063,8 @@ def cancel_order_with_pick(instance):
                                                          batch_id=pickup_bin.batch_id, putaway_type=status,
                                                          putaway=pu, bin=pickup_bin.bin, putaway_status=False,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
-            # get the queryset filter from Pickup model
         pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
-        # iterate the pickup objects and set the status picking cancelled
-        for obj in pickup_obj:
-            obj.status = 'picking_cancelled'
-            obj.save()
+        pickup_obj.update(status='picking_cancelled')
 
 
 class AuditInventory(object):
@@ -1446,16 +1455,16 @@ def create_batch_id(sku, expiry_date):
     """
     try:
         try:
-            batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d-%m-%y').strftime('%d%m%y'))
+            batch_id = '{}{}'.format(sku, datetime.datetime.strptime(expiry_date, '%d-%m-%y').strftime('%d%m%y'))
 
         except:
             try:
-                batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d-%m-%Y').strftime('%d%m%y'))
+                batch_id = '{}{}'.format(sku, datetime.datetime.strptime(expiry_date, '%d-%m-%Y').strftime('%d%m%y'))
             except:
                 try:
-                    batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%d%m%y'))
+                    batch_id = '{}{}'.format(sku, datetime.datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%d%m%y'))
                 except:
-                    batch_id = '{}{}'.format(sku, datetime.strptime(expiry_date, '%d/%m/%y').strftime('%d%m%y'))
+                    batch_id = '{}{}'.format(sku, datetime.datetime.strptime(expiry_date, '%d/%m/%y').strftime('%d%m%y'))
         return batch_id
     except Exception as e:
         error_logger.error(e.message)
@@ -1482,7 +1491,7 @@ def get_expiry_date_db(batch_id):
 
         if len(batch_id) == 25:
             expiry_date = batch_id[-8:-6] + '/' + batch_id[-6:-4] + '/' + batch_id[-4:]
-        expiry_date_db = datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%Y-%m-%d')
+        expiry_date_db = datetime.datetime.strptime(expiry_date, '%d/%m/%Y').strftime('%Y-%m-%d')
     return expiry_date_db
 
 
@@ -1499,63 +1508,58 @@ def set_expiry_date(batch_id):
         expiry_date = '30/' + batch_id[17:19] + '/' + batch_id[19:21]
     return expiry_date
 
+#
+# class WareHouseInternalInventoryChange(object):
+#     @classmethod
+#     def create_warehouse_inventory_change(cls, warehouse, sku, transaction_type, transaction_id,
+#                                           initial_type, initial_stage, final_type, final_stage, quantity):
+#         """
+#
+#         :param warehouse:
+#         :param sku:
+#         :param transaction_type:
+#         :param transaction_id:
+#         :param initial_type:
+#         :param initial_stage:
+#         :param final_type:
+#         :param final_stage:
+#         :param quantity:
+#         :return:
+#         """
+#         try:
+#             # Create data in WareHouse Internal Inventory Model
+#             WarehouseInternalInventoryChange.objects.create(warehouse_id=warehouse.id,
+#                                                             sku=sku, transaction_type=transaction_type,
+#                                                             transaction_id=transaction_id,
+#                                                             initial_type=initial_type,
+#                                                             initial_stage=initial_stage,
+#                                                             final_type=final_type,
+#                                                             final_stage=final_stage,
+#                                                             quantity=quantity,
+#                                                             )
+#         except Exception as e:
+#             error_logger.error(e)
 
-class WareHouseInternalInventoryChange(object):
-    @classmethod
-    def create_warehouse_inventory_change(cls, warehouse, sku, transaction_type, transaction_id,
-                                          initial_type, initial_stage, final_type, final_stage, quantity):
-        """
 
-        :param warehouse:
-        :param sku:
-        :param transaction_type:
-        :param transaction_id:
-        :param initial_type:
-        :param initial_stage:
-        :param final_type:
-        :param final_stage:
-        :param quantity:
-        :return:
-        """
-        try:
-            # Create data in WareHouse Internal Inventory Model
-            WarehouseInternalInventoryChange.objects.create(warehouse_id=warehouse.id,
-                                                            sku=sku, transaction_type=transaction_type,
-                                                            transaction_id=transaction_id,
-                                                            initial_type=initial_type,
-                                                            initial_stage=initial_stage,
-                                                            final_type=final_type,
-                                                            final_stage=final_stage,
-                                                            quantity=quantity,
-                                                            )
-        except Exception as e:
-            error_logger.error(e)
-
-
-def cancel_ordered(request, obj, ordered_inventory_state, initial_stage, bin_id):
+def cancel_ordered(request, obj, initial_state, bin_id):
     if obj.putaway.putaway_quantity == 0:
         obj.putaway.putaway_quantity = obj.putaway_quantity
     else:
         obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
-    normal_inventory_type = 'normal',
-    available_inventory_state = 'available',
-    available_quantity = obj.putaway_quantity
-    ordered_quantity = int(-obj.putaway_quantity)
+    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+    state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
+    quantity = obj.putaway_quantity
     transaction_type = 'put_away_type'
     transaction_id = obj.putaway_id
-    initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
-    final_type = InventoryType.objects.filter(inventory_type='normal').last(),
-    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
     try:
         initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
         final_bin_id = Bin.objects.get(bin_id=bin_id.bin.bin_id, warehouse=obj.warehouse)
     except:
         raise forms.ValidationError("Bin Id is not associate with this Warehouse.")
-    quantity = available_quantity
     batch_id = obj.batch_id
     bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse, bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
                                               batch_id=batch_id,
-                                              inventory_type=initial_type[0], in_stock=True).last()
+                                              inventory_type=type_normal, in_stock=True).last()
     if bin_inv_obj:
         bin_quantity = bin_inv_obj.quantity
         final_quantity = bin_quantity + quantity
@@ -1564,31 +1568,22 @@ def cancel_ordered(request, obj, ordered_inventory_state, initial_stage, bin_id)
     else:
 
         BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku, batch_id=batch_id,
-                                           inventory_type=initial_type[0], quantity=quantity, in_stock=True)
+                                           inventory_type=type_normal, quantity=quantity, in_stock=True)
 
-    CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                 normal_inventory_type[0],
-                                                                 available_inventory_state[0],
-                                                                 available_quantity, True)
-    CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                 normal_inventory_type[0],
-                                                                 ordered_inventory_state[0],
-                                                                 ordered_quantity, True)
-    WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse, obj.sku,
-                                                                       transaction_type,
-                                                                       transaction_id,
-                                                                       initial_type[0],
-                                                                       initial_stage[0],
-                                                                       final_type[0], final_stage[0],
-                                                                       available_quantity)
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(obj.warehouse, obj.sku,
+                                                                                      type_normal,
+                                                                                      state_total_available,
+                                                                                      quantity,
+                                                                                      transaction_type,
+                                                                                      transaction_id)
     BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
                                               batch_id=batch_id,
                                               initial_bin=Bin.objects.get(bin_id=initial_bin_id,
                                                                           warehouse=obj.warehouse),
                                               final_bin=Bin.objects.get(bin_id=final_bin_id,
                                                                         warehouse=obj.warehouse),
-                                              initial_inventory_type=initial_type[0],
-                                              final_inventory_type=final_type[0],
+                                              initial_inventory_type=type_normal,
+                                              final_inventory_type=type_normal,
                                               transaction_type=transaction_type,
                                               transaction_id=transaction_id,
                                               quantity=quantity)
@@ -1612,7 +1607,7 @@ def putaway_repackaging(request, obj, initial_stage, bin_id):
         transaction_id = obj.putaway_id
         initial_type = InventoryType.objects.filter(inventory_type='new').last(),
         final_type = InventoryType.objects.filter(inventory_type='normal').last(),
-        final_stage = InventoryState.objects.filter(inventory_state='available').last(),
+        final_stage = InventoryState.objects.filter(inventory_state='total_available').last(),
         try:
             initial_bin_id = ''
             if obj.bin:
@@ -1635,17 +1630,10 @@ def putaway_repackaging(request, obj, initial_stage, bin_id):
             BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku, batch_id=batch_id,
                                                inventory_type=final_type[0], quantity=quantity, in_stock=True)
 
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                     normal_inventory_type[0],
-                                                                     available_inventory_state[0],
-                                                                     available_quantity, True)
-        WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse, obj.sku,
-                                                                           transaction_type,
-                                                                           transaction_id,
-                                                                           initial_type[0],
-                                                                           initial_stage[0],
-                                                                           final_type[0], final_stage[0],
-                                                                           available_quantity)
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            obj.warehouse, obj.sku, normal_inventory_type[0], available_inventory_state[0], available_quantity,
+            transaction_type, transaction_id)
+
         if initial_bin_id != '':
             BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
                                                       batch_id=batch_id,
@@ -1675,7 +1663,7 @@ def putaway_repackaging(request, obj, initial_stage, bin_id):
         obj.save()
 
 
-def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id, inventory_type):
+def cancel_shipment(request, obj, initial_stage, shipment_obj, bin_id, inventory_type):
     if obj.putaway.putaway_quantity == 0:
         obj.putaway.putaway_quantity = obj.putaway_quantity
     else:
@@ -1684,14 +1672,10 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
     obj.putaway.save()
     transaction_type = 'put_away_type'
     transaction_id = obj.putaway_id
-    initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
+    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
     type_expired = InventoryType.objects.filter(inventory_type="expired").last()
     type_damaged = InventoryType.objects.filter(inventory_type="damaged").last()
-    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
-    normal_inventory_type = 'normal',
-    expired_inventory_type = 'expired',
-    damaged_inventory_type = 'damaged',
-    available_inventory_state = 'available',
+    state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
     try:
         initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
         final_bin_id = Bin.objects.get(bin_id=bin_id.bin.bin_id, warehouse=obj.warehouse)
@@ -1722,20 +1706,9 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
                                                                        batch_id=batch_id,
                                                                        inventory_type=type_expired, quantity=expired_qty,
                                                                        in_stock=True)
-                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                                             expired_inventory_type[0],
-                                                                                             available_inventory_state[
-                                                                                                 0],
-                                                                                             expired_qty, True)
-                                WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse,
-                                                                                                   obj.sku,
-                                                                                                   transaction_type,
-                                                                                                   transaction_id,
-                                                                                                   initial_type[0],
-                                                                                                   initial_stage[0],
-                                                                                                   type_expired,
-                                                                                                   final_stage[0],
-                                                                                                   expired_qty)
+                                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                                    obj.warehouse, obj.sku, type_expired, state_total_available,
+                                    expired_qty, transaction_type, transaction_id)
                                 BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
                                                                           batch_id=batch_id,
                                                                           initial_bin=Bin.objects.get(
@@ -1743,7 +1716,7 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
                                                                               warehouse=obj.warehouse),
                                                                           final_bin=Bin.objects.get(bin_id=final_bin_id,
                                                                                                     warehouse=obj.warehouse),
-                                                                          initial_inventory_type=initial_type[0],
+                                                                          initial_inventory_type=type_normal,
                                                                           final_inventory_type=type_expired,
                                                                           transaction_type=transaction_type,
                                                                           transaction_id=transaction_id,
@@ -1768,20 +1741,9 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
                                                                        batch_id=batch_id,
                                                                        inventory_type=type_damaged, quantity=damaged_qty,
                                                                        in_stock=True)
-                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                                             damaged_inventory_type[0],
-                                                                                             available_inventory_state[
-                                                                                                 0],
-                                                                                             damaged_qty, True)
-                                WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse,
-                                                                                                   obj.sku,
-                                                                                                   transaction_type,
-                                                                                                   transaction_id,
-                                                                                                   initial_type[0],
-                                                                                                   initial_stage[0],
-                                                                                                   type_damaged,
-                                                                                                   final_stage[0],
-                                                                                                   damaged_qty)
+                                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                                    obj.warehouse, obj.sku, type_damaged, state_total_available,
+                                    damaged_qty, transaction_type, transaction_id)
                                 BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
                                                                           batch_id=batch_id,
                                                                           initial_bin=Bin.objects.get(
@@ -1789,7 +1751,7 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
                                                                               warehouse=obj.warehouse),
                                                                           final_bin=Bin.objects.get(bin_id=final_bin_id,
                                                                                                     warehouse=obj.warehouse),
-                                                                          initial_inventory_type=initial_type[0],
+                                                                          initial_inventory_type=type_normal,
                                                                           final_inventory_type=type_damaged,
                                                                           transaction_type=transaction_type,
                                                                           transaction_id=transaction_id,
@@ -1797,11 +1759,9 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
                                 deduct_quantity = damaged_qty
                         ordered_quantity = int(-deduct_quantity)
                         obj.putaway_status = True
-
-                        CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                                     normal_inventory_type[0],
-                                                                                     ordered_inventory_state[0],
-                                                                                     ordered_quantity, True)
+                        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                            obj.warehouse, obj.sku, type_normal, initial_stage,
+                            ordered_quantity,  transaction_type, transaction_id)
                         obj.putaway_status = True
                         obj.save()
                     else:
@@ -1810,7 +1770,7 @@ def cancel_shipment(request, obj, ordered_inventory_state, initial_stage, shipme
                 pass
 
 
-def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id, inventory_type):
+def cancel_returned(request, obj, initial_stage, shipment_obj, bin_id, inventory_type):
     if obj.putaway.putaway_quantity == 0:
         obj.putaway.putaway_quantity = obj.putaway_quantity
     else:
@@ -1819,12 +1779,9 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
     obj.putaway.save()
     transaction_type = 'put_away_type'
     transaction_id = obj.putaway_id
-    initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
+    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
     type_damaged = InventoryType.objects.filter(inventory_type="damaged").last()
-    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
-    normal_inventory_type = 'normal',
-    damaged_inventory_type = 'damaged',
-    available_inventory_state = 'available',
+    state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
     try:
         initial_bin_id = Bin.objects.get(bin_id=obj.bin.bin.bin_id, warehouse=obj.warehouse)
         final_bin_id = Bin.objects.get(bin_id=bin_id.bin.bin_id, warehouse=obj.warehouse)
@@ -1838,12 +1795,12 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
                     if pick_bin.bin.bin.bin_id == obj.bin.bin.bin_id:
                         normal_qty = shipped_obj.returned_qty
                         returned_damaged_qty = shipped_obj.returned_damage_qty
-                        if inventory_type == initial_type[0]:
+                        if inventory_type == type_normal:
                             if normal_qty > 0:
                                 bin_inv_obj = BinInventory.objects.filter(warehouse=obj.warehouse,
                                                                           bin__bin_id=bin_id.bin.bin_id, sku=obj.sku,
                                                                           batch_id=batch_id,
-                                                                          inventory_type=initial_type[0],
+                                                                          inventory_type=type_normal,
                                                                           in_stock=True).last()
                                 if bin_inv_obj:
                                     bin_quantity = bin_inv_obj.quantity
@@ -1854,22 +1811,11 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
 
                                     BinInventory.objects.get_or_create(warehouse=obj.warehouse, bin=bin_id.bin, sku=obj.sku,
                                                                        batch_id=batch_id,
-                                                                       inventory_type=initial_type[0], quantity=normal_qty,
+                                                                       inventory_type=type_normal, quantity=normal_qty,
                                                                        in_stock=True)
-                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                                             normal_inventory_type[0],
-                                                                                             available_inventory_state[
-                                                                                                 0],
-                                                                                             normal_qty, True)
-                                WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse,
-                                                                                                   obj.sku,
-                                                                                                   transaction_type,
-                                                                                                   transaction_id,
-                                                                                                   initial_type[0],
-                                                                                                   initial_stage[0],
-                                                                                                   initial_type[0],
-                                                                                                   final_stage[0],
-                                                                                                   normal_qty)
+                                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                                    obj.warehouse, obj.sku, type_normal, state_total_available,
+                                    normal_qty, transaction_type, transaction_id)
                                 BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
                                                                           batch_id=batch_id,
                                                                           initial_bin=Bin.objects.get(
@@ -1877,8 +1823,8 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
                                                                               warehouse=obj.warehouse),
                                                                           final_bin=Bin.objects.get(bin_id=final_bin_id,
                                                                                                     warehouse=obj.warehouse),
-                                                                          initial_inventory_type=initial_type[0],
-                                                                          final_inventory_type=initial_type[0],
+                                                                          initial_inventory_type=type_normal,
+                                                                          final_inventory_type=type_normal,
                                                                           transaction_type=transaction_type,
                                                                           transaction_id=transaction_id,
                                                                           quantity=normal_qty)
@@ -1903,20 +1849,9 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
                                                                        quantity=returned_damaged_qty,
                                                                        in_stock=True)
 
-                                CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                                             damaged_inventory_type[0],
-                                                                                             available_inventory_state[
-                                                                                                 0],
-                                                                                             returned_damaged_qty, True)
-                                WareHouseInternalInventoryChange.create_warehouse_inventory_change(obj.warehouse,
-                                                                                                   obj.sku,
-                                                                                                   transaction_type,
-                                                                                                   transaction_id,
-                                                                                                   initial_type[0],
-                                                                                                   initial_stage[0],
-                                                                                                   type_damaged,
-                                                                                                   final_stage[0],
-                                                                                                   returned_damaged_qty)
+                                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                                    obj.warehouse, obj.sku, type_damaged, state_total_available,
+                                    returned_damaged_qty, transaction_type, transaction_id)
                                 BinInternalInventoryChange.objects.create(warehouse_id=obj.warehouse.id, sku=obj.sku,
                                                                           batch_id=batch_id,
                                                                           initial_bin=Bin.objects.get(
@@ -1924,7 +1859,7 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
                                                                               warehouse=obj.warehouse),
                                                                           final_bin=Bin.objects.get(bin_id=final_bin_id,
                                                                                                     warehouse=obj.warehouse),
-                                                                          initial_inventory_type=initial_type[0],
+                                                                          initial_inventory_type=type_normal,
                                                                           final_inventory_type=type_damaged,
                                                                           transaction_type=transaction_type,
                                                                           transaction_id=transaction_id,
@@ -1932,12 +1867,10 @@ def cancel_returned(request, obj, ordered_inventory_state, initial_stage, shipme
 
                             deduct_quantity = returned_damaged_qty
                         ordered_quantity = int(-deduct_quantity)
-                        obj.putaway_status = True
 
-                        CommonWarehouseInventoryFunctions.create_warehouse_inventory(obj.warehouse, obj.sku,
-                                                                                     normal_inventory_type[0],
-                                                                                     ordered_inventory_state[0],
-                                                                                     ordered_quantity, True)
+                        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                            obj.warehouse, obj.sku, type_normal, initial_stage, ordered_quantity,
+                            transaction_type, transaction_id)
                         obj.putaway_status = True
                         obj.save()
 
@@ -1964,7 +1897,7 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
     :return:
     """
     bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(
-        bin_id=bin_id, warehouse=sh).last(),
+                                                                               bin_id=bin_id, warehouse=sh).last(),
                                                                                sku=sku,
                                                                                batch_id=batch_id,
                                                                                inventory_type=InventoryType.objects.filter(
@@ -1978,8 +1911,6 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
         BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last(), sku=sku,
                                     batch_id=batch_id, inventory_type=InventoryType.objects.filter(
                 inventory_type=inv_type).last(), quantity=val, in_stock=t)
-    CommonWarehouseInventoryFunctions.create_warehouse_inventory_stock_correction(sh, sku, inv_type, inv_state, val,
-                                                                 True)
     if transaction_type == 'stock_correction_out_type':
         pass
     else:
@@ -1996,25 +1927,20 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
                                                sku=sku, batch_id=transaction_type_obj.last().batch_id,
                                                putaway_type=transaction_type_obj.last().putaway_type)
 
-    transaction_type = transaction_type
     transaction_id = transaction_type_obj.last().id
     initial_type = InventoryType.objects.filter(inventory_type='new').last(),
-    initial_stage = InventoryState.objects.filter(inventory_state='new').last(),
     final_type = InventoryType.objects.filter(inventory_type=inv_type).last(),
-    final_stage = InventoryState.objects.filter(inventory_state='available').last(),
-    WareHouseInternalInventoryChange.create_warehouse_inventory_change(sh, sku, transaction_type, transaction_id,
-                                                                       initial_type[0], initial_stage[0],
-                                                                       final_type[0], final_stage[0], val)
+    final_stage = InventoryState.objects.filter(inventory_state='total_available').last(),
 
-    final_bin_id = bin_id
-    initial_type = InventoryType.objects.filter(inventory_type='new').last(),
-    final_type = InventoryType.objects.filter(inventory_type=inv_type).last(),
-    transaction_type = transaction_type
-    transaction_id = transaction_type_obj.last().id
-    quantity = val
-    InternalInventoryChange.create_bin_internal_inventory_change(sh, transaction_type_obj[0].sku, batch_id, final_bin_id, initial_type[0],
-                                                                 final_type[0], transaction_type,
-                                                                 transaction_id, quantity)
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_stock_correction(sh, sku, inv_type, inv_state, val,
+                                                                 True)
+    WarehouseInternalInventoryChange.objects.create(warehouse=sh, sku=sku, transaction_type=transaction_type,
+                                                    transaction_id=transaction_id, inventory_type=final_type[0],
+                                                    inventory_state=final_stage[0], quantity=val)
+
+    InternalInventoryChange.create_bin_internal_inventory_change(sh, transaction_type_obj[0].sku, batch_id, bin_id,
+                                                                 initial_type[0], final_type[0], transaction_type,
+                                                                 transaction_id, val)
 
 
 def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_product_batch, initial_type, final_type,
@@ -2028,7 +1954,9 @@ def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_produc
 
     if shipment_product_batch.delivered_qty > 0:
         sku = shipment_product_batch.ordered_product_mapping.product
-        batch_id = shipment_product_batch.batch_id
+        # batch_id = shipment_product_batch.batch_id
+        default_expiry = datetime.date(int(config('FRANCHISE_IN_DEFAULT_EXPIRY_YEAR')), 1, 1)
+        batch_id = '{}{}'.format(sku.product_sku, default_expiry.strftime('%d%m%y'))
         info_logger.info("Franchise Product Batch update after Trip. Shop: {}, Batch: {}, Shipment Product Batch Id: {}".
                          format(warehouse, batch_id, shipment_product_batch.id))
         quantity = shipment_product_batch.delivered_qty
@@ -2039,7 +1967,7 @@ def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_produc
 
 
 def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type, transaction_id, final_type,
-                           initial_type, initial_stage, final_stage, bin_obj):
+                           initial_type, initial_stage, final_stage, bin_obj, shipped=True):
 
     InCommonFunctions.create_only_in(warehouse, transaction_type, transaction_id, sku, batch_id, quantity,
                                      final_type[0])
@@ -2061,16 +1989,36 @@ def franchise_inventory_in(warehouse, sku, batch_id, quantity, transaction_type,
     PutawayBinInventory.objects.create(warehouse=warehouse, putaway=putaway, bin=bin_inv_obj, putaway_quantity=quantity,
                                        putaway_status=True, sku=sku, batch_id=batch_id, putaway_type=transaction_type)
 
-    CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, 'normal', 'available', quantity, True)
-
-    if transaction_type == 'franchise_returns':
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, 'normal', 'shipped', quantity * -1, True)
-    WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, transaction_type, transaction_id,
-                                                                       initial_type[0], initial_stage[0], final_type[0],
-                                                                       final_stage[0], quantity)
-
     BinInternalInventoryChange.objects.create(warehouse_id=warehouse.id, sku=sku, batch_id=batch_id, final_bin=bin_obj,
                                               initial_inventory_type=initial_type[0],
                                               final_inventory_type=final_type[0],
                                               transaction_type=transaction_type, transaction_id=transaction_id,
                                               quantity=quantity)
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+        warehouse, sku, final_type[0], final_stage[0], quantity, transaction_type, transaction_id)
+    if transaction_type == 'franchise_returns'and shipped:
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            warehouse, sku, initial_type[0], initial_stage[0], quantity * -1, transaction_type, transaction_id)
+
+
+def update_visibility(shop,product,visible):
+    WarehouseInventory.objects.filter(warehouse=shop,sku=product,inventory_state=InventoryState.objects.filter(
+                inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_type='normal').last()).update(visible=visible)
+
+def update_visibility_bulk(shop_id):
+    shop = Shop.objects.filter(pk=shop_id).last()
+    products = WarehouseInventory.objects.filter(warehouse=shop,inventory_state=InventoryState.objects.filter(
+                inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_type='normal').last())
+    parent_list = []
+    for product in products:
+        if product.sku.parent_product.id in parent_list:
+            continue
+        visibility_changes = get_visibility_changes(shop, product.sku)
+        if visibility_changes:
+            for prod_id, visibility in visibility_changes.items():
+                sibling = Product.objects.filter(pk=prod_id).last()
+                print(sibling,visibility)
+                update_visibility(shop, sibling, visibility)
+        parent_list.append(product.sku.parent_product.id)

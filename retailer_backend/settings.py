@@ -118,6 +118,8 @@ INSTALLED_APPS = [
     'audit',
     'django_extensions',
     'franchise.apps.FranchiseConfig',
+    'django_tables2',
+    'tablib',
     'marketing',
     'global_config'
 ]
@@ -378,6 +380,7 @@ CRONJOBS = [
     ('*/5 * * * *', 'audit.cron.create_picklist_cron'),
     ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
     ('00 2 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
+    ('*/5 * * * *', 'products.cron.deactivate_capping'),
     ('00 3 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
     ('00 3 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
 ]

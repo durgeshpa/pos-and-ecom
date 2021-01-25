@@ -63,6 +63,7 @@ class FranchiseReturns(models.Model):
     amount = models.FloatField(default=0, null=True, blank=True)
     sr_date = models.DateTimeField(null=True, blank=True)
     sr_number = models.CharField(max_length=255, null=True, blank=True)
+    invoice_date = models.DateTimeField(null=True, blank=True)
     invoice_number = models.CharField(max_length=255, null=True, blank=True)
     process_status = models.IntegerField(choices=((0, 'Started'), (1, 'Processed'), (2, 'Error')), default=0)
     error = models.CharField(max_length=255, null=True, blank=True)

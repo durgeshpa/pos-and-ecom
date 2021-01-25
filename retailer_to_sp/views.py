@@ -54,6 +54,7 @@ from common.common_utils import create_file_name, create_merge_pdf_name, merge_p
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
+from global_config.models import GlobalConfig
 
 logger = logging.getLogger('django')
 
@@ -619,7 +620,9 @@ def trip_planning_change(request, pk):
                                             shipment_product_batch.save()
                                     shipment.shipment_status='FULLY_DELIVERED_AND_VERIFIED'
                                     shipment.save()
-                        check_franchise_inventory_update(trip)
+                        franchise_inv_add_trip_block = GlobalConfig.objects.filter(key='franchise_inv_add_trip_block').last()
+                        if not franchise_inv_add_trip_block or franchise_inv_add_trip_block.value != 1:
+                            check_franchise_inventory_update(trip)
 
                         return redirect('/admin/retailer_to_sp/trip/')
 
@@ -1078,15 +1081,26 @@ def pick_list_download(request, order_obj):
         file_prefix = PREFIX_PICK_LIST_FILE_NAME
         barcode = barcodeGen(order_obj.order_no)
         file_name = create_file_name(file_prefix, order_obj)
-        cart_products = order_obj.ordered_cart.rt_cart_list.all()
+        picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_obj.order_no).exclude(
+            pickup__status='picking_cancelled')
         cart_product_list = []
-        for cart_pro in cart_products:
+        for cart_pro in picku_bin_inv:
+            batch_id = cart_pro.batch_id
+            bin_id = cart_pro.bin.bin.bin_id
+            product = cart_pro.pickup.sku.product_name
+            sku = cart_pro.pickup.sku.product_sku
+            qty = cart_pro.quantity
+            if cart_pro.pickup.sku.product_mrp:
+                mrp = cart_pro.pickup.sku.product_mrp
+            else:
+                mrp = '-'
             product_list = {
-                "product_name": cart_pro.cart_product.product_name,
-                "product_sku": cart_pro.cart_product.product_sku,
-                "product_mrp": cart_pro.cart_product.product_mrp if cart_pro.cart_product.product_mrp else '-',
-                "ordered_qty": cart_pro.qty,
-                "no_of_pieces": cart_pro.no_of_pieces,
+                "product": product,
+                "sku": sku,
+                "mrp": mrp,
+                "qty": qty,
+                "batch_id": batch_id,
+                "bin": bin_id
 
             }
             cart_product_list.append(product_list)

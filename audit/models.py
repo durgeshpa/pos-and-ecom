@@ -59,6 +59,7 @@ class AuditDetail(BaseTimestampModel):
     auditor = models.ForeignKey(get_user_model(), related_name='audits_assigned', null=True, on_delete=models.DO_NOTHING)
     is_historic = models.BooleanField(default=False)
     audit_from = models.DateField(null=True, blank=True, verbose_name='Start Audit From')
+    pbi = models.PositiveIntegerField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.id:
@@ -136,7 +137,7 @@ class AuditTicket(BaseTimestampModel):
 class AuditProduct(BaseTimestampModel):
     audit = models.ForeignKey(AuditDetail, null=False, related_name='+', on_delete=models.DO_NOTHING)
     warehouse = models.ForeignKey(Shop, null=False, on_delete=models.DO_NOTHING)
-    sku = models.ForeignKey(Product, null=False, to_field='product_sku', on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, null=False, to_field='product_sku',related_name='rt_audit_sku', on_delete=models.DO_NOTHING)
     status = models.PositiveSmallIntegerField(choices=AUDIT_PRODUCT_STATUS)
     # es_status = models.BooleanField(default=False)
 
