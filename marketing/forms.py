@@ -60,8 +60,8 @@ class RewardPointForm(forms.ModelForm):
             self.fields['email'].initial = instance.user.email
             self.fields['redeemable_reward_points'].initial = instance.direct_earned + instance.indirect_earned \
                                                               - instance.points_used
-            self.fields['maximum_available_discount'].initial = used_reward_factor * (
-                        instance.direct_earned + instance.indirect_earned - instance.points_used)
+            self.fields['maximum_available_discount'].initial = (
+                        instance.direct_earned + instance.indirect_earned - instance.points_used) / used_reward_factor
 
     def clean(self):
         cleaned_data = self.cleaned_data
@@ -78,10 +78,10 @@ class RewardPointForm(forms.ModelForm):
         except:
             used_reward_factor = 3
 
-        if int(cleaned_data['discount_given']) % used_reward_factor != 0:
-            raise forms.ValidationError("Invalid Discount. Should Be In Multiples Of {}".format(used_reward_factor))
+        # if int(cleaned_data['discount_given']) % used_reward_factor != 0:
+        #     raise forms.ValidationError("Invalid Discount. Should Be In Multiples Of {}".format(used_reward_factor))
 
-        points_used = int(int(cleaned_data['discount_given']) / used_reward_factor)
+        points_used = int(used_reward_factor * int(cleaned_data['discount_given']))
 
         if points_used > self.instance.direct_earned + self.instance.indirect_earned - self.instance.points_used:
             raise forms.ValidationError("Discount Used Cannot Be Greater Than The Maximum Available Discount")
