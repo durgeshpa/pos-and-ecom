@@ -74,7 +74,7 @@ class RewardsSerializer(serializers.ModelSerializer):
             used_reward_factor = int(conf_obj.value)
         except:
             used_reward_factor = 3
-        return str(int((obj.direct_earned + obj.indirect_earned)/used_reward_factor))
+        return str(int((obj.direct_earned + obj.indirect_earned - obj.points_used)/used_reward_factor))
 
 
 
