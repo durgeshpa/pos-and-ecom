@@ -72,7 +72,7 @@ def fetch_hdpos_users():
     specific_shops = GlobalConfig.objects.filter(key="hdpos_users_from_shops").last()
     if specific_shops and specific_shops.value not in [None, '']:
         shops_str = specific_shops.value
-        shops = shops_str.split(',')
+        shops = shops_str.split('|')
         sqlfile += " where shop.LocationName in ("
         for loc in shops:
             sqlfile += "'" + loc + "',"
