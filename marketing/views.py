@@ -193,7 +193,7 @@ class RewardsDashboard(GenericAPIView):
                 except:
                     data = {"direct_users_count": '0', "indirect_users_count": '0', "direct_earned_points": '0',
                             "indirect_earned_points": '0', "total_earned_points": '0', 'total_points_used': '0',
-                            'remaining_points': '0'}
+                            'remaining_points': '0', 'welcome_reward_point': '0', "discount_point": '0'}
                 data['name'] = user_name.capitalize()
                 return Response({"data": data}, status=status.HTTP_200_OK)
             else:
