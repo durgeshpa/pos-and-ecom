@@ -41,7 +41,6 @@ class SendSmsOTP(CreateAPIView):
 
             number = request.data.get("phone_number")
             phone_otp, otp = PhoneOTP.create_otp_for_number(number)
-            date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
             time = datetime.datetime.now().strftime("%I:%M %p")
             message = SendSms(phone=number,
                               body="%s is your One Time Password for Peppertap Account." \
