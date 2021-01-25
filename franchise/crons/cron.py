@@ -127,6 +127,7 @@ def fetch_franchise_data(fetch_name, to_date):
 
                             FranchiseReturns.objects.create(shop_loc=row[8], barcode=row[6], quantity=row[3], amount=row[4],
                                                             sr_date=row[0], sr_number=row[1], invoice_number=row[10],
+                                                            invoice_date=row[9],
                                                             product_sku=row[11], customer_name=row[12], phone_number=row[13])
                 else:
                     with transaction.atomic():
