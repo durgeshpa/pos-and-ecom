@@ -7,10 +7,11 @@ from django.db import transaction
 from decouple import config
 from django.utils import timezone
 import traceback
+import re
 
 from services.models import CronRunLog
 from global_config.models import GlobalConfig
-from marketing.models import MLMUser
+from marketing.models import MLMUser, RewardPoint
 
 
 cron_logger = logging.getLogger('cron_log')
@@ -68,8 +69,20 @@ def fetch_hdpos_users():
     sqlfile = fd.read()
     fd.close()
 
-    if last_date != '':
-        sqlfile = sqlfile + " where customers.RegistrationDate >='" + last_date + "'"
+    specific_shops = GlobalConfig.objects.filter(key="hdpos_users_from_shops").last()
+    if specific_shops and specific_shops.value not in [None, '']:
+        shops_str = specific_shops.value
+        shops = shops_str.split(',')
+        sqlfile += " where shop.LocationName in ("
+        for loc in shops:
+            sqlfile += "'" + loc + "',"
+        sqlfile = sqlfile.strip(",")
+        sqlfile += ")"
+        if last_date != '':
+            sqlfile = sqlfile + " and customers.RegistrationDate >='" + last_date + "'"
+    else:
+        if last_date != '':
+            sqlfile = sqlfile + " where customers.RegistrationDate >='" + last_date + "'"
 
     cursor.execute(sqlfile)
 
@@ -86,11 +99,13 @@ def fetch_hdpos_users():
             row[1] = '' if not row[1] else row[1].replace(' ', '')
             row[2] = '' if not row[2] else row[2].strip()
 
-            if len(row[0]) != 10:
+            rule = re.compile(r'^[6-9]\d{9}$')
+            if not rule.search(str(row[0])):
                 continue
 
             if not MLMUser.objects.filter(phone_number=row[0]).exists():
-                MLMUser.objects.create(phone_number=row[0], email=row[1], name=row[2])
+                user_obj = MLMUser.objects.create(phone_number=row[0], email=row[1], name=row[2])
+                RewardPoint.welcome_reward(user_obj, 0)
 
         if date_config:
             date_config.value = now_date
