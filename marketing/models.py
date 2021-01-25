@@ -134,7 +134,7 @@ class Referral(models.Model):
         a python library which helps in generating random object
         """
         try:
-            unique_referral_code = str(uuid.uuid4()).split('-')[-1]
+            unique_referral_code = str(uuid.uuid4()).split('-')[-1][:6].upper()
             return unique_referral_code
         except Exception as e:
             error_logger.info("Something Went wrong while saving the referral_code in UserModel " + str(e))
@@ -194,10 +194,9 @@ class RewardPoint(models.Model):
         except:
             used_reward_factor = 3
         message = SendSms(phone=user.phone_number,
-                          body="Hi! You have been registered on rewards.peppertap.in and awarded {} reward points." \
-                               " Log in now to avail discounts upto {} INR and share your referral code:{} with" \
-                               " friends to win more rewards. Shop together at your nearest PepperTap store!"
-                          .format(points, int(points/used_reward_factor), user.referral_code))
+                          body="Welcome to rewards.peppertap.in %s points are added to your account.Get Rs %s"
+                               "off on next purchase.Login and share your referral code:%s with friends and win more points."
+                          %(points, int(points/used_reward_factor), user.referral_code))
 
         message.send()
 
