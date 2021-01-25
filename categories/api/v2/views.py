@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
+from shops.models import Shop, ParentRetailerMapping
 from wms.common_functions import get_stock_available_category_list
 from .serializers import CategorySerializer,CategoryDataSerializer, BrandSerializer, AllCategorySerializer
 from categories.models import Category,CategoryData,CategoryPosation
@@ -65,8 +66,14 @@ class GetAllCategoryListView(APIView):
     permission_classes = (AllowAny,)
     def get(self, *args, **kwargs):
         categories_to_return = []
-        # get list of category ids with available inventory
-        categories_with_products = get_stock_available_category_list()
+        shop_id = self.request.GET.get('shop_id')
+        if Shop.objects.filter(id=shop_id).exists():
+            shop = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
+            # get list of category ids with available inventory for this shop
+            categories_with_products = get_stock_available_category_list(shop)
+        else:
+            # get list of category ids with available inventory
+            categories_with_products = get_stock_available_category_list()
         all_active_categories = Category.objects.filter(category_parent=None, status=True)
         for c in all_active_categories:
             if c.id in categories_with_products:
