@@ -27,7 +27,12 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_GSTIN_Number': 'Invalid Gstin number',
     'INVALID_MARGIN': '%s has not valid format( eg: 0, 201, 17.11)',
     'ALREADY_ADDED_SHOP':'Already added Sales Executive with this shop',
-    'INVALID_INTEGER_VALUE':'Only Positive Integers Accepted'
+    'INVALID_INTEGER_VALUE':'Only Positive Integers Accepted',
+    'OTP_EXPIRED_GENERATE_AGAIN':'Entered OTP expired! Please enter the new OTP',
+    'Referral_code':'Please provide valid referral code',
+    'User_Already_Exist':'User Already Registered Please Login',
+    'Enter_OTP':'Please Enter otp',
+    'Phone_Number':'Please Enter Phone Number,'
 }
 
 SUCCESS_MESSAGES = {
