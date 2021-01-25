@@ -1668,7 +1668,7 @@ class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
             pp = ProductPrice.objects.filter(seller_shop_id=seller_shop).values('product_id')
             qs = Product.objects.filter(id__in=pp, repackaging_type='source', related_sku__inventory_type=InventoryType.
                                         objects.filter(inventory_type='normal').last(), related_sku__inventory_state=
-                                        InventoryState.objects.filter(inventory_state='available').last(),
+                                        InventoryState.objects.filter(inventory_state='total_available').last(),
                                         related_sku__warehouse_id=seller_shop, related_sku__quantity__gt=0)
             if self.q:
                 qs = qs.filter(product_name__icontains=self.q)
