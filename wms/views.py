@@ -1447,11 +1447,11 @@ def shipment_reschedule_inventory_change(shipment_list):
                                                          shipment_item.product, shipment_batch.batch_id,
                                                          shipment_batch.quantity, type_normal)
                     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                        shipment.order.seller_shop, shipment_item.product, "normal", "shipped",
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_shipped,
                         shipment_item.shipped_qty * -1, "reschedule", shipment.pk)
 
                     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                        shipment.order.seller_shop, shipment_item.product, "normal", "picked",
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_picked,
                         shipment_item.shipped_qty, "reschedule", shipment.pk)
 
             except DatabaseError as e:
