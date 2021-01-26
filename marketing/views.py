@@ -73,6 +73,7 @@ def save_user_referral_code(phone_number):
 
 
 class Registrations(GenericAPIView):
+    permission_classes = (AllowAny,)
 
     def post(self, request):
         """
