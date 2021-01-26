@@ -182,8 +182,8 @@ class RewardsDashboard(GenericAPIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        if request.META['HTTP_AUTHORIZATION']:
-            auth = request.META['HTTP_AUTHORIZATION']
+        if request.META['HTTP_AUTH']:
+            auth = request.META['HTTP_AUTH']
             resp = MLMUser.authenticate(auth)
             if not isinstance(resp, str):
                 user_name = resp.name if resp.name else ''
@@ -217,8 +217,8 @@ class Logout(GenericAPIView):
         request:-Delete
         response:- Success and error message
         """
-        if request.META['HTTP_AUTHORIZATION']:
-            auth = request.META['HTTP_AUTHORIZATION']
+        if request.META['HTTP_AUTH']:
+            auth = request.META['HTTP_AUTH']
             # to validate token is valid or not
             resp = MLMUser.authenticate(auth)
 
@@ -245,8 +245,8 @@ class UploadProfile(GenericAPIView):
         """
             Determine the current user by their token, and update their profile
         """
-        if request.META['HTTP_AUTHORIZATION']:
-            auth = request.META['HTTP_AUTHORIZATION']
+        if request.META['HTTP_AUTH']:
+            auth = request.META['HTTP_AUTH']
             resp = MLMUser.authenticate(auth)
             try:
                 user_id = Profile.objects.get(user=resp)
