@@ -134,6 +134,7 @@ class Registrations(GenericAPIView):
 
 
 class Login(GenericAPIView):
+    permission_classes = (AllowAny,)
 
     def post(self, request):
         """
