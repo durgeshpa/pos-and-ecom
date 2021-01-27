@@ -1601,7 +1601,7 @@ def putaway_repackaging(request, obj, initial_stage, bin_id):
         else:
             obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
         normal_inventory_type = 'normal',
-        available_inventory_state = 'available',
+        available_inventory_state = 'total_available',
         available_quantity = obj.putaway_quantity
         transaction_type = 'put_away_type'
         transaction_id = obj.putaway_id
