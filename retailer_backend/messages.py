@@ -32,7 +32,8 @@ VALIDATION_ERROR_MESSAGES = {
     'Referral_code':'Please provide valid referral code',
     'User_Already_Exist':'User Already Registered Please Login',
     'Enter_OTP':'Please Enter otp',
-    'Phone_Number':'Please Enter Phone Number,'
+    'Phone_Number':'Please Enter Phone Number,',
+    'User_not_register': 'You are not registered, Please Sign Up.'
 }
 
 SUCCESS_MESSAGES = {
