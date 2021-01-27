@@ -83,7 +83,7 @@ class RewardPointAdmin(admin.ModelAdmin):
         conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
         used_reward_factor = int(conf_obj.value)
     except:
-        used_reward_factor = 3
+        used_reward_factor = 4
 
     def phone_number(self, obj):
         return obj.user
@@ -95,7 +95,7 @@ class RewardPointAdmin(admin.ModelAdmin):
         return format_html('<b>%s</b>' % (obj.user.email if obj.user.email else '-'))
 
     def max_available_discount_inr(self, obj):
-        max_av = (obj.direct_earned + obj.indirect_earned - obj.points_used)/self.used_reward_factor
+        max_av = int((obj.direct_earned + obj.indirect_earned - obj.points_used)/self.used_reward_factor)
         return format_html('<b>%s</b>' % (max_av))
 
     def redeemable_reward_points(self, obj):
@@ -103,9 +103,6 @@ class RewardPointAdmin(admin.ModelAdmin):
         return format_html('<b>%s</b>' % (rrp))
 
     def has_add_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
         return False
 
     def get_urls(self):
@@ -134,9 +131,6 @@ class RewardLogAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
         return False
 
     def transaction_points(self, obj):

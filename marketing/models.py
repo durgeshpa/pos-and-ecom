@@ -123,7 +123,6 @@ class Referral(models.Model):
                                     blank=True)
     referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True,
                                     blank=True)
-    reward_status = models.IntegerField(choices=((0, 'not considered'), (1, 'considered')), default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -192,7 +191,7 @@ class RewardPoint(models.Model):
             conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
             used_reward_factor = int(conf_obj.value)
         except:
-            used_reward_factor = 3
+            used_reward_factor = 4
         message = SendSms(phone=user.phone_number,
                           body="Welcome to rewards.peppertap.in %s points are added to your account.Get Rs %s"
                                "off on next purchase.Login and share your referral code:%s with friends and win more points."
