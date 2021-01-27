@@ -33,7 +33,7 @@ VALIDATION_ERROR_MESSAGES = {
     'User_Already_Exist':'User Already Registered Please Login',
     'Enter_OTP':'Please Enter otp',
     'Phone_Number':'Please Enter Phone Number,',
-    'User_not_register': 'You are not registered, Please Sign Up.'
+    'User_not_register': 'You are not registered User, Please Sign Up.'
 }
 
 SUCCESS_MESSAGES = {
