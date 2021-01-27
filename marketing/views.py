@@ -164,17 +164,17 @@ class Login(GenericAPIView):
                 msg = ValidateOTP(phone_number, otp)
                 return Response(msg.data, status=msg.status_code)
             else:
-                phone_number_otp = PhoneOTP.objects.filter(phone_number=phone_number, otp=otp)
-                if phone_number_otp.exists():
-                    save_user_referral_code(phone_number)
-                    msg = ValidateOTP(phone_number, otp)
-                    return Response(msg.data, status=msg.status_code)
-                else:
-                    msg = {'is_success': False,
-                           'message': VALIDATION_ERROR_MESSAGES['OTP_NOT_MATCHED'],
-                           'response_data': None}
-                    status_code = status.HTTP_406_NOT_ACCEPTABLE
-                    return Response(msg, status=status_code)
+                # phone_number_otp = PhoneOTP.objects.filter(phone_number=phone_number, otp=otp)
+                # if phone_number_otp.exists():
+                #     save_user_referral_code(phone_number)
+                #     msg = ValidateOTP(phone_number, otp)
+                #     return Response(msg.data, status=msg.status_code)
+                # else:
+                msg = {'is_success': False,
+                       'message': VALIDATION_ERROR_MESSAGES['User_not_register'],
+                       'response_data': None}
+                status_code = status.HTTP_406_NOT_ACCEPTABLE
+                return Response(msg, status=status_code)
         except Exception:
             return Response(Exception, status=status.HTTP_403_FORBIDDEN)
 
