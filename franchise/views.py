@@ -174,6 +174,9 @@ class AddSales(APIView):
             quantity = request.GET.get('quantity')
             if not quantity:
                 return Response({"error": "provide quantity"}, status=status.HTTP_200_OK)
+            amount = request.GET.get('amount')
+            if not amount:
+                return Response({"error": "provide amount"}, status=status.HTTP_200_OK)
             try:
                 shop = ShopLocationMap.objects.get(shop_id=shop_id)
             except:
@@ -185,7 +188,7 @@ class AddSales(APIView):
                 return Response({"error": "product not found"}, status=status.HTTP_200_OK)
 
             sales_obj = FranchiseSales.objects.create(shop_loc=shop.location_name, barcode='9999', quantity=quantity,
-                                                      amount=100, invoice_date=datetime.date.today(),
+                                                      amount=amount, invoice_date=datetime.date.today(),
                                                       invoice_number='ABCD',
                                                       product_sku=product.product_sku, customer_name='monali',
                                                       phone_number=phone_number, discount_amount=10)

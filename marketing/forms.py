@@ -57,14 +57,14 @@ class RewardPointForm(forms.ModelForm):
                 conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
                 used_reward_factor = int(conf_obj.value)
             except:
-                used_reward_factor = 3
+                used_reward_factor = 4
             self.fields['phone'].initial = instance.user.phone_number
             self.fields['name'].initial = instance.user.name
             self.fields['email'].initial = instance.user.email
             self.fields['redeemable_reward_points'].initial = instance.direct_earned + instance.indirect_earned \
                                                               - instance.points_used
-            self.fields['maximum_available_discount'].initial = (
-                        instance.direct_earned + instance.indirect_earned - instance.points_used) / used_reward_factor
+            self.fields['maximum_available_discount'].initial = int((
+                        instance.direct_earned + instance.indirect_earned - instance.points_used) / used_reward_factor)
 
     def clean(self):
         cleaned_data = self.cleaned_data
@@ -79,7 +79,7 @@ class RewardPointForm(forms.ModelForm):
             conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
             used_reward_factor = int(conf_obj.value)
         except:
-            used_reward_factor = 3
+            used_reward_factor = 4
 
         # if int(cleaned_data['discount_given']) % used_reward_factor != 0:
         #     raise forms.ValidationError("Invalid Discount. Should Be In Multiples Of {}".format(used_reward_factor))
