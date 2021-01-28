@@ -1979,7 +1979,7 @@ def auto_report_for_expired_product(request):
 
 
             workbook.save(response)
-            print(row)
+    print(row)
     send_sms(response)
     return response
 
