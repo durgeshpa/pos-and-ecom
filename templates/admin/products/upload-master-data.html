@@ -23,18 +23,10 @@
                <div>
                   <fieldset class="module aligned ">
                      {% csrf_token %}
-                     <form id="parent_categories_select_form" method="GET" action="">
-                        <label style="margin-left: 10px" for="category">Select Category:</label>
-                        <select style="margin-left: 20px" name="category" id="parent_categories_select" onchange="ddlselect()">
-                            <option value="none">Please Select One Category</option>
-                        </select>
-                     </form>
-               </div>
-            </form>
-            <form method="post" enctype="multipart/form-data">
-               <div>
-                  <fieldset class="module aligned ">
-                     {% csrf_token %}
+                     <label for="category" style="margin: 10px">Select Category:</label>
+                     <select name="category" style="margin: 10px" id="parent_categories_select" onchange="ddlselect()">
+                         <option value="none">Please Select One Category</option>
+                     </select>
                      <h1 style="font-weight: bold">{{form.as_p}}</h1>
                      <form method="post" enctype="multipart/form-data">
                         <label style="margin: 10px" for="upload_master_data">Select an Option:</label>
