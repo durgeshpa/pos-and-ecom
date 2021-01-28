@@ -61,7 +61,7 @@ def verify(otp, phone_otp_obj, referred=0):
             # to get reward from global configuration
             reward = GlobalConfig.objects.filter(key='welcome_reward_points_referral').last().value
             # to get discount from global configuration
-            discount = (int(reward / GlobalConfig.objects.filter(key='used_reward_factor').last().value))
+            discount = int(reward / GlobalConfig.objects.filter(key='used_reward_factor').last().value)
             msg = {'phone_number': user_obj.phone_number,
                    'token': token,
                    'referral_code': user_obj.referral_code,
