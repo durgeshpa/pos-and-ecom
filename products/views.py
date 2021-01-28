@@ -14,7 +14,7 @@ import openpyxl
 from openpyxl.styles import Font
 from pyexcel_xlsx import get_data as xlsx_get
 
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.views import View
@@ -1739,9 +1739,12 @@ def upload_master_data_view(request):
             if request.POST['upload_master_data'] == 'parent_data':
                 UploadMasterData.set_parent_data(excel_file_headers, excel_file_list)
 
+            attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
+            request.FILES['file'].name = request.POST['upload_master_data'] + '-' + str(attribute_id['id'] + 1) + '.xlsx'
             product_attribute = BulkUploadForProductAttributes.objects.create(file=request.FILES['file'],
                                                                               updated_by=request.user)
             product_attribute.save()
+            # return HttpResponseRedirect('/admin/products/bulkuploadforproductattributes/')
             return render(request, 'admin/products/upload-master-data.html',
                           {'form': form,
                            'success': 'Master Data Uploaded Successfully!', })

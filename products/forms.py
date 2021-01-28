@@ -23,7 +23,8 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductVendorMapping, Size, Tax, Weight,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
-                             DestinationRepackagingCostMapping, ParentProductImage, ProductCapping)
+                             DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
+                             ParentProductCategory)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -681,18 +682,24 @@ class UploadMasterDataAdminForm(forms.Form):
     """
     file = forms.FileField(label='Upload Master Data')
 
-    def validate_row(self, uploaded_data_list, header_list, upload_master_data):
+    def validate_row(self, uploaded_data_list, header_list, upload_master_data, category):
         """
         This method will check that Data uploaded by user is valid or not.
         """
         try:
             row_num = 1
+            categry = Category.objects.values('category_name').filter(id=int(category))
             for row in uploaded_data_list:
                 row_num += 1
                 if 'sku_id' in header_list and 'sku_id' in row.keys():
                     if row['sku_id'] != '':
                         if not Product.objects.filter(product_sku=row['sku_id']).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['sku_id']} | 'SKU ID' doesn't exist."))
+                    product = Product.objects.filter(product_sku=row['sku_id'])
+                    if not ProductCategory.objects.filter(category=int(category), product=product[0].id).exists():
+                        raise ValidationError(_(f"Row {row_num} | Please upload Products of Category "
+                                                f"({categry[0]['category_name']}) that you have "
+                                                f"selected in Dropdown Only! "))
                 if 'sku_name' in header_list and 'sku_name' in row.keys():
                     if row['sku_name'] != '':
                         if not Product.objects.filter(product_name=row['sku_name']).exists():
@@ -709,6 +716,11 @@ class UploadMasterDataAdminForm(forms.Form):
                     if row['parent_id'] != '':
                         if not ParentProduct.objects.filter(parent_id=row['parent_id']).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['parent_id']} | 'Parent ID' doesn't exist."))
+                    parent_product = ParentProduct.objects.filter(parent_id=row['parent_id'])
+                    if not ParentProductCategory.objects.filter(category=int(category), parent_product=parent_product[0].id).exists():
+                        raise ValidationError(_(f"Row {row_num} | Please upload Products of Category "
+                                                f"({categry[0]['category_name']}) that you have "
+                                                f"selected in Dropdown Only! "))
                 if 'parent_name' in header_list and 'parent_name' in row.keys():
                     if row['parent_name'] != '':
                         if not ParentProduct.objects.filter(name=row['parent_name']).exists():
@@ -860,7 +872,7 @@ class UploadMasterDataAdminForm(forms.Form):
             raise ValidationError(_(f"Row {row_num} | KeyError : {e} | Something went wrong while"
                                     f" checking excel data from dictionary"))
 
-    def check_mandatory_columns(self, uploaded_data_list, header_list, upload_master_data):
+    def check_mandatory_columns(self, uploaded_data_list, header_list, upload_master_data, category):
         """
         Mandatory Columns Check as per condition of  "upload_master_data"
         """
@@ -874,15 +886,30 @@ class UploadMasterDataAdminForm(forms.Form):
                 row_num += 1
                 if 'sku_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
+                if 'sku_id' in row.keys():
+                    if row['sku_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
                 if 'sku_name' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_Name' can't be empty"))
+                if 'sku_name' in row.keys():
+                    if row['sku_name'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'SKU_Name' can't be empty"))
                 if 'parent_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
+                if 'parent_id' in row.keys():
+                    if row['parent_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
                 if 'parent_name' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Parent_Name' can't be empty"))
+                if 'parent_name' in row.keys():
+                    if row['parent_name'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Parent_Name' can't be empty"))
                 if 'status' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'! | "
                                             f"Status cannot be empty"))
+                if 'status' in row.keys():
+                    if row['sku_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
 
         if upload_master_data == "inactive_status":
             row_num = 1
@@ -895,10 +922,19 @@ class UploadMasterDataAdminForm(forms.Form):
                 if 'status' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
                                             'Status cannot be empty'))
+                if 'status' in row.keys():
+                    if row['sku_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
                 if 'sku_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
+                if 'sku_id' in row.keys():
+                    if row['sku_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
                 if 'sku_name' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_Name' can't be empty"))
+                if 'sku_name' in row.keys():
+                    if row['sku_name'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'SKU_Name' can't be empty"))
 
         if upload_master_data == "sub_brand_with_brand":
             row_num = 1
@@ -911,8 +947,14 @@ class UploadMasterDataAdminForm(forms.Form):
                 row_num += 1
                 if 'brand_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Brand_ID can't be empty"))
+                if 'brand_id' in row.keys():
+                    if row['brand_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Brand_ID' can't be empty"))
                 if 'brand_name' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Brand_Name' can't be empty"))
+                if 'brand_name' in row.keys():
+                    if row['brand_name'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Brand_Name' can't be empty"))
         if upload_master_data == "sub_category_with_category":
             row_num = 1
             required_columns = ['category_id', 'category_name']
@@ -924,8 +966,14 @@ class UploadMasterDataAdminForm(forms.Form):
                 row_num += 1
                 if 'category_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Sub_Category_ID' can't be empty"))
+                if 'category_id' in row.keys():
+                    if row['category_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Category_ID' can't be empty"))
                 if 'category_name' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Category_Name' can't be empty"))
+                if 'category_name' in row.keys():
+                    if row['category_name'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Category_Name' can't be empty"))
         if upload_master_data == "child_parent":
             row_num = 1
             required_columns = ['sku_id', 'parent_id', 'status']
@@ -936,12 +984,21 @@ class UploadMasterDataAdminForm(forms.Form):
                 row_num += 1
                 if 'sku_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
+                if 'sku_id' in row.keys():
+                    if row['sku_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
                 if 'parent_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
+                if 'parent_id' in row.keys():
+                    if row['parent_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
                 if 'status' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active', 'Pending Approval' "
                                             f"or 'Deactivated'!" |
                                             'Status cannot be empty'))
+                if 'status' in row.keys():
+                    if row['sku_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
         if upload_master_data == "child_data":
             required_columns = ['sku_id', 'sku_name', 'status']
             row_num = 1
@@ -953,10 +1010,19 @@ class UploadMasterDataAdminForm(forms.Form):
                 if 'status' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
                                             'Status cannot be empty'))
+                if 'status' in row.keys():
+                    if row['sku_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
                 if 'sku_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
+                if 'sku_id' in row.keys():
+                    if row['sku_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'SKU_ID' can't be empty"))
                 if 'sku_name' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'SKU_Name' can't be empty"))
+                if 'sku_name' in row.keys():
+                    if row['sku_name'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'SKU_Name' can't be empty"))
         if upload_master_data == "parent_data":
             row_num = 1
             required_columns = ['parent_id', 'parent_name', 'status']
@@ -967,13 +1033,22 @@ class UploadMasterDataAdminForm(forms.Form):
                 row_num += 1
                 if 'parent_id' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Parent_ID' is a mandatory field"))
+                if 'parent_id' in row.keys():
+                    if row['parent_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Parent_ID' can't be empty"))
                 if 'parent_name' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Parent_Name' is a mandatory field"))
+                if 'parent_name' in row.keys():
+                    if row['parent_name'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Parent_Name' can't be empty"))
                 if 'status' not in row.keys():
                     raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
                                             'Status cannot be empty'))
+                if 'status' in row.keys():
+                    if row['sku_id'] == '':
+                        raise ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
 
-        self.validate_row(uploaded_data_list, header_list, upload_master_data)
+        self.validate_row(uploaded_data_list, header_list, upload_master_data, category)
 
     def check_headers(self, excel_file_headers, required_header_list):
         for head in excel_file_headers:
@@ -983,7 +1058,7 @@ class UploadMasterDataAdminForm(forms.Form):
                 raise ValidationError(_(f"Invalid Header | {head} | Allowable headers for the upload are: "
                                         f"{required_header_list}"))
 
-    def read_file(self, excel_file, upload_master_data):
+    def read_file(self, excel_file, upload_master_data, category):
         """
         Template Validation (Checking, whether the excel file uploaded by user is correct or not!)
         """
@@ -1064,7 +1139,7 @@ class UploadMasterDataAdminForm(forms.Form):
                 uploaded_data_by_user_list.append(excel_dict)
                 excel_dict = {}
                 count = 0
-            self.check_mandatory_columns(uploaded_data_by_user_list, excelFile_headers, upload_master_data)
+            self.check_mandatory_columns(uploaded_data_by_user_list, excelFile_headers, upload_master_data, category)
         else:
             raise ValidationError("Please add some data below the headers to upload it!")
 
@@ -1077,7 +1152,7 @@ class UploadMasterDataAdminForm(forms.Form):
 
                 # Checking, whether excel file is empty or not!
                 if excel_file_data:
-                    self.read_file(excel_file_data, self.data['upload_master_data'])
+                    self.read_file(excel_file_data, self.data['upload_master_data'], self.data['category'])
                 else:
                     raise ValidationError("Excel File cannot be empty.Please add some data to upload it!")
 
