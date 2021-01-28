@@ -427,11 +427,14 @@ class BinIDList(APIView):
         if pickup_orders is None:
             msg = {'is_success': True, 'message': 'Order/Repackaging number does not exist.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        pd_qs = PickerDashboard.objects.filter(order=pickup_orders)
+        if isinstance(pickup_orders, Order):
+            pd_qs = PickerDashboard.objects.filter(order=pickup_orders)
+        else:
+            pd_qs = PickerDashboard.objects.filter(repackaging=pickup_orders)
         if not pd_qs.exists():
             msg = {'is_success': False, 'message': ERROR_MESSAGES['PICKER_DASHBOARD_ENTRY_MISSING'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        pickup_assigned_date = PickerDashboard.objects.filter(order=pickup_orders).last().picker_assigned_date
+        pickup_assigned_date = pd_qs.last().picker_assigned_date
         pick_list = []
         pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no) \
                                                    .exclude(pickup__status='picking_cancelled')
