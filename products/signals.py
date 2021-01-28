@@ -155,11 +155,11 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
             if warehouse_available_obj.exists():
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                    rep_obj.seller_shop, rep_obj.source_sku.id, type_normal, state_available, -1*repackage_quantity,
+                    rep_obj.seller_shop, rep_obj.source_sku, type_normal, state_available, -1*repackage_quantity,
                     'repackaging', rep_obj.repackaging_no)
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                    rep_obj.seller_shop, rep_obj.source_sku.id, type_normal, state_repackaging, repackage_quantity,
+                    rep_obj.seller_shop, rep_obj.source_sku, type_normal, state_repackaging, repackage_quantity,
                     'repackaging', rep_obj.repackaging_no)
 
                 PickerDashboard.objects.create(

@@ -28,6 +28,7 @@ from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
 from wms.models import InventoryType, WarehouseInventory, InventoryState
+from wms.common_functions import get_stock
 
 
 class ProductImageForm(forms.ModelForm):
@@ -1631,15 +1632,11 @@ class RepackagingForm(forms.ModelForm):
                 raise forms.ValidationError("Expiry Date should be greater than or equal to {}".format(today_date))
         if 'source_sku' in self.cleaned_data:
             try:
-                warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=self.cleaned_data['seller_shop'],
-                                                                            sku=self.cleaned_data['source_sku'],
-                                                                            inventory_type=InventoryType.objects.filter(
-                                                                                inventory_type='normal').last(),
-                                                                            inventory_state=InventoryState.objects.filter(
-                                                                                inventory_state='available').last())
-                if warehouse_available_obj.exists():
-                    w_obj = warehouse_available_obj.last()
-                    source_quantity = w_obj.quantity
+                normal_type = InventoryType.objects.filter(inventory_type='normal').last()
+                product_id = self.cleaned_data['source_sku'].id
+                product_inv = get_stock(self.cleaned_data['seller_shop'], normal_type, [int(product_id)])
+                if product_inv and int(product_id) in product_inv:
+                    source_quantity = product_inv[int(product_id)]
                 else:
                     raise forms.ValidationError("Warehouse Inventory Does Not Exist")
             except Exception as e:
