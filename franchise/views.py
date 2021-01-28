@@ -7,7 +7,7 @@ import codecs
 from django.http import HttpResponse
 from io import StringIO
 from decouple import config
-import pyodbc
+#import pyodbc
 
 from shops.models import Shop
 from franchise.forms import FranchiseStockForm

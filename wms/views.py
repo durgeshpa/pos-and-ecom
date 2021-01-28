@@ -32,6 +32,7 @@ from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction, DatabaseError
 from datetime import datetime, timedelta
+
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
@@ -42,7 +43,7 @@ from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBin
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
     OrderedProduct, OrderedProductMapping
-from products.models import Product, ProductPrice, Repackaging
+from products.models import Product, ProductPrice, Repackaging, ProductCategory
 from gram_to_brand.models import GRNOrderProductMapping
 
 # third party imports
@@ -54,6 +55,12 @@ from .common_functions import InternalInventoryChange, CommonBinInventoryFunctio
     InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory, inventory_in_and_out
 from barCodeGenerator import barcodeGen, merged_barcode_gen
 from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster, CronRunLog
+
+from .common_functions import get_expiry_date
+from datetime import date, timedelta
+
+from django.core.mail import EmailMessage
+from django.conf import settings
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -482,6 +489,7 @@ class StockMovementCsvView(FormView):
             status = '400'
         return JsonResponse(result, status)
 
+
 def commit_updates_to_es(shop, product):
     """
     :param shop:
@@ -506,15 +514,14 @@ def commit_updates_to_es(shop, product):
     visibility_changes = get_visibility_changes(shop, product)
     if visibility_changes:
         for prod_id, visibility in visibility_changes.items():
-            sibling_product=Product.objects.filter(pk=prod_id).last()
-            update_visibility(shop,sibling_product,visibility)
+            sibling_product = Product.objects.filter(pk=prod_id).last()
+            update_visibility(shop, sibling_product, visibility)
             if prod_id == product.id:
                 update_product_es.delay(shop.id, product.id, available=available_qty, status=status, visible=visibility)
             else:
                 update_product_es.delay(shop.id, prod_id, visible=visibility)
     else:
         update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
-
 
 
 @receiver(post_save, sender=WarehouseInventory)
@@ -901,7 +908,6 @@ def pickup_entry_creation_with_cron():
     cron_log_entry.save()
 
 
-
 class DownloadBinCSV(View):
     """
     This class is used to download the sample file for Bin CSV
@@ -1102,7 +1108,8 @@ def audit_upload(request):
                 # create batch id
                 batch_id = create_batch_id(sku, expiry_date)
                 bin_exp_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                          bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                                                          bin=Bin.objects.filter(bin_id=data[4],
+                                                                                 warehouse=data[0]).last(),
                                                           sku=Product.objects.filter(
                                                               product_sku=data[1][-17:]).last(),
                                                           batch_id=batch_id)
@@ -1224,7 +1231,8 @@ def bin_objects_create(data, batch_id):
     """
     if int(data[9]) > 0:
         bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                                                        bin=Bin.objects.filter(bin_id=data[4],
+                                                                               warehouse=data[0]).last(),
                                                         sku=Product.objects.filter(
                                                             product_sku=data[1][-17:]).last(),
                                                         batch_id=batch_id, in_stock=True,
@@ -1243,7 +1251,8 @@ def bin_objects_create(data, batch_id):
                                                    inventory_type='normal').last())
     if int(data[10]) > 0:
         bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                                                        bin=Bin.objects.filter(bin_id=data[4],
+                                                                               warehouse=data[0]).last(),
                                                         sku=Product.objects.filter(
                                                             product_sku=data[1][-17:]).last(),
                                                         batch_id=batch_id, in_stock=True,
@@ -1262,7 +1271,8 @@ def bin_objects_create(data, batch_id):
                 inventory_type=InventoryType.objects.filter(inventory_type='damaged').last())
     if int(data[11]) > 0:
         bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                                                        bin=Bin.objects.filter(bin_id=data[4],
+                                                                               warehouse=data[0]).last(),
                                                         sku=Product.objects.filter(
                                                             product_sku=data[1][-17:]).last(),
                                                         batch_id=batch_id, in_stock=True,
@@ -1281,7 +1291,8 @@ def bin_objects_create(data, batch_id):
                 inventory_type=InventoryType.objects.filter(inventory_type='expired').last())
     if int(data[12]) > 0:
         bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                                                        bin=Bin.objects.filter(bin_id=data[4],
+                                                                               warehouse=data[0]).last(),
                                                         sku=Product.objects.filter(
                                                             product_sku=data[1][-17:]).last(),
                                                         batch_id=batch_id, in_stock=True,
@@ -1453,7 +1464,8 @@ def shipment_reschedule_inventory_change(shipment_list):
         with transaction.atomic():
             try:
                 for shipment_item in shipment_item_list:
-                    shipment_batch_list = OrderedProductBatch.objects.filter(ordered_product_mapping=shipment_item).all()
+                    shipment_batch_list = OrderedProductBatch.objects.filter(
+                        ordered_product_mapping=shipment_item).all()
                     for shipment_batch in shipment_batch_list:
                         InCommonFunctions.create_only_in(shipment.order.seller_shop, 'reschedule', shipment.pk,
                                                          shipment_item.product, shipment_batch.batch_id,
@@ -1495,6 +1507,7 @@ class InventoryMovement(object):
     Get all the batch ids expiring on a given date
     Date format to be YYYY-MM-DD
     """
+
     @classmethod
     def get_inventory_expiring_by_date(cls, date):
         expiring_batch_id_list = In.objects.filter(expiry_date__lt=date).values_list('batch_id', flat=True)
@@ -1507,6 +1520,7 @@ class InventoryMovement(object):
     batch_ids : list of batch ids
     inventory_type : inventory types to move e.g. normal, damaged etc
     """
+
     @classmethod
     def get_bin_inventory_to_move(cls, batch_ids, inventory_type):
         bin_inventory = BinInventory.objects.filter(batch_id__in=batch_ids,
@@ -1519,17 +1533,17 @@ class InventoryMovement(object):
     @classmethod
     def move_bin_inventory(cls, tr_type, tr_id, bin_inventory, inventory_type_to):
         cron_logger.info('InventoryMovement|move_bin_inventory| warehouse {}, bin {}, batch {},'
-                          'inventory_type_from {}, inventory_type_to {}, quantity {}'
-                          .format(bin_inventory.warehouse, bin_inventory.bin, bin_inventory.batch_id,
-                                  bin_inventory.inventory_type, inventory_type_to, bin_inventory.quantity))
+                         'inventory_type_from {}, inventory_type_to {}, quantity {}'
+                         .format(bin_inventory.warehouse, bin_inventory.bin, bin_inventory.batch_id,
+                                 bin_inventory.inventory_type, inventory_type_to, bin_inventory.quantity))
         qty = bin_inventory.quantity
         inventory_obj, created = BinInventory.objects.get_or_create(warehouse=bin_inventory.warehouse,
                                                                     bin=bin_inventory.bin,
                                                                     sku=bin_inventory.sku,
                                                                     batch_id=bin_inventory.batch_id,
                                                                     inventory_type=inventory_type_to,
-                                                                    defaults={'quantity':bin_inventory.quantity,
-                                                                              'in_stock':True})
+                                                                    defaults={'quantity': bin_inventory.quantity,
+                                                                              'in_stock': True})
         bin_inventory.quantity = 0
         bin_inventory.save()
         if not created:
@@ -1551,8 +1565,8 @@ class InventoryMovement(object):
     def move_warehouse_inventory(cls, tr_type, tr_id, warehouse, sku, inventory_state, inventory_type_from,
                                  inventory_type_to, quantity):
         cron_logger.info('InventoryMovement|move_warehouse_inventory| warehouse {}, sku {}, inventory_state{},'
-                          'inventory_type_from {}, inventory_type_to {}, quantity {}'
-                          .format(warehouse, sku, inventory_state, inventory_type_from, inventory_type_to, quantity))
+                         'inventory_type_from {}, inventory_type_to {}, quantity {}'
+                         .format(warehouse, sku, inventory_state, inventory_type_from, inventory_type_to, quantity))
         warehouse_inventory = WarehouseInventory.objects.filter(warehouse=warehouse,
                                                                 sku=sku,
                                                                 inventory_state=inventory_state,
@@ -1567,12 +1581,12 @@ class InventoryMovement(object):
         warehouse_inventory = warehouse_inventory.last()
         qty_to_move = warehouse_inventory.quantity if quantity > warehouse_inventory.quantity else quantity
         warehouse_inventory_to, created = WarehouseInventory.objects.get_or_create(warehouse=warehouse,
-                                                                          sku=sku,
-                                                                          inventory_state=inventory_state,
-                                                                          inventory_type=inventory_type_to,
-                                                                          defaults={'quantity': qty_to_move,
-                                                                                    'in_stock':True})
-        warehouse_inventory.quantity = warehouse_inventory.quantity-qty_to_move
+                                                                                   sku=sku,
+                                                                                   inventory_state=inventory_state,
+                                                                                   inventory_type=inventory_type_to,
+                                                                                   defaults={'quantity': qty_to_move,
+                                                                                             'in_stock': True})
+        warehouse_inventory.quantity = warehouse_inventory.quantity - qty_to_move
         warehouse_inventory.save()
         if not created:
             warehouse_inventory_to.quantity = warehouse_inventory_to.quantity + qty_to_move
@@ -1580,7 +1594,8 @@ class InventoryMovement(object):
 
         WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, tr_type, tr_id,
                                                                            inventory_type_from, inventory_state,
-                                                                           inventory_type_to, inventory_state, qty_to_move)
+                                                                           inventory_type_to, inventory_state,
+                                                                           qty_to_move)
 
         cron_logger.info('InventoryMovement|move_warehouse_inventory| moved successfully')
 
@@ -1619,6 +1634,7 @@ def move_expired_inventory_cron():
                               .format(b.bin, b.batch_id))
     cron_logger.info('move_expired_inventory_cron ended at {}'.format(datetime.now()))
 
+
 def move_expired_inventory_manual(request):
     move_expired_inventory_cron()
     return HttpResponse("Done")
@@ -1654,8 +1670,8 @@ def rectify_batch_ids(request):
 
 
 def get_25_char_batch_ids():
-    return OrderedProductBatch.objects.annotate(length=Length('batch_id')).filter(length=25)\
-                                      .values_list('batch_id', flat=True)
+    return OrderedProductBatch.objects.annotate(length=Length('batch_id')).filter(length=25) \
+        .values_list('batch_id', flat=True)
 
 
 def get_correct_batch_ids(batch_ids_to_correct):
@@ -1737,7 +1753,7 @@ class PicklistRefresh:
                 else:
                     bin_lists = obj.sku.rt_product_sku.filter(warehouse=shop,
                                                               quantity=0,
-                                                              inventory_type = inventory_type).order_by(
+                                                              inventory_type=inventory_type).order_by(
                         '-batch_id',
                         'quantity').last()
                     if len(bin_lists.batch_id) == 23:
@@ -1801,22 +1817,22 @@ class PicklistRefresh:
 def audit_ordered_data(request):
     start_time = '2020-08-29 01:01:06.067349'
     inventory_calculated = {}
-    warehouse = Shop.objects.filter(id = 32154).last()
+    warehouse = Shop.objects.filter(id=32154).last()
     type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
     stage_ordered = InventoryState.objects.only('id').get(inventory_state='ordered').id
     try:
 
         warehouse_inventory = WarehouseInventory.objects.filter(inventory_type=type_normal,
-                                                                inventory_state=stage_ordered, warehouse=warehouse)\
-                                                            .values('sku_id', 'quantity')
+                                                                inventory_state=stage_ordered, warehouse=warehouse) \
+            .values('sku_id', 'quantity')
 
         orders_placed = Order.objects.filter(order_status__in=[Order.ORDERED,
                                                                Order.PICKUP_CREATED,
                                                                Order.PICKING_ASSIGNED], seller_shop=warehouse,
-                                             created_at__gte=start_time,)
+                                             created_at__gte=start_time, )
         for o in orders_placed:
-            ordered_sku = o.ordered_cart.rt_cart_list.values('cart_product__product_sku')\
-                                                     .annotate(qty=Sum('no_of_pieces'))
+            ordered_sku = o.ordered_cart.rt_cart_list.values('cart_product__product_sku') \
+                .annotate(qty=Sum('no_of_pieces'))
             for item in ordered_sku:
                 if inventory_calculated.get(item['cart_product__product_sku']) is None:
                     inventory_calculated[item['cart_product__product_sku']] = 0
@@ -1833,12 +1849,146 @@ def audit_ordered_data(request):
             if inventory_calculated[item['sku_id']] > item['quantity']:
                 writer.writerow([item['sku_id'], inventory_calculated[item['sku_id']], item['quantity']])
                 product = Product.objects.filter(product_sku=item['sku_id']).last()
-                quantity=WarehouseInventory.objects.filter(inventory_type=type_normal,sku=product,
-                                                  inventory_state=stage_ordered,warehouse=warehouse).last()
-                quantity.quantity=inventory_calculated[item['sku_id']]
+                quantity = WarehouseInventory.objects.filter(inventory_type=type_normal, sku=product,
+                                                             inventory_state=stage_ordered, warehouse=warehouse).last()
+                quantity.quantity = inventory_calculated[item['sku_id']]
                 quantity.save()
-
 
         return response
     except Exception as e:
         info_logger.error(e)
+
+
+def auto_report_for_expired_product(request):
+    """
+    Send all Near Expiry Product Details as Excel file
+    """
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename=To_be_Expired_Products.xlsx'
+
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'To_be_Expired_Products'
+
+    # Sheet header, first row
+    row_num = 1
+
+    columns = ['Warehouse Name', 'SKU ID', 'SKU Name', 'Parent ID', 'Parent Name', 'Category', 'Sub Category',
+               'EAN', 'MRP', 'Selling Price', 'Inner CategoryCase Size', 'Batch ID', 'Expiry Date',
+               'Bin ID', 'Normal Available Qty', 'Damaged Available Qty']
+
+    for col_num, column_title in enumerate(columns, 1):
+        cell = worksheet.cell(row=row_num, column=col_num)
+        cell.value = column_title
+
+
+    for bin_lists in BinInventory.objects.all():
+
+        expiry_date_str = get_expiry_date(bin_lists.batch_id)
+        expiry_date = datetime.strptime(expiry_date_str, "%d/%m/%Y")
+        today = date.today()
+
+        # if expiry_date.date() > today:
+        #     expiring_soon = expiry_date.date() - today <= timedelta(days=15)
+        #     if expiring_soon:
+        #         pass
+
+        expired_products = expiry_date.date() <= today
+
+        if expired_products:
+            product_list = {}
+            row = []
+
+            expiring_soon_products = BinInventory.objects.values('warehouse__shop_name', 'warehouse_id', 'sku',
+                                                                 'sku__id', 'sku__product_sku', 'quantity',
+                                                                 'sku__parent_product__parent_id',
+                                                                 'sku__parent_product__name',
+                                                                 'sku__parent_product__inner_case_size',
+                                                                 'sku__product_ean_code',
+                                                                 'sku__product_mrp', 'batch_id', 'bin__bin_id',
+                                                                 ).filter(batch_id__in=('BICPROUNI00000016121020','BEVBEVMDE00000012271220') )
+
+
+
+            for products in expiring_soon_products:
+                if products['sku__product_sku'] in product_list:
+                    row.append(products['quantity'])
+                    for col_num, cell_value in enumerate(row, 1):
+                        cell = worksheet.cell(row=row_num, column=col_num)
+                        if cell_value == 0 or cell_value is None:
+                            cell.value = ''
+                        cell.value = cell_value
+                else:
+                    row.append(products['warehouse__shop_name']),
+                    row.append(products['sku__id']),
+                    row.append(products['sku__product_sku']),
+                    row.append(products['sku__parent_product__parent_id']),
+                    row.append(products['sku__parent_product__name']),
+                    product = Product.objects.filter(product_sku=products['sku'])
+                    category = ProductCategory.objects.values('category__category_parent__category_name').filter(
+                        product=product[0].id)
+                    if category is None:
+                        category = ProductCategory.objects.values('category__category_name').filter(
+                            product=product[0].id)
+                        for category in category:
+                            category = category['category__category_name']
+                            row.append(category)
+                        sub_category = None
+                        row.append(sub_category)
+                    else:
+                        for cat in category:
+                            if cat['category__category_parent__category_name']:
+                                category = cat['category__category_parent__category_name']
+                                row.append(category)
+                        sub_category = ProductCategory.objects.values('category__category_name').filter(
+                            product=product[0].id)
+                        for sub in sub_category:
+                            sub_category = sub['category__category_name']
+                            row.append(sub_category)
+                    row.append(products['sku__product_ean_code'])
+                    row.append(products['sku__product_mrp'])
+
+                    selling_price = ProductPrice.objects.values('selling_price').filter(product=product[0].id,
+                                                                                        seller_shop=products[
+                                                                                            'warehouse_id'],
+                                                                                        approval_status=2)
+
+                    for sell_price in selling_price:
+                        row.append(sell_price['selling_price'])
+                    if selling_price is None:
+                        row.append(selling_price)
+                    row.append(products['sku__parent_product__inner_case_size'])
+                    row.append(products['batch_id'])
+                    row.append(expiry_date)
+                    row.append(products['bin__bin_id'])
+                    row.append(products['quantity'])
+
+                    product_temp = {
+                        'sku__product_sku': products['sku__product_sku'],
+                    }
+                    product_list[products['sku__product_sku']] = product_temp
+
+                    row_num += 1
+                    for col_num, cell_value in enumerate(row, 1):
+                        cell = worksheet.cell(row=row_num, column=col_num)
+                        if cell_value == 0 or cell_value is None:
+                            cell.value = ''
+                        cell.value = cell_value
+
+
+            workbook.save(response)
+            print(row)
+    send_sms(response)
+    return response
+
+
+def send_sms(response):
+    email = EmailMessage()
+    email.subject = 'To be Expired Products'
+    email.body = 'Products expiring in next 7 days or less'
+    settings.DEFAULT_FROM_EMAIL,
+    email.to = ['shalineebhawnani1996@gmail.com']
+    email.attach('To_be_Expired_Products.xlsx', response.getvalue(), 'application/ms-excel')
+    email.send()
