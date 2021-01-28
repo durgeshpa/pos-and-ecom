@@ -4,51 +4,47 @@ from retailer_to_sp.models import Order
 from shops.models import Shop
 from wms.models import InventoryType, InventoryState, WarehouseInventory, BinInventory
 
-warehouse_list = [Shop.objects.get(pk=32154), Shop.objects.get(pk=600)]
+warehouse_list = [Shop.objects.get(pk=32154), Shop.objects.get(pk=600),  Shop.objects.get(pk=1393)]
 type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
 stage_available = InventoryState.objects.only('id').get(inventory_state='available').id
 stage_reserved = InventoryState.objects.only('id').get(inventory_state='reserved').id
 stage_ordered = InventoryState.objects.only('id').get(inventory_state='ordered').id
+stage_total_available = InventoryState.objects.only('id').get(inventory_state='total_available').id
+stage_to_be_picked = InventoryState.objects.only('id').get(inventory_state='to_be_picked').id
 
 def run():
     for w in warehouse_list:
-        fix_available_quantity(w)
+        match_total_available_and_to_be_picked(w)
         fix_ordered_data(w)
-        fix_reserved_quantity(w)
 
-def fix_reserved_quantity(warehouse):
-    print('warehouse {}, reserved quantity update started'.format(warehouse))
-    warehouse_inventory_dict = {}
-    warehouse_inventory = WarehouseInventory.objects.filter(warehouse=warehouse, inventory_type=type_normal,
-                                                            inventory_state=stage_reserved, quantity__gt=0)
-    for item in warehouse_inventory:
-        warehouse_inventory_dict[item.sku_id] = item.quantity
-    warehouse_inventory.update(quantity=0)
-    print(warehouse_inventory_dict)
-    print('warehouse {}, reserved quantity updated'.format(warehouse))
+def match_total_available_and_to_be_picked(warehouse):
+    bin_inventory = BinInventory.objects.filter(warehouse=warehouse) \
+                                        .values('inventory_type_id', 'sku_id') \
+                                        .annotate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
 
-
-def fix_available_quantity(warehouse):
-    print('warehouse {}, available quantity update started'.format(warehouse))
-    warehouse_inventory_dict = {}
-    bin_inventory = BinInventory.objects.filter(warehouse=warehouse, inventory_type=type_normal)\
-                                        .values('sku_id') \
-                                        .filter(warehouse=warehouse) \
-                                        .annotate(quantity=Sum('quantity'))
     for item in bin_inventory:
-        warehouse_inventory = WarehouseInventory.objects.filter(warehouse=warehouse, inventory_type=type_normal,
-                                                                inventory_state=stage_available, sku=item['sku_id'])
-        if warehouse_inventory.count() != 1:
-            print('warehouse {}, sku {}, {} records found'
-                  .format(warehouse, item['sku_id'], warehouse_inventory.count()))
-            continue
-        warehouse_quantity = warehouse_inventory.last().quantity
-        if item['quantity'] != warehouse_quantity:
-            warehouse_inventory_dict[item['sku_id']] = {'bin_qty': item['quantity'],
-                                                        'warehouse_qty': warehouse_quantity}
-            warehouse_inventory.update(quantity=item['quantity'])
-    print(warehouse_inventory_dict)
-    print('warehouse {}, available quantity updated'.format(warehouse))
+        warehouse_inventory = WarehouseInventory.objects.filter(warehouse=warehouse,
+                                                                sku_id=item['sku_id'],
+                                                                inventory_type=item['inventory_type_id'],
+                                                                inventory_state__in=[stage_to_be_picked,
+                                                                                     stage_total_available])
+
+
+        for w in warehouse_inventory:
+            if w.inventory_state_id == stage_total_available:
+                total_available = item['available'] + item['to_be_picked']
+                if w.quantity != total_available:
+                    print("BinQuantity-{}, Warehouse Inventory --> SKU-{}, total available quantity-{}"
+                          .format(total_available, w.sku_id, w.quantity))
+                    w.quantity = total_available
+                    w.save()
+            elif w.inventory_state_id == stage_to_be_picked:
+                if w.quantity != item['to_be_picked']:
+                    print("BinQuantity-{}, Warehouse Inventory --> SKU-{}, to be picked quantity-{}"
+                          .format(item['to_be_picked'], w.sku_id, w.quantity))
+                    w.quantity = item['to_be_picked']
+                    w.save()
+
 
 def fix_ordered_data(warehouse):
     print('warehouse {}, ordered quantity update started'.format(warehouse))
@@ -61,9 +57,7 @@ def fix_ordered_data(warehouse):
                                                     .values('warehouse_id', 'sku_id', 'quantity')
 
     orders_placed = Order.objects.filter(seller_shop=warehouse,
-                                         order_status__in=[Order.ORDERED,
-                                                           Order.PICKUP_CREATED,
-                                                           Order.PICKING_ASSIGNED],
+                                         order_status__in=[Order.ORDERED],
                                          created_at__gte=start_time)
     for o in orders_placed:
         ordered_sku = o.ordered_cart.rt_cart_list.values('cart_product__product_sku')\
