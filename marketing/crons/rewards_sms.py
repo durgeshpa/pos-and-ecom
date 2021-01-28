@@ -65,7 +65,7 @@ def notify():
                     conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
                     used_reward_factor = int(conf_obj.value)
                 except:
-                    used_reward_factor = 3
+                    used_reward_factor = 4
                 message = SendSms(phone=reward_obj.user.phone_number,
                                   body="Hi! Congratulations, you have won {} reward points because {} friends"
                                        " shopped using your referral code! Shop at PepperTap store and avail discounts"
