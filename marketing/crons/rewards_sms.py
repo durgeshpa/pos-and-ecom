@@ -60,16 +60,16 @@ def notify():
             reward_obj = RewardPoint.objects.filter(user=user['user']).last()
             if reward_obj:
                 n_users = reward_obj.direct_users + reward_obj.indirect_users
-                total_points = reward_obj.direct_earned + reward_obj.indirect_earned
+                total_points = (reward_obj.direct_earned + reward_obj.indirect_earned) - reward_obj.points_used
                 try:
                     conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
                     used_reward_factor = int(conf_obj.value)
                 except:
                     used_reward_factor = 4
                 message = SendSms(phone=reward_obj.user.phone_number,
-                                  body="Hi! Congratulations, you have won {} reward points because {} friends"
+                                  body="Congratulations, you have won {} reward points because {} friends"
                                        " shopped using your referral code! Shop at PepperTap store and avail discounts"
-                                       " upto {} INR."
+                                       " upto {} INR"
                                   .format(total_points, n_users, int(total_points / used_reward_factor)))
 
                 message.send()
