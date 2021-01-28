@@ -65,7 +65,7 @@ class MLMUser(models.Model):
 @receiver(pre_save, sender=MLMUser)
 def generate_referral_code(sender, instance=None, created=False, **kwargs):
     if not instance.referral_code:
-        instance.referral_code = str(uuid.uuid4()).split('-')[-1]
+        instance.referral_code = str(uuid.uuid4()).split('-')[-1][:6].upper()
 
 
 class PhoneOTP(models.Model):
