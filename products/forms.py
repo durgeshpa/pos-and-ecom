@@ -717,10 +717,11 @@ class UploadMasterDataAdminForm(forms.Form):
                         if not ParentProduct.objects.filter(parent_id=row['parent_id']).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['parent_id']} | 'Parent ID' doesn't exist."))
                     parent_product = ParentProduct.objects.filter(parent_id=row['parent_id'])
-                    if not ParentProductCategory.objects.filter(category=int(category), parent_product=parent_product[0].id).exists():
-                        raise ValidationError(_(f"Row {row_num} | Please upload Products of Category "
-                                                f"({categry[0]['category_name']}) that you have "
-                                                f"selected in Dropdown Only! "))
+                    if 'sku_id' not in row.keys():
+                        if not ParentProductCategory.objects.filter(category=int(category), parent_product=parent_product[0].id).exists():
+                            raise ValidationError(_(f"Row {row_num} | Please upload Products of Category "
+                                                    f"({categry[0]['category_name']}) that you have "
+                                                    f"selected in Dropdown Only! "))
                 if 'parent_name' in header_list and 'parent_name' in row.keys():
                     if row['parent_name'] != '':
                         if not ParentProduct.objects.filter(name=row['parent_name']).exists():
