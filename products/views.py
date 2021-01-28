@@ -34,6 +34,7 @@ from addresses.models import City, State, Address, Pincode
 from categories.models import Category
 from brand.models import Brand, Vendor
 from wms.models import InventoryType, WarehouseInventory, InventoryState
+from wms.common_functions import get_stock
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
@@ -2093,11 +2094,11 @@ class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
         seller_shop = self.forwarded.get('seller_shop', None)
         qs = []
         if seller_shop:
-            pp = ProductPrice.objects.filter(seller_shop_id=seller_shop).values('product_id')
-            qs = Product.objects.filter(id__in=pp, repackaging_type='source', related_sku__inventory_type=InventoryType.
-                                        objects.filter(inventory_type='normal').last(), related_sku__inventory_state=
-                                        InventoryState.objects.filter(inventory_state='available').last(),
-                                        related_sku__warehouse_id=seller_shop, related_sku__quantity__gt=0)
+            normal_type = InventoryType.objects.filter(inventory_type='normal').last()
+            product_list = get_stock(seller_shop, normal_type)
+            product_list = {k: v for k, v in product_list.items() if v > 0}
+            pp = ProductPrice.objects.filter(seller_shop_id=seller_shop, product_id__in=product_list.keys()).values('product_id')
+            qs = Product.objects.filter(id__in=pp, repackaging_type='source')
             if self.q:
                 qs = qs.filter(product_name__icontains=self.q)
         return qs
@@ -2114,15 +2115,10 @@ class SourceRepackageDetail(View):
             return JsonResponse({"success": False, "error": "Source SKU Weight Value Not Found"})
 
         try:
-            warehouse_available_obj = WarehouseInventory.objects.filter(warehouse_id=shop_id,
-                                              sku_id=product_obj['product_sku'],
-                                              inventory_type=InventoryType.objects.filter(
-                                                  inventory_type='normal').last(),
-                                              inventory_state=InventoryState.objects.filter(
-                                                  inventory_state='available').last())
-            if warehouse_available_obj.exists():
-                w_obj = warehouse_available_obj.last()
-                source_quantity = w_obj.quantity
+            normal_type = InventoryType.objects.filter(inventory_type='normal').last()
+            product_inv = get_stock(shop_id, normal_type, [int(product_id)])
+            if product_inv and int(product_id) in product_inv:
+                source_quantity = product_inv[int(product_id)]
                 if source_quantity <= 0:
                     return JsonResponse({"success": False, "error": "Source Not Available In Warehouse"})
             else:

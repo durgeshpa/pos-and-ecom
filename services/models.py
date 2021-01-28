@@ -356,7 +356,9 @@ class BinInventoryHistoric(models.Model):
 class CronRunLog(models.Model):
     CRON_CHOICE = Choices(('PICKUP_CREATION_CRON', 'Picklist Generation Cron'),
                           ('AUDIT_PICKUP_REFRESH_CRON', 'Refresh Picklist After Audit Cron'),
-                          ('FRANCHISE_SALES_RETURNS_CRON', 'Adjust Sales/Returns Franchise Inventory Cron'))
+                          ('FRANCHISE_SALES_RETURNS_CRON', 'Adjust Sales/Returns Franchise Inventory Cron'),
+                          ('HDPOS_USERS_FETCH_CRON', 'Fetch Registered Customers on Hdpos'),
+                          ('MARKETING_REWARDS_NOTIFY', 'Notify users about rewards'))
     CRON_STATUS_CHOICES = Choices((0, 'STARTED', 'Started'),
                                   (1, 'ABORTED', 'Aborted'),
                                   (2, 'COMPLETED', 'Completed'))

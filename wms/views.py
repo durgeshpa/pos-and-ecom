@@ -1447,11 +1447,11 @@ def shipment_reschedule_inventory_change(shipment_list):
                                                          shipment_item.product, shipment_batch.batch_id,
                                                          shipment_batch.quantity, type_normal)
                     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                        shipment.order.seller_shop, shipment_item.product, "normal", "shipped",
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_shipped,
                         shipment_item.shipped_qty * -1, "reschedule", shipment.pk)
 
                     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                        shipment.order.seller_shop, shipment_item.product, "normal", "picked",
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_picked,
                         shipment_item.shipped_qty, "reschedule", shipment.pk)
 
             except DatabaseError as e:
@@ -1656,6 +1656,7 @@ class PicklistRefresh:
                                           status__in=['pickup_creation', 'picking_assigned'])
         type_normal = InventoryType.objects.filter(inventory_type='normal').last()
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
+        state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
         tr_type = "picking_cancelled"
         with transaction.atomic():
             for pickup in pickup_qs:
@@ -1691,6 +1692,9 @@ class PicklistRefresh:
                             tr_type, pickup_id)
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                     pickup.warehouse, pickup.sku, pickup.inventory_type, state_to_be_picked, -1*total_remaining,
+                    tr_type, pickup_id)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    pickup.warehouse, pickup.sku, pickup.inventory_type, state_ordered, total_remaining,
                     tr_type, pickup_id)
             pickup_qs.update(status='picking_cancelled')
             pd_qs.update(is_valid=False)
