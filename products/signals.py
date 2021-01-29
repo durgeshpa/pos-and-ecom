@@ -146,6 +146,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
         with transaction.atomic():
             rep_obj = Repackaging.objects.get(pk=instance.pk)
             repackage_quantity = rep_obj.source_repackage_quantity
+            state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
             state_available = InventoryState.objects.filter(inventory_state='total_available').last()
             state_repackaging = InventoryState.objects.filter(inventory_state='repackaging').last()
             warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=rep_obj.seller_shop,
@@ -155,7 +156,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
             if warehouse_available_obj.exists():
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                    rep_obj.seller_shop, rep_obj.source_sku, type_normal, state_available, -1*repackage_quantity,
+                    rep_obj.seller_shop, rep_obj.source_sku, type_normal, state_to_be_picked, repackage_quantity,
                     'repackaging', rep_obj.repackaging_no)
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
@@ -178,7 +179,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                     bin_inv_dict = {}
                     pickup_obj = obj
                     qty = obj.quantity
-                    bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0,
+                    bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0, warehouse=shop,
                                                               inventory_type__inventory_type='normal').order_by(
                         '-batch_id',
                         'quantity')
@@ -193,7 +194,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                     datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
                                                       "%d-%m-%Y"))
                     else:
-                        bin_lists = obj.sku.rt_product_sku.filter(quantity=0,
+                        bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop,
                                                                   inventory_type__inventory_type='normal').order_by(
                             '-batch_id',
                             'quantity').last()
@@ -220,6 +221,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                             already_picked += qty
                             remaining_qty = qty_in_bin - already_picked
                             bin_inv.quantity = remaining_qty
+                            bin_inv.to_be_picked_qty += already_picked
                             bin_inv.save()
                             qty = 0
                             Out.objects.create(warehouse=rep_obj.seller_shop,
@@ -242,6 +244,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                             already_picked = qty_in_bin
                             remaining_qty = qty - already_picked
                             bin_inv.quantity = qty_in_bin - already_picked
+                            bin_inv.to_be_picked_qty += already_picked
                             bin_inv.save()
                             qty = remaining_qty
                             Out.objects.create(warehouse=rep_obj.seller_shop,
