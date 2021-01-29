@@ -178,7 +178,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                     bin_inv_dict = {}
                     pickup_obj = obj
                     qty = obj.quantity
-                    bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0,
+                    bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0, warehouse=shop,
                                                               inventory_type__inventory_type='normal').order_by(
                         '-batch_id',
                         'quantity')
@@ -193,7 +193,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                     datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
                                                       "%d-%m-%Y"))
                     else:
-                        bin_lists = obj.sku.rt_product_sku.filter(quantity=0,
+                        bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop,
                                                                   inventory_type__inventory_type='normal').order_by(
                             '-batch_id',
                             'quantity').last()
