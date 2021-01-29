@@ -688,7 +688,6 @@ class UploadMasterDataAdminForm(forms.Form):
         """
         try:
             row_num = 1
-            categry = Category.objects.values('category_name').filter(id=int(category))
             for row in uploaded_data_list:
                 row_num += 1
                 if 'sku_id' in header_list and 'sku_id' in row.keys():
@@ -697,6 +696,7 @@ class UploadMasterDataAdminForm(forms.Form):
                             raise ValidationError(_(f"Row {row_num} | {row['sku_id']} | 'SKU ID' doesn't exist."))
                     product = Product.objects.filter(product_sku=row['sku_id'])
                     if not ProductCategory.objects.filter(category=int(category), product=product[0].id).exists():
+                        categry = Category.objects.values('category_name').filter(id=int(category))
                         raise ValidationError(_(f"Row {row_num} | Please upload Products of Category "
                                                 f"({categry[0]['category_name']}) that you have "
                                                 f"selected in Dropdown Only! "))
@@ -719,6 +719,7 @@ class UploadMasterDataAdminForm(forms.Form):
                     parent_product = ParentProduct.objects.filter(parent_id=row['parent_id'])
                     if 'sku_id' not in row.keys():
                         if not ParentProductCategory.objects.filter(category=int(category), parent_product=parent_product[0].id).exists():
+                            categry = Category.objects.values('category_name').filter(id=int(category))
                             raise ValidationError(_(f"Row {row_num} | Please upload Products of Category "
                                                     f"({categry[0]['category_name']}) that you have "
                                                     f"selected in Dropdown Only! "))
