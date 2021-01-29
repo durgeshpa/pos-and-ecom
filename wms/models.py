@@ -311,6 +311,7 @@ class WarehouseInternalInventoryChange(models.Model):
         ('ordered', "Ordered"),
         ('released', "Released"),
         ('canceled', 'Canceled'),
+        ('order_cancelled', 'Order Cancelled'),
         ('audit_adjustment', 'Audit Adjustment'),
         ('put_away_type', 'Put Away'),
         ('pickup_created', 'Pickup Created'),

@@ -970,6 +970,17 @@ def cancel_pickup(pickup_object):
         pickup_object.save()
 
 
+def revert_ordered_inventory(pickup_object):
+    tr_type = "order_cancelled"
+    tr_id = pickup_object.pickup_type_id
+    state_ordered = InventoryState.objects.filter(inventory_state="ordered").last()
+    remaining_quantity = pickup_object.quantity-pickup_object.pickup_quantity
+
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+        pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
+        state_ordered, -1*remaining_quantity, tr_type, tr_id)
+
+
 def cancel_order_with_pick(instance):
     """
 
@@ -984,8 +995,11 @@ def cancel_order_with_pick(instance):
         if not pickup_qs.exists():
             return
         if pickup_qs.last().status in ['pickup_creation', 'picking_assigned']:
-            for pickup_object in pickup_qs:
-                cancel_pickup(pickup_object)
+
+            with transaction.atomic():
+                for pickup_object in pickup_qs:
+                    cancel_pickup(pickup_object)
+                    revert_ordered_inventory(pickup_object)
             info_logger.info('cancel_order_with_pick| Order No-{}, Cancelled Pickup'
                              .format(instance.order_no))
             return
@@ -1063,8 +1077,8 @@ def cancel_order_with_pick(instance):
                                                          batch_id=pickup_bin.batch_id, putaway_type=status,
                                                          putaway=pu, bin=pickup_bin.bin, putaway_status=False,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
-        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
-        pickup_obj.update(status='picking_cancelled')
+        # pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
+        # pickup_obj.update(status='picking_cancelled')
 
 
 class AuditInventory(object):
