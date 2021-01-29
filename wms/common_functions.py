@@ -1088,6 +1088,8 @@ def cancel_order_with_pick(instance):
             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                 warehouse, sku, type_normal, state_picked, -1 * pick_up_bin_quantity,
                 "order_cancelled", instance.order_no)
+        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
+        pickup_obj.update(status='picking_cancelled')
 
 
 class AuditInventory(object):
