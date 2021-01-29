@@ -2024,7 +2024,7 @@ def auto_report_for_expired_product(request):
 
     workbook.save(response)
     wb.save(responses)
-    # send_mail_w_attachment(response,responses)
+    send_mail_w_attachment(response,responses)
     return response
 
 
