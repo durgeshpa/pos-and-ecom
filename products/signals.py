@@ -221,6 +221,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                             already_picked += qty
                             remaining_qty = qty_in_bin - already_picked
                             bin_inv.quantity = remaining_qty
+                            bin_inv.to_be_picked_qty += already_picked
                             bin_inv.save()
                             qty = 0
                             Out.objects.create(warehouse=rep_obj.seller_shop,
@@ -243,6 +244,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                             already_picked = qty_in_bin
                             remaining_qty = qty - already_picked
                             bin_inv.quantity = qty_in_bin - already_picked
+                            bin_inv.to_be_picked_qty += already_picked
                             bin_inv.save()
                             qty = remaining_qty
                             Out.objects.create(warehouse=rep_obj.seller_shop,
