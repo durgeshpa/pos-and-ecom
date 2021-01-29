@@ -970,6 +970,11 @@ def cancel_pickup(pickup_object):
 
 
 def revert_ordered_inventory(pickup_object):
+    """
+    Takes the Pickup instance
+    calculates the remaining quantity needs to be deducted from warehouse ordered state
+    deducts remaining quantity from ordered state for concerned SKU
+    """
     tr_type = "order_cancelled"
     tr_id = pickup_object.pickup_type_id
     state_ordered = InventoryState.objects.filter(inventory_state="ordered").last()
