@@ -988,6 +988,8 @@ def cancel_order_with_pick(instance):
 
     """
     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+    state_picked = InventoryState.objects.filter(inventory_state='picked').last()
+
     with transaction.atomic():
         pickup_qs = Pickup.objects.filter(pickup_type_id=instance.order_no)\
                                       .exclude(status='picking_cancelled')
@@ -1001,6 +1003,10 @@ def cancel_order_with_pick(instance):
                              .format(instance.order_no))
             return
         if pickup_qs.last().status == 'picking_complete':
+            pickup_id = pickup_qs.last().id
+            warehouse = pickup_qs.last().warehouse
+            sku = pickup_qs.last().sku
+
             # get the queryset object from Pickup Bin Inventory Model
             pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
                                                           .exclude(pickup__status='picking_cancelled')
@@ -1061,7 +1067,6 @@ def cancel_order_with_pick(instance):
                         status = 'Pickup_Cancelled'
 
             # update or create put away model
-            type_normal = InventoryType.objects.filter(inventory_type='normal').last()
             pu, _ = Putaway.objects.update_or_create(putaway_user=instance.last_modified_by,
                                                      warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
                                                      putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
@@ -1074,8 +1079,10 @@ def cancel_order_with_pick(instance):
                                                          batch_id=pickup_bin.batch_id, putaway_type=status,
                                                          putaway=pu, bin=pickup_bin.bin, putaway_status=False,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
-        # pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
-        # pickup_obj.update(status='picking_cancelled')
+
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                warehouse, sku, type_normal, state_picked, -1 * pick_up_bin_quantity,
+                "order_cancelled", instance.order_no)
 
 
 class AuditInventory(object):
