@@ -7,6 +7,7 @@ import codecs
 import itertools
 from openpyxl import Workbook
 from openpyxl.styles import Font, Color, Alignment, Border, Side, colors
+from openpyxl.writer.excel import save_virtual_workbook
 
 import re
 import logging
@@ -1863,15 +1864,6 @@ def audit_ordered_data(request):
 
 def auto_report_for_expired_product(request):
 
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
-    responses = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
-    response['Content-Disposition'] = 'attachment; filename=To_be_Expired_Products.xlsx'
-    responses['Content-Disposition'] = 'attachment; filename=Expired_Products.xlsx'
-
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = 'To_be_Expired_Products'
@@ -1881,14 +1873,27 @@ def auto_report_for_expired_product(request):
     sheet = wb.active
     sheet.title = 'Expired_Products'
 
+    response = HttpResponse(
+        content=save_virtual_workbook(workbook), content_type='application/ms-excel'
+    )
+    responses = HttpResponse(
+        content=save_virtual_workbook(wb), content_type='application/ms-excel'
+    )
+    response['Content-Disposition'] = 'attachment; filename=To_be_Expired_Products.xlsx'
+    responses['Content-Disposition'] = 'attachment; filename=Expired_Products.xlsx'
+
     columns = ['Warehouse Name', 'SKU ID', 'SKU Name', 'Parent ID', 'Parent Name', 'Category', 'Sub Category',
                'EAN', 'MRP', 'Selling Price', 'Inner CategoryCase Size', 'Batch ID', 'Expiry Date',
                'Bin ID', 'Normal Available Qty', 'Damaged Available Qty']
 
     product_list = {}
     expired_product_list = {}
-    products = BinInventory.objects.filter(warehouse=600).filter(batch_id__in=('BFDSNGAMU00000018111021','PKPPROFNF00000025271220')).filter((Q(inventory_type_id=1) |
-                                                              Q(inventory_type_id=3))).values(
+    warehouse = Shop.objects.filter(id=600).last()
+    type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
+    type_damaged = InventoryType.objects.only('id').get(inventory_type='damaged').id
+
+    products = BinInventory.objects.filter(warehouse=warehouse.id).filter(batch_id__in=('CHCCNFCAD00000004271220','ALFSNGAAS00000003310121')).filter((Q(inventory_type_id=type_normal) |
+                                                              Q(inventory_type_id=type_damaged))).values(
                             'warehouse__shop_name', 'sku',
                             'sku__id', 'sku__product_sku', 'quantity',
                             'sku__parent_product__parent_id', 'warehouse_id',
@@ -1985,7 +1990,7 @@ def auto_report_for_expired_product(request):
         expired_products = expiry_date.date() <= today
         if expired_products:
             product_temp = iterate_data()
-            product_list[product['sku__product_sku']] = product_temp
+            expired_product_list[product['sku__product_sku']] = product_temp
         expired_product_list_new = []
 
         row_num = 1
@@ -1993,7 +1998,7 @@ def auto_report_for_expired_product(request):
             cell = sheet.cell(row=row_num, column=col_num)
             cell.value = column_title
         row = 2
-        for key, value in product_list.items():
+        for key, value in expired_product_list.items():
             col = 1
             expired_product_list_new.append(value)
             for key_item, value_item in value.items():
