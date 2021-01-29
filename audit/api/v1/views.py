@@ -3,7 +3,7 @@ from datetime import timedelta, datetime
 
 from decouple import config
 from django.db import transaction
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum, Q
 from django.utils import timezone
 from rest_framework.mixins import UpdateModelMixin
 from rest_framework.response import Response
@@ -13,7 +13,7 @@ from rest_framework import permissions, authentication
 
 from products.models import Product
 from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
-from wms.common_functions import InternalInventoryChange, WareHouseInternalInventoryChange, \
+from wms.common_functions import InternalInventoryChange, \
     CommonWarehouseInventoryFunctions, CommonBinInventoryFunctions, InCommonFunctions, PutawayCommonFunctions, \
     get_expiry_date
 from wms.models import BinInventory, Bin, InventoryType, PickupBinInventory, WarehouseInventory, InventoryState, Pickup, \
@@ -25,7 +25,7 @@ from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_TYPE_C
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist, \
     AuditedBinRecord, AuditedProductRecord
 from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
-from ...utils import is_audit_started, is_diff_batch_in_this_bin, get_product_image
+from ...utils import is_audit_started, is_diff_batch_in_this_bin, get_product_image, get_audit_start_time
 from ...views import BlockUnblockProduct, create_pick_list_by_audit, create_audit_tickets_by_audit, \
     update_audit_status_by_audit
 from rest_framework.permissions import BasePermission
@@ -376,7 +376,7 @@ class AuditEndView(APIView):
             info_logger.info('Audit {} for bin {}, already ended'.format(audit.id, bin_id))
             return
         info_logger.info('End audit {} for bin {}'.format(audit.id, bin_id))
-        inventory_state = InventoryState.objects.filter(inventory_state='available').last()
+        inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
         normal_type = InventoryType.objects.filter(inventory_type='normal').last()
         damaged_type = InventoryType.objects.filter(inventory_type='damaged').last()
         expired_type = InventoryType.objects.filter(inventory_type='expired').last()
@@ -403,7 +403,7 @@ class AuditEndView(APIView):
             info_logger.info('Audit {} for sku {}, already ended'.format(audit.id, sku))
             return
         info_logger.info('End audit {} for sku {}'.format(audit.id, sku))
-        inventory_state = InventoryState.objects.filter(inventory_state='available').last()
+        inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
         normal_type = InventoryType.objects.filter(inventory_type='normal').last()
         damaged_type = InventoryType.objects.filter(inventory_type='damaged').last()
         expired_type = InventoryType.objects.filter(inventory_type='expired').last()
@@ -465,8 +465,8 @@ class AuditBinList(APIView):
                 if b['bin_id'] in bins_audited:
                     audit_done = True
                 b['audit_done'] = audit_done
-
-        data = {'audit_no': audit_no, 'started_at': audit.created_at, 'current_time': timezone.now(),
+        audit_started_at = get_audit_start_time(audit)
+        data = {'audit_no': audit_no, 'started_at': audit_started_at, 'current_time': timezone.now(),
                 'bin_count': len(audit_bins), 'sku_count': len(audit_skus), 'sku_to_audit': audit_skus,
                 'bins_to_audit': audit_bins}
         msg = {'is_success': True, 'message': 'OK', 'data': data}
@@ -500,8 +500,8 @@ class AuditBinsBySKUList(APIView):
             msg = {'is_success': False, 'message': ERROR_MESSAGES['SOME_ISSUE'] % 'sku', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         product_image = get_product_image(product)
-        bin_ids = BinInventory.objects.filter(warehouse=audit.warehouse,
-                                              sku=audit_sku).values_list('bin_id', flat=True)
+        bin_ids = BinInventory.objects.filter(Q(quantity__gt=0) | Q(to_be_picked_qty__gt=0),
+                                              warehouse=audit.warehouse, sku=audit_sku).values_list('bin_id', flat=True)
         bins_to_audit = Bin.objects.filter(id__in=bin_ids).values('bin_id')
         bins_audited = AuditRunItem.objects.filter(audit_run__audit=audit, sku=audit_sku)\
                                            .values_list('bin__bin_id', flat=True)
@@ -512,7 +512,8 @@ class AuditBinsBySKUList(APIView):
             b['audit_done'] = audit_done
 
 
-        data = {'audit_no': audit_no, 'started_at': audit.created_at, 'current_time': timezone.now(),
+        audit_started_at = get_audit_start_time(audit)
+        data = {'audit_no': audit_no, 'started_at': audit_started_at, 'current_time': timezone.now(),
                 'bin_count': len(bins_to_audit), 'sku': audit_sku, 'product_name': product.product_name,
                 'product_mrp': product.product_mrp, 'product_image': product_image,
                 'sku_bins': bins_to_audit}
@@ -647,7 +648,7 @@ class AuditInventory(APIView):
 
         try:
             with transaction.atomic():
-                inventory_state = InventoryState.objects.filter(inventory_state='available').last()
+                inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
                 for inv_type, qty in physical_inventory.items():
                     inventory_type = InventoryType.objects.filter(inventory_type=inv_type).last()
                     if self.picklist_cancel_required(warehouse, batch_id, bin,
@@ -694,7 +695,6 @@ class AuditInventory(APIView):
                          expected_qty, physical_qty):
         info_logger.info('AuditInventory | update_inventory | started ')
         initial_inventory_type = InventoryType.objects.filter(inventory_type='new').last()
-        initial_inventory_state = InventoryState.objects.filter(inventory_state='new').last()
         if expected_qty == physical_qty:
             info_logger.info('AuditInventory | update_inventory | Quantity matched, updated not required')
             return
@@ -724,14 +724,11 @@ class AuditInventory(APIView):
                 qty_diff = -1*ware_house_inventory_obj.quantity
         # update warehouse inventory
         if qty_diff != 0:
-            CommonWarehouseInventoryFunctions.create_warehouse_inventory(warehouse, sku, inventory_type, inventory_state,
-                                                                         qty_diff, True)
-            WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku,
-                                                                               tr_type, audit_no,
-                                                                               initial_inventory_type,
-                                                                               initial_inventory_state,
-                                                                               inventory_type, inventory_state,
-                                                                               abs(qty_diff))
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, sku,
+                                                                                              inventory_type,
+                                                                                              inventory_state,
+                                                                                              qty_diff, tr_type,
+                                                                                              audit_no)
         AuditInventory.create_in_out_entry(warehouse, sku, batch_id, bin_inventory_object, tr_type, audit_no,
                                            inventory_type, abs(qty_diff))
         info_logger.info('AuditInventory | update_inventory | completed')
@@ -760,13 +757,13 @@ class AuditInventory(APIView):
         inv_type_list = [normal_type, damaged_type, expired_type]
         bin_inventory = BinInventory.objects.filter(warehouse=warehouse, bin=bin, batch_id=batch_id,
                                                     inventory_type__in=inv_type_list) \
-                                            .values('inventory_type__inventory_type', 'quantity')
-        bin_inventory_dict = {g['inventory_type__inventory_type']: g['quantity'] for g in bin_inventory}
+                                            .values('inventory_type__inventory_type', 'quantity', 'to_be_picked_qty')
+        bin_inventory_dict = {g['inventory_type__inventory_type']: g['quantity']+g['to_be_picked_qty'] for g in bin_inventory}
         self.initialize_inventory_dict(bin_inventory_dict, inv_type_list)
-        pickup_qty = self.get_pickup_blocked_quantity(warehouse,batch_id, bin)
-        info_logger.info('AuditInventory | get_bin_inventory | Bin Inventory {}, pickup blocked quantity-{}'
-                         .format(bin_inventory_dict, pickup_qty))
-        bin_inventory_dict['normal'] += pickup_qty
+        # pickup_qty = self.get_pickup_blocked_quantity(warehouse,batch_id, bin)
+        # info_logger.info('AuditInventory | get_bin_inventory | Bin Inventory {}, pickup blocked quantity-{}'
+        #                  .format(bin_inventory_dict, pickup_qty))
+        # bin_inventory_dict['normal'] += pickup_qty
         return bin_inventory_dict
 
     def initialize_inventory_dict(self, bin_inventory_dict, inv_type_list):
@@ -774,20 +771,15 @@ class AuditInventory(APIView):
             if bin_inventory_dict.get(i.inventory_type) is None:
                 bin_inventory_dict[i.inventory_type] = 0
 
-    def get_pickup_blocked_quantity(self, warehouse, batch_id, bin):
-        pickup_qty = PickupBinInventory.objects.filter(warehouse=warehouse, bin__bin_id=bin, batch_id=batch_id,
-                                                       pickup__status__in=['pickup_creation', 'picking_assigned']) \
-                                               .aggregate(pickup_qty=Sum('quantity')).get('pickup_qty')
-        if pickup_qty is None:
-            pickup_qty = 0
-
-        return pickup_qty
+    def get_pickup_blocked_quantity(self, warehouse, batch_id, bin, inventory_type):
+        bin_inv_qs = BinInventory.objects.filter(warehouse=warehouse, bin_id=bin, batch_id=batch_id,
+                                                 inventory_type=inventory_type)
+        if not bin_inv_qs.exists():
+            return 0
+        return bin_inv_qs.last().to_be_picked_qty
 
     def picklist_cancel_required(self, warehouse, batch_id, bin, inventory_type, physical_qty):
-        if inventory_type.inventory_type != 'normal':
-            return False
-
-        pickup_qty = self.get_pickup_blocked_quantity(warehouse,batch_id, bin)
+        pickup_qty = self.get_pickup_blocked_quantity(warehouse,batch_id, bin, inventory_type)
         if physical_qty - pickup_qty >= 0:
             return False
         return True

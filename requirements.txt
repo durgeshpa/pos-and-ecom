@@ -109,6 +109,7 @@ psycopg2-binary==2.7.5
 pyasn1==0.4.5
 pyasn1-modules==0.2.5
 pyjsparser==2.7.1
+pyexcel-xlsx==0.6.0
 PyMySQL==0.9.3
 pyotp==2.2.6
 pyparsing==2.4.7

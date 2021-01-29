@@ -60,7 +60,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare, Return, Feedback,
                                    OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch
+                                   ShipmentRescheduling, Note, OrderedProductBatch, check_date_range, capping_check
                                    )
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramOrderedProduct,
@@ -97,7 +97,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  create_invoice_data)
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
-from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
 
 User = get_user_model()
 
@@ -242,16 +242,16 @@ class GramGRNProductsList(APIView):
     def search_query(self, request):
         filter_list = [
             {"term": {"status": True}},
+            {"term": {"visible": True}},
             {"range": {"available": {"gt": 0}}}
         ]
         if self.product_ids:
             filter_list.append({"ids": {"type": "product", "values": self.product_ids}})
             query = {"bool": {"filter": filter_list}}
             return query
-        if self.category or self.brand or self.keyword:
-            query = {"bool": {"filter": filter_list}}
-        else:
-            return {"term": {"status": True}}
+        query = {"bool": {"filter": filter_list}}
+        if not (self.category or self.brand or self.keyword):
+            return query
         if self.brand:
             brand_name = "{} -> {}".format(Brand.objects.filter(id__in=list(self.brand)).last(), self.keyword)
             filter_list.append({"match": {
@@ -260,21 +260,17 @@ class GramGRNProductsList(APIView):
 
         elif self.keyword:
             q = {
-                "match": {
-                    "name": {"query": self.keyword, "fuzziness": "AUTO", "operator": "and"}
+                    "multi_match": {
+                        "query":     self.keyword,
+                        "fields":    ["name^5", "category", "brand"],
+                        "type":      "cross_fields"
+                    }
                 }
-            }
-            # else:
-            #    q = {"match_all":{}}
-            filter_list.append(q)
+            query["bool"]["must"] = [q]
         if self.category:
             category_filter = str(categorymodel.Category.objects.filter(id__in=self.category, status=True).last())
-            q = {
-                "match": {
-                    "category": {"query": category_filter, "operator": "and"}
-                }
-            }
-            filter_list.append(q)
+            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
+
         return query
 
     def post(self, request, format=None):
@@ -337,11 +333,8 @@ class GramGRNProductsList(APIView):
                 "_source": {"includes": ["name", "product_images", "pack_size", "weight_unit", "weight_value", "visible"]}
             }
             products_list = es_search(index="all_products", body=body)
+
         for p in products_list['hits']['hits']:
-            visible_flag = p["_source"].get('visible', None)
-            if visible_flag is not None and not visible_flag:
-                logger.info("visible flag false for {}".format(p["_source"].get('name')))
-                continue
             if is_store_active:
                 if not Product.objects.filter(id=p["_source"]["id"]).exists():
                     logger.info("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
@@ -369,13 +362,13 @@ class GramGRNProductsList(APIView):
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
                 if not check_price:
                     continue
-                # check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
+                # # check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
                 check_price_mrp = product.product_mrp
                 p["_source"]["ptr"] = check_price.selling_price
                 p["_source"]["mrp"] = check_price_mrp
                 p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
-                loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
-                cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
+                # loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
+                # cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
@@ -419,7 +412,7 @@ class AutoSuggest(APIView):
     permission_classes = (AllowAny,)
 
     def search_query(self, keyword):
-        filter_list = [{"term": {"status": True}}]
+        filter_list = [{"term": {"status": True}}, {"term": {"visible": True}}, {"range": {"available": {"gt": 0}}}]
         query = {"bool": {"filter": filter_list}}
         q = {
             "match": {
@@ -431,6 +424,7 @@ class AutoSuggest(APIView):
 
     def get(self, request, *args, **kwargs):
         search_keyword = request.GET.get('keyword')
+        shop_id = request.GET.get('shop_id')
         offset = 0
         page_size = 5
         query = self.search_query(search_keyword)
@@ -439,7 +433,14 @@ class AutoSuggest(APIView):
             "size": page_size,
             "query": query, "_source": {"includes": ["name", "product_images"]}
         }
-        products_list = es_search(index="all_products", body=body)
+        index = "all_products"
+        if shop_id:
+            if Shop.objects.filter(id=shop_id).exists():
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+                if parent_mapping.parent.shop_type.shop_type == 'sp':
+                    index = parent_mapping.parent.id
+
+        products_list = es_search(index=index, body=body)
         p_list = []
         for p in products_list['hits']['hits']:
             p_list.append(p["_source"])
@@ -497,13 +498,18 @@ class AddToCart(APIView):
                 msg['message'] = [ERROR_MESSAGES['4019'].format(Product.objects.get(id=cart_product))]
                 return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
-            available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
-                'sku__id').annotate(quantity=Sum('quantity'))
-            shop_products_dict = collections.defaultdict(lambda: 0,
-                                                         {g['sku__id']: int(g['quantity']) for g in available})
+            # available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
+            #     'sku__id').annotate(quantity=Sum('quantity'))
+            #
+            # shop_products_dict = collections.defaultdict(lambda: 0,
+            #                                              {g['sku__id']: int(g['quantity']) for g in available})
+            type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+            available = get_stock(parent_mapping.parent, type_normal, [cart_product])
+            shop_products_dict = available
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 ordered_qty = 0
                 product = Product.objects.get(id=cart_product)
+                # to check capping is exist or not for warehouse and product with status active
                 capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
                 if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending']).exists():
@@ -524,11 +530,19 @@ class AddToCart(APIView):
                     cart.save()
 
                 if capping:
-                    capping_start_date = capping.start_date
-                    capping_end_date = capping.end_date
-                    capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                                created_at__gte=capping_start_date,
-                                                                created_at__lte=capping_end_date)
+                    # to get the start and end date according to capping type
+                    start_date, end_date = check_date_range(capping)
+                    capping_start_date = start_date
+                    capping_end_date = end_date
+                    if capping_start_date.date() == capping_end_date.date():
+                        capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
+                                                                    created_at__gte=capping_start_date,
+                                                                    ).exclude(order_status='CANCELLED')
+                    else:
+                        capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
+                                                                    created_at__gte=capping_start_date,
+                                                                    created_at__lte=capping_end_date).exclude(
+                            order_status='CANCELLED')
                     if capping_range_orders:
                         for order in capping_range_orders:
                             if order.ordered_cart.rt_cart_list.filter(cart_product=product).exists():
@@ -556,32 +570,47 @@ class AddToCart(APIView):
                                         int(available_qty))
                                     cart_mapping.save()
                         else:
+                            serializer = CartSerializer(Cart.objects.get(id=cart.id),
+                                                        context={'parent_mapping_id': parent_mapping.parent.id,
+                                                                 'buyer_shop_id': shop_id})
                             if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart,
                                                                                            cart_product=product)
                                 if (capping.capping_qty - ordered_qty) > 0:
-                                    cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                            capping.capping_qty - ordered_qty)
+                                    cart_mapping.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
+                                            capping.capping_qty - ordered_qty)]
                                 else:
-                                    cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                                    cart_mapping.capping_error_msg = ['You have already exceeded the purchase limit of this product']
                                 cart_mapping.save()
                             else:
                                 msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (
-                                    capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
+                                    capping.capping_qty - ordered_qty, cart_product)], 'response_data': serializer.data}
                                 return Response(msg, status=status.HTTP_200_OK)
 
                     else:
                         if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                             cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                             if (capping.capping_qty - ordered_qty) > 0:
-                                cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                        capping.capping_qty - ordered_qty)
+                                if (capping.capping_qty - ordered_qty) < 0:
+                                    cart_mapping.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
+                                            0)]
+                                else:
+                                    cart_mapping.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
+                                            capping.capping_qty - ordered_qty)]
                             else:
-                                cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
-                            cart_mapping.save()
+                                cart_mapping.capping_error_msg = ['You have already exceeded the purchase limit of this product']
+                                CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
+                            # cart_mapping.save()
                         else:
-                            msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (
-                                capping.capping_qty - ordered_qty, cart_product)], 'response_data': None}
+                            serializer = CartSerializer(Cart.objects.get(id=cart.id),
+                                                        context={'parent_mapping_id': parent_mapping.parent.id,
+                                                                 'buyer_shop_id': shop_id})
+                            if (capping.capping_qty - ordered_qty) < 0:
+                                msg = {'is_success': True, 'message': ['You have already exceeded the purchase limit of this product #%s' % (
+                                    cart_product)], 'response_data': serializer.data}
+                            else:
+                                msg = {'is_success': True, 'message': ['You have already exceeded the purchase limit of this product #%s' % (
+                                    cart_product)], 'response_data': serializer.data}
                             return Response(msg, status=status.HTTP_200_OK)
                 else:
                     if int(qty) == 0:
@@ -722,11 +751,12 @@ class CartDetail(APIView):
                     CartProductMapping.objects.filter(id__in=cart_product_to_be_deleted).delete()
                     cart_products = CartProductMapping.objects.select_related('cart_product').filter(cart=cart)
 
-                available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'),
-                                                                    quantity__gt=0).values('sku__id').annotate(
-                    quantity=Sum('quantity'))
-                shop_products_dict = collections.defaultdict(lambda: 0,
-                                                             {g['sku__id']: int(g['quantity']) for g in available})
+                # available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'),
+                #                                                     quantity__gt=0).values('sku__id').annotate(
+                #     quantity=Sum('quantity'))
+                # shop_products_dict = collections.defaultdict(lambda: 0,
+                #                                              {g['sku__id']: int(g['quantity']) for g in available})
+
                 for cart_product in cart_products:
                     item_qty = CartProductMapping.objects.filter(cart=cart,
                                                                  cart_product=cart_product.cart_product).last().qty
@@ -869,11 +899,12 @@ class ReservedOrder(generics.ListAPIView):
                 cart_products.update(qty_error_msg='')
                 cart_products.update(capping_error_msg='')
                 cart_product_ids = cart_products.values('cart_product')
-                shop_products_available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_product_ids,
-                                                                                  quantity__gt=0).values(
-                    'sku__id').annotate(quantity=Sum('quantity'))
-                shop_products_dict = collections.defaultdict(lambda: 0, {g['sku__id']: int(g['quantity']) for g in
-                                                                         shop_products_available})
+                # shop_products_available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_product_ids,
+                #                                                                   quantity__gt=0).values(
+                #     'sku__id').annotate(quantity=Sum('quantity'))
+                type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+                shop_products_available = get_stock(parent_mapping.parent, type_normal, cart_product_ids)
+                shop_products_dict = shop_products_available
 
                 products_available = {}
                 products_unavailable = []
@@ -884,13 +915,16 @@ class ReservedOrder(generics.ListAPIView):
                     CartProductMapping.objects.filter(cart=cart, cart_product=cart_product.cart_product).update(
                         no_of_pieces=updated_no_of_pieces)
                     coupon_usage_count = 0
-                    for i in array:
-                        if cart_product.cart_product.id == i['item_id']:
-                            customer_coupon_usage = CusotmerCouponUsage(coupon_id=i['coupon_id'], cart=cart)
-                            customer_coupon_usage.shop = parent_mapping.retailer
-                            customer_coupon_usage.product = cart_product.cart_product
-                            customer_coupon_usage.times_used += coupon_usage_count + 1
-                            customer_coupon_usage.save()
+                    if len(array) is 0:
+                        pass
+                    else:
+                        for i in array:
+                            if cart_product.cart_product.id == i['item_id']:
+                                customer_coupon_usage = CusotmerCouponUsage(coupon_id=i['coupon_id'], cart=cart)
+                                customer_coupon_usage.shop = parent_mapping.retailer
+                                customer_coupon_usage.product = cart_product.cart_product
+                                customer_coupon_usage.times_used += coupon_usage_count + 1
+                                customer_coupon_usage.save()
 
                     product_availability = shop_products_dict.get(cart_product.cart_product.id, 0)
 
@@ -908,35 +942,22 @@ class ReservedOrder(generics.ListAPIView):
                                 cart_product.product_inner_case_size))  # TODO: Needs to be improved
                         cart_product.save()
                         products_unavailable.append(cart_product.id)
+                    # to check capping is exist or not for warehouse and product with status active
                     capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent,
                                                                                  parent_mapping.retailer)
                     if capping:
-                        capping_start_date = capping.start_date
-                        capping_end_date = capping.end_date
-                        capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                                    created_at__gte=capping_start_date,
-                                                                    created_at__lte=capping_end_date)
-                        if capping_range_orders:
-                            for order in capping_range_orders:
-                                if order.ordered_cart.rt_cart_list.filter(
-                                        cart_product=cart_product.cart_product).exists():
-                                    ordered_qty += order.ordered_cart.rt_cart_list.filter(
-                                        cart_product=cart_product.cart_product).last().qty
-                        if capping.capping_qty > ordered_qty:
-                            if (capping.capping_qty - ordered_qty) < product_qty:
-                                if (capping.capping_qty - ordered_qty) > 0:
-                                    cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                            capping.capping_qty - ordered_qty)
-                                else:
-                                    cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
-                                cart_product.save()
-                        else:
-                            if (capping.capping_qty - ordered_qty) > 0:
-                                cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (
-                                        capping.capping_qty - ordered_qty)
-                            else:
-                                cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
-                            cart_product.save()
+                        cart_products = cart_product.cart_product
+                        msg = capping_check(capping, parent_mapping, cart_products, product_qty, ordered_qty)
+                        if msg[0] is False:
+                            serializer = CartSerializer(cart, context={
+                                'parent_mapping_id': parent_mapping.parent.id,
+                                'buyer_shop_id': shop_id})
+                            msg = {'is_success': True,
+                                   'message': msg[1], 'response_data': serializer.data}
+                            return Response(msg, status=status.HTTP_200_OK)
+                    else:
+                        pass
+
                 if products_unavailable:
                     serializer = CartSerializer(
                         cart,
@@ -1050,6 +1071,7 @@ class CreateOrder(APIView):
         current_url = request.get_host()
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
+            ordered_qty = 0
             # self.sp_mapping_order_reserve()
             with transaction.atomic():
                 if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
@@ -1080,6 +1102,20 @@ class CreateOrder(APIView):
                         cart.seller_shop = parent_mapping.parent
                         cart.save()
 
+                    for cart_product in cart.rt_cart_list.all():
+                        # to check capping is exist or not for warehouse and product with status active
+                        capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent,
+                                                                                     parent_mapping.retailer)
+                        product_qty = int(cart_product.qty)
+                        if capping:
+                            cart_products = cart_product.cart_product
+                            msg = capping_check(capping, parent_mapping, cart_products, product_qty, ordered_qty)
+                            if msg[0] is False:
+                                msg = {'is_success': True,
+                                       'message': msg[1], 'response_data': None}
+                                return Response(msg, status=status.HTTP_200_OK)
+                        else:
+                            pass
                     order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
                                                                            transaction_id=cart.order_id,
                                                                            warehouse_internal_inventory_release=None,

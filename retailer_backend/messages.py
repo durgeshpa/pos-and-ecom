@@ -27,7 +27,13 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_GSTIN_Number': 'Invalid Gstin number',
     'INVALID_MARGIN': '%s has not valid format( eg: 0, 201, 17.11)',
     'ALREADY_ADDED_SHOP':'Already added Sales Executive with this shop',
-    'INVALID_INTEGER_VALUE':'Only Positive Integers Accepted'
+    'INVALID_INTEGER_VALUE':'Only Positive Integers Accepted',
+    'OTP_EXPIRED_GENERATE_AGAIN':'Entered OTP expired! Please enter the new OTP',
+    'Referral_code':'Please provide valid referral code',
+    'User_Already_Exist':'User Already Registered Please Login',
+    'Enter_OTP':'Please Enter otp',
+    'Phone_Number':'Please Enter Phone Number,',
+    'User_not_register': 'You are not registered User, Please Sign Up.'
 }
 
 SUCCESS_MESSAGES = {
@@ -68,6 +74,9 @@ ERROR_MESSAGES = {
     'INVALID_SR_PRICE': "You cannot upload Super Retailer Price greater than Retailer",
     'INVALID_MAPPING': "Shop id- %s and employee no- %s , has duplicate entry",
     'PRODUCT_REMOVED': "Some products in cart aren’t available anymore, please update cart",
+    'PICKUP_NOT_FOUND': "No Pickup found for this order",
+    'PICKER_DASHBOARD_ENTRY_MISSING': "No Pickup Dashboard entry found",
+    'PICK_BIN_DETAILS_NOT_FOUND': "No Pickup Details found for given input",
     "4001": "Selected records are exceeding system capacity, please keep max records at 50.",
     "4002": "Selected file status is QC pending, you can't download this file.",
     "4003": "Oops! Something went wrong, Please check the data of csv file.",

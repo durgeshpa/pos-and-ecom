@@ -1,0 +1,162 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block title %}Upload Master Data | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/products/">Products</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/products/bulkuploadforproductattributes/">Bulk upload for product attributes</a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Upload Master Data</a>{% endblock %}
+
+{% block content %}
+   <div id="content" class="colM">
+      <h1>{% block content_header %}{% endblock %}</h1>
+      <div id="content-main">
+         <ul class="object-tools">
+         </ul>
+         {% if error %}
+            <span class="errornote">{{ error|escape }}</span>
+         {% endif %}
+         {% if success %}
+            <ul class="messagelist">
+            <li class="success">{{ success|escape }}</li>
+            </ul>
+         {% endif %}
+         <div>
+            <form method="post" enctype="multipart/form-data">
+               <div>
+                  <fieldset class="module aligned ">
+                     {% csrf_token %}
+                     <label for="category" style="margin: 10px">Select Category:</label>
+                     <select name="category" style="margin: 10px" id="parent_categories_select" onchange="ddlselect()">
+                         <option value="none">Please Select One Category</option>
+                     </select>
+                     <h1 style="font-weight: bold">{{form.as_p}}</h1>
+                     <form method="post" enctype="multipart/form-data">
+                        <label style="margin: 10px" for="upload_master_data">Select an Option:</label>
+                        <select style="margin: 10px" name="upload_master_data" id="upload_master_data" onchange="ddlselect()">
+                          <option value="default">----------------</option>
+                          <option value="master_data">Set Master Data</option>
+                          <option value="inactive_status">Set Inactive Status</option>
+                          <option value="sub_brand_with_brand">Sub Brand and Brand Mapping</option>
+                          <option value="sub_category_with_category">Sub Category and Category Mapping</option>
+                          <option value="child_parent">Set Child with Parent</option>
+                          <option value="child_data">Set Child Data</option>
+                          <option value="parent_data">Set Parent Data</option>
+                        </select>
+                     </form>
+                     <p style="font-weight: bold;"><a href="#" id="id_download" style="margin-top: 25px;" onclick="alertfunc()">Download Sample Excel file</a></p>
+                  </fieldset>
+                  <div class="submit-row">
+                     <input type="submit" value="Save" class="button" name="_save" id="saveBtn">
+                  </div>
+               </div>
+            </form>
+         </div>
+      </div>
+   </div>
+
+<script type="text/javascript">
+   function ddlselect()
+   {
+      var d = document.getElementById("upload_master_data");
+      var c = document.getElementById("parent_categories_select");
+      var displaytext = d.options[d.selectedIndex].text;
+      var category_id = c.options[c.selectedIndex].value;
+      if(category_id==="none")
+      {
+         if(displaytext!=="Sub Brand and Brand Mapping")
+         {
+            if(displaytext!=="Sub Category and Category Mapping")
+            {
+               alert("Please Select One Category!")
+               $('#upload_master_data').val('default')
+               document.getElementById("id_download").href="#";
+            }
+            else{
+               document.getElementById("id_download").href="{% url 'admin:category-sub-category-mapping'%}";
+               $('#parent_categories_select').val('none')
+            }
+         }
+         else{
+            document.getElementById("id_download").href="{% url 'admin:brand-sub-brand-mapping'%}";
+            $('#parent_categories_select').val('none')
+         }
+      }
+
+      else{
+         if(displaytext==="Set Master Data")
+         {
+            document.getElementById("id_download").href="{% url 'admin:upload-master-data-sample-excel-file'%}" + "?category_id=" + category_id;
+         }
+         if(displaytext==="Set Inactive Status")
+         {
+            document.getElementById("id_download").href="{% url 'admin:set-inactive-status-sample-file'%}" + "?category_id=" + category_id;
+         }
+         if(displaytext==="Sub Brand and Brand Mapping")
+         {
+            document.getElementById("id_download").href="{% url 'admin:brand-sub-brand-mapping'%}";
+            $('#parent_categories_select').val('none')
+         }
+         if(displaytext==="Sub Category and Category Mapping")
+         {
+            document.getElementById("id_download").href="{% url 'admin:category-sub-category-mapping'%}";
+            $('#parent_categories_select').val('none')
+         }
+         if(displaytext==="Set Child with Parent")
+         {
+            document.getElementById("id_download").href="{% url 'admin:parent-child-mapping-sample-excel-file'%}" + "?category_id=" + category_id;
+         }
+         if(displaytext==="Set Child Data")
+         {
+            document.getElementById("id_download").href="{% url 'admin:child-data-sample-excel-file'%}" + "?category_id=" + category_id;
+         }
+         if(displaytext==="Set Parent Data")
+         {
+            document.getElementById("id_download").href="{% url 'admin:parent-data-sample-excel-file'%}" + "?category_id=" + category_id;
+         }
+      }
+
+   }
+</script>
+<script>
+   function alertfunc(){
+      var d = document.getElementById("upload_master_data");
+      var display_text = d.options[d.selectedIndex].value;
+      if(display_text==="default"){
+         alert("Please 'Select an Option' to Download the Sample File")
+      }
+   }
+</script>
+<script>
+   $(document).ready(function () {
+            $("#saveBtn").click(function (event) {
+                var d = document.getElementById("upload_master_data");
+                var display_text = d.options[d.selectedIndex].value;
+                if(display_text==="default"){
+                   event.preventDefault();
+                   alert("Please 'Select an Option' to Download the Sample File")
+                }
+            });
+ });
+</script>
+<script>
+    parent_categories_select = document.getElementById("parent_categories_select");
+    ajax_url = "/product/fetch-all-parent-categories_with_id/";
+    $.ajax({
+        url: ajax_url,
+        type : 'GET',
+        contentType: "application/json; charset=utf-8",
+        success: function (data) {
+            (data.categories).forEach(element => {
+                var opt = document.createElement("option");
+                opt.value = element.split("@")[1];
+                opt.innerHTML = element.split("@")[0];
+                parent_categories_select.appendChild(opt);
+            });
+        },
+        error: function (data) {
+            console.log("ERROR");
+            console.error(data);
+            return true;
+        },
+        cache: false
+    });
+</script>
+{% endblock %}
