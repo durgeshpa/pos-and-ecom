@@ -1864,11 +1864,13 @@ def audit_ordered_data(request):
 
 def auto_report_for_expired_product(request):
 
+    # To_be_Expired_Products workbook
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = 'To_be_Expired_Products'
     worksheet.sheet_properties.tabColor = "1072BA"
 
+    # Expired_Products workbook
     wb = Workbook()
     sheet = wb.active
     sheet.title = 'Expired_Products'
@@ -1986,7 +1988,6 @@ def auto_report_for_expired_product(request):
                     col += 1
                 row += 1
 
-
         expired_products = expiry_date.date() <= today
         if expired_products:
             product_temp = iterate_data()
@@ -2010,7 +2011,7 @@ def auto_report_for_expired_product(request):
     workbook.save(response)
     wb.save(responses)
     send_mail_w_attachment(response,responses)
-    return HttpResponse("Done", product_list)
+    return HttpResponse("Done")
 
 
 def send_mail_w_attachment(response,responses):
