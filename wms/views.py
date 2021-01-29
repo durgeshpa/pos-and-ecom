@@ -63,6 +63,7 @@ from .common_functions import get_expiry_date
 from datetime import date, timedelta
 
 from django.core.mail import EmailMessage
+from decouple import config
 from django.conf import settings
 
 # Logger
@@ -1894,7 +1895,7 @@ def auto_report_for_expired_product(request):
     type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
     type_damaged = InventoryType.objects.only('id').get(inventory_type='damaged').id
 
-    products = BinInventory.objects.filter(warehouse=warehouse.id).filter(batch_id__in=('CHCCNFCAD00000004271220','ALFSNGAAS00000003310121')).filter((Q(inventory_type_id=type_normal) |
+    products = BinInventory.objects.filter(warehouse=warehouse.id).filter(batch_id="ALFSNGAAS00000003310121").filter((Q(inventory_type_id=type_normal) |
                                                               Q(inventory_type_id=type_damaged))).values(
                             'warehouse__shop_name', 'sku',
                             'sku__id', 'sku__product_sku', 'quantity',
@@ -2021,11 +2022,11 @@ def send_mail_w_attachment(response,responses):
         email.subject = 'To be Expired Products'
         email.body = 'Products expiring in next 7 days or less'
         settings.DEFAULT_FROM_EMAIL,
-        email.to = ['shalineebhawnani1996@gmail.com']
+        email.to = [config('TO_EMAIL')]
         email.attach('Expired_Products.xlsx', responses.getvalue(), 'application/ms-excel')
         email.attach('To_be_Expired_Products.xlsx', response.getvalue(), 'application/ms-excel')
         email.send()
 
     except Exception as e:
-        print('Email to could not sent',e)
+        print('Email could not sent',e)
 

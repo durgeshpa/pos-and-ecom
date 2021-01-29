@@ -289,20 +289,13 @@ PO_STARTS_WITH = 'ADT/PO'
 CN_STARTS_WITH = 'ADT/CN'
 INVOICE_STARTS_WITH = 'ORD'
 
-# EMAIL_BACKEND = 'django_ses.SESBackend' #"smtp.sendgrid.net" #
-# EMAIL_USE_TLS = True
-# EMAIL_PORT = 587
-# EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-# EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
-# FROM_EMAIL = config('FROM_EMAIL')
-
-
-EMAIL_USE_TLS = True
+#EMAIL_BACKEND = 'django_ses.SESBackend' #"smtp.sendgrid.net" #
 EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_HOST_USER = "shalineebhawnani80@gmail.com"
-EMAIL_HOST_PASSWORD = "Shalineebhawnani1996@gmail.com"
+EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+FROM_EMAIL = config('FROM_EMAIL')
 
 MIME_TYPE = 'html'
 
