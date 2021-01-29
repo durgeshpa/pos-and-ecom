@@ -379,12 +379,10 @@ CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.delete_ordered_reserved_products'),
     ('2 0 * * *', 'analytics.api.v1.views.getStock'),
     ('*/10 * * * *', 'retailer_backend.cron.po_status_change_exceeds_validity_date'),
-    ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
     ('30 21 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
 
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
     ('*/5 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
-    ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
     ('0 1 * * *', 'audit.views.start_automated_inventory_audit'),
     ('0 3 * * *', 'wms.views.move_expired_inventory_cron'),
