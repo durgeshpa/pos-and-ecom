@@ -1885,11 +1885,9 @@ def auto_report_for_expired_product(request):
                'EAN', 'MRP', 'Selling Price', 'Inner CategoryCase Size', 'Batch ID', 'Expiry Date',
                'Bin ID', 'Normal Available Qty', 'Damaged Available Qty']
 
-    wb.save(response)
-
     product_list = {}
     expired_product_list = {}
-    products = BinInventory.objects.filter(warehouse=600).filter((Q(inventory_type_id=1) |
+    products = BinInventory.objects.filter(warehouse=600).filter(batch_id__in=('BFDSNGAMU00000018111021','PKPPROFNF00000025271220')).filter((Q(inventory_type_id=1) |
                                                               Q(inventory_type_id=3))).values(
                             'warehouse__shop_name', 'sku',
                             'sku__id', 'sku__product_sku', 'quantity',
@@ -1907,7 +1905,7 @@ def auto_report_for_expired_product(request):
         expiry_date = datetime.strptime(expiry_date_str, "%d/%m/%Y")
         today = date.today()
 
-        def itrate_data():
+        def iterate_data():
             if product['sku__product_sku'] in product_list:
                 product_temp = product_list[product['sku__product_sku']]
                 product_temp[product['inventory_type__inventory_type']] = product['quantity']
@@ -1965,9 +1963,9 @@ def auto_report_for_expired_product(request):
         if expiry_date.date() > today:
             expiring_soon = expiry_date.date() - today <= timedelta(days=15)
             if expiring_soon:
-                product_temp = itrate_data()
-                expired_product_list[product['sku__product_sku']] = product_temp
-            expired_product_list_new = []
+                product_temp = iterate_data()
+                product_list[product['sku__product_sku']] = product_temp
+            product_list_new = []
 
             row_num = 1
             for col_num, column_title in enumerate(columns, 1):
@@ -1976,18 +1974,19 @@ def auto_report_for_expired_product(request):
             row = 2
             for key, value in product_list.items():
                 col = 1
-                expired_product_list_new.append(value)
+                product_list_new.append(value)
                 for key_item, value_item in value.items():
                     cell = worksheet.cell(row=row, column=col)
                     cell.value = value_item
                     col += 1
                 row += 1
 
+
         expired_products = expiry_date.date() <= today
         if expired_products:
-            product_temp = itrate_data()
+            product_temp = iterate_data()
             product_list[product['sku__product_sku']] = product_temp
-        product_list_new = []
+        expired_product_list_new = []
 
         row_num = 1
         for col_num, column_title in enumerate(columns, 1):
@@ -1996,28 +1995,31 @@ def auto_report_for_expired_product(request):
         row = 2
         for key, value in product_list.items():
             col = 1
-            product_list_new.append(value)
+            expired_product_list_new.append(value)
             for key_item, value_item in value.items():
                 cell = sheet.cell(row=row, column=col)
                 cell.value = value_item
                 col += 1
             row += 1
+
     workbook.save(response)
-    sheet.save(responses)
-    send_sms(response)
+    wb.save(responses)
+    send_mail_w_attachment(response,responses)
     return HttpResponse("Done", product_list)
 
 
-def send_sms(response):
-    email = EmailMessage()
-    email.subject = 'To be Expired Products'
-    email.body = 'Products expiring in next 7 days or less'
-    settings.DEFAULT_FROM_EMAIL,
-    email.to = ['shalineebhawnani1996@gmail.com']
-    # files_to_attach = ['To_be_Expired_Products.xlsx', 'Expired_Products.xlsx',response.getvalue(), 'application/ms'
-    #                                                                                               '-excel']
-    # for file_to_attach in files_to_attach:
-    #     email.attach(file_to_attach)
-    # email.send()
-    email.attach('To_be_Expired_Products.xlsx', response.getvalue(), 'application/ms-excel')
-    email.send()
+def send_mail_w_attachment(response,responses):
+
+    try:
+        email = EmailMessage()
+        email.subject = 'To be Expired Products'
+        email.body = 'Products expiring in next 7 days or less'
+        settings.DEFAULT_FROM_EMAIL,
+        email.to = ['shalineebhawnani1996@gmail.com']
+        email.attach('Expired_Products.xlsx', responses.getvalue(), 'application/ms-excel')
+        email.attach('To_be_Expired_Products.xlsx', response.getvalue(), 'application/ms-excel')
+        email.send()
+
+    except Exception as e:
+        print('Email to could not sent',e)
+
