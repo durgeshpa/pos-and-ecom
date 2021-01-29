@@ -135,15 +135,16 @@ class UploadMasterData(object):
                         fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
                                   'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
                                   'sub_brand_id', 'category_id', 'sub_category_id']
+                        available_fields = []
                         for col in fields:
                             if col in row.keys():
                                 if row[col] != '':
-                                    pass
+                                    available_fields.append(col)
                                 else:
-                                    fields.remove(col)
+                                    pass
                             else:
-                                fields.remove(col)
-                        for col in fields:
+                                pass
+                        for col in available_fields:
                             if col == 'product_type':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update\
                                     (product_type=row['product_type'])
@@ -240,15 +241,16 @@ class UploadMasterData(object):
                     Product.objects.filter(product_sku=row['sku_id']).update(product_name=row['sku_name'],
                                                                              status=row['status'])
                     fields = ['ean', 'mrp', 'weight_unit', 'weight_value']
+                    available_fields = []
                     for col in fields:
                         if col in row.keys():
                             if row[col] != '':
-                                pass
+                                available_fields.append(col)
                             else:
-                                fields.remove(col)
+                                pass
                         else:
-                            fields.remove(col)
-                    for col in fields:
+                            pass
+                    for col in available_fields:
                         if col == 'ean':
                             Product.objects.filter(product_sku=row['sku_id']).update(product_ean_code=row['ean'])
                         if col == 'mrp':

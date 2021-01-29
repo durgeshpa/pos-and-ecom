@@ -1197,7 +1197,7 @@ def UploadMasterDataSampleExcelFile(request, *args):
                                               .filter(category=int(category_id))
     for product in products:
         row = []
-        tax_list = []
+        tax_list = ['', '', '']
         row.append(product['product__product_sku'])
         row.append(product['product__product_name'])
         row.append(product['product__parent_product__parent_id'])
@@ -1210,28 +1210,12 @@ def UploadMasterDataSampleExcelFile(request, *args):
         taxes = ProductTaxMapping.objects.select_related('tax').filter(product=product['product__id'])
         for tax in taxes:
             if tax.tax.tax_type == 'gst':
-                tax_list.insert(0, tax.tax.tax_name)
+                tax_list[0] = tax.tax.tax_name
             if tax.tax.tax_type == 'cess':
-                tax_list.insert(1, tax.tax.tax_name)
+                tax_list[1] = tax.tax.tax_name
             if tax.tax.tax_type == 'surcharge':
-                tax_list.insert(2, tax.tax.tax_name)
-        if len(tax_list) == 4:
-            row.append(tax_list[0])
-            row.append(tax_list[1])
-            row.append(tax_list[2])
-        if len(tax_list) == 3:
-            row.extend(tax_list)
-        if len(tax_list) == 1:
-            row.extend(tax_list)
-            row.append('')
-            row.append('')
-        if len(tax_list) == 2:
-            row.extend(tax_list)
-            row.append('')
-        if len(tax_list) == 0:
-            row.append('')
-            row.append('')
-            row.append('')
+                tax_list[2] = tax.tax.tax_name
+        row.extend(tax_list)
         row.append(product['product__parent_product__brand_case_size'])
         row.append(product['product__parent_product__inner_case_size'])
 
@@ -1430,7 +1414,7 @@ def set_parent_data_sample_excel_file(request, *args):
                                                             category=int(category_id))
     for product in parent_products:
         row = []
-        tax_list = []
+        tax_list = ['', '', '']
         row.append(product['parent_product__parent_id'])
         row.append(product['parent_product__name'])
         row.append(product['parent_product__product_type'])
@@ -1438,28 +1422,12 @@ def set_parent_data_sample_excel_file(request, *args):
         taxes = ParentProductTaxMapping.objects.select_related('tax').filter(parent_product=product['parent_product__id'])
         for tax in taxes:
             if tax.tax.tax_type == 'gst':
-                tax_list.insert(0, tax.tax.tax_name)
+                tax_list[0] = tax.tax.tax_name
             if tax.tax.tax_type == 'cess':
-                tax_list.insert(1, tax.tax.tax_name)
+                tax_list[1] = tax.tax.tax_name
             if tax.tax.tax_type == 'surcharge':
-                tax_list.insert(2, tax.tax.tax_name)
-        if len(tax_list) == 4:
-            row.append(tax_list[0])
-            row.append(tax_list[1])
-            row.append(tax_list[2])
-        if len(tax_list) == 3:
-            row.extend(tax_list)
-        if len(tax_list) == 1:
-            row.extend(tax_list)
-            row.append('')
-            row.append('')
-        if len(tax_list) == 2:
-            row.extend(tax_list)
-            row.append('')
-        if len(tax_list) == 0:
-            row.append('')
-            row.append('')
-            row.append('')
+                tax_list[2] = tax.tax.tax_name
+        row.extend(tax_list)
         row.append(product['parent_product__brand_case_size'])
         row.append(product['parent_product__inner_case_size'])
 
@@ -1538,7 +1506,6 @@ def set_child_data_sample_excel_file(request, *args):
                                                category=Category.objects.get(id=int(category_id)))
     for product in products:
         row = []
-        tax_list = []
         row.append(product['product__product_sku'])
         row.append(product['product__product_name'])
         row.append(product['product__product_ean_code'])
