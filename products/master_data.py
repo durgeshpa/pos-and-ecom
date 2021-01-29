@@ -154,28 +154,28 @@ class UploadMasterData(object):
                                         product_hsn_code=row['hsn']).last())
                             if col == 'tax_1(gst)':
                                 tax = Tax.objects.filter(tax_name=row['tax_1(gst)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
+                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id, tax__tax_type='gst').update(
                                     tax=tax[0])
                                 if 'sku_id' in row.keys():
                                     if row['sku_id'] != '':
                                         product = Product.objects.filter(product_sku=row['sku_id'])
-                                        ProductTaxMapping.objects.filter(product=product[0].id).update(tax=tax[0])
+                                        ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='gst').update(tax=tax[0])
                             if col == 'tax_2(cess)':
                                 tax = Tax.objects.filter(tax_name=row['tax_2(cess)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
+                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id, tax__tax_type='cess').update(
                                     tax=tax[0])
                                 if 'sku_id' in row.keys():
                                     if row['sku_id'] != '':
                                         product = Product.objects.filter(product_sku=row['sku_id'])
-                                        ProductTaxMapping.objects.filter(product=product[0].id).update(tax=tax[0])
+                                        ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='cess').update(tax=tax[0])
                             if col == 'tax_3(surcharge)':
                                 tax = Tax.objects.filter(tax_name=row['tax_3(surcharge)'])
-                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id).update(
+                                ParentProductTaxMapping.objects.filter(parent_product=parent_product[0].id, tax__tax_type='surcharge').update(
                                     tax=tax[0])
                                 if 'sku_id' in row.keys():
                                     if row['sku_id'] != '':
                                         product = Product.objects.filter(product_sku=row['sku_id'])
-                                        ProductTaxMapping.objects.filter(product=product[0].id).update(tax=tax[0])
+                                        ProductTaxMapping.objects.filter(product=product[0].id, tax__tax_type='surcharge').update(tax=tax[0])
                             if col == 'brand_case_size':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update\
                                     (brand_case_size=row['brand_case_size'])
