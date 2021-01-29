@@ -146,6 +146,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
         with transaction.atomic():
             rep_obj = Repackaging.objects.get(pk=instance.pk)
             repackage_quantity = rep_obj.source_repackage_quantity
+            state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
             state_available = InventoryState.objects.filter(inventory_state='total_available').last()
             state_repackaging = InventoryState.objects.filter(inventory_state='repackaging').last()
             warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=rep_obj.seller_shop,
@@ -155,7 +156,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
             if warehouse_available_obj.exists():
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                    rep_obj.seller_shop, rep_obj.source_sku, type_normal, state_available, -1*repackage_quantity,
+                    rep_obj.seller_shop, rep_obj.source_sku, type_normal, state_to_be_picked, repackage_quantity,
                     'repackaging', rep_obj.repackaging_no)
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
