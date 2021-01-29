@@ -5,8 +5,8 @@ import traceback
 from io import StringIO
 import codecs
 import itertools
+
 from openpyxl import Workbook
-from openpyxl.styles import Font, Color, Alignment, Border, Side, colors
 from openpyxl.writer.excel import save_virtual_workbook
 
 import re
@@ -1865,13 +1865,12 @@ def audit_ordered_data(request):
 
 def auto_report_for_expired_product(request):
 
-    # To_be_Expired_Products workbook
+    """To_be_Expired_Products workbook"""
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = 'To_be_Expired_Products'
-    worksheet.sheet_properties.tabColor = "1072BA"
 
-    # Expired_Products workbook
+    """Expired Products workbook"""
     wb = Workbook()
     sheet = wb.active
     sheet.title = 'Expired_Products'
@@ -1891,11 +1890,12 @@ def auto_report_for_expired_product(request):
 
     product_list = {}
     expired_product_list = {}
+
     warehouse = Shop.objects.filter(id=600).last()
     type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
     type_damaged = InventoryType.objects.only('id').get(inventory_type='damaged').id
 
-    products = BinInventory.objects.filter(warehouse=warehouse.id).filter(batch_id="ALFSNGAAS00000003310121").filter((Q(inventory_type_id=type_normal) |
+    products = BinInventory.objects.filter(warehouse=warehouse.id).filter((Q(inventory_type_id=type_normal) |
                                                               Q(inventory_type_id=type_damaged))).values(
                             'warehouse__shop_name', 'sku',
                             'sku__id', 'sku__product_sku', 'quantity',
@@ -1937,9 +1937,9 @@ def auto_report_for_expired_product(request):
                     sub_category = sub['category__category_name']
 
                 selling_price = ProductPrice.objects.values('selling_price').filter(product=product_cat[0].id,
-                                                                                    seller_shop=product[
-                                                                                        'warehouse_id'],
-                                                                                    approval_status=2)
+                                                                        seller_shop=product['warehouse_id'],
+                                                                       approval_status=ProductPrice.APPROVED)
+
                 if selling_price:
                     for sell_price in selling_price:
                         selling_prices = sell_price['selling_price'],
@@ -1968,13 +1968,20 @@ def auto_report_for_expired_product(request):
                 }
             return product_temp
 
+
         if expiry_date.date() > today:
             expiring_soon = expiry_date.date() - today <= timedelta(days=15)
+            """
+            Product Expiring withing 15 days
+            """
             if expiring_soon:
                 product_temp = iterate_data()
                 product_list[product['sku__product_sku']] = product_temp
             product_list_new = []
 
+            """
+            Writing Product Expiring withing 15 days in Excel Sheet
+            """
             row_num = 1
             for col_num, column_title in enumerate(columns, 1):
                 cell = worksheet.cell(row=row_num, column=col_num)
@@ -1991,10 +1998,16 @@ def auto_report_for_expired_product(request):
 
         expired_products = expiry_date.date() <= today
         if expired_products:
+            """
+            Expired product
+            """
             product_temp = iterate_data()
             expired_product_list[product['sku__product_sku']] = product_temp
         expired_product_list_new = []
 
+        """
+        Writing Expired product withing 15 days in Excel Sheet
+        """
         row_num = 1
         for col_num, column_title in enumerate(columns, 1):
             cell = sheet.cell(row=row_num, column=col_num)
@@ -2011,8 +2024,8 @@ def auto_report_for_expired_product(request):
 
     workbook.save(response)
     wb.save(responses)
-    send_mail_w_attachment(response,responses)
-    return HttpResponse("Done")
+    # send_mail_w_attachment(response,responses)
+    return response
 
 
 def send_mail_w_attachment(response,responses):
@@ -2028,5 +2041,6 @@ def send_mail_w_attachment(response,responses):
         email.send()
 
     except Exception as e:
-        print('Email could not sent',e)
+        info_logger.error(e)
+
 
