@@ -1625,8 +1625,6 @@ def putaway_repackaging(request, obj, initial_stage, bin_id):
             obj.putaway.putaway_quantity = obj.putaway_quantity
         else:
             obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
-        normal_inventory_type = 'normal',
-        available_inventory_state = 'total_available',
         available_quantity = obj.putaway_quantity
         transaction_type = 'put_away_type'
         transaction_id = obj.putaway_id
@@ -1656,7 +1654,7 @@ def putaway_repackaging(request, obj, initial_stage, bin_id):
                                                inventory_type=final_type[0], quantity=quantity, in_stock=True)
 
         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-            obj.warehouse, obj.sku, normal_inventory_type[0], available_inventory_state[0], available_quantity,
+            obj.warehouse, obj.sku, final_type[0], final_stage[0], available_quantity,
             transaction_type, transaction_id)
 
         if initial_bin_id != '':
