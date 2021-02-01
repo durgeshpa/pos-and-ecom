@@ -452,16 +452,17 @@ def indirect_reward(parent_referrer, indirect_reward_points, transaction_id):
         referral_obj_indirect = Referral.objects.filter(referral_to=ancestor_user).last()
         users += [ancestor_user]
 
-    indirect_reward_points_per_user = int(indirect_reward_points / total_users)
-    for ancestor in users:
-        reward_obj = RewardPoint.objects.filter(user=ancestor).last()
-        if reward_obj:
-            reward_obj.indirect_users += 1
-            reward_obj.indirect_earned += indirect_reward_points_per_user
-            reward_obj.save()
-        else:
-            RewardPoint.objects.create(user=ancestor, indirect_users=1,
-                                       indirect_earned=indirect_reward_points_per_user)
+    if total_users > 0:
+        indirect_reward_points_per_user = int(indirect_reward_points / total_users)
+        for ancestor in users:
+            reward_obj = RewardPoint.objects.filter(user=ancestor).last()
+            if reward_obj:
+                reward_obj.indirect_users += 1
+                reward_obj.indirect_earned += indirect_reward_points_per_user
+                reward_obj.save()
+            else:
+                RewardPoint.objects.create(user=ancestor, indirect_users=1,
+                                           indirect_earned=indirect_reward_points_per_user)
 
-        RewardLog.objects.create(user=ancestor, transaction_type='indirect_reward',
-                                 transaction_id=transaction_id, points=indirect_reward_points_per_user)
+            RewardLog.objects.create(user=ancestor, transaction_type='indirect_reward',
+                                     transaction_id=transaction_id, points=indirect_reward_points_per_user)
