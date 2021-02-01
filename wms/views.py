@@ -63,6 +63,7 @@ from .common_functions import get_expiry_date
 from datetime import date, timedelta
 
 from django.core.mail import EmailMessage
+
 from decouple import config
 from django.conf import settings
 
@@ -1911,6 +1912,7 @@ def auto_report_for_expired_product(request):
                                                                            Q(inventory_type_id=type_damaged))).values(
         'warehouse__shop_name', 'sku',
         'sku__id', 'sku__product_sku', 'quantity',
+        'sku__id', 'sku__product_sku', 'quantity',
         'sku__parent_product__parent_id', 'warehouse_id',
         'sku__parent_product__name',
         'sku__parent_product__inner_case_size',
@@ -1936,7 +1938,6 @@ def auto_report_for_expired_product(request):
 
             else:
                 product_cat = Product.objects.filter(product_sku=product['sku'])
-
                 category = ProductCategory.objects.values('category__category_parent__category_name').filter(
                     product=product_cat[0].id)
                 sub_category = ProductCategory.objects.values('category__category_name').filter(
@@ -2046,6 +2047,7 @@ def auto_report_for_expired_product(request):
 
 
 def send_mail_w_attachment(response, responses):
+
     try:
         email = EmailMessage()
         email.subject = 'To be Expired Products'
@@ -2057,4 +2059,5 @@ def send_mail_w_attachment(response, responses):
         email.send()
 
     except Exception as e:
+        print(e)
         info_logger.error(e)

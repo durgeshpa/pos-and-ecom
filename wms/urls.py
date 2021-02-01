@@ -25,7 +25,7 @@ urlpatterns = [
     url(r'^move-expired-inventory/$', wms.views.move_expired_inventory_manual, name="move-expired-inventory"),
     url(r'^rectify-batch-ids/$', wms.views.rectify_batch_ids, name="rectify-batch-ids"),
     url(r'^audit_ordered_data/$', wms.views.audit_ordered_data, name='audit_ordered_data'),
-    # url(r'^auto_report_for_expired_product/$', wms.views.auto_report_for_expired_product, name='expired_product'),
+    #url(r'^auto_report_for_expired_product/$', wms.views.auto_report_for_expired_product, name='expired_product'),
 
 
 
