@@ -39,7 +39,7 @@ from datetime import datetime, timedelta
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
-    get_expiry_date_db, get_visibility_changes,get_stock, update_visibility
+    get_expiry_date_db, get_visibility_changes, get_stock, update_visibility
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
@@ -1710,14 +1710,13 @@ class PicklistRefresh:
                             -1 * picked_qty,
                             tr_type, pickup_id)
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                    pickup.warehouse, pickup.sku, pickup.inventory_type, state_to_be_picked, -1*total_remaining,
+                    pickup.warehouse, pickup.sku, pickup.inventory_type, state_to_be_picked, -1 * total_remaining,
                     tr_type, pickup_id)
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
                     pickup.warehouse, pickup.sku, pickup.inventory_type, state_ordered, total_remaining,
                     tr_type, pickup_id)
             pickup_qs.update(status='picking_cancelled')
             pd_qs.update(is_valid=False)
-
 
     @staticmethod
     def create_picklist_by_order(order, inventory_type=None):
@@ -1822,7 +1821,7 @@ class PicklistRefresh:
                                                                                      already_picked)
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                    shop, obj.sku, inventory_type, state_ordered, -1*total_to_be_picked,
+                    shop, obj.sku, inventory_type, state_ordered, -1 * total_to_be_picked,
                     tr_type, tr_id)
 
                 CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
@@ -1878,7 +1877,6 @@ def audit_ordered_data(request):
 
 
 def auto_report_for_expired_product(request):
-
     """To_be_Expired_Products workbook"""
     workbook = Workbook()
     worksheet = workbook.active
@@ -1910,16 +1908,16 @@ def auto_report_for_expired_product(request):
     type_damaged = InventoryType.objects.only('id').get(inventory_type='damaged').id
 
     products = BinInventory.objects.filter(warehouse=warehouse.id).filter((Q(inventory_type_id=type_normal) |
-                                                              Q(inventory_type_id=type_damaged))).values(
-                            'warehouse__shop_name', 'sku',
-                            'sku__id', 'sku__product_sku', 'quantity',
-                            'sku__parent_product__parent_id', 'warehouse_id',
-                            'sku__parent_product__name',
-                            'sku__parent_product__inner_case_size',
-                            'sku__product_ean_code',
-                            'sku__product_mrp', 'batch_id', 'bin__bin_id',
-                            'inventory_type__inventory_type'
-                        )
+                                                                           Q(inventory_type_id=type_damaged))).values(
+        'warehouse__shop_name', 'sku',
+        'sku__id', 'sku__product_sku', 'quantity',
+        'sku__parent_product__parent_id', 'warehouse_id',
+        'sku__parent_product__name',
+        'sku__parent_product__inner_case_size',
+        'sku__product_ean_code',
+        'sku__product_mrp', 'batch_id', 'bin__bin_id',
+        'inventory_type__inventory_type'
+    )
 
     for product in products:
 
@@ -1928,11 +1926,11 @@ def auto_report_for_expired_product(request):
         today = date.today()
 
         def iterate_data():
-            if product['sku__product_sku'] in product_list:
+            if product['sku__product_sku'] and product['batch_id'] in product_list:
                 product_temp = product_list[product['sku__product_sku']]
                 product_temp[product['inventory_type__inventory_type']] += product['quantity']
 
-            elif product['sku__product_sku'] in expired_product_list:
+            elif product['sku__product_sku'] and product['batch_id'] in expired_product_list:
                 product_temp = expired_product_list[product['sku__product_sku']]
                 product_temp[product['inventory_type__inventory_type']] += product['quantity']
 
@@ -1955,8 +1953,8 @@ def auto_report_for_expired_product(request):
                     sub_category = sub['category__category_name']
 
                 selling_price = ProductPrice.objects.values('selling_price').filter(product=product_cat[0].id,
-                                                                        seller_shop=product['warehouse_id'],
-                                                                       approval_status=ProductPrice.APPROVED)
+                                                                                    seller_shop=product['warehouse_id'],
+                                                                                    approval_status=ProductPrice.APPROVED)
 
                 if selling_price:
                     for sell_price in selling_price:
@@ -1987,7 +1985,6 @@ def auto_report_for_expired_product(request):
                 }
                 product_temp[product['inventory_type__inventory_type']] += product['quantity']
             return product_temp
-
 
         if expiry_date.date() > today:
             expiring_soon = expiry_date.date() - today <= timedelta(days=15)
@@ -2044,12 +2041,11 @@ def auto_report_for_expired_product(request):
 
     workbook.save(response)
     wb.save(responses)
-    send_mail_w_attachment(response,responses)
+    send_mail_w_attachment(response, responses)
     return response
 
 
-def send_mail_w_attachment(response,responses):
-
+def send_mail_w_attachment(response, responses):
     try:
         email = EmailMessage()
         email.subject = 'To be Expired Products'
@@ -2062,5 +2058,3 @@ def send_mail_w_attachment(response,responses):
 
     except Exception as e:
         info_logger.error(e)
-
-
