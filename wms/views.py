@@ -2059,5 +2059,4 @@ def send_mail_w_attachment(response, responses):
         email.send()
 
     except Exception as e:
-        print(e)
         info_logger.error(e)
