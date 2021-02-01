@@ -62,6 +62,8 @@ from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, In
 from .common_functions import get_expiry_date
 from datetime import date, timedelta
 
+from global_config.models import GlobalConfig
+
 from django.core.mail import EmailMessage
 from django.core.mail import send_mail
 from decouple import config
@@ -2041,9 +2043,8 @@ def auto_report_for_expired_product(request):
 
     workbook.save(response)
     wb.save(responses)
-    # send_mail_w_attachment(response, responses)
+    send_mail_w_attachment(response, responses)
     return response
-
 
 def send_mail_w_attachment(response, responses):
 
@@ -2052,11 +2053,14 @@ def send_mail_w_attachment(response, responses):
         email.subject = 'To be Expired Products'
         email.body = 'Products expiring in next 7 days or less'
         # settings.DEFAULT_FROM_EMAIL,
-        email.from_email = config('EMAIL_USER')
-        email.to = [config('TO_EMAIL')]
+        sender = GlobalConfig.objects.get(key='sender')
+        email.from_email = sender.value
+        receiver = GlobalConfig.objects.get(key='recipient')
+        email.to = [receiver.value]
         email.attach('Expired_Products.xlsx', responses.getvalue(), 'application/ms-excel')
         email.attach('To_be_Expired_Products.xlsx', response.getvalue(), 'application/ms-excel')
         email.send()
 
     except Exception as e:
+        print(e)
         info_logger.error(e)
