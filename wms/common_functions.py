@@ -929,45 +929,60 @@ def cancel_pickup(pickup_object):
     state_picked = InventoryState.objects.filter(inventory_state="picked").last()
     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
     pickup_bin_qs = PickupBinInventory.objects.filter(pickup=pickup_object)
-    with transaction.atomic():
-        total_remaining = 0
-        for item in pickup_bin_qs:
-            bi_qs = BinInventory.objects.filter(id=item.bin_id)
-            bi = bi_qs.last()
-            # bin_quantity = bi.quantity + item.quantity
-            picked_qty = item.pickup_quantity
-            if picked_qty is None:
-                picked_qty = 0
-            remaining_qty = item.quantity - picked_qty
-            total_remaining += remaining_qty
-            bin_quantity = bi.quantity + remaining_qty
-            to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
-            if to_be_picked_qty < 0:
-                to_be_picked_qty = 0
-            bi_qs.update(quantity=bin_quantity, to_be_picked_qty=to_be_picked_qty)
-            InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
-                                                                         bi.bin,
-                                                                         type_normal, type_normal,
-                                                                         tr_type,
-                                                                         pickup_id,
-                                                                         remaining_qty)
-            if picked_qty > 0:
-                PutawayCommonFunctions.create_putaway_with_putaway_bin_inventory(
-                    bi, type_normal, tr_type, pickup_id, picked_qty, False)
-                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                    pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
-                    state_picked, -1 * picked_qty, tr_type, pickup_id)
+    total_remaining = 0
+    for item in pickup_bin_qs:
+        bi_qs = BinInventory.objects.filter(id=item.bin_id)
+        bi = bi_qs.last()
+        # bin_quantity = bi.quantity + item.quantity
+        picked_qty = item.pickup_quantity
+        if picked_qty is None:
+            picked_qty = 0
+        remaining_qty = item.quantity - picked_qty
+        total_remaining += remaining_qty
+        bin_quantity = bi.quantity + remaining_qty
+        to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
+        if to_be_picked_qty < 0:
+            to_be_picked_qty = 0
+        bi_qs.update(quantity=bin_quantity, to_be_picked_qty=to_be_picked_qty)
+        InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
+                                                                     bi.bin,
+                                                                     type_normal, type_normal,
+                                                                     tr_type,
+                                                                     pickup_id,
+                                                                     remaining_qty)
+        if picked_qty > 0:
+            PutawayCommonFunctions.create_putaway_with_putaway_bin_inventory(
+                bi, type_normal, tr_type, pickup_id, picked_qty, False)
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
+                state_picked, -1 * picked_qty, tr_type, pickup_id)
 
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-            pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
-            state_to_be_picked, -1 * total_remaining, tr_type, pickup_id)
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+        pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
+        state_to_be_picked, -1 * total_remaining, tr_type, pickup_id)
 
-        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-            pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
-            state_ordered, total_remaining, tr_type, pickup_id)
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+        pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
+        state_ordered, total_remaining, tr_type, pickup_id)
 
-        pickup_object.status = tr_type
-        pickup_object.save()
+    pickup_object.status = tr_type
+    pickup_object.save()
+
+
+def revert_ordered_inventory(pickup_object):
+    """
+    Takes the Pickup instance
+    calculates the remaining quantity needs to be deducted from warehouse ordered state
+    deducts remaining quantity from ordered state for concerned SKU
+    """
+    tr_type = "order_cancelled"
+    tr_id = pickup_object.pickup_type_id
+    state_ordered = InventoryState.objects.filter(inventory_state="ordered").last()
+    remaining_quantity = pickup_object.quantity-pickup_object.pickup_quantity
+
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+        pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
+        state_ordered, -1*remaining_quantity, tr_type, tr_id)
 
 
 def cancel_order_with_pick(instance):
@@ -978,6 +993,8 @@ def cancel_order_with_pick(instance):
 
     """
     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+    state_picked = InventoryState.objects.filter(inventory_state='picked').last()
+
     with transaction.atomic():
         pickup_qs = Pickup.objects.filter(pickup_type_id=instance.order_no)\
                                       .exclude(status='picking_cancelled')
@@ -986,10 +1003,15 @@ def cancel_order_with_pick(instance):
         if pickup_qs.last().status in ['pickup_creation', 'picking_assigned']:
             for pickup_object in pickup_qs:
                 cancel_pickup(pickup_object)
+                revert_ordered_inventory(pickup_object)
             info_logger.info('cancel_order_with_pick| Order No-{}, Cancelled Pickup'
                              .format(instance.order_no))
             return
         if pickup_qs.last().status == 'picking_complete':
+            pickup_id = pickup_qs.last().id
+            warehouse = pickup_qs.last().warehouse
+            sku = pickup_qs.last().sku
+
             # get the queryset object from Pickup Bin Inventory Model
             pickup_bin_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)\
                                                           .exclude(pickup__status='picking_cancelled')
@@ -1050,7 +1072,6 @@ def cancel_order_with_pick(instance):
                         status = 'Pickup_Cancelled'
 
             # update or create put away model
-            type_normal = InventoryType.objects.filter(inventory_type='normal').last()
             pu, _ = Putaway.objects.update_or_create(putaway_user=instance.last_modified_by,
                                                      warehouse=pickup_bin.warehouse, putaway_type='CANCELLED',
                                                      putaway_type_id=instance.order_no, sku=pickup_bin.bin.sku,
@@ -1063,6 +1084,10 @@ def cancel_order_with_pick(instance):
                                                          batch_id=pickup_bin.batch_id, putaway_type=status,
                                                          putaway=pu, bin=pickup_bin.bin, putaway_status=False,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
+
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                warehouse, sku, type_normal, state_picked, -1 * pick_up_bin_quantity,
+                "order_cancelled", instance.order_no)
         pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
         pickup_obj.update(status='picking_cancelled')
 
@@ -1600,8 +1625,6 @@ def putaway_repackaging(request, obj, initial_stage, bin_id):
             obj.putaway.putaway_quantity = obj.putaway_quantity
         else:
             obj.putaway.putaway_quantity = obj.putaway_quantity + obj.putaway.putaway_quantity
-        normal_inventory_type = 'normal',
-        available_inventory_state = 'total_available',
         available_quantity = obj.putaway_quantity
         transaction_type = 'put_away_type'
         transaction_id = obj.putaway_id
@@ -1631,7 +1654,7 @@ def putaway_repackaging(request, obj, initial_stage, bin_id):
                                                inventory_type=final_type[0], quantity=quantity, in_stock=True)
 
         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-            obj.warehouse, obj.sku, normal_inventory_type[0], available_inventory_state[0], available_quantity,
+            obj.warehouse, obj.sku, final_type[0], final_stage[0], available_quantity,
             transaction_type, transaction_id)
 
         if initial_bin_id != '':
