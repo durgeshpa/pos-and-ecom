@@ -28,5 +28,4 @@ urlpatterns = [
     url(r'^auto_report_for_expired_product/$', wms.views.auto_report_for_expired_product, name='expired_product'),
 
 
-
 ]
