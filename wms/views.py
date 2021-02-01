@@ -1932,6 +1932,10 @@ def auto_report_for_expired_product(request):
                 product_temp = product_list[product['sku__product_sku']]
                 product_temp[product['inventory_type__inventory_type']] = product['quantity']
 
+            elif product['sku__product_sku'] in expired_product_list:
+                product_temp = expired_product_list[product['sku__product_sku']]
+                product_temp[product['inventory_type__inventory_type']] = product['quantity']
+
             else:
                 product_cat = Product.objects.filter(product_sku=product['sku'])
 
@@ -1980,6 +1984,7 @@ def auto_report_for_expired_product(request):
                     'bin__bin_id': product['bin__bin_id'],
                     'normal': product['quantity'],
                 }
+
             return product_temp
 
 
