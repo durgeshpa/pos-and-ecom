@@ -62,6 +62,7 @@ from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, In
 from .common_functions import get_expiry_date
 from datetime import date, timedelta
 from .send_email import send_mail_w_attachment
+from global_config.models import GlobalConfig
 
 from django.conf import settings
 
@@ -1901,144 +1902,147 @@ def auto_report_for_expired_product(request):
 
     product_list = {}
     expired_product_list = {}
+    warehouse_id = GlobalConfig.objects.get(key='warehouse_id')
+    warehouse_ids = warehouse_id.value
 
-    warehouse = Shop.objects.filter(id=600).last()
-    type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
-    type_damaged = InventoryType.objects.only('id').get(inventory_type='damaged').id
+    for warehouse_id in warehouse_ids.split(','):
+        warehouse = Shop.objects.filter(id=warehouse_id).last()
+        type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
+        type_damaged = InventoryType.objects.only('id').get(inventory_type='damaged').id
 
-    products = BinInventory.objects.filter(warehouse=warehouse.id).filter((Q(inventory_type_id=type_normal) |
-                                                                           Q(inventory_type_id=type_damaged))).values(
-        'warehouse__shop_name', 'sku',
-        'sku__id', 'sku__product_sku', 'quantity',
-        'sku__parent_product__parent_id', 'warehouse_id',
-        'sku__parent_product__name',
-        'sku__parent_product__inner_case_size',
-        'sku__product_ean_code',
-        'sku__product_mrp', 'batch_id', 'bin__bin_id',
-        'inventory_type__inventory_type'
-    )
+        products = BinInventory.objects.filter(warehouse=warehouse.id).filter((Q(inventory_type_id=type_normal) |
+                                                                               Q(inventory_type_id=type_damaged))).values(
+            'warehouse__shop_name', 'sku',
+            'sku__id', 'sku__product_sku', 'quantity',
+            'sku__parent_product__parent_id', 'warehouse_id',
+            'sku__parent_product__name',
+            'sku__parent_product__inner_case_size',
+            'sku__product_ean_code',
+            'sku__product_mrp', 'batch_id', 'bin__bin_id',
+            'inventory_type__inventory_type'
+        )
 
-    for product in products:
+        for product in products:
 
-        expiry_date_str = get_expiry_date(product['batch_id'])
-        expiry_date = datetime.strptime(expiry_date_str, "%d/%m/%Y")
-        today = date.today()
+            expiry_date_str = get_expiry_date(product['batch_id'])
+            expiry_date = datetime.strptime(expiry_date_str, "%d/%m/%Y")
+            today = date.today()
 
-        def iterate_data():
-            if product['sku__product_sku'] and product['batch_id'] in product_list:
-                product_temp = product_list[product['sku__product_sku']]
-                product_temp[product['inventory_type__inventory_type']] += product['quantity']
+            def iterate_data():
+                if product['sku__product_sku'] and product['batch_id'] in product_list:
+                    product_temp = product_list[product['sku__product_sku']]
+                    product_temp[product['inventory_type__inventory_type']] += product['quantity']
 
-            elif product['sku__product_sku'] and product['batch_id'] in expired_product_list:
-                product_temp = expired_product_list[product['sku__product_sku']]
-                product_temp[product['inventory_type__inventory_type']] += product['quantity']
-
-            else:
-                product_cat = Product.objects.filter(product_sku=product['sku'])
-                category = ProductCategory.objects.values('category__category_parent__category_name').filter(
-                    product=product_cat[0].id)
-                sub_category = ProductCategory.objects.values('category__category_name').filter(
-                    product=product_cat[0].id)
-
-                for cat in category:
-                    if cat['category__category_parent__category_name']:
-                        category = cat['category__category_parent__category_name']
-                    else:
-                        for cat in sub_category:
-                            category = cat['category__category_name']
-
-                for sub in sub_category:
-                    sub_category = sub['category__category_name']
-
-                selling_price = ProductPrice.objects.values('selling_price').filter(product=product_cat[0].id,
-                                                                                    seller_shop=product['warehouse_id'],
-                                                                                    approval_status=ProductPrice.APPROVED)
-
-                if selling_price:
-                    for sell_price in selling_price:
-                        selling_prices = sell_price['selling_price'],
-                        selling_price = selling_prices[0]
+                elif product['sku__product_sku'] and product['batch_id'] in expired_product_list:
+                    product_temp = expired_product_list[product['sku__product_sku']]
+                    product_temp[product['inventory_type__inventory_type']] += product['quantity']
 
                 else:
-                    selling_price = ''
+                    product_cat = Product.objects.filter(product_sku=product['sku'])
+                    category = ProductCategory.objects.values('category__category_parent__category_name').filter(
+                        product=product_cat[0].id)
+                    sub_category = ProductCategory.objects.values('category__category_name').filter(
+                        product=product_cat[0].id)
 
-                product_temp = {
+                    for cat in category:
+                        if cat['category__category_parent__category_name']:
+                            category = cat['category__category_parent__category_name']
+                        else:
+                            for cat in sub_category:
+                                category = cat['category__category_name']
 
-                    'warehouse_name': product['warehouse__shop_name'],
-                    'sku__id': product['sku__id'],
-                    'sku__product_sku': product['sku__product_sku'],
-                    'sku__parent_product__parent_id': product['sku__parent_product__parent_id'],
-                    'sku__parent_product__name': product['sku__parent_product__name'],
-                    'category': category,
-                    'sub_cat': sub_category,
-                    'sku__product_ean_code': product['sku__product_ean_code'],
-                    'sku__product_mrp': product['sku__product_mrp'],
-                    'selling_price': selling_price,
-                    'sku__parent_product__inner_case_size': product['sku__parent_product__inner_case_size'],
-                    'batch_id': product['batch_id'],
-                    'expiry_date': expiry_date.date(),
-                    'bin__bin_id': product['bin__bin_id'],
-                    'normal': 0,
-                    'damaged': 0,
-                }
-                product_temp[product['inventory_type__inventory_type']] += product['quantity']
-            return product_temp
+                    for sub in sub_category:
+                        sub_category = sub['category__category_name']
 
-        if expiry_date.date() > today:
-            expiring_soon = expiry_date.date() - today <= timedelta(days=15)
-            """
-            Product Expiring withing 15 days
-            """
-            if expiring_soon:
+                    selling_price = ProductPrice.objects.values('selling_price').filter(product=product_cat[0].id,
+                                                                                        seller_shop=product['warehouse_id'],
+                                                                                        approval_status=ProductPrice.APPROVED)
+
+                    if selling_price:
+                        for sell_price in selling_price:
+                            selling_prices = sell_price['selling_price'],
+                            selling_price = selling_prices[0]
+
+                    else:
+                        selling_price = ''
+
+                    product_temp = {
+
+                        'warehouse_name': product['warehouse__shop_name'],
+                        'sku__id': product['sku__id'],
+                        'sku__product_sku': product['sku__product_sku'],
+                        'sku__parent_product__parent_id': product['sku__parent_product__parent_id'],
+                        'sku__parent_product__name': product['sku__parent_product__name'],
+                        'category': category,
+                        'sub_cat': sub_category,
+                        'sku__product_ean_code': product['sku__product_ean_code'],
+                        'sku__product_mrp': product['sku__product_mrp'],
+                        'selling_price': selling_price,
+                        'sku__parent_product__inner_case_size': product['sku__parent_product__inner_case_size'],
+                        'batch_id': product['batch_id'],
+                        'expiry_date': expiry_date.date(),
+                        'bin__bin_id': product['bin__bin_id'],
+                        'normal': 0,
+                        'damaged': 0,
+                    }
+                    product_temp[product['inventory_type__inventory_type']] += product['quantity']
+                return product_temp
+
+            if expiry_date.date() > today:
+                expiring_soon = expiry_date.date() - today <= timedelta(days=15)
+                """
+                Product Expiring withing 15 days
+                """
+                if expiring_soon:
+                    product_temp = iterate_data()
+                    product_list[product['sku__product_sku']] = product_temp
+                product_list_new = []
+
+                """
+                Writing Product Expiring withing 15 days in Excel Sheet
+                """
+                row_num = 1
+                for col_num, column_title in enumerate(columns, 1):
+                    cell = worksheet.cell(row=row_num, column=col_num)
+                    cell.value = column_title
+                row = 2
+                for key, value in product_list.items():
+                    col = 1
+                    product_list_new.append(value)
+                    for key_item, value_item in value.items():
+                        cell = worksheet.cell(row=row, column=col)
+                        cell.value = value_item
+                        col += 1
+                    row += 1
+
+            expired_products = expiry_date.date() <= today
+            if expired_products:
+                """
+                Expired product
+                """
                 product_temp = iterate_data()
-                product_list[product['sku__product_sku']] = product_temp
-            product_list_new = []
+                expired_product_list[product['sku__product_sku']] = product_temp
+            expired_product_list_new = []
 
             """
-            Writing Product Expiring withing 15 days in Excel Sheet
+            Writing Expired product withing 15 days in Excel Sheet
             """
             row_num = 1
             for col_num, column_title in enumerate(columns, 1):
-                cell = worksheet.cell(row=row_num, column=col_num)
+                cell = sheet.cell(row=row_num, column=col_num)
                 cell.value = column_title
             row = 2
-            for key, value in product_list.items():
+            for key, value in expired_product_list.items():
                 col = 1
-                product_list_new.append(value)
+                expired_product_list_new.append(value)
                 for key_item, value_item in value.items():
-                    cell = worksheet.cell(row=row, column=col)
+                    cell = sheet.cell(row=row, column=col)
                     cell.value = value_item
                     col += 1
                 row += 1
 
-        expired_products = expiry_date.date() <= today
-        if expired_products:
-            """
-            Expired product
-            """
-            product_temp = iterate_data()
-            expired_product_list[product['sku__product_sku']] = product_temp
-        expired_product_list_new = []
-
-        """
-        Writing Expired product withing 15 days in Excel Sheet
-        """
-        row_num = 1
-        for col_num, column_title in enumerate(columns, 1):
-            cell = sheet.cell(row=row_num, column=col_num)
-            cell.value = column_title
-        row = 2
-        for key, value in expired_product_list.items():
-            col = 1
-            expired_product_list_new.append(value)
-            for key_item, value_item in value.items():
-                cell = sheet.cell(row=row, column=col)
-                cell.value = value_item
-                col += 1
-            row += 1
-
     workbook.save(response)
     wb.save(responses)
     send_mail_w_attachment(response, responses)
-    return response
+    # return response
 
