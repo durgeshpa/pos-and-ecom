@@ -14,7 +14,7 @@ def send_mail_w_attachment(response, responses):
         sender = GlobalConfig.objects.get(key='sender')
         email.from_email = sender.value
         receiver = GlobalConfig.objects.get(key='recipient')
-        email.to = [receiver.value]
+        email.to = eval(receiver.value)
         email.attach('Expired_Products.xlsx', responses.getvalue(), 'application/ms-excel')
         email.attach('To_be_Expired_Products.xlsx', response.getvalue(), 'application/ms-excel')
         email.send()

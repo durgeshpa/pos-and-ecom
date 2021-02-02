@@ -562,3 +562,10 @@ LOGGING = {
         },
     },
 }
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'email-smtp.ap-south-1.amazonaws.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'AKIA2FHSHM5DKWTV6LOQ'
+EMAIL_HOST_PASSWORD = 'BJbO9E+1qSLQtuDCO9qkakBUcE5SEnr7d/X9sOKrlYzd'
+EMAIL_USE_TLS = True
