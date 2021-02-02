@@ -392,7 +392,7 @@ CRONJOBS = [
     ('*/5 * * * *', 'audit.cron.create_picklist_cron'),
     ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
     ('30 18 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
-    ('0 1 * * *', 'wms.views.auto_report_for_expired_product'),
+    ('30 22 * * *', 'wms.views.auto_report_for_expired_product'),
     ('*/5 * * * *', 'products.cron.deactivate_capping'),
     ('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
     ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
