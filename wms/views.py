@@ -1938,23 +1938,36 @@ def auto_report_for_expired_product(request):
                     product_temp[product['inventory_type__inventory_type']] += product['quantity']
 
                 else:
-                    product_cat = Product.objects.filter(product_sku=product['sku'])
+                    product_obj = Product.objects.filter(product_sku=product['sku'])
+
                     category = ProductCategory.objects.values('category__category_parent__category_name').filter(
-                        product=product_cat[0].id)
+                        product=product_obj[0].id)
                     sub_category = ProductCategory.objects.values('category__category_name').filter(
-                        product=product_cat[0].id)
+                        product=product_obj[0].id)
 
-                    for cat in category:
-                        if cat['category__category_parent__category_name']:
-                            category = cat['category__category_parent__category_name']
-                        else:
+                    if category:
+                        for cat in category:
+                            categories = cat['category__category_parent__category_name']
+                            if categories is None:
+                                if sub_category:
+                                    for cat in sub_category:
+                                        categories = cat['category__category_name']
+                                else:
+                                    categories = ''
+                    else:
+                        if sub_category:
                             for cat in sub_category:
-                                category = cat['category__category_name']
+                                categories = cat['category__category_name']
+                        else:
+                            categories = ''
 
-                    for sub in sub_category:
-                        sub_category = sub['category__category_name']
+                    if sub_category:
+                        for sub in sub_category:
+                            sub_categories = sub['category__category_name']
+                    else:
+                        sub_categories = ''
 
-                    selling_price = ProductPrice.objects.values('selling_price').filter(product=product_cat[0].id,
+                    selling_price = ProductPrice.objects.values('selling_price').filter(product=product_obj[0].id,
                                                                                         seller_shop=product['warehouse_id'],
                                                                                         approval_status=ProductPrice.APPROVED)
 
@@ -1973,8 +1986,8 @@ def auto_report_for_expired_product(request):
                         'sku__product_sku': product['sku__product_sku'],
                         'sku__parent_product__parent_id': product['sku__parent_product__parent_id'],
                         'sku__parent_product__name': product['sku__parent_product__name'],
-                        'category': category,
-                        'sub_cat': sub_category,
+                        'category': categories,
+                        'sub_cat': sub_categories,
                         'sku__product_ean_code': product['sku__product_ean_code'],
                         'sku__product_mrp': product['sku__product_mrp'],
                         'selling_price': selling_price,
@@ -2044,5 +2057,5 @@ def auto_report_for_expired_product(request):
     workbook.save(response)
     wb.save(responses)
     send_mail_w_attachment(response, responses)
-    # return response
+    return response
 
