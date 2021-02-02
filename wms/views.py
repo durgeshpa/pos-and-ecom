@@ -1876,7 +1876,8 @@ def audit_ordered_data(request):
         info_logger.error(e)
 
 
-def auto_report_for_expired_product(request):
+def auto_report_for_expired_product():
+    info_logger.info("WMS : Auto Report for To be expired Products started at {}".format(datetime.now()))
     """To_be_Expired_Products workbook"""
     workbook = Workbook()
     worksheet = workbook.active
