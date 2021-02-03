@@ -1877,7 +1877,6 @@ def audit_ordered_data(request):
 
 
 def auto_report_for_expired_product():
-
     info_logger.info("WMS : Auto Report for To be expired Products started at {}".format(datetime.now()))
 
     """To_be_Expired_Products workbook"""
@@ -1903,7 +1902,6 @@ def auto_report_for_expired_product():
                'EAN', 'MRP', 'Selling Price', 'Inner CategoryCase Size', 'Batch ID', 'Expiry Date',
                'Bin ID', 'Normal Available Qty', 'Damaged Available Qty']
 
-
     warehouse_id = GlobalConfig.objects.get(key='warehouse_id')
     warehouse_ids = warehouse_id.value
 
@@ -1914,97 +1912,23 @@ def auto_report_for_expired_product():
         type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
         type_damaged = InventoryType.objects.only('id').get(inventory_type='damaged').id
 
-        products = BinInventory.objects.filter(warehouse=warehouse.id).filter(quantity__gt=0).filter((Q(inventory_type_id=type_normal) |
-                                                                               Q(inventory_type_id=type_damaged))).values(
-            'warehouse__shop_name', 'sku','sku__id',
-            'sku__product_sku','warehouse_id',
+        products = BinInventory.objects.filter(Q(warehouse=warehouse.id), Q(quantity__gt=0)).filter(
+            (Q(inventory_type_id=type_normal) | Q(inventory_type_id=type_damaged))).values(
+            'warehouse__shop_name', 'sku', 'sku__id',
+            'sku__product_sku', 'warehouse_id',
             'sku__product_name', 'quantity',
             'sku__parent_product__parent_id',
             'sku__parent_product__name',
             'sku__parent_product__inner_case_size',
-            'sku__product_ean_code','sku__product_mrp',
+            'sku__product_ean_code', 'sku__product_mrp',
             'batch_id', 'bin__bin_id',
             'inventory_type__inventory_type'
         )
 
         for product in products:
-
             expiry_date_str = get_expiry_date(product['batch_id'])
             expiry_date = datetime.strptime(expiry_date_str, "%d/%m/%Y")
             today = date.today()
-
-            def iterate_data():
-                if product['batch_id'] in product_list:
-                    product_temp = product_list[product['batch_id']]
-                    product_temp[product['inventory_type__inventory_type']] += product['quantity']
-
-                elif product['batch_id'] in expired_product_list:
-                    product_temp = expired_product_list[product['batch_id']]
-                    product_temp[product['inventory_type__inventory_type']] += product['quantity']
-
-                else:
-                    product_obj = Product.objects.filter(product_sku=product['sku'])
-
-                    category = ProductCategory.objects.values('category__category_parent__category_name').filter(
-                        product=product_obj[0].id)
-                    sub_category = ProductCategory.objects.values('category__category_name').filter(
-                        product=product_obj[0].id)
-
-                    if category:
-                        for cat in category:
-                            categories = cat['category__category_parent__category_name']
-                            if categories is None:
-                                if sub_category:
-                                    for cat in sub_category:
-                                        categories = cat['category__category_name']
-                                else:
-                                    categories = ''
-                    else:
-                        if sub_category:
-                            for cat in sub_category:
-                                categories = cat['category__category_name']
-                        else:
-                            categories = ''
-
-                    if sub_category:
-                        for sub in sub_category:
-                            sub_categories = sub['category__category_name']
-                    else:
-                        sub_categories = ''
-
-                    selling_price = ProductPrice.objects.values('selling_price').filter(product=product_obj[0].id,
-                                                                                        seller_shop=product['warehouse_id'],
-                                                                                        approval_status=ProductPrice.APPROVED)
-
-                    if selling_price:
-                        for sell_price in selling_price:
-                            selling_prices = sell_price['selling_price'],
-                            selling_price = selling_prices[0]
-
-                    else:
-                        selling_price = ''
-
-                    product_temp = {
-
-                        'warehouse_name': product['warehouse__shop_name'],
-                        'sku__id': product['sku__product_sku'],
-                        'sku__product_sku': product['sku__product_name'],
-                        'sku__parent_product__parent_id': product['sku__parent_product__parent_id'],
-                        'sku__parent_product__name': product['sku__parent_product__name'],
-                        'category': categories,
-                        'sub_cat': sub_categories,
-                        'sku__product_ean_code': product['sku__product_ean_code'],
-                        'sku__product_mrp': product['sku__product_mrp'],
-                        'selling_price': selling_price,
-                        'sku__parent_product__inner_case_size': product['sku__parent_product__inner_case_size'],
-                        'batch_id': product['batch_id'],
-                        'expiry_date': expiry_date.date(),
-                        'bin__bin_id': product['bin__bin_id'],
-                        'normal': 0,
-                        'damaged': 0,
-                    }
-                    product_temp[product['inventory_type__inventory_type']] += product['quantity']
-                return product_temp
 
             if expiry_date.date() > today:
                 expiring_soon = expiry_date.date() - today <= timedelta(days=15)
@@ -2012,7 +1936,7 @@ def auto_report_for_expired_product():
                 Product Expiring withing 15 days
                 """
                 if expiring_soon:
-                    product_temp = iterate_data()
+                    product_temp = iterate_data(product, product_list, expired_product_list, expiry_date)
                     product_list[product['batch_id']] = product_temp
                 product_list_new = []
 
@@ -2038,7 +1962,7 @@ def auto_report_for_expired_product():
                 """
                 Expired product
                 """
-                product_temp = iterate_data()
+                product_temp = iterate_data(product, product_list, expired_product_list, expiry_date)
                 expired_product_list[product['batch_id']] = product_temp
             expired_product_list_new = []
 
@@ -2064,3 +1988,76 @@ def auto_report_for_expired_product():
         send_mail_w_attachment(response, responses, warehouse_id, product['warehouse__shop_name'])
     return response
 
+
+def iterate_data(product, product_list, expired_product_list, expiry_date):
+    if product['batch_id'] in product_list:
+        product_temp = product_list[product['batch_id']]
+        product_temp[product['inventory_type__inventory_type']] += product['quantity']
+
+    elif product['batch_id'] in expired_product_list:
+        product_temp = expired_product_list[product['batch_id']]
+        product_temp[product['inventory_type__inventory_type']] += product['quantity']
+
+    else:
+        product_obj = Product.objects.filter(product_sku=product['sku'])
+
+        category = ProductCategory.objects.values('category__category_parent__category_name').filter(
+            product=product_obj[0].id)
+        sub_category = ProductCategory.objects.values('category__category_name').filter(
+            product=product_obj[0].id)
+
+        if category:
+            for cat in category:
+                categories = cat['category__category_parent__category_name']
+                if categories is None:
+                    if sub_category:
+                        for cat in sub_category:
+                            categories = cat['category__category_name']
+                    else:
+                        categories = ''
+        else:
+            if sub_category:
+                for cat in sub_category:
+                    categories = cat['category__category_name']
+            else:
+                categories = ''
+
+        if sub_category:
+            for sub in sub_category:
+                sub_categories = sub['category__category_name']
+        else:
+            sub_categories = ''
+
+        selling_price = ProductPrice.objects.values('selling_price').filter(product=product_obj[0].id,
+                                                                            seller_shop=product['warehouse_id'],
+                                                                            approval_status=ProductPrice.APPROVED)
+
+        if selling_price:
+            for sell_price in selling_price:
+                selling_prices = sell_price['selling_price'],
+                selling_price = selling_prices[0]
+
+        else:
+            selling_price = ''
+
+        product_temp = {
+
+            'warehouse_name': product['warehouse__shop_name'],
+            'sku__id': product['sku__product_sku'],
+            'sku__product_sku': product['sku__product_name'],
+            'sku__parent_product__parent_id': product['sku__parent_product__parent_id'],
+            'sku__parent_product__name': product['sku__parent_product__name'],
+            'category': categories,
+            'sub_cat': sub_categories,
+            'sku__product_ean_code': product['sku__product_ean_code'],
+            'sku__product_mrp': product['sku__product_mrp'],
+            'selling_price': selling_price,
+            'sku__parent_product__inner_case_size': product['sku__parent_product__inner_case_size'],
+            'batch_id': product['batch_id'],
+            'expiry_date': expiry_date.date(),
+            'bin__bin_id': product['bin__bin_id'],
+            'normal': 0,
+            'damaged': 0,
+        }
+        product_temp[product['inventory_type__inventory_type']] += product['quantity']
+    return product_temp
