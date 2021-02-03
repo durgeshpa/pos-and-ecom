@@ -1877,7 +1877,6 @@ def audit_ordered_data(request):
 
 
 def auto_report_for_expired_product():
-
     info_logger.info("WMS : Auto Report for To be expired Products started at {}".format(datetime.now()))
 
     """To_be_Expired_Products workbook"""
@@ -1903,7 +1902,6 @@ def auto_report_for_expired_product():
                'EAN', 'MRP', 'Selling Price', 'Inner CategoryCase Size', 'Batch ID', 'Expiry Date',
                'Bin ID', 'Normal Available Qty', 'Damaged Available Qty']
 
-
     warehouse_id = GlobalConfig.objects.get(key='warehouse_id')
     warehouse_ids = warehouse_id.value
 
@@ -1914,15 +1912,15 @@ def auto_report_for_expired_product():
         type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
         type_damaged = InventoryType.objects.only('id').get(inventory_type='damaged').id
 
-        products = BinInventory.objects.filter(warehouse=warehouse.id).filter(quantity__gt=0).filter((Q(inventory_type_id=type_normal) |
-                                                                               Q(inventory_type_id=type_damaged))).values(
-            'warehouse__shop_name', 'sku','sku__id',
-            'sku__product_sku','warehouse_id',
+        products = BinInventory.objects.filter(Q(warehouse=warehouse.id), Q(quantity__gt=0)).filter(
+            (Q(inventory_type_id=type_normal) | Q(inventory_type_id=type_damaged))).values(
+            'warehouse__shop_name', 'sku', 'sku__id',
+            'sku__product_sku', 'warehouse_id',
             'sku__product_name', 'quantity',
             'sku__parent_product__parent_id',
             'sku__parent_product__name',
             'sku__parent_product__inner_case_size',
-            'sku__product_ean_code','sku__product_mrp',
+            'sku__product_ean_code', 'sku__product_mrp',
             'batch_id', 'bin__bin_id',
             'inventory_type__inventory_type'
         )
@@ -1938,7 +1936,7 @@ def auto_report_for_expired_product():
                 Product Expiring withing 15 days
                 """
                 if expiring_soon:
-                    product_temp = iterate_data(product,product_list,expired_product_list,expiry_date)
+                    product_temp = iterate_data(product, product_list, expired_product_list, expiry_date)
                     product_list[product['batch_id']] = product_temp
                 product_list_new = []
 
@@ -1964,7 +1962,7 @@ def auto_report_for_expired_product():
                 """
                 Expired product
                 """
-                product_temp = iterate_data(product,product_list,expired_product_list,expiry_date)
+                product_temp = iterate_data(product, product_list, expired_product_list, expiry_date)
                 expired_product_list[product['batch_id']] = product_temp
             expired_product_list_new = []
 
@@ -1991,7 +1989,7 @@ def auto_report_for_expired_product():
     return response
 
 
-def iterate_data(product,product_list,expired_product_list,expiry_date):
+def iterate_data(product, product_list, expired_product_list, expiry_date):
     if product['batch_id'] in product_list:
         product_temp = product_list[product['batch_id']]
         product_temp[product['inventory_type__inventory_type']] += product['quantity']
