@@ -1901,12 +1901,14 @@ def auto_report_for_expired_product():
                'EAN', 'MRP', 'Selling Price', 'Inner CategoryCase Size', 'Batch ID', 'Expiry Date',
                'Bin ID', 'Normal Available Qty', 'Damaged Available Qty']
 
-    product_list = {}
-    expired_product_list = {}
+
+
     warehouse_id = GlobalConfig.objects.get(key='warehouse_id')
     warehouse_ids = warehouse_id.value
 
     for warehouse_id in warehouse_ids.split(','):
+        product_list = {}
+        expired_product_list = {}
         warehouse = Shop.objects.filter(id=warehouse_id).last()
         type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
         type_damaged = InventoryType.objects.only('id').get(inventory_type='damaged').id
@@ -1914,7 +1916,7 @@ def auto_report_for_expired_product():
         products = BinInventory.objects.filter(warehouse=warehouse.id).filter((Q(inventory_type_id=type_normal) |
                                                                                Q(inventory_type_id=type_damaged))).values(
             'warehouse__shop_name', 'sku',
-            'sku__id', 'sku__product_sku', 'quantity',
+            'sku__id', 'sku__product_sku','sku__product_name', 'quantity',
             'sku__parent_product__parent_id', 'warehouse_id',
             'sku__parent_product__name',
             'sku__parent_product__inner_case_size',
@@ -1930,12 +1932,12 @@ def auto_report_for_expired_product():
             today = date.today()
 
             def iterate_data():
-                if product['sku__product_sku'] and product['batch_id'] in product_list:
-                    product_temp = product_list[product['sku__product_sku']]
+                if product['batch_id'] in product_list:
+                    product_temp = product_list[product['batch_id']]
                     product_temp[product['inventory_type__inventory_type']] += product['quantity']
 
-                elif product['sku__product_sku'] and product['batch_id'] in expired_product_list:
-                    product_temp = expired_product_list[product['sku__product_sku']]
+                elif product['batch_id'] in expired_product_list:
+                    product_temp = expired_product_list[product['batch_id']]
                     product_temp[product['inventory_type__inventory_type']] += product['quantity']
 
                 else:
@@ -1983,8 +1985,8 @@ def auto_report_for_expired_product():
                     product_temp = {
 
                         'warehouse_name': product['warehouse__shop_name'],
-                        'sku__id': product['sku__id'],
-                        'sku__product_sku': product['sku__product_sku'],
+                        'sku__id': product['sku__product_sku'],
+                        'sku__product_sku': product['sku__product_name'],
                         'sku__parent_product__parent_id': product['sku__parent_product__parent_id'],
                         'sku__parent_product__name': product['sku__parent_product__name'],
                         'category': categories,
@@ -2009,7 +2011,7 @@ def auto_report_for_expired_product():
                 """
                 if expiring_soon:
                     product_temp = iterate_data()
-                    product_list[product['sku__product_sku']] = product_temp
+                    product_list[product['batch_id']] = product_temp
                 product_list_new = []
 
                 """
@@ -2035,7 +2037,7 @@ def auto_report_for_expired_product():
                 Expired product
                 """
                 product_temp = iterate_data()
-                expired_product_list[product['sku__product_sku']] = product_temp
+                expired_product_list[product['batch_id']] = product_temp
             expired_product_list_new = []
 
             """
@@ -2055,8 +2057,8 @@ def auto_report_for_expired_product():
                     col += 1
                 row += 1
 
-    workbook.save(response)
-    wb.save(responses)
-    send_mail_w_attachment(response, responses)
+        workbook.save(response)
+        wb.save(responses)
+        send_mail_w_attachment(response, responses)
     return response
 
