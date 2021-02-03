@@ -1877,7 +1877,9 @@ def audit_ordered_data(request):
 
 
 def auto_report_for_expired_product():
+
     info_logger.info("WMS : Auto Report for To be expired Products started at {}".format(datetime.now()))
+
     """To_be_Expired_Products workbook"""
     workbook = Workbook()
     worksheet = workbook.active
@@ -1894,13 +1896,12 @@ def auto_report_for_expired_product():
     responses = HttpResponse(
         content=save_virtual_workbook(wb), content_type='application/ms-excel'
     )
-    response['Content-Disposition'] = 'attachment; filename=To_be_Expired_Products.xlsx'
+    response['Content-Disposition'] = 'attachment; filename=To_be_Expired_products.xlsx'
     responses['Content-Disposition'] = 'attachment; filename=Expired_Products.xlsx'
 
     columns = ['Warehouse Name', 'SKU ID', 'SKU Name', 'Parent ID', 'Parent Name', 'Category', 'Sub Category',
                'EAN', 'MRP', 'Selling Price', 'Inner CategoryCase Size', 'Batch ID', 'Expiry Date',
                'Bin ID', 'Normal Available Qty', 'Damaged Available Qty']
-
 
 
     warehouse_id = GlobalConfig.objects.get(key='warehouse_id')
@@ -2059,6 +2060,6 @@ def auto_report_for_expired_product():
 
         workbook.save(response)
         wb.save(responses)
-        send_mail_w_attachment(response, responses)
+        send_mail_w_attachment(response, responses, warehouse_id, product['warehouse__shop_name'])
     return response
 
