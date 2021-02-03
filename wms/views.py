@@ -1914,15 +1914,16 @@ def auto_report_for_expired_product():
         type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
         type_damaged = InventoryType.objects.only('id').get(inventory_type='damaged').id
 
-        products = BinInventory.objects.filter(warehouse=warehouse.id).filter((Q(inventory_type_id=type_normal) |
+        products = BinInventory.objects.filter(warehouse=warehouse.id).filter(quantity__gt=0).filter((Q(inventory_type_id=type_normal) |
                                                                                Q(inventory_type_id=type_damaged))).values(
-            'warehouse__shop_name', 'sku',
-            'sku__id', 'sku__product_sku','sku__product_name', 'quantity',
-            'sku__parent_product__parent_id', 'warehouse_id',
+            'warehouse__shop_name', 'sku','sku__id',
+            'sku__product_sku','warehouse_id',
+            'sku__product_name', 'quantity',
+            'sku__parent_product__parent_id',
             'sku__parent_product__name',
             'sku__parent_product__inner_case_size',
-            'sku__product_ean_code',
-            'sku__product_mrp', 'batch_id', 'bin__bin_id',
+            'sku__product_ean_code','sku__product_mrp',
+            'batch_id', 'bin__bin_id',
             'inventory_type__inventory_type'
         )
 
