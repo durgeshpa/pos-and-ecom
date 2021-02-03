@@ -1146,6 +1146,7 @@ def UploadMasterDataSampleExcelFile(request, *args):
     This function will return an Sample Excel File in xlsx format which can be used for uploading the master_data
     """
     category_id = request.GET['category_id']
+    categry = Category.objects.values('category_name').filter(id=int(category_id))
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
@@ -1177,37 +1178,31 @@ def UploadMasterDataSampleExcelFile(request, *args):
             ft = Font(color="00000000", name="Arial", b=True)
         cell.font = ft
 
-    products = ProductCategory.objects.values('product__id', 'product__product_sku', 'product__product_name',
-                                              'product__parent_product__parent_id',
-                                              'product__parent_product__name',
-                                              'product__product_ean_code', 'product__product_mrp',
-                                              'product__parent_product__product_hsn__product_hsn_code',
-                                              'product__weight_unit', 'product__weight_value',
-                                              'product__parent_product__brand_case_size',
-                                              'product__parent_product__inner_case_size',
-                                              'product__parent_product__parent_brand__id',
-                                              'product__parent_product__parent_brand__brand_name',
-                                              'product__parent_product__parent_brand__brand_parent_id',
-                                              'product__parent_product__parent_brand__brand_parent__brand_name',
-                                              'category__id', 'category__category_name',
-                                              'category__category_parent_id',
-                                              'category__category_parent__category_name',
-                                              'product__status',
-                                              'product__repackaging_type')\
-                                              .filter(category=int(category_id))
+    products = Product.objects.values('id', 'product_sku', 'product_name', 'parent_product__parent_id',
+                                      'parent_product__name', 'product_ean_code', 'product_mrp',
+                                      'parent_product__product_hsn__product_hsn_code', 'weight_unit', 'weight_value',
+                                      'parent_product__brand_case_size', 'parent_product__inner_case_size',
+                                      'parent_product__parent_brand__id', 'parent_product__parent_brand__brand_name',
+                                      'parent_product__parent_brand__brand_parent_id',
+                                      'parent_product__parent_brand__brand_parent__brand_name',
+                                      'status','repackaging_type')\
+               .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']))
+
+    cat = Category.objects.values('id', 'category_name', 'category_parent_id', 'category_parent__category_name').filter(id=int(category_id))
+
     for product in products:
         row = []
         tax_list = ['', '', '']
-        row.append(product['product__product_sku'])
-        row.append(product['product__product_name'])
-        row.append(product['product__parent_product__parent_id'])
-        row.append(product['product__parent_product__name'])
-        row.append(product['product__product_ean_code'])
-        row.append(product['product__product_mrp'])
-        row.append(product['product__parent_product__product_hsn__product_hsn_code'])
-        row.append(product['product__weight_unit'])
-        row.append(product['product__weight_value'])
-        taxes = ProductTaxMapping.objects.select_related('tax').filter(product=product['product__id'])
+        row.append(product['product_sku'])
+        row.append(product['product_name'])
+        row.append(product['parent_product__parent_id'])
+        row.append(product['parent_product__name'])
+        row.append(product['product_ean_code'])
+        row.append(product['product_mrp'])
+        row.append(product['parent_product__product_hsn__product_hsn_code'])
+        row.append(product['weight_unit'])
+        row.append(product['weight_value'])
+        taxes = ProductTaxMapping.objects.select_related('tax').filter(product=product['id'])
         for tax in taxes:
             if tax.tax.tax_type == 'gst':
                 tax_list[0] = tax.tax.tax_name
@@ -1216,41 +1211,54 @@ def UploadMasterDataSampleExcelFile(request, *args):
             if tax.tax.tax_type == 'surcharge':
                 tax_list[2] = tax.tax.tax_name
         row.extend(tax_list)
-        row.append(product['product__parent_product__brand_case_size'])
-        row.append(product['product__parent_product__inner_case_size'])
+        row.append(product['parent_product__brand_case_size'])
+        row.append(product['parent_product__inner_case_size'])
 
-        if product['product__parent_product__parent_brand__brand_parent_id']:
-            row.append(product['product__parent_product__parent_brand__brand_parent_id'])
-            row.append(product['product__parent_product__parent_brand__brand_parent__brand_name'])
-            row.append(product['product__parent_product__parent_brand__id'])
-            row.append(product['product__parent_product__parent_brand__brand_name'])
+        if product['parent_product__parent_brand__brand_parent_id']:
+            row.append(product['parent_product__parent_brand__brand_parent_id'])
+            row.append(product['parent_product__parent_brand__brand_parent__brand_name'])
+            row.append(product['parent_product__parent_brand__id'])
+            row.append(product['parent_product__parent_brand__brand_name'])
         else:
-            row.append(product['product__parent_product__parent_brand__id'])
-            row.append(product['product__parent_product__parent_brand__brand_name'])
-            row.append(product['product__parent_product__parent_brand__brand_parent_id'])
-            row.append(product['product__parent_product__parent_brand__brand_parent__brand_name'])
+            row.append(product['parent_product__parent_brand__id'])
+            row.append(product['parent_product__parent_brand__brand_name'])
+            row.append(product['parent_product__parent_brand__brand_parent_id'])
+            row.append(product['parent_product__parent_brand__brand_parent__brand_name'])
 
-        if product['category__category_parent_id']:
-            row.append(product['category__category_parent_id'])
-            row.append(product['category__category_parent__category_name'])
-            row.append(product['category__id'])
-            row.append(product['category__category_name'])
+
+        if cat[0]['category_parent_id']:
+            row.append(cat[0]['category_parent_id'])
+            row.append(cat[0]['category_parent__category_name'])
+            row.append(cat[0]['id'])
+            row.append(cat[0]['category_name'])
         else:
-            row.append(product['category__id'])
-            row.append(product['category__category_name'])
-            row.append(product['category__category_parent_id'])
-            row.append(product['category__category_parent__category_name'])
+            row.append(cat[0]['id'])
+            row.append(cat[0]['category_name'])
+            row.append(cat[0]['category_parent_id'])
+            row.append(cat[0]['category_parent__category_name'])
 
-        row.append(product['product__status'])
-        source_sku_name = Repackaging.objects.select_related('source_sku').filter(source_sku=product['product__id'])
+        row.append(product['status'])
+        row.append(product['repackaging_type'])
+        source_sku_name = Repackaging.objects.select_related('source_sku').filter(destination_sku=product['id'])
+        source_sku_ids = []
+        source_sku_names = []
         for sourceSKU in source_sku_name:
-            row.append(sourceSKU.source_sku.product_sku)
-            row.append(sourceSKU.source_sku.product_name)
-            break
+            if sourceSKU.source_sku.product_sku not in source_sku_ids:
+                source_sku_ids.append(sourceSKU.source_sku.product_sku)
+            if sourceSKU.source_sku.product_name not in source_sku_names:
+                source_sku_names.append(sourceSKU.source_sku.product_name)
+        if source_sku_ids:
+            row.append(str(source_sku_ids))
+        else:
+            row.append('')
+        if source_sku_names:
+            row.append(str(source_sku_names))
+        else:
+            row.append('')
         costs = DestinationRepackagingCostMapping.objects.values('raw_material', 'wastage', 'fumigation',
                                                                  'label_printing', 'packing_labour', 'primary_pm_cost',
                                                                  'secondary_pm_cost', 'final_fg_cost',
-                                                                 'conversion_cost').filter(destination=product['product__id'])
+                                                                 'conversion_cost').filter(destination=product['id'])
         for cost in costs:
             row.append(cost['raw_material'])
             row.append(cost['wastage'])
@@ -1265,7 +1273,6 @@ def UploadMasterDataSampleExcelFile(request, *args):
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = cell_value
-
     workbook.save(response)
     info_logger.info("Master Data Sample Excel File has been Successfully Downloaded")
     return response
@@ -1276,6 +1283,7 @@ def set_inactive_status_sample_excel_file(request):
     This function will return an Sample Excel File in xlsx format which can be used for set Active Status
     """
     category_id = request.GET['category_id']
+    categry = Category.objects.values('category_name').filter(id=int(category_id))
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
@@ -1301,13 +1309,11 @@ def set_inactive_status_sample_excel_file(request):
             ft = Font(color="00000000", name="Arial", b=True)
         cell.font = ft
 
-    products = ProductCategory.objects.values('product__product_sku', 'product__product_name', 'product__status',
-                                              'product__product_mrp')\
-                                            .filter(category=int(category_id))
+    products = Product.objects.values('product_sku', 'product_name', 'status', 'product_mrp')\
+                .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']))
     for product in products:
-        row = [product['product__product_sku'], product['product__product_name'], product['product__product_mrp'],
-               product['product__status']]
-        row_num += 1
+        row = [product['product_sku'], product['product_name'], product['product_mrp'], product['status']]
+        row
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = cell_value
@@ -1322,6 +1328,7 @@ def set_child_with_parent_sample_excel_file(request):
     This function will return an Sample Excel File in xlsx format which can be used for Child and Parent Mapping
     """
     category_id = request.GET['category_id']
+    categry = Category.objects.values('category_name').filter(id=int(category_id))
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
@@ -1343,17 +1350,17 @@ def set_child_with_parent_sample_excel_file(request):
         ft = Font(color="000000FF", name="Arial", b=True)
         cell.font = ft
 
-    products = ProductCategory.objects.values('product__product_sku', 'product__product_name',
-                                              'product__parent_product__parent_id', 'product__parent_product__name',
-                                              'product__status').filter(category=int(category_id))
+    products = Product.objects.values('product_sku', 'product_name',
+                                      'parent_product__parent_id', 'parent_product__name', 'status')\
+        .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']))
 
     for product in products:
         row = []
-        row.append(product['product__product_sku'])
-        row.append(product['product__product_name'])
-        row.append(product['product__parent_product__parent_id'])
-        row.append(product['product__parent_product__name'])
-        row.append(product['product__status'])
+        row.append(product['product_sku'])
+        row.append(product['product_name'])
+        row.append(product['parent_product__parent_id'])
+        row.append(product['parent_product__name'])
+        row.append(product['status'])
         row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
@@ -1472,6 +1479,7 @@ def set_child_data_sample_excel_file(request, *args):
     This function will return an Sample Excel File in xlsx format which can be used for uploading the master_data
     """
     category_id = request.GET['category_id']
+    categry = Category.objects.values('category_name').filter(id=int(category_id))
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
@@ -1499,30 +1507,41 @@ def set_child_data_sample_excel_file(request, *args):
             ft = Font(color="00000000", name="Arial", b=True)
         cell.font = ft
 
-    products = ProductCategory.objects.values('product__id', 'product__product_sku', 'product__product_name',
-                                              'product__product_ean_code', 'product__product_mrp',
-                                              'product__weight_unit', 'product__weight_value',
-                                              'product__status', 'product__repackaging_type').filter(
-                                               category=Category.objects.get(id=int(category_id)))
+    products = Product.objects.values('id', 'product_sku', 'product_name',
+                                              'product_ean_code', 'product_mrp',
+                                              'weight_unit', 'weight_value',
+                                              'status', 'repackaging_type')\
+        .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']))
     for product in products:
         row = []
-        row.append(product['product__product_sku'])
-        row.append(product['product__product_name'])
-        row.append(product['product__product_ean_code'])
-        row.append(product['product__product_mrp'])
-        row.append(product['product__weight_unit'])
-        row.append(product['product__weight_value'])
-        row.append(product['product__status'])
-        row.append(product['product__repackaging_type'])
-        source_sku_name = Repackaging.objects.select_related('source_sku').filter(source_sku=product['product__id'])
+        row.append(product['product_sku'])
+        row.append(product['product_name'])
+        row.append(product['product_ean_code'])
+        row.append(product['product_mrp'])
+        row.append(product['weight_unit'])
+        row.append(product['weight_value'])
+        row.append(product['status'])
+        row.append(product['repackaging_type'])
+        source_sku_name = Repackaging.objects.select_related('source_sku').filter(destination_sku=product['id'])
+        source_sku_ids = []
+        source_sku_names = []
         for sourceSKU in source_sku_name:
-            row.append(sourceSKU.source_sku.product_sku)
-            row.append(sourceSKU.source_sku.product_name)
-            break
+            if sourceSKU.source_sku.product_sku not in source_sku_ids:
+                source_sku_ids.append(sourceSKU.source_sku.product_sku)
+            if sourceSKU.source_sku.product_name not in source_sku_names:
+                source_sku_names.append(sourceSKU.source_sku.product_name)
+        if source_sku_ids:
+            row.append(str(source_sku_ids))
+        else:
+            row.append('')
+        if source_sku_names:
+            row.append(str(source_sku_names))
+        else:
+            row.append('')
         costs = DestinationRepackagingCostMapping.objects.values('raw_material', 'wastage', 'fumigation',
                                                                  'label_printing', 'packing_labour', 'primary_pm_cost',
                                                                  'secondary_pm_cost', 'final_fg_cost',
-                                                                 'conversion_cost').filter(destination=product['product__id'])
+                                                                 'conversion_cost').filter(destination=product['id'])
         for cost in costs:
             row.append(cost['raw_material'])
             row.append(cost['wastage'])

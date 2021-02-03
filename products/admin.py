@@ -78,7 +78,7 @@ class CategorySearch(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             return queryset.filter(
-                Q(product_pro_category__category__category_name__icontains=self.value())
+                Q(parent_product__parent_product_pro_category__category__category_name__icontains=self.value())
             )
 
 class ExportCsvMixin:

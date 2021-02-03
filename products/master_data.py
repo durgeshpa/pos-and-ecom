@@ -259,8 +259,8 @@ class UploadMasterData(object):
                             Product.objects.filter(product_sku=row['sku_id']).update(weight_value=row['weight_value'])
                     if 'repackaging_type' in row.keys():
                         if row['repackaging_type'] == 'destination':
-                            Product.objects.filter(product_sku=row['source_sku_id']).update(product_name=row['source_sku_name'])
-                            destination_product = Product.objects.filter(product_sku=row['source_sku_id'])
+                            # Product.objects.filter(product_sku=row['source_sku_id']).update(product_name=row['source_sku_name'])
+                            destination_product = Product.objects.filter(product_sku=row['sku_id'])
                             DestinationRepackagingCostMapping.objects.filter(destination=destination_product[0].id)\
                                                                      .update(raw_material=row['raw_material'],
                                                                              wastage=row['wastage'],
