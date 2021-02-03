@@ -1273,8 +1273,6 @@ def UploadMasterDataSampleExcelFile(request, *args):
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = cell_value
-        if row_num == 123 or row_num == 124:
-            print(row, product['id'])
     workbook.save(response)
     info_logger.info("Master Data Sample Excel File has been Successfully Downloaded")
     return response
@@ -1353,8 +1351,7 @@ def set_child_with_parent_sample_excel_file(request):
         cell.font = ft
 
     products = Product.objects.values('product_sku', 'product_name',
-                                              'parent_product__parent_id', 'parent_product__name',
-                                              'status')\
+                                      'parent_product__parent_id', 'parent_product__name', 'status')\
         .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']))
 
     for product in products:
@@ -1525,11 +1522,22 @@ def set_child_data_sample_excel_file(request, *args):
         row.append(product['weight_value'])
         row.append(product['status'])
         row.append(product['repackaging_type'])
-        source_sku_name = Repackaging.objects.select_related('source_sku').filter(source_sku=product['id'])
+        source_sku_name = Repackaging.objects.select_related('source_sku').filter(destination_sku=product['id'])
+        source_sku_ids = []
+        source_sku_names = []
         for sourceSKU in source_sku_name:
-            row.append(sourceSKU.source_sku.product_sku)
-            row.append(sourceSKU.source_sku.product_name)
-            break
+            if sourceSKU.source_sku.product_sku not in source_sku_ids:
+                source_sku_ids.append(sourceSKU.source_sku.product_sku)
+            if sourceSKU.source_sku.product_name not in source_sku_names:
+                source_sku_names.append(sourceSKU.source_sku.product_name)
+        if source_sku_ids:
+            row.append(str(source_sku_ids))
+        else:
+            row.append('')
+        if source_sku_names:
+            row.append(str(source_sku_names))
+        else:
+            row.append('')
         costs = DestinationRepackagingCostMapping.objects.values('raw_material', 'wastage', 'fumigation',
                                                                  'label_printing', 'packing_labour', 'primary_pm_cost',
                                                                  'secondary_pm_cost', 'final_fg_cost',
