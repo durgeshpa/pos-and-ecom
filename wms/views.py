@@ -1896,7 +1896,7 @@ def auto_report_for_expired_product():
     responses = HttpResponse(
         content=save_virtual_workbook(wb), content_type='application/ms-excel'
     )
-    response['Content-Disposition'] = 'attachment; filename=To_be_Expired_products.xlsx'
+    response['Content-Disposition'] = 'attachment; filename=To_be_Expired_Products.xlsx'
     responses['Content-Disposition'] = 'attachment; filename=Expired_Products.xlsx'
 
     columns = ['Warehouse Name', 'SKU ID', 'SKU Name', 'Parent ID', 'Parent Name', 'Category', 'Sub Category',
