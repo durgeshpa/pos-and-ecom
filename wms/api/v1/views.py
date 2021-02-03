@@ -581,9 +581,14 @@ class PickupDetail(APIView):
                     return Response({'is_success': False,
                                      'message': 'Picking details not found, please check the details entered.',
                                      'data': None}, status=status.HTTP_200_OK)
+
                 if picking_details.exists():
+                    info_logger.info("PickupDetail|POST|Pickup Started for SKU-{}, Qty-{}, Bin-{}"
+                                     .format(j, i, bin_id))
                     tr_id = picking_details.last().pickup.id
                     pick_qty = picking_details.last().pickup_quantity
+                    info_logger.info("PickupDetail|POST|SKU-{}, Picked qty-{}"
+                                     .format(j, pick_qty))
                     if pick_qty is None:
                         pick_qty = 0
                     qty = picking_details.last().quantity
@@ -630,6 +635,9 @@ class PickupDetail(APIView):
                         Pickup.objects.filter(pickup_type_id=order_no, sku__id=j)\
                                       .exclude(status='picking_cancelled')\
                                       .update(pickup_quantity=sum_total)
+
+                        info_logger.info("PickupDetail|POST|Picking Done for SKU-{}, Total Qty Picked-{}"
+                                         .format(j, sum_total))
                         serializer = PickupBinInventorySerializer(picking_details.last())
                         data_list.append(serializer.data)
         msg = {'is_success': True, 'message': 'Pick up data saved successfully.',
