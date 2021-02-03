@@ -1,6 +1,7 @@
 import codecs
 import csv
 import datetime
+import json
 import re
 from django.urls import reverse
 
@@ -834,9 +835,23 @@ class UploadMasterDataAdminForm(forms.Form):
                                   f"'source' or 'destination'!"))
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] == 'destination':
-                        mandatory_fields = ['source_sku_id', 'source_sku_name', 'raw_material', 'wastage', 'fumigation', 'label_printing',
+                        mandatory_fields = ['raw_material', 'wastage', 'fumigation', 'label_printing',
                                             'packing_labour', 'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost',
                                             'conversion_cost']
+                        if 'source_sku_id' not in row.keys():
+                            raise ValidationError(_(f"Row {row_num} | 'Source_SKU_ID' can't be empty "
+                                                    f"when repackaging_type is destination"))
+                        if 'source_sku_id' in row.keys():
+                            if row['source_sku_id'] == '':
+                                raise ValidationError(_(f"Row {row_num} | 'Source_SKU_ID' can't be empty "
+                                                        f"when repackaging_type is destination"))
+                        if 'source_sku_name' not in row.keys():
+                            raise ValidationError(_(f"Row {row_num} | 'Source_SKU_Name' can't be empty "
+                                                    f"when repackaging_type is destination"))
+                        if 'source_sku_name' in row.keys():
+                            if row['source_sku_name'] == '':
+                                raise ValidationError(_(f"Row {row_num} | 'Source_SKU_Name' can't be empty "
+                                                        f"when repackaging_type is destination"))
                         for field in mandatory_fields:
                             if field not in header_list:
                                 raise ValidationError(_(f"{mandatory_fields} are the essential headers and cannot be empty "
@@ -851,24 +866,22 @@ class UploadMasterDataAdminForm(forms.Form):
 
                         if 'source_sku_id' in header_list and 'source_sku_id' in row.keys():
                             if row['source_sku_id'] != '':
-                                if not Product.objects.filter(product_sku=row['source_sku_id']).exists():
-                                    raise ValidationError(
-                                        _(f"Row {row_num} | {row['source_sku_id']} | 'Source SKU ID' doesn't exist."))
+                                p = re.compile('\'')
+                                skuIDs = p.sub('\"', row['source_sku_id'])
+                                SKU_IDS = json.loads(skuIDs)
+                                for sk in SKU_IDS:
+                                    if not Product.objects.filter(product_sku=sk).exists():
+                                        raise ValidationError(
+                                            _(f"Row {row_num} | {sk} | 'Source SKU ID' doesn't exist."))
                         if 'source_sku_name' in header_list and 'source_sku_name' in row.keys():
                             if row['source_sku_name'] != '':
-                                if not Product.objects.filter(product_name=row['source_sku_name']).exists():
-                                    raise ValidationError(_(f"Row {row_num} | {row['source_sku_name']} |"
-                                                            f"'Source SKU Name' doesn't exist in the system."))
-                if 'source_sku_id' in header_list and 'source_sku_id' in row.keys():
-                    if row['source_sku_id'] != '':
-                        if not Product.objects.filter(product_sku=row['source_sku_id']).exists():
-                            raise ValidationError(
-                                _(f"Row {row_num} | {row['source_sku_id']} | 'Source SKU ID' doesn't exist."))
-                if 'source_sku_name' in header_list and 'source_sku_name' in row.keys():
-                    if row['source_sku_name'] != '':
-                        if not Product.objects.filter(product_name=row['source_sku_name']).exists():
-                            raise ValidationError(_(f"Row {row_num} | {row['source_sku_name']} |"
-                                                    f"'Source SKU Name' doesn't exist in the system."))
+                                q = re.compile('\'')
+                                skuNames = q.sub('\"', row['source_sku_name'])
+                                SKU_Names = json.loads(skuNames)
+                                for sk in SKU_Names:
+                                    if not Product.objects.filter(product_name=sk).exists():
+                                        raise ValidationError(_(f"Row {row_num} | {sk} |"
+                                                                f"'Source SKU Name' doesn't exist in the system."))
 
         except ValueError as e:
             raise ValidationError(_(f"Row {row_num} | ValueError : {e} | Please Enter valid Data"))
