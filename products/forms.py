@@ -696,8 +696,9 @@ class UploadMasterDataAdminForm(forms.Form):
                         if not Product.objects.filter(product_sku=row['sku_id']).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['sku_id']} | 'SKU ID' doesn't exist."))
                     product = Product.objects.filter(product_sku=row['sku_id'])
-                    if not ProductCategory.objects.filter(category=int(category), product=product[0].id).exists():
-                        categry = Category.objects.values('category_name').filter(id=int(category))
+                    categry = Category.objects.values('category_name').filter(id=int(category))
+                    if not Product.objects.filter(id=product[0].id,
+                                                  parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']).exists():
                         raise ValidationError(_(f"Row {row_num} | Please upload Products of Category "
                                                 f"({categry[0]['category_name']}) that you have "
                                                 f"selected in Dropdown Only! "))
