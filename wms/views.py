@@ -533,7 +533,7 @@ def commit_updates_to_es(shop, product):
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Post save called for Warehouse Inventory")
     try:
-        if instance.inventory_type.inventory_type == 'normal' and instance.inventory_state.inventory_state == 'total_available':
+        if instance.inventory_type.inventory_type == 'normal':
             info_logger.info("Inside if condition of post save Warehouse Inventory")
             commit_updates_to_es(instance.warehouse, instance.sku)
     except Exception as e:
