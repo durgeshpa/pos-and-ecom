@@ -1918,7 +1918,7 @@ def auto_report_for_expired_product():
             'sku__product_sku', 'warehouse_id',
             'sku__product_name', 'quantity',
             'sku__parent_product__parent_id',
-            'sku__parent_product__name',
+            'sku__parent_product__name','to_be_picked_qty',
             'sku__parent_product__inner_case_size',
             'sku__product_ean_code', 'sku__product_mrp',
             'batch_id', 'bin__bin_id',
@@ -1992,11 +1992,13 @@ def auto_report_for_expired_product():
 def iterate_data(product, product_list, expired_product_list, expiry_date):
     if product['batch_id'] in product_list:
         product_temp = product_list[product['batch_id']]
-        product_temp[product['inventory_type__inventory_type']] += product['quantity']
+        available_qty = product['quantity'] + product['to_be_picked_qty']
+        product_temp[product['inventory_type__inventory_type']] += available_qty
 
     elif product['batch_id'] in expired_product_list:
         product_temp = expired_product_list[product['batch_id']]
-        product_temp[product['inventory_type__inventory_type']] += product['quantity']
+        available_qty = product['quantity'] + product['to_be_picked_qty']
+        product_temp[product['inventory_type__inventory_type']] += available_qty
 
     else:
         product_obj = Product.objects.filter(product_sku=product['sku'])
@@ -2059,5 +2061,6 @@ def iterate_data(product, product_list, expired_product_list, expiry_date):
             'normal': 0,
             'damaged': 0,
         }
-        product_temp[product['inventory_type__inventory_type']] += product['quantity']
+        available_qty = product['quantity'] + product['to_be_picked_qty']
+        product_temp[product['inventory_type__inventory_type']] += available_qty
     return product_temp
