@@ -617,7 +617,9 @@ def create_pick_list_by_audit(audit_id):
     orders_to_generate_picklists = AuditCancelledPicklist.objects.filter(audit=audit_id, is_picklist_refreshed=False)\
                                                                  .order_by('order_no')
     for o in orders_to_generate_picklists:
-        order = Order.objects.filter(order_no=o.order_no).last()
+        order = Order.objects.filter(~Q(order_status='CANCELLED'), order_no=o.order_no).last()
+        if order is None:
+            continue
         try:
             pd_obj = PickerDashboard.objects.filter(order=order,
                                                     picking_status__in=['picking_pending', 'picking_assigned'],
