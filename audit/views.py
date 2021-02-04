@@ -617,8 +617,11 @@ def create_pick_list_by_audit(audit_id):
     orders_to_generate_picklists = AuditCancelledPicklist.objects.filter(audit=audit_id, is_picklist_refreshed=False)\
                                                                  .order_by('order_no')
     for o in orders_to_generate_picklists:
+        info_logger.error('create_pick_list_by_audit|Starting for order {}'.format(o.order_no))
         order = Order.objects.filter(~Q(order_status='CANCELLED'), order_no=o.order_no).last()
         if order is None:
+            info_logger.error('create_pick_list_by_audit| Order number-{}, No active order found'
+                              .format(o.order_no))
             continue
         try:
             pd_obj = PickerDashboard.objects.filter(order=order,
@@ -636,7 +639,7 @@ def create_pick_list_by_audit(audit_id):
                 pd_obj.save()
         except Exception as e:
             info_logger.error(e)
-            info_logger.error('generate_pick_list|Exception while generating picklist for order {}'.format(o.order_no))
+            info_logger.error('create_pick_list_by_audit|Exception while generating picklist for order {}'.format(o.order_no))
 
 
 def create_audit_tickets_by_audit(audit_id):
