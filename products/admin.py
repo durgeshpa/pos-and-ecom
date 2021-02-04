@@ -45,7 +45,8 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     product_csv_upload, ChildProductsDownloadSampleCSV,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
                     ParentProductMultiPhotoUploadView, cart_product_list_status, upload_master_data_view,
-                    UploadMasterDataSampleExcelFile,
+                    UploadMasterDataSampleExcelFile, set_child_with_parent_sample_excel_file,
+                    set_inactive_status_sample_excel_file, set_child_data_sample_excel_file, set_parent_data_sample_excel_file,
                     category_sub_category_mapping_sample_excel_file, brand_sub_brand_mapping_sample_excel_file,
                     ParentProductMultiPhotoUploadView, cart_product_list_status,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor)
@@ -77,7 +78,7 @@ class CategorySearch(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             return queryset.filter(
-                Q(product_pro_category__category__category_name__icontains=self.value())
+                Q(parent_product__parent_product_pro_category__category__category_name__icontains=self.value())
             )
 
 class ExportCsvMixin:
@@ -242,7 +243,7 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
     actions = ["export_as_csv_product_vendormapping", ]
     fields = ('vendor', 'product', 'product_price','product_price_pack','product_mrp','case_size')
 
-    list_display = ('vendor', 'product','product_price','product_price_pack','product_mrp','case_size','created_at','status','product_status')
+    list_display = ('vendor', 'product','product_price','product_price_pack', 'mrp','case_size','created_at','status','product_status')
     list_filter = [VendorFilter,ProductFilter,'product__status','status']
     form = ProductVendorMappingForm
     readonly_fields = ['brand_to_gram_price_unit',]
@@ -266,10 +267,17 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
 
     def product_status(self, obj):
         return obj.product.status == 'active'
+
+    def mrp(self, obj):
+        return obj.product.product_mrp
+
     product_status.boolean = True
 
     class Media:
-        pass
+        js = (
+            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
+            'admin/js/product_vendor_mapping_form.js'
+        )
 
 class SizeAdmin(admin.ModelAdmin,  ExportCsvMixin):
     resource_class = SizeResource
@@ -902,6 +910,26 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="upload-master-data-sample-excel-file"
             ),
             url(
+               r'^parent-data-sample-excel-file/$',
+               self.admin_site.admin_view(set_parent_data_sample_excel_file),
+               name="parent-data-sample-excel-file"
+            ),
+            url(
+               r'^child-data-sample-excel-file/$',
+               self.admin_site.admin_view(set_child_data_sample_excel_file),
+               name="child-data-sample-excel-file"
+            ),
+            url(
+               r'^parent-child-mapping-sample-excel-file/$',
+               self.admin_site.admin_view(set_child_with_parent_sample_excel_file),
+               name="parent-child-mapping-sample-excel-file"
+            ),
+            url(
+               r'^set-inactive-status-sample-file/$',
+               self.admin_site.admin_view(set_inactive_status_sample_excel_file),
+               name="set-inactive-status-sample-file"
+            ),
+            url(
                 r'^parent-product-autocomplete/$',
                 self.admin_site.admin_view(ParentProductAutocomplete.as_view()),
                 name='parent-product-autocomplete',
@@ -1256,12 +1284,15 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     download_sample_file.short_description = 'Download Sample File'
 
 
-# class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
-#     list_display = ('created_at', 'updated_by', 'file',)
-#     fields = ('file', 'updated_by')
-#     readonly_fields = ('updated_by', 'file',)
-#
-#     change_list_template = 'admin/products/product_attributes_change_list.html'
+class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'updated_by', 'file',)
+    fields = ('file', 'updated_by')
+    readonly_fields = ('updated_by', 'file',)
+
+    change_list_template = 'admin/products/product_attributes_change_list.html'
+
+    def has_add_permission(self, request):
+        return False
 
 
 class ExportRepackaging:
@@ -1368,6 +1399,6 @@ admin.site.register(ProductCapping, ProductCappingAdmin)
 admin.site.register(ProductTaxMapping, ProductTaxAdmin)
 admin.site.register(BulkProductTaxUpdate, BulkProductTaxUpdateAdmin)
 admin.site.register(BulkUploadForGSTChange, BulkUploadForGSTChangeAdmin)
-# admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttributesAdmin)
+admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttributesAdmin)
 admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)
