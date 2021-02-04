@@ -242,59 +242,32 @@ class PutAwayViewSet(APIView):
             sh = Shop.objects.filter(id=int(warehouse)).last()
             state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
             if sh.shop_type.shop_type == 'sp':
-                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=bin_id)
-                pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
+                # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
+                # if BinInventory exists, check if total inventory is zero, this includes items yet to be picked
+                # if inventory is more than zero, putaway won't be allowed, else putaway will be done
+                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17], bin__bin_id=bin_id)\
+                                                           .exclude(batch_id=i)
                 with transaction.atomic():
                     if bin_inventory.exists():
-                        if i in bin_inventory.values_list('batch_id', flat=True):
-                            put_away_status = False
-                            while len(ids):
-                                put_away_done = update_putaway(ids[0], i, warehouse, int(value), request.user)
-                                value = put_away_done
-                                put_away_status = True
-                                ids.remove(ids[0])
-                            updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't', val,
-                                                       put_away_status, pu)
-                        else:
-                            if i[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
-                                total = BinInventory.objects.filter(sku=i[:17], bin__bin_id=bin_id,
-                                                                    inventory_type=type_normal).aggregate(
-                                    total=Sum('quantity'))['total']
-                                # bug on production
-                                if total > 0:
-                                    msg = {'is_success': False,
-                                           'message': 'This product with sku {} and batch_id {} can not be placed in the bin'.format(
-                                               i[:17], i), 'batch_id': i}
-                                    lis_data.append(msg)
-                                    continue
-                                else:
-                                    put_away_status = False
-                                    while len(ids):
-                                        value = update_putaway(ids[0], i, warehouse, int(value), request.user, )
-                                        put_away_status = True
-                                        ids.remove(ids[0])
-                                    updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available,
-                                                               't',
-                                                               val,
-                                                               put_away_status, pu)
+                        qs = bin_inventory.filter(inventory_type=type_normal)\
+                                          .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
+                        total = qs['available'] + qs['to_be_picked']
+                        if total > 0:
+                            msg = {'is_success': False,
+                                   'message': 'This product with sku {} and batch_id {} can not be placed in the bin'
+                                              .format(i[:17], i), 'batch_id': i}
+                            lis_data.append(msg)
+                            continue
+                    put_away_status = False
+                    while len(ids):
+                        put_away_done = update_putaway(ids[0], i, warehouse, int(value), request.user)
+                        value = put_away_done
+                        put_away_status = True
+                        ids.remove(ids[0])
 
-                            else:
-                                put_away_status = False
-                                while len(ids):
-                                    value = update_putaway(ids[0], i, warehouse, int(value), request.user, )
-                                    put_away_status = True
-                                    ids.remove(ids[0])
-                                updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't',
-                                                           val,
-                                                           put_away_status, pu)
-                    else:
-                        put_away_status = False
-                        while len(ids):
-                            value = update_putaway(ids[0], i, warehouse, int(value), request.user, )
-                            put_away_status = True
-                            ids.remove(ids[0])
-                        updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't', val,
-                                                   put_away_status, pu)
+                    pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
+                    updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't', val,
+                                               put_away_status, pu)
 
             serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(),
                                             fields=('is_success', 'product_sku', 'inventory_type', 'batch_id',
