@@ -317,6 +317,9 @@ class GramGRNProductsList(APIView):
                     '''
                     body = {"from": offset, "size": page_size, "query": query}
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
+                    info_logger.info("user {} ".format(self.request.user))
+                    info_logger.info("shop {} ".format(shop_id))
+
                     cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop_id=shop_id,
                                                cart_status__in=['active', 'pending']).last()
                     if cart:
