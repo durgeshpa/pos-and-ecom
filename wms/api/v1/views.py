@@ -258,6 +258,8 @@ class PutAwayViewSet(APIView):
                                               .format(i[:17], i), 'batch_id': i}
                             lis_data.append(msg)
                             continue
+
+                    pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
                     put_away_status = False
                     while len(ids):
                         put_away_done = update_putaway(ids[0], i, warehouse, int(value), request.user)
@@ -265,7 +267,6 @@ class PutAwayViewSet(APIView):
                         put_away_status = True
                         ids.remove(ids[0])
 
-                    pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
                     updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't', val,
                                                put_away_status, pu)
 
