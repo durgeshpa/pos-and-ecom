@@ -4,6 +4,9 @@ from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView, 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+
+from shops.models import Shop, ParentRetailerMapping
+from wms.common_functions import get_stock_available_category_list
 from .serializers import CategorySerializer,CategoryDataSerializer, BrandSerializer, AllCategorySerializer
 from categories.models import Category,CategoryData,CategoryPosation
 from rest_framework import viewsets
@@ -62,8 +65,25 @@ class GetAllCategoryListView(APIView):
 
     permission_classes = (AllowAny,)
     def get(self, *args, **kwargs):
-        categories = Category.objects.filter(category_parent=None, status = True)
-        category_subcategory_serializer = AllCategorySerializer(categories,many=True)
+        categories_to_return = []
+        shop_id = self.request.GET.get('shop_id')
+        if Shop.objects.filter(id=shop_id).exists():
+            shop = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
+            # get list of category ids with available inventory for this shop
+            categories_with_products = get_stock_available_category_list(shop)
+        else:
+            # get list of category ids with available inventory
+            categories_with_products = get_stock_available_category_list()
+        all_active_categories = Category.objects.filter(category_parent=None, status=True)
+        for c in all_active_categories:
+            if c.id in categories_with_products:
+                categories_to_return.append(c)
+            elif c.cat_parent.filter(status=True).count() > 0:
+                for sub_category in c.cat_parent.filter(status=True):
+                    if sub_category.id in categories_with_products:
+                        categories_to_return.append(c)
+                        break
+        category_subcategory_serializer = AllCategorySerializer(categories_to_return, many=True)
 
-        is_success = True if categories else False
+        is_success = True if all_active_categories else False
         return Response({ "message":[""],"response_data": category_subcategory_serializer.data,"is_success":is_success})

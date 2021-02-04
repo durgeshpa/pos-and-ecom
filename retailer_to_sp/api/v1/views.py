@@ -415,7 +415,7 @@ class AutoSuggest(APIView):
     permission_classes = (AllowAny,)
 
     def search_query(self, keyword):
-        filter_list = [{"term": {"status": True}}]
+        filter_list = [{"term": {"status": True}}, {"term": {"visible": True}}, {"range": {"available": {"gt": 0}}}]
         query = {"bool": {"filter": filter_list}}
         q = {
             "match": {
@@ -427,6 +427,7 @@ class AutoSuggest(APIView):
 
     def get(self, request, *args, **kwargs):
         search_keyword = request.GET.get('keyword')
+        shop_id = request.GET.get('shop_id')
         offset = 0
         page_size = 5
         query = self.search_query(search_keyword)
@@ -435,7 +436,14 @@ class AutoSuggest(APIView):
             "size": page_size,
             "query": query, "_source": {"includes": ["name", "product_images"]}
         }
-        products_list = es_search(index="all_products", body=body)
+        index = "all_products"
+        if shop_id:
+            if Shop.objects.filter(id=shop_id).exists():
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+                if parent_mapping.parent.shop_type.shop_type == 'sp':
+                    index = parent_mapping.parent.id
+
+        products_list = es_search(index=index, body=body)
         p_list = []
         for p in products_list['hits']['hits']:
             p_list.append(p["_source"])
