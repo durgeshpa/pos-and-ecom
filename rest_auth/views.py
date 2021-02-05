@@ -28,7 +28,7 @@ from .app_settings import (
     PasswordResetSerializer, PasswordResetConfirmSerializer,
     PasswordChangeSerializer, JWTSerializer, create_token
 )
-from .serializers import PasswordResetValidateSerializer
+from .serializers import PasswordResetValidateSerializer, LoginPhoneOTPSerializer
 from .models import TokenModel
 from .utils import jwt_encode
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -79,6 +79,15 @@ class LoginView(GenericAPIView):
             response_serializer = TokenSerializer
         return response_serializer
 
+    def get_serializer_class(self):
+        if "otp" in self.request.data:
+            serializer_class = LoginPhoneOTPSerializer
+            self.login_method = 'otp'
+        else:
+            serializer_class = LoginSerializer
+            self.login_method = 'pwd'
+        return serializer_class
+
     def login(self):
         self.user = self.serializer.validated_data['user']
 
@@ -113,7 +122,8 @@ class LoginView(GenericAPIView):
         self.request = request
         logger.info("login request")
         logger.info(request.data)
-        self.serializer = self.get_serializer(data=self.request.data,
+        serializer_class = self.get_serializer_class()
+        self.serializer = serializer_class(data=self.request.data,
                                               context={'request': request})
 
         if self.serializer.is_valid():
