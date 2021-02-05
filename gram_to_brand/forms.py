@@ -257,7 +257,8 @@ class GRNOrderProductForm(forms.ModelForm):
         super(GRNOrderProductForm, self).clean()
         if self.cleaned_data.get('product', None):
             if self.cleaned_data.get('expiry_date') is None:
-                raise ValidationError(_('Expiry date is required | Format should be YYYY-MM-DD'))
+                if not (int(self.cleaned_data.get('best_before_year')) or int(self.cleaned_data.get('best_before_month'))):
+                    raise ValidationError(_('Expiry date is required | Format should be YYYY-MM-DD'))
 
             if self.cleaned_data.get('manufacture_date') is None:
                 raise ValidationError(_('Manufacture date is required | Format should be YYYY-MM-DD'))
