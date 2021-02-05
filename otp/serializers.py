@@ -22,9 +22,9 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
     class Meta:
         model = PhoneOTP
         fields = (
-            'phone_number',
+            'phone_number', 'action'
         )
-    action = serializers.CharField()
+    action = serializers.CharField(required=False)
 
     def validate(self, attrs):
         number = attrs.get('phone_number')
@@ -33,6 +33,7 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
             user = UserModel.objects.filter(phone_number=number)
             if user.exists():
                 raise serializers.ValidationError("User already exists! Please login")
+        return attrs
 
 class ResendSmsOTPSerializer(serializers.ModelSerializer):
     """

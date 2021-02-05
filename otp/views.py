@@ -128,41 +128,23 @@ class SendSmsOTP(CreateAPIView):
         )
         if serializer.is_valid():
             number = request.data.get("phone_number")
-            user = UserModel.objects.filter(phone_number=number)
-            if user.exists():
-                msg = {'is_success': True,
-                        'message': [SUCCESS_MESSAGES['USER_ALREADY_EXISTS']],
-                        'response_data': None,
-                        'user_exists': True }
-                return Response(msg,
-                    status=status.HTTP_200_OK
-                )
-            else:
-                phone_otp, otp = PhoneOTP.create_otp_for_number(number)
-                date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-                time = datetime.datetime.now().strftime("%I:%M %p")
-                message = SendSms(phone=number,
-                                  body="%s is your One Time Password for GramFactory Account."\
-                                       " Request time is %s, %s IST." % (otp,date,time))
-                message.send()
-                # if 'success' in reason:
-                phone_otp.last_otp = timezone.now()
-                phone_otp.save()
-                msg = {'is_success': True,
-                        'message': ["message sent"],
-                        'response_data': None,
-                        'user_exists': False  }
-                return Response(msg,
-                    status=status.HTTP_200_OK
-                )
-                # else:
-                #     msg = {'is_success': False,
-                #             'message': [reason],
-                #             'response_data': None,
-                #             'user_exists': False }
-                #     return Response(msg,
-                #         status=status.HTTP_406_NOT_ACCEPTABLE
-                #     )
+            phone_otp, otp = PhoneOTP.create_otp_for_number(number)
+            date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
+            time = datetime.datetime.now().strftime("%I:%M %p")
+            message = SendSms(phone=number,
+                              body="%s is your One Time Password for GramFactory Account."\
+                                   " Request time is %s, %s IST." % (otp,date,time))
+            message.send()
+            # if 'success' in reason:
+            phone_otp.last_otp = timezone.now()
+            phone_otp.save()
+            msg = {'is_success': True,
+                    'message': ["message sent"],
+                    'response_data': None,
+                    'user_exists': False  }
+            return Response(msg,
+                status=status.HTTP_200_OK
+            )
         else:
             errors = []
             for field in serializer.errors:

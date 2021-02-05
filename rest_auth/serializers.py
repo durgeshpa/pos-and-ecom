@@ -131,7 +131,7 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
-class LoginPhoneOTPSerializer(serializers.ModelSerializer):
+class LoginPhoneOTPSerializer(serializers.Serializer):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     username = serializers.CharField(
         validators=[phone_regex],
