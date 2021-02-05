@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 from .models import PhoneOTP
+UserModel = get_user_model()
 
 class PhoneOTPValidateSerializer(serializers.ModelSerializer):
     """
@@ -23,6 +24,15 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         fields = (
             'phone_number',
         )
+    action = serializers.CharField()
+
+    def validate(self, attrs):
+        number = attrs.get('phone_number')
+        action = attrs.get('action')
+        if action != 'login':
+            user = UserModel.objects.filter(phone_number=number)
+            if user.exists():
+                raise serializers.ValidationError("User already exists! Please login")
 
 class ResendSmsOTPSerializer(serializers.ModelSerializer):
     """
