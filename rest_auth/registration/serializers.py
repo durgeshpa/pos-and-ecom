@@ -18,6 +18,9 @@ from rest_framework import serializers
 from requests.exceptions import HTTPError
 UserModel = get_user_model()
 
+from otp.models import PhoneOTP
+from otp.views import verify
+
 class SocialAccountSerializer(serializers.ModelSerializer):
     """
     serialize allauth SocialAccounts for use with a REST API
@@ -168,11 +171,12 @@ class RegisterSerializer(serializers.Serializer):
         min_length=allauth_settings.USERNAME_MIN_LENGTH,
         required=allauth_settings.USERNAME_REQUIRED
     )
+    otp = serializers.CharField(required=False, allow_blank=True, max_length=10)
     email = serializers.EmailField(required=allauth_settings.EMAIL_REQUIRED, allow_blank=True)
-    first_name = serializers.CharField(required=True, write_only=True)
+    first_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
     last_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    password1 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
-    password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+    password1 = serializers.CharField(required=False, allow_blank=True,style={'input_type': 'password'}, write_only=True)
+    password2 = serializers.CharField(required=False, allow_blank=True,style={'input_type': 'password'}, write_only=True)
     imei_no = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     def validate_username(self, username):
@@ -188,11 +192,25 @@ class RegisterSerializer(serializers.Serializer):
         return email
 
     def validate_password1(self, password):
-        return get_adapter().clean_password(password)
+        if password != '' and password != None:
+            return get_adapter().clean_password(password)
 
     def validate(self, data):
-        if data['password1'] != data['password2']:
+        if data['password1'] not in ['', None] and data['password1'] != data['password2']:
             raise serializers.ValidationError(_("The two password fields didn't match."))
+        if 'otp' in data and data['otp'] not in ['', None]:
+            phone_otps = PhoneOTP.objects.filter(phone_number=data['username'])
+            if phone_otps.exists():
+                phone_otp = phone_otps.last()
+                verify(data['otp'], phone_otp)
+            if phone_otps.exists():
+                phone_otp = phone_otps.last()
+                msg, status_code = verify(data['otp'], phone_otp)
+                if status_code != 200:
+                    message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
+                    raise serializers.ValidationError(message)
+            else:
+                raise serializers.ValidationError("Invalid Data")
         return data
 
     def custom_signup(self, request, user):
