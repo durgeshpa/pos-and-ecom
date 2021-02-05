@@ -1731,7 +1731,10 @@ def upload_master_data_view(request):
                 UploadMasterData.set_parent_data(excel_file_headers, excel_file_list)
 
             attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
-            request.FILES['file'].name = request.POST['upload_master_data'] + '-' + str(attribute_id['id'] + 1) + '.xlsx'
+            if attribute_id:
+                request.FILES['file'].name = request.POST['upload_master_data'] + '-' + str(attribute_id['id'] + 1) + '.xlsx'
+            else:
+                request.FILES['file'].name = request.POST['upload_master_data'] + '-' + str(1) + '.xlsx'
             product_attribute = BulkUploadForProductAttributes.objects.create(file=request.FILES['file'],
                                                                               updated_by=request.user)
             product_attribute.save()

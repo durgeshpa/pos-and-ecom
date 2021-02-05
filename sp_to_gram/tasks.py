@@ -178,8 +178,8 @@ def upload_shop_stock(shop=None,product=None):
 	all_products = get_warehouse_stock(shop,product)
 	es_index = shop if shop else 'all_products'
 	count = 0
-	if product is None:
-		es.indices.delete(index=create_es_index(es_index), ignore=[400, 404])
+	#if product is None:
+	#	es.indices.delete(index=create_es_index(es_index), ignore=[400, 404])
 	for product in all_products:
 		info_logger.info(product)
 		try:
