@@ -80,6 +80,9 @@ class LoginView(GenericAPIView):
         return response_serializer
 
     def get_serializer_class(self):
+        """
+        Login with Password OR OTP
+        """
         if "otp" in self.request.data:
             serializer_class = LoginPhoneOTPSerializer
             self.login_method = 'otp'

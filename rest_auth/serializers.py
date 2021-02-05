@@ -132,6 +132,9 @@ class LoginSerializer(serializers.Serializer):
 
 
 class LoginPhoneOTPSerializer(serializers.Serializer):
+    """
+    Serializer for login with phone number and OTP
+    """
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     username = serializers.CharField(
         validators=[phone_regex],
@@ -142,6 +145,9 @@ class LoginPhoneOTPSerializer(serializers.Serializer):
     otp = serializers.CharField(max_length=10)
 
     def validate(self, attrs):
+        """
+        Verify entered otp and user for login
+        """
         number = attrs.get('username')
         otp = attrs.get('otp')
         user = None
@@ -149,6 +155,7 @@ class LoginPhoneOTPSerializer(serializers.Serializer):
         phone_otps = PhoneOTP.objects.filter(phone_number=number)
         if phone_otps.exists():
             phone_otp = phone_otps.last()
+            # verify if entered otp was sent to the user
             msg, status_code = verify(otp, phone_otp)
             if status_code == 200:
                 user = UserModel.objects.filter(phone_number=number).last()

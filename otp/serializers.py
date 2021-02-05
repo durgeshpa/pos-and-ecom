@@ -27,6 +27,9 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
     action = serializers.CharField(required=False)
 
     def validate(self, attrs):
+        """
+        OTP should not be sent to existing user from registration screen
+        """
         number = attrs.get('phone_number')
         action = attrs.get('action')
         if action != 'login':
