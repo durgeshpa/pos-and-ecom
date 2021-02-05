@@ -1,20 +1,19 @@
-from django.conf import settings
+import datetime
+
 from django.contrib.auth import authenticate, login, get_user_model
-from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from django.conf import settings
+from rest_framework.permissions import AllowAny
 
-import requests, datetime
+from retailer_backend.messages import *
+from rest_auth.models import USER_VERIFIED
 from .sms import SendSms, SendVoiceSms
 from .models import PhoneOTP
 from .serializers import PhoneOTPValidateSerializer, ResendSmsOTPSerializer, \
                          ResendVoiceOTPSerializer, SendSmsOTPSerializer
-from django.utils import timezone
-from rest_framework.permissions import AllowAny
-from retailer_backend.messages import *
-from otp.models import PhoneOTP
 
 UserModel = get_user_model()
 
@@ -448,3 +447,78 @@ class SendSmsOTPAnytime(CreateAPIView):
         waiting_time = self.resend_in - self.time_dif
         seconds = str(waiting_time.total_seconds()).split('.')[0]
         return "You can resend OTP after %s seconds" % (seconds)
+
+
+def expired(user):
+    """
+    Check if a particular user is expired
+    """
+    current_time = datetime.datetime.now()
+    expiry_time = datetime.timedelta(seconds=user.expires_in)
+    created_time = user.created_at
+    if current_time - created_time <= expiry_time:
+        return False
+    else:
+        return True
+
+
+def max_attempts(user, attempts):
+    """
+    Check if user has exceeded maximum allowed otp attempts
+    """
+    if user.attempts < getattr(settings, 'OTP_ATTEMPTS', attempts):
+        return False
+    else:
+        return True
+
+
+def verify(otp, user):
+    """
+    Verify User Based on OTP
+    Check If the Otp input from user is correct/equals the otp sent
+    Check whether the user is expired
+    Check If maximum attempts of otp exceeded
+    """
+    if otp == user.otp:
+        # to verify user, user should not be expired and otp attempts should not exceed maximum limit
+        if not expired(user) and not max_attempts(user, 5):
+            user.is_verified = USER_VERIFIED
+            user.save()
+            msg = {'is_success': True,
+                    'message': [SUCCESS_MESSAGES['MOBILE_NUMBER_VERIFIED']],
+                    'response_data': None }
+            status_code=status.HTTP_200_OK
+            return msg, status_code
+        elif max_attempts(user, 5):
+            error_msg = VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED']
+            status_code = status.HTTP_406_NOT_ACCEPTABLE
+            revoke = RevokeOTP(user.phone_number,error_msg)
+            msg = revoke.update()
+            return msg, status_code
+        elif expired(user):
+            error_msg = VALIDATION_ERROR_MESSAGES['OTP_EXPIRED']
+            status_code = status.HTTP_406_NOT_ACCEPTABLE
+            revoke = RevokeOTP(user.phone_number,error_msg)
+            msg = revoke.update()
+            return msg, status_code
+
+    else:
+        if max_attempts(user, 5):
+            error_msg = VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED']
+            status_code = status.HTTP_406_NOT_ACCEPTABLE
+            revoke = RevokeOTP(user.phone_number,error_msg)
+            msg = revoke.update()
+            return msg, status_code
+        elif expired(user):
+            error_msg = VALIDATION_ERROR_MESSAGES['OTP_EXPIRED']
+            status_code = status.HTTP_406_NOT_ACCEPTABLE
+            revoke = RevokeOTP(user.phone_number,error_msg)
+            msg = revoke.update()
+            return msg, status_code
+        user.attempts += 1
+        user.save()
+        msg = {'is_success': False,
+                'message': [VALIDATION_ERROR_MESSAGES['OTP_NOT_MATCHED']],
+                'response_data': None }
+        status_code = status.HTTP_406_NOT_ACCEPTABLE
+        return msg, status_code
