@@ -26,7 +26,7 @@ from rest_auth.models import TokenModel
 from rest_auth.registration.serializers import (VerifyEmailSerializer,
                                                 SocialLoginSerializer,
                                                 SocialAccountSerializer,
-                                                SocialConnectSerializer,
+                                                SocialConnectSerializer
                                                 )
 from rest_auth.utils import jwt_encode
 from rest_auth.views import LoginView

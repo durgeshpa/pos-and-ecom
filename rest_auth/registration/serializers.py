@@ -1,6 +1,9 @@
+from requests.exceptions import HTTPError
+
 from django.http import HttpRequest
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
 
 try:
     from allauth.account import app_settings as allauth_settings
@@ -14,12 +17,9 @@ try:
 except ImportError:
     raise ImportError("allauth needs to be added to INSTALLED_APPS.")
 
-from rest_framework import serializers
-from requests.exceptions import HTTPError
-UserModel = get_user_model()
-
 from otp.models import PhoneOTP
 from otp.views import verify
+UserModel = get_user_model()
 
 class SocialAccountSerializer(serializers.ModelSerializer):
     """
@@ -196,13 +196,16 @@ class RegisterSerializer(serializers.Serializer):
             return get_adapter().clean_password(password)
 
     def validate(self, data):
+        """
+        Check For Password Fields Match and verify OTP if provided
+        """
+        # Password can be provided while registering. Check fields should match if provided
         if data['password1'] not in ['', None] and data['password1'] != data['password2']:
             raise serializers.ValidationError(_("The two password fields didn't match."))
+
+        # Otp can be verified while registering. If provided, check it should be correct
         if 'otp' in data and data['otp'] not in ['', None]:
             phone_otps = PhoneOTP.objects.filter(phone_number=data['username'])
-            if phone_otps.exists():
-                phone_otp = phone_otps.last()
-                verify(data['otp'], phone_otp)
             if phone_otps.exists():
                 phone_otp = phone_otps.last()
                 msg, status_code = verify(data['otp'], phone_otp)

@@ -26,7 +26,6 @@ from .models import TokenModel
 from .utils import import_callable
 
 from otp.models import PhoneOTP
-from otp.views import verify
 
 # Get the UserModel
 UserModel = get_user_model()
@@ -127,37 +126,6 @@ class LoginSerializer(serializers.Serializer):
                 email_address = user.emailaddress_set.get(email=user.email)
                 if not email_address.verified:
                     raise serializers.ValidationError(_('E-mail is not verified.'))
-        attrs['user'] = user
-        return attrs
-
-
-class LoginPhoneOTPSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = PhoneOTP
-        fields = (
-            'phone_number',
-            'otp'
-        )
-
-    def validate(self, attrs):
-        number = attrs.get('phone_number')
-        otp = attrs.get('otp')
-        user = None
-
-        phone_otps = PhoneOTP.objects.filter(phone_number=number)
-        if phone_otps.exists():
-            phone_otp = phone_otps.last()
-            msg, status_code = verify(otp, phone_otp)
-            if status_code == 200:
-                user = UserModel.objects.filter(phone_number=number).last()
-                if not user:
-                    raise exceptions.ValidationError("User does not exist. Please sign up!")
-            else:
-                raise exceptions.ValidationError(msg['message'])
-        else:
-            raise serializers.ValidationError("Invalid data")
-
         attrs['user'] = user
         return attrs
 
