@@ -79,7 +79,6 @@ class User(AbstractUser):
     user_type = models.PositiveSmallIntegerField(choices=USER_TYPE_CHOICES, default = '6', null=True)
     # last_login_date = models.DateField(auto_now_add=True)
     imei_no = models.CharField(max_length=20,null=True,blank=True)
-    # referral_code = models.CharField(max_length=300, blank=True, null=True, unique=True)
 
     USERNAME_FIELD = 'phone_number'
     objects = UserManager()

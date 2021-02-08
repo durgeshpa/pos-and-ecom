@@ -5,6 +5,9 @@ from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from marketing.models import MLMUser
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+
 try:
     from allauth.account import app_settings as allauth_settings
     from allauth.utils import (email_address_exists,
@@ -217,6 +220,11 @@ class RegisterSerializer(serializers.Serializer):
                     raise serializers.ValidationError(message)
             else:
                 raise serializers.ValidationError("Invalid Data")
+
+        if 'referral_code' in data and data['referral_code'] not in ['', None]:
+            user_id = MLMUser.objects.filter(referral_code=data['referral_code'])
+            if not user_id:
+                raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Referral_code'])
         return data
 
     def custom_signup(self, request, user):
