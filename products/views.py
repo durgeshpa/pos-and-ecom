@@ -1312,8 +1312,12 @@ def set_inactive_status_sample_excel_file(request):
     products = Product.objects.values('product_sku', 'product_name', 'status', 'product_mrp')\
                 .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']))
     for product in products:
-        row = [product['product_sku'], product['product_name'], product['product_mrp'], product['status']]
-        row
+        row = []
+        row.append(product['product_sku'])
+        row.append(product['product_name'])
+        row.append(product['product_mrp'])
+        row.append(product['status'])
+        row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = cell_value
@@ -1727,7 +1731,10 @@ def upload_master_data_view(request):
                 UploadMasterData.set_parent_data(excel_file_headers, excel_file_list)
 
             attribute_id = BulkUploadForProductAttributes.objects.values('id').last()
-            request.FILES['file'].name = request.POST['upload_master_data'] + '-' + str(attribute_id['id'] + 1) + '.xlsx'
+            if attribute_id:
+                request.FILES['file'].name = request.POST['upload_master_data'] + '-' + str(attribute_id['id'] + 1) + '.xlsx'
+            else:
+                request.FILES['file'].name = request.POST['upload_master_data'] + '-' + str(1) + '.xlsx'
             product_attribute = BulkUploadForProductAttributes.objects.create(file=request.FILES['file'],
                                                                               updated_by=request.user)
             product_attribute.save()
