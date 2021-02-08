@@ -11,7 +11,7 @@ from serializers import PutAwaySerializer,
 from django.db import transaction
 
 
-def autoPutAway(request,warehouse, batch_id, quantity)
+def autoPutAway(request,warehouse, batch_id, quantity):
 
     virtual_bin_ids = GlobalConfig.objects.get(key='virtual_bins')
     bin_ids = virtual_bin_ids.value
