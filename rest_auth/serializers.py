@@ -26,6 +26,7 @@ from .models import TokenModel
 from .utils import import_callable
 
 from otp.models import PhoneOTP
+from otp.views import ValidateOTP
 
 # Get the UserModel
 UserModel = get_user_model()
@@ -42,6 +43,7 @@ class LoginSerializer(serializers.Serializer):
     )
     email = serializers.EmailField(required=False, allow_blank=True)
     password = serializers.CharField(style={'input_type': 'password'})
+    otp = serializers.CharField(max_length=10, required=False, allow_blank=True)
 
     def _validate_email(self, email, password):
         user = None
@@ -126,6 +128,47 @@ class LoginSerializer(serializers.Serializer):
                 email_address = user.emailaddress_set.get(email=user.email)
                 if not email_address.verified:
                     raise serializers.ValidationError(_('E-mail is not verified.'))
+        attrs['user'] = user
+        return attrs
+
+
+class LoginPhoneOTPSerializer(serializers.Serializer):
+    """
+    Serializer for login with phone number and OTP
+    """
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    username = serializers.CharField(
+        validators=[phone_regex],
+        max_length=get_username_max_length(),
+        min_length=allauth_settings.USERNAME_MIN_LENGTH,
+        required=True
+    )
+    otp = serializers.CharField(max_length=10)
+
+    def validate(self, attrs):
+        """
+        Verify entered otp and user for login
+        """
+        number = attrs.get('username')
+        otp = attrs.get('otp')
+        user = None
+
+        phone_otps = PhoneOTP.objects.filter(phone_number=number)
+        if phone_otps.exists():
+            phone_otp = phone_otps.last()
+            # verify if entered otp was sent to the user
+            to_verify_otp = ValidateOTP()
+            msg, status_code = to_verify_otp.verify(otp, phone_otp)
+            if status_code == 200:
+                user = UserModel.objects.filter(phone_number=number).last()
+                if not user:
+                    raise serializers.ValidationError("User does not exist. Please sign up!")
+            else:
+                message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
+                raise serializers.ValidationError(message)
+        else:
+            raise serializers.ValidationError("Invalid data")
+
         attrs['user'] = user
         return attrs
 
