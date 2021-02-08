@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.debug import sensitive_post_parameters
@@ -18,6 +19,9 @@ from allauth.account import app_settings as allauth_settings
 from allauth.socialaccount import signals
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.models import SocialAccount
+from marketing.models import MLMUser, Referral
+from marketing.validation import ValidateOTP
+from marketing.views import save_user_referral_code
 
 from rest_auth.app_settings import (TokenSerializer,
                                     JWTSerializer,
@@ -30,6 +34,7 @@ from rest_auth.registration.serializers import (VerifyEmailSerializer,
                                                 )
 from rest_auth.utils import jwt_encode
 from rest_auth.views import LoginView
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from .app_settings import RegisterSerializer, register_permission_classes
 
 from otp.models import PhoneOTP
@@ -62,9 +67,57 @@ class RegisterView(CreateAPIView):
         else:
             return TokenSerializer(user.auth_token).data
 
+    def mlm_user_registration(self, data):
+        try:
+            phone_number = data.get('username')
+            # otp = data.get('otp')
+            referral_code = data.get('referral_code')
+
+            # if otp is None:
+            #     return Response({'message': VALIDATION_ERROR_MESSAGES['Enter_OTP'],
+            #                      'is_success': False, 'response_data': None},
+            #                     status=status.HTTP_400_BAD_REQUEST)
+            if referral_code:
+                """
+                    checking whether REFERRAL CODE is valid or not.
+                """
+                user_id = MLMUser.objects.filter(referral_code=referral_code)
+                if not user_id:
+                    return Response({'message': VALIDATION_ERROR_MESSAGES['Referral_code'],
+                                     'is_success': False,
+                                     'response_data': None},
+                                    status=status.HTTP_400_BAD_REQUEST)
+            user_phone = MLMUser.objects.filter(Q(phone_number=phone_number))
+            if user_phone.exists():
+                user = user_phone.last()
+                if user.status == 1:
+                    return Response({'message': VALIDATION_ERROR_MESSAGES['User_Already_Exist'],
+                                     'is_success': False,
+                                     'response_data': None},
+                                    status=status.HTTP_409_CONFLICT)
+
+                if not user.referral_code or user.referral_code == '':
+                    save_user_referral_code(phone_number)
+                user_referral_code = user.referral_code
+            else:
+                user_referral_code = save_user_referral_code(phone_number)
+
+            referred = 1 if referral_code else 0
+            msg = ValidateOTP(phone_number, otp, referred)
+            if referral_code:
+                Referral.store_parent_referral_user(referral_code, user_referral_code)
+            return Response(msg.data, status=msg.status_code)
+
+        except Exception as e:
+            return Response({'message': "Data is not valid.", 'is_success': False, 'response_data': None},
+                            status=status.HTTP_403_FORBIDDEN)
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
+            app_name = request.query_params['app']
+            if app_name == '2':
+                self.mlm_user_registration(request.data)
             number = request.data.get('username')
             user_otp = PhoneOTP.objects.filter(phone_number=number).last()
             if user_otp and user_otp.is_verified:
