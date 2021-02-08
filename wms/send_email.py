@@ -15,7 +15,7 @@ def send_mail_w_attachment(response, responses, warehouse_id,warehouse_name):
     try:
         email = EmailMessage()
         email.subject = subject
-        email.body = 'Products expiring in next 7 days or less'
+        email.body = 'Products expiring in next 15 days or less'
         sender = GlobalConfig.objects.get(key='sender')
         email.from_email = sender.value
         receiver = GlobalConfig.objects.get(key='recipient')
