@@ -18,7 +18,7 @@ except ImportError:
     raise ImportError("allauth needs to be added to INSTALLED_APPS.")
 
 from otp.models import PhoneOTP
-from otp.views import verify
+from otp.views import ValidateOTP
 UserModel = get_user_model()
 
 class SocialAccountSerializer(serializers.ModelSerializer):
@@ -210,7 +210,8 @@ class RegisterSerializer(serializers.Serializer):
             phone_otps = PhoneOTP.objects.filter(phone_number=data['username'])
             if phone_otps.exists():
                 phone_otp = phone_otps.last()
-                msg, status_code = verify(data['otp'], phone_otp)
+                to_verify_otp = ValidateOTP()
+                msg, status_code = to_verify_otp.verify(data['otp'], phone_otp)
                 if status_code != 200:
                     message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
                     raise serializers.ValidationError(message)
