@@ -26,7 +26,7 @@ from .models import TokenModel
 from .utils import import_callable
 
 from otp.models import PhoneOTP
-from otp.views import verify
+from otp.views import ValidateOTP
 
 # Get the UserModel
 UserModel = get_user_model()
@@ -43,6 +43,7 @@ class LoginSerializer(serializers.Serializer):
     )
     email = serializers.EmailField(required=False, allow_blank=True)
     password = serializers.CharField(style={'input_type': 'password'})
+    otp = serializers.CharField(max_length=10, required=False, allow_blank=True)
 
     def _validate_email(self, email, password):
         user = None
@@ -156,7 +157,8 @@ class LoginPhoneOTPSerializer(serializers.Serializer):
         if phone_otps.exists():
             phone_otp = phone_otps.last()
             # verify if entered otp was sent to the user
-            msg, status_code = verify(otp, phone_otp)
+            to_verify_otp = ValidateOTP()
+            msg, status_code = to_verify_otp.verify(otp, phone_otp)
             if status_code == 200:
                 user = UserModel.objects.filter(phone_number=number).last()
                 if not user:
