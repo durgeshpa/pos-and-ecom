@@ -835,7 +835,9 @@ class PickerDashboardAdmin(admin.ModelAdmin):
             return qs.order_by('-order__created_at')
         return qs.filter(
             Q(order__seller_shop__related_users=request.user) |
-            Q(order__seller_shop__shop_owner=request.user)
+            Q(order__seller_shop__shop_owner=request.user) |
+            Q(repackaging__seller_shop__related_users=request.user) |
+            Q(repackaging__seller_shop__shop_owner=request.user)
                 ).order_by('-order__created_at')
 
     # def _picklist(self, obj, request):

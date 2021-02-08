@@ -1,4 +1,4 @@
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 from audit.models import AuditCancelledPicklist
 from retailer_to_sp.models import Order
@@ -91,9 +91,9 @@ def fix_ordered_data(warehouse):
 
             inventory_calculated[item['cart_product__product_sku']] += item['qty']
 
-    orders_picklist_pending = Order.objects.filter(order_no__in=
+    orders_picklist_pending = Order.objects.filter(~Q(order_status='CANCELLED'), order_no__in=
                                                    AuditCancelledPicklist.objects.filter(audit__warehouse=warehouse,
-                                                                                         is_picklist_refreshed=False)
+                                                                                         is_picklist_refreshed=False,)
                                                                                  .values_list('order_no', flat=True))
     for o in orders_picklist_pending:
         ordered_sku = o.ordered_cart.rt_cart_list.values('cart_product__product_sku')\

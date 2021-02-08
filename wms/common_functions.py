@@ -224,10 +224,17 @@ class CommonWarehouseInventoryFunctions(object):
         transaction_type : string identifier for transaction
         transaction_id : string identifier for transaction
         """
+
+        info_logger.info("Warehouse Inventory Update Started| Warehouse-{}, SKU-{}, Inventory Type-{}, "
+                         "Inventory State-{}, Quantity-{}, Transaction type-{}, Transaction ID-{}"
+                         .format(warehouse.id, product.product_sku, inventory_type.inventory_type,
+                                 inventory_state.inventory_state, quantity, transaction_type, transaction_id))
         cls.create_warehouse_inventory(warehouse, product, inventory_type, inventory_state, quantity, in_stock)
-        WarehouseInternalInventoryChange.objects.create(warehouse=warehouse, sku=product, transaction_type=transaction_type,
+        WarehouseInternalInventoryChange.objects.create(warehouse=warehouse, sku=product,
+                                                        transaction_type=transaction_type,
                                                         transaction_id=transaction_id, inventory_type=inventory_type,
                                                         inventory_state=inventory_state, quantity=quantity)
+        info_logger.info("Warehouse Inventory Update| Done")
 
     @classmethod
     def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
@@ -930,11 +937,13 @@ def cancel_pickup(pickup_object):
     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
     pickup_bin_qs = PickupBinInventory.objects.filter(pickup=pickup_object)
     total_remaining = 0
+    info_logger.info("cancel_pickup| pickup -{}, SKU-{}".format(pickup_id, pickup_object.sku))
     for item in pickup_bin_qs:
         bi_qs = BinInventory.objects.filter(id=item.bin_id)
         bi = bi_qs.last()
-        # bin_quantity = bi.quantity + item.quantity
         picked_qty = item.pickup_quantity
+        info_logger.info("cancel_pickup | Bin-{}, batch-{}, bin qty-{}, to be picked qty-{}, picked qty-{}"
+                         .format(bi.bin_id, bi.batch_id, bi.quantity, bi.to_be_picked_qty, picked_qty))
         if picked_qty is None:
             picked_qty = 0
         remaining_qty = item.quantity - picked_qty
@@ -943,7 +952,10 @@ def cancel_pickup(pickup_object):
         to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
         if to_be_picked_qty < 0:
             to_be_picked_qty = 0
+        info_logger.info("cancel_pickup | updated | Bin-{}, batch-{}, quantity-{}, to_be_picked_qty-{}"
+                         .format(bi.bin_id, bi.batch_id, bin_quantity, to_be_picked_qty))
         bi_qs.update(quantity=bin_quantity, to_be_picked_qty=to_be_picked_qty)
+
         InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
                                                                      bi.bin,
                                                                      type_normal, type_normal,
@@ -957,6 +969,9 @@ def cancel_pickup(pickup_object):
                 pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
                 state_picked, -1 * picked_qty, tr_type, pickup_id)
 
+            info_logger.info("cancel_pickup | created putaway | Bin-{}, batch-{}, quantity-{}"
+                             .format(bi.bin_id, bi.batch_id, picked_qty))
+
     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
         pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
         state_to_be_picked, -1 * total_remaining, tr_type, pickup_id)
@@ -967,6 +982,8 @@ def cancel_pickup(pickup_object):
 
     pickup_object.status = tr_type
     pickup_object.save()
+
+    info_logger.info("cancel_pickup | completed | Pickup-{}".format(pickup_id))
 
 
 def revert_ordered_inventory(pickup_object):
@@ -2070,4 +2087,4 @@ def get_stock_available_category_list(warehouse=None):
                                                  inventory_type='normal').last())
     if warehouse:
         query_set = query_set.filter(warehouse=warehouse)
-    return query_set.values_list('sku__product_pro_category__category', flat=True).distinct()
+    return query_set.values_list('sku__parent_product__parent_product_pro_category__category', flat=True).distinct()
