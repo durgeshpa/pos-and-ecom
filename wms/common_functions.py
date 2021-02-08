@@ -2087,4 +2087,4 @@ def get_stock_available_category_list(warehouse=None):
                                                  inventory_type='normal').last())
     if warehouse:
         query_set = query_set.filter(warehouse=warehouse)
-    return query_set.values_list('sku__product_pro_category__category', flat=True).distinct()
+    return query_set.values_list('sku__parent_product__parent_product_pro_category__category', flat=True).distinct()
