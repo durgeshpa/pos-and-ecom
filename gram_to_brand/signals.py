@@ -180,33 +180,30 @@ def autoPutAway(warehouse, batch_id, quantity):
             for bin_id in bin_ids:
                 bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17], bin__bin_id=bin_id).exclude(
                                                                                                     batch_id=i)
+                if bin_inventory.exists():
+                    qs = bin_inventory.filter(inventory_type=type_normal) \
+                        .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
+                    total = qs['available'] + qs['to_be_picked']
 
-                with transaction.atomic():
-                    if bin_inventory.exists():
-                        # if BinInventory exists, check if total inventory is zero, this includes items yet to be picked
+                    # if inventory is more than zero, putaway won't be allowed,check for another bin_id
 
-                        qs = bin_inventory.filter(inventory_type=type_normal) \
-                            .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
-                        total = qs['available'] + qs['to_be_picked']
-
-                        # if inventory is more than zero, putaway won't be allowed,check for another bin_id
-
-                        if total > 0:
-                            info_logger.info("This product with sku {} and batch_id {} can not be placed in the bin".format(i[:17], i))
-                        else:
-                            break
-                    else:
+                    if total > 0:
                         break
+                else:
+                    break
 
-            pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
-            put_away_status = False
+            with transaction.atomic():
 
-            while len(ids):
-                put_away_done = update_putaway(ids[0], i, warehouse, int(value), user)
-                value = put_away_done
-                put_away_status = True
-                ids.remove(ids[0])
+                pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
+                put_away_status = False
 
-                updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't', val,
-                                           put_away_status, pu)
-        info_logger.info("quantity has been updated in put away.")
+                while len(ids):
+                    put_away_done = update_putaway(ids[0], i, warehouse, int(value), user)
+                    value = put_away_done
+                    put_away_status = True
+                    ids.remove(ids[0])
+
+                    updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't', val,
+                                               put_away_status, pu)
+                    break
+            info_logger.info("quantity has been updated in put away.")
