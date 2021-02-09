@@ -3,6 +3,7 @@ import logging
 
 from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import render
 
 # Create your views here.
@@ -13,7 +14,7 @@ from gram_to_brand.common_functions import get_grned_product_qty_by_grn_id
 from retailer_backend.common_function import checkNotShopAndMapping, getShopMapping
 from retailer_to_sp.models import Order, Cart, CartProductMapping
 from shops.models import Shop
-from warehouse_consolidation.models import AutoOrderProcessing, SourceDestinationMapping
+from whc.models import AutoOrderProcessing, SourceDestinationMapping
 from wms.common_functions import get_stock, OrderManagement
 from wms.models import InventoryType, OrderReserveRelease
 
@@ -126,7 +127,7 @@ class AutoOrderProcessor:
         return cart
 
 
-def process_auto_order():
+def process_auto_order(request):
     is_wh_consolidation_on = get_config('is_wh_consolidation_on', False)
     if not is_wh_consolidation_on:
         return
@@ -153,7 +154,7 @@ def process_auto_order():
     system_user = User.objects.filter(pk=9).last()
     order_processor = AutoOrderProcessor(retailer_shop, system_user)
     for entry in entries_to_process:
-        while True:
+        while next_state in AutoOrderProcessing.ORDER_PROCESSING_STATUS:
             current_state = entry.state
             info_logger.info("process_auto_order|GRN ID-{}, current state-{}".format(entry.grn_id, current_state))
             next_state = process_next(order_processor, entry)
@@ -163,8 +164,14 @@ def process_auto_order():
             if next_state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED:
                 info_logger.info("process_auto_order|GRN ID-{}, moved to delivered state".format(entry.grn_id))
                 break
+            info_logger.info("process_auto_order|GRN ID-{}, current state-{}".format(entry.grn_id, next_state))
+
+    return HttpResponse("Done")
 
 def process_next(order_processor, entry_to_process):
     if entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PUTAWAY:
-        return AutoOrderProcessing.ORDER_PROCESSING_STATUS.ORDERED
+        if order_processor.place_order_by_grn(entry_to_process.grn_id):
+            entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.ORDERED
+            entry_to_process.save()
+        return entry_to_process.state
     return AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED
