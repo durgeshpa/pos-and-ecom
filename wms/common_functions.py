@@ -398,6 +398,9 @@ def get_visibility_changes(shop, product):
         if len(product_qty_dict) == 0:
             visibility_changes[child.id] = False
             continue
+        if AuditProduct.objects.filter(warehouse=shop, sku=child, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
+            visibility_changes[child.id] = False
+            continue
         if child.reason_for_child_sku == 'offer':
             visibility_changes[child.id] = True
             continue
@@ -407,9 +410,6 @@ def get_visibility_changes(shop, product):
             continue
         if sum_qty_warehouse_entries <= 2*(int(child.product_inner_case_size)):
             visibility_changes[child.id] = True
-            continue
-        if AuditProduct.objects.filter(warehouse=shop, sku=child, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
-            visibility_changes[child.id] = False
             continue
         bin_data = BinInventory.objects.filter(
             Q(warehouse=shop),
