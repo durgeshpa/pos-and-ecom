@@ -162,8 +162,7 @@ def autoPutAway(warehouse, batch_id, quantity):
 
     inventory_type = 'normal'
     type_normal = InventoryType.objects.filter(inventory_type=inventory_type).last()
-    batch_id = batch_id
-    quantity = quantity
+
     put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
                                                             inventory_type=type_normal).order_by('created_at')
     ids = [i.id for i in put_away]
