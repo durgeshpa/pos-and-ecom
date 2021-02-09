@@ -193,7 +193,8 @@ def autoPutAway(warehouse, batch_id, quantity):
                         continue
                     else:
                         break
-
+                # else:
+                #     break
             with transaction.atomic():
 
                 pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
