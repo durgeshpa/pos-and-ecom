@@ -32,7 +32,8 @@ from rest_auth.models import TokenModel
 from rest_auth.registration.serializers import (VerifyEmailSerializer,
                                                 SocialLoginSerializer,
                                                 SocialAccountSerializer,
-                                                SocialConnectSerializer
+                                                SocialConnectSerializer,
+                                                MlmRegisterSerializer
                                                 )
 from rest_auth.utils import jwt_encode
 from rest_auth.views import LoginView
@@ -45,15 +46,24 @@ sensitive_post_parameters_m = method_decorator(
     sensitive_post_parameters('password1', 'password2')
 )
 
+APPLICATION_REGISTRATION_SERIALIZERS_MAP = {
+    '0' : RegisterSerializer,
+    '1' : MlmRegisterSerializer
+}
+
 
 class RegisterView(CreateAPIView):
-    serializer_class = RegisterSerializer
     permission_classes = register_permission_classes()
     token_model = TokenModel
 
     @sensitive_post_parameters_m
     def dispatch(self, *args, **kwargs):
         return super(RegisterView, self).dispatch(*args, **kwargs)
+
+    def get_serializer_class(self):
+        app = self.request.data.get('app_type', '0')
+        app = app if app in APPLICATION_REGISTRATION_SERIALIZERS_MAP else '0'
+        return APPLICATION_REGISTRATION_SERIALIZERS_MAP[app]
 
     def get_response_data(self, user):
         if allauth_settings.EMAIL_VERIFICATION == \
@@ -97,15 +107,15 @@ class RegisterView(CreateAPIView):
         return mlm_response_data
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=request.data)
         if serializer.is_valid():
-            app_name = request.query_params.get('app')
             number = request.data.get('username')
             user_otp = PhoneOTP.objects.filter(phone_number=number).last()
             if user_otp and user_otp.is_verified:
                 user = self.perform_create(serializer)
                 headers = self.get_success_headers(serializer.data)
-                if app_name == '2':
+                if serializer_class == MlmRegisterSerializer:
                     response_data = self.mlm_user_registration(request.data)
                     msg = {'is_success': True,
                            'message': 'Successfully signed up!',
@@ -132,6 +142,14 @@ class RegisterView(CreateAPIView):
                        'response_data': None}
                 return Response(msg,
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
+            user = self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            msg = {'is_success': True,
+                    'message': ['Successfully signed up!'],
+                    'response_data':[{'access_token':self.get_response_data(user)['key']}] }
+            return Response(msg,
+                            status=status.HTTP_201_CREATED,
+                            headers=headers)
 
         else:
             errors = []
@@ -140,11 +158,11 @@ class RegisterView(CreateAPIView):
                     if 'non_field_errors' in field:
                         result = error
                     else:
-                        result = ''.join('{} : {}'.format(field, error))
+                        result = ''.join('{} : {}'.format(field,error))
                     errors.append(result)
             msg = {'is_success': False,
-                   'message': [error for error in errors],
-                   'response_data': None}
+                    'message': [error for error in errors],
+                    'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -159,7 +177,6 @@ class RegisterView(CreateAPIView):
                         allauth_settings.EMAIL_VERIFICATION,
                         None)
         return user
-
 
 class VerifyEmailView(APIView, ConfirmEmailView):
     permission_classes = (AllowAny,)
