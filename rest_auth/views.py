@@ -28,7 +28,7 @@ from .app_settings import (
     PasswordResetSerializer, PasswordResetConfirmSerializer,
     PasswordChangeSerializer, JWTSerializer, create_token
 )
-from .serializers import PasswordResetValidateSerializer, LoginPhoneOTPSerializer
+from .serializers import PasswordResetValidateSerializer, MlmLoginSerializer
 from .models import TokenModel
 from .utils import jwt_encode
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -49,6 +49,11 @@ sensitive_post_parameters_m = method_decorator(
     )
 )
 
+APPLICATION_LOGIN_SERIALIZERS_MAP = {
+    '0' : LoginSerializer,
+    '1' : MlmLoginSerializer
+}
+
 
 class LoginView(GenericAPIView):
     """
@@ -61,7 +66,6 @@ class LoginView(GenericAPIView):
     Return the REST Framework Token Object's key.
     """
     permission_classes = (AllowAny,)
-    serializer_class = LoginSerializer
     token_model = TokenModel
     queryset = TokenModel.objects.all()
 
@@ -80,16 +84,9 @@ class LoginView(GenericAPIView):
         return response_serializer
 
     def get_serializer_class(self):
-        """
-        Login with Password OR OTP
-        """
-        if "otp" in self.request.data:
-            serializer_class = LoginPhoneOTPSerializer
-            self.login_method = 'otp'
-        else:
-            serializer_class = LoginSerializer
-            self.login_method = 'pwd'
-        return serializer_class
+        app = self.request.data.get('app_type', '0')
+        app = app if app in APPLICATION_LOGIN_SERIALIZERS_MAP else '0'
+        return APPLICATION_LOGIN_SERIALIZERS_MAP[app]
 
     def login(self):
         self.user = self.serializer.validated_data['user']

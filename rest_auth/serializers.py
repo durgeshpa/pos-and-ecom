@@ -43,7 +43,6 @@ class LoginSerializer(serializers.Serializer):
     )
     email = serializers.EmailField(required=False, allow_blank=True)
     password = serializers.CharField(style={'input_type': 'password'})
-    otp = serializers.CharField(max_length=10, required=False, allow_blank=True)
 
     def _validate_email(self, email, password):
         user = None
@@ -132,7 +131,7 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
-class LoginPhoneOTPSerializer(serializers.Serializer):
+class MlmLoginSerializer(serializers.Serializer):
     """
     Serializer for login with phone number and OTP
     """
