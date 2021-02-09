@@ -182,7 +182,7 @@ def process_auto_order():
             info_logger.error("process_auto_order|error while processing GRN ID-{}, current state-{}"
                               .format(entry.grn_id, entry.state))
             info_logger.exception(e)
-        info_logger.info("process_auto_order|COMPLETED")
+    info_logger.info("process_auto_order|COMPLETED")
 
 
 def process_next(order_processor, entry_to_process):
