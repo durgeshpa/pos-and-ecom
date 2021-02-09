@@ -6,7 +6,7 @@ from django.db.models import Sum
 from django.db import transaction
 
 from global_config.models import GlobalConfig
-from wms.models import InventoryType,InventoryState
+from wms.models import InventoryType, InventoryState
 from shops.models import Shop
 from .models import BrandNote, GRNOrderProductMapping, GRNOrder
 from shops.models import Shop, ParentRetailerMapping
@@ -19,9 +19,15 @@ from sp_to_gram.models import (
 )
 
 from retailer_backend.common_function import brand_debit_note_pattern, grn_pattern
-from wms.common_functions import PutawayCommonFunctions,InCommonFunctions,CommonBinInventoryFunctions,updating_tables_on_putaway
+from wms.common_functions import PutawayCommonFunctions, InCommonFunctions, CommonBinInventoryFunctions, \
+    updating_tables_on_putaway
 from wms.views import update_putaway
 
+import logging
+
+logger = logging.getLogger(__name__)
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
 
 @receiver(post_save, sender=GRNOrder)
 def create_grn_id(sender, instance=None, created=False, **kwargs):
@@ -53,24 +59,23 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
         # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
 
 
-
 @receiver(post_save, sender=GRNOrderProductMapping)
 def create_debit_note(sender, instance=None, created=False, **kwargs):
     if created:
         if instance.returned_qty > 0:
-            debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
+            debit_note = BrandNote.objects.filter(grn_order=instance.grn_order)
             if debit_note.exists():
                 debit_note = debit_note.last()
                 debit_note.brand_note_id = brand_debit_note_pattern(
-                        BrandNote, 'brand_note_id', debit_note, instance.grn_order.order.ordered_cart.gf_billing_address_id)
+                    BrandNote, 'brand_note_id', debit_note, instance.grn_order.order.ordered_cart.gf_billing_address_id)
                 debit_note.order = instance.grn_order.order
-                debit_note.amount= debit_note.amount + (instance.returned_qty * instance.po_product_price)
+                debit_note.amount = debit_note.amount + (instance.returned_qty * instance.po_product_price)
                 debit_note.save()
             else:
                 debit_note = BrandNote.objects.create(
                     brand_note_id=brand_debit_note_pattern(
                         BrandNote, 'brand_note_id', None, instance.grn_order.order.ordered_cart.gf_billing_address_id),
-                grn_order = instance.grn_order, amount = instance.returned_qty * instance.po_product_price, status=True)
+                    grn_order=instance.grn_order, amount=instance.returned_qty * instance.po_product_price, status=True)
 
         # SP auto ordered product creation
         connected_shops = ParentRetailerMapping.objects.filter(
@@ -87,22 +92,22 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     cart_product=instance.product,
                     case_size=instance.product.product_case_size,
                     number_of_cases=instance.grn_order.order. \
-                              ordered_cart.cart_list.filter
-                              (
-                              cart_product=instance.product
-                          ).last().no_of_cases,
+                        ordered_cart.cart_list.filter
+                        (
+                        cart_product=instance.product
+                    ).last().no_of_cases,
                     qty=int(instance.delivered_qty),
-                    #scheme=item.scheme,
-                    price=instance.grn_order.order.\
-                    ordered_cart.cart_list.filter
-                    (
+                    # scheme=item.scheme,
+                    price=instance.grn_order.order. \
+                        ordered_cart.cart_list.filter
+                        (
                         cart_product=instance.product
                     ).last().price,
-                    total_price=round(float(instance.delivered_qty) * instance.grn_order.order.\
-                    ordered_cart.cart_list.filter
-                    (
+                    total_price=round(float(instance.delivered_qty) * instance.grn_order.order. \
+                                      ordered_cart.cart_list.filter
+                        (
                         cart_product=instance.product
-                    ).last().price,2),
+                    ).last().price, 2),
                 )
                 sp_order = SpOrder.objects.filter(
                     ordered_cart=sp_po
@@ -131,26 +136,28 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                 putaway_quantity = 0
                 if instance.batch_id:
                     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
-                    in_obj = InCommonFunctions.create_in(shop.retailer, 'GRN', instance.grn_order.grn_id, instance.product,
-                                                instance.batch_id, int(instance.delivered_qty), putaway_quantity,
-                                                type_normal)
+                    in_obj = InCommonFunctions.create_in(shop.retailer, 'GRN', instance.grn_order.grn_id,
+                                                         instance.product,
+                                                         instance.batch_id, int(instance.delivered_qty),
+                                                         putaway_quantity,
+                                                         type_normal)
 
-                    is_wh_consolidation_on = GlobalConfig.objects.get('is_wh_consolidation_on', False)
-                    if is_wh_consolidation_on:
-                        source_wh_id = GlobalConfig.objects.get('wh_consolidation_source')
-                        if in_obj.warehouse.id == source_wh_id:
-                            autoPutAway(in_obj.warehouse, in_obj.batch_id, in_obj.quantity)
-
+                    is_wh_consolidation_on = GlobalConfig.objects.get(key='is_wh_consolidation_on')
+                    if is_wh_consolidation_on.value:
+                        source_wh_id = GlobalConfig.objects.get(key='wh_consolidation_source')
+                        if in_obj.warehouse.id == source_wh_id.value:
+                            autoPutAway(in_obj.warehouse, [in_obj.batch_id], [in_obj.quantity])
 
         # ends here
         instance.available_qty = 0
         instance.save()
 
 
-def autoPutAway(request,warehouse, batch_id, quantity):
-
+def autoPutAway(warehouse, batch_id, quantity):
     virtual_bin_ids = GlobalConfig.objects.get(key='virtual_bins')
-    bin_ids = virtual_bin_ids.value
+    bin_ids = eval(virtual_bin_ids.value)
+
+    user = GlobalConfig.objects.get(key='user')
 
     data, key = {}, 0
     inventory_type = 'normal'
@@ -162,31 +169,34 @@ def autoPutAway(request,warehouse, batch_id, quantity):
         put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse,
                                                                 inventory_type=type_normal).order_by('created_at')
         ids = [i.id for i in put_away]
-        sh = Shop.objects.filter(id=int(warehouse)).last()
+        sh = Shop.objects.filter(id=int(warehouse.id)).last()
         state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
 
         if sh.shop_type.shop_type == 'sp':
             for bin_id in bin_ids:
-                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17], bin__bin_id=bin_id).exclude( batch_id=i)
-                if bin_inventory:
-                    pass
+                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17],
+                                                                                       bin__bin_id=bin_id).exclude(
+                    batch_id=i)
 
-            bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17], bin__bin_id=bin_id) \
-                .exclude(batch_id=i)
             with transaction.atomic():
                 if bin_inventory.exists():
                     qs = bin_inventory.filter(inventory_type=type_normal) \
                         .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
                     total = qs['available'] + qs['to_be_picked']
+                    if total > 0:
+                        pass
+                        info_logger.info("This product with sku {} and batch_id {} can not be placed in the bin")
                     continue
 
             pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
             put_away_status = False
+            user = user.value
             while len(ids):
-                put_away_done = update_putaway(ids[0], i, warehouse, int(value), request.user)
+                put_away_done = update_putaway(ids[0], i, warehouse, int(value), user)
                 value = put_away_done
                 put_away_status = True
                 ids.remove(ids[0])
 
                 updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't', val,
                                            put_away_status, pu)
+        info_logger.info("quantity has been updated in put away.")
