@@ -177,29 +177,26 @@ def autoPutAway(warehouse, batch_id, quantity):
         if sh.shop_type.shop_type == 'sp':
 
             # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
-            bin_id = bin_ids[0]
-            bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17], bin__bin_id=bin_id).exclude(
-                                                                                                batch_id=i)
+            for bin_id in bin_ids:
+                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17], bin__bin_id=bin_id).exclude(
+                                                                                                    batch_id=i)
 
-            with transaction.atomic():
-                if bin_inventory.exists():
-                    # if BinInventory exists, check if total inventory is zero, this includes items yet to be picked
+                with transaction.atomic():
+                    if bin_inventory.exists():
+                        # if BinInventory exists, check if total inventory is zero, this includes items yet to be picked
 
-                    qs = bin_inventory.filter(inventory_type=type_normal) \
-                        .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
-                    total = qs['available'] + qs['to_be_picked']
+                        qs = bin_inventory.filter(inventory_type=type_normal) \
+                            .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
+                        total = qs['available'] + qs['to_be_picked']
 
-                    # if inventory is more than zero, putaway won't be allowed,check for another bin_id
+                        # if inventory is more than zero, putaway won't be allowed,check for another bin_id
 
-                    if total > 0:
-                        info_logger.info("This product with sku {} and batch_id {} can not be placed in the bin".format(i[:17], i))
-                        bin_id = bin_ids[1]
-                        bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17],
-                                                                                               bin__bin_id=bin_id).exclude(
-                            batch_id=i)
-
-
-                    continue
+                        if total > 0:
+                            info_logger.info("This product with sku {} and batch_id {} can not be placed in the bin".format(i[:17], i))
+                        else:
+                            break
+                    else:
+                        break
 
             pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
             put_away_status = False
