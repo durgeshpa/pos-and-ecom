@@ -187,6 +187,11 @@ def autoPutAway(warehouse, batch_id, quantity):
 
                     # if inventory is more than zero, putaway won't be allowed,check for another bin_id
                     if total > 0:
+                        info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
+                                              .format(i[:17], i))
+
+                        continue
+                    else:
                         break
 
             with transaction.atomic():
@@ -202,5 +207,4 @@ def autoPutAway(warehouse, batch_id, quantity):
 
                     updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't', val,
                                                put_away_status, pu)
-                    break
             info_logger.info("quantity has been updated in put away.")
