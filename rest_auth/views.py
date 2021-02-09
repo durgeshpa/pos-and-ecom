@@ -21,7 +21,6 @@ from django.http import JsonResponse
 import json, datetime
 from django.utils import timezone
 
-from accounts.models import User
 from global_config.models import GlobalConfig
 from marketing.models import ReferralCode
 from marketing.views import save_user_referral_code

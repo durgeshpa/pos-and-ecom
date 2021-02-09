@@ -1,5 +1,4 @@
 from django.conf import settings
-from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.debug import sensitive_post_parameters
@@ -21,8 +20,7 @@ from allauth.socialaccount import signals
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.models import SocialAccount
 from global_config.models import GlobalConfig
-from marketing.models import MLMUser, Referral, ReferralCode, RewardPoint
-from marketing.validation import ValidateOTP
+from marketing.models import Referral, ReferralCode, RewardPoint
 from marketing.views import save_user_referral_code
 
 from rest_auth.app_settings import (TokenSerializer,
