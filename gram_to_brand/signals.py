@@ -172,8 +172,9 @@ def autoPutAway(warehouse, batch_id, quantity):
 
     if sh.shop_type.shop_type == 'sp':
 
-        # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
+
         for bin_id in bin_ids:
+            # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
             bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id).exclude(
                                                                                                 batch_id=batch_id)
             if bin_inventory.exists():
