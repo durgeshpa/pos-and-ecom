@@ -1,3 +1,5 @@
+import datetime
+
 from django.contrib.auth import (
     login as django_login,
     logout as django_logout
@@ -6,43 +8,29 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.decorators import method_decorator
-from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.debug import sensitive_post_parameters
+from django.utils import timezone
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_text
 
 from rest_framework import status, authentication, permissions, serializers, exceptions
-from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authentication import TokenAuthentication
 
-from django.http import JsonResponse
-import json, datetime
-from django.utils import timezone
-
-from global_config.models import GlobalConfig
-from marketing.models import ReferralCode
-from marketing.views import save_user_referral_code
-from otp.sms import SendSms, SendVoiceSms
-
+from otp.sms import SendSms
 from .app_settings import (
     TokenSerializer, UserDetailsSerializer, LoginSerializer,
     PasswordResetSerializer, PasswordResetConfirmSerializer,
     PasswordChangeSerializer, JWTSerializer, create_token
 )
-from .serializers import PasswordResetValidateSerializer, MlmLoginSerializer
+from .serializers import PasswordResetValidateSerializer, MlmLoginSerializer, MlmResponseSerializer, LoginResponseSerializer
 from .models import TokenModel
 from .utils import jwt_encode
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from otp.models import PhoneOTP
-
 from accounts.tokens import account_activation_token
-
-from django.utils.encoding import force_bytes, force_text
-import logging
-
-logger = logging.getLogger('django')
 
 UserModel = get_user_model()
 
@@ -56,6 +44,10 @@ APPLICATION_LOGIN_SERIALIZERS_MAP = {
     '0' : LoginSerializer,
     '1' : MlmLoginSerializer
 }
+APPLICATION_LOGIN_RESPONSE_SERIALIZERS_MAP = {
+    '0' : LoginResponseSerializer,
+    '1' : MlmResponseSerializer
+}
 
 
 class LoginView(GenericAPIView):
@@ -65,7 +57,7 @@ class LoginView(GenericAPIView):
     Calls Django Auth login method to register User ID
     in Django session framework
 
-    Accept the following POST parameters: username, password
+    Accept POST parameters based on serializers for different applications "app_type"
     Return the REST Framework Token Object's key.
     """
     permission_classes = (AllowAny,)
@@ -79,87 +71,61 @@ class LoginView(GenericAPIView):
     def process_login(self):
         django_login(self.request, self.user)
 
-    def get_response_serializer(self):
-        if getattr(settings, 'REST_USE_JWT', False):
-            response_serializer = JWTSerializer
-        else:
-            response_serializer = TokenSerializer
-        return response_serializer
+    def get_auth_serializer(self):
+        """
+        Auth Type
+        """
+        return JWTSerializer if getattr(settings, 'REST_USE_JWT', False) else TokenSerializer
 
     def get_serializer_class(self):
+        """
+        Return Serializer Class Based On App Type Requested
+        """
         app = self.request.data.get('app_type', '0')
         app = app if app in APPLICATION_LOGIN_SERIALIZERS_MAP else '0'
         return APPLICATION_LOGIN_SERIALIZERS_MAP[app]
 
-    def login(self):
-        self.user = self.serializer.validated_data['user']
+    def get_response_serializer(self):
+        """
+        Return Response Serializer Class Based On App Type Requested
+        """
+        app = self.request.data.get('app_type', '0')
+        app = app if app in APPLICATION_LOGIN_RESPONSE_SERIALIZERS_MAP else '0'
+        return APPLICATION_LOGIN_RESPONSE_SERIALIZERS_MAP[app]
 
+    def login(self):
+        """
+        General Login Process
+        """
+        self.user = self.serializer.validated_data['user']
         if getattr(settings, 'REST_USE_JWT', False):
             self.token = jwt_encode(self.user)
         else:
             self.token = create_token(self.token_model, self.user,
                                       self.serializer)
-
         if getattr(settings, 'REST_SESSION_LOGIN', True):
             self.process_login()
 
-    def mlm_login(self):
-        user_referral_code = ReferralCode.objects.filter(user_id_id=self.user.id)
-        if not user_referral_code.exists():
-            save_user_referral_code(self.user.phone_number)
-        referral_code = ReferralCode.objects.values('referral_code').filter(user_id_id=self.user.id)
-        phone_number = self.user.phone_number
-        # to get reward from global configuration
-        reward = GlobalConfig.objects.filter(key='welcome_reward_points_referral').last().value
-        # to get discount from global configuration
-        discount = int(reward / GlobalConfig.objects.filter(key='used_reward_factor').last().value)
-        name = self.user.first_name.capitalize() if self.user.first_name else ''
-        email_id = self.user.email if self.user.email else ''
-        response_data = {'phone_number': phone_number,
-                         'referral_code': referral_code[0]['referral_code'],
-                          'name': name,
-                          'email_id': email_id,
-                          'reward': reward,
-                          'discount': discount}
-        return response_data
     def get_response(self):
-        serializer_class = self.get_response_serializer()
-        app_type = self.request.query_params.get('app_type')
-
+        """
+        Get Response Based on Authentication and App Type Requested
+        """
+        serializer_class = self.get_auth_serializer()
         if getattr(settings, 'REST_USE_JWT', False):
-            data = {
-                'user': self.user,
-                'token': self.token
-            }
-            serializer = serializer_class(instance=data,
+            serializer = serializer_class(instance={'user': self.user, 'token': self.token},
                                           context={'request': self.request})
         else:
-            serializer = serializer_class(instance=self.token,
-                                          context={'request': self.request})
-        if self.request.data.get('app_type', '1'):
-            responseData = self.mlm_login()
-            return Response({'is_success': True,
-                             'message': ['Successfully logged in'],
-                             'response_data': [{'access_token': serializer.data['key'],
-                                                'phone_number': responseData.get('phone_number'),
-                                                'referral_code': responseData.get('referral_code'),
-                                                'name': responseData.get('name'),
-                                                'email_id': responseData.get('email_id'),
-                                                'reward': responseData.get('reward'),
-                                                'discount': responseData.get('discount')}]},
-                            status=status.HTTP_200_OK)
-        return Response({'is_success': True,
-                        'message':['Successfully logged in'],
-                        'response_data':[{'access_token':serializer.data['key']}]},
-                        status=status.HTTP_200_OK)
+            serializer = serializer_class(instance=self.token, context={'request': self.request})
+
+        response_serializer_class = self.get_response_serializer()
+        response_serializer = response_serializer_class(instance={'user': self.user, 'token': serializer.data['key'], 'action': 'login'})
+        return Response({'is_success': True, 'message': ['Successfully logged in'],
+                         'response_data': [response_serializer.data]}, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         self.request = request
-        logger.info("login request")
-        logger.info(request.data)
         serializer_class = self.get_serializer_class()
-        self.serializer = serializer_class(data=self.request.data,
-                                              context={'request': request})
+        self.serializer = serializer_class(data=self.request.data, context={'request': request})
 
         if self.serializer.is_valid():
             self.login()
@@ -178,7 +144,6 @@ class LoginView(GenericAPIView):
                     'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
-
 
 
 class LogoutView(APIView):

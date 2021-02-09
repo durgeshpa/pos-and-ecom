@@ -27,11 +27,12 @@ from .utils import import_callable
 
 from otp.models import PhoneOTP
 from otp.views import ValidateOTP
+from marketing.models import ReferralCode, RewardPoint, Referral
+from global_config.models import GlobalConfig
+from marketing.views import save_user_referral_code
 
 # Get the UserModel
 UserModel = get_user_model()
-
-from django.utils.translation import ugettext
 
 class LoginSerializer(serializers.Serializer):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
@@ -170,6 +171,56 @@ class MlmLoginSerializer(serializers.Serializer):
 
         attrs['user'] = user
         return attrs
+
+
+class MlmResponseSerializer(serializers.Serializer):
+    access_token = serializers.SerializerMethodField()
+    phone_number = serializers.SerializerMethodField()
+    referral_code = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+    email_id = serializers.SerializerMethodField()
+    reward = serializers.SerializerMethodField()
+    discount = serializers.SerializerMethodField()
+
+    def get_access_token(self, obj):
+        return obj['token']
+
+    def get_phone_number(self, obj):
+        return obj['user'].phone_number
+
+    def get_referral_code(self, obj):
+        if obj['action'] == 'register':
+            # generate unique referral code on registration
+            user_referral_code = save_user_referral_code(obj['user'].phone_number)
+            # welcome reward for new user
+            referral_code = obj['referral_code']
+            referred = 1 if obj['referral_code'] != '' else 0
+            RewardPoint.welcome_reward(obj['user'], referred)
+            # add parent referrer if referral code provided
+            if referral_code != '':
+                Referral.store_parent_referral_user(referral_code, user_referral_code)
+        referral_code_obj = ReferralCode.objects.filter(user_id=obj['user']).last()
+        return referral_code_obj.referral_code if referral_code_obj else ''
+
+    def get_name(self, obj):
+        return obj['user'].first_name.capitalize() if obj['user'].first_name else ''
+
+    def get_email_id(self, obj):
+        return obj['user'].email if obj['user'].email else ''
+
+    def get_reward(self, obj):
+        return GlobalConfig.objects.filter(key='welcome_reward_points_referral').last().value
+
+    def get_discount(self, obj):
+        reward =  GlobalConfig.objects.filter(key='welcome_reward_points_referral').last().value
+        return int(reward / GlobalConfig.objects.filter(key='used_reward_factor').last().value)
+
+
+class LoginResponseSerializer(serializers.Serializer):
+    access_token = serializers.SerializerMethodField()
+
+    def get_access_token(self, obj):
+        return obj['token']
 
 
 class TokenSerializer(serializers.ModelSerializer):

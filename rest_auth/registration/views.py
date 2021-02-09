@@ -5,8 +5,7 @@ from django.views.decorators.debug import sensitive_post_parameters
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import (AllowAny,
-                                        IsAuthenticated)
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.generics import CreateAPIView, ListAPIView, GenericAPIView
 from rest_framework.exceptions import NotFound
 from rest_framework import status
@@ -19,9 +18,6 @@ from allauth.account import app_settings as allauth_settings
 from allauth.socialaccount import signals
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.models import SocialAccount
-from global_config.models import GlobalConfig
-from marketing.models import Referral, ReferralCode, RewardPoint
-from marketing.views import save_user_referral_code
 
 from rest_auth.app_settings import (TokenSerializer,
                                     JWTSerializer,
@@ -35,8 +31,8 @@ from rest_auth.registration.serializers import (VerifyEmailSerializer,
                                                 )
 from rest_auth.utils import jwt_encode
 from rest_auth.views import LoginView
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from .app_settings import RegisterSerializer, register_permission_classes
+from rest_auth.serializers import MlmResponseSerializer, LoginResponseSerializer
 
 from otp.models import PhoneOTP
 
@@ -48,6 +44,10 @@ APPLICATION_REGISTRATION_SERIALIZERS_MAP = {
     '0' : RegisterSerializer,
     '1' : MlmRegisterSerializer
 }
+APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP = {
+    '0' : LoginResponseSerializer,
+    '1' : MlmResponseSerializer
+}
 
 
 class RegisterView(CreateAPIView):
@@ -58,97 +58,53 @@ class RegisterView(CreateAPIView):
     def dispatch(self, *args, **kwargs):
         return super(RegisterView, self).dispatch(*args, **kwargs)
 
+    def get_auth_serializer(self):
+        """
+        Auth Type
+        """
+        return JWTSerializer if getattr(settings, 'REST_USE_JWT', False) else TokenSerializer
+
     def get_serializer_class(self):
+        """
+        Return Serializer Class Based On App Type Requested
+        """
         app = self.request.data.get('app_type', '0')
         app = app if app in APPLICATION_REGISTRATION_SERIALIZERS_MAP else '0'
         return APPLICATION_REGISTRATION_SERIALIZERS_MAP[app]
 
-    def get_response_data(self, user):
-        if allauth_settings.EMAIL_VERIFICATION == \
-                allauth_settings.EmailVerificationMethod.MANDATORY:
-            return {"detail": _("Verification e-mail sent.")}
+    def get_response_serializer(self):
+        """
+        Return Response Serializer Class Based On App Type Requested
+        """
+        app = self.request.data.get('app_type', '0')
+        app = app if app in APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP else '0'
+        return APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP[app]
 
+    def get_response(self, user, headers):
+        """
+        Get Response Based on Authentication and App Type Requested
+        """
+        serializer_class = self.get_auth_serializer()
         if getattr(settings, 'REST_USE_JWT', False):
-            data = {
-                'user': user,
-                'token': self.token
-            }
-            return JWTSerializer(data).data
+            serializer = serializer_class({'user': user, 'token': self.token})
         else:
-            return TokenSerializer(user.auth_token).data
+            serializer = serializer_class(user.auth_token)
 
-    def mlm_user_registration(self, data):
-        phone_number = data.get('username')
-        referral_code = data.get('referral_code')
-
-        user_referral_code = save_user_referral_code(phone_number)
-
-        referred = 1 if referral_code else 0
-        user_obj = User.objects.get(phone_number=phone_number)
-        RewardPoint.welcome_reward(user_obj, referred)
-        if referral_code:
-            Referral.store_parent_referral_user(referral_code, user_referral_code)
-
-        user_id = User.objects.values('id').filter(phone_number=phone_number)
-        email_id = data.get('email')
-        mail_id = email_id if email_id else ''
-        referral_code = ReferralCode.objects.values('referral_code').filter(user_id_id=user_id[0]['id'])
-        # to get reward from global configuration
-        reward = GlobalConfig.objects.filter(key='welcome_reward_points_referral').last().value
-        # to get discount from global configuration
-        discount = int(reward / GlobalConfig.objects.filter(key='used_reward_factor').last().value)
-        mlm_response_data = {'referral_code': referral_code[0]['referral_code'],
-                             'phone_number': phone_number,
-                             'email_id': mail_id,
-                             'reward': reward,
-                             'discount': discount}
-        return mlm_response_data
+        response_serializer_class = self.get_response_serializer()
+        response_serializer = response_serializer_class(
+            instance={'user': user, 'token': serializer.data['key'], 'action': 'register',
+                      'referral_code': self.request.data.get('referral_code', '')})
+        return Response({'is_success': True, 'message': ['Successfully signed up!'],
+                         'response_data': [response_serializer.data]}, status=status.HTTP_201_CREATED,
+                        headers=headers)
 
     def create(self, request, *args, **kwargs):
         serializer_class = self.get_serializer_class()
         serializer = serializer_class(data=request.data)
         if serializer.is_valid():
-            number = request.data.get('username')
-            user_otp = PhoneOTP.objects.filter(phone_number=number).last()
-            if user_otp and user_otp.is_verified:
-                user = self.perform_create(serializer)
-                headers = self.get_success_headers(serializer.data)
-                if serializer_class == MlmRegisterSerializer:
-                    response_data = self.mlm_user_registration(request.data)
-                    msg = {'is_success': True,
-                           'message': 'Successfully signed up!',
-                           'response_data': [{'access_token': self.get_response_data(user)['key'],
-                                              'referral_code': response_data.get('referral_code'),
-                                              'phone_number': response_data.get('phone_number'),
-                                              'email_id': response_data.get('email_id'),
-                                              'reward': response_data.get('reward'),
-                                              'discount': response_data.get('discount')
-                                              }]
-                           }
-                    return Response(msg,
-                                    status=status.HTTP_201_CREATED,
-                                    headers=headers)
-                msg = {'is_success': True,
-                       'message': ['Successfully signed up!'],
-                       'response_data': [{'access_token': self.get_response_data(user)['key']}]}
-                return Response(msg,
-                                status=status.HTTP_201_CREATED,
-                                headers=headers)
-            else:
-                msg = {'is_success': False,
-                       'message': ['Please verify your mobile number first!'],
-                       'response_data': None}
-                return Response(msg,
-                                status=status.HTTP_406_NOT_ACCEPTABLE)
             user = self.perform_create(serializer)
             headers = self.get_success_headers(serializer.data)
-            msg = {'is_success': True,
-                    'message': ['Successfully signed up!'],
-                    'response_data':[{'access_token':self.get_response_data(user)['key']}] }
-            return Response(msg,
-                            status=status.HTTP_201_CREATED,
-                            headers=headers)
-
+            return self.get_response(user, headers)
         else:
             errors = []
             for field in serializer.errors:
