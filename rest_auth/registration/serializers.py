@@ -171,12 +171,11 @@ class RegisterSerializer(serializers.Serializer):
         min_length=allauth_settings.USERNAME_MIN_LENGTH,
         required=allauth_settings.USERNAME_REQUIRED
     )
-    otp = serializers.CharField(required=False, allow_blank=True, max_length=10)
     email = serializers.EmailField(required=allauth_settings.EMAIL_REQUIRED, allow_blank=True)
-    first_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    first_name = serializers.CharField(required=True, write_only=True)
     last_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    password1 = serializers.CharField(required=False, allow_blank=True,style={'input_type': 'password'}, write_only=True)
-    password2 = serializers.CharField(required=False, allow_blank=True,style={'input_type': 'password'}, write_only=True)
+    password1 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+    password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
     imei_no = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     def validate_username(self, username):
@@ -203,18 +202,13 @@ class RegisterSerializer(serializers.Serializer):
         if data['password1'] not in ['', None] and data['password1'] != data['password2']:
             raise serializers.ValidationError(_("The two password fields didn't match."))
 
-        # Otp can be verified while registering. If provided, check it should be correct
-        if 'otp' in data and data['otp'] not in ['', None]:
-            phone_otps = PhoneOTP.objects.filter(phone_number=data['username'])
-            if phone_otps.exists():
-                phone_otp = phone_otps.last()
-                to_verify_otp = ValidateOTP()
-                msg, status_code = to_verify_otp.verify(data['otp'], phone_otp)
-                if status_code != 200:
-                    message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
-                    raise serializers.ValidationError(message)
-            else:
-                raise serializers.ValidationError("Invalid Data")
+        # OTP should be verified when registering with phone number
+        number = data['username']
+        user_otp = PhoneOTP.objects.filter(phone_number=number).last()
+        if user_otp and user_otp.is_verified:
+            pass
+        else:
+            raise serializers.ValidationError(_("Please verify your mobile number first!"))
         return data
 
     def custom_signup(self, request, user):
@@ -236,6 +230,48 @@ class RegisterSerializer(serializers.Serializer):
         self.cleaned_data = self.get_cleaned_data()
         adapter.save_user(request, user, self)
         self.custom_signup(request, user)
+        setup_user_email(request, user, [])
+        return user
+
+
+class MlmRegisterSerializer(serializers.Serializer):
+    username = serializers.CharField(
+        max_length=get_username_max_length(),
+        min_length=allauth_settings.USERNAME_MIN_LENGTH,
+        required=allauth_settings.USERNAME_REQUIRED
+    )
+    otp = serializers.CharField(required=True, max_length=10)
+
+    def validate_username(self, username):
+        username = get_adapter().clean_username(username)
+        return username
+
+    def validate(self, data):
+        """
+        Verify OTP
+        """
+        phone_otps = PhoneOTP.objects.filter(phone_number=data['username'])
+        if phone_otps.exists():
+            phone_otp = phone_otps.last()
+            to_verify_otp = ValidateOTP()
+            msg, status_code = to_verify_otp.verify(data['otp'], phone_otp)
+            if status_code != 200:
+                message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
+                raise serializers.ValidationError(message)
+        else:
+            raise serializers.ValidationError("Invalid OTP")
+        return data
+
+    def get_cleaned_data(self):
+        return {
+            'username': self.validated_data.get('username', ''),
+        }
+
+    def save(self, request):
+        adapter = get_adapter()
+        user = adapter.new_user(request)
+        self.cleaned_data = self.get_cleaned_data()
+        adapter.save_user(request, user, self)
         setup_user_email(request, user, [])
         return user
 
