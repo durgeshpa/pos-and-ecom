@@ -34,11 +34,11 @@ from sp_to_gram.models import (
     OrderedProduct as SpGRNOrder,
     OrderedProductMapping as SpGRNOrderProductMapping
 )
-from wms.common_functions import PutawayCommonFunctions, InCommonFunctions
+
 from base.models import (BaseOrder, BaseCart, BaseShipment)
 #from gram_to_brand.forms import GRNOrderProductForm
 # from analytics.post_save_signal import get_grn_report
-from wms.models import InventoryType
+
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
@@ -634,91 +634,6 @@ class BrandNote(models.Model):
     class Meta:
         verbose_name = _("Debit Note")
         verbose_name_plural = _("Debit Notes")
-
-
-@receiver(post_save, sender=GRNOrderProductMapping)
-def create_debit_note(sender, instance=None, created=False, **kwargs):
-    if created:
-        if instance.returned_qty > 0:
-            debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
-            if debit_note.exists():
-                debit_note = debit_note.last()
-                debit_note.brand_note_id = brand_debit_note_pattern(
-                        BrandNote, 'brand_note_id', debit_note, instance.grn_order.order.ordered_cart.gf_billing_address_id)
-                debit_note.order = instance.grn_order.order
-                debit_note.amount= debit_note.amount + (instance.returned_qty * instance.po_product_price)
-                debit_note.save()
-            else:
-                debit_note = BrandNote.objects.create(
-                    brand_note_id=brand_debit_note_pattern(
-                        BrandNote, 'brand_note_id', None, instance.grn_order.order.ordered_cart.gf_billing_address_id),
-                grn_order = instance.grn_order, amount = instance.returned_qty * instance.po_product_price, status=True)
-
-        # SP auto ordered product creation
-        connected_shops = ParentRetailerMapping.objects.filter(
-            parent=instance.grn_order.order.ordered_cart.gf_shipping_address.shop_name,
-            status=True
-        )
-        for shop in connected_shops:
-            if shop.retailer.shop_type.shop_type == 'sp' and shop.retailer.status == True:
-                sp_po = SpPO.objects.filter(
-                    shop=shop.retailer
-                ).last()
-                sp_cpm = SpPOProducts.objects.create(
-                    cart=sp_po,
-                    cart_product=instance.product,
-                    case_size=instance.product.product_case_size,
-                    number_of_cases=instance.grn_order.order. \
-                              ordered_cart.cart_list.filter
-                              (
-                              cart_product=instance.product
-                          ).last().no_of_cases,
-                    qty=int(instance.delivered_qty),
-                    #scheme=item.scheme,
-                    price=instance.grn_order.order.\
-                    ordered_cart.cart_list.filter
-                    (
-                        cart_product=instance.product
-                    ).last().price,
-                    total_price=round(float(instance.delivered_qty) * instance.grn_order.order.\
-                    ordered_cart.cart_list.filter
-                    (
-                        cart_product=instance.product
-                    ).last().price,2),
-                )
-                sp_order = SpOrder.objects.filter(
-                    ordered_cart=sp_po
-                ).last()
-                sp_grn_orders = SpGRNOrder.objects.filter(
-                    order=sp_order
-                )
-                if sp_grn_orders.exists():
-                    sp_grn_order = sp_grn_orders.last()
-                else:
-                    sp_grn_order = SpGRNOrder.objects.create(order=sp_order)
-                if instance.batch_id:
-                    SpGRNOrderProductMapping.objects.create(
-                        ordered_product=sp_grn_order,
-                        product=instance.product,
-                        manufacture_date=instance.manufacture_date,
-                        expiry_date=instance.expiry_date,
-                        shipped_qty=instance.delivered_qty,
-                        available_qty=instance.delivered_qty,
-                        ordered_qty=instance.delivered_qty,
-                        delivered_qty=instance.delivered_qty,
-                        returned_qty=0,
-                        damaged_qty=0,
-                        batch_id=instance.batch_id
-                    )
-                putaway_quantity = 0
-                if instance.batch_id:
-                    type_normal = InventoryType.objects.filter(inventory_type='normal').last()
-                    InCommonFunctions.create_in(shop.retailer, 'GRN', instance.grn_order.grn_id, instance.product,
-                                                instance.batch_id, int(instance.delivered_qty), putaway_quantity,
-                                                type_normal)
-        # ends here
-        instance.available_qty = 0
-        instance.save()
 
 
 class OrderedProductReserved(models.Model):
