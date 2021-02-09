@@ -134,7 +134,8 @@ INSTALLED_APPS = [
     'django_tables2',
     'tablib',
     'marketing',
-    'global_config'
+    'global_config',
+    'pos'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
