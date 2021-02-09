@@ -1,3 +1,5 @@
+import datetime
+
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.db.models import Sum
@@ -6,7 +8,7 @@ from django.db import transaction
 from global_config.models import GlobalConfig
 from wms.models import InventoryType,InventoryState
 from shops.models import Shop
-from .models import BrandNote,GRNOrderProductMapping
+from .models import BrandNote, GRNOrderProductMapping, GRNOrder
 from shops.models import Shop, ParentRetailerMapping
 from sp_to_gram.models import (
     Cart as SpPO,
@@ -16,9 +18,40 @@ from sp_to_gram.models import (
     OrderedProductMapping as SpGRNOrderProductMapping
 )
 
-from retailer_backend.common_function import brand_debit_note_pattern
+from retailer_backend.common_function import brand_debit_note_pattern, grn_pattern
 from wms.common_functions import PutawayCommonFunctions,InCommonFunctions,CommonBinInventoryFunctions,updating_tables_on_putaway
 from wms.views import update_putaway
+
+
+@receiver(post_save, sender=GRNOrder)
+def create_grn_id(sender, instance=None, created=False, **kwargs):
+    if created:
+        instance.grn_id = grn_pattern(instance.pk)
+        instance.save()
+        # SP auto ordered product creation
+        connected_shops = ParentRetailerMapping.objects.filter(
+            parent=instance.order.ordered_cart.gf_shipping_address.shop_name,
+            status=True
+        )
+        for shop in connected_shops:
+            if shop.retailer.shop_type.shop_type == 'sp' and shop.retailer.status == True:
+                sp_po = SpPO.objects.create(
+                    shop=shop.retailer,
+                    po_validity_date=datetime.date.today() + datetime.timedelta(days=15)
+                )
+        # data = {}
+        # data['username'] = username
+        # data['phone_number'] = instance.order_id.ordered_by
+        # data['order_no'] = order_no
+        # data['items_count'] = items_count
+        # data['total_amount'] = total_amount
+        # data['shop_name'] = shop_name
+
+        # user_id = instance.order_id.ordered_by.id
+        activity_type = "STOCK_IN"
+        # from notification_center.utils import SendNotification
+        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
+
 
 
 @receiver(post_save, sender=GRNOrderProductMapping)

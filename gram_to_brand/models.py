@@ -448,38 +448,6 @@ class GRNOrder(BaseShipment): #Order Shipment
         verbose_name_plural = _("View GRN Details")
 
 
-@receiver(post_save, sender=GRNOrder)
-def create_grn_id(sender, instance=None, created=False, **kwargs):
-    if created:
-        instance.grn_id = grn_pattern(instance.pk)
-        instance.save()
-        # SP auto ordered product creation
-        connected_shops = ParentRetailerMapping.objects.filter(
-            parent=instance.order.ordered_cart.gf_shipping_address.shop_name,
-            status=True
-        )
-        for shop in connected_shops:
-            if shop.retailer.shop_type.shop_type == 'sp' and shop.retailer.status == True:
-                sp_po = SpPO.objects.create(
-                    shop=shop.retailer,
-                    po_validity_date=datetime.date.today() + timedelta(days=15)
-                )
-        # data = {}
-        # data['username'] = username
-        # data['phone_number'] = instance.order_id.ordered_by
-        # data['order_no'] = order_no
-        # data['items_count'] = items_count
-        # data['total_amount'] = total_amount
-        # data['shop_name'] = shop_name
-
-        # user_id = instance.order_id.ordered_by.id
-        activity_type = "STOCK_IN"
-        # from notification_center.utils import SendNotification
-        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
-
-
-
-
 class Document(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_images',null=True,blank=True,on_delete=models.CASCADE)
     document_number = models.CharField(max_length=255,null=True,blank=True)
