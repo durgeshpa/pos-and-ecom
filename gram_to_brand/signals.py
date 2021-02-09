@@ -186,11 +186,8 @@ def autoPutAway(warehouse, batch_id, quantity):
                     total = qs['available'] + qs['to_be_picked']
 
                     # if inventory is more than zero, putaway won't be allowed,check for another bin_id
-
                     if total > 0:
                         break
-                else:
-                    break
 
             with transaction.atomic():
 
