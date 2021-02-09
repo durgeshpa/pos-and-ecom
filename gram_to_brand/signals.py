@@ -157,10 +157,11 @@ def autoPutAway(warehouse, batch_id, quantity):
     virtual_bin_ids = GlobalConfig.objects.get(key='virtual_bins')
     bin_ids = eval(virtual_bin_ids.value)
 
-    user = GlobalConfig.objects.get(key='user')
-
+    glob_user = GlobalConfig.objects.get(key='user')
+    user = glob_user.value
     data, key = {}, 0
     inventory_type = 'normal'
+
     type_normal = InventoryType.objects.filter(inventory_type=inventory_type).last()
     diction = {i[0]: i[1] for i in zip(batch_id, quantity)}
     for i, value in diction.items():
@@ -169,28 +170,40 @@ def autoPutAway(warehouse, batch_id, quantity):
         put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse,
                                                                 inventory_type=type_normal).order_by('created_at')
         ids = [i.id for i in put_away]
+
         sh = Shop.objects.filter(id=int(warehouse.id)).last()
         state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
 
         if sh.shop_type.shop_type == 'sp':
-            for bin_id in bin_ids:
-                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17],
-                                                                                       bin__bin_id=bin_id).exclude(
-                    batch_id=i)
+
+            # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
+            bin_id = bin_ids[0]
+            bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17], bin__bin_id=bin_id).exclude(
+                                                                                                batch_id=i)
 
             with transaction.atomic():
                 if bin_inventory.exists():
+                    # if BinInventory exists, check if total inventory is zero, this includes items yet to be picked
+
                     qs = bin_inventory.filter(inventory_type=type_normal) \
                         .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
                     total = qs['available'] + qs['to_be_picked']
+
+                    # if inventory is more than zero, putaway won't be allowed,check for another bin_id
+
                     if total > 0:
-                        pass
-                        info_logger.info("This product with sku {} and batch_id {} can not be placed in the bin")
+                        info_logger.info("This product with sku {} and batch_id {} can not be placed in the bin".format(i[:17], i))
+                        bin_id = bin_ids[1]
+                        bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17],
+                                                                                               bin__bin_id=bin_id).exclude(
+                            batch_id=i)
+
+
                     continue
 
             pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
             put_away_status = False
-            user = user.value
+
             while len(ids):
                 put_away_done = update_putaway(ids[0], i, warehouse, int(value), user)
                 value = put_away_done
