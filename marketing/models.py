@@ -1,6 +1,9 @@
 from __future__ import unicode_literals
+from __future__ import unicode_literals
 import logging
 import uuid
+
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.conf import settings
 from django.core.validators import RegexValidator
@@ -114,14 +117,19 @@ class PhoneOTP(models.Model):
         return otp
 
 
+class ReferralCode(models.Model):
+    user_id = models.ForeignKey(get_user_model(), related_name='referral_code_user', null=True, blank=True, on_delete=models.CASCADE)
+    referral_code = models.CharField(max_length=300, blank=True, null=True, unique=True)
+
+
 class Referral(models.Model):
     """
     This model will be used to store the parent and child referral mapping details
     """
 
-    referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE, null=True,
+    referral_by = models.ForeignKey(User, related_name="referral_by", on_delete=models.CASCADE, null=True,
                                     blank=True)
-    referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True,
+    referral_to = models.ForeignKey(User, related_name="referral_to", on_delete=models.CASCADE, null=True,
                                     blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -146,8 +154,8 @@ class Referral(models.Model):
         This method will create an entry in REFERRAL Table of the Parent user, who is referring to the Child user
         """
         try:
-            parentReferralCode = MLMUser.objects.filter(referral_code=parent_referral_code).values_list('id')
-            childReferralCode = MLMUser.objects.filter(referral_code=child_referral_code).values_list('id')
+            parentReferralCode = ReferralCode.objects.filter(referral_code=parent_referral_code).values_list('id')
+            childReferralCode = ReferralCode.objects.filter(referral_code=child_referral_code).values_list('id')
             if parentReferralCode[0][0]:
                 if childReferralCode[0][0]:
                     Referral.objects.create(referral_to_id=childReferralCode[0][0],
@@ -158,7 +166,7 @@ class Referral(models.Model):
 
 
 class RewardPoint(models.Model):
-    user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(User, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
     direct_users = models.IntegerField(default=0)
     indirect_users = models.IntegerField(default=0)
     direct_earned = models.IntegerField(default=0)
@@ -192,10 +200,11 @@ class RewardPoint(models.Model):
             used_reward_factor = int(conf_obj.value)
         except:
             used_reward_factor = 4
+        referral_code = ReferralCode.objects.values('referral_code').filter(user_id_id = user.id)
         message = SendSms(phone=user.phone_number,
                           body="Welcome to rewards.peppertap.in %s points are added to your account. Get Rs %s"
                                " off on next purchase. Login and share your referral code:%s with friends and win more points."
-                               % (points, int(points / used_reward_factor), user.referral_code))
+                               % (points, int(points / used_reward_factor), referral_code[0]['referral_code']))
 
         message.send()
 
@@ -207,7 +216,7 @@ class Token(models.Model):
     """
     This model will be used to store the user id & user token
     """
-    user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     token = models.UUIDField()
 
     def __str__(self):
@@ -215,7 +224,7 @@ class Token(models.Model):
 
 
 class Profile(models.Model):
-    user = models.OneToOneField(MLMUser, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     image = models.ImageField(upload_to='profile_pics', blank=True)
 
     def __str__(self):
@@ -225,7 +234,7 @@ class Profile(models.Model):
         if created:
             Profile.objects.create(user=instance)
 
-    post_save.connect(create_user_profile, sender=MLMUser)
+    post_save.connect(create_user_profile, sender=User)
 
 
 class RewardLog(models.Model):
@@ -235,12 +244,12 @@ class RewardLog(models.Model):
         ('direct_reward', 'Direct Reward'),
         ('indirect_reward', 'Indirect Reward')
     )
-    user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE)
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=TRANSACTION_CHOICES)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
     points = models.IntegerField(default=0)
     discount = models.IntegerField(null=True, blank=True)
-    changed_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    changed_by = models.ForeignKey(User, related_name='changed_by', on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

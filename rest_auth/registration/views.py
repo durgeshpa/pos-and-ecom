@@ -12,6 +12,7 @@ from rest_framework.generics import CreateAPIView, ListAPIView, GenericAPIView
 from rest_framework.exceptions import NotFound
 from rest_framework import status
 
+from accounts.models import User
 from allauth.account.adapter import get_adapter
 from allauth.account.views import ConfirmEmailView
 from allauth.account.utils import complete_signup
@@ -19,7 +20,8 @@ from allauth.account import app_settings as allauth_settings
 from allauth.socialaccount import signals
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.models import SocialAccount
-from marketing.models import MLMUser, Referral
+from global_config.models import GlobalConfig
+from marketing.models import MLMUser, Referral, ReferralCode, RewardPoint
 from marketing.validation import ValidateOTP
 from marketing.views import save_user_referral_code
 
@@ -68,71 +70,66 @@ class RegisterView(CreateAPIView):
             return TokenSerializer(user.auth_token).data
 
     def mlm_user_registration(self, data):
-        try:
-            phone_number = data.get('username')
-            # otp = data.get('otp')
-            referral_code = data.get('referral_code')
+        phone_number = data.get('username')
+        referral_code = data.get('referral_code')
 
-            # if otp is None:
-            #     return Response({'message': VALIDATION_ERROR_MESSAGES['Enter_OTP'],
-            #                      'is_success': False, 'response_data': None},
-            #                     status=status.HTTP_400_BAD_REQUEST)
-            if referral_code:
-                """
-                    checking whether REFERRAL CODE is valid or not.
-                """
-                user_id = MLMUser.objects.filter(referral_code=referral_code)
-                if not user_id:
-                    return Response({'message': VALIDATION_ERROR_MESSAGES['Referral_code'],
-                                     'is_success': False,
-                                     'response_data': None},
-                                    status=status.HTTP_400_BAD_REQUEST)
-            user_phone = MLMUser.objects.filter(Q(phone_number=phone_number))
-            if user_phone.exists():
-                user = user_phone.last()
-                if user.status == 1:
-                    return Response({'message': VALIDATION_ERROR_MESSAGES['User_Already_Exist'],
-                                     'is_success': False,
-                                     'response_data': None},
-                                    status=status.HTTP_409_CONFLICT)
+        user_referral_code = save_user_referral_code(phone_number)
 
-                if not user.referral_code or user.referral_code == '':
-                    save_user_referral_code(phone_number)
-                user_referral_code = user.referral_code
-            else:
-                user_referral_code = save_user_referral_code(phone_number)
+        referred = 1 if referral_code else 0
+        user_obj = User.objects.get(phone_number=phone_number)
+        RewardPoint.welcome_reward(user_obj, referred)
+        if referral_code:
+            Referral.store_parent_referral_user(referral_code, user_referral_code)
 
-            referred = 1 if referral_code else 0
-            msg = ValidateOTP(phone_number, otp, referred)
-            if referral_code:
-                Referral.store_parent_referral_user(referral_code, user_referral_code)
-            return Response(msg.data, status=msg.status_code)
-
-        except Exception as e:
-            return Response({'message': "Data is not valid.", 'is_success': False, 'response_data': None},
-                            status=status.HTTP_403_FORBIDDEN)
+        user_id = User.objects.values('id').filter(phone_number=phone_number)
+        email_id = data.get('email')
+        mail_id = email_id if email_id else ''
+        referral_code = ReferralCode.objects.values('referral_code').filter(user_id_id=user_id[0]['id'])
+        # to get reward from global configuration
+        reward = GlobalConfig.objects.filter(key='welcome_reward_points_referral').last().value
+        # to get discount from global configuration
+        discount = int(reward / GlobalConfig.objects.filter(key='used_reward_factor').last().value)
+        mlm_response_data = {'referral_code': referral_code[0]['referral_code'],
+                             'phone_number': phone_number,
+                             'email_id': mail_id,
+                             'reward': reward,
+                             'discount': discount}
+        return mlm_response_data
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            app_name = request.query_params['app']
-            if app_name == '2':
-                self.mlm_user_registration(request.data)
+            app_name = request.query_params.get('app')
             number = request.data.get('username')
             user_otp = PhoneOTP.objects.filter(phone_number=number).last()
             if user_otp and user_otp.is_verified:
                 user = self.perform_create(serializer)
                 headers = self.get_success_headers(serializer.data)
+                if app_name == '2':
+                    response_data = self.mlm_user_registration(request.data)
+                    msg = {'is_success': True,
+                           'message': 'Successfully signed up!',
+                           'response_data': [{'access_token': self.get_response_data(user)['key'],
+                                              'referral_code': response_data.get('referral_code'),
+                                              'phone_number': response_data.get('phone_number'),
+                                              'email_id': response_data.get('email_id'),
+                                              'reward': response_data.get('reward'),
+                                              'discount': response_data.get('discount')
+                                              }]
+                           }
+                    return Response(msg,
+                                    status=status.HTTP_201_CREATED,
+                                    headers=headers)
                 msg = {'is_success': True,
-                        'message': ['Successfully signed up!'],
-                        'response_data':[{'access_token':self.get_response_data(user)['key']}] }
+                       'message': ['Successfully signed up!'],
+                       'response_data': [{'access_token': self.get_response_data(user)['key']}]}
                 return Response(msg,
                                 status=status.HTTP_201_CREATED,
                                 headers=headers)
             else:
                 msg = {'is_success': False,
-                        'message': ['Please verify your mobile number first!'],
-                        'response_data': None }
+                       'message': ['Please verify your mobile number first!'],
+                       'response_data': None}
                 return Response(msg,
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -143,11 +140,11 @@ class RegisterView(CreateAPIView):
                     if 'non_field_errors' in field:
                         result = error
                     else:
-                        result = ''.join('{} : {}'.format(field,error))
+                        result = ''.join('{} : {}'.format(field, error))
                     errors.append(result)
             msg = {'is_success': False,
-                    'message': [error for error in errors],
-                    'response_data': None }
+                   'message': [error for error in errors],
+                   'response_data': None}
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -162,6 +159,7 @@ class RegisterView(CreateAPIView):
                         allauth_settings.EMAIL_VERIFICATION,
                         None)
         return user
+
 
 class VerifyEmailView(APIView, ConfirmEmailView):
     permission_classes = (AllowAny,)

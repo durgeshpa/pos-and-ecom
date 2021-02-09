@@ -21,6 +21,10 @@ from django.http import JsonResponse
 import json, datetime
 from django.utils import timezone
 
+from accounts.models import User
+from global_config.models import GlobalConfig
+from marketing.models import ReferralCode
+from marketing.views import save_user_referral_code
 from otp.sms import SendSms, SendVoiceSms
 
 from .app_settings import (
@@ -103,8 +107,28 @@ class LoginView(GenericAPIView):
         if getattr(settings, 'REST_SESSION_LOGIN', True):
             self.process_login()
 
+    def mlm_login(self):
+        user_referral_code = ReferralCode.objects.filter(user_id_id=self.user.id)
+        if not user_referral_code.exists():
+            save_user_referral_code(self.user.phone_number)
+        referral_code = ReferralCode.objects.values('referral_code').filter(user_id_id=self.user.id)
+        phone_number = self.user.phone_number
+        # to get reward from global configuration
+        reward = GlobalConfig.objects.filter(key='welcome_reward_points_referral').last().value
+        # to get discount from global configuration
+        discount = int(reward / GlobalConfig.objects.filter(key='used_reward_factor').last().value)
+        name = self.user.first_name.capitalize() if self.user.first_name else ''
+        email_id = self.user.email if self.user.email else ''
+        response_data = {'phone_number': phone_number,
+                         'referral_code': referral_code[0]['referral_code'],
+                          'name': name,
+                          'email_id': email_id,
+                          'reward': reward,
+                          'discount': discount}
+        return response_data
     def get_response(self):
         serializer_class = self.get_response_serializer()
+        app_type = self.request.query_params.get('app_type')
 
         if getattr(settings, 'REST_USE_JWT', False):
             data = {
@@ -116,6 +140,18 @@ class LoginView(GenericAPIView):
         else:
             serializer = serializer_class(instance=self.token,
                                           context={'request': self.request})
+        if app_type == '2':
+            responseData = self.mlm_login()
+            return Response({'is_success': True,
+                             'message': ['Successfully logged in'],
+                             'response_data': [{'access_token': serializer.data['key'],
+                                                'phone_number': responseData.get('phone_number'),
+                                                'referral_code': responseData.get('referral_code'),
+                                                'name': responseData.get('name'),
+                                                'email_id': responseData.get('email_id'),
+                                                'reward': responseData.get('reward'),
+                                                'discount': responseData.get('discount')}]},
+                            status=status.HTTP_200_OK)
         return Response({'is_success': True,
                         'message':['Successfully logged in'],
                         'response_data':[{'access_token':serializer.data['key']}]},

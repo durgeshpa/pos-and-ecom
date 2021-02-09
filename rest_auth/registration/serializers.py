@@ -5,7 +5,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from marketing.models import MLMUser
+from marketing.models import MLMUser, ReferralCode
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 
 try:
@@ -222,8 +222,8 @@ class RegisterSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Invalid Data")
 
         if 'referral_code' in data and data['referral_code'] not in ['', None]:
-            user_id = MLMUser.objects.filter(referral_code=data['referral_code'])
-            if not user_id:
+            user_ref_code = ReferralCode.objects.filter(referral_code=data['referral_code'])
+            if not user_ref_code:
                 raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Referral_code'])
         return data
 
