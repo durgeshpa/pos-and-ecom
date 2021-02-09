@@ -194,17 +194,14 @@ class RegisterSerializer(serializers.Serializer):
         return email
 
     def validate_password1(self, password):
-        if password != '' and password != None:
-            return get_adapter().clean_password(password)
+        return get_adapter().clean_password(password)
 
     def validate(self, data):
         """
-        Check For Password Fields Match and verify OTP if provided
+        Check For Password Fields Match and OTP verification
         """
-        # Password can be provided while registering. Check fields should match if provided
-        if 'password1' in data:
-            if data['password1'] not in ['', None] and data['password1'] != data['password2']:
-                raise serializers.ValidationError(_("The two password fields didn't match."))
+        if data['password1'] != data['password2']:
+            raise serializers.ValidationError(_("The two password fields didn't match."))
 
         # OTP should be verified when registering with phone number
         number = data['username']
