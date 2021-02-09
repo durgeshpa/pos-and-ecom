@@ -39,17 +39,19 @@ class SourceDestinationMapping(BaseTimestampModel):
 class AutoOrderProcessing(BaseTimestampModel):
     ORDER_PROCESSING_STATUS = Choices((0, 'GRN', 'GRN Done'),
                                       (1, 'PUTAWAY', 'Putaway Done'),
-                                      (2, 'ORDERED', 'Order Placed'),
-                                      (3, 'PICKUP_CREATED', 'Pickup Created'),
-                                      (4, 'PICKUP_COMPLETED', 'Pickup Completed'),
-                                      (5, 'SHIPMENT', 'Shipment Created'),
-                                      (6, 'QC', 'QC Done'),
-                                      (7, 'TRIP', 'Trip Created'),
-                                      (8, 'TRIP_STARTED', 'Trip Started'),
-                                      (9, 'DELIVERED', 'Delivered'),)
+                                      (2, 'CART_CREATED', 'Cart Created'),
+                                      (3, 'RESERVED', 'Cart Reserved'),
+                                      (4, 'ORDERED', 'Order Placed'),
+                                      (5, 'PICKUP_CREATED', 'Pickup Created'),
+                                      (6, 'PICKUP_COMPLETED', 'Pickup Completed'),
+                                      (7, 'SHIPMENT', 'Shipment Created'),
+                                      (8, 'QC', 'QC Done'),
+                                      (9, 'TRIP', 'Trip Created'),
+                                      (10, 'TRIP_STARTED', 'Trip Started'),
+                                      (11, 'DELIVERED', 'Delivered'),)
     grn = models.OneToOneField(GRNOrder, related_name='auto_order', on_delete=models.CASCADE)
     grn_warehouse = models.ForeignKey(Shop, related_name='shop_grns_for_auto_processing', on_delete=models.CASCADE)
-    state = models.CharField(max_length=255, choices=ORDER_PROCESSING_STATUS, default=ORDER_PROCESSING_STATUS.GRN)
+    state = models.PositiveSmallIntegerField(choices=ORDER_PROCESSING_STATUS, default=ORDER_PROCESSING_STATUS.PUTAWAY)
     retailer_shop = models.ForeignKey(Shop, related_name='auto_processing_shop_entries', on_delete=models.CASCADE, null=True)
     cart = models.OneToOneField(Cart, related_name='auto_processing_carts', on_delete=models.CASCADE, null=True)
     order = models.OneToOneField(Order, related_name='auto_processing_orders', on_delete=models.CASCADE, null=True)
