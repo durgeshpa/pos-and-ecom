@@ -146,7 +146,7 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     if is_wh_consolidation_on.value:
                         source_wh_id = GlobalConfig.objects.get(key='wh_consolidation_source')
                         if in_obj.warehouse.id == source_wh_id.value:
-                            autoPutAway(in_obj.warehouse, [in_obj.batch_id], [in_obj.quantity])
+                            autoPutAway(in_obj.warehouse, in_obj.batch_id, in_obj.quantity)
 
         # ends here
         instance.available_qty = 0
@@ -159,53 +159,50 @@ def autoPutAway(warehouse, batch_id, quantity):
 
     glob_user = GlobalConfig.objects.get(key='user')
     user = glob_user.value
-    data, key = {}, 0
+
     inventory_type = 'normal'
-
     type_normal = InventoryType.objects.filter(inventory_type=inventory_type).last()
-    diction = {i[0]: i[1] for i in zip(batch_id, quantity)}
-    for i, value in diction.items():
-        key += 1
-        val = value
-        put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse,
-                                                                inventory_type=type_normal).order_by('created_at')
-        ids = [i.id for i in put_away]
+    batch_id = batch_id
+    quantity = quantity
+    put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
+                                                            inventory_type=type_normal).order_by('created_at')
+    ids = [i.id for i in put_away]
 
-        sh = Shop.objects.filter(id=int(warehouse.id)).last()
-        state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
+    sh = Shop.objects.filter(id=int(warehouse.id)).last()
+    state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
 
-        if sh.shop_type.shop_type == 'sp':
+    if sh.shop_type.shop_type == 'sp':
 
-            # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
-            for bin_id in bin_ids:
-                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17], bin__bin_id=bin_id).exclude(
-                                                                                                    batch_id=i)
-                if bin_inventory.exists():
-                    qs = bin_inventory.filter(inventory_type=type_normal) \
-                        .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
-                    total = qs['available'] + qs['to_be_picked']
+        # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
+        for bin_id in bin_ids:
+            bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id).exclude(
+                                                                                                batch_id=batch_id)
+            if bin_inventory.exists():
+                qs = bin_inventory.filter(inventory_type=type_normal) \
+                    .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
+                total = qs['available'] + qs['to_be_picked']
 
-                    # if inventory is more than zero, putaway won't be allowed,check for another bin_id
-                    if total > 0:
-                        info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
-                                              .format(i[:17], i))
+                # if inventory is more than zero, putaway won't be allowed,check for another bin_id
+                if total > 0:
+                    info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
+                                          .format(batch_id[:17], batch_id))
 
-                        continue
-                    else:
-                        break
-                # else:
-                #     break
-            with transaction.atomic():
+                    continue
+                else:
+                    break
+            # else:
+            #     break
+        with transaction.atomic():
 
-                pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
-                put_away_status = False
+            pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=batch_id, warehouse=warehouse)
+            put_away_status = False
 
-                while len(ids):
-                    put_away_done = update_putaway(ids[0], i, warehouse, int(value), user)
-                    value = put_away_done
-                    put_away_status = True
-                    ids.remove(ids[0])
+            while len(ids):
+                put_away_done = update_putaway(ids[0], batch_id, warehouse, quantity, user)
+                value = put_away_done
+                put_away_status = True
+                ids.remove(ids[0])
 
-                    updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't', val,
-                                               put_away_status, pu)
-            info_logger.info("quantity has been updated in put away.")
+                updating_tables_on_putaway(sh, bin_id, put_away, batch_id, type_normal, state_total_available, 't', quantity,
+                                           put_away_status, pu)
+        info_logger.info("quantity has been updated in put away.")
