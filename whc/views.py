@@ -289,9 +289,9 @@ def process_next(order_processor, entry_to_process):
     elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.RESERVED:
         entry_to_process = order_processor.place_order(entry_to_process)
         entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.ORDERED
-    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.ORDERED:
-        entry_to_process = order_processor.generate_picklist(entry_to_process)
-        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_CREATED
+    # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.ORDERED:
+    #     entry_to_process = order_processor.generate_picklist(entry_to_process)
+    #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_CREATED
     # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_CREATED:
     #     entry_to_process = order_processor.assign_picker(entry_to_process)
     #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKING_ASSIGNED
