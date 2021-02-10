@@ -43,12 +43,13 @@ class AutoOrderProcessing(BaseTimestampModel):
                                       (3, 'RESERVED', 'Cart Reserved'),
                                       (4, 'ORDERED', 'Order Placed'),
                                       (5, 'PICKUP_CREATED', 'Pickup Created'),
-                                      (6, 'PICKUP_COMPLETED', 'Pickup Completed'),
-                                      (7, 'SHIPMENT', 'Shipment Created'),
-                                      (8, 'QC', 'QC Done'),
-                                      (9, 'TRIP', 'Trip Created'),
-                                      (10, 'TRIP_STARTED', 'Trip Started'),
-                                      (11, 'DELIVERED', 'Delivered'),)
+                                      (6, 'PICKING_ASSIGNED', 'Picking Assigned'),
+                                      (7, 'PICKUP_COMPLETED', 'Pickup Completed'),
+                                      (8, 'SHIPMENT', 'Shipment Created'),
+                                      (9, 'QC', 'QC Done'),
+                                      (10, 'TRIP', 'Trip Created'),
+                                      (11, 'TRIP_STARTED', 'Trip Started'),
+                                      (12, 'DELIVERED', 'Delivered'),)
     grn = models.OneToOneField(GRNOrder, related_name='auto_order', on_delete=models.CASCADE)
     grn_warehouse = models.ForeignKey(Shop, related_name='shop_grns_for_auto_processing', on_delete=models.CASCADE)
     state = models.PositiveSmallIntegerField(choices=ORDER_PROCESSING_STATUS, default=ORDER_PROCESSING_STATUS.PUTAWAY)
