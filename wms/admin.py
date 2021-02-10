@@ -7,12 +7,15 @@ from datetime import datetime
 from dal_admin_filters import AutocompleteFilter
 # django imports
 from django.contrib import admin, messages
+from django.contrib.admin import AllValuesFieldListFilter
+from django.db.models import F, Q
 from django.http import HttpResponse
 from django.utils.html import format_html
 from django.urls import reverse
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter, DropdownFilter
 from rangefilter.filter import DateTimeRangeFilter, DateRangeFilter
 
+from audit.models import AUDIT_LEVEL_CHOICES
 from retailer_to_sp.models import Invoice, Trip
 from gram_to_brand.models import GRNOrder
 from products.models import ProductVendorMapping
@@ -20,7 +23,7 @@ from products.models import ProductVendorMapping, ProductPrice
 from retailer_backend.admin import InputFilter
 # app imports
 from .common_functions import get_expiry_date
-from .filters import ExpiryDateFilter
+from .filters import ExpiryDateFilter, PickupStatusFilter
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload, bulk_putaway
 from import_export import resources
 from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
@@ -112,7 +115,6 @@ class BatchIdFilter(InputFilter):
             return queryset.filter(batch_id=value)
         return queryset
 
-
 class SKUFilter(InputFilter):
     title = 'SKU'
     parameter_name = 'sku'
@@ -152,18 +154,6 @@ class InventoryStateFilter(AutocompleteFilter):
     title = 'Inventory State'
     field_name = 'inventory_state'
     autocomplete_url = 'inventory-state-autocomplete'
-
-
-class InitialStageFilter(AutocompleteFilter):
-    title = 'Initial Stage'
-    field_name = 'initial_stage'
-    autocomplete_url = 'initial-stage-autocomplete'
-
-
-class FinalStageFilter(AutocompleteFilter):
-    title = 'Final Stage'
-    field_name = 'final_stage'
-    autocomplete_url = 'final-stage-autocomplete'
 
 
 class InTypeIDFilter(InputFilter):
@@ -624,13 +614,16 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
     list_display = ('warehouse', 'batch_id', 'order_number', 'pickup_type', 'bin_id', 'inventory_type',
-                    'bin_quantity', 'quantity', 'pickup_quantity', 'created_at', 'last_picked_at', 'pickup_remarks')
+                    'bin_quantity', 'quantity', 'pickup_quantity', 'created_at', 'last_picked_at', 'pickup_status',
+                    'pickup_remarks', 'add_audit_link')
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('bin_quantity', 'quantity', 'pickup_quantity', 'warehouse', 'pickup', 'batch_id', 'bin',
                        'created_at', 'last_picked_at', 'pickup_remarks')
     search_fields = ('batch_id', 'bin__bin__bin_id')
-    list_filter = [Warehouse, BatchIdFilter, BinIDFilterForPickupBinInventory, OrderNumberFilterForPickupBinInventory, ('created_at', DateTimeRangeFilter)]
+    list_filter = [Warehouse, BatchIdFilter, BinIDFilterForPickupBinInventory, OrderNumberFilterForPickupBinInventory,
+                   PickupStatusFilter, ('remarks', AllValuesFieldListFilter), ('created_at', DateTimeRangeFilter)]
     list_per_page = 50
+    actions = ['download_csv']
 
     def order_number(self, obj):
         return obj.pickup.pickup_type_id
@@ -641,12 +634,49 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     def bin_id(self, obj):
         return obj.bin.bin.bin_id
 
-    def pickup_remarks(self,obj):
-        return obj.remarks;
+    def pickup_remarks(self, obj):
+        return obj.remarks
 
     def inventory_type(self, obj):
         return obj.pickup.inventory_type
 
+    def pickup_status(self, obj):
+        if obj.pickup.status == Pickup.pickup_status_choices.picking_complete:
+            if obj.quantity != obj.pickup_quantity:
+                return PickupBinInventory.PICKUP_STATUS_CHOICES[PickupBinInventory.PICKUP_STATUS_CHOICES.PARTIAL]
+            return PickupBinInventory.PICKUP_STATUS_CHOICES[PickupBinInventory.PICKUP_STATUS_CHOICES.FULL]
+        elif obj.pickup.status == Pickup.pickup_status_choices.picking_cancelled:
+            return PickupBinInventory.PICKUP_STATUS_CHOICES[PickupBinInventory.PICKUP_STATUS_CHOICES.CANCELLED]
+        return PickupBinInventory.PICKUP_STATUS_CHOICES[PickupBinInventory.PICKUP_STATUS_CHOICES.PENDING]
+
+    def add_audit_link(self, obj):
+        if obj.pickup.status == 'picking_complete':
+            if obj.quantity != obj.pickup_quantity:
+                if obj.audit_no:
+                    return obj.audit_no
+                return format_html(
+                    "<a href = '/admin/audit/auditdetail/add/?warehouse=%s&audit_level=%s&sku=%s&pbi=%s' class ='addlink' > Audit</a>" % (
+                    obj.warehouse_id, AUDIT_LEVEL_CHOICES.PRODUCT, obj.pickup.sku.id, obj.id))
+
+    def download_csv(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        # set the header name
+        writer.writerow(['warehouse', 'batch_id', 'order_number', 'pickup_type', 'bin_id', 'inventory_type',
+                         'bin_quantity', 'quantity', 'pickup_quantity', 'pickup_status',
+                         'pickup_remarks', 'created_at', 'last_picked_at' ])
+
+        for item in queryset:
+            writer.writerow([item.warehouse, item.batch_id, self.order_number(item), self.pickup_type(item),
+                             self.bin_id(item), self.inventory_type(item), item.bin_quantity, item.quantity,
+                             item.pickup_quantity, self.pickup_status(item), self.pickup_remarks(item),
+                             item.created_at, item.last_picked_at])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=pickup_bin_inventory.csv'
+        return response
+    add_audit_link.short_description = 'Add Audit'
     class Media:
         pass
 
@@ -720,17 +750,16 @@ class InventoryStateAdmin(admin.ModelAdmin):
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_type', 'initial_stage',
-        'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
+        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'inventory_type', 'inventory_state', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = (
-        'inventory_type', 'inventory_csv', 'status', 'warehouse', 'sku', 'transaction_type', 'transaction_id',
+        'inventory_type', 'inventory_state', 'inventory_csv', 'status', 'warehouse', 'sku', 'transaction_type', 'transaction_id',
         'initial_type', 'initial_stage',
         'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at')
 
     search_fields = ('sku__product_sku', 'transaction_id',)
-    list_filter = [Warehouse, ProductSKUFilter, TransactionIDFilter, InventoryTypeFilter, InitialStageFilter,
-                   FinalStageFilter, ('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter),
+    list_filter = [Warehouse, ProductSKUFilter, TransactionIDFilter, InventoryTypeFilter, InventoryStateFilter,
+                    ('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter),
                    ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
 

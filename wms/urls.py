@@ -18,8 +18,6 @@ urlpatterns = [
     url(r'^warehouse-autocomplete/$', WareHouseComplete.as_view(), name='warehouse-autocomplete'),
     url(r'^inventory-type-autocomplete/$', InventoryTypeFilter.as_view(), name='inventory-type-autocomplete'),
     url(r'^inventory-state-autocomplete/$', InventoryStateFilter.as_view(), name='inventory-state-autocomplete'),
-    url(r'^initial-stage-autocomplete/$', InventoryStateFilter.as_view(), name='initial-stage-autocomplete'),
-    url(r'^final-stage-autocomplete/$', InventoryStateFilter.as_view(), name='final-stage-autocomplete'),
     url(r'^putaway-user-autocomplete/$', PutawayUserFilter.as_view(), name='putaway-user-autocomplete'),
     url(r'^merged_barcode/(?P<id>[\w-]+)/$', MergeBarcode.as_view(), name='merged_barcodes'),
     url(r'^archive/$', wms.views.archive_inventory_cron, name='archive'),
@@ -27,6 +25,7 @@ urlpatterns = [
     url(r'^move-expired-inventory/$', wms.views.move_expired_inventory_manual, name="move-expired-inventory"),
     url(r'^rectify-batch-ids/$', wms.views.rectify_batch_ids, name="rectify-batch-ids"),
     url(r'^audit_ordered_data/$', wms.views.audit_ordered_data, name='audit_ordered_data'),
+    url(r'^auto_report_for_expired_product/$', wms.views.auto_report_for_expired_product, name='expired_product'),
 
 
 ]

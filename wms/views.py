@@ -5,10 +5,14 @@ import traceback
 from io import StringIO
 import codecs
 import itertools
-import openpyxl
+
+from openpyxl import Workbook
+from openpyxl.writer.excel import save_virtual_workbook
+
 import re
 import logging
-
+from django.db.models import Q
+from celery.task import task
 from django.db.models.functions import Length
 from django.utils import timezone
 from rest_framework import status
@@ -31,17 +35,18 @@ from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction, DatabaseError
 from datetime import datetime, timedelta
+
 from .common_functions import CommonPickBinInvFunction, CommonPickupFunctions, \
     create_batch_id, set_expiry_date, CommonWarehouseInventoryFunctions, OutCommonFunctions, \
     common_release_for_inventory, cancel_shipment, cancel_ordered, cancel_returned, \
-    get_expiry_date_db, get_visibility_changes, WareHouseInternalInventoryChange
+    get_expiry_date_db, get_visibility_changes, get_stock, update_visibility
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease, In, \
     BinInternalInventoryChange, ExpiredInventoryMovement, Putaway
 from .models import Bin, WarehouseInventory, PickupBinInventory, Out, PutawayBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch, \
     OrderedProduct, OrderedProductMapping
-from products.models import Product, ProductPrice, Repackaging
+from products.models import Product, ProductPrice, Repackaging, ProductCategory
 from gram_to_brand.models import GRNOrderProductMapping
 
 # third party imports
@@ -49,10 +54,17 @@ from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadAuditAdminForm, UploadAuditAdminForm
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
-    InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV, \
-    InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory, inventory_in_and_out
+    InCommonFunctions, WareHouseCommonFunction, StockMovementCSV, \
+    InternalStockCorrectionChange, updating_tables_on_putaway, AuditInventory, inventory_in_and_out
 from barCodeGenerator import barcodeGen, merged_barcode_gen
 from services.models import WarehouseInventoryHistoric, BinInventoryHistoric, InventoryArchiveMaster, CronRunLog
+
+from .common_functions import get_expiry_date
+from datetime import date, timedelta
+from .send_email import send_mail_w_attachment
+from global_config.models import GlobalConfig
+
+from django.conf import settings
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -491,9 +503,10 @@ def commit_updates_to_es(shop, product):
     status = True
     available_qty = 0
     try:
-        db_available_products = get_product_stock(shop, product)
-        if db_available_products:
-            products_available = db_available_products.aggregate(Sum('quantity'))['quantity__sum']
+        type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+        db_available_products = get_stock(shop, type_normal, [product.id])
+        if db_available_products.get(product.id) is not None:
+            products_available = db_available_products[product.id]
             available_qty = int(int(products_available) / int(product.product_inner_case_size))
         if not available_qty:
             status = False
@@ -506,6 +519,8 @@ def commit_updates_to_es(shop, product):
     visibility_changes = get_visibility_changes(shop, product)
     if visibility_changes:
         for prod_id, visibility in visibility_changes.items():
+            sibling_product = Product.objects.filter(pk=prod_id).last()
+            update_visibility(shop, sibling_product, visibility)
             if prod_id == product.id:
                 update_product_es.delay(shop.id, product.id, available=available_qty, status=status, visible=visibility)
             else:
@@ -514,17 +529,16 @@ def commit_updates_to_es(shop, product):
         update_product_es.delay(shop.id, product.id, available=available_qty, status=status)
 
 
-
 @receiver(post_save, sender=WarehouseInventory)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     info_logger.info("Post save called for Warehouse Inventory")
     try:
-        if instance.inventory_type.inventory_type == 'normal' and instance.inventory_state.inventory_state == 'available':
+        if instance.inventory_type.inventory_type == 'normal':
             info_logger.info("Inside if condition of post save Warehouse Inventory")
             commit_updates_to_es(instance.warehouse, instance.sku)
     except Exception as e:
-        info_logger.info("Exception | Post save | WarehouseInventory | warehouse {}, product {]"
-                         .format(instance.warehous.id, instance.sku.id))
+        info_logger.info("Exception | Post save | WarehouseInventory | warehouse {}, product {}"
+                         .format(instance.warehouse.id, instance.sku.id))
         info_logger.error(e)
 
 
@@ -697,7 +711,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                         inventory_type=type_missing)
                     in_quantity_dict[type_missing] = int(data[8])
 
-                inventory_state = 'available'
+                inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
                 status = True
                 transaction_type = 'stock_correction_in_type'
                 for inv_type, qty in in_quantity_dict.items():
@@ -705,7 +719,7 @@ def stock_correction_data(upload_data, stock_movement_obj):
                     #     continue
                     in_obj = InCommonFunctions.create_in(warehouse_obj, stock_correction_type,
                                                          stock_movement_obj[0].id, product_obj,
-                                                         batch_id, qty, 0, inv_type)
+                                                         batch_id, qty, qty, inv_type)
                     transaction_type_obj = PutawayCommonFunctions.get_filtered_putaways(warehouse=in_obj.warehouse,
                                                                                         putaway_type=in_obj.in_type,
                                                                                         putaway_type_id=in_obj.id,
@@ -897,7 +911,6 @@ def pickup_entry_creation_with_cron():
                          .format(cron_name, cron_log_entry.id))
         traceback.print_exc()
     cron_log_entry.save()
-
 
 
 class DownloadBinCSV(View):
@@ -1100,7 +1113,8 @@ def audit_upload(request):
                 # create batch id
                 batch_id = create_batch_id(sku, expiry_date)
                 bin_exp_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                          bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                                                          bin=Bin.objects.filter(bin_id=data[4],
+                                                                                 warehouse=data[0]).last(),
                                                           sku=Product.objects.filter(
                                                               product_sku=data[1][-17:]).last(),
                                                           batch_id=batch_id)
@@ -1222,7 +1236,8 @@ def bin_objects_create(data, batch_id):
     """
     if int(data[9]) > 0:
         bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                                                        bin=Bin.objects.filter(bin_id=data[4],
+                                                                               warehouse=data[0]).last(),
                                                         sku=Product.objects.filter(
                                                             product_sku=data[1][-17:]).last(),
                                                         batch_id=batch_id, in_stock=True,
@@ -1241,7 +1256,8 @@ def bin_objects_create(data, batch_id):
                                                    inventory_type='normal').last())
     if int(data[10]) > 0:
         bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                                                        bin=Bin.objects.filter(bin_id=data[4],
+                                                                               warehouse=data[0]).last(),
                                                         sku=Product.objects.filter(
                                                             product_sku=data[1][-17:]).last(),
                                                         batch_id=batch_id, in_stock=True,
@@ -1260,7 +1276,8 @@ def bin_objects_create(data, batch_id):
                 inventory_type=InventoryType.objects.filter(inventory_type='damaged').last())
     if int(data[11]) > 0:
         bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                                                        bin=Bin.objects.filter(bin_id=data[4],
+                                                                               warehouse=data[0]).last(),
                                                         sku=Product.objects.filter(
                                                             product_sku=data[1][-17:]).last(),
                                                         batch_id=batch_id, in_stock=True,
@@ -1279,7 +1296,8 @@ def bin_objects_create(data, batch_id):
                 inventory_type=InventoryType.objects.filter(inventory_type='expired').last())
     if int(data[12]) > 0:
         bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                        bin=Bin.objects.filter(bin_id=data[4], warehouse=data[0]).last(),
+                                                        bin=Bin.objects.filter(bin_id=data[4],
+                                                                               warehouse=data[0]).last(),
                                                         sku=Product.objects.filter(
                                                             product_sku=data[1][-17:]).last(),
                                                         batch_id=batch_id, in_stock=True,
@@ -1308,22 +1326,14 @@ def shipment_out_inventory_change(shipment_list, final_status):
             shipment_item_list = OrderedProductMapping.objects.filter(ordered_product=shipment).all()
             with transaction.atomic():
                 for shipment_item in shipment_item_list:
-                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
-                                                                                 shipment_item.product,
-                                                                                 "normal", "picked",
-                                                                                 shipment_item.shipped_qty * -1,
-                                                                                 True)
-                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
-                                                                                 shipment_item.product,
-                                                                                 "normal", "shipped",
-                                                                                 shipment_item.shipped_qty,
-                                                                                 True)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_picked,
+                        shipment_item.shipped_qty * -1, "shipped_out", shipment.pk)
 
-                    InternalWarehouseChange.create_warehouse_inventory_change(shipment.order.seller_shop,
-                                                                              shipment_item.product, "shipped_out",
-                                                                              shipment.pk, type_normal, state_picked,
-                                                                              type_normal, state_shipped,
-                                                                              shipment_item.shipped_qty, None)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_shipped,
+                        shipment_item.shipped_qty, "shipped_out", shipment.pk)
+
                     shipment_batch_list = OrderedProductBatch.objects.filter(
                         ordered_product_mapping=shipment_item).all()
                     for shipment_batch in shipment_batch_list:
@@ -1406,36 +1416,31 @@ def bulk_putaway(self, request, argument_list):
                 bin_id = obj.bin
                 putaway_inventory_type = obj.putaway.inventory_type
                 if obj.putaway_type == 'Order_Cancelled':
-                    ordered_inventory_state = 'ordered',
                     initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
-                    cancel_ordered(request.user, obj, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(request.user, obj, initial_stage, bin_id)
 
-                elif obj.putaway_type == 'Pickup_Cancelled':
-                    ordered_inventory_state = 'picked',
+                elif obj.putaway_type in ['picking_cancelled', 'Pickup_Cancelled']:
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                    cancel_ordered(request.user, obj, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(request.user, obj, initial_stage, bin_id)
 
                 elif obj.putaway_type == 'Shipment_Cancelled':
-                    ordered_inventory_state = 'picked',
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                    cancel_ordered(self.request.user, obj, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(self.request.user, obj, initial_stage, bin_id)
 
                 elif obj.putaway_type == 'PAR_SHIPMENT':
-                    ordered_inventory_state = 'picked',
-                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last()
                     shipment_obj = OrderedProduct.objects.filter(
                         order__order_no=obj.putaway.putaway_type_id)[
                         0].rt_order_product_order_product_mapping.all()
-                    cancel_shipment(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id,
+                    cancel_shipment(request.user, obj, initial_stage, shipment_obj, bin_id,
                                     putaway_inventory_type)
 
                 elif obj.putaway_type == 'RETURNED':
-                    ordered_inventory_state = 'shipped',
-                    initial_stage = InventoryState.objects.filter(inventory_state='shipped').last(),
+                    initial_stage = InventoryState.objects.filter(inventory_state='shipped').last()
                     shipment_obj = OrderedProduct.objects.filter(
                         invoice__invoice_no=obj.putaway.putaway_type_id)[
                         0].rt_order_product_order_product_mapping.all()
-                    cancel_returned(request.user, obj, ordered_inventory_state, initial_stage, shipment_obj, bin_id,
+                    cancel_returned(request.user, obj, initial_stage, shipment_obj, bin_id,
                                     putaway_inventory_type)
 
         message = "Bulk Approval for Put Away has been done successfully."
@@ -1451,27 +1456,19 @@ def shipment_reschedule_inventory_change(shipment_list):
         with transaction.atomic():
             try:
                 for shipment_item in shipment_item_list:
-                    shipment_batch_list = OrderedProductBatch.objects.filter(ordered_product_mapping=shipment_item).all()
+                    shipment_batch_list = OrderedProductBatch.objects.filter(
+                        ordered_product_mapping=shipment_item).all()
                     for shipment_batch in shipment_batch_list:
                         InCommonFunctions.create_only_in(shipment.order.seller_shop, 'reschedule', shipment.pk,
                                                          shipment_item.product, shipment_batch.batch_id,
                                                          shipment_batch.quantity, type_normal)
-                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
-                                                                                 shipment_item.product,
-                                                                                 "normal", "shipped",
-                                                                                 shipment_item.shipped_qty * -1,
-                                                                                 True)
-                    CommonWarehouseInventoryFunctions.create_warehouse_inventory(shipment.order.seller_shop,
-                                                                                 shipment_item.product,
-                                                                                 "normal", "picked",
-                                                                                 shipment_item.shipped_qty,
-                                                                                 True)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_shipped,
+                        shipment_item.shipped_qty * -1, "reschedule", shipment.pk)
 
-                    InternalWarehouseChange.create_warehouse_inventory_change(shipment.order.seller_shop,
-                                                                              shipment_item.product, "reschedule",
-                                                                              shipment.pk, type_normal, state_shipped,
-                                                                              type_normal, state_picked,
-                                                                              shipment_item.shipped_qty, None)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        shipment.order.seller_shop, shipment_item.product, type_normal, state_picked,
+                        shipment_item.shipped_qty, "reschedule", shipment.pk)
 
             except DatabaseError as e:
                 print(e)
@@ -1493,6 +1490,7 @@ class InventoryMovement(object):
     Get all the batch ids expiring on a given date
     Date format to be YYYY-MM-DD
     """
+
     @classmethod
     def get_inventory_expiring_by_date(cls, date):
         expiring_batch_id_list = In.objects.filter(expiry_date__lt=date).values_list('batch_id', flat=True)
@@ -1505,6 +1503,7 @@ class InventoryMovement(object):
     batch_ids : list of batch ids
     inventory_type : inventory types to move e.g. normal, damaged etc
     """
+
     @classmethod
     def get_bin_inventory_to_move(cls, batch_ids, inventory_type):
         bin_inventory = BinInventory.objects.filter(batch_id__in=batch_ids,
@@ -1517,17 +1516,17 @@ class InventoryMovement(object):
     @classmethod
     def move_bin_inventory(cls, tr_type, tr_id, bin_inventory, inventory_type_to):
         cron_logger.info('InventoryMovement|move_bin_inventory| warehouse {}, bin {}, batch {},'
-                          'inventory_type_from {}, inventory_type_to {}, quantity {}'
-                          .format(bin_inventory.warehouse, bin_inventory.bin, bin_inventory.batch_id,
-                                  bin_inventory.inventory_type, inventory_type_to, bin_inventory.quantity))
+                         'inventory_type_from {}, inventory_type_to {}, quantity {}'
+                         .format(bin_inventory.warehouse, bin_inventory.bin, bin_inventory.batch_id,
+                                 bin_inventory.inventory_type, inventory_type_to, bin_inventory.quantity))
         qty = bin_inventory.quantity
         inventory_obj, created = BinInventory.objects.get_or_create(warehouse=bin_inventory.warehouse,
                                                                     bin=bin_inventory.bin,
                                                                     sku=bin_inventory.sku,
                                                                     batch_id=bin_inventory.batch_id,
                                                                     inventory_type=inventory_type_to,
-                                                                    defaults={'quantity':bin_inventory.quantity,
-                                                                              'in_stock':True})
+                                                                    defaults={'quantity': bin_inventory.quantity,
+                                                                              'in_stock': True})
         bin_inventory.quantity = 0
         bin_inventory.save()
         if not created:
@@ -1549,8 +1548,8 @@ class InventoryMovement(object):
     def move_warehouse_inventory(cls, tr_type, tr_id, warehouse, sku, inventory_state, inventory_type_from,
                                  inventory_type_to, quantity):
         cron_logger.info('InventoryMovement|move_warehouse_inventory| warehouse {}, sku {}, inventory_state{},'
-                          'inventory_type_from {}, inventory_type_to {}, quantity {}'
-                          .format(warehouse, sku, inventory_state, inventory_type_from, inventory_type_to, quantity))
+                         'inventory_type_from {}, inventory_type_to {}, quantity {}'
+                         .format(warehouse, sku, inventory_state, inventory_type_from, inventory_type_to, quantity))
         warehouse_inventory = WarehouseInventory.objects.filter(warehouse=warehouse,
                                                                 sku=sku,
                                                                 inventory_state=inventory_state,
@@ -1562,24 +1561,17 @@ class InventoryMovement(object):
             info_logger.error('InventoryMovement|move_warehouse_inventory| '
                               'multiple records found in warehouse inventory')
             return False
+
         warehouse_inventory = warehouse_inventory.last()
         qty_to_move = warehouse_inventory.quantity if quantity > warehouse_inventory.quantity else quantity
-        warehouse_inventory_to, created = WarehouseInventory.objects.get_or_create(warehouse=warehouse,
-                                                                          sku=sku,
-                                                                          inventory_state=inventory_state,
-                                                                          inventory_type=inventory_type_to,
-                                                                          defaults={'quantity': qty_to_move,
-                                                                                    'in_stock':True})
-        warehouse_inventory.quantity = warehouse_inventory.quantity-qty_to_move
-        warehouse_inventory.save()
-        if not created:
-            warehouse_inventory_to.quantity = warehouse_inventory_to.quantity + qty_to_move
-            warehouse_inventory_to.save()
 
-        WareHouseInternalInventoryChange.create_warehouse_inventory_change(warehouse, sku, tr_type, tr_id,
-                                                                           inventory_type_from, inventory_state,
-                                                                           inventory_type_to, inventory_state, qty_to_move)
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            warehouse, sku, inventory_type_from, inventory_state, -1 * qty_to_move, tr_type, tr_id
+        )
 
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            warehouse, sku, inventory_type_to, inventory_state, qty_to_move, tr_type, tr_id
+        )
         cron_logger.info('InventoryMovement|move_warehouse_inventory| moved successfully')
 
 
@@ -1589,7 +1581,7 @@ def move_expired_inventory_cron():
     transaction_type = 'expired'
     type_normal = InventoryType.objects.get(inventory_type='normal')
     type_expired = InventoryType.objects.get(inventory_type='expired')
-    stage_available = InventoryState.objects.get(inventory_state='available')
+    stage_available = InventoryState.objects.get(inventory_state='total_available')
 
     expired_batch_ids = InventoryMovement.get_inventory_expiring_by_date(today)
     bin_inventory_list = InventoryMovement.get_bin_inventory_to_move(expired_batch_ids, type_normal)
@@ -1616,6 +1608,7 @@ def move_expired_inventory_cron():
             cron_logger.error('move_expired_inventory_cron|Exception while moving expired inventory for bin {} batch {}'
                               .format(b.bin, b.batch_id))
     cron_logger.info('move_expired_inventory_cron ended at {}'.format(datetime.now()))
+
 
 def move_expired_inventory_manual(request):
     move_expired_inventory_cron()
@@ -1652,8 +1645,8 @@ def rectify_batch_ids(request):
 
 
 def get_25_char_batch_ids():
-    return OrderedProductBatch.objects.annotate(length=Length('batch_id')).filter(length=25)\
-                                      .values_list('batch_id', flat=True)
+    return OrderedProductBatch.objects.annotate(length=Length('batch_id')).filter(length=25) \
+        .values_list('batch_id', flat=True)
 
 
 def get_correct_batch_ids(batch_ids_to_correct):
@@ -1668,23 +1661,37 @@ class PicklistRefresh:
 
     @staticmethod
     def cancel_picklist_by_order(order_no):
-
+        """
+        Cancels the pickup for order given.
+        Add picked up quantity for Putaway
+        Deducts remaining quantity from to be picked quantity and add back in BinInventory
+        Deduct quantity from to_be_picked Inventory State WarehouseInventory
+        Params:
+         order_no : order number string
+        """
         pd_qs = PickerDashboard.objects.filter(order__order_no=order_no,
                                                picking_status__in=['picking_pending', 'picking_assigned'])
         pickup_qs = Pickup.objects.filter(pickup_type_id=order_no,
                                           status__in=['pickup_creation', 'picking_assigned'])
         type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+        state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
+        state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
+        tr_type = "picking_cancelled"
         with transaction.atomic():
             for pickup in pickup_qs:
+                total_remaining = 0
                 pickup_bin_qs = PickupBinInventory.objects.filter(pickup=pickup)
+                pickup_id = pickup.pk
                 for item in pickup_bin_qs:
                     bi_qs = BinInventory.objects.filter(id=item.bin_id)
                     bi = bi_qs.last()
-                    bin_quantity = bi.quantity + item.quantity
+                    # bin_quantity = bi.quantity + item.quantity
                     picked_qty = item.pickup_quantity
                     if picked_qty is None:
                         picked_qty = 0
                     remaining_qty = item.quantity - picked_qty
+                    total_remaining += remaining_qty
+                    bin_quantity = bi.quantity + remaining_qty
                     to_be_picked_qty = bi.to_be_picked_qty - remaining_qty
                     if to_be_picked_qty < 0:
                         to_be_picked_qty = 0
@@ -1692,9 +1699,22 @@ class PicklistRefresh:
                     InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
                                                                                  bi.bin,
                                                                                  type_normal, type_normal,
-                                                                                 "picking_cancelled",
-                                                                                 pickup.pk,
-                                                                                 item.quantity)
+                                                                                 tr_type,
+                                                                                 pickup_id,
+                                                                                 remaining_qty)
+                    if picked_qty > 0:
+                        PutawayCommonFunctions.create_putaway_with_putaway_bin_inventory(
+                            bi, type_normal, tr_type, pickup_id, picked_qty, False)
+                        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                            pickup.warehouse, pickup.sku, pickup.inventory_type, state_to_be_picked,
+                            -1 * picked_qty,
+                            tr_type, pickup_id)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    pickup.warehouse, pickup.sku, pickup.inventory_type, state_to_be_picked, -1 * total_remaining,
+                    tr_type, pickup_id)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    pickup.warehouse, pickup.sku, pickup.inventory_type, state_ordered, total_remaining,
+                    tr_type, pickup_id)
             pickup_qs.update(status='picking_cancelled')
             pd_qs.update(is_valid=False)
 
@@ -1703,6 +1723,9 @@ class PicklistRefresh:
         info_logger.info('RefreshPicklist|create_picklist_by_order| order {}'.format(order.order_no))
         if inventory_type is None:
             inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+        state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
+        state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
+        state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
         shop = Shop.objects.filter(id=order.seller_shop.id).last()
         with transaction.atomic():
             for order_product in order.ordered_cart.rt_cart_list.all():
@@ -1714,9 +1737,11 @@ class PicklistRefresh:
             pu = Pickup.objects.filter(pickup_type_id=order.order_no, status='pickup_creation')
 
             for obj in pu:
+                tr_type = "pickup_created"
+                tr_id = obj.pk
                 bin_inv_dict = {}
-                pickup_obj = obj
                 qty = obj.quantity
+                total_to_be_picked = 0
                 bin_lists = obj.sku.rt_product_sku.filter(warehouse=shop,
                                                           quantity__gt=0,
                                                           inventory_type=inventory_type).order_by(
@@ -1735,7 +1760,7 @@ class PicklistRefresh:
                 else:
                     bin_lists = obj.sku.rt_product_sku.filter(warehouse=shop,
                                                               quantity=0,
-                                                              inventory_type = inventory_type).order_by(
+                                                              inventory_type=inventory_type).order_by(
                         '-batch_id',
                         'quantity').last()
                     if len(bin_lists.batch_id) == 23:
@@ -1765,15 +1790,16 @@ class PicklistRefresh:
                         bin_inv.to_be_picked_qty += already_picked
                         bin_inv.save()
                         qty = 0
-                        CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
+                        total_to_be_picked += already_picked
+                        CommonPickBinInvFunction.create_pick_bin_inventory(shops, obj, batch_id, bin_inv,
                                                                            quantity=already_picked,
                                                                            bin_quantity=qty_in_bin,
                                                                            pickup_quantity=None)
                         InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
                                                                                      bin_inv.bin,
                                                                                      inventory_type, inventory_type,
-                                                                                     "pickup_created",
-                                                                                     pickup_obj.pk,
+                                                                                     tr_type,
+                                                                                     tr_id,
                                                                                      already_picked)
                     else:
                         already_picked = qty_in_bin
@@ -1782,16 +1808,25 @@ class PicklistRefresh:
                         bin_inv.to_be_picked_qty += already_picked
                         bin_inv.save()
                         qty = remaining_qty
-                        CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, bin_inv,
+                        total_to_be_picked += already_picked
+                        CommonPickBinInvFunction.create_pick_bin_inventory(shops, obj, batch_id, bin_inv,
                                                                            quantity=already_picked,
                                                                            bin_quantity=qty_in_bin,
                                                                            pickup_quantity=None)
                         InternalInventoryChange.create_bin_internal_inventory_change(shops, obj.sku, batch_id,
                                                                                      bin_inv.bin,
                                                                                      inventory_type, inventory_type,
-                                                                                     "pickup_created",
-                                                                                     pickup_obj.pk,
+                                                                                     tr_type,
+                                                                                     tr_id,
                                                                                      already_picked)
+
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    shop, obj.sku, inventory_type, state_ordered, -1 * total_to_be_picked,
+                    tr_type, tr_id)
+
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    shop, obj.sku, inventory_type, state_to_be_picked, total_to_be_picked,
+                    tr_type, tr_id)
             info_logger.info('RefreshPicklist|create_picklist_by_order| completed for order {}'
                              .format(order.order_no))
 
@@ -1799,22 +1834,22 @@ class PicklistRefresh:
 def audit_ordered_data(request):
     start_time = '2020-08-29 01:01:06.067349'
     inventory_calculated = {}
-    warehouse = Shop.objects.filter(id = 32154).last()
+    warehouse = Shop.objects.filter(id=32154).last()
     type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
     stage_ordered = InventoryState.objects.only('id').get(inventory_state='ordered').id
     try:
 
         warehouse_inventory = WarehouseInventory.objects.filter(inventory_type=type_normal,
-                                                                inventory_state=stage_ordered, warehouse=warehouse)\
-                                                            .values('sku_id', 'quantity')
+                                                                inventory_state=stage_ordered, warehouse=warehouse) \
+            .values('sku_id', 'quantity')
 
         orders_placed = Order.objects.filter(order_status__in=[Order.ORDERED,
                                                                Order.PICKUP_CREATED,
                                                                Order.PICKING_ASSIGNED], seller_shop=warehouse,
-                                             created_at__gte=start_time,)
+                                             created_at__gte=start_time, )
         for o in orders_placed:
-            ordered_sku = o.ordered_cart.rt_cart_list.values('cart_product__product_sku')\
-                                                     .annotate(qty=Sum('no_of_pieces'))
+            ordered_sku = o.ordered_cart.rt_cart_list.values('cart_product__product_sku') \
+                .annotate(qty=Sum('no_of_pieces'))
             for item in ordered_sku:
                 if inventory_calculated.get(item['cart_product__product_sku']) is None:
                     inventory_calculated[item['cart_product__product_sku']] = 0
@@ -1831,12 +1866,201 @@ def audit_ordered_data(request):
             if inventory_calculated[item['sku_id']] > item['quantity']:
                 writer.writerow([item['sku_id'], inventory_calculated[item['sku_id']], item['quantity']])
                 product = Product.objects.filter(product_sku=item['sku_id']).last()
-                quantity=WarehouseInventory.objects.filter(inventory_type=type_normal,sku=product,
-                                                  inventory_state=stage_ordered,warehouse=warehouse).last()
-                quantity.quantity=inventory_calculated[item['sku_id']]
+                quantity = WarehouseInventory.objects.filter(inventory_type=type_normal, sku=product,
+                                                             inventory_state=stage_ordered, warehouse=warehouse).last()
+                quantity.quantity = inventory_calculated[item['sku_id']]
                 quantity.save()
-
 
         return response
     except Exception as e:
         info_logger.error(e)
+
+
+def auto_report_for_expired_product():
+    info_logger.info("WMS : Auto Report for To be expired Products started at {}".format(datetime.now()))
+
+    """To_be_Expired_Products workbook"""
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'To_be_Expired_Products'
+
+    """Expired Products workbook"""
+    wb = Workbook()
+    sheet = wb.active
+    sheet.title = 'Expired_Products'
+
+    response = HttpResponse(
+        content=save_virtual_workbook(workbook), content_type='application/ms-excel'
+    )
+    responses = HttpResponse(
+        content=save_virtual_workbook(wb), content_type='application/ms-excel'
+    )
+    response['Content-Disposition'] = 'attachment; filename=To_be_Expired_Products.xlsx'
+    responses['Content-Disposition'] = 'attachment; filename=Expired_Products.xlsx'
+
+    columns = ['Warehouse Name', 'SKU ID', 'SKU Name', 'Parent ID', 'Parent Name', 'Category', 'Sub Category',
+               'EAN', 'MRP', 'Selling Price', 'Inner CategoryCase Size', 'Batch ID', 'Expiry Date',
+               'Bin ID', 'Normal Available Qty', 'Damaged Available Qty']
+
+    warehouse_id = GlobalConfig.objects.get(key='warehouse_id')
+    warehouse_ids = warehouse_id.value
+
+    for warehouse_id in warehouse_ids.split(','):
+        product_list = {}
+        expired_product_list = {}
+        warehouse = Shop.objects.filter(id=warehouse_id).last()
+        type_normal = InventoryType.objects.only('id').get(inventory_type='normal').id
+        type_damaged = InventoryType.objects.only('id').get(inventory_type='damaged').id
+
+        products = BinInventory.objects.filter(Q(warehouse=warehouse.id), Q(quantity__gt=0)).filter(
+            (Q(inventory_type_id=type_normal) | Q(inventory_type_id=type_damaged))).values(
+            'warehouse__shop_name', 'sku', 'sku__id',
+            'sku__product_sku', 'warehouse_id',
+            'sku__product_name', 'quantity',
+            'sku__parent_product__parent_id',
+            'sku__parent_product__name','to_be_picked_qty',
+            'sku__parent_product__inner_case_size',
+            'sku__product_ean_code', 'sku__product_mrp',
+            'batch_id', 'bin__bin_id',
+            'inventory_type__inventory_type'
+        )
+
+        for product in products:
+            expiry_date_str = get_expiry_date(product['batch_id'])
+            expiry_date = datetime.strptime(expiry_date_str, "%d/%m/%Y")
+            today = date.today()
+
+            if expiry_date.date() > today:
+                expiring_soon = expiry_date.date() - today <= timedelta(days=15)
+                """
+                Product Expiring withing 15 days
+                """
+                if expiring_soon:
+                    product_temp = iterate_data(product, product_list, expired_product_list, expiry_date)
+                    product_list[product['batch_id']] = product_temp
+                product_list_new = []
+
+                """
+                Writing Product Expiring withing 15 days in Excel Sheet
+                """
+                row_num = 1
+                for col_num, column_title in enumerate(columns, 1):
+                    cell = worksheet.cell(row=row_num, column=col_num)
+                    cell.value = column_title
+                row = 2
+                for key, value in product_list.items():
+                    col = 1
+                    product_list_new.append(value)
+                    for key_item, value_item in value.items():
+                        cell = worksheet.cell(row=row, column=col)
+                        cell.value = value_item
+                        col += 1
+                    row += 1
+
+            expired_products = expiry_date.date() <= today
+            if expired_products:
+                """
+                Expired product
+                """
+                product_temp = iterate_data(product, product_list, expired_product_list, expiry_date)
+                expired_product_list[product['batch_id']] = product_temp
+            expired_product_list_new = []
+
+            """
+            Writing Expired product withing 15 days in Excel Sheet
+            """
+            row_num = 1
+            for col_num, column_title in enumerate(columns, 1):
+                cell = sheet.cell(row=row_num, column=col_num)
+                cell.value = column_title
+            row = 2
+            for key, value in expired_product_list.items():
+                col = 1
+                expired_product_list_new.append(value)
+                for key_item, value_item in value.items():
+                    cell = sheet.cell(row=row, column=col)
+                    cell.value = value_item
+                    col += 1
+                row += 1
+
+        workbook.save(response)
+        wb.save(responses)
+        send_mail_w_attachment(response, responses, warehouse_id, product['warehouse__shop_name'])
+    return response
+
+
+def iterate_data(product, product_list, expired_product_list, expiry_date):
+    if product['batch_id'] in product_list:
+        product_temp = product_list[product['batch_id']]
+        available_qty = product['quantity'] + product['to_be_picked_qty']
+        product_temp[product['inventory_type__inventory_type']] += available_qty
+
+    elif product['batch_id'] in expired_product_list:
+        product_temp = expired_product_list[product['batch_id']]
+        available_qty = product['quantity'] + product['to_be_picked_qty']
+        product_temp[product['inventory_type__inventory_type']] += available_qty
+
+    else:
+        product_obj = Product.objects.filter(product_sku=product['sku'])
+
+        category = ProductCategory.objects.values('category__category_parent__category_name').filter(
+            product=product_obj[0].id)
+        sub_category = ProductCategory.objects.values('category__category_name').filter(
+            product=product_obj[0].id)
+
+        if category:
+            for cat in category:
+                categories = cat['category__category_parent__category_name']
+                if categories is None:
+                    if sub_category:
+                        for cat in sub_category:
+                            categories = cat['category__category_name']
+                    else:
+                        categories = ''
+        else:
+            if sub_category:
+                for cat in sub_category:
+                    categories = cat['category__category_name']
+            else:
+                categories = ''
+
+        if sub_category:
+            for sub in sub_category:
+                sub_categories = sub['category__category_name']
+        else:
+            sub_categories = ''
+
+        selling_price = ProductPrice.objects.values('selling_price').filter(product=product_obj[0].id,
+                                                                            seller_shop=product['warehouse_id'],
+                                                                            approval_status=ProductPrice.APPROVED)
+
+        if selling_price:
+            for sell_price in selling_price:
+                selling_prices = sell_price['selling_price'],
+                selling_price = selling_prices[0]
+
+        else:
+            selling_price = ''
+
+        product_temp = {
+
+            'warehouse_name': product['warehouse__shop_name'],
+            'sku__id': product['sku__product_sku'],
+            'sku__product_sku': product['sku__product_name'],
+            'sku__parent_product__parent_id': product['sku__parent_product__parent_id'],
+            'sku__parent_product__name': product['sku__parent_product__name'],
+            'category': categories,
+            'sub_cat': sub_categories,
+            'sku__product_ean_code': product['sku__product_ean_code'],
+            'sku__product_mrp': product['sku__product_mrp'],
+            'selling_price': selling_price,
+            'sku__parent_product__inner_case_size': product['sku__parent_product__inner_case_size'],
+            'batch_id': product['batch_id'],
+            'expiry_date': expiry_date.date(),
+            'bin__bin_id': product['bin__bin_id'],
+            'normal': 0,
+            'damaged': 0,
+        }
+        available_qty = product['quantity'] + product['to_be_picked_qty']
+        product_temp[product['inventory_type__inventory_type']] += available_qty
+    return product_temp

@@ -38,9 +38,11 @@ INVENTORY_TYPE_CHOICES = (
 )
 
 INVENTORY_STATE_CHOICES = (
+    ('total_available', 'TOTAL AVAILABLE'),  # Total physical inventory available(available+reserved+ordered)
     ('available', 'AVAILABLE'),  # Inventory Available
     ('reserved', 'RESERVED'),  # Inventory Reserved
     ('shipped', 'SHIPPED'),  # Inventory Shipped
+    ('to_be_picked', 'TO BE PICKED'),  # Inventory Available
     ('ordered', 'Ordered'),  # Inventory Ordered
     ('picked', 'PICKED'),  # Inventory picked
     ('canceled', 'Canceled'),  # Inventory Canceled
@@ -143,7 +145,7 @@ class WarehouseInventory(models.Model):
     in_stock = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    visible = models.BooleanField(default=True)
+    visible = models.BooleanField(default=False)
 
     class Meta:
         db_table = "wms_warehouse_inventory"
@@ -227,7 +229,7 @@ class Out(models.Model):
 class Pickup(models.Model):
 
     objects = Manager()
-    pickup_status_choices = (
+    pickup_status_choices = Choices(
         ('pickup_creation', 'PickUp Creation'),
         ('picking_assigned', 'Pickup Assigned'),
         ('picking_complete', 'Pickup Complete'),
@@ -255,7 +257,12 @@ class PickupBinInventory(models.Model):
                                      (3, 'NOT_FOUND', 'Item not found'),
                                      (4, 'MRP_DIFF', 'Different MRP'),
                                      (5, 'GRAMMAGE_DIFF', 'Different Grammage'),
-                                     (6, 'NOT_CLEAN', 'Item not clean') )
+                                     (6, 'NOT_CLEAN', 'Item not clean'))
+
+    PICKUP_STATUS_CHOICES = Choices((0, 'PENDING', 'Pickup Pending'),
+                                    (1, 'PARTIAL', 'Partially Completed'),
+                                    (2, 'FULL', 'Fully Completed'),
+                                    (3, 'CANCELLED', 'Pickup Cancelled'))
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=50, null=True, blank=True)
@@ -269,6 +276,7 @@ class PickupBinInventory(models.Model):
                                        default=None,on_delete=models.DO_NOTHING)
     last_picked_at = models.DateTimeField(null=True)
     remarks = models.CharField(choices=PICKUP_REMARKS_CHOICES, max_length=100, null=True)
+    audit_no = models.CharField(max_length=100, null=True)
 
     class Meta:
         db_table = "wms_pickup_bin_inventory"
@@ -303,9 +311,12 @@ class WarehouseInternalInventoryChange(models.Model):
         ('ordered', "Ordered"),
         ('released', "Released"),
         ('canceled', 'Canceled'),
+        ('order_cancelled', 'Order Cancelled'),
         ('audit_adjustment', 'Audit Adjustment'),
         ('put_away_type', 'Put Away'),
         ('pickup_created', 'Pickup Created'),
+        ('picked', 'Picked'),
+        ('picking_cancelled', 'Picking Cancelled'),
         ('pickup_complete', 'Pickup Complete'),
         ('shipped_out', 'Shipped Out'),
         ('stock_correction_in_type', 'stock_correction_in_type'),
@@ -327,6 +338,7 @@ class WarehouseInternalInventoryChange(models.Model):
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=transaction_type)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
+    inventory_state = models.ForeignKey(InventoryState, null=True, blank=True, on_delete=models.DO_NOTHING)
     initial_type = models.ForeignKey(InventoryType, related_name='initial_type', null=True, blank=True,
                                      on_delete=models.DO_NOTHING)
     final_type = models.ForeignKey(InventoryType, related_name='final_type', null=True, blank=True,
@@ -335,7 +347,7 @@ class WarehouseInternalInventoryChange(models.Model):
                                       on_delete=models.DO_NOTHING)
     final_stage = models.ForeignKey(InventoryState, related_name='final_stage', null=True, blank=True,
                                     on_delete=models.DO_NOTHING)
-    quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
+    quantity = models.IntegerField(null=True, blank=True, default=0)
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

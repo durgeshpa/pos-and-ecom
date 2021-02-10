@@ -1,12 +1,14 @@
 # Create your models here.
 from django.db.models.signals import post_save
 from django.db import models
+from django.core.validators import RegexValidator
 
 from wms.models import Bin, create_order_id
 from audit.models import AuditDetail
 from shops.models import Shop
 
 
+phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
 def get_default_virtual_bin_id():
     return 'V2VZ01SR001-0001'
 
@@ -41,8 +43,11 @@ class FranchiseSales(models.Model):
     amount = models.FloatField(default=0, null=True, blank=True)
     invoice_date = models.DateTimeField(null=True, blank=True)
     invoice_number = models.CharField(max_length=255, null=True, blank=True)
+    discount_amount = models.FloatField(default=0, null=True, blank=True)
     process_status = models.IntegerField(choices=((0, 'Started'), (1, 'Processed'), (2, 'Error')), default=0)
     error = models.CharField(max_length=255, null=True, blank=True)
+    phone_number = models.CharField(validators=[phone_regex], max_length=10, null=True,blank=True)
+    customer_name = models.CharField(max_length=255,null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -58,9 +63,12 @@ class FranchiseReturns(models.Model):
     amount = models.FloatField(default=0, null=True, blank=True)
     sr_date = models.DateTimeField(null=True, blank=True)
     sr_number = models.CharField(max_length=255, null=True, blank=True)
+    invoice_date = models.DateTimeField(null=True, blank=True)
     invoice_number = models.CharField(max_length=255, null=True, blank=True)
     process_status = models.IntegerField(choices=((0, 'Started'), (1, 'Processed'), (2, 'Error')), default=0)
     error = models.CharField(max_length=255, null=True, blank=True)
+    phone_number = models.CharField(validators=[phone_regex], max_length=10, null=True,blank=True)
+    customer_name = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

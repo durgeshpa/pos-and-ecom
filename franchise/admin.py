@@ -8,12 +8,11 @@ from django.http import HttpResponse
 
 from franchise.models import Fbin, Faudit, HdposDataFetch, FranchiseSales, FranchiseReturns, ShopLocationMap
 from franchise.forms import FranchiseBinForm, FranchiseAuditCreationForm, ShopLocationMapForm
-from franchise.filters import ShopLocFilter, BarcodeFilter, ShopFilter, ShopLocFilter1,\
-    FranchiseShopAutocomplete, WarehouseFilter, SkuFilter
+from franchise.filters import BarcodeFilter, ShopFilter, FranchiseShopAutocomplete, WarehouseFilter,\
+    SkuFilter, SrNumberFilter, InvoiceNumberFilter
 from franchise.views import StockCsvConvert
 from wms.admin import BinAdmin, BinIdFilter
 from audit.admin import AuditDetailAdmin, AuditNoFilter, AuditorFilter
-from products.models import Product
 
 
 class ExportShopLocationMap:
@@ -148,10 +147,12 @@ class HdposDataFetchAdmin(admin.ModelAdmin):
 @admin.register(FranchiseSales)
 class FranchiseSalesAdmin(admin.ModelAdmin, ExportSalesReturns):
     list_display = ['id', 'shop_loc', 'shop_name', 'barcode', 'product_sku', 'quantity', 'amount', 'process_status',
-                    'error', 'invoice_number', 'invoice_date', 'invoice_date_full', 'created_at', 'modified_at']
+                    'error', 'invoice_number', 'invoice_date', 'invoice_date_full', 'created_at', 'modified_at', 'customer_name',
+                    'phone_number', 'discount_amount']
     list_per_page = 50
     actions = ["export_as_csv_sales_returns"]
-    list_filter = [ShopLocFilter, BarcodeFilter, SkuFilter, ('invoice_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
+    list_filter = [('shop_loc', DropdownFilter), BarcodeFilter, SkuFilter, ('invoice_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter),
+                   ('error', DropdownFilter), InvoiceNumberFilter]
 
     class Media:
         pass
@@ -180,10 +181,11 @@ class FranchiseSalesAdmin(admin.ModelAdmin, ExportSalesReturns):
 @admin.register(FranchiseReturns)
 class FranchiseReturnsAdmin(admin.ModelAdmin, ExportSalesReturns):
     list_display = ['id', 'shop_loc', 'shop_name', 'barcode', 'product_sku', 'quantity', 'amount', 'process_status',
-                    'error', 'sr_number', 'sr_date', 'sr_date_full', 'created_at', 'modified_at']
+                    'error', 'sr_number', 'sr_date', 'sr_date_full', 'invoice_date', 'invoice_number', 'created_at', 'modified_at', 'customer_name', 'phone_number']
     list_per_page = 50
     actions = ["export_as_csv_sales_returns"]
-    list_filter = [ShopLocFilter, BarcodeFilter, SkuFilter, ('sr_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter)]
+    list_filter = [('shop_loc', DropdownFilter), BarcodeFilter, SkuFilter, ('sr_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter),
+                   ('invoice_date', DateTimeRangeFilter), ('error', DropdownFilter), SrNumberFilter, InvoiceNumberFilter]
 
     class Media:
         pass
@@ -213,7 +215,7 @@ class FranchiseReturnsAdmin(admin.ModelAdmin, ExportSalesReturns):
 class ShopLocationMapAdmin(admin.ModelAdmin, ExportShopLocationMap):
     list_display = [field.name for field in ShopLocationMap._meta.get_fields()]
     list_per_page = 50
-    list_filter = [ShopFilter, ShopLocFilter1]
+    list_filter = [ShopFilter, ('location_name', DropdownFilter)]
     actions = ["export_as_csv_shop_location_map"]
     form = ShopLocationMapForm
 

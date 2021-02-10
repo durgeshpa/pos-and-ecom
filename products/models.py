@@ -16,6 +16,7 @@ from django.utils.safestring import mark_safe
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
+from model_utils import Choices
 
 from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
@@ -42,6 +43,9 @@ WEIGHT_UNIT_CHOICES = (
         # ('l', 'Litre'),
         # ('ml', 'Milliliter'),
     )
+
+CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
+                                   (2, 'MONTHLY', 'Monthly'))
 
 class Size(models.Model):
     size_value = models.CharField(max_length=255, validators=[ValueValidator], null=True, blank=True)
@@ -362,29 +366,8 @@ class Product(models.Model):
         we will further filter to city, pincode and buyer shop level.
         '''
         today = datetime.datetime.today()
-        buyer_shop_dt = Address.objects.values('city_id', 'pincode_link')\
-            .filter(shop_name_id=buyer_shop_id, address_type='shipping')
-        if buyer_shop_dt.exists():
-            buyer_shop_dt = buyer_shop_dt.last()
-        product_capping = self.product_pro_capping\
-            .filter(Q(seller_shop_id=seller_shop_id),
-                    Q(city_id=buyer_shop_dt.get('city_id')) | Q(city_id=None),
-                    Q(pincode_id=buyer_shop_dt.get('pincode_link')) | Q(pincode_id=None),
-                    Q(buyer_shop_id=buyer_shop_id) | Q(buyer_shop_id=None),
-                    status=True,
-                    start_date__lte=today, end_date__gte=today)\
-            .order_by('start_date')
-        if product_capping.count() > 1:
-            product_capping = product_capping.filter(
-                city_id=buyer_shop_dt.get('city_id'))
-        if product_capping.count() > 1:
-            product_capping = product_capping.filter(
-                pincode_id=buyer_shop_dt.get('pincode_link', None))
-        if product_capping.count() > 1:
-            product_capping = product_capping.filter(
-                buyer_shop_id=buyer_shop_id)
-        if not product_capping:
-            product_capping = self.product_pro_capping.filter(seller_shop_id=seller_shop_id, status = True, start_date__lte=today, end_date__gte=today).order_by('start_date')
+        product_capping = self.product_pro_capping.filter(seller_shop_id=seller_shop_id, status = True,
+                                                          start_date__lte=today, end_date__gte=today)
         if not product_capping:
             return None
         return product_capping.last()
@@ -856,6 +839,7 @@ class ProductCapping(models.Model):
                                 null=True, blank=True,
                                 on_delete=models.CASCADE)
     capping_qty = models.PositiveIntegerField(default=0, null=True)
+    capping_type = models.PositiveSmallIntegerField(choices=CAPPING_TYPE_CHOICES, null=True, blank=True)
     start_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -892,6 +876,19 @@ class BulkUploadForGSTChange(models.Model):
 
     def __str__(self):
         return f"BulkUpload updated at {self.created_at} by {self.updated_by}"
+
+
+class BulkUploadForProductAttributes(models.Model):
+    file = models.FileField(upload_to='products/product_attributes/')
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True, related_name='bulk_upload_for_product_attributes',
+        on_delete=models.DO_NOTHING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"BulkUpload for product_tax_attribute updated at {self.created_at} by {self.updated_by}"
 
 
 class Repackaging(models.Model):

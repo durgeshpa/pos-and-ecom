@@ -4,13 +4,14 @@ from products.models import Product, ProductPrice, ProductCategory, \
     ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from sp_to_gram.tasks import update_shop_product_es
+from sp_to_gram.tasks import update_shop_product_es, update_product_es
 from analytics.post_save_signal import get_category_product_report
 import logging
 from django.db import transaction
 from wms.models import Out, In, InventoryType, Pickup, WarehouseInventory, InventoryState,WarehouseInternalInventoryChange, PutawayBinInventory, Putaway
 from retailer_to_sp.models import generate_picklist_id, PickerDashboard
-from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange
+from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, \
+    CommonWarehouseInventoryFunctions,update_visibility, get_visibility_changes
 from datetime import datetime
 from shops.models import Shop
 from retailer_backend import common_function
@@ -21,77 +22,48 @@ from .tasks import approve_product_price
 
 @receiver(post_save, sender=ProductPrice)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    # if instance.approval_status == sender.APPROVED:
-    #     product_mrp = instance.mrp if instance.mrp else instance.product.product_mrp
-    #     #approve_product_price.delay(instance.id)
-    #     update_shop_product_es(
-    #         instance.seller_shop.id,
-    #         instance.product.id,
-    #         ptr=instance.selling_price,
-    #         mrp=product_mrp
-    #     )
     update_shop_product_es(instance.seller_shop.id, instance.product.id)
+    visibility_changes = get_visibility_changes(instance.seller_shop.id, instance.product.id)
+    for prod_id, visibility in visibility_changes.items():
+        sibling_product = Product.objects.filter(pk=prod_id).last()
+        update_visibility(instance.seller_shop.id, sibling_product, visibility)
+        if prod_id == instance.product.id:
+            update_shop_product_es.delay(instance.seller_shop.id, prod_id)
+        else:
+            update_product_es.delay(instance.seller_shop.id, prod_id, visible=visibility)
 
 
 @receiver(post_save, sender=ProductCategory)
 def update_category_elasticsearch(sender, instance=None, created=False, **kwargs):
-    category = [str(c.category) for c in instance.product.product_pro_category.filter(status=True)]
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], category=category)
+        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
 
 
 
 @receiver(post_save, sender=ProductImage)
 def update_product_image_elasticsearch(sender, instance=None, created=False, **kwargs):
-    product_images = [{
-                        "image_name":instance.image_name,
-                        "image_alt":instance.image_alt_text,
-                        "image_url":instance.image.url
-                       }]
     for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], product_images=product_images)
+        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'])
 
 
 @receiver(post_save, sender=Product)
 def update_product_elasticsearch(sender, instance=None, created=False, **kwargs):
     if not instance.parent_product:
-        logger.error("Post Save call being cancelled for product {} because Parent Product mapping doesn't exist".format(instance.id))
+        logger.info("Post Save call being cancelled for product {} because Parent Product mapping doesn't exist".format(instance.id))
         return
     logger.info("Updating Tax Mappings of product")
     update_product_tax_mapping(instance)
-    logger.error("updating product to elastic search")
-    # for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product', 'product__product_name', 'product__product_inner_case_size', 'product__status'):
-    product_categories = [str(c.category) for c in instance.parent_product.parent_product_pro_category.filter(status=True)]
-    product_images = []
-    if instance.use_parent_image:
-        product_images = [
-            {
-                "image_name": p_i.image_name,
-                "image_alt": p_i.image_alt_text,
-                "image_url": p_i.image.url
-            }
-            for p_i in instance.parent_product.parent_product_pro_image.all()
-        ]
-    for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product', 'product__product_name', 'product__status'):
-        if not product_images:
-            update_shop_product_es.delay(
-                prod_price['seller_shop'],
-                prod_price['product'],
-                name=prod_price['product__product_name'],
-                pack_size=instance.product_inner_case_size,
-                status=True if (prod_price['product__status'] in ['active', True]) else False,
-                category=product_categories
-            )
-        else:
-            update_shop_product_es.delay(
-                prod_price['seller_shop'],
-                prod_price['product'],
-                name=prod_price['product__product_name'],
-                pack_size=instance.product_inner_case_size,
-                status=True if (prod_price['product__status'] in ['active', True]) else False,
-                category=product_categories,
-                product_images=product_images
-            )
+    for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product'):
+        logger.info(prod_price)
+        visibility_changes = get_visibility_changes(prod_price['seller_shop'], prod_price['product'])
+        for prod_id, visibility in visibility_changes.items():
+            sibling_product = Product.objects.filter(pk=prod_id).last()
+            update_visibility(prod_price['seller_shop'], sibling_product, visibility)
+            if prod_id == prod_price['product']:
+                update_shop_product_es.delay(prod_price['seller_shop'], prod_id)
+            else:
+                update_product_es.delay(prod_price['seller_shop'], prod_id, visible=visibility)
+
 
 
 @receiver(post_save, sender=ParentProduct)
@@ -174,43 +146,22 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
         with transaction.atomic():
             rep_obj = Repackaging.objects.get(pk=instance.pk)
             repackage_quantity = rep_obj.source_repackage_quantity
+            state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
+            state_available = InventoryState.objects.filter(inventory_state='total_available').last()
+            state_repackaging = InventoryState.objects.filter(inventory_state='repackaging').last()
             warehouse_available_obj = WarehouseInventory.objects.filter(warehouse=rep_obj.seller_shop,
                                                                         sku__id=rep_obj.source_sku.id,
                                                                         inventory_type=type_normal,
-                                                                        inventory_state=InventoryState.objects.filter(
-                                                                            inventory_state='available').last())
+                                                                        inventory_state=state_available)
             if warehouse_available_obj.exists():
-                w_obj = warehouse_available_obj.last()
-                w_obj.quantity = w_obj.quantity - repackage_quantity
-                w_obj.save()
 
-                warehouse_product_available = WarehouseInventory.objects.filter(warehouse=rep_obj.seller_shop,
-                                                                                sku__id=rep_obj.source_sku.id,
-                                                                                inventory_type__inventory_type='normal',
-                                                                                inventory_state__inventory_state=
-                                                                                'repackaging').last()
-                if warehouse_product_available:
-                    available_qty = warehouse_product_available.quantity
-                    warehouse_product_available.quantity = available_qty + repackage_quantity
-                    warehouse_product_available.save()
-                else:
-                    WarehouseInventory.objects.create(warehouse=rep_obj.seller_shop,
-                                                      sku=rep_obj.source_sku,
-                                                      inventory_state=InventoryState.objects.filter(
-                                                          inventory_state='repackaging').last(),
-                                                      quantity=repackage_quantity, in_stock=True,
-                                                      inventory_type=type_normal)
-                WarehouseInternalInventoryChange.objects.create(warehouse=rep_obj.seller_shop,
-                                                                sku=rep_obj.source_sku,
-                                                                transaction_type='repackaging',
-                                                                transaction_id=rep_obj.repackaging_no,
-                                                                initial_type=type_normal,
-                                                                final_type=type_normal,
-                                                                initial_stage=InventoryState.objects.filter(
-                                                                    inventory_state='available').last(),
-                                                                final_stage=InventoryState.objects.filter(
-                                                                    inventory_state='repackaging').last(),
-                                                                quantity=repackage_quantity)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    rep_obj.seller_shop, rep_obj.source_sku, type_normal, state_to_be_picked, repackage_quantity,
+                    'repackaging', rep_obj.repackaging_no)
+
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    rep_obj.seller_shop, rep_obj.source_sku, type_normal, state_repackaging, repackage_quantity,
+                    'repackaging', rep_obj.repackaging_no)
 
                 PickerDashboard.objects.create(
                     repackaging=rep_obj,
@@ -228,7 +179,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                     bin_inv_dict = {}
                     pickup_obj = obj
                     qty = obj.quantity
-                    bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0,
+                    bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0, warehouse=shop,
                                                               inventory_type__inventory_type='normal').order_by(
                         '-batch_id',
                         'quantity')
@@ -243,7 +194,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                     datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
                                                       "%d-%m-%Y"))
                     else:
-                        bin_lists = obj.sku.rt_product_sku.filter(quantity=0,
+                        bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop,
                                                                   inventory_type__inventory_type='normal').order_by(
                             '-batch_id',
                             'quantity').last()
@@ -270,6 +221,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                             already_picked += qty
                             remaining_qty = qty_in_bin - already_picked
                             bin_inv.quantity = remaining_qty
+                            bin_inv.to_be_picked_qty += already_picked
                             bin_inv.save()
                             qty = 0
                             Out.objects.create(warehouse=rep_obj.seller_shop,
@@ -292,6 +244,7 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                             already_picked = qty_in_bin
                             remaining_qty = qty - already_picked
                             bin_inv.quantity = qty_in_bin - already_picked
+                            bin_inv.to_be_picked_qty += already_picked
                             bin_inv.save()
                             qty = remaining_qty
                             Out.objects.create(warehouse=rep_obj.seller_shop,

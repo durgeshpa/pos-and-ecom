@@ -160,4 +160,3 @@ def barcode_gen(value):
 # 	image = image.convert('L')
 # 	data = decode(image)
 # 	return str(data[0][0])
-

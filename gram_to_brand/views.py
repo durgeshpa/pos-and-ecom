@@ -391,8 +391,8 @@ class VendorProductPrice(APIView):
                 vendor_product_price = vendor_mapping.last().product_price_pack
           
             vendor_product_price_unit = vendor_mapping.last().brand_to_gram_price_unit
-          
-            vendor_product_mrp = vendor_mapping.last().product_mrp
+
+            vendor_product_mrp = vendor_mapping.last().product.product_mrp
             product_case_size = vendor_mapping.last().case_size if vendor_mapping.last().case_size else vendor_mapping.last().product.product_case_size
             product_inner_case_size = vendor_mapping.last().product.product_inner_case_size
             # if product.parent_product:

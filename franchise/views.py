@@ -1,19 +1,28 @@
+import datetime
+import sys
+import os
+import csv
+import codecs
+from io import StringIO
+
+import pyodbc
 from django.db.models import Q
 from django.views import View
 from django.contrib import messages
 from django.shortcuts import render, redirect
-import csv
-import codecs
 from django.http import HttpResponse
-from io import StringIO
 from decouple import config
-import pyodbc
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.views import APIView
 
 from shops.models import Shop
 from franchise.forms import FranchiseStockForm
-from franchise.models import get_default_virtual_bin_id, ShopLocationMap
+from franchise.models import get_default_virtual_bin_id, ShopLocationMap, FranchiseSales
 from products.models import Product
 from wms.models import Bin
+from franchise.crons.cron import process_sales_data
 
 CONNECTION_PATH = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + config('HDPOS_DB_HOST') \
                               + ';DATABASE=' + config('HDPOS_DB_NAME') \
@@ -146,3 +155,47 @@ class DownloadFranchiseStockCSV(View):
         response = HttpResponse(f, content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
         return response
+
+
+class AddSales(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        try:
+            shop_id = request.GET.get('shop_id')
+            if not shop_id:
+                return Response({"error": "provide shop_id"}, status=status.HTTP_200_OK)
+            product_sku = request.GET.get('product_sku')
+            if not product_sku:
+                return Response({"error": "provide product_sku"}, status=status.HTTP_200_OK)
+            phone_number = request.GET.get('phone_number')
+            if not phone_number:
+                return Response({"error": "provide phone_number"}, status=status.HTTP_200_OK)
+            quantity = request.GET.get('quantity')
+            if not quantity:
+                return Response({"error": "provide quantity"}, status=status.HTTP_200_OK)
+            amount = request.GET.get('amount')
+            if not amount:
+                return Response({"error": "provide amount"}, status=status.HTTP_200_OK)
+            try:
+                shop = ShopLocationMap.objects.get(shop_id=shop_id)
+            except:
+                return Response({"error": "shop not found"}, status=status.HTTP_200_OK)
+
+            try:
+                product = Product.objects.get(product_sku=product_sku)
+            except:
+                return Response({"error": "product not found"}, status=status.HTTP_200_OK)
+
+            sales_obj = FranchiseSales.objects.create(shop_loc=shop.location_name, barcode='9999', quantity=quantity,
+                                                      amount=amount, invoice_date=datetime.date.today(),
+                                                      invoice_number='ABCD',
+                                                      product_sku=product.product_sku, customer_name='monali',
+                                                      phone_number=phone_number, discount_amount=10)
+            resp = process_sales_data(sales_obj.id)
+            return Response(resp, status=status.HTTP_200_OK)
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            error = "{} {} {} {}".format(exc_type, fname, exc_tb.tb_lineno, e)
+            return Response({"error": error}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

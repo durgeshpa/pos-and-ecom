@@ -298,34 +298,29 @@ class PutAwayBinInventoryForm(forms.ModelForm):
                 putaway_inventory_type = self.instance.putaway.inventory_type
                 putaway_product = self.instance.sku
                 if self.instance.putaway_type == 'Order_Cancelled':
-                    ordered_inventory_state = 'ordered',
                     initial_stage = InventoryState.objects.filter(inventory_state='ordered').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(self.request.user, self.instance, initial_stage, bin_id)
 
-                elif self.instance.putaway_type == 'Pickup_Cancelled':
-                    ordered_inventory_state = 'picked',
+                elif self.instance.putaway_type in ['picking_cancelled', 'Pickup_Cancelled']:
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(self.request.user, self.instance, initial_stage, bin_id)
 
                 elif self.instance.putaway_type == 'Shipment_Cancelled':
-                    ordered_inventory_state = 'picked',
                     initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
-                    cancel_ordered(self.request.user, self.instance, ordered_inventory_state, initial_stage, bin_id)
+                    cancel_ordered(self.request.user, self.instance, initial_stage, bin_id)
 
                 elif self.instance.putaway_type == 'PAR_SHIPMENT':
-                    ordered_inventory_state = 'picked',
-                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last(),
+                    initial_stage = InventoryState.objects.filter(inventory_state='picked').last()
                     shipment_object = OrderedProduct.objects.filter(order__order_no=self.instance.putaway.putaway_type_id)[0]
                     shipment_product = shipment_object.rt_order_product_order_product_mapping.all()
-                    cancel_shipment(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_product,
+                    cancel_shipment(self.request.user, self.instance, initial_stage, shipment_product,
                                     bin_id, putaway_inventory_type)
 
                 elif self.instance.putaway_type == 'RETURNED':
-                    ordered_inventory_state = 'shipped',
-                    initial_stage = InventoryState.objects.filter(inventory_state='shipped').last(),
+                    initial_stage = InventoryState.objects.filter(inventory_state='shipped').last()
                     shipment_product = OrderedProduct.objects.filter(
                         invoice__invoice_no=self.instance.putaway.putaway_type_id)[0].rt_order_product_order_product_mapping.all()
-                    cancel_returned(self.request.user, self.instance, ordered_inventory_state, initial_stage, shipment_product,
+                    cancel_returned(self.request.user, self.instance, initial_stage, shipment_product,
                                     bin_id, putaway_inventory_type)
                 elif self.instance.putaway_type == 'REPACKAGING':
                     initial_stage = InventoryState.objects.filter(inventory_state='new').last(),

@@ -34,6 +34,32 @@ AUTH_USER_MODEL = 'accounts.user'
 
 ENVIRONMENT = config('ENVIRONMENT')
 
+# CORS settings
+
+CORS_ORIGIN_ALLOW_ALL = True
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'auth',
+]
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -105,6 +131,9 @@ INSTALLED_APPS = [
     'audit',
     'django_extensions',
     'franchise.apps.FranchiseConfig',
+    'django_tables2',
+    'tablib',
+    'marketing',
     'global_config'
 ]
 
@@ -137,6 +166,7 @@ if DEBUG:
 else:
     MIDDLEWARE = []
 MIDDLEWARE += [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -246,6 +276,22 @@ REST_FRAMEWORK = {
 
     'DATETIME_FORMAT': "%d-%m-%Y %H:%M:%S",
 }
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+# REST_FRAMEWORK = {
+#     # Use Django's standard `django.contrib.auth` permissions,
+#     # or allow read-only access for unauthenticated users.
+#     'DEFAULT_PERMISSION_CLASSES': (
+#         'rest_framework.permissions.AllowAny',
+#     ),
+# }
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/
@@ -294,7 +340,6 @@ EMAIL_PORT = 587
 # EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 # FROM_EMAIL = config('FROM_EMAIL')
 
-
 MIME_TYPE = 'html'
 
 AWS_SES_ACCESS_KEY_ID = config('AWS_SES_ACCESS_KEY_ID')
@@ -333,20 +378,22 @@ CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.delete_ordered_reserved_products'),
     ('2 0 * * *', 'analytics.api.v1.views.getStock'),
     ('*/10 * * * *', 'retailer_backend.cron.po_status_change_exceeds_validity_date'),
-    ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
     ('30 21 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
-
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
     ('*/5 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
-    ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
+    ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
-    ('0 1 * * *', 'audit.views.start_automated_inventory_audit'),
     ('0 3 * * *', 'wms.views.move_expired_inventory_cron'),
     ('0 23 * * *', 'audit.cron.update_audit_status_cron'),
     ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
-    ('*/5 * * * *', 'audit.cron.create_picklist_cron'),
+    ('*/30 * * * *', 'audit.cron.create_picklist_cron'),
     ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
-    ('30 21 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
+    ('30 18 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
+    ('30 22 * * *', 'wms.views.auto_report_for_expired_product'),
+    ('*/5 * * * *', 'products.cron.deactivate_capping'),
+    ('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
+    ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
+
 ]
 
 INTERNAL_IPS = ['127.0.0.1', 'localhost']
@@ -512,3 +559,11 @@ LOGGING = {
         },
     },
 }
+
+# Email Configuration
+EMAIL_BACKEND = config('EMAIL_BACKEND')
+EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_PORT = config('EMAIL_PORT')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+EMAIL_USE_TLS = config('EMAIL_USE_TLS')
