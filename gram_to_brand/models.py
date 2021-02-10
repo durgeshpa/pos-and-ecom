@@ -8,13 +8,13 @@ from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
-from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
+from django.dispatch import receiver
 from django.urls import reverse
 from django.utils import timezone
 from django.db import models
 from django.db.models import Sum
-
+from django.db import transaction
 from shops.models import Shop, ParentRetailerMapping
 from products.models import Product, ProductVendorMapping, ParentProduct
 from brand.models import Brand, Vendor
@@ -168,6 +168,7 @@ class Cart(BaseCart):
         if self.po_validity_date and self.po_validity_date < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))
 
+
     def __str__(self):
         return str(self.po_no)
 
@@ -316,45 +317,46 @@ class CartProductMapping(models.Model):
         return self.cart_product.product_name
 
     def save(self, *args, **kwargs):
-        if not self.tax_percentage or self.tax_percentage == "-":
-            self.tax_percentage = self.calculate_tax_percentage()
+        with transaction.atomic():
+            if not self.tax_percentage or self.tax_percentage == "-":
+                self.tax_percentage = self.calculate_tax_percentage()
 
-        # if Product mapping exists
-        productVendorObj = ProductVendorMapping.objects.filter(vendor=self.cart.supplier_name,
-                                                               product=self.cart_product)
+            # if Product mapping exists
+            productVendorObj = ProductVendorMapping.objects.filter(vendor=self.cart.supplier_name,
+                                                                   product=self.cart_product)
 
-        if productVendorObj.filter(product_price=self.price, status=True).exists():
-            self.vendor_product = productVendorObj.filter(product_price=self.price, status=True).last()
-        elif productVendorObj.filter(product_price_pack=self.price, status=True).exists():
-            self.vendor_product = productVendorObj.filter(product_price_pack=self.price, status=True).last()
-        else:
-            case_size = productVendorObj.last().case_size if productVendorObj.exists() else self.cart_product.product_case_size
-            mrp = productVendorObj.last().product_mrp if productVendorObj.exists() else None
-            brand_to_gram_price_unit = productVendorObj.last().brand_to_gram_price_unit if productVendorObj.exists() else None
+            if productVendorObj.filter(product_price=self.price, status=True).exists():
+                self.vendor_product = productVendorObj.filter(product_price=self.price, status=True).last()
+            elif productVendorObj.filter(product_price_pack=self.price, status=True).exists():
+                self.vendor_product = productVendorObj.filter(product_price_pack=self.price, status=True).last()
+            else:
+                case_size = productVendorObj.last().case_size if productVendorObj.exists() else self.cart_product.product_case_size
+                mrp = productVendorObj.last().product_mrp if productVendorObj.exists() else None
+                brand_to_gram_price_unit = productVendorObj.last().brand_to_gram_price_unit if productVendorObj.exists() else None
 
-            if brand_to_gram_price_unit == "Per Piece":
-                self.vendor_product = ProductVendorMapping.objects.get_or_create(vendor=self.cart.supplier_name,
-                                                                          product=self.cart_product,
-                                                                          case_size=case_size,
-                                                                          product_price=self.price, product_mrp=mrp,
-                                                                          status=True)
-            elif brand_to_gram_price_unit == "Per Pack":
-                self.vendor_product = ProductVendorMapping.objects.get_or_create(vendor=self.cart.supplier_name,
-                                                                          product=self.cart_product,
-                                                                          case_size=case_size,
-                                                                          product_price_pack=self.price,
-                                                                          product_mrp=mrp, status=True)
+                if brand_to_gram_price_unit == "Per Piece":
+                    self.vendor_product = ProductVendorMapping.objects.get_or_create(vendor=self.cart.supplier_name,
+                                                                              product=self.cart_product,
+                                                                              case_size=case_size,
+                                                                              product_price=self.price, product_mrp=mrp,
+                                                                              status=True)
+                elif brand_to_gram_price_unit == "Per Pack":
+                    self.vendor_product = ProductVendorMapping.objects.get_or_create(vendor=self.cart.supplier_name,
+                                                                              product=self.cart_product,
+                                                                              case_size=case_size,
+                                                                              product_price_pack=self.price,
+                                                                              product_mrp=mrp, status=True)
 
-        self.per_unit_price = self.per_unit_prices()
-        self.case_size = self.case_sizes()
-        try:
-            super(CartProductMapping, self).save(*args, **kwargs)
-        except:
-            pass
+            self.per_unit_price = self.per_unit_prices()
+            self.case_size = self.case_sizes()
+            try:
+                super(CartProductMapping, self).save(*args, **kwargs)
+            except:
+                return
 
 
 @receiver(post_save, sender=Cart)
-def create_cart_product_mapping(sender, instance=None, created=False, update_fields=None, **kwargs):
+def create_cart_product(sender, instance=None, created=False, update_fields=None, **kwargs):
     if created:
         instance.po_no = po_pattern(sender,
                                     'po_no',
@@ -408,63 +410,68 @@ def create_cart_product_mapping(sender, instance=None, created=False, update_fie
                             vendor_product=vendor_product_dt
                         )
 
-    elif instance.cart_product_mapping_csv != instance._old_cart_product_mapping_csv:
+    elif instance.cart_product_mapping_csv != instance._old_cart_product_mapping_csv or \
+            instance.cart_product_mapping_csv == instance._old_cart_product_mapping_csv:
+        with transaction.atomic():
+            cart_product = CartProductMapping.objects.filter(cart_id=instance.id)
+            cart_product.delete()
+            # if cart.exists():
+            #     # emptying the cart
+            #     cart.delete()
 
-        CartProductMapping.objects.filter(cart_id=instance.id).delete()
-        # if cart.exists():
-        #     # emptying the cart
-        #     cart.delete()
+            if instance.cart_product_mapping_csv:
+                reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
+                for id, row in enumerate(reader):
+                    for row in reader:
+                        if row[0] and row[2] and row[6] and row[7]:
+                            parent_product = ParentProduct.objects.get(parent_id=row[0])
+                            product = Product.objects.get(id=int(row[2]))
 
-        if instance.cart_product_mapping_csv:
-            reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
-            for id, row in enumerate(reader):
-                for row in reader:
-                    if row[0] and row[2] and row[6] and row[7]:
-                        parent_product = ParentProduct.objects.get(parent_id=row[0])
-                        product = Product.objects.get(id=int(row[2]))
+                            vendor_product = ProductVendorMapping.objects.filter(vendor=instance.supplier_name,
+                                                                                 product_id=row[2]).last()
+                            if row[8].lower() == "per piece":
+                                if vendor_product and (
+                                        vendor_product.case_size == row[5] or vendor_product.product_price == row[9]):
+                                    vendor_product_dt = vendor_product
+                                else:
+                                    vendor_product_dt, created = ProductVendorMapping.objects.get_or_create(
+                                        vendor=instance.supplier_name,
+                                        product_id=row[2],
+                                        product_price=row[9],
+                                        product_mrp=row[7],
+                                        case_size=row[5],
+                                        status=True
+                                    )
+                            elif row[8].lower() == "per pack":
+                                if vendor_product and (
+                                        vendor_product.case_size == row[5] or vendor_product.product_price_pack == row[9]):
+                                    vendor_product_dt = vendor_product
+                                else:
+                                    vendor_product_dt,created = ProductVendorMapping.objects.get_or_create(
+                                        vendor=instance.supplier_name,
+                                        product_id=row[2],
+                                        product_price_pack=row[9],
+                                        product_mrp=row[7],
+                                        case_size=row[5],
+                                        status=True
+                                    )
 
-                        vendor_product = ProductVendorMapping.objects.filter(vendor=instance.supplier_name,
-                                                                             product_id=row[2]).last()
-                        if row[8].lower() == "per piece":
-                            if vendor_product and (
-                                    vendor_product.case_size == row[5] or vendor_product.product_price == row[9]):
-                                vendor_product_dt = vendor_product
-                            else:
-                                vendor_product_dt = ProductVendorMapping.objects.get_or_create(
-                                    vendor=instance.supplier_name,
-                                    product_id=row[2],
-                                    product_price=row[9],
-                                    product_mrp=row[7],
-                                    case_size=row[5],
-                                    status=True
-                                )
-                        elif row[8].lower() == "per pack":
-                            if vendor_product and (
-                                    vendor_product.case_size == row[5] or vendor_product.product_price_pack == row[
-                                9]):
-                                vendor_product_dt = vendor_product
-                            else:
-                                vendor_product_dt,created = ProductVendorMapping.objects.get_or_create(
-                                    vendor=instance.supplier_name,
-                                    product_id=row[2],
-                                    product_price_pack=row[9],
-                                    product_mrp=row[7],
-                                    case_size=row[5],
-                                    status=True
-                                )
+                            CartProductMapping.objects.get_or_create(
+                                cart=instance,
+                                cart_parent_product=parent_product,
+                                cart_product_id=row[2],
+                                no_of_pieces=int(vendor_product_dt.case_size) * int(row[6]),
+                                price=float(row[9]),
+                                vendor_product=vendor_product_dt
+                            )
 
-                        CartProductMapping.objects.get_or_create(
-                            cart=instance,
-                            cart_parent_product=parent_product,
-                            cart_product_id=row[2],
-                            no_of_pieces=int(vendor_product_dt.case_size) * int(row[6]),
-                            price=float(row[9]),
-                            vendor_product=vendor_product_dt
-                        )
-
-    order, _ = Order.objects.get_or_create(ordered_cart=instance)
-    order.order_no = instance.po_no
-    order.save()
+    order, created = Order.objects.get_or_create(ordered_cart=instance)
+    if created:
+        order.order_no = instance.po_no
+        order.save()
+    else:
+        Order.objects.filter(id=instance.id).update(order_no=instance.po_no)
+    # #order.save()
 
 
 class Order(BaseOrder):
