@@ -196,8 +196,7 @@ def autoPutAway(warehouse, batch_id, quantity):
             put_away_status = False
 
             while len(ids):
-                put_away_done = update_putaway(ids[0], batch_id, warehouse, quantity, user_id)
-                value = put_away_done
+                update_putaway(ids[0], batch_id, warehouse, quantity, user_id)
                 put_away_status = True
                 ids.remove(ids[0])
 
