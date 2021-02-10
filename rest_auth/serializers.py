@@ -6,6 +6,8 @@ from django.utils.http import urlsafe_base64_decode as uid_decoder
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
 from django.core.validators import RegexValidator
+from rest_framework import serializers, exceptions
+from rest_framework.exceptions import ValidationError
 
 try:
     from allauth.account import app_settings as allauth_settings
@@ -19,9 +21,6 @@ try:
 except ImportError:
     raise ImportError("allauth needs to be added to INSTALLED_APPS.")
 
-from rest_framework import serializers, exceptions
-from rest_framework.exceptions import ValidationError
-
 from .models import TokenModel
 from .utils import import_callable
 
@@ -29,7 +28,7 @@ from otp.models import PhoneOTP
 from otp.views import ValidateOTP
 from marketing.models import ReferralCode, RewardPoint, Referral, Profile
 from global_config.models import GlobalConfig
-from marketing.views import save_user_referral_code
+from marketing.views import generate_user_referral_code
 
 # Get the UserModel
 UserModel = get_user_model()
@@ -191,7 +190,7 @@ class MlmResponseSerializer(serializers.Serializer):
     def get_referral_code(self, obj):
         if obj['action'] == 'register':
             # generate unique referral code on registration
-            user_referral_code = save_user_referral_code(obj['user'].phone_number)
+            user_referral_code = generate_user_referral_code(obj['user'])
             # welcome reward for new user
             referral_code = obj['referral_code']
             referred = 1 if obj['referral_code'] != '' else 0

@@ -3,20 +3,19 @@ import logging
 import uuid
 
 from django.contrib.auth import get_user_model
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.utils import timezone
-from retailer_backend.messages import *
 from django.utils.crypto import get_random_string
-from django.db import transaction
 from django.dispatch import receiver
-from django.db.models.signals import pre_save
-from django.db.models.signals import post_save
+from django.db.models.signals import pre_save, post_save
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
+
+from retailer_backend.messages import *
 
 from global_config.models import GlobalConfig
 from accounts.models import User
@@ -331,7 +330,7 @@ class RewardPoint(models.Model):
         message = SendSms(phone=user.phone_number,
                           body="Welcome to rewards.peppertap.in %s points are added to your account. Get Rs %s"
                                " off on next purchase. Login and share your referral code:%s with friends and win more points."
-                               % (points, int(points / used_reward_factor), referral_code[0]['referral_code']))
+                               % (points, int(points / used_reward_factor), referral_code))
 
         message.send()
 

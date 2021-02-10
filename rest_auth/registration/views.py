@@ -10,7 +10,6 @@ from rest_framework.generics import CreateAPIView, ListAPIView, GenericAPIView
 from rest_framework.exceptions import NotFound
 from rest_framework import status
 
-from accounts.models import User
 from allauth.account.adapter import get_adapter
 from allauth.account.views import ConfirmEmailView
 from allauth.account.utils import complete_signup
@@ -34,7 +33,6 @@ from rest_auth.views import LoginView
 from .app_settings import RegisterSerializer, register_permission_classes
 from rest_auth.serializers import MlmResponseSerializer, LoginResponseSerializer
 
-from otp.models import PhoneOTP
 
 sensitive_post_parameters_m = method_decorator(
     sensitive_post_parameters('password1', 'password2')

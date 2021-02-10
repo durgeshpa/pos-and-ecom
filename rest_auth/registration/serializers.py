@@ -5,9 +5,6 @@ from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from marketing.models import MLMUser, ReferralCode
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
-
 try:
     from allauth.account import app_settings as allauth_settings
     from allauth.utils import (email_address_exists,
@@ -20,6 +17,8 @@ try:
 except ImportError:
     raise ImportError("allauth needs to be added to INSTALLED_APPS.")
 
+from marketing.models import ReferralCode
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from otp.models import PhoneOTP
 from otp.views import ValidateOTP
 UserModel = get_user_model()
