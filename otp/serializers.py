@@ -32,10 +32,12 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         """
         number = attrs.get('phone_number')
         action = attrs.get('action')
+        user = UserModel.objects.filter(phone_number=number)
         if action != 'login':
-            user = UserModel.objects.filter(phone_number=number)
             if user.exists():
                 raise serializers.ValidationError("User already exists! Please login")
+        elif not user.exists():
+            raise serializers.ValidationError("User does not exists! Please Register")
         return attrs
 
 class ResendSmsOTPSerializer(serializers.ModelSerializer):

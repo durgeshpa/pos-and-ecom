@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from django_admin_listfilter_dropdown.filters import DropdownFilter
 from rangefilter.filter import DateTimeRangeFilter
 
-from .models import MLMUser, Referral, PhoneOTP, Token, RewardPoint, Profile, RewardLog
+from .models import MLMUser, Referral, PhoneOTP, Token, RewardPoint, Profile, RewardLog, ReferralCode
 from global_config.models import GlobalConfig
 from marketing.forms import RewardPointForm,MLMUserForm
 from franchise.models import FranchiseSales
@@ -175,3 +175,4 @@ admin.site.register(PhoneOTP, PhoneOTPAdmin)
 admin.site.register(Referral, ReferralAdmin)
 admin.site.register(Token, TokenAdmin)
 admin.site.register(Profile)
+admin.site.register(ReferralCode)

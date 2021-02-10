@@ -5,6 +5,9 @@ from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from marketing.models import MLMUser, ReferralCode
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+
 try:
     from allauth.account import app_settings as allauth_settings
     from allauth.utils import (email_address_exists,
@@ -191,15 +194,13 @@ class RegisterSerializer(serializers.Serializer):
         return email
 
     def validate_password1(self, password):
-        if password != '' and password != None:
-            return get_adapter().clean_password(password)
+        return get_adapter().clean_password(password)
 
     def validate(self, data):
         """
-        Check For Password Fields Match and verify OTP if provided
+        Check For Password Fields Match and OTP verification
         """
-        # Password can be provided while registering. Check fields should match if provided
-        if data['password1'] not in ['', None] and data['password1'] != data['password2']:
+        if data['password1'] != data['password2']:
             raise serializers.ValidationError(_("The two password fields didn't match."))
 
         # OTP should be verified when registering with phone number
@@ -241,6 +242,7 @@ class MlmRegisterSerializer(serializers.Serializer):
         required=allauth_settings.USERNAME_REQUIRED
     )
     otp = serializers.CharField(required=True, max_length=10)
+    referral_code = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     def validate_username(self, username):
         username = get_adapter().clean_username(username)
@@ -260,6 +262,11 @@ class MlmRegisterSerializer(serializers.Serializer):
                 raise serializers.ValidationError(message)
         else:
             raise serializers.ValidationError("Invalid OTP")
+
+        if 'referral_code' in data and data['referral_code'] not in ['', None]:
+            user_ref_code = ReferralCode.objects.filter(referral_code=data['referral_code'])
+            if not user_ref_code:
+                raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Referral_code'])
         return data
 
     def get_cleaned_data(self):
