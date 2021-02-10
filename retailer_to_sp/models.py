@@ -75,11 +75,13 @@ PAYMENT_MODE_CHOICES = (
     ("neft", "NEFT"),
     ("credit", "credit")
 )
+AUTO = 'AUTO'
 RETAIL = 'RETAIL'
 BULK = 'BULK'
 DISCOUNTED = 'DISCOUNTED'
 
 BULK_ORDER_STATUS = (
+    (AUTO, 'Auto'),
     (RETAIL, 'Retail'),
     (BULK, 'Bulk'),
     (DISCOUNTED, 'Discounted'),
@@ -2694,7 +2696,13 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
-        if instance.cart_type == 'RETAIL':
+        if instance.cart_type == 'AUTO':
+            instance.order_id = common_function.order_id_pattern(
+                sender, 'order_id', instance.pk,
+                instance.seller_shop.
+                    shop_name_address_mapping.filter(
+                    address_type='billing').last().pk)
+        elif instance.cart_type == 'RETAIL':
             instance.order_id = common_function.order_id_pattern(
                 sender, 'order_id', instance.pk,
                 instance.seller_shop.
