@@ -117,7 +117,7 @@ class PhoneOTP(models.Model):
 
 
 class ReferralCode(models.Model):
-    user_id = models.ForeignKey(get_user_model(), related_name='referral_code_user', null=True, blank=True, on_delete=models.CASCADE)
+    user = models.ForeignKey(get_user_model(), related_name='referral_code_user', null=True, blank=True, on_delete=models.CASCADE)
     referral_code = models.CharField(max_length=300, blank=True, null=True, unique=True)
 
 
@@ -153,12 +153,12 @@ class Referral(models.Model):
         This method will create an entry in REFERRAL Table of the Parent user, who is referring to the Child user
         """
         try:
-            parentReferralCode = ReferralCode.objects.filter(referral_code=parent_referral_code).values_list('id')
-            childReferralCode = ReferralCode.objects.filter(referral_code=child_referral_code).values_list('id')
-            if parentReferralCode[0][0]:
-                if childReferralCode[0][0]:
-                    Referral.objects.create(referral_to_id=childReferralCode[0][0],
-                                            referral_by_id=parentReferralCode[0][0])
+            parentReferralCode = ReferralCode.objects.filter(referral_code=parent_referral_code)
+            childReferralCode = ReferralCode.objects.filter(referral_code=child_referral_code)
+            if parentReferralCode.values()[0]['referral_code']:
+                if childReferralCode.values()[0]['referral_code']:
+                    Referral.objects.create(referral_to_id=childReferralCode.values()[0]['user_id'],
+                                            referral_by_id=parentReferralCode.values()[0]['user_id'])
         except Exception as e:
             error_logger.info(
                 "Something Went wrong while saving the Parent and Child Referrals in Referral Model " + str(e))
@@ -199,7 +199,7 @@ class RewardPoint(models.Model):
             used_reward_factor = int(conf_obj.value)
         except:
             used_reward_factor = 4
-        referral_code = ReferralCode.objects.values('referral_code').filter(user_id_id = user.id)
+        referral_code = ReferralCode.objects.values('referral_code').filter(user_id = user.id)
         message = SendSms(phone=user.phone_number,
                           body="Welcome to rewards.peppertap.in %s points are added to your account. Get Rs %s"
                                " off on next purchase. Login and share your referral code:%s with friends and win more points."

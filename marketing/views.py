@@ -70,7 +70,7 @@ def save_user_referral_code(phone_number):
     """
     user_referral_code = Referral.generate_unique_referral_code()
     user = User.objects.values('id').filter(phone_number=phone_number)
-    ReferralCode.objects.update_or_create(user_id_id=user[0]['id'], referral_code=user_referral_code)
+    ReferralCode.objects.update_or_create(user_id=user[0]['id'], referral_code=user_referral_code)
     return user_referral_code
 
 
