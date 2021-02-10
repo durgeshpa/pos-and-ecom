@@ -43,14 +43,14 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                     po_validity_date=datetime.date.today() + datetime.timedelta(days=15)
                 )
 
-        source_wh_id = get_config('wh_consolidation_source')
-        if source_wh_id is None:
-            info_logger.info("process_GRN|wh_consolidation_source is not defined")
-            return
-        source_wh = Shop.objects.filter(pk=source_wh_id).last()
-        if shop.retailer.id == source_wh.id:
-            AutoOrderProcessing(grn=instance.id, grn_warehouse=source_wh.id, state="GRN")
-            info_logger.info("updated AutoOrderProcessing for GRN.")
+            source_wh_id = get_config('wh_consolidation_source')
+            if source_wh_id is None:
+                info_logger.info("process_GRN|wh_consolidation_source is not defined")
+                return
+            source_wh = Shop.objects.filter(pk=source_wh_id).last()
+            if shop.retailer.id == source_wh.id:
+                AutoOrderProcessing(grn=instance, grn_warehouse=source_wh, state="GRN")
+                info_logger.info("updated AutoOrderProcessing for GRN.")
 
         # data = {}
         # data['username'] = username
