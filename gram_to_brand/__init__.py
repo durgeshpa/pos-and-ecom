@@ -1,0 +1,1 @@
+default_app_config = 'gram_to_brand.apps.GramToBrandConfig'

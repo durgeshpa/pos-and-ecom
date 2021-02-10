@@ -1,20 +1,21 @@
 import logging
 info_logger = logging.getLogger('file-info')
 from global_config.models import GlobalConfig
-
+from decouple import config
 from django.core.mail import EmailMessage
 
 
 def send_mail_w_attachment(response, responses, warehouse_id,warehouse_name):
 
-    subject = 'To be Expired Products | {} - {}'.format(warehouse_name,warehouse_id)
-    expired_products = 'Expired_Products_{}.xlsx'.format(warehouse_id)
-    to_be_expired_products = 'To_be_Expired_Products_{}.xlsx'.format(warehouse_id)
+    env_variable = config('OS_ENV')
+    subject = '{} | To be Expired Products | {} - {}'.format(env_variable,warehouse_name,warehouse_id)
+    expired_products = '{}_Expired_Products_{}.xlsx'.format(env_variable, warehouse_id)
+    to_be_expired_products = '{}_To_be_Expired_Products_{}.xlsx'.format(env_variable, warehouse_id)
 
     try:
         email = EmailMessage()
         email.subject = subject
-        email.body = 'Products expiring in next 7 days or less'
+        email.body = 'Products expiring in next 15 days or less'
         sender = GlobalConfig.objects.get(key='sender')
         email.from_email = sender.value
         receiver = GlobalConfig.objects.get(key='recipient')
