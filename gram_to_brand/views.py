@@ -656,7 +656,7 @@ def autoPutAway(warehouse, batch_id, quantity,grn_id):
                 # grn = AutoOrderProcessing.objects.filter(grn=grn_id).values_list('state')
                 obj = AutoOrderProcessing.objects.get(grn=grn_id)
                 if obj.state == 0:
-                    AutoOrderProcessing.objects.filter(grn=grn_id).update(state=1)
+                    AutoOrderProcessing.objects.filter(grn=grn_id).update(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PUTAWAY)
 
 
         info_logger.info("quantity has been updated in put away.")
