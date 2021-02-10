@@ -11,7 +11,9 @@ import re
 
 from services.models import CronRunLog
 from global_config.models import GlobalConfig
-from marketing.models import MLMUser, RewardPoint
+from marketing.models import RewardPoint
+from accounts.models import User
+from marketing.views import generate_user_referral_code, Profile
 
 
 cron_logger = logging.getLogger('cron_log')
@@ -103,9 +105,15 @@ def fetch_hdpos_users():
             if not rule.search(str(row[0])):
                 continue
 
-            if not MLMUser.objects.filter(phone_number=row[0]).exists():
-                user_obj = MLMUser.objects.create(phone_number=row[0], email=row[1], name=row[2])
-                RewardPoint.welcome_reward(user_obj, 0)
+            if not User.objects.filter(phone_number=row[0]).exists():
+                with transaction.atomic():
+                    user_obj = User.objects.create_user(phone_number=row[0], email=row[1], first_name=row[2],
+                                                        last_name=row[3])
+                    user_obj.is_active = False
+                    user_obj.save()
+                    generate_user_referral_code(user_obj)
+                    RewardPoint.welcome_reward(user_obj)
+                    Profile.objects.get_or_create(user=user_obj)
 
         if date_config:
             date_config.value = now_date
