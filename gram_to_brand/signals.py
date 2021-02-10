@@ -45,7 +45,7 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
 
         source_wh_id = get_config('wh_consolidation_source')
         if source_wh_id is None:
-            info_logger.info("process_auto_putaway|wh_consolidation_source is not defined")
+            info_logger.info("process_GRN|wh_consolidation_source is not defined")
             return
         source_wh = Shop.objects.filter(pk=source_wh_id).last()
         if shop.retailer.id == source_wh.id:
