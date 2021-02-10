@@ -1,4 +1,4 @@
-Select contacts.MobileNumber, contacts.Email, customers.Name, shop.LocationName
+Select contacts.MobileNumber, contacts.Email, customers.FirstName, customers.LastName, shop.LocationName
 from tbl_DYN_Customers customers
 Left outer join tbl_DYN_Customers_ADDRESSes addresses on addresses.CustomerId = customers.Id
 Left outer join tbl_DYN_Addresses_CONTACTs address_contact on address_contact.AddressId = addresses.ADDRESSId

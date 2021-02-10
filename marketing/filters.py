@@ -20,3 +20,14 @@ class MlmUserAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(phone_number=self.q)
         return qs
+
+
+class MlmUserFilter(InputFilter):
+    title = 'Phone Number'
+    parameter_name = 'phone_number'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(phone_number=value)
+        return queryset

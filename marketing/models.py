@@ -1,21 +1,22 @@
 from __future__ import unicode_literals
 import logging
 import uuid
-from django.db import models
+
+from django.contrib.auth import get_user_model
+from django.db import models, transaction
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.utils import timezone
-from retailer_backend.messages import *
 from django.utils.crypto import get_random_string
-from django.db import transaction
+from django.dispatch import receiver
+from django.db.models.signals import pre_save, post_save
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 
-from django.dispatch import receiver
-from django.db.models.signals import pre_save
-from django.db.models.signals import post_save
+from retailer_backend.messages import *
+
 from global_config.models import GlobalConfig
 from accounts.models import User
 from marketing.sms import SendSms
@@ -42,7 +43,7 @@ class MLMUser(models.Model):
     status = models.IntegerField(choices=STATUS_CHOICES, default=Inactive_Status)
 
     def __str__(self):
-        return self.phone_number
+        return "{} - {}".format(self.phone_number, self.name if self.name else '')
 
     @staticmethod
     def authenticate(auth):
@@ -114,15 +115,30 @@ class PhoneOTP(models.Model):
         return otp
 
 
+class ReferralCode(models.Model):
+    user = models.ForeignKey(get_user_model(), related_name='referral_code_user', null=True, blank=True, on_delete=models.CASCADE)
+    referral_code = models.CharField(max_length=300, blank=True, null=True, unique=True)
+
+
+class Token(models.Model):
+    """
+    This model will be used to store the user id & user token
+    """
+    user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
+    token = models.UUIDField()
+
+    def __str__(self):
+        return "{} - {}".format(self.user, self.token)
+
+
 class Referral(models.Model):
     """
     This model will be used to store the parent and child referral mapping details
     """
-
-    referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE, null=True,
-                                    blank=True)
-    referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True,
-                                    blank=True)
+    referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE, null=True, blank=True)
+    referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
+    new_referral_by = models.ForeignKey(User, related_name="new_referral_by", on_delete=models.CASCADE, null=True, blank=True)
+    new_referral_to = models.ForeignKey(User, related_name="new_referral_to", on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -133,8 +149,7 @@ class Referral(models.Model):
         a python library which helps in generating random object
         """
         try:
-            unique_referral_code = str(uuid.uuid4()).split('-')[-1][:6].upper()
-            return unique_referral_code
+            return str(uuid.uuid4()).split('-')[-1][:6].upper()
         except Exception as e:
             error_logger.info("Something Went wrong while saving the referral_code in UserModel " + str(e))
 
@@ -146,19 +161,17 @@ class Referral(models.Model):
         This method will create an entry in REFERRAL Table of the Parent user, who is referring to the Child user
         """
         try:
-            parentReferralCode = MLMUser.objects.filter(referral_code=parent_referral_code).values_list('id')
-            childReferralCode = MLMUser.objects.filter(referral_code=child_referral_code).values_list('id')
-            if parentReferralCode[0][0]:
-                if childReferralCode[0][0]:
-                    Referral.objects.create(referral_to_id=childReferralCode[0][0],
-                                            referral_by_id=parentReferralCode[0][0])
+            parent_ref_obj = ReferralCode.objects.filter(referral_code=parent_referral_code).last()
+            child_ref_obj = ReferralCode.objects.filter(referral_code=child_referral_code).last()
+            if parent_ref_obj and child_ref_obj and not Referral.objects.filter(referral_to=child_ref_obj).exists():
+                Referral.objects.create(referral_to=child_ref_obj.user, referral_by_id=parent_ref_obj.user)
         except Exception as e:
-            error_logger.info(
-                "Something Went wrong while saving the Parent and Child Referrals in Referral Model " + str(e))
+            error_logger.info("Something Went wrong while saving the Parent and Child Referrals in Referral Model " + str(e))
 
 
 class RewardPoint(models.Model):
     user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
+    new_user = models.ForeignKey(User, related_name="new_reward_user", on_delete=models.CASCADE, null=True, blank=True)
     direct_users = models.IntegerField(default=0)
     indirect_users = models.IntegerField(default=0)
     direct_earned = models.IntegerField(default=0)
@@ -192,10 +205,12 @@ class RewardPoint(models.Model):
             used_reward_factor = int(conf_obj.value)
         except:
             used_reward_factor = 4
+        referral_code_obj = ReferralCode.objects.filter(user=user).last()
+        referral_code = referral_code_obj.referral_code if referral_code_obj else ''
         message = SendSms(phone=user.phone_number,
                           body="Welcome to rewards.peppertap.in %s points are added to your account. Get Rs %s"
                                " off on next purchase. Login and share your referral code:%s with friends and win more points."
-                               % (points, int(points / used_reward_factor), user.referral_code))
+                               % (points, int(points / used_reward_factor), referral_code))
 
         message.send()
 
@@ -203,29 +218,13 @@ class RewardPoint(models.Model):
         return "Reward Points For - {}".format(self.user)
 
 
-class Token(models.Model):
-    """
-    This model will be used to store the user id & user token
-    """
-    user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
-    token = models.UUIDField()
-
-    def __str__(self):
-        return "{} - {}".format(self.user, self.token)
-
-
 class Profile(models.Model):
     user = models.OneToOneField(MLMUser, on_delete=models.CASCADE)
+    new_user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     image = models.ImageField(upload_to='profile_pics', blank=True)
 
     def __str__(self):
         return f'{self.user.phone_number} Profile'
-
-    def create_user_profile(sender, instance, created, **kwargs):
-        if created:
-            Profile.objects.create(user=instance)
-
-    post_save.connect(create_user_profile, sender=MLMUser)
 
 
 class RewardLog(models.Model):
@@ -235,12 +234,13 @@ class RewardLog(models.Model):
         ('direct_reward', 'Direct Reward'),
         ('indirect_reward', 'Indirect Reward')
     )
-    user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(MLMUser, related_name='reward_log_user', on_delete=models.CASCADE)
+    new_user = models.ForeignKey(User, related_name='new_reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=TRANSACTION_CHOICES)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
     points = models.IntegerField(default=0)
     discount = models.IntegerField(null=True, blank=True)
-    changed_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    changed_by = models.ForeignKey(User, related_name='changed_by', on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
