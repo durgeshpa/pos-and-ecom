@@ -43,15 +43,15 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                     po_validity_date=datetime.date.today() + datetime.timedelta(days=15)
                 )
 
-        source_wh_id = get_config('wh_consolidation_source')
-        if source_wh_id is None:
-            info_logger.info("process_auto_putaway|wh_consolidation_source is not defined")
-            return
-        source_wh = Shop.objects.filter(pk=source_wh_id).last()
-        if shop.retailer.id == source_wh.id:
-            AutoOrderProcessing(grn=instance.id, grn_warehouse=source_wh.id,state="GRN")
-            info_logger.info("updated AutoOrderProcessing for autoPutAway.")
-            
+            source_wh_id = get_config('wh_consolidation_source')
+            if source_wh_id is None:
+                info_logger.info("process_GRN|wh_consolidation_source is not defined")
+                return
+            source_wh = Shop.objects.filter(pk=source_wh_id).last()
+            if shop.retailer.id == source_wh.id:
+                AutoOrderProcessing.objects.create(grn=instance, grn_warehouse=source_wh, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.GRN)
+                info_logger.info("updated AutoOrderProcessing for GRN.")
+
         # data = {}
         # data['username'] = username
         # data['phone_number'] = instance.order_id.ordered_by
@@ -163,7 +163,7 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                         source_wh = Shop.objects.filter(pk=source_wh_id).last()
                         if in_obj.warehouse.id == source_wh.id:
                             info_logger.info("process_auto_putAway|STARTED")
-                            autoPutAway(in_obj.warehouse, in_obj.batch_id, in_obj.quantity, instance.grn_order.grn_id)
+                            autoPutAway(in_obj.warehouse, in_obj.batch_id, in_obj.quantity, instance.grn_order.id)
                             info_logger.info("process_auto_putAway|Completed")
 
         # ends here
