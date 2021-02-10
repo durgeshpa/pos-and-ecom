@@ -1675,6 +1675,7 @@ class PicklistRefresh:
                                           status__in=['pickup_creation', 'picking_assigned'])
         type_normal = InventoryType.objects.filter(inventory_type='normal').last()
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
+        state_picked = InventoryState.objects.filter(inventory_state='picked').last()
         state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
         tr_type = "picking_cancelled"
         with transaction.atomic():
@@ -1696,25 +1697,27 @@ class PicklistRefresh:
                     if to_be_picked_qty < 0:
                         to_be_picked_qty = 0
                     bi_qs.update(quantity=bin_quantity, to_be_picked_qty=to_be_picked_qty)
-                    InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
-                                                                                 bi.bin,
-                                                                                 type_normal, type_normal,
-                                                                                 tr_type,
-                                                                                 pickup_id,
-                                                                                 remaining_qty)
+                    if remaining_qty > 0:
+                        InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
+                                                                                     bi.bin,
+                                                                                     type_normal, type_normal,
+                                                                                     tr_type,
+                                                                                     pickup_id,
+                                                                                     remaining_qty)
                     if picked_qty > 0:
                         PutawayCommonFunctions.create_putaway_with_putaway_bin_inventory(
                             bi, type_normal, tr_type, pickup_id, picked_qty, False)
                         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                            pickup.warehouse, pickup.sku, pickup.inventory_type, state_to_be_picked,
+                            pickup.warehouse, pickup.sku, pickup.inventory_type, state_picked,
                             -1 * picked_qty,
                             tr_type, pickup_id)
-                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                    pickup.warehouse, pickup.sku, pickup.inventory_type, state_to_be_picked, -1 * total_remaining,
-                    tr_type, pickup_id)
-                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                    pickup.warehouse, pickup.sku, pickup.inventory_type, state_ordered, total_remaining,
-                    tr_type, pickup_id)
+                if total_remaining > 0:
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        pickup.warehouse, pickup.sku, pickup.inventory_type, state_to_be_picked, -1 * total_remaining,
+                        tr_type, pickup_id)
+                    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                        pickup.warehouse, pickup.sku, pickup.inventory_type, state_ordered, total_remaining,
+                        tr_type, pickup_id)
             pickup_qs.update(status='picking_cancelled')
             pd_qs.update(is_valid=False)
 
