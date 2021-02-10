@@ -653,7 +653,6 @@ def autoPutAway(warehouse, batch_id, quantity,grn_id):
                 updating_tables_on_putaway(sh, bin_id, put_away, batch_id, type_normal, state_total_available, 't', quantity,
                                            put_away_status, pu)
 
-                # grn = AutoOrderProcessing.objects.filter(grn=grn_id).values_list('state')
                 obj = AutoOrderProcessing.objects.get(grn=grn_id)
                 if obj.state == 0:
                     AutoOrderProcessing.objects.filter(grn=grn_id).update(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PUTAWAY)
