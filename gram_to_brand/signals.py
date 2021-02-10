@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 
 from .views import autoPutAway
-
+from whc.models import AutoOrderProcessing
 
 @receiver(post_save, sender=GRNOrder)
 def create_grn_id(sender, instance=None, created=False, **kwargs):
@@ -42,6 +42,16 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                     shop=shop.retailer,
                     po_validity_date=datetime.date.today() + datetime.timedelta(days=15)
                 )
+
+        source_wh_id = get_config('wh_consolidation_source')
+        if source_wh_id is None:
+            info_logger.info("process_auto_putaway|wh_consolidation_source is not defined")
+            return
+        source_wh = Shop.objects.filter(pk=source_wh_id).last()
+        if shop.retailer.id == source_wh.id:
+            AutoOrderProcessing(grn=instance.id, grn_warehouse=source_wh.id,state="GRN")
+            info_logger.info("updated AutoOrderProcessing for autoPutAway.")
+            
         # data = {}
         # data['username'] = username
         # data['phone_number'] = instance.order_id.ordered_by
@@ -139,23 +149,26 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                                                          putaway_quantity,
                                                          type_normal)
 
+                    # Auto PutAway for warehouse 32154
+                    is_wh_consolidation_on = get_config('is_wh_consolidation_on', False)
+                    if not is_wh_consolidation_on:
+                        return
+                    source_wh_id = get_config('wh_consolidation_source')
+
+                    if source_wh_id is None:
+                        info_logger.info("process_auto_putaway|wh_consolidation_source is not defined")
+                        return
+
+                    if is_wh_consolidation_on:
+                        source_wh = Shop.objects.filter(pk=source_wh_id).last()
+                        if in_obj.warehouse.id == source_wh.id:
+                            info_logger.info("process_auto_putAway|STARTED")
+                            autoPutAway(in_obj.warehouse, in_obj.batch_id, in_obj.quantity, instance.grn_order.grn_id)
+                            info_logger.info("process_auto_putAway|Completed")
+
         # ends here
         instance.available_qty = 0
         instance.save()
 
-        is_wh_consolidation_on = get_config('is_wh_consolidation_on', False)
-        if not is_wh_consolidation_on:
-            return
-        source_wh_id = get_config('wh_consolidation_source')
 
-        if source_wh_id is None:
-            info_logger.info("process_auto_putaway|wh_consolidation_source is not defined")
-            return
-
-        if is_wh_consolidation_on:
-            source_wh = Shop.objects.filter(pk=source_wh_id).last()
-            if in_obj.warehouse.id == source_wh.id:
-                info_logger.info("process_auto_putAway|STARTED")
-                autoPutAway(in_obj.warehouse, in_obj.batch_id, in_obj.quantity, instance.grn_order.grn_id)
-                info_logger.info("process_auto_putAway|Completed")
 

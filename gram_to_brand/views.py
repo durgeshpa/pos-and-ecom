@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 
 from accounts.models import User
-from whc.models import AutoOrderProcessing
+
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -586,7 +586,6 @@ class GetMessage(APIView):
         })
 
 
-
 def autoPutAway(warehouse, batch_id, quantity,grn_id):
 
     virtual_bin_ids = get_config('virtual_bins')
@@ -654,6 +653,4 @@ def autoPutAway(warehouse, batch_id, quantity,grn_id):
                 updating_tables_on_putaway(sh, bin_id, put_away, batch_id, type_normal, state_total_available, 't', quantity,
                                            put_away_status, pu)
 
-                AutoOrderProcessing(grn=grn_id, grn_warehouse=warehouse)
-                info_logger.info("updated AutoOrderProcessing for autoPutAway.")
         info_logger.info("quantity has been updated in put away.")
