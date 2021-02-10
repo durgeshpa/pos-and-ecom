@@ -8,6 +8,8 @@ from django.http import HttpResponse
 from django.shortcuts import render
 
 # Create your views here.
+from django.utils import timezone
+
 from accounts.models import User
 from addresses.models import Address
 from global_config.views import get_config
@@ -17,8 +19,10 @@ from retailer_to_sp.models import Order, Cart, CartProductMapping, PickerDashboa
 from shops.models import Shop
 from whc.models import AutoOrderProcessing, SourceDestinationMapping
 from wms.common_functions import get_stock, OrderManagement, PutawayCommonFunctions, InCommonFunctions, \
-    CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, CommonWarehouseInventoryFunctions
-from wms.models import InventoryType, OrderReserveRelease, PutawayBinInventory, InventoryState, BinInventory
+    CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, CommonWarehouseInventoryFunctions, \
+    CommonBinInventoryFunctions
+from wms.models import InventoryType, OrderReserveRelease, PutawayBinInventory, InventoryState, BinInventory, \
+    PickupBinInventory, Pickup
 
 info_logger = logging.getLogger('file-info')
 
@@ -80,10 +84,49 @@ class AutoOrderProcessor:
         info_logger.info("WarehouseConsolidation|assign_picker| picker assigned, order id-{}"
                          .format(auto_processing_entry.order.order_no))
         return auto_processing_entry
-    #
-    # @transaction.atomic
-    # def complete_pickup(self, auto_processing_entry):
-        
+
+    @transaction.atomic
+    def complete_pickup(self, auto_processing_entry):
+        order_no = auto_processing_entry.order.order_no
+        info_logger.info("WarehouseConsolidation|complete_pickup| Started, order id-{}" .format(order_no))
+        self.__complete_pickup(order_no)
+        info_logger.info("WarehouseConsolidation|complete_pickup| Completed, order id-{}".format(order_no))
+        auto_processing_entry.order.order_status = Order.PICKING_COMPLETE
+        auto_processing_entry.order.save()
+        info_logger.info("WarehouseConsolidation|complete_pickup| Order Status Updated, order id-{}, status-{}"
+                         .format(order_no, Order.PICKING_COMPLETE))
+        return auto_processing_entry
+
+    def __complete_pickup(self, order_no):
+        state_picked = InventoryState.objects.filter(inventory_state='picked').last()
+        state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
+        state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
+        tr_type = "picked"
+        pickup_bin_inventory_objects = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
+                                                                         pickup__status='picking_assigned')
+        for pbi in pickup_bin_inventory_objects:
+            tr_id = pbi.pickup_id
+            warehouse = pbi.bin.warehouse
+            sku = pbi.bin.sku
+            inventory_type = pbi.bin.inventory_type
+            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pbi.quantity, pbi.bin)
+
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                warehouse, sku, inventory_type, state_to_be_picked, -1 * pbi.quantity, tr_type, tr_id)
+
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                warehouse, sku, inventory_type, state_total_available, -1 * pbi.quantity, tr_type, tr_id)
+
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                warehouse, sku, inventory_type, state_picked, pbi.quantity, tr_type, tr_id)
+
+            pbi.pickup_quantity = pbi.quantity
+            pbi.last_picked_at = timezone.now()
+            pbi.save()
+            Pickup.objects.filter(id=tr_id).update(pickup_quantity=pbi.quantity, status='picking_complete')
+            info_logger.info("WarehouseConsolidation|complete_pickup| Picking done |order id-{}, sku-{}"
+                             .format(order_no, sku))
+
     @transaction.atomic
     def generate_picklist(self, auto_processing_entry):
         in_ids = InCommonFunctions.get_filtered_in(in_type='GRN', in_type_id=auto_processing_entry.grn.grn_id)\
@@ -289,9 +332,9 @@ def process_next(order_processor, entry_to_process):
     elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.RESERVED:
         entry_to_process = order_processor.place_order(entry_to_process)
         entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.ORDERED
-    # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.ORDERED:
-    #     entry_to_process = order_processor.generate_picklist(entry_to_process)
-    #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_CREATED
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.ORDERED:
+        entry_to_process = order_processor.generate_picklist(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_CREATED
     # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_CREATED:
     #     entry_to_process = order_processor.assign_picker(entry_to_process)
     #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKING_ASSIGNED
