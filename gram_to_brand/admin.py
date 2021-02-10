@@ -150,7 +150,7 @@ class CartAdmin(admin.ModelAdmin):
         obj.po_raised_by = request.user
         obj.last_modified_by = request.user
         obj.save()
-        formset.save()
+        formset.save(commit=False)
         if flag:
             LogEntry.objects.log_action(
                 user_id=request.user.pk,
@@ -161,6 +161,7 @@ class CartAdmin(admin.ModelAdmin):
                 change_message=SUCCESS_MESSAGES['CHANGED_STATUS'] % obj.get_po_status_display(),
             )
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+        return HttpResponseRedirect("/admin/gram_to_brand/cart/")
 
     # class Media:
     #     pass
