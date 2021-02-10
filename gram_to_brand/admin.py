@@ -150,7 +150,12 @@ class CartAdmin(admin.ModelAdmin):
         obj.po_raised_by = request.user
         obj.last_modified_by = request.user
         obj.save()
-        formset.save(commit=False)
+        if len(form.changed_data) > 0:
+            formset.save(commit=False)
+        else:
+            formset.save()
+        if change is False:
+            formset.save()
         if flag:
             LogEntry.objects.log_action(
                 user_id=request.user.pk,
