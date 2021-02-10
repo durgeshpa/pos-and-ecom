@@ -1,29 +1,23 @@
-from accounts.models import User
-from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer, RewardsSerializer, ProfileUploadSerializer
-from rest_framework.generics import GenericAPIView, CreateAPIView
-from rest_framework import status
+import datetime
+
 from rest_framework.status import HTTP_400_BAD_REQUEST
-from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView, CreateAPIView
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.permissions import AllowAny
-from dal import autocomplete
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.authentication import TokenAuthentication
 
-from .models import PhoneOTP, MLMUser, Referral, Token, RewardPoint, Profile, ReferralCode
-
-import uuid
-import requests, datetime
 from django.utils import timezone
-
 from django.db.models import Q
+
+from retailer_backend.messages import *
+from accounts.models import User
+
 from .validation import ValidateOTP
 from .sms import SendSms
-
-from django.conf import settings
-from retailer_backend.messages import *
-from global_config.models import GlobalConfig
+from .serializers import SendSmsOTPSerializer, RewardsSerializer, ProfileUploadSerializer
+from .models import PhoneOTP, MLMUser, Referral, Token, RewardPoint, Profile, ReferralCode
 
 
 class SendSmsOTP(CreateAPIView):
@@ -182,29 +176,22 @@ class Login(GenericAPIView):
 
 
 class RewardsDashboard(GenericAPIView):
-    permission_classes = (AllowAny,)
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
 
     def get(self, request):
-        if request.META['HTTP_AUTH']:
-            auth = request.META['HTTP_AUTH']
-            resp = MLMUser.authenticate(auth)
-            if not isinstance(resp, str):
-                user_name = resp.name if resp.name else ''
-                try:
-                    rewards_obj = RewardPoint.objects.get(user=resp)
-                    serializer = (RewardsSerializer(rewards_obj))
-                    data = serializer.data
-                except:
-                    data = {"direct_users_count": '0', "indirect_users_count": '0', "direct_earned_points": '0',
-                            "indirect_earned_points": '0', "total_earned_points": '0', 'total_points_used': '0',
-                            'remaining_points': '0', 'welcome_reward_point': '0', "discount_point": '0'}
-                data['name'] = user_name.capitalize()
-                return Response({"data": data}, status=status.HTTP_200_OK)
-            else:
-                return Response({"error": resp}, status=status.HTTP_401_UNAUTHORIZED)
-        else:
-            return Response({"error": 'Authentication credentials were not provided.'},
-                            status=status.HTTP_401_UNAUTHORIZED)
+        user = self.request.user
+        user_name = user.first_name if user.first_name else ''
+        try:
+            rewards_obj = RewardPoint.objects.get(user=user)
+            serializer = (RewardsSerializer(rewards_obj))
+            data = serializer.data
+        except:
+            data = {"direct_users_count": '0', "indirect_users_count": '0', "direct_earned_points": '0',
+                    "indirect_earned_points": '0', "total_earned_points": '0', 'total_points_used': '0',
+                    'remaining_points': '0', 'welcome_reward_point': '0', "discount_point": '0'}
+        data['name'] = user_name.capitalize()
+        return Response({'is_success': True, 'message': ['Success'], 'response_data': data}, status=status.HTTP_200_OK)
 
 
 class Logout(GenericAPIView):
@@ -241,27 +228,35 @@ class Logout(GenericAPIView):
 
 
 class UploadProfile(GenericAPIView):
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
     parser_classes = (MultiPartParser, FormParser)
     serializer_class = ProfileUploadSerializer
 
     def post(self, request):
         """
-            Determine the current user by their token, and update their profile
+            update user profile
         """
-        if request.META['HTTP_AUTH']:
-            auth = request.META['HTTP_AUTH']
-            resp = MLMUser.authenticate(auth)
-            try:
-                user_id = Profile.objects.get(user=resp)
-            except:
-                return Response({"error": "Token is not valid."}, status=status.HTTP_401_UNAUTHORIZED)
+        user = self.request.user
+        try:
+            user_id = Profile.objects.get(user=user)
+        except:
+            return Response({'is_success': False, 'message': ['User Profile Not Found'], 'response_data': None},
+                            status=status.HTTP_200_OK)
 
-            serializer = ProfileUploadSerializer(user_id, data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            else:
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer = ProfileUploadSerializer(user_id, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'is_success': False, 'message': ['Successfully Updated Profile'], 'response_data': serializer.data},
+                            status=status.HTTP_200_OK)
         else:
-            return Response({"error": 'Authentication credentials were not provided.'},
-                            status=status.HTTP_401_UNAUTHORIZED)
+            errors = []
+            for field in serializer.errors:
+                for error in serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field, error))
+                    errors.append(result)
+            msg = {'is_success': False, 'message': [error for error in errors], 'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
