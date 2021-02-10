@@ -7,7 +7,7 @@ from .models import MLMUser, Referral, PhoneOTP, Token, RewardPoint, Profile, Re
 from global_config.models import GlobalConfig
 from marketing.forms import RewardPointForm,MLMUserForm
 from franchise.models import FranchiseSales
-from marketing.filters import UserFilter, MlmUserAutocomplete
+from marketing.filters import UserFilter, MlmUserAutocomplete, MlmUserFilter
 
 class PhoneOTPAdmin(admin.ModelAdmin):
     list_display = (
@@ -28,6 +28,7 @@ class PhoneOTPAdmin(admin.ModelAdmin):
 class MLMUserAdmin(admin.ModelAdmin):
     form = MLMUserForm
     list_display = ['phone_number', 'name', 'email']
+    list_filter = [MlmUserFilter]
 
     def save_model(self, request, obj, form, change):
         super(MLMUserAdmin, self).save_model(request, obj, form, change)
@@ -41,10 +42,14 @@ class MLMUserAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
+    class Media:
+        pass
 
+
+@admin.register(Referral)
 class ReferralAdmin(admin.ModelAdmin):
     model = Referral
-    list_display = ('referral_to', 'referral_by', 'created_at')
+    list_display = [field.name for field in Referral._meta.get_fields()]
     fields = ('referral_to', 'referral_by')
 
     def has_add_permission(self, request, obj=None):
@@ -75,7 +80,7 @@ class TokenAdmin(admin.ModelAdmin):
 @admin.register(RewardPoint)
 class RewardPointAdmin(admin.ModelAdmin):
     form = RewardPointForm
-    list_display = ("phone_number", "user_name", "email_id", "redeemable_reward_points", "max_available_discount_inr",
+    list_display = ("phone_number", "new_user", "user_name", "email_id", "redeemable_reward_points", "max_available_discount_inr",
                     "created_at", "modified_at",
                     "direct_users", "indirect_users", "direct_earned", "indirect_earned", "points_used")
     list_filter = [UserFilter]
@@ -123,7 +128,7 @@ class RewardPointAdmin(admin.ModelAdmin):
 
 @admin.register(RewardLog)
 class RewardLogAdmin(admin.ModelAdmin):
-    list_display = ('user', 'transaction_type', 'transaction_id', 'transaction_points', 'created_at', 'discount', 'changed_by',
+    list_display = ('user', 'new_user', 'transaction_type', 'transaction_id', 'transaction_points', 'created_at', 'discount', 'changed_by',
                     'purchase_user', 'purchase_invoice', 'user_purchase_shop_location')
     list_filter = [UserFilter, ('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter)]
 
@@ -170,9 +175,16 @@ class RewardLogAdmin(admin.ModelAdmin):
         pass
 
 
+@admin.register(ReferralCode)
+class ReferralCodeAdmin(admin.ModelAdmin):
+    list_display = [field.name for field in ReferralCode._meta.get_fields()]
+
+
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = [field.name for field in Profile._meta.get_fields()]
+
+
 admin.site.register(MLMUser, MLMUserAdmin)
 admin.site.register(PhoneOTP, PhoneOTPAdmin)
-admin.site.register(Referral, ReferralAdmin)
 admin.site.register(Token, TokenAdmin)
-admin.site.register(Profile)
-admin.site.register(ReferralCode)
