@@ -1,5 +1,5 @@
 from datetime import timezone
-
+from datetime import datetime
 from django.db import models
 
 # Create your models here.
@@ -15,7 +15,7 @@ from shops.models import Shop
 class BaseQuerySet(query.QuerySet):
 
     def update(self, **kwargs):
-        kwargs['modified_at'] = timezone.now()
+        kwargs['modified_at'] = datetime.now()
         super().update(**kwargs)
 
 class Manager(manager.BaseManager.from_queryset(BaseQuerySet)):
@@ -55,3 +55,5 @@ class AutoOrderProcessing(BaseTimestampModel):
     retailer_shop = models.ForeignKey(Shop, related_name='auto_processing_shop_entries', on_delete=models.CASCADE, null=True)
     cart = models.OneToOneField(Cart, related_name='auto_processing_carts', on_delete=models.CASCADE, null=True)
     order = models.OneToOneField(Order, related_name='auto_processing_orders', on_delete=models.CASCADE, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
