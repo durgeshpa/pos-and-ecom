@@ -158,7 +158,7 @@ def autoPutAway(warehouse, batch_id, quantity):
     bin_ids = eval(virtual_bin_ids.value)
 
     glob_user = GlobalConfig.objects.get(key='user')
-    user = glob_user.value
+    user_id = glob_user.value
 
     inventory_type = 'normal'
     type_normal = InventoryType.objects.filter(inventory_type=inventory_type).last()
@@ -171,7 +171,6 @@ def autoPutAway(warehouse, batch_id, quantity):
     state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
 
     if sh.shop_type.shop_type == 'sp':
-
 
         for bin_id in bin_ids:
             # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
@@ -197,7 +196,7 @@ def autoPutAway(warehouse, batch_id, quantity):
             put_away_status = False
 
             while len(ids):
-                put_away_done = update_putaway(ids[0], batch_id, warehouse, quantity, user)
+                put_away_done = update_putaway(ids[0], batch_id, warehouse, quantity, user_id)
                 value = put_away_done
                 put_away_status = True
                 ids.remove(ids[0])
