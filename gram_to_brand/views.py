@@ -22,10 +22,25 @@ from gram_to_brand.models import (
 )
 from addresses.models import Address, State
 from brand.models import Brand
-from .serializers import CartProductMappingSerializer
 from brand.models import Vendor
 from products.models import ProductVendorMapping, ParentProduct
 
+from django.db.models import Sum
+from django.db import transaction
+
+from global_config.views import get_config
+from shops.models import Shop
+from wms.models import InventoryType, InventoryState
+
+from wms.views import update_putaway
+from wms.common_functions import PutawayCommonFunctions,CommonBinInventoryFunctions,updating_tables_on_putaway
+
+import logging
+logger = logging.getLogger(__name__)
+info_logger = logging.getLogger('file-info')
+
+from accounts.models import User
+from whc.models import AutoOrderProcessing
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -569,3 +584,76 @@ class GetMessage(APIView):
             "is_success": is_success,
             "po_status": po_obj.po_status if po_obj else ''
         })
+
+
+
+def autoPutAway(warehouse, batch_id, quantity,grn_id):
+
+    virtual_bin_ids = get_config('virtual_bins')
+    if not virtual_bin_ids:
+        return
+    bin_ids = eval(virtual_bin_ids)
+
+    user_id = get_config('user')
+    if user_id is None:
+        info_logger.info("process_auto_putaway|user is not defined ")
+        return
+    user = User.objects.filter(pk=user_id).last()
+    if user is None:
+        info_logger.info("process_auto_putaway|no User found with id -{}".format(user_id))
+        return
+
+    warehouse_id = user.shop_employee.all().last().shop_id
+    if warehouse_id is None:
+        info_logger.info("process_auto_putaway|User-{} is not mapped with associated Warehouse-{}".format(user_id,warehouse))
+        return
+
+    inventory_type = 'normal'
+    type_normal = InventoryType.objects.filter(inventory_type=inventory_type).last()
+
+    put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
+                                                            inventory_type=type_normal).order_by('created_at')
+    ids = [i.id for i in put_away]
+
+    sh = Shop.objects.filter(id=int(warehouse.id)).last()
+    state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
+
+    if sh.shop_type.shop_type == 'sp':
+
+        for bin_id in bin_ids:
+            # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
+            bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id).exclude(
+                                                                                                batch_id=batch_id)
+            if bin_inventory.exists():
+                qs = bin_inventory.filter(inventory_type=type_normal) \
+                    .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
+                total = qs['available'] + qs['to_be_picked']
+
+                # if inventory is more than zero, putaway won't be allowed,check for another bin_id
+                if total > 0:
+                    info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
+                                          .format(batch_id[:17], batch_id))
+                    #check for another bin_id
+                    continue
+                else:
+                    # breaking for loop continue with same bin_id
+                    break
+            else:
+                # breaking for loop continue with same bin_id
+                break
+        with transaction.atomic():
+
+            pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=batch_id, warehouse=warehouse)
+            put_away_status = False
+
+            while len(ids):
+                update_putaway(ids[0], batch_id, warehouse, quantity, user)
+                put_away_status = True
+                ids.remove(ids[0])
+
+                updating_tables_on_putaway(sh, bin_id, put_away, batch_id, type_normal, state_total_available, 't', quantity,
+                                           put_away_status, pu)
+
+                AutoOrderProcessing(grn=grn_id, grn_warehouse=warehouse)
+                info_logger.info("updated AutoOrderProcessing for autoPutAway.")
+        info_logger.info("quantity has been updated in put away.")

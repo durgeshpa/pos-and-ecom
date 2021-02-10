@@ -1,13 +1,9 @@
 import datetime
-
 from django.dispatch import receiver
 from django.db.models.signals import post_save
-from django.db.models import Sum
-from django.db import transaction
 
-from global_config.models import GlobalConfig
-from wms.models import InventoryType, InventoryState
-from shops.models import Shop
+from wms.models import InventoryType
+
 from .models import BrandNote, GRNOrderProductMapping, GRNOrder
 from shops.models import Shop, ParentRetailerMapping
 from sp_to_gram.models import (
@@ -19,15 +15,16 @@ from sp_to_gram.models import (
 )
 
 from retailer_backend.common_function import brand_debit_note_pattern, grn_pattern
-from wms.common_functions import PutawayCommonFunctions, InCommonFunctions, CommonBinInventoryFunctions, \
-    updating_tables_on_putaway
-from wms.views import update_putaway
+from wms.common_functions import InCommonFunctions
+from global_config.views import get_config
 
 import logging
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
-error_logger = logging.getLogger('file-error')
+
+from .views import autoPutAway
+
 
 @receiver(post_save, sender=GRNOrder)
 def create_grn_id(sender, instance=None, created=False, **kwargs):
@@ -142,64 +139,23 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                                                          putaway_quantity,
                                                          type_normal)
 
-                    is_wh_consolidation_on = GlobalConfig.objects.get(key='is_wh_consolidation_on')
-                    if is_wh_consolidation_on.value:
-                        source_wh_id = GlobalConfig.objects.get(key='wh_consolidation_source')
-                        if in_obj.warehouse.id == source_wh_id.value:
-                            autoPutAway(in_obj.warehouse, in_obj.batch_id, in_obj.quantity)
-
         # ends here
         instance.available_qty = 0
         instance.save()
 
+        is_wh_consolidation_on = get_config('is_wh_consolidation_on', False)
+        if not is_wh_consolidation_on:
+            return
+        source_wh_id = get_config('wh_consolidation_source')
 
-def autoPutAway(warehouse, batch_id, quantity):
-    virtual_bin_ids = GlobalConfig.objects.get(key='virtual_bins')
-    bin_ids = eval(virtual_bin_ids.value)
+        if source_wh_id is None:
+            info_logger.info("process_auto_putaway|wh_consolidation_source is not defined")
+            return
 
-    glob_user = GlobalConfig.objects.get(key='user')
-    user_id = glob_user.value
+        if is_wh_consolidation_on:
+            source_wh = Shop.objects.filter(pk=source_wh_id).last()
+            if in_obj.warehouse.id == source_wh.id:
+                info_logger.info("process_auto_putAway|STARTED")
+                autoPutAway(in_obj.warehouse, in_obj.batch_id, in_obj.quantity, instance.grn_order.grn_id)
+                info_logger.info("process_auto_putAway|Completed")
 
-    inventory_type = 'normal'
-    type_normal = InventoryType.objects.filter(inventory_type=inventory_type).last()
-
-    put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
-                                                            inventory_type=type_normal).order_by('created_at')
-    ids = [i.id for i in put_away]
-
-    sh = Shop.objects.filter(id=int(warehouse.id)).last()
-    state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
-
-    if sh.shop_type.shop_type == 'sp':
-
-        for bin_id in bin_ids:
-            # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
-            bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id).exclude(
-                                                                                                batch_id=batch_id)
-            if bin_inventory.exists():
-                qs = bin_inventory.filter(inventory_type=type_normal) \
-                    .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
-                total = qs['available'] + qs['to_be_picked']
-
-                # if inventory is more than zero, putaway won't be allowed,check for another bin_id
-                if total > 0:
-                    info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
-                                          .format(batch_id[:17], batch_id))
-                    continue
-                else:
-                    break
-            else:
-                break
-        with transaction.atomic():
-
-            pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=batch_id, warehouse=warehouse)
-            put_away_status = False
-
-            while len(ids):
-                update_putaway(ids[0], batch_id, warehouse, quantity, user_id)
-                put_away_status = True
-                ids.remove(ids[0])
-
-                updating_tables_on_putaway(sh, bin_id, put_away, batch_id, type_normal, state_total_available, 't', quantity,
-                                           put_away_status, pu)
-        info_logger.info("quantity has been updated in put away.")
