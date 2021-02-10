@@ -27,7 +27,7 @@ from .utils import import_callable
 
 from otp.models import PhoneOTP
 from otp.views import ValidateOTP
-from marketing.models import ReferralCode, RewardPoint, Referral
+from marketing.models import ReferralCode, RewardPoint, Referral, Profile
 from global_config.models import GlobalConfig
 from marketing.views import save_user_referral_code
 
@@ -199,6 +199,8 @@ class MlmResponseSerializer(serializers.Serializer):
             # add parent referrer if referral code provided
             if referral_code != '':
                 Referral.store_parent_referral_user(referral_code, user_referral_code)
+            # create new profile for user
+            Profile.objects.get_or_create(user=obj['user'])
         referral_code_obj = ReferralCode.objects.filter(user_id=obj['user']).last()
         return referral_code_obj.referral_code if referral_code_obj else ''
 
