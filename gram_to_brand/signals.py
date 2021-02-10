@@ -186,12 +186,11 @@ def autoPutAway(warehouse, batch_id, quantity):
                 if total > 0:
                     info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
                                           .format(batch_id[:17], batch_id))
-
                     continue
                 else:
                     break
-            # else:
-            #     break
+            else:
+                break
         with transaction.atomic():
 
             pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=batch_id, warehouse=warehouse)
