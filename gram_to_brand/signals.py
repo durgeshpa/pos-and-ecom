@@ -49,7 +49,7 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                 return
             source_wh = Shop.objects.filter(pk=source_wh_id).last()
             if shop.retailer.id == source_wh.id:
-                AutoOrderProcessing(grn=instance, grn_warehouse=source_wh, state="GRN")
+                AutoOrderProcessing.objects.create(grn=instance, grn_warehouse=source_wh, state=0)
                 info_logger.info("updated AutoOrderProcessing for GRN.")
 
         # data = {}
@@ -163,7 +163,7 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                         source_wh = Shop.objects.filter(pk=source_wh_id).last()
                         if in_obj.warehouse.id == source_wh.id:
                             info_logger.info("process_auto_putAway|STARTED")
-                            autoPutAway(in_obj.warehouse, in_obj.batch_id, in_obj.quantity, instance.grn_order.grn_id)
+                            autoPutAway(in_obj.warehouse, in_obj.batch_id, in_obj.quantity, instance.grn_order.id)
                             info_logger.info("process_auto_putAway|Completed")
 
         # ends here
