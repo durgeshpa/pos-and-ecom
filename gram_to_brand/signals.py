@@ -50,7 +50,7 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
         source_wh = Shop.objects.filter(pk=source_wh_id).last()
         if shop.retailer.id == source_wh.id:
             AutoOrderProcessing(grn=instance.id, grn_warehouse=source_wh.id, state="GRN")
-            info_logger.info("updated AutoOrderProcessing for autoPutAway.")
+            info_logger.info("updated AutoOrderProcessing for GRN.")
 
         # data = {}
         # data['username'] = username
