@@ -1,3 +1,4 @@
+from accounts.models import User
 from .serializers import SendSmsOTPSerializer, PhoneOTPValidateSerializer, RewardsSerializer, ProfileUploadSerializer
 from rest_framework.generics import GenericAPIView, CreateAPIView
 from rest_framework import status
@@ -10,7 +11,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny
 from dal import autocomplete
 
-from .models import PhoneOTP, MLMUser, Referral, Token, RewardPoint, Profile
+from .models import PhoneOTP, MLMUser, Referral, Token, RewardPoint, Profile, ReferralCode
 
 import uuid
 import requests, datetime
@@ -68,7 +69,8 @@ def save_user_referral_code(phone_number):
         This method will generate Referral Code & create or update user in database.
     """
     user_referral_code = Referral.generate_unique_referral_code()
-    MLMUser.objects.update_or_create(phone_number=phone_number, referral_code=user_referral_code)
+    user = User.objects.values('id').filter(phone_number=phone_number)
+    ReferralCode.objects.update_or_create(user_id=user[0]['id'], referral_code=user_referral_code)
     return user_referral_code
 
 
