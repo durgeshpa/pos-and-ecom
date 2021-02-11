@@ -135,10 +135,8 @@ class Referral(models.Model):
     """
     This model will be used to store the parent and child referral mapping details
     """
-    referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE, null=True, blank=True)
-    referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
-    new_referral_by = models.ForeignKey(User, related_name="new_referral_by", on_delete=models.CASCADE, null=True, blank=True)
-    new_referral_to = models.ForeignKey(User, related_name="new_referral_to", on_delete=models.CASCADE, null=True, blank=True)
+    referral_by = models.ForeignKey(User, related_name="referral_by", on_delete=models.CASCADE, null=True, blank=True)
+    referral_to = models.ForeignKey(User, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -170,8 +168,7 @@ class Referral(models.Model):
 
 
 class RewardPoint(models.Model):
-    user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
-    new_user = models.ForeignKey(User, related_name="new_reward_user", on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(User, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
     direct_users = models.IntegerField(default=0)
     indirect_users = models.IntegerField(default=0)
     direct_earned = models.IntegerField(default=0)
@@ -219,8 +216,7 @@ class RewardPoint(models.Model):
 
 
 class Profile(models.Model):
-    user = models.OneToOneField(MLMUser, on_delete=models.CASCADE)
-    new_user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     image = models.ImageField(upload_to='profile_pics', blank=True)
 
     def __str__(self):
@@ -234,8 +230,7 @@ class RewardLog(models.Model):
         ('direct_reward', 'Direct Reward'),
         ('indirect_reward', 'Indirect Reward')
     )
-    user = models.ForeignKey(MLMUser, related_name='reward_log_user', on_delete=models.CASCADE)
-    new_user = models.ForeignKey(User, related_name='new_reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=TRANSACTION_CHOICES)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
     points = models.IntegerField(default=0)
