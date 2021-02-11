@@ -26,7 +26,7 @@ from rest_auth.registration.serializers import (VerifyEmailSerializer,
                                                 SocialLoginSerializer,
                                                 SocialAccountSerializer,
                                                 SocialConnectSerializer,
-                                                MlmRegisterSerializer
+                                                OtpRegisterSerializer
                                                 )
 from rest_auth.utils import jwt_encode
 from rest_auth.views import LoginView
@@ -40,11 +40,13 @@ sensitive_post_parameters_m = method_decorator(
 
 APPLICATION_REGISTRATION_SERIALIZERS_MAP = {
     '0' : RegisterSerializer,
-    '1' : MlmRegisterSerializer
+    '1' : OtpRegisterSerializer,
+    '2' : OtpRegisterSerializer
 }
 APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP = {
     '0' : LoginResponseSerializer,
-    '1' : MlmResponseSerializer
+    '1' : MlmResponseSerializer,
+    '2' : LoginResponseSerializer
 }
 
 

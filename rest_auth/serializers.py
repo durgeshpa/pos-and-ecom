@@ -131,7 +131,7 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
-class MlmLoginSerializer(serializers.Serializer):
+class OtpLoginSerializer(serializers.Serializer):
     """
     Serializer for login with phone number and OTP
     """
