@@ -15,12 +15,13 @@ from addresses.models import Address
 from global_config.views import get_config
 from gram_to_brand.common_functions import get_grned_product_qty_by_grn_id
 from retailer_backend.common_function import checkNotShopAndMapping, getShopMapping
-from retailer_to_sp.models import Order, Cart, CartProductMapping, PickerDashboard, generate_picklist_id
+from retailer_to_sp.models import Order, Cart, CartProductMapping, PickerDashboard, generate_picklist_id, \
+    populate_data_on_qc_pass, OrderedProductMapping, OrderedProduct, OrderedProductBatch
 from shops.models import Shop
 from whc.models import AutoOrderProcessing, SourceDestinationMapping
 from wms.common_functions import get_stock, OrderManagement, PutawayCommonFunctions, InCommonFunctions, \
     CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, CommonWarehouseInventoryFunctions, \
-    CommonBinInventoryFunctions
+    CommonBinInventoryFunctions, get_expiry_date
 from wms.models import InventoryType, OrderReserveRelease, PutawayBinInventory, InventoryState, BinInventory, \
     PickupBinInventory, Pickup
 
@@ -49,9 +50,10 @@ class AutoOrderProcessor:
         available_stock = get_stock(parent_mapping.parent, AutoOrderProcessor.type_normal,
                                     product_quantity_dict.keys())
         cart = self.__add_products_to_cart(parent_mapping.parent, parent_mapping.retailer, product_quantity_dict,
-                                         available_stock)
+                                           available_stock)
         info_logger.info("WarehouseConsolidation|place_order_by_grn| Cart Generated, cart id-{}".format(cart.id))
         auto_processing_entry.cart=cart
+        auto_processing_entry.retailer_shop = self.retailer_shop
         return auto_processing_entry
 
     @transaction.atomic
@@ -91,11 +93,88 @@ class AutoOrderProcessor:
         info_logger.info("WarehouseConsolidation|complete_pickup| Started, order id-{}" .format(order_no))
         self.__complete_pickup(order_no)
         info_logger.info("WarehouseConsolidation|complete_pickup| Completed, order id-{}".format(order_no))
+        picker_dashboard_obj = PickerDashboard.objects.filter(order=auto_processing_entry.order,
+                                                              picking_status="picking_assigned").last()
+        picker_dashboard_obj.picking_status = 'picking_complete'
+        picker_dashboard_obj.save()
+        info_logger.info("WarehouseConsolidation|assign_picker| picker dashboard updated, order id-{}"
+                         .format(auto_processing_entry.order.order_no))
         auto_processing_entry.order.order_status = Order.PICKING_COMPLETE
         auto_processing_entry.order.save()
         info_logger.info("WarehouseConsolidation|complete_pickup| Order Status Updated, order id-{}, status-{}"
                          .format(order_no, Order.PICKING_COMPLETE))
         return auto_processing_entry
+
+
+    @transaction.atomic
+    def create_shipment(self, auto_processing_entry):
+
+        info_logger.info("WarehouseConsolidation|create_shipment|Started, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        self.__create_shipment(auto_processing_entry.cart, auto_processing_entry.order)
+        info_logger.info("WarehouseConsolidation|create_shipment|Shipment Created, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        return auto_processing_entry
+
+
+
+    @transaction.atomic
+    def shipment_qc(self, auto_processing_entry):
+
+        info_logger.info("WarehouseConsolidation|shipment_qc|Started, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        self.__shipment_qc(auto_processing_entry.order)
+        info_logger.info("WarehouseConsolidation|shipment_qc|QC Done, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        return auto_processing_entry
+
+    def __shipment_qc(self, order):
+        shipments = OrderedProduct.objects.filter(order=order)
+        if shipments.exists():
+            shipments.update(shipment_status=OrderedProduct.READY_TO_SHIP)
+            return
+        info_logger.info("WarehouseConsolidation|shipment_qc|No Shipment found, order id-{}".format(order.id))
+        raise Exception("Exception|WarehouseConsolidation|shipment_qc|Shipment QC could not be done")
+
+
+    def __create_shipment(self, cart, order):
+        shipment = OrderedProduct(order=order)
+        shipment.save()
+        info_logger.info("WarehouseConsolidation|create_shipment|Shipment Object Created, shipment id-{}"
+                         .format(shipment.id))
+        cart_products = CartProductMapping.objects.values('cart_product', 'cart_product__product_name',
+                                                          'cart_product__product_sku', 'no_of_pieces') \
+            .filter(cart_id=cart.id)
+        for item in cart_products:
+            pick_up_obj = Pickup.objects.filter(sku_id=item['cart_product__product_sku'],
+                                                pickup_type_id=order.order_no) \
+                .exclude(status='picking_cancelled').last()
+            OrderedProductMapping.objects.create(ordered_product=shipment, product_id=item['cart_product'],
+                                                 shipped_qty=pick_up_obj.pickup_quantity,
+                                                 picked_pieces=pick_up_obj.pickup_quantity)
+
+            pick_bin_inv = PickupBinInventory.objects.filter(pickup=pick_up_obj)
+            for i in pick_bin_inv:
+                ordered_product_mapping = shipment.rt_order_product_order_product_mapping.filter(
+                    product_id=pick_up_obj.sku.id).last()
+                shipment_product_batch = OrderedProductBatch.objects.create(
+                    batch_id=i.batch_id,
+                    bin_ids=i.bin.bin.bin_id,
+                    pickup_inventory=i,
+                    ordered_product_mapping=ordered_product_mapping,
+                    pickup=i.pickup,
+                    bin=i.bin,  # redundant
+                    quantity=i.pickup_quantity,
+                    pickup_quantity=i.pickup_quantity,
+                    expiry_date=get_expiry_date(i.batch_id),
+                    delivered_qty=ordered_product_mapping.delivered_qty,
+                    ordered_pieces=i.quantity
+                )
+                i.shipment_batch = shipment_product_batch
+                i.save()
+            info_logger.info("WarehouseConsolidation|create_shipment|Shipment Product Mapping Added, "
+                             "shipment id-{}, sku-{}"
+                             .format(shipment.id, pick_up_obj.sku.id))
 
     def __complete_pickup(self, order_no):
         state_picked = InventoryState.objects.filter(inventory_state='picked').last()
@@ -268,7 +347,7 @@ class AutoOrderProcessor:
             cart_mapping.no_of_pieces = qty
             cart_mapping.save()
             info_logger.info("WarehouseConsolidation|add_products_to_cart|product id-{}, cart id-{}, qty added-{}"
-                             .format(product_id, available_qty, cart.id, qty))
+                             .format(product_id, cart.id, qty))
         return cart
 
 def start_auto_processing(request):
@@ -335,12 +414,17 @@ def process_next(order_processor, entry_to_process):
     elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.ORDERED:
         entry_to_process = order_processor.generate_picklist(entry_to_process)
         entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_CREATED
-    # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_CREATED:
-    #     entry_to_process = order_processor.assign_picker(entry_to_process)
-    #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKING_ASSIGNED
-    # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKING_ASSIGNED:
-    #     entry_to_process = order_processor.complete_pickup(entry_to_process)
-    #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_COMPLETED
-
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_CREATED:
+        entry_to_process = order_processor.assign_picker(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKING_ASSIGNED
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKING_ASSIGNED:
+        entry_to_process = order_processor.complete_pickup(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_COMPLETED
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PICKUP_COMPLETED:
+        entry_to_process = order_processor.create_shipment(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.SHIPMENT_CREATED
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.SHIPMENT_CREATED:
+        entry_to_process = order_processor.shipment_qc(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.QC_DONE
     entry_to_process.save()
     return entry_to_process.state
