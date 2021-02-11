@@ -618,47 +618,49 @@ def autoPutAway(warehouse, batch_id, quantity,grn_id):
     state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
 
     if sh.shop_type.shop_type == 'sp':
-        with transaction.atomic():
-            for bin_id in bin_ids:
-                # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
-                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id).exclude(
-                                                                                      batch_id=batch_id)
+        try:
+            with transaction.atomic():
+                for bin_id in bin_ids:
+                    # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
+                    bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id).exclude(
+                                                                                          batch_id=batch_id)
 
-                if bin_inventory.exists():
-                    comman_batch_id = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id,batch_id=batch_id)
-                    if comman_batch_id:
-                        qs = bin_inventory.filter(inventory_type=type_normal) \
-                            .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
-                        total = qs['available'] + qs['to_be_picked']
+                    if bin_inventory.exists():
+                        comman_batch_id = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id,batch_id=batch_id)
+                        if comman_batch_id:
+                            qs = bin_inventory.filter(inventory_type=type_normal) \
+                                .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
+                            total = qs['available'] + qs['to_be_picked']
 
-                        # if inventory is more than zero, putaway won't be allowed,check for another bin_id
-                        if total > 0:
-                            info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
-                                                  .format(batch_id[:17], batch_id))
+                            # if inventory is more than zero, putaway won't be allowed,check for another bin_id
+                            if total > 0:
+                                info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
+                                                      .format(batch_id[:17], batch_id))
+                                # check for another bin_id
+                                continue
+                            # breaking for loop continue with same bin_id
+                            break
+                        else:
                             # check for another bin_id
                             continue
-                        # breaking for loop continue with same bin_id
-                        break
                     else:
-                        # check for another bin_id
-                        continue
-                else:
-                    break
+                        break
 
-            pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=batch_id, warehouse=warehouse)
-            put_away_status = False
+                pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=batch_id, warehouse=warehouse)
+                put_away_status = False
 
-            while len(ids):
-                update_putaway(ids[0], batch_id, warehouse, quantity, user)
-                put_away_status = True
-                ids.remove(ids[0])
+                while len(ids):
+                    update_putaway(ids[0], batch_id, warehouse, quantity, user)
+                    put_away_status = True
+                    ids.remove(ids[0])
 
-                updating_tables_on_putaway(sh, bin_id, put_away, batch_id, type_normal, state_total_available, 't', quantity,
-                                           put_away_status, pu)
+                    updating_tables_on_putaway(sh, bin_id, put_away, batch_id, type_normal, state_total_available, 't', quantity,
+                                               put_away_status, pu)
 
-                obj = AutoOrderProcessing.objects.get(grn=grn_id)
-                if obj.state == 0:
-                    AutoOrderProcessing.objects.filter(grn=grn_id).update(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PUTAWAY)
-
-
-        info_logger.info("quantity has been updated in put away.")
+                    obj = AutoOrderProcessing.objects.get(grn=grn_id)
+                    if obj.state == 0:
+                        AutoOrderProcessing.objects.filter(grn=grn_id).update(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PUTAWAY)
+            info_logger.info("quantity has been updated in put away.")
+        except Exception as e:
+            info_logger.info(
+                "Something Went wrong while updating quantity for put away " + str(e))
