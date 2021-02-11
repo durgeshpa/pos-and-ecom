@@ -1,8 +1,7 @@
-from datetime import timezone
-
 from django.db import models
 
 from django.db.models import query, manager
+from django.utils import timezone
 from model_utils import Choices
 
 from brand.models import Vendor
