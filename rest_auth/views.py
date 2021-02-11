@@ -26,7 +26,7 @@ from .app_settings import (
     PasswordResetSerializer, PasswordResetConfirmSerializer,
     PasswordChangeSerializer, JWTSerializer, create_token
 )
-from .serializers import PasswordResetValidateSerializer, MlmLoginSerializer, MlmResponseSerializer, LoginResponseSerializer
+from .serializers import PasswordResetValidateSerializer, OtpLoginSerializer, MlmResponseSerializer, LoginResponseSerializer
 from .models import TokenModel
 from .utils import jwt_encode
 from otp.models import PhoneOTP
@@ -42,11 +42,13 @@ sensitive_post_parameters_m = method_decorator(
 
 APPLICATION_LOGIN_SERIALIZERS_MAP = {
     '0' : LoginSerializer,
-    '1' : MlmLoginSerializer
+    '1' : OtpLoginSerializer,
+    '2' : OtpLoginSerializer
 }
 APPLICATION_LOGIN_RESPONSE_SERIALIZERS_MAP = {
     '0' : LoginResponseSerializer,
-    '1' : MlmResponseSerializer
+    '1' : MlmResponseSerializer,
+    '2' : LoginResponseSerializer
 }
 
 
