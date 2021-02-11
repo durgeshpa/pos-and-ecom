@@ -59,7 +59,7 @@ class RewardPointForm(forms.ModelForm):
             except:
                 used_reward_factor = 4
             self.fields['phone'].initial = instance.user.phone_number
-            self.fields['name'].initial = instance.user.name
+            self.fields['name'].initial = instance.user.first_name
             self.fields['email'].initial = instance.user.email
             self.fields['redeemable_reward_points'].initial = instance.direct_earned + instance.indirect_earned \
                                                               - instance.points_used
