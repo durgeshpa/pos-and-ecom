@@ -230,7 +230,7 @@ class RewardLog(models.Model):
         ('direct_reward', 'Direct Reward'),
         ('indirect_reward', 'Indirect Reward')
     )
-    user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=TRANSACTION_CHOICES)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
     points = models.IntegerField(default=0)
