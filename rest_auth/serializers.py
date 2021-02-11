@@ -188,9 +188,9 @@ class MlmResponseSerializer(serializers.Serializer):
         return obj['user'].phone_number
 
     def get_referral_code(self, obj):
+        user_referral_code = generate_user_referral_code(obj['user'])
+        Profile.objects.get_or_create(user=obj['user'])
         if obj['action'] == 'register':
-            # generate unique referral code on registration
-            user_referral_code = generate_user_referral_code(obj['user'])
             # welcome reward for new user
             referral_code = obj['referral_code']
             referred = 1 if obj['referral_code'] != '' else 0
@@ -198,8 +198,6 @@ class MlmResponseSerializer(serializers.Serializer):
             # add parent referrer if referral code provided
             if referral_code != '':
                 Referral.store_parent_referral_user(referral_code, user_referral_code)
-            # create new profile for user
-            Profile.objects.get_or_create(user=obj['user'])
         referral_code_obj = ReferralCode.objects.filter(user_id=obj['user']).last()
         return referral_code_obj.referral_code if referral_code_obj else ''
 
