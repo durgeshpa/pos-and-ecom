@@ -1,20 +1,18 @@
-from django.conf import settings
+import datetime
+
 from django.contrib.auth import authenticate, login, get_user_model
-from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
+from django.conf import settings
+
 from rest_framework import status
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
-from django.conf import settings
+from rest_framework.permissions import AllowAny
 
-import requests, datetime
+from retailer_backend.messages import *
 from .sms import SendSms, SendVoiceSms
 from .models import PhoneOTP
-from .serializers import PhoneOTPValidateSerializer, ResendSmsOTPSerializer, \
-                         ResendVoiceOTPSerializer, SendSmsOTPSerializer
-from django.utils import timezone
-from rest_framework.permissions import AllowAny
-from retailer_backend.messages import *
-from otp.models import PhoneOTP
+from .serializers import PhoneOTPValidateSerializer, ResendSmsOTPSerializer, ResendVoiceOTPSerializer, SendSmsOTPSerializer
 
 UserModel = get_user_model()
 
@@ -34,16 +32,12 @@ class ValidateOTP(CreateAPIView):
             if user.exists():
                 user = user.last()
                 msg, status_code = self.verify(otp, user)
-                return Response(msg,
-                    status=status_code
-                )
+                return Response(msg, status=status_code)
             else:
                 msg = {'is_success': False,
                         'message': [VALIDATION_ERROR_MESSAGES['USER_NOT_EXIST']],
                         'response_data': None }
-                return Response(msg,
-                    status=status.HTTP_406_NOT_ACCEPTABLE
-                )
+                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         else:
             errors = []
             for field in serializer.errors:
@@ -129,41 +123,23 @@ class SendSmsOTP(CreateAPIView):
         )
         if serializer.is_valid():
             number = request.data.get("phone_number")
-            user = UserModel.objects.filter(phone_number=number)
-            if user.exists():
-                msg = {'is_success': True,
-                        'message': [SUCCESS_MESSAGES['USER_ALREADY_EXISTS']],
-                        'response_data': None,
-                        'user_exists': True }
-                return Response(msg,
-                    status=status.HTTP_200_OK
-                )
-            else:
-                phone_otp, otp = PhoneOTP.create_otp_for_number(number)
-                date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-                time = datetime.datetime.now().strftime("%I:%M %p")
-                message = SendSms(phone=number,
-                                  body="%s is your One Time Password for GramFactory Account."\
-                                       " Request time is %s, %s IST." % (otp,date,time))
-                message.send()
-                # if 'success' in reason:
-                phone_otp.last_otp = timezone.now()
-                phone_otp.save()
-                msg = {'is_success': True,
-                        'message': ["message sent"],
-                        'response_data': None,
-                        'user_exists': False  }
-                return Response(msg,
-                    status=status.HTTP_200_OK
-                )
-                # else:
-                #     msg = {'is_success': False,
-                #             'message': [reason],
-                #             'response_data': None,
-                #             'user_exists': False }
-                #     return Response(msg,
-                #         status=status.HTTP_406_NOT_ACCEPTABLE
-                #     )
+            phone_otp, otp = PhoneOTP.create_otp_for_number(number)
+            date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
+            time = datetime.datetime.now().strftime("%I:%M %p")
+            message = SendSms(phone=number,
+                              body="%s is your One Time Password for GramFactory Account."\
+                                   " Request time is %s, %s IST." % (otp,date,time))
+            message.send()
+            # if 'success' in reason:
+            phone_otp.last_otp = timezone.now()
+            phone_otp.save()
+            msg = {'is_success': True,
+                    'message': ["message sent"],
+                    'response_data': None,
+                    'user_exists': False  }
+            return Response(msg,
+                status=status.HTTP_200_OK
+            )
         else:
             errors = []
             for field in serializer.errors:
@@ -217,13 +193,6 @@ class ResendSmsOTP(CreateAPIView):
                     return Response(msg,
                         status=status.HTTP_200_OK
                     )
-                    # else:
-                    #     msg = {'is_success': False,
-                    #             'message': [reason],
-                    #             'response_data': None }
-                    #     return Response(msg,
-                    #         status=status.HTTP_406_NOT_ACCEPTABLE
-                    #     )
             else:
                 msg = {'is_success': False,
                         'message': [VALIDATION_ERROR_MESSAGES['USER_NOT_EXIST']],
@@ -357,11 +326,6 @@ class RevokeOTP(object):
                 'message': ["message sent"],
                 'response_data': None }
         return msg
-        # else:
-        #     msg = {'is_success': False,
-        #             'message': [reason],
-        #             'response_data': None }
-        #     return msg
 
 
 class SendSmsOTPAnytime(CreateAPIView):
