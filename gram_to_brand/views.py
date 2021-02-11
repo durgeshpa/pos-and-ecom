@@ -638,8 +638,9 @@ def autoPutAway(warehouse, batch_id, quantity,grn_id):
                                                       .format(batch_id[:17], batch_id))
                                 # check for another bin_id
                                 continue
-                            # breaking for loop continue with same bin_id
-                            break
+                            else:
+                                # breaking for loop continue with same bin_id
+                                break
                         else:
                             # check for another bin_id
                             continue
