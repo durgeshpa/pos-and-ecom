@@ -80,7 +80,7 @@ class TokenAdmin(admin.ModelAdmin):
 @admin.register(RewardPoint)
 class RewardPointAdmin(admin.ModelAdmin):
     form = RewardPointForm
-    list_display = ("phone_number", "user_name", "email_id", "redeemable_reward_points", "max_available_discount_inr",
+    list_display = ("user", "email_id", "redeemable_reward_points", "max_available_discount_inr",
                     "created_at", "modified_at",
                     "direct_users", "indirect_users", "direct_earned", "indirect_earned", "points_used")
     list_filter = [UserFilter]
@@ -89,12 +89,6 @@ class RewardPointAdmin(admin.ModelAdmin):
         used_reward_factor = int(conf_obj.value)
     except:
         used_reward_factor = 4
-
-    def phone_number(self, obj):
-        return obj.user
-
-    def user_name(self, obj):
-        return format_html('<b>%s</b>' % (obj.user.name if obj.user.name else '-'))
 
     def email_id(self, obj):
         return format_html('<b>%s</b>' % (obj.user.email if obj.user.email else '-'))
