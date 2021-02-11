@@ -1,8 +1,7 @@
-from datetime import datetime
 from django.db import models
 
-# Create your models here.
 from django.db.models import query, manager
+from django.utils import timezone
 from model_utils import Choices
 
 from brand.models import Vendor
@@ -14,7 +13,7 @@ from shops.models import Shop
 class BaseQuerySet(query.QuerySet):
 
     def update(self, **kwargs):
-        kwargs['updated_at'] = datetime.now()
+        kwargs['updated_at'] = timezone.now()
         super().update(**kwargs)
 
 class Manager(manager.BaseManager.from_queryset(BaseQuerySet)):
@@ -42,15 +41,17 @@ class AutoOrderProcessing(BaseTimestampModel):
                                       (3, 'RESERVED', 'Cart Reserved'),
                                       (4, 'ORDERED', 'Order Placed'),
                                       (5, 'PICKUP_CREATED', 'Pickup Created'),
-                                      (6, 'PICKUP_COMPLETED', 'Pickup Completed'),
-                                      (7, 'SHIPMENT', 'Shipment Created'),
-                                      (8, 'QC', 'QC Done'),
-                                      (9, 'TRIP', 'Trip Created'),
-                                      (10, 'TRIP_STARTED', 'Trip Started'),
-                                      (11, 'DELIVERED', 'Delivered'),)
+                                      (6, 'PICKING_ASSIGNED', 'Picking Assigned'),
+                                      (7, 'PICKUP_COMPLETED', 'Pickup Completed'),
+                                      (8, 'SHIPMENT', 'Shipment Created'),
+                                      (9, 'QC', 'QC Done'),
+                                      (10, 'TRIP', 'Trip Created'),
+                                      (11, 'TRIP_STARTED', 'Trip Started'),
+                                      (12, 'DELIVERED', 'Delivered'),)
     grn = models.OneToOneField(GRNOrder, related_name='auto_order', on_delete=models.CASCADE)
     grn_warehouse = models.ForeignKey(Shop, related_name='shop_grns_for_auto_processing', on_delete=models.CASCADE)
     state = models.PositiveSmallIntegerField(choices=ORDER_PROCESSING_STATUS, default=ORDER_PROCESSING_STATUS.PUTAWAY)
     retailer_shop = models.ForeignKey(Shop, related_name='auto_processing_shop_entries', on_delete=models.CASCADE, null=True)
     cart = models.OneToOneField(Cart, related_name='auto_processing_carts', on_delete=models.CASCADE, null=True)
     order = models.OneToOneField(Order, related_name='auto_processing_orders', on_delete=models.CASCADE, null=True)
+
