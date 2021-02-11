@@ -135,10 +135,8 @@ class Referral(models.Model):
     """
     This model will be used to store the parent and child referral mapping details
     """
-    referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE, null=True, blank=True)
-    referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
-    new_referral_by = models.ForeignKey(User, related_name="new_referral_by", on_delete=models.CASCADE, null=True, blank=True)
-    new_referral_to = models.ForeignKey(User, related_name="new_referral_to", on_delete=models.CASCADE, null=True, blank=True)
+    referral_by = models.ForeignKey(User, related_name="referral_by", on_delete=models.CASCADE, null=True, blank=True)
+    referral_to = models.ForeignKey(User, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -218,7 +216,7 @@ class RewardPoint(models.Model):
 
 
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     image = models.ImageField(upload_to='profile_pics', blank=True)
 
     def __str__(self):
