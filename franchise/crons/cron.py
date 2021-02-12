@@ -91,7 +91,7 @@ def fetch_franchise_data(fetch_name, to_date):
             from_date = hdpos_obj_last.to_date
         else:
             from_date = datetime.datetime(int(config('HDPOS_START_YEAR')), int(config('HDPOS_START_MONTH')),
-                                          int(config('HDPOS_START_DATE')), 0, 0, 0)
+                                          int(config('HDPOS_START_DATE')), int(config('HDPOS_START_HR')), 0, 0)
 
         cron_logger.info('franchise {} fetch | started {}'.format(fetch_name, from_date))
 
@@ -170,7 +170,8 @@ def process_sales_data(id=''):
         if id != '':
             sales_objs = FranchiseSales.objects.filter(pk=id)
         else:
-            sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2])
+            sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2], shop_loc__in=['PepperTap (Anshika Store)',
+                                                                                                'PepperTap (Gram Mart, Chipyana)'])
         if sales_objs.exists():
             type_normal = InventoryType.objects.filter(inventory_type='normal').last(),
             state_available = InventoryState.objects.filter(inventory_state='total_available').last(),
@@ -293,7 +294,10 @@ def process_returns_data():
         Proceed Inventory Adjustment Accounting for Returns of Franchise Shops
     """
     try:
-        returns_objs = FranchiseReturns.objects.filter(process_status__in=[0, 2])
+        returns_objs = FranchiseReturns.objects.filter(process_status__in=[0, 2], shop_loc__in=['PepperTap (Anshika Store)',
+                                                                                                'PepperTap (Gram Mart, Chipyana)'])
+        from_date = datetime.datetime(int(config('HDPOS_START_YEAR')), int(config('HDPOS_START_MONTH')),
+                                      int(config('HDPOS_START_DATE')), int(config('HDPOS_START_HR')), 0, 0)
         if returns_objs.exists():
             initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
             final_type = InventoryType.objects.filter(inventory_type='normal').last(),
@@ -328,7 +332,7 @@ def process_returns_data():
                         default_expiry = datetime.date(int(config('FRANCHISE_IN_DEFAULT_EXPIRY_YEAR')), 1, 1)
                         batch_id = '{}{}'.format(sku.product_sku, default_expiry.strftime('%d%m%y'))
 
-                        if return_obj.invoice_date and return_obj.invoice_date != '' and return_obj.invoice_date < datetime.datetime(2020, 12, 29, 0, 0, 0):
+                        if return_obj.invoice_date and return_obj.invoice_date != '' and return_obj.invoice_date < from_date:
                             franchise_inventory_in(warehouse, sku, batch_id, return_obj.quantity * -1, 'franchise_returns', return_obj.id,
                                                    final_type, initial_type1, initial_stage1, final_stage, bin_obj, False)
                             update_sales_ret_obj(return_obj, 1)
