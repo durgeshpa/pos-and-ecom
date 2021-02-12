@@ -170,7 +170,8 @@ def process_sales_data(id=''):
         if id != '':
             sales_objs = FranchiseSales.objects.filter(pk=id)
         else:
-            sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2])
+            sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2], shop_loc__in=['PepperTap (Anshika Store)',
+                                                                                                'PepperTap (Gram Mart, Chipyana)'])
         if sales_objs.exists():
             type_normal = InventoryType.objects.filter(inventory_type='normal').last(),
             state_available = InventoryState.objects.filter(inventory_state='total_available').last(),
@@ -293,7 +294,8 @@ def process_returns_data():
         Proceed Inventory Adjustment Accounting for Returns of Franchise Shops
     """
     try:
-        returns_objs = FranchiseReturns.objects.filter(process_status__in=[0, 2])
+        returns_objs = FranchiseReturns.objects.filter(process_status__in=[0, 2], shop_loc__in=['PepperTap (Anshika Store)',
+                                                                                                'PepperTap (Gram Mart, Chipyana)'])
         from_date = datetime.datetime(int(config('HDPOS_START_YEAR')), int(config('HDPOS_START_MONTH')),
                                       int(config('HDPOS_START_DATE')), int(config('HDPOS_START_HR')), 0, 0)
         if returns_objs.exists():
