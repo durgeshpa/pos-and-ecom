@@ -423,7 +423,10 @@ def process_auto_po_gen(request):
                     parent_product = ParentProduct.objects.get(parent_id=cart['cart_parent_product__parent_id'])
                     product = Product.objects.get(id=cart['cart_product__id'])
 
-                    if not cart_instance.cart_product_mapping_csv:
+                    cart_mapped = CartProductMapping.objects.filter(cart=cart_instance,
+                                                                    cart_parent_product=parent_product)
+
+                    if not cart_mapped:
                         product_mapping = ProductVendorMapping.objects.create(vendor=supplier, product=product,
                                                                               product_price=cart[
                                                                                   'vendor_product__product_price'],
