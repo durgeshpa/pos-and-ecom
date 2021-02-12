@@ -8,7 +8,7 @@ from brand.models import Vendor
 from gram_to_brand.models import GRNOrder
 from retailer_to_sp.models import Cart, Order
 from shops.models import Shop
-
+from gram_to_brand.models import Cart as POCart
 
 class BaseQuerySet(query.QuerySet):
 
@@ -47,10 +47,13 @@ class AutoOrderProcessing(BaseTimestampModel):
                                       (9, 'QC_DONE', 'QC Done'),
                                       (10, 'TRIP_CREATED', 'Trip Created'),
                                       (11, 'TRIP_STARTED', 'Trip Started'),
-                                      (12, 'DELIVERED', 'Delivered'),)
+                                      (12, 'DELIVERED', 'Delivered'),
+                                      (13, 'PO_CREATED', 'PO Created'),
+                                      (14, 'AUTO_GRN_DONE', 'AUTO GRN Done'))
     grn = models.OneToOneField(GRNOrder, related_name='auto_order', on_delete=models.CASCADE)
     grn_warehouse = models.ForeignKey(Shop, related_name='shop_grns_for_auto_processing', on_delete=models.CASCADE)
     state = models.PositiveSmallIntegerField(choices=ORDER_PROCESSING_STATUS, default=ORDER_PROCESSING_STATUS.PUTAWAY)
     retailer_shop = models.ForeignKey(Shop, related_name='auto_processing_shop_entries', on_delete=models.CASCADE, null=True)
     cart = models.OneToOneField(Cart, related_name='auto_processing_carts', on_delete=models.CASCADE, null=True)
     order = models.OneToOneField(Order, related_name='auto_processing_orders', on_delete=models.CASCADE, null=True)
+    auto_po = models.OneToOneField(POCart, related_name='grn_for_po', on_delete=models.CASCADE, null=True)
