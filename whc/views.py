@@ -442,7 +442,7 @@ def process_next(order_processor, entry_to_process):
     return entry_to_process.state
 
 
-def process_auto_po_gen(request):
+def process_auto_po_gen():
 
     is_wh_consolidation_on = get_config('is_wh_consolidation_on', False)
     if not is_wh_consolidation_on:
