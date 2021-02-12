@@ -586,7 +586,7 @@ class GetMessage(APIView):
         })
 
 
-def autoPutAway(warehouse, batch_id, put_away_quantity, grn_id):
+def auto_putaway(warehouse, batch_id, put_away_quantity, grn_id):
 
     virtual_bin_ids = get_config('virtual_bins')
     if not virtual_bin_ids:
@@ -605,13 +605,15 @@ def autoPutAway(warehouse, batch_id, put_away_quantity, grn_id):
         info_logger.info("process_auto_putaway|User-{} is not mapped with associated Warehouse-{}".format(user_id,warehouse))
         return
 
+    info_logger.info("process_auto_po_generation|STARTED")
+
     inventory_type = 'normal'
     type_normal = InventoryType.objects.filter(inventory_type=inventory_type).last()
-
     put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
                                                             inventory_type=type_normal).order_by('created_at')
 
     ids = [i.id for i in put_away]
+    value = put_away_quantity
     updated_putaway_value = put_away.aggregate(total=Sum('putaway_quantity'))['total'] if \
         put_away.aggregate(total=Sum('putaway_quantity'))['total'] else 0
     try:
@@ -623,8 +625,7 @@ def autoPutAway(warehouse, batch_id, put_away_quantity, grn_id):
         if updated_putaway_value + put_away_quantity > put_away.aggregate(total=Sum('quantity'))['total']:
             info_logger.info('Put away quantity is exceeded for batch_id {} Can"t add more items'.format(batch_id))
             return
-        if updated_putaway_value + put_away_quantity <= put_away.aggregate(total=Sum('quantity'))['total']:
-            value = put_away_quantity
+
         if updated_putaway_value == put_away.aggregate(total=Sum('quantity'))['total']:
             value = 0
             info_logger.info('Complete, for batch_id {} Can"t add more items'.format(batch_id))
@@ -669,11 +670,11 @@ def autoPutAway(warehouse, batch_id, put_away_quantity, grn_id):
                 put_away_status = False
 
                 while len(ids):
-                    put_away_done = update_putaway(ids[0], batch_id, warehouse, put_away_quantity, user)
+                    put_away_done = update_putaway(ids[0], batch_id, warehouse, value, user)
                     value = put_away_done
                     put_away_status = True
                     ids.remove(ids[0])
-
+                    
                 updating_tables_on_putaway(sh, bin_id, put_away, batch_id, type_normal, state_total_available, 't', put_away_quantity,
                                            put_away_status, pu)
 
