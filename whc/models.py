@@ -43,9 +43,9 @@ class AutoOrderProcessing(BaseTimestampModel):
                                       (5, 'PICKUP_CREATED', 'Pickup Created'),
                                       (6, 'PICKING_ASSIGNED', 'Picking Assigned'),
                                       (7, 'PICKUP_COMPLETED', 'Pickup Completed'),
-                                      (8, 'SHIPMENT', 'Shipment Created'),
-                                      (9, 'QC', 'QC Done'),
-                                      (10, 'TRIP', 'Trip Created'),
+                                      (8, 'SHIPMENT_CREATED', 'Shipment Created'),
+                                      (9, 'QC_DONE', 'QC Done'),
+                                      (10, 'TRIP_CREATED', 'Trip Created'),
                                       (11, 'TRIP_STARTED', 'Trip Started'),
                                       (12, 'DELIVERED', 'Delivered'),)
     grn = models.OneToOneField(GRNOrder, related_name='auto_order', on_delete=models.CASCADE)
