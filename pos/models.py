@@ -5,21 +5,21 @@ from products.models import Product
 from retailer_backend.validators import ProductNameValidator, NameValidator
 
 
-# Create your models here.
-
-
-class RetailerProduct(models.Model):
-    PRODUCT_ORIGINS = (
+PRODUCT_ORIGINS = (
         (1, 'CREATED'),
         (2, 'LINKED'),
         (3, 'LINKED_EDITED'),
     )
+
+
+class RetailerProduct(models.Model):
+
     shop = models.ForeignKey(Shop, related_name='retailer_product', on_delete=models.CASCADE)
     sku = models.CharField(max_length=255, blank=False, unique=True)
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
-    linked_product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    linked_product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     description = models.CharField(max_length=255, validators=[ProductNameValidator], null=True, blank=True)
     sku_type = models.IntegerField(choices=PRODUCT_ORIGINS, default=1)
     status = models.BooleanField(default=True)
