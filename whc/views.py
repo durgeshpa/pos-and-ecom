@@ -473,9 +473,9 @@ def process_next(order_processor, entry_to_process):
     elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.SHIPMENT_CREATED:
         entry_to_process = order_processor.shipment_qc(entry_to_process)
         entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.QC_DONE
-    # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED:
-    #     entry_to_process = order_processor.process_auto_po_gen(entry_to_process)
-    #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED:
+        entry_to_process = order_processor.process_auto_po_gen(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED
     # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED:
     #     entry_to_process = order_processor.create_auto_grn(entry_to_process)
     #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE
@@ -483,32 +483,35 @@ def process_next(order_processor, entry_to_process):
     return entry_to_process.state
 
 
-def process_auto_po_gen(request):
+def process_auto_po_gen():
     info_logger.info("process_auto_po_generation|STARTED")
-
     # fetching all delivered items
     delivered_items = AutoOrderProcessing.objects.filter(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED)
+    grn_items_id(delivered_items)
+    return HttpResponse("done")
 
+
+def grn_items_id(delivered_items):
     # using grn_id getting ordered products
     for delivered_item in delivered_items:
         grn_item = GRNOrder.objects.filter(grn_id=delivered_item.grn).values(
-         'order__ordered_cart','order__ordered_cart__brand','order__ordered_cart__po_validity_date',
-         'order__ordered_cart__payment_term', 'order__ordered_cart__delivery_term',
-         'order__ordered_cart__cart_product_mapping_csv',
+            'order__ordered_cart', 'order__ordered_cart__brand', 'order__ordered_cart__po_validity_date',
+            'order__ordered_cart__payment_term', 'order__ordered_cart__delivery_term',
+            'order__ordered_cart__cart_product_mapping_csv',
         )
 
         # from grn_item filtering mapped products
         for grn in grn_item:
-            cart_id = po_from_grn(grn, supplier, shipp_bill_address, user)
-            AutoOrderProcessing.objects.filter(grn=delivered_item.grn.id).update(
-                auto_po=cart_id.id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
-            info_logger.info("updated AutoOrderProcessing for PO_CREATED.")
+            cart_id = po_from_grn(grn)
+            if cart_id:
+                AutoOrderProcessing.objects.filter(grn=delivered_item.grn.id).update(
+                    auto_po=cart_id.id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
+                info_logger.info("updated AutoOrderProcessing for PO_CREATED.")
         info_logger.info("process_auto_po_generation|COMPLETED")
     info_logger.info("process_auto_po_generation no delivered_item item found")
-    return HttpResponse("done")
 
 
-def po_from_grn(grn, supplier, shipp_bill_address, user):
+def po_from_grn(grn):
     brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
     with transaction.atomic():
         # creating cart
@@ -518,7 +521,7 @@ def po_from_grn(grn, supplier, shipp_bill_address, user):
                                             po_validity_date=grn['order__ordered_cart__po_validity_date'],
                                             payment_term=grn['order__ordered_cart__payment_term'],
                                             delivery_term=grn['order__ordered_cart__delivery_term'],
-                                            po_status="OPEN", po_raised_by=user, cart_product_mapping_csv=
+                                            po_status="OPEN", po_raised_by=system_user, cart_product_mapping_csv=
                                             grn['order__ordered_cart__cart_product_mapping_csv'])
 
         carts = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
