@@ -369,32 +369,23 @@ class AutoOrderProcessor:
         return cart
 
 
-    def process_auto_po_gen(self):
-        info_logger.info("process_auto_po_generation|STARTED")
-        # fetching all delivered items
-        delivered_items = AutoOrderProcessing.objects.filter(
-            state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED)
-        self.grn_items_id(delivered_items)
-        return HttpResponse("done")
-
-    def grn_items_id(self, delivered_items):
+    def process_auto_po_gen(self, auto_processing_entry):
         # using grn_id getting ordered products
-        for delivered_item in delivered_items:
-            grn_item = GRNOrder.objects.filter(grn_id=delivered_item.grn).values(
-                'order__ordered_cart', 'order__ordered_cart__brand', 'order__ordered_cart__po_validity_date',
-                'order__ordered_cart__payment_term', 'order__ordered_cart__delivery_term',
-                'order__ordered_cart__cart_product_mapping_csv',
-            )
+        grn_item = GRNOrder.objects.filter(grn_id=auto_processing_entry.grn_id).values(
+            'order__ordered_cart', 'order__ordered_cart__brand', 'order__ordered_cart__po_validity_date',
+            'order__ordered_cart__payment_term', 'order__ordered_cart__delivery_term',
+            'order__ordered_cart__cart_product_mapping_csv',
+        )
 
-            # from grn_item filtering mapped products
-            for grn in grn_item:
-                cart_id = self.po_from_grn(grn)
-                if cart_id:
-                    AutoOrderProcessing.objects.filter(grn=delivered_item.grn.id).update(
-                        auto_po=cart_id.id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
-                    info_logger.info("updated AutoOrderProcessing for PO_CREATED.")
-            info_logger.info("process_auto_po_generation|COMPLETED")
-        info_logger.info("process_auto_po_generation no delivered_item item found")
+        # from grn_item filtering mapped products
+        for grn in grn_item:
+            cart_id = self.po_from_grn(grn)
+            if cart_id:
+                AutoOrderProcessing.objects.filter(grn=auto_processing_entry.grn_id).update(
+                    auto_po=cart_id.id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
+                info_logger.info("updated AutoOrderProcessing for PO_CREATED.")
+        info_logger.info("process_auto_po_generation|COMPLETED")
+    info_logger.info("process_auto_po_generation no delivered_item item found")
 
     def po_from_grn(self, grn):
         brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
@@ -419,7 +410,7 @@ class AutoOrderProcessor:
                 product = Product.objects.get(id=cart['cart_product__id'])
 
                 cart_mapped = POCartProductMappings.objects.filter(cart=cart_instance,
-                                                                   cart_parent_product=parent_product)
+                                                                   cart_product=product)
 
                 if not cart_mapped:
                     product_mapping = ProductVendorMapping.objects.create(vendor=self.supplier, product=product,
@@ -556,7 +547,7 @@ def process_next(order_processor, entry_to_process):
     return entry_to_process.state
 
 
-def process_auto_grn():
+def process_auto_grn(request):
     # fetching all PO's
     all_po = AutoOrderProcessing.objects.filter(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
     po_created(all_po)
