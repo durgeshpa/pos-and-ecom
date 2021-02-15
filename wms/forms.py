@@ -514,7 +514,7 @@ def validation_bin_stock_movement(file, user):
     return form_data_list
 
 
-def validation_stock_correction(file, user):
+def validation_stock_correction(file, user, type=''):
     reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
     first_row = next(reader)
     # list which contains csv data and pass into the view file
@@ -716,7 +716,7 @@ def validation_stock_correction(file, user):
         form_data_list.append(row)
         unique_data_list.append(row[0] + row[2] + row[3] + row[4])
     duplicate_data_list = ([item for item, count in collections.Counter(unique_data_list).items() if count > 1])
-    if len(duplicate_data_list) > 0:
+    if len(duplicate_data_list) > 0 and type != 'f':
         raise ValidationError(_(
             "Alert ! Duplicate Data. Same SKU, Expiry Date, Bin ID and Inventory Movement Type is exist in the csv,"
             " please re-verify at your end."))
