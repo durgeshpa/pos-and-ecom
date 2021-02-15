@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from addresses.models import Address
+from brand.models import Vendor
 from global_config.views import get_config
 from gram_to_brand.common_functions import get_grned_product_qty_by_grn_id
 from retailer_backend.common_function import checkNotShopAndMapping, getShopMapping
@@ -131,7 +132,9 @@ class AutoOrderProcessor:
     def __shipment_qc(self, order):
         shipments = OrderedProduct.objects.filter(order=order)
         if shipments.exists():
-            shipments.update(shipment_status=OrderedProduct.READY_TO_SHIP)
+            shipment = shipments.last()
+            shipment.shipment_status=OrderedProduct.READY_TO_SHIP
+            shipment.save()
             return
         info_logger.info("WarehouseConsolidation|shipment_qc|No Shipment found, order id-{}".format(order.id))
         raise Exception("Exception|WarehouseConsolidation|shipment_qc|Shipment QC could not be done")
@@ -320,13 +323,18 @@ class AutoOrderProcessor:
 
     def __reserve_cart(self, cart, product_quantity_dict):
         """Creates entry in order reserve release for each product in the cart"""
-        reserved_args = json.dumps({
-            'shop_id': cart.seller_shop_id,
-            'transaction_id': cart.order_id,
-            'products': product_quantity_dict,
-            'transaction_type': 'reserved'
-        })
-        OrderManagement.create_reserved_order(reserved_args)
+        if len(product_quantity_dict) > 0:
+            reserved_args = json.dumps({
+                'shop_id': cart.seller_shop_id,
+                'transaction_id': cart.order_id,
+                'products': product_quantity_dict,
+                'transaction_type': 'reserved'
+            })
+            OrderManagement.create_reserved_order(reserved_args)
+            return
+        info_logger.info(
+            "WarehouseConsolidation|reserve_cart|No product in cart, cart id-{}".format(cart.id))
+        raise Exception("Reserve cart failed, No product in the cart")
 
     def __add_products_to_cart(self, seller_shop, buyer_shop, product_quantity_dict, available_stock):
         "Creates cart and adds the product in created cart"
@@ -335,7 +343,6 @@ class AutoOrderProcessor:
         info_logger.info("WarehouseConsolidation|add_products_to_cart|Cart Created, cart id-{}, order id-{}"
                          .format(cart.id, cart.order_id))
         for product_id, qty in product_quantity_dict.items():
-            cart_mapping = CartProductMapping.objects.create(cart=cart, cart_product_id=product_id)
             available_qty = available_stock.get(product_id, 0)
             info_logger.info("WarehouseConsolidation|add_products_to_cart|product id-{}, grned qty-{}, available qty-{}"
                              .format(product_id, qty, available_qty))
@@ -343,9 +350,7 @@ class AutoOrderProcessor:
                 continue
             if qty > available_qty:
                 qty = available_qty
-            cart_mapping.qty = qty
-            cart_mapping.no_of_pieces = qty
-            cart_mapping.save()
+            CartProductMapping.objects.create(cart=cart, cart_product_id=product_id, qty=qty, no_of_pieces=qty)
             info_logger.info("WarehouseConsolidation|add_products_to_cart|product id-{}, cart id-{}, qty added-{}"
                              .format(product_id, cart.id, qty))
         return cart
@@ -366,19 +371,49 @@ def process_auto_order():
     if source_wh is None:
         info_logger.info("process_auto_order|no warehouse found with id -{}".format(source_wh_id))
         return
+
+    wh_consolidation_destination = get_config('wh_consolidation_destination')
+    if wh_consolidation_destination is None:
+        info_logger.info("process_auto_po_generation|wh_consolidation_destination is not defined ")
+        return
+    buyer_shop = Shop.objects.filter(pk=wh_consolidation_destination).last()
+
+    if buyer_shop is None:
+        info_logger.info("process_auto_order|no shop found with id -{}".format(buyer_shop))
+        return
+    wh_consolidation_vendor = get_config('wh_consolidation_vendor')
+
+    if wh_consolidation_vendor is None:
+        info_logger.info("process_auto_order|wh_consolidation_destination is not defined ")
+        return
+
+    supplier = Vendor.objects.filter(pk=wh_consolidation_vendor).last()
+    if supplier is None:
+        info_logger.info("process_auto_order|no vendor found with id -{}".format(supplier))
+        return
+
+    user_id = get_config('wh_consolidation_user')
+    if user_id is None:
+        info_logger.info("process_auto_order|user is not defined ")
+        return
+
+    system_user = User.objects.filter(pk=user_id).last()
+    if system_user is None:
+        info_logger.info("process_auto_order|no User found with id -{}".format(user_id))
+        return
+
     wh_mapping = SourceDestinationMapping.objects.filter(source_wh=source_wh)
     if not wh_mapping.exists():
         info_logger.info("process_auto_order|no mapping found for this warehouse-{}".format(source_wh))
         return
     entries_to_process = AutoOrderProcessing.objects.filter(
-                                            ~Q(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED),
+                                            ~Q(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE),
                                             grn_warehouse=source_wh)
     if entries_to_process.count() == 0:
         info_logger.info("process_auto_order| no entry to process")
         return
 
     retailer_shop = wh_mapping.last().retailer_shop
-    system_user = User.objects.filter(pk=9).last()
     order_processor = AutoOrderProcessor(retailer_shop, system_user)
     info_logger.info("process_auto_order|STARTED")
     for entry in entries_to_process:
@@ -426,5 +461,11 @@ def process_next(order_processor, entry_to_process):
     elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.SHIPMENT_CREATED:
         entry_to_process = order_processor.shipment_qc(entry_to_process)
         entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.QC_DONE
+    # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED:
+    #     entry_to_process = order_processor.process_auto_po_gen(entry_to_process)
+    #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED
+    # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED:
+    #     entry_to_process = order_processor.create_auto_grn(entry_to_process)
+    #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE
     entry_to_process.save()
     return entry_to_process.state
