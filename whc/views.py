@@ -472,7 +472,7 @@ def process_auto_order():
 
     wh_consolidation_vendor = get_config('wh_consolidation_vendor')
     if wh_consolidation_vendor is None:
-        info_logger.info("process_auto_order|wh_consolidation_destination is not defined ")
+        info_logger.info("process_auto_order|wh_consolidation_vendor is not defined ")
         return
 
     supplier = Vendor.objects.filter(pk=wh_consolidation_vendor).last()
@@ -512,9 +512,6 @@ def process_auto_order():
                 next_state = process_next(order_processor, entry)
                 if current_state == next_state:
                     info_logger.info("process_auto_order|GRN ID-{}, could not move ahead".format(entry.grn_id))
-                    break
-                if next_state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED:
-                    info_logger.info("process_auto_order|GRN ID-{}, moved to delivered state".format(entry.grn_id))
                     break
                 info_logger.info("process_auto_order|GRN ID-{}, current state-{}".format(entry.grn_id, next_state))
         except Exception as e:
