@@ -554,3 +554,26 @@ def process_next(order_processor, entry_to_process):
     #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE
     entry_to_process.save()
     return entry_to_process.state
+
+
+def process_auto_grn(request):
+    # fetching all PO's
+    all_po = AutoOrderProcessing.objects.filter(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
+    po_created(all_po)
+
+
+def po_created(all_po):
+    info_logger.info("process_auto_grn|STARTED")
+    for po in all_po:
+        # cart_item = POCarts.objects.filter(id=po.auto_po.id).values('brand', 'supplier_state', 'supplier_name',
+        #                                                             'po_status')
+
+        grn_item = GRNOrder.objects.filter(grn_id=po.grn).values(
+            'order__ordered_cart', 'invoice_no', 'invoice_date', 'invoice_amount',
+            'tcs_amount', 'products'
+        )
+        order = Ordered.objects.get(ordered_cart=po.auto_po.id)
+        for cart in grn_item:
+            grn_id = GRNOrder.objects.create(order=order, invoice_no=cart['invoice_no'], invoice_date="", invoice_amount=cart['invoice_amount'],
+                                    tcs_amount=cart['invoice_amount'])
+            print(grn_id)
