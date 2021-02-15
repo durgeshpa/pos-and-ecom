@@ -26,7 +26,7 @@ from wms.common_functions import get_stock, OrderManagement, PutawayCommonFuncti
 from wms.models import InventoryType, OrderReserveRelease, PutawayBinInventory, InventoryState, BinInventory, \
     PickupBinInventory, Pickup
 
-from gram_to_brand.models import GRNOrder,Cart as POCarts, CartProductMapping as POCartProductMappings, Order as Ordered,GRNOrderProductMapping
+from gram_to_brand.models import GRNOrder,Cart as POCarts, CartProductMapping as POCartProductMappings, Order as Ordered,GRNOrderProductMapping, Document
 from brand.models import Brand, Vendor
 from addresses.models import State, Address
 from products.models import Product, ParentProduct, ProductVendorMapping
@@ -565,6 +565,7 @@ def po_created(all_po):
                                                               'available_qty', 'returned_qty', 'damaged_qty', 'vendor_product',
                                                               'barcode_id', 'delivered_qty', 'batch_id')
 
+        grn_doc = Document.objects.filter(grn_order=po.grn).values('document_number','document_image')
         cart_product_mapped = POCartProductMappings.objects.filter(cart=po.auto_po.id).values('vendor_product')
         for cart_map in cart_product_mapped:
             vendor_product_id = cart_map['vendor_product']
@@ -579,13 +580,16 @@ def po_created(all_po):
                 grn_order = GRNOrder.objects.create(order=order, invoice_no=cart['invoice_no'], invoice_date=cart['invoice_date'],
                                                     invoice_amount=cart['invoice_amount'], tcs_amount=cart['invoice_amount'])
 
+            for doc in grn_doc:
+                grn_order = Document.objects.create(document_number=doc['document_number'], document_image=doc['document_image'])
 
             for cart in grn_order_mapping:
-                GRNOrderProductMapping.objects.create(grn_order=grn_order, product=product, product_invoice_price=cart['product_invoice_price'],
-                                                      product_invoice_qty=cart['product_invoice_qty'], manufacture_date=cart['manufacture_date'],
+                grn_obj = GRNOrderProductMapping(grn_order=grn_order, product=product, product_invoice_price=cart['product_invoice_price'],
+                                                      product_invoice_qty = cart['product_invoice_qty'], manufacture_date=cart['manufacture_date'],
                                                       expiry_date = cart['expiry_date'], delivered_qty=cart['delivered_qty'], available_qty=cart['available_qty'],
                                                       returned_qty = cart['returned_qty'], damaged_qty=cart['damaged_qty'] ,vendor_product=vendor_product,
                                                       batch_id=cart['batch_id'], barcode_id=cart['barcode_id'])
+                grn_obj.save()
 
 
 
