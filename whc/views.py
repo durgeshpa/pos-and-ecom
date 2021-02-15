@@ -25,7 +25,7 @@ from wms.common_functions import get_stock, OrderManagement, PutawayCommonFuncti
 from wms.models import InventoryType, OrderReserveRelease, PutawayBinInventory, InventoryState, BinInventory, \
     PickupBinInventory, Pickup
 
-from gram_to_brand.models import GRNOrder,Cart,CartProductMapping
+from gram_to_brand.models import GRNOrder,Cart as POCarts, CartProductMapping as POCartProductMappings
 from brand.models import Brand, Vendor
 from addresses.models import State, Address
 from products.models import Product, ParentProduct, ProductVendorMapping
@@ -442,7 +442,7 @@ def process_next(order_processor, entry_to_process):
     return entry_to_process.state
 
 
-def process_auto_po_gen():
+def process_auto_po_gen(request):
 
     is_wh_consolidation_on = get_config('is_wh_consolidation_on', False)
     if not is_wh_consolidation_on:
@@ -490,7 +490,7 @@ def process_auto_po_gen():
         for grn in grn_item:
             cart_id = po_from_grn(grn, supplier, shipp_bill_address, user)
             AutoOrderProcessing.objects.filter(grn=delivered_item.grn.id).update(
-                auto_po=cart_id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
+                auto_po=cart_id.id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
             info_logger.info("updated AutoOrderProcessing for PO_CREATED.")
         info_logger.info("process_auto_po_generation|COMPLETED")
     info_logger.info("process_auto_po_generation no delivered_item item found")
@@ -501,7 +501,7 @@ def po_from_grn(grn, supplier, shipp_bill_address, user):
     brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
     with transaction.atomic():
         # creating cart
-        cart_instance = Cart.objects.create(brand=brand, supplier_name=supplier, supplier_state=supplier.state,
+        cart_instance = POCarts.objects.create(brand=brand, supplier_name=supplier, supplier_state=supplier.state,
                                             gf_shipping_address=shipp_bill_address,
                                             gf_billing_address=shipp_bill_address,
                                             po_validity_date=grn['order__ordered_cart__po_validity_date'],
@@ -510,7 +510,7 @@ def po_from_grn(grn, supplier, shipp_bill_address, user):
                                             po_status="OPEN", po_raised_by=user, cart_product_mapping_csv=
                                             grn['order__ordered_cart__cart_product_mapping_csv'])
 
-        carts = CartProductMapping.objects.filter(cart_id=grn['order__ordered_cart']).values(
+        carts = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
             'cart_parent_product__parent_id','cart_product__id', '_tax_percentage', 'inner_case_size',
             'case_size', 'number_of_cases','scheme', 'no_of_pieces', 'vendor_product', 'price',
             'per_unit_price', 'vendor_product__brand_to_gram_price_unit',
@@ -519,7 +519,7 @@ def po_from_grn(grn, supplier, shipp_bill_address, user):
             parent_product = ParentProduct.objects.get(parent_id=cart['cart_parent_product__parent_id'])
             product = Product.objects.get(id=cart['cart_product__id'])
 
-            cart_mapped = CartProductMapping.objects.filter(cart=cart_instance,
+            cart_mapped = POCartProductMappings.objects.filter(cart=cart_instance,
                                                             cart_parent_product=parent_product)
 
             if not cart_mapped:
@@ -531,10 +531,12 @@ def po_from_grn(grn, supplier, shipp_bill_address, user):
                                                                           'vendor_product__product_mrp'],
                                                                       status=True)
 
-                CartProductMapping.objects.create(cart=cart_instance, cart_parent_product=parent_product,
+                POCartProductMappings.objects.create(cart=cart_instance, cart_parent_product=parent_product,
                                                   cart_product=product, _tax_percentage=cart['_tax_percentage'],
                                                   inner_case_size=cart['inner_case_size'], case_size=cart['case_size'],
                                                   number_of_cases=cart['number_of_cases'], scheme=cart['scheme'],
                                                   no_of_pieces=cart['no_of_pieces'], vendor_product=product_mapping,
                                                   price=float(cart['price']))
     return cart_instance
+
+
