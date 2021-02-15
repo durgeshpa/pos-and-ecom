@@ -6,7 +6,10 @@ import os
 from django.db import transaction
 from decouple import config
 from django.utils import timezone
+from django.core.mail import EmailMessage
 import traceback
+from io import StringIO
+import csv
 
 from franchise.models import FranchiseSales, ShopLocationMap, FranchiseReturns, HdposDataFetch
 from products.models import Product
@@ -43,7 +46,7 @@ def franchise_sales_returns_inventory():
 
     try:
         # fetch sales data from hdpos
-        to_date = datetime.datetime.now() - datetime.timedelta(minutes=60)
+        to_date = datetime.datetime.now()
         sales_fetch_resp = fetch_franchise_data('sales', to_date)
 
         if 'code' in sales_fetch_resp and sales_fetch_resp['code'] == 'success':
@@ -59,6 +62,7 @@ def franchise_sales_returns_inventory():
 
                 # process returns data to adjust franchise inventory
                 process_returns_data()
+                mail_data()
             else:
                 cron_logger.info('Could not fetch returns data/sales data not processed')
         else:
@@ -470,3 +474,75 @@ def indirect_reward(parent_referrer, indirect_reward_points, transaction_id):
 
             RewardLog.objects.create(user=ancestor, transaction_type='indirect_reward',
                                      transaction_id=transaction_id, points=indirect_reward_points_per_user)
+
+
+def mail_data():
+    curr_date = datetime.datetime.now()
+    curr_date = curr_date.strftime('%Y-%m-%d %H:%M:%S')
+
+    # connectiong to hdpos database
+    cnxn = pyodbc.connect(CONNECTION_PATH)
+    cron_logger.info('Franchise process | connected to hdpos inventory fetch')
+    cursor = cnxn.cursor()
+
+    # execute query to get realtime inventory from hdpos
+    module_dir = os.path.dirname(__file__)
+    file_path = os.path.join(module_dir, 'sql/inventory.sql')
+    fd = open(file_path, 'r')
+    sqlfile = fd.read()
+    fd.close()
+    cursor.execute(sqlfile)
+    cron_logger.info('Franchise process | hdpos inventory query executed')
+
+    # store exact inventory data from hdpos
+    raw_f = StringIO()
+    raw_writer = csv.writer(raw_f)
+
+    # store exact inventory data from wms
+    wms_f = StringIO()
+    wms_writer = csv.writer(wms_f)
+
+    # prepare files
+    headings = ['Shop_name', 'warehouse_id', 'Barcode', 'item_id', 'product_sku', 'product_name', 'category', 'hsn',
+                'Tax_structure', 'GST_flag', 'MRP', 'PTC', 'Realtime_available_qty', 'Last90daysaleqty', 'error']
+    wms_headings = ['Quantity', 'Created_at', 'Modified_at', 'Warehouse_id', 'Sku_id']
+
+    raw_writer.writerow(headings)
+    wms_writer.writerow(wms_headings)
+
+    # warehouse inventory
+    for obj in WarehouseInventory.objects.filter(id__in=[34016, 34037], inventory_state_id=10, inventory_type_id=1):
+        wms_writer.writerow([obj.quantity, obj.created_at, obj.modified_at, obj.warehouse_id, obj.sku_id])
+
+    # hdpos inventory
+    for row in cursor:
+        if not row[0]:
+            raw_writer.writerow(list(row) + ['shop_name'])
+            continue
+        row[0] = row[0].strip()
+        if not ShopLocationMap.objects.filter(location_name=row[0]).exists():
+            raw_writer.writerow(list(row) + ['shop_mapping'])
+            continue
+        if row[4] is None or row[4] == '':
+            raw_writer.writerow(list(row) + ['product_sku'])
+            continue
+        row[4] = row[4].strip()
+        if not Product.objects.filter(product_sku=row[4]).exists():
+            raw_writer.writerow(list(row) + ['product'])
+            continue
+        try:
+            row[12] = int(row[12])
+            raw_writer.writerow(list(row))
+        except ValueError:
+            row[12] = float(row[12])
+            raw_writer.writerow(list(row) + ['float_quantity'])
+
+    email = EmailMessage()
+    email.subject = 'HDPOS, Wms Daily Inventory'
+    sender = GlobalConfig.objects.get(key='hdpos_sender')
+    email.from_email = sender.value
+    receiver = GlobalConfig.objects.get(key='hdpos_recipient')
+    email.to = eval(receiver.value)
+    email.attach('hdpos_inventory_{}'.format(curr_date) + '.csv', raw_f.getvalue(), 'text/csv')
+    email.attach('wms_inventory_{}'.format(curr_date) + '.csv', wms_f.getvalue(), 'text/csv')
+    email.send()
