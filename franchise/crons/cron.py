@@ -516,6 +516,8 @@ def mail_data():
 
     # hdpos inventory
     for row in cursor:
+        if row[0] not in ['PepperTap (Gram Mart, Chipyana)', 'PepperTap (Anshika Store)']:
+            continue
         if not row[0]:
             raw_writer.writerow(list(row) + ['shop_name'])
             continue
