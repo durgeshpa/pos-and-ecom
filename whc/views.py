@@ -26,7 +26,7 @@ from wms.common_functions import get_stock, OrderManagement, PutawayCommonFuncti
 from wms.models import InventoryType, OrderReserveRelease, PutawayBinInventory, InventoryState, BinInventory, \
     PickupBinInventory, Pickup
 
-from gram_to_brand.models import GRNOrder,Cart as POCarts, CartProductMapping as POCartProductMappings, Order as Ordered
+from gram_to_brand.models import GRNOrder,Cart as POCarts, CartProductMapping as POCartProductMappings, Order as Ordered,GRNOrderProductMapping
 from brand.models import Brand, Vendor
 from addresses.models import State, Address
 from products.models import Product, ParentProduct, ProductVendorMapping
@@ -556,7 +556,7 @@ def process_next(order_processor, entry_to_process):
     return entry_to_process.state
 
 
-def process_auto_grn(request):
+def process_auto_grn():
     # fetching all PO's
     all_po = AutoOrderProcessing.objects.filter(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
     po_created(all_po)
@@ -565,15 +565,36 @@ def process_auto_grn(request):
 def po_created(all_po):
     info_logger.info("process_auto_grn|STARTED")
     for po in all_po:
-        # cart_item = POCarts.objects.filter(id=po.auto_po.id).values('brand', 'supplier_state', 'supplier_name',
-        #                                                             'po_status')
-
         grn_item = GRNOrder.objects.filter(grn_id=po.grn).values(
-            'order__ordered_cart', 'invoice_no', 'invoice_date', 'invoice_amount',
+            'invoice_no', 'invoice_date', 'invoice_amount',
             'tcs_amount', 'products'
         )
+        grn_order_mapping = GRNOrderProductMapping.objects.filter(grn_order=po.grn).values('product', 'product_invoice_price',
+                                                              'product_invoice_qty', 'manufacture_date', 'expiry_date',
+                                                              'available_qty', 'returned_qty', 'damaged_qty', 'vendor_product',
+                                                              'barcode_id', 'delivered_qty', 'batch_id')
+
+        cart_product_mapped = POCartProductMappings.objects.filter(cart=po.auto_po.id).values('vendor_product')
+        for cart_map in cart_product_mapped:
+            vendor_product_id = cart_map['vendor_product']
+            vendor_product = ProductVendorMapping.objects.get(id=vendor_product_id)
+
         order = Ordered.objects.get(ordered_cart=po.auto_po.id)
-        for cart in grn_item:
-            grn_id = GRNOrder.objects.create(order=order, invoice_no=cart['invoice_no'], invoice_date="", invoice_amount=cart['invoice_amount'],
-                                    tcs_amount=cart['invoice_amount'])
-            print(grn_id)
+
+        # Creates CartProductMapping
+        with transaction.atomic():
+            for cart in grn_item:
+                product = Product.objects.get(id=cart['products'])
+                grn_order = GRNOrder.objects.create(order=order, invoice_no=cart['invoice_no'], invoice_date=cart['invoice_date'],
+                                                    invoice_amount=cart['invoice_amount'], tcs_amount=cart['invoice_amount'])
+
+
+            for cart in grn_order_mapping:
+                GRNOrderProductMapping.objects.create(grn_order=grn_order, product=product, product_invoice_price=cart['product_invoice_price'],
+                                                      product_invoice_qty=cart['product_invoice_qty'], manufacture_date=cart['manufacture_date'],
+                                                      expiry_date = cart['expiry_date'], delivered_qty=cart['delivered_qty'], available_qty=cart['available_qty'],
+                                                      returned_qty = cart['returned_qty'], damaged_qty=cart['damaged_qty'] ,vendor_product=vendor_product,
+                                                      batch_id=cart['batch_id'], barcode_id=cart['barcode_id'])
+
+
+
