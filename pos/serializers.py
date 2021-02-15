@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.utils.translation import ugettext_lazy as _
 from pos.models import RetailerProduct
 from products.models import Product
+from retailer_backend.validators import ProductNameValidator
 from shops.models import Shop
 
 
@@ -9,15 +10,33 @@ class RetailerProductCreateSerializer(serializers.Serializer):
 
     shop_id = serializers.IntegerField(required=True)
     linked_product_id = serializers.IntegerField(required=False)
-    product_name = serializers.CharField(required=True)
+    product_name = serializers.CharField(required=True, validators=[ProductNameValidator])
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
-    description = serializers.CharField(allow_blank=True, required=False)
+    description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
 
     def validate(self, attrs):
+        serializer_dict = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price", "description"]
+
+        for key in self.initial_data.keys():
+            if key not in serializer_dict:
+                raise serializers.ValidationError(_(f"{key} is not allowed"))
+
         if attrs.get('shop_id'):
             if not Shop.objects.filter(id=attrs.get('shop_id')).exists():
                 raise serializers.ValidationError(_("Shop ID not found! Please enter a valid Shop ID!"))
+
+        if not attrs.get('shop_id'):
+            raise serializers.ValidationError(_("Please Provide a shop id"))
+
+        if not attrs.get('product_name'):
+            raise serializers.ValidationError(_("Please Provide Product Name"))
+
+        if not attrs.get('selling_price'):
+            raise serializers.ValidationError(_("Please Provide selling_price"))
+
+        if not attrs.get('mrp'):
+            raise serializers.ValidationError(_("Please Provide mrp"))
 
         if attrs.get('selling_price') and attrs.get('mrp'):
             if attrs.get('selling_price') > attrs.get('mrp'):
@@ -87,10 +106,10 @@ class RetailerProductResponseSerializer(serializers.Serializer):
 
 class RetailerProductUpdateSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(required=True)
-    product_name = serializers.CharField(required=False)
+    product_name = serializers.CharField(required=False, validators=[ProductNameValidator])
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
-    description = serializers.CharField(allow_blank=True, required=False)
+    description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
 
     def validate(self, attrs):
         if attrs.get('product_id'):
@@ -124,7 +143,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
                                 raise serializers.ValidationError(_("Selling Price cannot be greater than MRP"))
 
         if not attrs.get('product_id'):
-            raise serializers.ValidationError(_("Please enter a product_id! It is a mandatory field"))
+            raise serializers.ValidationError(_("Please provide a product_id!"))
 
         return attrs
 
