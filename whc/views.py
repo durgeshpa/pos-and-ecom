@@ -457,8 +457,9 @@ class AutoOrderProcessor:
             # Creates CartProductMapping
             for grn_cart_order in grn_order:
                 product = Product.objects.get(id=grn_cart_order['products'])
-                grn_order = GRNOrder(order=order, invoice_no=grn_cart_order['invoice_no'], invoice_date=grn_cart_order['invoice_date'],
-                                     invoice_amount=grn_cart_order['invoice_amount'], tcs_amount=grn_cart_order['invoice_amount'])
+                grn_order = GRNOrder(order=order, invoice_no=grn_cart_order['invoice_no'],
+                                     invoice_date=grn_cart_order['invoice_date'],invoice_amount=
+                                     grn_cart_order['invoice_amount'], tcs_amount=grn_cart_order['invoice_amount'])
                 grn_order.save()
 
             for doc in grn_doc:
@@ -474,9 +475,11 @@ class AutoOrderProcessor:
                                                  expiry_date=grn_order_mapp['expiry_date'],
                                                  delivered_qty=grn_order_mapp['delivered_qty'],
                                                  available_qty=grn_order_mapp['available_qty'],
-                                                 returned_qty=grn_order_mapp['returned_qty'], damaged_qty=grn_order_mapp['damaged_qty'],
+                                                 returned_qty=grn_order_mapp['returned_qty'],
+                                                 damaged_qty=grn_order_mapp['damaged_qty'],
                                                  vendor_product=vendor_product,
-                                                 batch_id=grn_order_mapp['batch_id'], barcode_id=grn_order_mapp['barcode_id'])
+                                                 batch_id=grn_order_mapp['batch_id'],
+                                                 barcode_id=grn_order_mapp['barcode_id'])
                 grn_obj.save()
 
             if grn_order:
