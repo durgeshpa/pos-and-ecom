@@ -435,7 +435,7 @@ class AutoOrderProcessor:
     def create_auto_grn(self, auto_processing_entry):
         info_logger.info("create_auto_grn|STARTED")
 
-        grn_order = GRNOrder.objects.filter(grn_id=auto_processing_entry.grn_id).values(
+        grn_ordered_pro = GRNOrder.objects.filter(grn_id=auto_processing_entry.grn_id).values(
             'invoice_no', 'invoice_date', 'invoice_amount',
             'tcs_amount', 'products'
         )
@@ -455,7 +455,7 @@ class AutoOrderProcessor:
 
         with transaction.atomic():
             # Creates CartProductMapping
-            for grn_cart_order in grn_order:
+            for grn_cart_order in grn_ordered_pro:
                 product = Product.objects.get(id=grn_cart_order['products'])
                 grn_order = GRNOrder(order=order, invoice_no=grn_cart_order['invoice_no'],
                                      invoice_date=grn_cart_order['invoice_date'],invoice_amount=
