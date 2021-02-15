@@ -16,10 +16,10 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
 
     def validate(self, attrs):
-        serializer_dict = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price", "description"]
+        serializer_list = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price", "description"]
 
         for key in self.initial_data.keys():
-            if key not in serializer_dict:
+            if key not in serializer_list:
                 raise serializers.ValidationError(_(f"{key} is not allowed"))
 
         if attrs.get('shop_id'):
@@ -112,6 +112,12 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
 
     def validate(self, attrs):
+        serializer_list = ['product_id', "product_name", "mrp", "selling_price", "description"]
+
+        for key in self.initial_data.keys():
+            if key not in serializer_list:
+                raise serializers.ValidationError(_(f"{key} is not allowed"))
+
         if attrs.get('product_id'):
             if not RetailerProduct.objects.filter(id=attrs.get('product_id')).exists():
                 raise serializers.ValidationError(_("Please enter a valid product_id"))
