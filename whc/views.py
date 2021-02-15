@@ -577,11 +577,14 @@ def po_created(all_po):
         with transaction.atomic():
             for cart in grn_item:
                 product = Product.objects.get(id=cart['products'])
-                grn_order = GRNOrder.objects.create(order=order, invoice_no=cart['invoice_no'], invoice_date=cart['invoice_date'],
+                grn_order = GRNOrder(order=order, invoice_no=cart['invoice_no'], invoice_date=cart['invoice_date'],
                                                     invoice_amount=cart['invoice_amount'], tcs_amount=cart['invoice_amount'])
 
+                grn_order.save()
+
             for doc in grn_doc:
-                grn_order = Document.objects.create(document_number=doc['document_number'], document_image=doc['document_image'])
+                grn_doc = Document(grn_order=grn_order, document_number=doc['document_number'], document_image=doc['document_image'])
+                grn_doc.save()
 
             for cart in grn_order_mapping:
                 grn_obj = GRNOrderProductMapping(grn_order=grn_order, product=product, product_invoice_price=cart['product_invoice_price'],
