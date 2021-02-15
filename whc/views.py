@@ -26,7 +26,7 @@ from wms.common_functions import get_stock, OrderManagement, PutawayCommonFuncti
 from wms.models import InventoryType, OrderReserveRelease, PutawayBinInventory, InventoryState, BinInventory, \
     PickupBinInventory, Pickup
 
-from gram_to_brand.models import GRNOrder,Cart as POCarts, CartProductMapping as POCartProductMappings
+from gram_to_brand.models import GRNOrder,Cart as POCarts, CartProductMapping as POCartProductMappings, Order as Ordered
 from brand.models import Brand, Vendor
 from addresses.models import State, Address
 from products.models import Product, ParentProduct, ProductVendorMapping
@@ -36,9 +36,12 @@ info_logger = logging.getLogger('file-info')
 class AutoOrderProcessor:
     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
 
-    def __init__(self, retailer_shop, user):
+    def __init__(self, retailer_shop, user, supplier, shipp_bill_address):
         self.retailer_shop = retailer_shop
         self.user = user
+        self.supplier = supplier
+        self.shipp_bill_address = shipp_bill_address
+
 
     @transaction.atomic
     def add_to_cart(self, auto_processing_entry):
@@ -366,6 +369,78 @@ class AutoOrderProcessor:
         return cart
 
 
+    def process_auto_po_gen(self):
+        info_logger.info("process_auto_po_generation|STARTED")
+        # fetching all delivered items
+        delivered_items = AutoOrderProcessing.objects.filter(
+            state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED)
+        self.grn_items_id(delivered_items)
+        return HttpResponse("done")
+
+    def grn_items_id(self, delivered_items):
+        # using grn_id getting ordered products
+        for delivered_item in delivered_items:
+            grn_item = GRNOrder.objects.filter(grn_id=delivered_item.grn).values(
+                'order__ordered_cart', 'order__ordered_cart__brand', 'order__ordered_cart__po_validity_date',
+                'order__ordered_cart__payment_term', 'order__ordered_cart__delivery_term',
+                'order__ordered_cart__cart_product_mapping_csv',
+            )
+
+            # from grn_item filtering mapped products
+            for grn in grn_item:
+                cart_id = self.po_from_grn(grn)
+                if cart_id:
+                    AutoOrderProcessing.objects.filter(grn=delivered_item.grn.id).update(
+                        auto_po=cart_id.id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
+                    info_logger.info("updated AutoOrderProcessing for PO_CREATED.")
+            info_logger.info("process_auto_po_generation|COMPLETED")
+        info_logger.info("process_auto_po_generation no delivered_item item found")
+
+    def po_from_grn(self, grn):
+        brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
+        with transaction.atomic():
+            # Creates cart and adds the product in created cart
+            cart_instance = POCarts.objects.create(brand=brand, supplier_name=self.supplier, supplier_state=self.supplier.state,
+                                                   gf_shipping_address=self.shipp_bill_address,
+                                                   gf_billing_address=self.shipp_bill_address,
+                                                   po_validity_date=grn['order__ordered_cart__po_validity_date'],
+                                                   payment_term=grn['order__ordered_cart__payment_term'],
+                                                   delivery_term=grn['order__ordered_cart__delivery_term'],
+                                                   po_status="OPEN", po_raised_by=self.user, cart_product_mapping_csv=
+                                                   grn['order__ordered_cart__cart_product_mapping_csv'])
+
+            carts = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
+                'cart_parent_product__parent_id', 'cart_product__id', '_tax_percentage', 'inner_case_size',
+                'case_size', 'number_of_cases', 'scheme', 'no_of_pieces', 'vendor_product', 'price',
+                'per_unit_price', 'vendor_product__brand_to_gram_price_unit',
+                'vendor_product__case_size', 'vendor_product__product_mrp', 'vendor_product__product_price')
+            for cart in carts:
+                parent_product = ParentProduct.objects.get(parent_id=cart['cart_parent_product__parent_id'])
+                product = Product.objects.get(id=cart['cart_product__id'])
+
+                cart_mapped = POCartProductMappings.objects.filter(cart=cart_instance,
+                                                                   cart_parent_product=parent_product)
+
+                if not cart_mapped:
+                    product_mapping = ProductVendorMapping.objects.create(vendor=self.supplier, product=product,
+                                                                          product_price=cart[
+                                                                              'vendor_product__product_price'],
+                                                                          case_size=cart['vendor_product__case_size'],
+                                                                          product_mrp=cart[
+                                                                              'vendor_product__product_mrp'],
+                                                                          status=True)
+                    # Creates CartProductMapping
+                    POCartProductMappings.objects.create(cart=cart_instance, cart_parent_product=parent_product,
+                                                         cart_product=product, _tax_percentage=cart['_tax_percentage'],
+                                                         inner_case_size=cart['inner_case_size'],
+                                                         case_size=cart['case_size'],
+                                                         number_of_cases=cart['number_of_cases'], scheme=cart['scheme'],
+                                                         no_of_pieces=cart['no_of_pieces'],
+                                                         vendor_product=product_mapping,
+                                                         price=float(cart['price']))
+        return cart_instance
+
+
 def start_auto_processing(request):
     process_auto_order()
     return HttpResponse("done")
@@ -393,8 +468,9 @@ def process_auto_order():
     if buyer_shop is None:
         info_logger.info("process_auto_order|no shop found with id -{}".format(buyer_shop))
         return
-    wh_consolidation_vendor = get_config('wh_consolidation_vendor')
+    shipp_bill_address = Address.objects.filter(shop_name=buyer_shop).last()
 
+    wh_consolidation_vendor = get_config('wh_consolidation_vendor')
     if wh_consolidation_vendor is None:
         info_logger.info("process_auto_order|wh_consolidation_destination is not defined ")
         return
@@ -426,7 +502,7 @@ def process_auto_order():
         return
 
     retailer_shop = wh_mapping.last().retailer_shop
-    order_processor = AutoOrderProcessor(retailer_shop, system_user)
+    order_processor = AutoOrderProcessor(retailer_shop, system_user, supplier, shipp_bill_address)
     info_logger.info("process_auto_order|STARTED")
     for entry in entries_to_process:
         try:
@@ -481,76 +557,3 @@ def process_next(order_processor, entry_to_process):
     #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE
     entry_to_process.save()
     return entry_to_process.state
-
-
-def process_auto_po_gen():
-    info_logger.info("process_auto_po_generation|STARTED")
-    # fetching all delivered items
-    delivered_items = AutoOrderProcessing.objects.filter(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED)
-    grn_items_id(delivered_items)
-    return HttpResponse("done")
-
-
-def grn_items_id(delivered_items):
-    # using grn_id getting ordered products
-    for delivered_item in delivered_items:
-        grn_item = GRNOrder.objects.filter(grn_id=delivered_item.grn).values(
-            'order__ordered_cart', 'order__ordered_cart__brand', 'order__ordered_cart__po_validity_date',
-            'order__ordered_cart__payment_term', 'order__ordered_cart__delivery_term',
-            'order__ordered_cart__cart_product_mapping_csv',
-        )
-
-        # from grn_item filtering mapped products
-        for grn in grn_item:
-            cart_id = po_from_grn(grn)
-            if cart_id:
-                AutoOrderProcessing.objects.filter(grn=delivered_item.grn.id).update(
-                    auto_po=cart_id.id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
-                info_logger.info("updated AutoOrderProcessing for PO_CREATED.")
-        info_logger.info("process_auto_po_generation|COMPLETED")
-    info_logger.info("process_auto_po_generation no delivered_item item found")
-
-
-def po_from_grn(grn):
-    brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
-    with transaction.atomic():
-        # creating cart
-        cart_instance = POCarts.objects.create(brand=brand, supplier_name=supplier, supplier_state=supplier.state,
-                                            gf_shipping_address=shipp_bill_address,
-                                            gf_billing_address=shipp_bill_address,
-                                            po_validity_date=grn['order__ordered_cart__po_validity_date'],
-                                            payment_term=grn['order__ordered_cart__payment_term'],
-                                            delivery_term=grn['order__ordered_cart__delivery_term'],
-                                            po_status="OPEN", po_raised_by=system_user, cart_product_mapping_csv=
-                                            grn['order__ordered_cart__cart_product_mapping_csv'])
-
-        carts = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
-            'cart_parent_product__parent_id','cart_product__id', '_tax_percentage', 'inner_case_size',
-            'case_size', 'number_of_cases','scheme', 'no_of_pieces', 'vendor_product', 'price',
-            'per_unit_price', 'vendor_product__brand_to_gram_price_unit',
-            'vendor_product__case_size', 'vendor_product__product_mrp', 'vendor_product__product_price')
-        for cart in carts:
-            parent_product = ParentProduct.objects.get(parent_id=cart['cart_parent_product__parent_id'])
-            product = Product.objects.get(id=cart['cart_product__id'])
-
-            cart_mapped = POCartProductMappings.objects.filter(cart=cart_instance,
-                                                            cart_parent_product=parent_product)
-
-            if not cart_mapped:
-                product_mapping = ProductVendorMapping.objects.create(vendor=supplier, product=product,
-                                                                      product_price=cart[
-                                                                          'vendor_product__product_price'],
-                                                                      case_size=cart['vendor_product__case_size'],
-                                                                      product_mrp=cart[
-                                                                          'vendor_product__product_mrp'],
-                                                                      status=True)
-
-                POCartProductMappings.objects.create(cart=cart_instance, cart_parent_product=parent_product,
-                                                  cart_product=product, _tax_percentage=cart['_tax_percentage'],
-                                                  inner_case_size=cart['inner_case_size'], case_size=cart['case_size'],
-                                                  number_of_cases=cart['number_of_cases'], scheme=cart['scheme'],
-                                                  no_of_pieces=cart['no_of_pieces'], vendor_product=product_mapping,
-                                                  price=float(cart['price']))
-    return cart_instance
-
-
