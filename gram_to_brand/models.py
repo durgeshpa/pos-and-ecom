@@ -471,7 +471,7 @@ def create_cart_product(sender, instance=None, created=False, update_fields=None
             order.order_no = instance.po_no
             order.save()
         else:
-            Order.objects.filter(id=instance.id).update(order_no=instance.po_no)
+            Order.objects.filter(id=instance.order_cart_mapping.id).update(order_no=instance.po_no)
     else:
         pass
     # #order.save()
