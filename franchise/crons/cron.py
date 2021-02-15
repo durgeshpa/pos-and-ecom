@@ -16,7 +16,7 @@ from products.models import Product
 from wms.common_functions import (CommonWarehouseInventoryFunctions,
                                  InternalInventoryChange, franchise_inventory_in, OutCommonFunctions)
 from wms.models import BinInventory, WarehouseInventory, InventoryState, InventoryType, Bin
-from franchise.models import get_default_virtual_bin_id
+from franchise.models import get_default_virtual_bin_id, WmsInventoryHistory, HdposInventoryHistory
 from services.models import CronRunLog
 from marketing.models import Referral, RewardPoint, MLMUser, RewardLog
 from global_config.models import GlobalConfig
@@ -513,31 +513,44 @@ def mail_data():
     # warehouse inventory
     for obj in WarehouseInventory.objects.filter(id__in=[34016, 34037], inventory_state_id=10, inventory_type_id=1):
         wms_writer.writerow([obj.quantity, obj.created_at, obj.modified_at, obj.warehouse_id, obj.sku_id])
+        WmsInventoryHistory.objects.create(warehouse_id=obj.warehouse_id, sku_id=obj.sku_id, quantity=obj.quantity)
 
     # hdpos inventory
     for row in cursor:
         if row[0] not in ['PepperTap (Gram Mart, Chipyana)', 'PepperTap (Anshika Store)']:
             continue
         if not row[0]:
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='shop_name')
             raw_writer.writerow(list(row) + ['shop_name'])
             continue
         row[0] = row[0].strip()
         if not ShopLocationMap.objects.filter(location_name=row[0]).exists():
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='shop_mapping')
             raw_writer.writerow(list(row) + ['shop_mapping'])
             continue
         if row[4] is None or row[4] == '':
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='product_sku')
             raw_writer.writerow(list(row) + ['product_sku'])
             continue
         row[4] = row[4].strip()
         if not Product.objects.filter(product_sku=row[4]).exists():
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='product')
             raw_writer.writerow(list(row) + ['product'])
             continue
         try:
             row[12] = int(row[12])
             raw_writer.writerow(list(row))
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='')
         except ValueError:
             row[12] = float(row[12])
             raw_writer.writerow(list(row) + ['float_quantity'])
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='float_quantity')
 
     email = EmailMessage()
     email.subject = 'HDPOS, Wms Daily Inventory'

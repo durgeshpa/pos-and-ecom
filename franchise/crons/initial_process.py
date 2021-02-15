@@ -18,6 +18,7 @@ from wms.forms import validation_stock_correction
 from wms.common_functions import StockMovementCSV
 from wms.views import stock_correction_data
 from accounts.models import User
+from franchise.models import HdposInventoryHistory, WmsInventoryHistory
 
 cron_logger = logging.getLogger('cron_log')
 CONNECTION_PATH = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + config('HDPOS_DB_HOST') \
@@ -111,29 +112,44 @@ def prepare_files(raw_writer, stock_file_path, cursor):
                 continue
             count += 1
             if not row[0]:
+                HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                     quantity=row[12], error='shop_name')
                 raw_writer.writerow(list(row) + ['shop_name'])
                 continue
             row[0] = row[0].strip()
             if not ShopLocationMap.objects.filter(location_name=row[0]).exists():
+                HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                     quantity=row[12], error='shop_mapping')
                 raw_writer.writerow(list(row) + ['shop_mapping'])
                 continue
             if row[4] is None or row[4] == '':
+                HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                     quantity=row[12], error='product_sku')
                 raw_writer.writerow(list(row) + ['product_sku'])
                 continue
             row[4] = row[4].strip()
             if not Product.objects.filter(product_sku=row[4]).exists():
+                HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                     quantity=row[12], error='product')
                 raw_writer.writerow(list(row) + ['product'])
                 continue
             try:
                 row[12] = int(row[12])
                 raw_writer.writerow(list(row))
+                HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                     quantity=row[12], error='')
             except ValueError:
                 row[12] = float(row[12])
                 raw_writer.writerow(list(row) + ['float_quantity'])
+                HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                     quantity=row[12], error='float_quantity')
             # add to warehouse for Anshika store and Chipyana store only
+            row[12] = math.ceil(row[12])
             if row[0] == 'PepperTap (Gram Mart, Chipyana)':
+                WmsInventoryHistory.objects.create(warehouse_id=34016, sku_id=row[4], quantity=row[12])
                 stock_writer.writerow(
-                    [34016, row[5], row[4], '01/01/2024', 'V2VZ01SR001-0001', math.ceil(row[12]), 0, 0, 0])
+                    [34016, row[5], row[4], '01/01/2024', 'V2VZ01SR001-0001', row[12], 0, 0, 0])
             elif row[0] == 'PepperTap (Anshika Store)':
+                WmsInventoryHistory.objects.create(warehouse_id=34037, sku_id=row[4], quantity=row[12])
                 stock_writer.writerow(
-                    [34037, row[5], row[4], '01/01/2024', 'V2VZ01SR001-0001', math.ceil(row[12]), 0, 0, 0])
+                    [34037, row[5], row[4], '01/01/2024', 'V2VZ01SR001-0001', row[12], 0, 0, 0])
