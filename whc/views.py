@@ -371,15 +371,15 @@ class AutoOrderProcessor:
 
     def process_auto_po_gen(self, auto_processing_entry):
         # using grn_id getting ordered products
-        grn_item = GRNOrder.objects.filter(grn_id=auto_processing_entry.grn_id).values(
+        grn_order = GRNOrder.objects.filter(grn_id=auto_processing_entry.grn_id).values(
             'order__ordered_cart', 'order__ordered_cart__brand', 'order__ordered_cart__po_validity_date',
             'order__ordered_cart__payment_term', 'order__ordered_cart__delivery_term',
             'order__ordered_cart__po_status',
             'order__ordered_cart__cart_product_mapping_csv',
         )
 
-        # from grn_item filtering mapped products
-        for grn in grn_item:
+        # from grn_order filtering mapped products
+        for grn in grn_order:
             cart_id = self.po_from_grn(grn)
             if cart_id:
                 AutoOrderProcessing.objects.filter(grn=auto_processing_entry.grn_id).update(
