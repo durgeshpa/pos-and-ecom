@@ -56,5 +56,5 @@ class AutoOrderProcessing(BaseTimestampModel):
     retailer_shop = models.ForeignKey(Shop, related_name='auto_processing_shop_entries', on_delete=models.CASCADE, null=True)
     cart = models.OneToOneField(Cart, related_name='auto_processing_carts', on_delete=models.CASCADE, null=True)
     order = models.OneToOneField(Order, related_name='auto_processing_orders', on_delete=models.CASCADE, null=True)
-    auto_po = models.OneToOneField(POCart, related_name='grn_for_po', on_delete=models.CASCADE, null=True)
+
 
