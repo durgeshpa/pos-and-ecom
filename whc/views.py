@@ -401,35 +401,35 @@ class AutoOrderProcessor:
                                                    po_status="OPEN", po_raised_by=self.user, cart_product_mapping_csv=
                                                    grn['order__ordered_cart__cart_product_mapping_csv'])
 
-            carts = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
+            cart_product_mapping = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
                 'cart_parent_product__parent_id', 'cart_product__id', '_tax_percentage', 'inner_case_size',
                 'case_size', 'number_of_cases', 'scheme', 'no_of_pieces', 'vendor_product', 'price',
                 'per_unit_price', 'vendor_product__brand_to_gram_price_unit',
                 'vendor_product__case_size', 'vendor_product__product_mrp', 'vendor_product__product_price')
-            for cart in carts:
-                parent_product = ParentProduct.objects.get(parent_id=cart['cart_parent_product__parent_id'])
-                product = Product.objects.get(id=cart['cart_product__id'])
+            for cart_pro_map in cart_product_mapping:
+                parent_product = ParentProduct.objects.get(parent_id=cart_pro_map['cart_parent_product__parent_id'])
+                product = Product.objects.get(id=cart_pro_map['cart_product__id'])
 
                 cart_mapped = POCartProductMappings.objects.filter(cart=cart_instance,
                                                                    cart_product=product)
 
                 if not cart_mapped:
                     product_mapping = ProductVendorMapping.objects.create(vendor=self.supplier, product=product,
-                                                                          product_price=cart[
+                                                                          product_price=cart_pro_map[
                                                                               'vendor_product__product_price'],
-                                                                          case_size=cart['vendor_product__case_size'],
-                                                                          product_mrp=cart[
+                                                                          case_size=cart_pro_map['vendor_product__case_size'],
+                                                                          product_mrp=cart_pro_map[
                                                                               'vendor_product__product_mrp'],
                                                                           status=True)
                     # Creates CartProductMapping
                     POCartProductMappings.objects.create(cart=cart_instance, cart_parent_product=parent_product,
-                                                         cart_product=product, _tax_percentage=cart['_tax_percentage'],
-                                                         inner_case_size=cart['inner_case_size'],
-                                                         case_size=cart['case_size'],
-                                                         number_of_cases=cart['number_of_cases'], scheme=cart['scheme'],
-                                                         no_of_pieces=cart['no_of_pieces'],
+                                                         cart_product=product, _tax_percentage=cart_pro_map['_tax_percentage'],
+                                                         inner_case_size=cart_pro_map['inner_case_size'],
+                                                         case_size=cart_pro_map['case_size'],
+                                                         number_of_cases=cart_pro_map['number_of_cases'], scheme=cart_pro_map['scheme'],
+                                                         no_of_pieces=cart_pro_map['no_of_pieces'],
                                                          vendor_product=product_mapping,
-                                                         price=float(cart['price']))
+                                                         price=float(cart_pro_map['price']))
         return cart_instance
 
     def create_auto_grn(self, auto_processing_entry):
@@ -455,10 +455,10 @@ class AutoOrderProcessor:
 
         with transaction.atomic():
             # Creates CartProductMapping
-            for cart in grn_order:
-                product = Product.objects.get(id=cart['products'])
-                grn_order = GRNOrder(order=order, invoice_no=cart['invoice_no'], invoice_date=cart['invoice_date'],
-                                     invoice_amount=cart['invoice_amount'], tcs_amount=cart['invoice_amount'])
+            for grn_cart_order in grn_order:
+                product = Product.objects.get(id=grn_cart_order['products'])
+                grn_order = GRNOrder(order=order, invoice_no=grn_cart_order['invoice_no'], invoice_date=grn_cart_order['invoice_date'],
+                                     invoice_amount=grn_cart_order['invoice_amount'], tcs_amount=grn_cart_order['invoice_amount'])
                 grn_order.save()
 
             for doc in grn_doc:
@@ -466,17 +466,17 @@ class AutoOrderProcessor:
                                    document_image=doc['document_image'])
                 grn_doc.save()
 
-            for cart in grn_order_mapping:
+            for grn_order_mapp in grn_order_mapping:
                 grn_obj = GRNOrderProductMapping(grn_order=grn_order, product=product,
-                                                 product_invoice_price=cart['product_invoice_price'],
-                                                 product_invoice_qty=cart['product_invoice_qty'],
-                                                 manufacture_date=cart['manufacture_date'],
-                                                 expiry_date=cart['expiry_date'],
-                                                 delivered_qty=cart['delivered_qty'],
-                                                 available_qty=cart['available_qty'],
-                                                 returned_qty=cart['returned_qty'], damaged_qty=cart['damaged_qty'],
+                                                 product_invoice_price=grn_order_mapp['product_invoice_price'],
+                                                 product_invoice_qty=grn_order_mapp['product_invoice_qty'],
+                                                 manufacture_date=grn_order_mapp['manufacture_date'],
+                                                 expiry_date=grn_order_mapp['expiry_date'],
+                                                 delivered_qty=grn_order_mapp['delivered_qty'],
+                                                 available_qty=grn_order_mapp['available_qty'],
+                                                 returned_qty=grn_order_mapp['returned_qty'], damaged_qty=grn_order_mapp['damaged_qty'],
                                                  vendor_product=vendor_product,
-                                                 batch_id=cart['batch_id'], barcode_id=cart['barcode_id'])
+                                                 batch_id=grn_order_mapp['batch_id'], barcode_id=grn_order_mapp['barcode_id'])
                 grn_obj.save()
 
             if grn_order:
