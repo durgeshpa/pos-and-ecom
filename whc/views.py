@@ -374,6 +374,7 @@ class AutoOrderProcessor:
         grn_item = GRNOrder.objects.filter(grn_id=auto_processing_entry.grn_id).values(
             'order__ordered_cart', 'order__ordered_cart__brand', 'order__ordered_cart__po_validity_date',
             'order__ordered_cart__payment_term', 'order__ordered_cart__delivery_term',
+            'order__ordered_cart__po_status',
             'order__ordered_cart__cart_product_mapping_csv',
         )
 
@@ -384,8 +385,8 @@ class AutoOrderProcessor:
                 AutoOrderProcessing.objects.filter(grn=auto_processing_entry.grn_id).update(
                     auto_po=cart_id.id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
                 info_logger.info("updated AutoOrderProcessing for PO_CREATED.")
-        info_logger.info("process_auto_po_generation|COMPLETED")
-    info_logger.info("process_auto_po_generation no delivered_item item found")
+                info_logger.info("process_auto_po_generation|COMPLETED")
+        info_logger.info("process_auto_po_generation no delivered_item found")
 
     def po_from_grn(self, grn):
         brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
@@ -430,6 +431,60 @@ class AutoOrderProcessor:
                                                          vendor_product=product_mapping,
                                                          price=float(cart['price']))
         return cart_instance
+
+    def create_auto_grn(self, auto_processing_entry):
+        info_logger.info("create_auto_grn|STARTED")
+
+        grn_order = GRNOrder.objects.filter(grn_id=auto_processing_entry.grn_id).values(
+            'invoice_no', 'invoice_date', 'invoice_amount',
+            'tcs_amount', 'products'
+        )
+        grn_order_mapping = GRNOrderProductMapping.objects.filter(grn_order=auto_processing_entry.grn_id).values('product',
+                                                                 'product_invoice_price', 'product_invoice_qty',
+                                                                 'manufacture_date', 'expiry_date', 'available_qty',
+                                                                 'returned_qty', 'damaged_qty', 'vendor_product', 'barcode_id',
+                                                                 'delivered_qty', 'batch_id')
+
+        grn_doc = Document.objects.filter(grn_order=auto_processing_entry.grn_id).values('document_number', 'document_image')
+        cart_product_mapped = POCartProductMappings.objects.filter(cart=auto_processing_entry.auto_po.id).values('vendor_product')
+        order = Ordered.objects.get(ordered_cart=auto_processing_entry.auto_po.id)
+
+        for cart_map in cart_product_mapped:
+            vendor_product_id = cart_map['vendor_product']
+            vendor_product = ProductVendorMapping.objects.get(id=vendor_product_id)
+
+        with transaction.atomic():
+            # Creates CartProductMapping
+            for cart in grn_order:
+                product = Product.objects.get(id=cart['products'])
+                grn_order = GRNOrder(order=order, invoice_no=cart['invoice_no'], invoice_date=cart['invoice_date'],
+                                     invoice_amount=cart['invoice_amount'], tcs_amount=cart['invoice_amount'])
+                grn_order.save()
+
+            for doc in grn_doc:
+                grn_doc = Document(grn_order=grn_order, document_number=doc['document_number'],
+                                   document_image=doc['document_image'])
+                grn_doc.save()
+
+            for cart in grn_order_mapping:
+                grn_obj = GRNOrderProductMapping(grn_order=grn_order, product=product,
+                                                 product_invoice_price=cart['product_invoice_price'],
+                                                 product_invoice_qty=cart['product_invoice_qty'],
+                                                 manufacture_date=cart['manufacture_date'],
+                                                 expiry_date=cart['expiry_date'],
+                                                 delivered_qty=cart['delivered_qty'],
+                                                 available_qty=cart['available_qty'],
+                                                 returned_qty=cart['returned_qty'], damaged_qty=cart['damaged_qty'],
+                                                 vendor_product=vendor_product,
+                                                 batch_id=cart['batch_id'], barcode_id=cart['barcode_id'])
+                grn_obj.save()
+
+            if grn_order:
+                AutoOrderProcessing.objects.filter(auto_po=auto_processing_entry.auto_po).update(
+                    grn=grn_order, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE)
+                info_logger.info("updated AutoOrderProcessing for AUTO_GRN_DONE.")
+                info_logger.info("create_auto_grn|COMPLETED")
+        info_logger.info("create_auto_grn| no cart_id for grn item found")
 
 
 def start_auto_processing(request):
@@ -540,59 +595,8 @@ def process_next(order_processor, entry_to_process):
     elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED:
         entry_to_process = order_processor.process_auto_po_gen(entry_to_process)
         entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED
-    # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED:
-    #     entry_to_process = order_processor.create_auto_grn(entry_to_process)
-    #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED:
+        entry_to_process = order_processor.create_auto_grn(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE
     entry_to_process.save()
     return entry_to_process.state
-
-
-def process_auto_grn(request):
-    # fetching all PO's
-    all_po = AutoOrderProcessing.objects.filter(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
-    po_created(all_po)
-
-
-def po_created(all_po):
-    info_logger.info("process_auto_grn|STARTED")
-    for po in all_po:
-        grn_item = GRNOrder.objects.filter(grn_id=po.grn).values(
-            'invoice_no', 'invoice_date', 'invoice_amount',
-            'tcs_amount', 'products'
-        )
-        grn_order_mapping = GRNOrderProductMapping.objects.filter(grn_order=po.grn).values('product', 'product_invoice_price',
-                                                              'product_invoice_qty', 'manufacture_date', 'expiry_date',
-                                                              'available_qty', 'returned_qty', 'damaged_qty', 'vendor_product',
-                                                              'barcode_id', 'delivered_qty', 'batch_id')
-
-        grn_doc = Document.objects.filter(grn_order=po.grn).values('document_number','document_image')
-        cart_product_mapped = POCartProductMappings.objects.filter(cart=po.auto_po.id).values('vendor_product')
-        for cart_map in cart_product_mapped:
-            vendor_product_id = cart_map['vendor_product']
-            vendor_product = ProductVendorMapping.objects.get(id=vendor_product_id)
-
-        order = Ordered.objects.get(ordered_cart=po.auto_po.id)
-
-        # Creates CartProductMapping
-        with transaction.atomic():
-            for cart in grn_item:
-                product = Product.objects.get(id=cart['products'])
-                grn_order = GRNOrder(order=order, invoice_no=cart['invoice_no'], invoice_date=cart['invoice_date'],
-                                                    invoice_amount=cart['invoice_amount'], tcs_amount=cart['invoice_amount'])
-
-                grn_order.save()
-
-            for doc in grn_doc:
-                grn_doc = Document(grn_order=grn_order, document_number=doc['document_number'], document_image=doc['document_image'])
-                grn_doc.save()
-
-            for cart in grn_order_mapping:
-                grn_obj = GRNOrderProductMapping(grn_order=grn_order, product=product, product_invoice_price=cart['product_invoice_price'],
-                                                      product_invoice_qty = cart['product_invoice_qty'], manufacture_date=cart['manufacture_date'],
-                                                      expiry_date = cart['expiry_date'], delivered_qty=cart['delivered_qty'], available_qty=cart['available_qty'],
-                                                      returned_qty = cart['returned_qty'], damaged_qty=cart['damaged_qty'] ,vendor_product=vendor_product,
-                                                      batch_id=cart['batch_id'], barcode_id=cart['barcode_id'])
-                grn_obj.save()
-
-
-
