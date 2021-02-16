@@ -1761,7 +1761,13 @@ class OrderedProduct(models.Model):  # Shipment
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if self.order.ordered_cart.cart_type == 'RETAIL':
+        if self.order.ordered_cart.cart_type == 'AUTO':
+            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+                CommonFunction.generate_invoice_number(
+                    'invoice_no', self.pk,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    self.invoice_amount)
+        elif self.order.ordered_cart.cart_type == 'RETAIL':
             if self.shipment_status == OrderedProduct.READY_TO_SHIP:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
@@ -2760,7 +2766,7 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=CartProductMapping)
 def create_offers(sender, instance=None, created=False, **kwargs):
-    if instance.qty and instance.no_of_pieces and instance.cart.cart_type != 'DISCOUNTED':
+    if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED'):
         Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 
 
@@ -2769,7 +2775,7 @@ from django.db.models.signals import post_delete
 
 @receiver(post_delete, sender=CartProductMapping)
 def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
-    if instance.qty and instance.no_of_pieces and instance.cart.cart_type != 'DISCOUNTED':
+    if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED'):
         Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 
 
