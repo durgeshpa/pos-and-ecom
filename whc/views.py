@@ -383,10 +383,7 @@ class AutoOrderProcessor:
             cart_id = self.po_from_grn(grn)
             if cart_id:
                 info_logger.info("process_auto_po_generation|COMPLETED")
-                AutoOrderProcessing.objects.filter(grn=auto_processing_entry.grn_id).update(
-                    auto_po=cart_id.id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
-                info_logger.info("updated AutoOrderProcessing for PO_CREATED.")
-
+                auto_processing_entry.auto_po_id = cart_id.id
         return auto_processing_entry
 
     def po_from_grn(self, grn):
@@ -448,7 +445,7 @@ class AutoOrderProcessor:
 
         grn_doc = Document.objects.filter(grn_order=auto_processing_entry.grn_id).values('document_number', 'document_image')
         cart_product_mapped = POCartProductMappings.objects.filter(cart=auto_processing_entry.auto_po.id).values('vendor_product')
-        order = Ordered.objects.get(ordered_cart=auto_processing_entry.auto_po.id)
+        order = Ordered.objects.get(ordered_cart=auto_processing_entry.auto_po_id)
 
         for cart_map in cart_product_mapped:
             vendor_product_id = cart_map['vendor_product']
@@ -484,9 +481,7 @@ class AutoOrderProcessor:
                 grn_obj.save()
 
             if grn_order:
-                AutoOrderProcessing.objects.filter(auto_po=auto_processing_entry.auto_po).update(
-                    grn=grn_order, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE)
-                info_logger.info("updated AutoOrderProcessing for AUTO_GRN_DONE.")
+                auto_processing_entry.grn_id = grn_order
                 info_logger.info("create_auto_grn|COMPLETED")
         info_logger.info("create_auto_grn| no cart_id for grn item found")
         return auto_processing_entry
