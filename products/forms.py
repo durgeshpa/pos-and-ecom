@@ -1062,7 +1062,7 @@ class UploadMasterDataAdminForm(forms.Form):
                     raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
                                             'Status cannot be empty'))
                 if 'status' in row.keys():
-                    if row['sku_id'] == '':
+                    if row['status'] == '':
                         raise ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
 
         self.validate_row(uploaded_data_list, header_list, upload_master_data, category)
