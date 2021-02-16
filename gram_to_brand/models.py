@@ -335,17 +335,19 @@ class CartProductMapping(models.Model):
                 brand_to_gram_price_unit = productVendorObj.last().brand_to_gram_price_unit if productVendorObj.exists() else None
 
                 if brand_to_gram_price_unit == "Per Piece":
-                    self.vendor_product = ProductVendorMapping.objects.get_or_create(vendor=self.cart.supplier_name,
-                                                                              product=self.cart_product,
-                                                                              case_size=case_size,
-                                                                              product_price=self.price, product_mrp=mrp,
-                                                                              status=True)
+                    vendor_product_dt = ProductVendorMapping.objects.create(vendor=self.cart.supplier_name,
+                                                        product=self.cart_product,
+                                                        case_size=case_size,
+                                                        product_price=self.price, product_mrp=mrp,
+                                                        status=True)
+                    self.vendor_product = vendor_product_dt
                 elif brand_to_gram_price_unit == "Per Pack":
-                    self.vendor_product = ProductVendorMapping.objects.get_or_create(vendor=self.cart.supplier_name,
+                    vendor_product_dt = ProductVendorMapping.objects.create(vendor=self.cart.supplier_name,
                                                                               product=self.cart_product,
                                                                               case_size=case_size,
                                                                               product_price_pack=self.price,
                                                                               product_mrp=mrp, status=True)
+                    self.vendor_product = vendor_product_dt
 
             self.per_unit_price = self.per_unit_prices()
             self.case_size = self.case_sizes()
