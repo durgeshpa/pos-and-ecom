@@ -396,7 +396,7 @@ class AutoOrderProcessor:
                                                    po_validity_date=grn['order__ordered_cart__po_validity_date'],
                                                    payment_term=grn['order__ordered_cart__payment_term'],
                                                    delivery_term=grn['order__ordered_cart__delivery_term'],
-                                                   po_status="OPEN", po_raised_by=self.user, cart_product_mapping_csv=
+                                                   po_status=grn['order__ordered_cart__po_status'], po_raised_by=self.user, cart_product_mapping_csv=
                                                    grn['order__ordered_cart__cart_product_mapping_csv'])
 
             cart_product_mapping = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
