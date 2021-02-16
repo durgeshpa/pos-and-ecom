@@ -396,7 +396,9 @@ class AutoOrderProcessor:
                                                    po_validity_date=grn['order__ordered_cart__po_validity_date'],
                                                    payment_term=grn['order__ordered_cart__payment_term'],
                                                    delivery_term=grn['order__ordered_cart__delivery_term'],
-                                                   po_status=grn['order__ordered_cart__po_status'], po_raised_by=self.user, cart_product_mapping_csv=
+                                                   po_status=grn['order__ordered_cart__po_status'],
+                                                   po_raised_by=self.user,last_modified_by=self.user,
+                                                   cart_product_mapping_csv=
                                                    grn['order__ordered_cart__cart_product_mapping_csv'])
 
             cart_product_mapping = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
@@ -412,6 +414,7 @@ class AutoOrderProcessor:
                                                                    cart_product=product)
 
                 if not cart_mapped:
+
                     product_mapping = ProductVendorMapping.objects.create(vendor=self.supplier, product=product,
                                                                           product_price=cart_pro_map[
                                                                               'vendor_product__product_price'],
@@ -454,9 +457,9 @@ class AutoOrderProcessor:
         with transaction.atomic():
             # Creates CartProductMapping
             for grn_cart_order in grn_ordered_pro:
-                product = Product.objects.get(id=grn_cart_order['products'])
+
                 grn_order = GRNOrder(order=order, invoice_no=grn_cart_order['invoice_no'],
-                                     invoice_date=grn_cart_order['invoice_date'],invoice_amount=
+                                     invoice_date=grn_cart_order['invoice_date'], invoice_amount=
                                      grn_cart_order['invoice_amount'], tcs_amount=grn_cart_order['invoice_amount'])
                 grn_order.save()
 
@@ -466,6 +469,7 @@ class AutoOrderProcessor:
                 grn_doc.save()
 
             for grn_order_mapp in grn_order_mapping:
+                product = Product.objects.get(id=grn_order_mapp['product'])
                 grn_obj = GRNOrderProductMapping(grn_order=grn_order, product=product,
                                                  product_invoice_price=grn_order_mapp['product_invoice_price'],
                                                  product_invoice_qty=grn_order_mapp['product_invoice_qty'],
