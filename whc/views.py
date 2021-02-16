@@ -27,14 +27,22 @@ from wms.models import InventoryType, OrderReserveRelease, PutawayBinInventory, 
     PickupBinInventory, Pickup
 from wms.views import shipment_out_inventory_change
 
+from gram_to_brand.models import GRNOrder,Cart as POCarts, CartProductMapping as POCartProductMappings, Order as Ordered,GRNOrderProductMapping, Document
+from brand.models import Brand, Vendor
+from addresses.models import State, Address
+from products.models import Product, ParentProduct, ProductVendorMapping
 info_logger = logging.getLogger('file-info')
+
 
 class AutoOrderProcessor:
     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
 
-    def __init__(self, retailer_shop, user):
+    def __init__(self, retailer_shop, user, supplier, shipp_bill_address):
         self.retailer_shop = retailer_shop
         self.user = user
+        self.supplier = supplier
+        self.shipp_bill_address = shipp_bill_address
+
 
     @transaction.atomic
     def add_to_cart(self, auto_processing_entry):
@@ -54,15 +62,18 @@ class AutoOrderProcessor:
         cart = self.__add_products_to_cart(parent_mapping.parent, parent_mapping.retailer, product_quantity_dict,
                                            available_stock)
         info_logger.info("WarehouseConsolidation|place_order_by_grn| Cart Generated, cart id-{}".format(cart.id))
+
         auto_processing_entry.cart=cart
         auto_processing_entry.retailer_shop = self.retailer_shop
         return auto_processing_entry
 
     @transaction.atomic
     def reserve_order(self, auto_processing_entry):
-        product_quantity_dict = {cp.cart_product_id:cp.qty for cp in CartProductMapping.objects.filter(cart=auto_processing_entry.cart)}
+        product_quantity_dict = {cp.cart_product_id: cp.qty for cp in
+                                 CartProductMapping.objects.filter(cart=auto_processing_entry.cart)}
         self.__reserve_cart(auto_processing_entry.cart, product_quantity_dict)
-        info_logger.info("WarehouseConsolidation|place_order_by_grn| Cart Reserved, cart id-{}".format(auto_processing_entry.cart_id))
+        info_logger.info("WarehouseConsolidation|place_order_by_grn| Cart Reserved, cart id-{}".format(
+            auto_processing_entry.cart_id))
         return auto_processing_entry
 
     @transaction.atomic
@@ -92,7 +103,7 @@ class AutoOrderProcessor:
     @transaction.atomic
     def complete_pickup(self, auto_processing_entry):
         order_no = auto_processing_entry.order.order_no
-        info_logger.info("WarehouseConsolidation|complete_pickup| Started, order id-{}" .format(order_no))
+        info_logger.info("WarehouseConsolidation|complete_pickup| Started, order id-{}".format(order_no))
         self.__complete_pickup(order_no)
         info_logger.info("WarehouseConsolidation|complete_pickup| Completed, order id-{}".format(order_no))
         picker_dashboard_obj = PickerDashboard.objects.filter(order=auto_processing_entry.order,
@@ -260,13 +271,14 @@ class AutoOrderProcessor:
 
     @transaction.atomic
     def generate_picklist(self, auto_processing_entry):
-        in_ids = InCommonFunctions.get_filtered_in(in_type='GRN', in_type_id=auto_processing_entry.grn.grn_id)\
-                                  .annotate(idc=Cast('pk', TextField()))\
-                                  .values_list('idc', flat=True)
+        in_ids = InCommonFunctions.get_filtered_in(in_type='GRN', in_type_id=auto_processing_entry.grn.grn_id) \
+            .annotate(idc=Cast('pk', TextField())) \
+            .values_list('idc', flat=True)
         putaway_bin_inventories = PutawayBinInventory.objects.filter(putaway__putaway_type='GRN',
                                                                      putaway__putaway_type_id__in=in_ids)
-        putaway_batch_bin_dict = {pbi.sku_id:{'batch_id':pbi.batch_id, 'bin_id': pbi.bin_id, 'qty':pbi.putaway_quantity}
-                                  for pbi in putaway_bin_inventories}
+        putaway_batch_bin_dict = {
+            pbi.sku_id: {'batch_id': pbi.batch_id, 'bin_id': pbi.bin_id, 'qty': pbi.putaway_quantity}
+            for pbi in putaway_bin_inventories}
         self.__generate_picklist(auto_processing_entry.cart, auto_processing_entry.order, putaway_batch_bin_dict)
         info_logger.info("WarehouseConsolidation|generate_picklist| Picklist Generated, order id-{}"
                          .format(auto_processing_entry.order_id))
@@ -339,7 +351,7 @@ class AutoOrderProcessor:
                     .format(cart.order_id))
             return False
         order = Order.objects.create(last_modified_by=self.user, ordered_by=self.user, ordered_cart=cart,
-                                        order_no=cart.order_id)
+                                     order_no=cart.order_id)
 
         order.billing_address = Address.objects.filter(shop_name=cart.buyer_shop, address_type='billing').last()
         order.shipping_address = Address.objects.filter(shop_name=cart.buyer_shop, address_type='shipping').last()
@@ -387,8 +399,9 @@ class AutoOrderProcessor:
 
     def __add_products_to_cart(self, seller_shop, buyer_shop, product_quantity_dict, available_stock):
         "Creates cart and adds the product in created cart"
-        cart = Cart.objects.create(last_modified_by=self.user, cart_status='active', cart_type='AUTO', approval_status=False,
-                    seller_shop=seller_shop, buyer_shop=buyer_shop)
+        cart = Cart.objects.create(last_modified_by=self.user, cart_status='active', cart_type='AUTO',
+                                   approval_status=False,
+                                   seller_shop=seller_shop, buyer_shop=buyer_shop)
         info_logger.info("WarehouseConsolidation|add_products_to_cart|Cart Created, cart id-{}, order id-{}"
                          .format(cart.id, cart.order_id))
         for product_id, qty in product_quantity_dict.items():
@@ -404,9 +417,132 @@ class AutoOrderProcessor:
                              .format(product_id, cart.id, qty))
         return cart
 
+
+    def process_auto_po_gen(self, auto_processing_entry):
+        # using grn_id getting ordered products
+        grn_order = GRNOrder.objects.filter(grn_id=auto_processing_entry.grn_id).values(
+            'order__ordered_cart', 'order__ordered_cart__brand', 'order__ordered_cart__po_validity_date',
+            'order__ordered_cart__payment_term', 'order__ordered_cart__delivery_term',
+            'order__ordered_cart__po_status',
+            'order__ordered_cart__cart_product_mapping_csv',
+        )
+
+        # from grn_order filtering mapped products
+        for grn in grn_order:
+            cart_id = self.po_from_grn(grn)
+            if cart_id:
+                AutoOrderProcessing.objects.filter(grn=auto_processing_entry.grn_id).update(
+                    auto_po=cart_id.id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
+                info_logger.info("updated AutoOrderProcessing for PO_CREATED.")
+                info_logger.info("process_auto_po_generation|COMPLETED")
+        info_logger.info("process_auto_po_generation no delivered_item found")
+
+    def po_from_grn(self, grn):
+        brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
+        with transaction.atomic():
+            # Creates cart and adds the product in created cart
+            cart_instance = POCarts.objects.create(brand=brand, supplier_name=self.supplier, supplier_state=self.supplier.state,
+                                                   gf_shipping_address=self.shipp_bill_address,
+                                                   gf_billing_address=self.shipp_bill_address,
+                                                   po_validity_date=grn['order__ordered_cart__po_validity_date'],
+                                                   payment_term=grn['order__ordered_cart__payment_term'],
+                                                   delivery_term=grn['order__ordered_cart__delivery_term'],
+                                                   po_status="OPEN", po_raised_by=self.user, cart_product_mapping_csv=
+                                                   grn['order__ordered_cart__cart_product_mapping_csv'])
+
+            cart_product_mapping = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
+                'cart_parent_product__parent_id', 'cart_product__id', '_tax_percentage', 'inner_case_size',
+                'case_size', 'number_of_cases', 'scheme', 'no_of_pieces', 'vendor_product', 'price',
+                'per_unit_price', 'vendor_product__brand_to_gram_price_unit',
+                'vendor_product__case_size', 'vendor_product__product_mrp', 'vendor_product__product_price')
+            for cart_pro_map in cart_product_mapping:
+                parent_product = ParentProduct.objects.get(parent_id=cart_pro_map['cart_parent_product__parent_id'])
+                product = Product.objects.get(id=cart_pro_map['cart_product__id'])
+
+                cart_mapped = POCartProductMappings.objects.filter(cart=cart_instance,
+                                                                   cart_product=product)
+
+                if not cart_mapped:
+                    product_mapping = ProductVendorMapping.objects.create(vendor=self.supplier, product=product,
+                                                                          product_price=cart_pro_map[
+                                                                              'vendor_product__product_price'],
+                                                                          case_size=cart_pro_map['vendor_product__case_size'],
+                                                                          product_mrp=cart_pro_map[
+                                                                              'vendor_product__product_mrp'],
+                                                                          status=True)
+                    # Creates CartProductMapping
+                    POCartProductMappings.objects.create(cart=cart_instance, cart_parent_product=parent_product,
+                                                         cart_product=product, _tax_percentage=cart_pro_map['_tax_percentage'],
+                                                         inner_case_size=cart_pro_map['inner_case_size'],
+                                                         case_size=cart_pro_map['case_size'],
+                                                         number_of_cases=cart_pro_map['number_of_cases'], scheme=cart_pro_map['scheme'],
+                                                         no_of_pieces=cart_pro_map['no_of_pieces'],
+                                                         vendor_product=product_mapping,
+                                                         price=float(cart_pro_map['price']))
+        return cart_instance
+
+    def create_auto_grn(self, auto_processing_entry):
+        info_logger.info("create_auto_grn|STARTED")
+
+        grn_ordered_pro = GRNOrder.objects.filter(grn_id=auto_processing_entry.grn_id).values(
+            'invoice_no', 'invoice_date', 'invoice_amount',
+            'tcs_amount', 'products'
+        )
+        grn_order_mapping = GRNOrderProductMapping.objects.filter(grn_order=auto_processing_entry.grn_id).values('product',
+                                                                 'product_invoice_price', 'product_invoice_qty',
+                                                                 'manufacture_date', 'expiry_date', 'available_qty',
+                                                                 'returned_qty', 'damaged_qty', 'vendor_product', 'barcode_id',
+                                                                 'delivered_qty', 'batch_id')
+
+        grn_doc = Document.objects.filter(grn_order=auto_processing_entry.grn_id).values('document_number', 'document_image')
+        cart_product_mapped = POCartProductMappings.objects.filter(cart=auto_processing_entry.auto_po.id).values('vendor_product')
+        order = Ordered.objects.get(ordered_cart=auto_processing_entry.auto_po.id)
+
+        for cart_map in cart_product_mapped:
+            vendor_product_id = cart_map['vendor_product']
+            vendor_product = ProductVendorMapping.objects.get(id=vendor_product_id)
+
+        with transaction.atomic():
+            # Creates CartProductMapping
+            for grn_cart_order in grn_ordered_pro:
+                product = Product.objects.get(id=grn_cart_order['products'])
+                grn_order = GRNOrder(order=order, invoice_no=grn_cart_order['invoice_no'],
+                                     invoice_date=grn_cart_order['invoice_date'],invoice_amount=
+                                     grn_cart_order['invoice_amount'], tcs_amount=grn_cart_order['invoice_amount'])
+                grn_order.save()
+
+            for doc in grn_doc:
+                grn_doc = Document(grn_order=grn_order, document_number=doc['document_number'],
+                                   document_image=doc['document_image'])
+                grn_doc.save()
+
+            for grn_order_mapp in grn_order_mapping:
+                grn_obj = GRNOrderProductMapping(grn_order=grn_order, product=product,
+                                                 product_invoice_price=grn_order_mapp['product_invoice_price'],
+                                                 product_invoice_qty=grn_order_mapp['product_invoice_qty'],
+                                                 manufacture_date=grn_order_mapp['manufacture_date'],
+                                                 expiry_date=grn_order_mapp['expiry_date'],
+                                                 delivered_qty=grn_order_mapp['delivered_qty'],
+                                                 available_qty=grn_order_mapp['available_qty'],
+                                                 returned_qty=grn_order_mapp['returned_qty'],
+                                                 damaged_qty=grn_order_mapp['damaged_qty'],
+                                                 vendor_product=vendor_product,
+                                                 batch_id=grn_order_mapp['batch_id'],
+                                                 barcode_id=grn_order_mapp['barcode_id'])
+                grn_obj.save()
+
+            if grn_order:
+                AutoOrderProcessing.objects.filter(auto_po=auto_processing_entry.auto_po).update(
+                    grn=grn_order, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE)
+                info_logger.info("updated AutoOrderProcessing for AUTO_GRN_DONE.")
+                info_logger.info("create_auto_grn|COMPLETED")
+        info_logger.info("create_auto_grn| no cart_id for grn item found")
+
+
 def start_auto_processing(request):
     process_auto_order()
     return HttpResponse("done")
+
 
 def process_auto_order():
     is_wh_consolidation_on = get_config('is_wh_consolidation_on', False)
@@ -430,6 +566,8 @@ def process_auto_order():
     if buyer_shop is None:
         info_logger.info("process_auto_order|no shop found with id -{}".format(buyer_shop))
         return
+    shipp_bill_address = Address.objects.filter(shop_name=buyer_shop).last()
+
     wh_consolidation_vendor = get_config('wh_consolidation_vendor')
     if wh_consolidation_vendor is None:
         info_logger.info("process_auto_order|wh_consolidation_vendor is not defined ")
@@ -462,7 +600,7 @@ def process_auto_order():
         return
 
     retailer_shop = wh_mapping.last().retailer_shop
-    order_processor = AutoOrderProcessor(retailer_shop, system_user)
+    order_processor = AutoOrderProcessor(retailer_shop, system_user, supplier, shipp_bill_address)
     info_logger.info("process_auto_order|STARTED")
     for entry in entries_to_process:
         try:
@@ -515,11 +653,11 @@ def process_next(order_processor, entry_to_process):
     elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.TRIP_STARTED:
         entry_to_process = order_processor.complete_trip(entry_to_process)
         entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED
-    # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED:
-    #     entry_to_process = order_processor.process_auto_po_gen(entry_to_process)
-    #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED
-    # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED:
-    #     entry_to_process = order_processor.create_auto_grn(entry_to_process)
-    #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED:
+        entry_to_process = order_processor.process_auto_po_gen(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED:
+        entry_to_process = order_processor.create_auto_grn(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE
     entry_to_process.save()
     return entry_to_process.state
