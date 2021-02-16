@@ -371,7 +371,7 @@ class AutoOrderProcessor:
 
     def process_auto_po_gen(self, auto_processing_entry):
         # using grn_id getting ordered products
-        grn_order = GRNOrder.objects.filter(grn_id=auto_processing_entry.grn_id).values(
+        grn_order = GRNOrder.objects.filter(id=auto_processing_entry.grn_id).values(
             'order__ordered_cart', 'order__ordered_cart__brand', 'order__ordered_cart__po_validity_date',
             'order__ordered_cart__payment_term', 'order__ordered_cart__delivery_term',
             'order__ordered_cart__po_status',
@@ -382,11 +382,12 @@ class AutoOrderProcessor:
         for grn in grn_order:
             cart_id = self.po_from_grn(grn)
             if cart_id:
+                info_logger.info("process_auto_po_generation|COMPLETED")
                 AutoOrderProcessing.objects.filter(grn=auto_processing_entry.grn_id).update(
                     auto_po=cart_id.id, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED)
                 info_logger.info("updated AutoOrderProcessing for PO_CREATED.")
-                info_logger.info("process_auto_po_generation|COMPLETED")
-        info_logger.info("process_auto_po_generation no delivered_item found")
+
+        return auto_processing_entry
 
     def po_from_grn(self, grn):
         brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
@@ -435,7 +436,7 @@ class AutoOrderProcessor:
     def create_auto_grn(self, auto_processing_entry):
         info_logger.info("create_auto_grn|STARTED")
 
-        grn_ordered_pro = GRNOrder.objects.filter(grn_id=auto_processing_entry.grn_id).values(
+        grn_ordered_pro = GRNOrder.objects.filter(id=auto_processing_entry.grn_id).values(
             'invoice_no', 'invoice_date', 'invoice_amount',
             'tcs_amount', 'products'
         )
@@ -488,6 +489,7 @@ class AutoOrderProcessor:
                 info_logger.info("updated AutoOrderProcessing for AUTO_GRN_DONE.")
                 info_logger.info("create_auto_grn|COMPLETED")
         info_logger.info("create_auto_grn| no cart_id for grn item found")
+        return auto_processing_entry
 
 
 def start_auto_processing(request):
