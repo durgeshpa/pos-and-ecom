@@ -3,9 +3,8 @@ import logging
 
 from django.db import transaction
 from django.db.models import Q, TextField
-from django.db.models.functions import Cast, datetime
+from django.db.models.functions import Cast
 from django.http import HttpResponse
-from django.shortcuts import render
 
 # Create your views here.
 from django.utils import timezone
@@ -17,14 +16,16 @@ from global_config.views import get_config
 from gram_to_brand.common_functions import get_grned_product_qty_by_grn_id
 from retailer_backend.common_function import checkNotShopAndMapping, getShopMapping
 from retailer_to_sp.models import Order, Cart, CartProductMapping, PickerDashboard, generate_picklist_id, \
-    populate_data_on_qc_pass, OrderedProductMapping, OrderedProduct, OrderedProductBatch
+     OrderedProductMapping, OrderedProduct, OrderedProductBatch, Trip
+from retailer_to_sp.views import TRIP_ORDER_STATUS_MAP, TRIP_SHIPMENT_STATUS_MAP
 from shops.models import Shop
 from whc.models import AutoOrderProcessing, SourceDestinationMapping
-from wms.common_functions import get_stock, OrderManagement, PutawayCommonFunctions, InCommonFunctions, \
+from wms.common_functions import get_stock, OrderManagement, InCommonFunctions, \
     CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, CommonWarehouseInventoryFunctions, \
     CommonBinInventoryFunctions, get_expiry_date
 from wms.models import InventoryType, OrderReserveRelease, PutawayBinInventory, InventoryState, BinInventory, \
     PickupBinInventory, Pickup
+from wms.views import shipment_out_inventory_change
 
 info_logger = logging.getLogger('file-info')
 
@@ -126,6 +127,54 @@ class AutoOrderProcessor:
                          .format(auto_processing_entry.order.id))
         self.__shipment_qc(auto_processing_entry.order)
         info_logger.info("WarehouseConsolidation|shipment_qc|QC Done, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        return auto_processing_entry
+
+    @transaction.atomic
+    def create_trip(self, auto_processing_entry):
+
+        info_logger.info("WarehouseConsolidation|create_trip|Started, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        trip = Trip(seller_shop=auto_processing_entry.order.seller_shop, delivery_boy=self.user,
+                    vehicle_no='', trip_status=Trip.READY)
+        trip.save()
+        shipments = OrderedProduct.objects.filter(order=auto_processing_entry.order)
+        if shipments:
+            shipments.update(trip=trip, shipment_status='READY_TO_DISPATCH')
+            auto_processing_entry.order.order_status = Order.READY_TO_DISPATCH
+        info_logger.info("WarehouseConsolidation|create_trip|Trip Created, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        return auto_processing_entry
+
+    @transaction.atomic
+    def start_trip(self, auto_processing_entry):
+        info_logger.info("WarehouseConsolidation|start_trip|Started, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        shipments = OrderedProduct.objects.filter(order=auto_processing_entry.order)
+        for shipment in shipments:
+            shipment.trip.trip_status = Trip.STARTED
+            shipment.trip.save()
+        info_logger.info("WarehouseConsolidation|start_trip|trip status updated, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        shipment_out_inventory_change(shipments, TRIP_SHIPMENT_STATUS_MAP[Trip.READY])
+        info_logger.info("WarehouseConsolidation|start_trip|inventory changes done, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        auto_processing_entry.order.order_status = Order.DISPATCHED
+        info_logger.info("WarehouseConsolidation|start_trip|Completed, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        return auto_processing_entry
+
+    def complete_trip(self, auto_processing_entry):
+        info_logger.info("WarehouseConsolidation|complete_trip|Started, order id-{}"
+                         .format(auto_processing_entry.order.id))
+        shipments = OrderedProduct.objects.filter(order=auto_processing_entry.order)
+        for shipment in shipments:
+            shipment.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
+            shipment.trip.trip_status = Trip.COMPLETED
+            shipment.trip.save()
+            shipment.save()
+        auto_processing_entry.order.order_status = TRIP_ORDER_STATUS_MAP[Trip.COMPLETED]
+        info_logger.info("WarehouseConsolidation|complete_trip|Completed, order id-{}"
                          .format(auto_processing_entry.order.id))
         return auto_processing_entry
 
@@ -457,6 +506,15 @@ def process_next(order_processor, entry_to_process):
     elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.SHIPMENT_CREATED:
         entry_to_process = order_processor.shipment_qc(entry_to_process)
         entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.QC_DONE
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.QC_DONE:
+        entry_to_process = order_processor.create_trip(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.TRIP_CREATED
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.TRIP_CREATED:
+        entry_to_process = order_processor.start_trip(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.TRIP_STARTED
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.TRIP_STARTED:
+        entry_to_process = order_processor.complete_trip(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED
     # elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.DELIVERED:
     #     entry_to_process = order_processor.process_auto_po_gen(entry_to_process)
     #     entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED
