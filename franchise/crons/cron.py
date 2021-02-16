@@ -511,7 +511,9 @@ def mail_data():
     wms_writer.writerow(wms_headings)
 
     # warehouse inventory
-    for obj in WarehouseInventory.objects.filter(id__in=[34016, 34037], inventory_state_id=10, inventory_type_id=1):
+    for obj in WarehouseInventory.objects.filter(warehouse__id__in=[34016, 34037], inventory_state=InventoryState.objects.filter(
+                inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_type='normal').last()):
         wms_writer.writerow([obj.quantity, obj.created_at, obj.modified_at, obj.warehouse_id, obj.sku_id])
         WmsInventoryHistory.objects.create(warehouse_id=obj.warehouse_id, sku_id=obj.sku_id, quantity=obj.quantity)
 
