@@ -8,7 +8,7 @@ from shops.models import Shop
 
 class RetailerProductCreateSerializer(serializers.Serializer):
 
-    shop_id = serializers.IntegerField(required=True)
+    shop_id = serializers.IntegerField(required=False)
     linked_product_id = serializers.IntegerField(required=False)
     product_name = serializers.CharField(required=True, validators=[ProductNameValidator])
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
@@ -22,27 +22,24 @@ class RetailerProductCreateSerializer(serializers.Serializer):
             if key not in serializer_list:
                 raise serializers.ValidationError(_(f"{key} is not allowed"))
 
+        # Check, shop_id exists or not
         if attrs.get('shop_id'):
+            # If user provide shop_id
             if not Shop.objects.filter(id=attrs.get('shop_id')).exists():
                 raise serializers.ValidationError(_("Shop ID not found! Please enter a valid Shop ID!"))
 
-        if not attrs.get('shop_id'):
-            raise serializers.ValidationError(_("Please Provide a shop id"))
-
-        if not attrs.get('product_name'):
-            raise serializers.ValidationError(_("Please Provide Product Name"))
-
-        if not attrs.get('selling_price'):
-            raise serializers.ValidationError(_("Please Provide selling_price"))
-
-        if not attrs.get('mrp'):
-            raise serializers.ValidationError(_("Please Provide mrp"))
+        mandatory_list = ["product_name", "mrp", "selling_price"]
+        for ele in mandatory_list:
+            if not attrs.get(ele):
+                raise serializers.ValidationError(_(f"Please Provide {ele}"))
 
         if attrs.get('selling_price') and attrs.get('mrp'):
+            # If user provide selling_price and mrp
             if attrs.get('selling_price') > attrs.get('mrp'):
                 raise serializers.ValidationError(_("Selling Price cannot be greater than MRP"))
 
         if attrs.get('linked_product_id'):
+            # If user provides linked_product_id
             if not Product.objects.filter(id=attrs.get('linked_product_id')).exists():
                 raise serializers.ValidationError(_("Linked Product ID not found! Please enter a valid Product ID"))
 
@@ -106,13 +103,14 @@ class RetailerProductResponseSerializer(serializers.Serializer):
 
 class RetailerProductUpdateSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(required=True)
+    shop_id = serializers.IntegerField(required=False)
     product_name = serializers.CharField(required=False, validators=[ProductNameValidator])
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
 
     def validate(self, attrs):
-        serializer_list = ['product_id', "product_name", "mrp", "selling_price", "description"]
+        serializer_list = ['shop_id', 'product_id', "product_name", "mrp", "selling_price", "description"]
 
         for key in self.initial_data.keys():
             if key not in serializer_list:
@@ -150,6 +148,11 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
 
         if not attrs.get('product_id'):
             raise serializers.ValidationError(_("Please provide a product_id!"))
+
+        if attrs.get('shop_id'):
+            # If user provide shop_id
+            if not Shop.objects.filter(id=attrs.get('shop_id')).exists():
+                raise serializers.ValidationError(_("Shop ID not found! Please enter a valid Shop ID!"))
 
         return attrs
 

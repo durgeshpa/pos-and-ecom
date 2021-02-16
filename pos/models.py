@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 from shops.models import Shop
 from products.models import Product
@@ -30,6 +32,9 @@ class RetailerProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.sku + " - " + self.name
+
 
 class RetailerProductImage(models.Model):
     product = models.ForeignKey(RetailerProduct, on_delete=models.CASCADE)
@@ -39,3 +44,9 @@ class RetailerProductImage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
+
+@receiver(post_save, sender=RetailerProduct)
+def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
+    if instance.status == 'active':
+        print("Successfully Activated")
