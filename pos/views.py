@@ -102,7 +102,6 @@ class CatalogueProductCreation(GenericAPIView):
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
-
     def put(self, request, *args, **kwargs):
         """
         PUT API for Product Update.
