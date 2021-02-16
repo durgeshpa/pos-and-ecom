@@ -592,7 +592,7 @@ def auto_put_away(warehouse, batch_id, put_away_quantity, grn_id):
     if not virtual_bin_ids:
         return
     bin_ids = eval(virtual_bin_ids)
-    user_id = get_config('user')
+    user_id = get_config('wh_consolidation_user')
     if user_id is None:
         info_logger.info("process_auto_put_away|user is not defined ")
         return
