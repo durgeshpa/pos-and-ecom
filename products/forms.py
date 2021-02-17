@@ -738,10 +738,10 @@ class UploadMasterDataAdminForm(forms.Form):
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['status']} | 'Status can either be 'Active',"
                                   f"'Pending Approval' or 'Deactivated'!"))
-                if 'ean' in header_list and 'ean' in row.keys():
-                    if row['ean'] != '':
-                        if not Product.objects.filter(product_ean_code=row['ean']).exists():
-                            raise ValidationError(_(f"Row {row_num} | {row['ean']} |'HSN' doesn't exist in the system."))
+                # if 'ean' in header_list and 'ean' in row.keys():
+                #     if row['ean'] != '':
+                #         if not re.match('^\d{13}$', str(row['ean'])):
+                #             raise ValidationError(_(f"Row {row_num} | {row['ean']} | Please Provide valid EAN code."))
                 if 'mrp' in header_list and 'mrp' in row.keys():
                     if row['mrp'] != '':
                         if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
