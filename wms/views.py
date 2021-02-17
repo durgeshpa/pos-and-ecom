@@ -1879,7 +1879,7 @@ def audit_ordered_data(request):
         info_logger.error(e)
 
 
-def auto_report_for_expired_product():
+def auto_report_for_expired_product(request):
     info_logger.info("WMS : Auto Report for To be expired Products started at {}".format(datetime.now()))
 
     """To_be_Expired_Products workbook"""
@@ -1933,7 +1933,8 @@ def auto_report_for_expired_product():
                 """
                 if expiring_soon:
                     product_temp = iterate_data(product, product_list, expired_product_list, expiry_date)
-                    product_list[product['batch_id']] = product_temp
+                    batch_bin_key = product['batch_id'] + product['bin__bin_id']
+                    product_list[batch_bin_key] = product_temp
                     writer.writerow(list(product_temp.values()))
 
             expired_products = expiry_date.date() <= today
@@ -1942,7 +1943,8 @@ def auto_report_for_expired_product():
                 Expired product
                 """
                 product_temp = iterate_data(product, product_list, expired_product_list, expiry_date)
-                expired_product_list[product['batch_id']] = product_temp
+                batch_bin_key = product['batch_id'] + product['bin__bin_id']
+                expired_product_list[batch_bin_key] = product_temp
                 writer_expired.writerow(list(product_temp.values()))
 
         f.seek(0)
@@ -1956,13 +1958,15 @@ def auto_report_for_expired_product():
 
 
 def iterate_data(product, product_list, expired_product_list, expiry_date):
-    if product['batch_id'] in product_list:
-        product_temp = product_list[product['batch_id']]
+
+    batch_bin_key = product['batch_id'] + product['bin__bin_id']
+    if batch_bin_key in product_list:
+        product_temp = product_list[batch_bin_key]
         available_qty = product['quantity'] + product['to_be_picked_qty']
         product_temp[product['inventory_type__inventory_type']] += available_qty
 
-    elif product['batch_id'] in expired_product_list:
-        product_temp = expired_product_list[product['batch_id']]
+    elif batch_bin_key in expired_product_list:
+        product_temp = expired_product_list[batch_bin_key]
         available_qty = product['quantity'] + product['to_be_picked_qty']
         product_temp[product['inventory_type__inventory_type']] += available_qty
 
