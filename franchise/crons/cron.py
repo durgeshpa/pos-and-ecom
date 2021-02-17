@@ -6,14 +6,17 @@ import os
 from django.db import transaction
 from decouple import config
 from django.utils import timezone
+from django.core.mail import EmailMessage
 import traceback
+from io import StringIO
+import csv
 
 from franchise.models import FranchiseSales, ShopLocationMap, FranchiseReturns, HdposDataFetch
 from products.models import Product
 from wms.common_functions import (CommonWarehouseInventoryFunctions,
                                  InternalInventoryChange, franchise_inventory_in, OutCommonFunctions)
 from wms.models import BinInventory, WarehouseInventory, InventoryState, InventoryType, Bin
-from franchise.models import get_default_virtual_bin_id
+from franchise.models import get_default_virtual_bin_id, WmsInventoryHistory, HdposInventoryHistory
 from services.models import CronRunLog
 from marketing.models import Referral, RewardPoint, RewardLog
 from global_config.models import GlobalConfig
@@ -44,7 +47,7 @@ def franchise_sales_returns_inventory():
 
     try:
         # fetch sales data from hdpos
-        to_date = datetime.datetime.now() - datetime.timedelta(minutes=60)
+        to_date = datetime.datetime.now()
         sales_fetch_resp = fetch_franchise_data('sales', to_date)
 
         if 'code' in sales_fetch_resp and sales_fetch_resp['code'] == 'success':
@@ -60,6 +63,7 @@ def franchise_sales_returns_inventory():
 
                 # process returns data to adjust franchise inventory
                 process_returns_data()
+                mail_data()
             else:
                 cron_logger.info('Could not fetch returns data/sales data not processed')
         else:
@@ -92,7 +96,7 @@ def fetch_franchise_data(fetch_name, to_date):
             from_date = hdpos_obj_last.to_date
         else:
             from_date = datetime.datetime(int(config('HDPOS_START_YEAR')), int(config('HDPOS_START_MONTH')),
-                                          int(config('HDPOS_START_DATE')), 0, 0, 0)
+                                          int(config('HDPOS_START_DATE')), int(config('HDPOS_START_HR')), 0, 0)
 
         cron_logger.info('franchise {} fetch | started {}'.format(fetch_name, from_date))
 
@@ -171,7 +175,8 @@ def process_sales_data(id=''):
         if id != '':
             sales_objs = FranchiseSales.objects.filter(pk=id)
         else:
-            sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2])
+            sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2], shop_loc__in=['PepperTap (Anshika Store)',
+                                                                                                'PepperTap (Gram Mart, Chipyana)'])
         if sales_objs.exists():
             type_normal = InventoryType.objects.filter(inventory_type='normal').last(),
             state_available = InventoryState.objects.filter(inventory_state='total_available').last(),
@@ -294,7 +299,10 @@ def process_returns_data():
         Proceed Inventory Adjustment Accounting for Returns of Franchise Shops
     """
     try:
-        returns_objs = FranchiseReturns.objects.filter(process_status__in=[0, 2])
+        returns_objs = FranchiseReturns.objects.filter(process_status__in=[0, 2], shop_loc__in=['PepperTap (Anshika Store)',
+                                                                                                'PepperTap (Gram Mart, Chipyana)'])
+        from_date = datetime.datetime(int(config('HDPOS_START_YEAR')), int(config('HDPOS_START_MONTH')),
+                                      int(config('HDPOS_START_DATE')), int(config('HDPOS_START_HR')), 0, 0)
         if returns_objs.exists():
             initial_type = InventoryType.objects.filter(inventory_type='normal').last(),
             final_type = InventoryType.objects.filter(inventory_type='normal').last(),
@@ -329,7 +337,7 @@ def process_returns_data():
                         default_expiry = datetime.date(int(config('FRANCHISE_IN_DEFAULT_EXPIRY_YEAR')), 1, 1)
                         batch_id = '{}{}'.format(sku.product_sku, default_expiry.strftime('%d%m%y'))
 
-                        if return_obj.invoice_date and return_obj.invoice_date != '' and return_obj.invoice_date < datetime.datetime(2020, 12, 29, 0, 0, 0):
+                        if return_obj.invoice_date and return_obj.invoice_date != '' and return_obj.invoice_date < from_date:
                             franchise_inventory_in(warehouse, sku, batch_id, return_obj.quantity * -1, 'franchise_returns', return_obj.id,
                                                    final_type, initial_type1, initial_stage1, final_stage, bin_obj, False)
                             update_sales_ret_obj(return_obj, 1)
@@ -467,3 +475,92 @@ def indirect_reward(parent_referrer, indirect_reward_points, transaction_id):
 
             RewardLog.objects.create(user=ancestor, transaction_type='indirect_reward',
                                      transaction_id=transaction_id, points=indirect_reward_points_per_user)
+
+
+def mail_data():
+    curr_date = datetime.datetime.now()
+    curr_date = curr_date.strftime('%Y-%m-%d %H:%M:%S')
+
+    # connectiong to hdpos database
+    cnxn = pyodbc.connect(CONNECTION_PATH)
+    cron_logger.info('Franchise process | connected to hdpos inventory fetch')
+    cursor = cnxn.cursor()
+
+    # execute query to get realtime inventory from hdpos
+    module_dir = os.path.dirname(__file__)
+    file_path = os.path.join(module_dir, 'sql/inventory.sql')
+    fd = open(file_path, 'r')
+    sqlfile = fd.read()
+    fd.close()
+    cursor.execute(sqlfile)
+    cron_logger.info('Franchise process | hdpos inventory query executed')
+
+    # store exact inventory data from hdpos
+    raw_f = StringIO()
+    raw_writer = csv.writer(raw_f)
+
+    # store exact inventory data from wms
+    wms_f = StringIO()
+    wms_writer = csv.writer(wms_f)
+
+    # prepare files
+    headings = ['Shop_name', 'warehouse_id', 'Barcode', 'item_id', 'product_sku', 'product_name', 'category', 'hsn',
+                'Tax_structure', 'GST_flag', 'MRP', 'PTC', 'Realtime_available_qty', 'Last90daysaleqty', 'error']
+    wms_headings = ['Quantity', 'Created_at', 'Modified_at', 'Warehouse_id', 'Sku_id']
+
+    raw_writer.writerow(headings)
+    wms_writer.writerow(wms_headings)
+
+    # warehouse inventory
+    for obj in WarehouseInventory.objects.filter(warehouse__id__in=[34016, 34037], inventory_state=InventoryState.objects.filter(
+                inventory_state='total_available').last(), inventory_type=InventoryType.objects.filter(
+                inventory_type='normal').last()):
+        wms_writer.writerow([obj.quantity, obj.created_at, obj.modified_at, obj.warehouse_id, obj.sku_id])
+        WmsInventoryHistory.objects.create(warehouse_id=obj.warehouse_id, sku_id=obj.sku_id, quantity=obj.quantity)
+
+    # hdpos inventory
+    for row in cursor:
+        if row[0] not in ['PepperTap (Gram Mart, Chipyana)', 'PepperTap (Anshika Store)']:
+            continue
+        if not row[0]:
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='shop_name')
+            raw_writer.writerow(list(row) + ['shop_name'])
+            continue
+        row[0] = row[0].strip()
+        if not ShopLocationMap.objects.filter(location_name=row[0]).exists():
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='shop_mapping')
+            raw_writer.writerow(list(row) + ['shop_mapping'])
+            continue
+        if row[4] is None or row[4] == '':
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='product_sku')
+            raw_writer.writerow(list(row) + ['product_sku'])
+            continue
+        row[4] = row[4].strip()
+        if not Product.objects.filter(product_sku=row[4]).exists():
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='product')
+            raw_writer.writerow(list(row) + ['product'])
+            continue
+        try:
+            row[12] = int(row[12])
+            raw_writer.writerow(list(row))
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='')
+        except ValueError:
+            row[12] = float(row[12])
+            raw_writer.writerow(list(row) + ['float_quantity'])
+            HdposInventoryHistory.objects.create(shop_name=row[0], product_sku=row[4], product_name=row[5],
+                                                 quantity=row[12], error='float_quantity')
+
+    email = EmailMessage()
+    email.subject = 'HDPOS, Wms Daily Inventory'
+    sender = GlobalConfig.objects.get(key='hdpos_sender')
+    email.from_email = sender.value
+    receiver = GlobalConfig.objects.get(key='hdpos_recipient')
+    email.to = eval(receiver.value)
+    email.attach('hdpos_inventory_{}'.format(curr_date) + '.csv', raw_f.getvalue(), 'text/csv')
+    email.attach('wms_inventory_{}'.format(curr_date) + '.csv', wms_f.getvalue(), 'text/csv')
+    email.send()

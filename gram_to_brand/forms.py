@@ -136,6 +136,9 @@ class POGenerationForm(forms.ModelForm):
         if 'po_validity_date' in self.cleaned_data and self.cleaned_data['po_validity_date'] < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))
 
+        if 'cart_product_mapping_csv' in self.changed_data:
+            print("The following fields changed: %s" % ", ".join(self.changed_data))
+
         return self.cleaned_data
 
     change_form_template = 'admin/gram_to_brand/cart/change_form.html'
@@ -256,11 +259,16 @@ class GRNOrderProductForm(forms.ModelForm):
     def clean(self):
         super(GRNOrderProductForm, self).clean()
         if self.cleaned_data.get('product', None):
-            if self.cleaned_data.get('expiry_date') is None:
-                raise ValidationError(_('Expiry date is required | Format should be YYYY-MM-DD'))
+            if self.cleaned_data.get('product_invoice_qty') != 0:
 
-            if self.cleaned_data.get('manufacture_date') is None:
-                raise ValidationError(_('Manufacture date is required | Format should be YYYY-MM-DD'))
+                if self.cleaned_data.get('expiry_date') is None:
+
+                    if not (int(self.cleaned_data.get('best_before_year')) or int(
+                            self.cleaned_data.get('best_before_month'))):
+                        raise ValidationError(_('Expiry date is required | Format should be YYYY-MM-DD'))
+
+                if self.cleaned_data.get('manufacture_date') is None:
+                    raise ValidationError(_('Manufacture date is required | Format should be YYYY-MM-DD'))
 
             manufacture_date = self.cleaned_data.get('manufacture_date')
             expiry_date = self.cleaned_data.get('expiry_date')
