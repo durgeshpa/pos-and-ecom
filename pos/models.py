@@ -46,7 +46,3 @@ class RetailerProductImage(models.Model):
     status = models.BooleanField(default=True)
 
 
-@receiver(post_save, sender=RetailerProduct)
-def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
-    if instance.status == 'active':
-        print("Successfully Activated")
