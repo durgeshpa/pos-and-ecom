@@ -1312,8 +1312,12 @@ def set_inactive_status_sample_excel_file(request):
     products = Product.objects.values('product_sku', 'product_name', 'status', 'product_mrp')\
                 .filter(Q(parent_product__parent_product_pro_category__category__category_name__icontains=categry[0]['category_name']))
     for product in products:
-        row = [product['product_sku'], product['product_name'], product['product_mrp'], product['status']]
-        row
+        row = []
+        row.append(product['product_sku'])
+        row.append(product['product_name'])
+        row.append(product['product_mrp'])
+        row.append(product['status'])
+        row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
             cell.value = cell_value
@@ -2191,7 +2195,7 @@ def bulk_product_vendor_csv_upload_view(request):
         if form.is_valid():
             upload_file = form.cleaned_data.get('file')
             vendor_id = request.POST.get('select')
-            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
             first_row = next(reader)
             try:
                 for row_id, row in enumerate(reader):

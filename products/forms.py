@@ -738,10 +738,10 @@ class UploadMasterDataAdminForm(forms.Form):
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['status']} | 'Status can either be 'Active',"
                                   f"'Pending Approval' or 'Deactivated'!"))
-                if 'ean' in header_list and 'ean' in row.keys():
-                    if row['ean'] != '':
-                        if not Product.objects.filter(product_ean_code=row['ean']).exists():
-                            raise ValidationError(_(f"Row {row_num} | {row['ean']} |'HSN' doesn't exist in the system."))
+                # if 'ean' in header_list and 'ean' in row.keys():
+                #     if row['ean'] != '':
+                #         if not re.match('^\d{13}$', str(row['ean'])):
+                #             raise ValidationError(_(f"Row {row_num} | {row['ean']} | Please Provide valid EAN code."))
                 if 'mrp' in header_list and 'mrp' in row.keys():
                     if row['mrp'] != '':
                         if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
@@ -1062,7 +1062,7 @@ class UploadMasterDataAdminForm(forms.Form):
                     raise ValidationError(_(f"Row {row_num} | 'Status can either be 'Active' or 'Deactivated'!" |
                                             'Status cannot be empty'))
                 if 'status' in row.keys():
-                    if row['sku_id'] == '':
+                    if row['status'] == '':
                         raise ValidationError(_(f"Row {row_num} | 'Status' can't be empty"))
 
         self.validate_row(uploaded_data_list, header_list, upload_master_data, category)
@@ -1969,7 +1969,7 @@ class BulkProductVendorMapping(forms.Form):
     def clean_file(self):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         for id, row in enumerate(reader):
             if len(row) == 0:

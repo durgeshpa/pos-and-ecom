@@ -2,18 +2,17 @@ import datetime
 
 from django.contrib.auth import authenticate, login, get_user_model
 from django.utils import timezone
+from django.conf import settings
+
 from rest_framework import status
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
-from django.conf import settings
 from rest_framework.permissions import AllowAny
 
 from retailer_backend.messages import *
-from rest_auth.models import USER_VERIFIED
 from .sms import SendSms, SendVoiceSms
 from .models import PhoneOTP
-from .serializers import PhoneOTPValidateSerializer, ResendSmsOTPSerializer, \
-                         ResendVoiceOTPSerializer, SendSmsOTPSerializer
+from .serializers import PhoneOTPValidateSerializer, ResendSmsOTPSerializer, ResendVoiceOTPSerializer, SendSmsOTPSerializer
 
 UserModel = get_user_model()
 
@@ -33,16 +32,12 @@ class ValidateOTP(CreateAPIView):
             if user.exists():
                 user = user.last()
                 msg, status_code = self.verify(otp, user)
-                return Response(msg,
-                    status=status_code
-                )
+                return Response(msg, status=status_code)
             else:
                 msg = {'is_success': False,
                         'message': [VALIDATION_ERROR_MESSAGES['USER_NOT_EXIST']],
                         'response_data': None }
-                return Response(msg,
-                    status=status.HTTP_406_NOT_ACCEPTABLE
-                )
+                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         else:
             errors = []
             for field in serializer.errors:
@@ -198,13 +193,6 @@ class ResendSmsOTP(CreateAPIView):
                     return Response(msg,
                         status=status.HTTP_200_OK
                     )
-                    # else:
-                    #     msg = {'is_success': False,
-                    #             'message': [reason],
-                    #             'response_data': None }
-                    #     return Response(msg,
-                    #         status=status.HTTP_406_NOT_ACCEPTABLE
-                    #     )
             else:
                 msg = {'is_success': False,
                         'message': [VALIDATION_ERROR_MESSAGES['USER_NOT_EXIST']],
@@ -338,11 +326,6 @@ class RevokeOTP(object):
                 'message': ["message sent"],
                 'response_data': None }
         return msg
-        # else:
-        #     msg = {'is_success': False,
-        #             'message': [reason],
-        #             'response_data': None }
-        #     return msg
 
 
 class SendSmsOTPAnytime(CreateAPIView):

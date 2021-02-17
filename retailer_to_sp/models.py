@@ -2879,8 +2879,9 @@ def check_franchise_inventory_update(trip):
             if (shipment.order.buyer_shop and shipment.order.buyer_shop.shop_type.shop_type == 'f' and
                     shipment.rt_order_product_order_product_mapping.last()):
                 warehouse = shipment.order.buyer_shop
-                info_logger.info("Franchise inventory update after Trip. Shop: {}, Order: {}".format(warehouse, shipment.order))
-                franchise_inventory_update(shipment, warehouse)
+                if warehouse.id in [34037, 34016]:
+                    info_logger.info("Franchise inventory update after Trip. Shop: {}, Order: {}".format(warehouse, shipment.order))
+                    franchise_inventory_update(shipment, warehouse)
 
 
 def franchise_inventory_update(shipment, warehouse):
