@@ -9,8 +9,8 @@ def send_mail_w_attachment(response, responses, warehouse_id,warehouse_name):
 
     env_variable = config('OS_ENV')
     subject = '{} | To be Expired Products | {} - {}'.format(env_variable,warehouse_name,warehouse_id)
-    expired_products = '{}_Expired_Products_{}.xlsx'.format(env_variable, warehouse_id)
-    to_be_expired_products = '{}_To_be_Expired_Products_{}.xlsx'.format(env_variable, warehouse_id)
+    expired_products = '{}_Expired_Products_{}.csv'.format(env_variable, warehouse_id)
+    to_be_expired_products = '{}_To_be_Expired_Products_{}.csv'.format(env_variable, warehouse_id)
 
     try:
         email = EmailMessage()
@@ -20,8 +20,8 @@ def send_mail_w_attachment(response, responses, warehouse_id,warehouse_name):
         email.from_email = sender.value
         receiver = GlobalConfig.objects.get(key='recipient')
         email.to = eval(receiver.value)
-        email.attach(expired_products, responses.getvalue(), 'application/ms-excel')
-        email.attach(to_be_expired_products, response.getvalue(), 'application/ms-excel')
+        email.attach(expired_products, responses.getvalue(), 'application/csv')
+        email.attach(to_be_expired_products, response.getvalue(), 'application/csv')
         email.send()
     except Exception as e:
         info_logger.error(e)
