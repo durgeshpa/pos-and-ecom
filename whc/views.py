@@ -149,10 +149,10 @@ class AutoOrderProcessor:
         trip = Trip(seller_shop=auto_processing_entry.order.seller_shop, delivery_boy=self.user,
                     vehicle_no='', trip_status=Trip.READY)
         trip.save()
-        shipments = OrderedProduct.objects.filter(order=auto_processing_entry.order)
-        if shipments:
-            shipments.update(trip=trip, shipment_status='READY_TO_DISPATCH')
-            auto_processing_entry.order.order_status = Order.READY_TO_DISPATCH
+        # shipments = OrderedProduct.objects.filter(order=auto_processing_entry.order)
+        # if shipments:
+        #     shipments.update(trip=trip, shipment_status='READY_TO_DISPATCH')
+        auto_processing_entry.order.order_status = Order.READY_TO_DISPATCH
         info_logger.info("WarehouseConsolidation|create_trip|Trip Created, order id-{}"
                          .format(auto_processing_entry.order.id))
         return auto_processing_entry
@@ -533,10 +533,7 @@ class AutoOrderProcessor:
                                                  barcode_id=grn_order_mapp['barcode_id'])
                 grn_obj.save()
 
-            if grn_order:
-                auto_processing_entry.grn_id = grn_order
-                info_logger.info("create_auto_grn|COMPLETED")
-        info_logger.info("create_auto_grn| no cart_id for grn item found")
+        info_logger.info("create_auto_grn|COMPLETED")
         return auto_processing_entry
 
 
