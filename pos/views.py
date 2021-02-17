@@ -22,7 +22,7 @@ POS_SERIALIZERS_MAP = {
 
 class CatalogueProductCreation(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
 
     def get_shop_id(self, request):
