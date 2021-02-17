@@ -234,7 +234,7 @@ class RewardLog(models.Model):
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=TRANSACTION_CHOICES)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
     points = models.IntegerField(default=0)
-    discount = models.IntegerField(null=True, blank=True)
+    discount = models.IntegerField(null=True, blank=True, default=0)
     changed_by = models.ForeignKey(User, related_name='changed_by', on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
