@@ -167,7 +167,7 @@ class AutoOrderProcessor:
             shipment.trip.save()
         info_logger.info("WarehouseConsolidation|start_trip|trip status updated, order id-{}"
                          .format(auto_processing_entry.order.id))
-        shipment_out_inventory_change(shipments, TRIP_SHIPMENT_STATUS_MAP[Trip.READY])
+        shipment_out_inventory_change(shipments, TRIP_SHIPMENT_STATUS_MAP[Trip.STARTED])
         info_logger.info("WarehouseConsolidation|start_trip|inventory changes done, order id-{}"
                          .format(auto_processing_entry.order.id))
         auto_processing_entry.order.order_status = Order.DISPATCHED
