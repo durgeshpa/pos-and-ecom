@@ -454,7 +454,8 @@ class AutoOrderProcessor:
                 'cart_parent_product__parent_id', 'cart_product__id', '_tax_percentage', 'inner_case_size',
                 'case_size', 'number_of_cases', 'scheme', 'no_of_pieces', 'vendor_product', 'price',
                 'per_unit_price', 'vendor_product__brand_to_gram_price_unit',
-                'vendor_product__case_size', 'vendor_product__product_mrp', 'vendor_product__product_price')
+                'vendor_product__case_size', 'vendor_product__product_mrp', 'vendor_product__product_price',
+                'vendor_product__product_price_pack')
             for cart_pro_map in cart_product_mapping:
                 parent_product = ParentProduct.objects.get(parent_id=cart_pro_map['cart_parent_product__parent_id'])
                 product = Product.objects.get(id=cart_pro_map['cart_product__id'])
@@ -466,10 +467,13 @@ class AutoOrderProcessor:
 
                     product_mapping = ProductVendorMapping.objects.create(vendor=self.supplier, product=product,
                                                                           product_price=cart_pro_map[
-                                                                              'vendor_product__product_price'],
-                                                                          case_size=cart_pro_map['vendor_product__case_size'],
+                                                                            'vendor_product__product_price'],
+                                                                          product_price_pack=cart_pro_map[
+                                                                            'vendor_product__product_price_pack'],
+                                                                          case_size=cart_pro_map[
+                                                                            'vendor_product__case_size'],
                                                                           product_mrp=cart_pro_map[
-                                                                              'vendor_product__product_mrp'],
+                                                                            'vendor_product__product_mrp'],
                                                                           status=True)
                     # Creates CartProductMapping
                     POCartProductMappings.objects.create(cart=cart_instance, cart_parent_product=parent_product,
