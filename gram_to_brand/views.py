@@ -644,26 +644,19 @@ def auto_put_away(warehouse, batch_id, put_away_quantity, grn_id):
                                                                                           batch_id=batch_id)
 
                     if bin_inventory.exists():
-                        comman_batch_id = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id,batch_id=batch_id)
-                        if comman_batch_id:
-                            qs = bin_inventory.filter(inventory_type=type_normal) \
-                                .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
-                            total = qs['available'] + qs['to_be_picked']
+                        qs = bin_inventory.filter(inventory_type=type_normal) \
+                            .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
+                        total = qs['available'] + qs['to_be_picked']
 
-                            # if inventory is more than zero, putaway won't be allowed,check for another bin_id
-                            if total > 0:
-                                info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
-                                                      .format(batch_id[:17], batch_id))
-                                # check for another bin_id
-                                continue
-                            else:
-                                # breaking for loop continue with same bin_id
-                                break
-                        else:
+                        # if inventory is more than zero, putaway won't be allowed,check for another bin_id
+                        if total > 0:
+                            info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
+                                                  .format(batch_id[:17], batch_id))
                             # check for another bin_id
                             continue
-                    else:
-                        break
+                        else:
+                            # breaking for loop continue with same bin_id
+                            break
 
                 pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=batch_id, warehouse=warehouse)
                 put_away_status = False
