@@ -243,11 +243,11 @@ class GramGRNProductsList(APIView):
         body = {
             "from": int(request.data.get('offset', 0)),
             "size": int(request.data.get('pro_count', 50)),
-            "query": {"bool": {"filter": [{"match": {"product_ean_code": {"query": ean_code}}}]}},
+            "query": {"bool": {"filter": [{"match": {"ean": {"query": ean_code}}}]}},
             "_source": {
-                "includes": ["name", "product_images", "product_mrp", "weight_unit", "weight_value"]}
+                "includes": ["name", "id"]}
         }
-        products_list = es_search(index="ean_index", body=body)
+        products_list = es_search(index="all_products", body=body)
         p_list = self.process_results(products_list, False)
 
         return self.get_response(p_list, False)
@@ -322,7 +322,10 @@ class GramGRNProductsList(APIView):
 
     def process_results(self, products_list, is_store_active, parent_mapping='', shop_id=''):
         p_list = []
-        if is_store_active:
+        if not is_store_active:
+            for p in products_list['hits']['hits']:
+                p_list.append(p["_source"])
+        else:
             for p in products_list['hits']['hits']:
                 if not Product.objects.filter(id=p["_source"]["id"]).exists():
                     logger.info("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
@@ -380,9 +383,6 @@ class GramGRNProductsList(APIView):
                             p["_source"]["user_selected_qty"] = user_selected_qty
                             p["_source"]["no_of_pieces"] = no_of_pieces
                             p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
-                p_list.append(p["_source"])
-        else:
-            for p in products_list['hits']['hits']:
                 p_list.append(p["_source"])
         return p_list
 
