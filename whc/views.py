@@ -484,6 +484,7 @@ class AutoOrderProcessor:
                                                putaway_type=entry.putaway_type)
 
             entry.putaway_quantity = putaway_qty
+            entry.putaway_user = self.user
             entry.put_away_status = True
             entry.save()
             info_logger.info("WarehouseConsolidation|process_putaway| putaway done | "
