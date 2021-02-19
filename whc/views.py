@@ -2,7 +2,7 @@ import json
 import logging
 
 from django.db import transaction
-from django.db.models import Q, TextField
+from django.db.models import Q, TextField, Sum
 from django.db.models.functions import Cast
 from django.http import HttpResponse
 
@@ -10,8 +10,6 @@ from django.http import HttpResponse
 from django.utils import timezone
 
 from accounts.models import User
-from addresses.models import Address
-from brand.models import Vendor
 from global_config.views import get_config
 from gram_to_brand.common_functions import get_grned_product_qty_by_grn_id
 from retailer_backend.common_function import checkNotShopAndMapping, getShopMapping
@@ -21,15 +19,16 @@ from retailer_to_sp.views import TRIP_ORDER_STATUS_MAP, TRIP_SHIPMENT_STATUS_MAP
 from shops.models import Shop
 from whc.models import AutoOrderProcessing, SourceDestinationMapping
 from wms.common_functions import get_stock, OrderManagement, InCommonFunctions, \
-    CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, CommonWarehouseInventoryFunctions, \
-    CommonBinInventoryFunctions, get_expiry_date
+     CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, CommonWarehouseInventoryFunctions, \
+     CommonBinInventoryFunctions, get_expiry_date
 from wms.models import InventoryType, OrderReserveRelease, PutawayBinInventory, InventoryState, BinInventory, \
-    PickupBinInventory, Pickup
+     PickupBinInventory, Pickup, Putaway, Bin
 from wms.views import shipment_out_inventory_change
 
-from gram_to_brand.models import GRNOrder,Cart as POCarts, CartProductMapping as POCartProductMappings, Order as Ordered,GRNOrderProductMapping, Document
+from gram_to_brand.models import GRNOrder,Cart as POCarts, CartProductMapping as POCartProductMappings, \
+     Order as Ordered,GRNOrderProductMapping, Document
 from brand.models import Brand, Vendor
-from addresses.models import State, Address
+from addresses.models import Address
 from products.models import Product, ParentProduct, ProductVendorMapping
 info_logger = logging.getLogger('file-info')
 
@@ -37,11 +36,12 @@ info_logger = logging.getLogger('file-info')
 class AutoOrderProcessor:
     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
 
-    def __init__(self, retailer_shop, user, supplier, shipp_bill_address):
+    def __init__(self, retailer_shop, user, supplier, shipp_bill_address, bin_list):
         self.retailer_shop = retailer_shop
         self.user = user
         self.supplier = supplier
         self.shipp_bill_address = shipp_bill_address
+        self.bin_list = bin_list
 
 
     @transaction.atomic
@@ -417,6 +417,113 @@ class AutoOrderProcessor:
                              .format(product_id, cart.id, qty))
         return cart
 
+    @transaction.atomic
+    def process_putaway(self, auto_processing_entry):
+        in_ids = InCommonFunctions.get_filtered_in(in_type='GRN', in_type_id=auto_processing_entry.grn.grn_id) \
+                                  .annotate(idc=Cast('pk', TextField())) \
+                                  .values_list('idc', flat=True)
+        putaway_entries = Putaway.objects.filter(putaway_type='GRN', putaway_type_id__in=in_ids)
+
+        info_logger.info("WarehouseConsolidation|process_putaway| Started| grn id-{}"
+                         .format(auto_processing_entry.grn_id))
+
+        self.__process_putaway(auto_processing_entry, putaway_entries)
+
+        info_logger.info("WarehouseConsolidation|process_putaway| Completed | grn id-{}"
+                         .format(auto_processing_entry.grn_id))
+        return auto_processing_entry
+
+    def __process_putaway(self, auto_processing_entry, putaway_entries):
+
+        transaction_type = 'put_away_type'
+        initial_type = InventoryType.objects.filter(inventory_type='new').last()
+        final_type = InventoryType.objects.filter(inventory_type='normal').last()
+        state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
+
+
+        for entry in putaway_entries:
+
+            warehouse = entry.warehouse
+            putaway_qty = entry.quantity
+            sku = entry.sku
+            batch_id = entry.batch_id
+            transaction_id = entry.id
+
+            bin_selected = self.select_bin(batch_id, entry, sku)
+            if bin_selected is None:
+                info_logger.info('WarehouseConsolidation|process_putaway|'
+                                 'Putaway could not be processed, sku-{}, batchid-{}'
+                                 .format(sku, batch_id))
+                raise Exception('WarehouseConsolidation|process_putaway|'
+                                'Putaway could not be processed, sku-{}, batchid-{}'
+                                .format(sku, batch_id))
+
+            info_logger.info("WarehouseConsolidation|process_putaway| putaway started | "
+                             "grn id-{}, batch-{}, bin-{}"
+                             .format(auto_processing_entry.grn_id, batch_id, bin_selected.bin_id))
+
+            bin_inventory_obj = self.update_bin_inventory(batch_id, bin_selected, putaway_qty, sku, warehouse)
+
+            InternalInventoryChange.create_bin_internal_inventory_change(warehouse, sku, batch_id,
+                                                                         bin_selected.bin_id,
+                                                                         initial_type,
+                                                                         final_type, transaction_type,
+                                                                         transaction_id, putaway_qty)
+
+            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(warehouse, sku,
+                                                                                              self.type_normal,
+                                                                                              state_total_available,
+                                                                                              putaway_qty,
+                                                                                              transaction_type,
+                                                                                              transaction_id)
+
+            PutawayBinInventory.objects.create(warehouse=warehouse, putaway=entry,
+                                               bin=bin_inventory_obj,
+                                               putaway_quantity=putaway_qty, putaway_status=True,
+                                               sku=sku, batch_id=batch_id,
+                                               putaway_type=entry.putaway_type)
+
+            entry.putaway_quantity = putaway_qty
+            entry.put_away_status = True
+            entry.save()
+            info_logger.info("WarehouseConsolidation|process_putaway| putaway done | "
+                             "grn id-{}, batch-{}, bin-{}"
+                             .format(auto_processing_entry.grn_id, batch_id, bin_selected.bin_id))
+
+    def update_bin_inventory(self, batch_id, bin_selected, putaway_qty, sku, warehouse):
+        bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=warehouse,
+                                                                                   bin=bin_selected,
+                                                                                   sku=sku,
+                                                                                   batch_id=batch_id,
+                                                                                   inventory_type=self.type_normal)
+        if bin_inventory_obj.exists():
+            bin_inventory_obj = bin_inventory_obj.last()
+            bin_inventory_obj.quantity = bin_inventory_obj.quantity + putaway_qty
+            bin_inventory_obj.save()
+        else:
+            bin_inventory_obj = BinInventory.objects.create(warehouse=warehouse, bin=bin_selected,
+                                                            sku=sku, batch_id=batch_id,
+                                                            inventory_type=self.type_normal,
+                                                            quantity=putaway_qty, in_stock=True)
+        return bin_inventory_obj
+
+    def select_bin(self, batch_id, sku):
+        bin_selected = None
+        for bin in self.bin_list:
+            bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=sku, bin=bin) \
+                .exclude(batch_id=batch_id)
+            if bin_inventory.exists():
+                qs = bin_inventory.filter(inventory_type=self.type_normal) \
+                    .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
+                total = qs['available'] + qs['to_be_picked']
+                if total > 0:
+                    info_logger.info('WarehouseConsolidation|process_putaway|'
+                                     'This product with sku {} and batch_id {} can not be placed in the bin'
+                                     .format(sku, batch_id))
+                    continue
+            bin_selected = bin
+            break
+        return bin_selected
 
     def process_auto_po_gen(self, auto_processing_entry):
         # using grn_id getting ordered products
@@ -601,8 +708,16 @@ def process_auto_order():
         info_logger.info("process_auto_order| no entry to process")
         return
 
+    virtual_bin_ids = get_config('virtual_bins')
+    if not virtual_bin_ids:
+        return
+    bin_ids = eval(virtual_bin_ids)
+    bin_list = Bin.objects.filter(warehouse=source_wh, bin_id__in=bin_ids)
+    if not bin_list.exists():
+        info_logger.info("process_auto_order| no bin found")
+        return
     retailer_shop = wh_mapping.last().retailer_shop
-    order_processor = AutoOrderProcessor(retailer_shop, system_user, supplier, shipp_bill_address)
+    order_processor = AutoOrderProcessor(retailer_shop, system_user, supplier, shipp_bill_address, bin_list)
     info_logger.info("process_auto_order|STARTED")
     for entry in entries_to_process:
         try:
@@ -622,7 +737,10 @@ def process_auto_order():
 
 
 def process_next(order_processor, entry_to_process):
-    if entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PUTAWAY:
+    if entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.GRN:
+        entry_to_process = order_processor.process_putaway(entry_to_process)
+        entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.PUTAWAY
+    elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.PUTAWAY:
         entry_to_process = order_processor.add_to_cart(entry_to_process)
         entry_to_process.state = AutoOrderProcessing.ORDER_PROCESSING_STATUS.CART_CREATED
     elif entry_to_process.state == AutoOrderProcessing.ORDER_PROCESSING_STATUS.CART_CREATED:
