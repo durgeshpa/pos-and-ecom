@@ -619,7 +619,8 @@ class AutoOrderProcessor:
 
         for grn_product in grn_products:
 
-            vendor_product = ProductVendorMapping.objects.get(vendor=self.supplier, product=grn_product.product)
+            vendor_product = ProductVendorMapping.objects.filter(vendor=self.supplier, product=grn_product.product,
+                                                                 status=True).last()
             grn_obj = GRNOrderProductMapping(grn_order=grn_order, product=grn_product.product,
                                              product_invoice_price=grn_product.product_invoice_price,
                                              product_invoice_qty=grn_product.product_invoice_qty,
