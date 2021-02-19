@@ -36,12 +36,13 @@ info_logger = logging.getLogger('file-info')
 class AutoOrderProcessor:
     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
 
-    def __init__(self, retailer_shop, user, supplier, shipp_bill_address, bin_list):
+    def __init__(self, retailer_shop, user, supplier, shipp_bill_address, bin_list, vehicle_no):
         self.retailer_shop = retailer_shop
         self.user = user
         self.supplier = supplier
         self.shipp_bill_address = shipp_bill_address
         self.bin_list = bin_list
+        self.vehicle_no = vehicle_no
 
 
     @transaction.atomic
@@ -147,7 +148,7 @@ class AutoOrderProcessor:
         info_logger.info("WarehouseConsolidation|create_trip|Started, order id-{}"
                          .format(auto_processing_entry.order.id))
         trip = Trip(seller_shop=auto_processing_entry.order.seller_shop, delivery_boy=self.user,
-                    vehicle_no='', trip_status=Trip.READY)
+                    vehicle_no=self.vehicle_no, trip_status=Trip.READY)
         trip.save()
         shipments = OrderedProduct.objects.filter(order=auto_processing_entry.order)
         if shipments:
@@ -181,7 +182,7 @@ class AutoOrderProcessor:
         shipments = OrderedProduct.objects.filter(order=auto_processing_entry.order)
         for shipment in shipments:
             shipment.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
-            shipment.trip.trip_status = Trip.COMPLETED
+            shipment.trip.trip_status = 'Return Verified'
             shipment.trip.save()
             shipment.save()
         auto_processing_entry.order.order_status = TRIP_ORDER_STATUS_MAP[Trip.COMPLETED]
@@ -706,8 +707,9 @@ def process_auto_order():
     if not bin_list.exists():
         info_logger.info("process_auto_order| no bin found")
         return
+    vehicle_no = get_config('wh_consolidation_vehicle_no', 'dummy')
     retailer_shop = wh_mapping.last().retailer_shop
-    order_processor = AutoOrderProcessor(retailer_shop, system_user, supplier, shipp_bill_address, bin_list)
+    order_processor = AutoOrderProcessor(retailer_shop, system_user, supplier, shipp_bill_address, bin_list, vehicle_no)
     info_logger.info("process_auto_order|STARTED")
     for entry in entries_to_process:
         try:
