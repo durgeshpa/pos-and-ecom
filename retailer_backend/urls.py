@@ -51,7 +51,7 @@ urlpatterns = [
     url(r'^retailer/sp/', include('retailer_to_sp.urls')),
     url(r'^gram/brand/', include('gram_to_brand.urls')),
     url(r'^retailer/gram/', include('retailer_to_gram.urls')),
-    #url(r'^services/', include('services.urls')),
+    url(r'^services/', include('services.urls')),
     url(r'^payments/', include('payments.urls')),
     url(r'^fcm/', include('fcm.urls')),
     url(r'^notification-center/', include('notification_center.urls')),
