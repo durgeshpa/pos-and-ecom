@@ -182,7 +182,7 @@ class AutoOrderProcessor:
         shipments = OrderedProduct.objects.filter(order=auto_processing_entry.order)
         for shipment in shipments:
             shipment.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
-            shipment.trip.trip_status = 'Return Verified'
+            shipment.trip.trip_status = Trip.RETURN_VERIFIED
             shipment.trip.save()
             shipment.save()
         auto_processing_entry.order.order_status = TRIP_ORDER_STATUS_MAP[Trip.COMPLETED]
