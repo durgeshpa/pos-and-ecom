@@ -449,7 +449,7 @@ class AutoOrderProcessor:
             batch_id = entry.batch_id
             transaction_id = entry.id
 
-            bin_selected = self.select_bin(batch_id, entry, sku)
+            bin_selected = self.select_bin(batch_id, sku)
             if bin_selected is None:
                 info_logger.info('WarehouseConsolidation|process_putaway|'
                                  'Putaway could not be processed, sku-{}, batchid-{}'
