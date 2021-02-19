@@ -1,32 +1,32 @@
-# import requests
-# from PIL import Image
-# import PIL
-# import datetime
-# from dal import autocomplete
-# from decimal import Decimal
-#
-# from django.shortcuts import render
-# from rest_framework.views import APIView
-# from rest_framework.generics import ListAPIView
-# from rest_framework.permissions import IsAuthenticated, AllowAny
-# from django.http import HttpResponse, Http404
-# from django.conf import settings
-# from retailer_to_sp.models import Order, OrderedProductMapping, Trip, OrderedProduct, CartProductMapping
-# from shops.models import Shop, ParentRetailerMapping
-# from django.db.models import Sum
-# from shops.models import Shop
-# from django.db.models import Sum, Q
-# import json
-# import csv
-# from rest_framework import permissions, authentication
-# from .forms import SalesReportForm, OrderReportForm, GRNReportForm, MasterReportForm, OrderGrnForm
-# from django.views import View
-# from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
-# from .models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports, OrderDetailReportsData, CartProductMappingData
-# from gram_to_brand.models import Order as PurchaseOrder
-# from datetime import timedelta
-# from categories.models import Category
-# from gram_to_brand.models import Order as GOrder, GRNOrder as GRNOrder
+import requests
+from PIL import Image
+import PIL
+import datetime
+from dal import autocomplete
+from decimal import Decimal
+
+from django.shortcuts import render
+from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.http import HttpResponse, Http404
+from django.conf import settings
+from retailer_to_sp.models import Order, OrderedProductMapping, Trip, OrderedProduct, CartProductMapping
+from shops.models import Shop, ParentRetailerMapping
+from django.db.models import Sum
+from shops.models import Shop
+from django.db.models import Sum, Q
+import json
+import csv
+from rest_framework import permissions, authentication
+#from .forms import SalesReportForm, OrderReportForm, GRNReportForm, MasterReportForm, OrderGrnForm
+from django.views import View
+from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
+from .models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports, OrderDetailReportsData, CartProductMappingData
+from gram_to_brand.models import Order as PurchaseOrder
+from datetime import timedelta
+from categories.models import Category
+from gram_to_brand.models import Order as GOrder, GRNOrder as GRNOrder
 # # Create your views here.
 # class SalesReport(APIView):
 #     permission_classes = (AllowAny,)
@@ -590,34 +590,34 @@
 #             {'form': form}
 #         )
 #
-# class ResizeImage(APIView):
-#     permission_classes = (AllowAny,)
-#     def get(self,request, image_path, image_name, *args, **kwargs):
-#         path = "/".join(args)
-#         img_url = "https://{}/{}/{}".format(getattr(settings, 'AWS_S3_CUSTOM_DOMAIN_ORIG'), image_path,image_name, path)
-#         width = int(request.GET.get('width', '600'))
-#         height = request.GET.get('height', None)
-#         img_response = requests.get(img_url, stream=True)
-#         if img_response.status_code == 404:
-#             raise Http404("Image not found")
-#         content_type = img_response.headers.get('Content-Type')
-#         if content_type not in ['image/png', 'image/jpeg', 'image/jpg']:
-#             return HttpResponse(content=img_response.content, content_type=content_type)
-#         img_response.raw.decode_content = True
-#         image = Image.open(img_response.raw)
-#
-#         if not height:
-#             height = int(image.height * width/image.width)
-#         image = image.resize((width,height), PIL.Image.LANCZOS)
-#         response = HttpResponse(content_type=content_type)
-#         image_type = {
-#             'image/png': 'PNG',
-#             'image/jpeg': 'JPEG',
-#             'image/jpg' : 'JPEG'
-#         }
-#         image.save(response, image_type[content_type])
-#         return response
-#
+class ResizeImage(APIView):
+    permission_classes = (AllowAny,)
+    def get(self,request, image_path, image_name, *args, **kwargs):
+        path = "/".join(args)
+        img_url = "https://{}/{}/{}".format(getattr(settings, 'AWS_S3_CUSTOM_DOMAIN_ORIG'), image_path,image_name, path)
+        width = int(request.GET.get('width', '600'))
+        height = request.GET.get('height', None)
+        img_response = requests.get(img_url, stream=True)
+        if img_response.status_code == 404:
+            raise Http404("Image not found")
+        content_type = img_response.headers.get('Content-Type')
+        if content_type not in ['image/png', 'image/jpeg', 'image/jpg']:
+            return HttpResponse(content=img_response.content, content_type=content_type)
+        img_response.raw.decode_content = True
+        image = Image.open(img_response.raw)
+
+        if not height:
+            height = int(image.height * width/image.width)
+        image = image.resize((width,height), PIL.Image.LANCZOS)
+        response = HttpResponse(content_type=content_type)
+        image_type = {
+            'image/png': 'PNG',
+            'image/jpeg': 'JPEG',
+            'image/jpg' : 'JPEG'
+        }
+        image.save(response, image_type[content_type])
+        return response
+
 # class OrderReportData(APIView):
 #     permission_classes = (AllowAny,)
 #     def get_order_report(self, shop_id, start_date, end_date):
