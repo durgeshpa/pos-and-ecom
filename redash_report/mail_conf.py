@@ -1,4 +1,5 @@
 import logging
+
 info_logger = logging.getLogger('file-info')
 
 from global_config.models import GlobalConfig
@@ -25,4 +26,4 @@ def send_mail(data):
         email.send()
         info_logger.info("redash_scheduled_report_cron | Email Successfully Sent")
     except Exception as e:
-        info_logger.error(e)
+        info_logger.error("redash_scheduled_report_cron | ", e)
