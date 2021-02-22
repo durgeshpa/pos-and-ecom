@@ -55,8 +55,8 @@ class RedashScheduledReport(models.Model):
     )
     csv_url = models.URLField(max_length=200)
     recipients = models.TextField(max_length=100)
-    subject = models.CharField(max_length=200)
-    body = models.TextField(max_length=200)
+    subject = models.CharField(max_length=200, blank=True)
+    body = models.TextField(max_length=200, blank=True)
     schedule = models.CharField(max_length=50, choices=FREQUENCY_CHOICES)
     # time = models.TimeField()
 
