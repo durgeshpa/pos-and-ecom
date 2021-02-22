@@ -23,6 +23,6 @@ def send_mail(data):
         email.to = recipients
         email.attach('result.csv', response, 'application/csv')
         email.send()
-        info_logger.info("Email Successfully send")
+        info_logger.info("redash_scheduled_report_cron | Email Successfully Sent")
     except Exception as e:
         info_logger.error(e)
