@@ -36,8 +36,3 @@ def redash_scheduled_report():
     return HttpResponse("Done")
 
 
-
-
-
-
-
