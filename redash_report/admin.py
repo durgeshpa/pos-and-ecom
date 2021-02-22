@@ -1,11 +1,10 @@
 from django.contrib import admin
 from .forms import ScheduledRedashForm
 from .models import RedashScheduledReport
-# Register your models here.
 
 
 class RedashReportAdmin(admin.ModelAdmin):
-    
+
     model = RedashScheduledReport
     form = ScheduledRedashForm
     """
