@@ -2,7 +2,7 @@ from datetime import datetime
 from datetime import date
 from django.http import HttpResponse
 
-from .tasks import send_mail
+from .mail_conf import send_mail
 from .models import RedashScheduledReport
 
 import logging
