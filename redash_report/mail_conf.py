@@ -1,5 +1,4 @@
 import logging
-
 info_logger = logging.getLogger('file-info')
 
 from global_config.models import GlobalConfig
