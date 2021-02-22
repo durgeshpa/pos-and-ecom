@@ -23,24 +23,23 @@ class RetailerProductCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(_(f"{key} is not allowed"))
 
         # Check, shop_id exists or not
-        if attrs.get('shop_id'):
+        shop_id = attrs.get('shop_id')
+        if shop_id:
             # If user provide shop_id
-            if not Shop.objects.filter(id=attrs.get('shop_id')).exists():
+            if not Shop.objects.filter(id=shop_id).exists():
                 raise serializers.ValidationError(_("Shop ID not found! Please enter a valid Shop ID!"))
 
-        mandatory_list = ["product_name", "mrp", "selling_price"]
-        for ele in mandatory_list:
-            if not attrs.get(ele):
-                raise serializers.ValidationError(_(f"Please Provide {ele}"))
-
-        if attrs.get('selling_price') and attrs.get('mrp'):
+        selling_price = attrs.get('selling_price')
+        mrp = attrs.get('mrp')
+        if selling_price and mrp:
             # If user provide selling_price and mrp
-            if attrs.get('selling_price') > attrs.get('mrp'):
+            if selling_price > mrp:
                 raise serializers.ValidationError(_("Selling Price cannot be greater than MRP"))
 
-        if attrs.get('linked_product_id'):
+        linked_product_id = attrs.get('linked_product_id')
+        if linked_product_id:
             # If user provides linked_product_id
-            if not Product.objects.filter(id=attrs.get('linked_product_id')).exists():
+            if not Product.objects.filter(id=linked_product_id).exists():
                 raise serializers.ValidationError(_("Linked Product ID not found! Please enter a valid Product ID"))
 
         return attrs
@@ -116,42 +115,21 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             if key not in serializer_list:
                 raise serializers.ValidationError(_(f"{key} is not allowed"))
 
-        if attrs.get('product_id'):
-            if not RetailerProduct.objects.filter(id=attrs.get('product_id')).exists():
+        product_id = attrs.get('product_id')
+        if product_id:
+            if not RetailerProduct.objects.filter(id=product_id).exists():
                 raise serializers.ValidationError(_("Please enter a valid product_id"))
 
-            if attrs.get('selling_price') and attrs.get('mrp'):
-                if attrs.get('selling_price') > attrs.get('mrp'):
+            selling_price = attrs.get('selling_price')
+            mrp = attrs.get('mrp')
+            if selling_price and mrp:
+                if selling_price > mrp:
                     raise serializers.ValidationError(_("Selling Price cannot be greater than MRP"))
 
-            if RetailerProduct.objects.filter(id=attrs.get('product_id')).exists():
-                if attrs.get('mrp'):
-                    product = RetailerProduct.objects.filter(id=attrs.get('product_id'))
-                    if attrs.get('mrp') != product.values()[0].get('mrp'):
-                        if not attrs.get('product_name'):
-                            raise serializers.ValidationError(_({"msg": "When you are changing the mrp of the "
-                                                                        "product, some fields are mandatory",
-                                                                 "fields": {"product_name": "mandatory",
-                                                                            "mrp": "mandatory",
-                                                                            "selling_price": "mandatory",
-                                                                            "description": "mandatory"}}))
-                        if not attrs.get('selling_price'):
-                            raise serializers.ValidationError(_({"msg": "When you are changing the mrp of the "
-                                                                        "product, some fields are mandatory",
-                                                                 "fields": {"product_name": "mandatory",
-                                                                            "mrp": "mandatory",
-                                                                            "selling_price": "mandatory",
-                                                                            "description": "mandatory"}}))
-                        if attrs.get('selling_price') and attrs.get('mrp'):
-                            if attrs.get('selling_price') > attrs.get('mrp'):
-                                raise serializers.ValidationError(_("Selling Price cannot be greater than MRP"))
-
-        if not attrs.get('product_id'):
-            raise serializers.ValidationError(_("Please provide a product_id!"))
-
-        if attrs.get('shop_id'):
+        shop_id = attrs.get('shop_id')
+        if shop_id:
             # If user provide shop_id
-            if not Shop.objects.filter(id=attrs.get('shop_id')).exists():
+            if not Shop.objects.filter(id=shop_id).exists():
                 raise serializers.ValidationError(_("Shop ID not found! Please enter a valid Shop ID!"))
 
         return attrs

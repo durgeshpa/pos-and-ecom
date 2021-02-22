@@ -18,8 +18,6 @@ POS_SERIALIZERS_MAP = {
 }
 
 
-
-
 class CatalogueProductCreation(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -57,7 +55,7 @@ class CatalogueProductCreation(GenericAPIView):
         """
         shop_id_or_error_message = self.get_shop_id_or_error_message(request)
         if type(shop_id_or_error_message)==int:
-            serializer = self.get_serializer_class(0)(data=request.data, partial=True)
+            serializer = self.get_serializer_class(0)(data=request.data)
             if serializer.is_valid():
                 product_sku = str(uuid.uuid4()).split('-')[-1][:6].upper() # Generate a unique SKU by using uuid4
                 # if else condition for checking whether, Product we are creating is linked with existing product or not
@@ -125,8 +123,7 @@ class CatalogueProductCreation(GenericAPIView):
         # RetailerProductUpdateSerializer is used
         shop_id_or_error_message = self.get_shop_id_or_error_message(request)
         if type(shop_id_or_error_message)==int:
-            serializer = self.get_serializer_class(1)(data=request.data, partial=True)
-            product_status = "UPDATED"
+            serializer = self.get_serializer_class(1)(data=request.data)
             if serializer.is_valid():
                 if RetailerProduct.objects.filter(id=request.data.get('product_id'), shop_id=shop_id_or_error_message).exists():
                     expected_input_data_list = ['product_name', 'product_id', 'mrp', 'selling_price', 'description']
@@ -135,104 +132,66 @@ class CatalogueProductCreation(GenericAPIView):
                         if key in request.data.keys():
                             actual_input_data_list.append(key)
                     product = RetailerProduct.objects.filter(id=request.data.get('product_id'))
-                    if product.values()[0].get('linked_product_id'):
+                    linked_product_id = product.values()[0].get('linked_product_id')
+                    if linked_product_id:
+                        linked_product = Product.objects.filter(id=linked_product_id)
                         # Checking whether the product is Linked or not!
                         if 'mrp' in actual_input_data_list:
                             # If MRP in actual_input_data_list
-                            if format(decimal.Decimal(request.data.get('mrp')), ".2f") == str(product.values()[0].get('mrp')):
+                            if format(decimal.Decimal(request.data.get('mrp')), ".2f") == str(linked_product.values()[0].get('product_mrp')):
                                 # If Input_MRP == Product_MRP
                                 if 'selling_price' in actual_input_data_list:
                                     # If selling price in actual_input_data_list
-                                    RetailerProduct.objects.filter(id=request.data.get('product_id')).update(selling_price=request.data.get('selling_price'))
+                                    product.update(selling_price=request.data.get('selling_price'), sku_type=2, mrp=request.data.get('mrp'))
                                 if 'product_name' in actual_input_data_list:
                                     # Update Product Name
-                                    RetailerProduct.objects.filter(id=request.data.get('product_id')).update(name=request.data.get('product_name'))
+                                    product.update(name=request.data.get('product_name'))
                                 if 'description' in actual_input_data_list:
                                     # Update Description
-                                    RetailerProduct.objects.filter(id=request.data.get('product_id')).update(description=request.data.get('description'))
+                                    product.update(description=request.data.get('description'))
                             else:
-                                # If Input_MRP != Product_MRP, Create a new product with [SKU Type : Created]
-                                product_status = "CREATED"
-                                product_sku = str(uuid.uuid4()).split('-')[-1][:6].upper()
-                                RetailerProduct.objects.create(shop_id=product.values()[0].get('shop_id'),
-                                                               sku=product_sku, name=request.data.get('product_name'),
-                                                               mrp=request.data.get('mrp'), sku_type=3,
-                                                               selling_price=request.data.get('selling_price'),
-                                                               description=request.data.get('description') if request.data.get(
-                                                                   'description') else '')
+                                # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
+                                if 'selling_price' in actual_input_data_list:
+                                    # If selling price in actual_input_data_list
+                                    product.update(selling_price=request.data.get('selling_price'), mrp=request.data.get('mrp'), sku_type=3)
+                                if 'product_name' in actual_input_data_list:
+                                    # Update Product Name
+                                    product.update(name=request.data.get('product_name'))
+                                if 'description' in actual_input_data_list:
+                                    # Update Description
+                                    product.update(description=request.data.get('description'))
                         else:
                             # If MRP not in actual_input_data_list
                             if 'selling_price' in actual_input_data_list:
                                 # If selling price in actual_input_data_list
-                                RetailerProduct.objects.filter(id=request.data.get('product_id')).update(
-                                    selling_price=request.data.get('selling_price'), sku_type=3)
+                                product.update(selling_price=request.data.get('selling_price'))
                             if 'product_name' in actual_input_data_list:
                                 # Update Product Name
-                                RetailerProduct.objects.filter(id=request.data.get('product_id')).update(
-                                    name=request.data.get('product_name'))
+                                product.update(name=request.data.get('product_name'))
                             if 'description' in actual_input_data_list:
                                 # Update Description
-                                RetailerProduct.objects.filter(id=request.data.get('product_id')).update(
-                                    description=request.data.get('description'))
+                                product.update(description=request.data.get('description'))
                     else:
                         # If not Linked with any product
                         if 'mrp' in actual_input_data_list:
-                            # If MRP in actual_input_data_list
-                            if format(decimal.Decimal(request.data.get('mrp')), ".2f") == str(product.values()[0].get('mrp')):
-                                # If Input_MRP == Product_MRP
-                                if 'selling_price' in actual_input_data_list:
-                                    # Update selling price
-                                    RetailerProduct.objects.filter(id=request.data.get('product_id')).update(
-                                        selling_price=request.data.get('selling_price'))
-                                if 'product_name' in actual_input_data_list:
-                                    # Update product name
-                                    RetailerProduct.objects.filter(id=request.data.get('product_id')).update(
-                                        name=request.data.get('product_name'))
-                                if 'description' in actual_input_data_list:
-                                    # Update description
-                                    RetailerProduct.objects.filter(id=request.data.get('product_id')).update(
-                                        description=request.data.get('description'))
-                            else:
-                                # If Input_MRP != Product_MRP, Create a new Product with [SKU Type : Created]
-                                product_status = "CREATED"
-                                product_sku = str(uuid.uuid4()).split('-')[-1][:6].upper()
-                                RetailerProduct.objects.create(shop_id=product.values()[0].get('shop_id'),
-                                                               sku=product_sku, name=request.data.get('product_name'),
-                                                               mrp=request.data.get('mrp'),
-                                                               selling_price=request.data.get('selling_price'),
-                                                               description=request.data.get('description') if request.data.get(
-                                                                   'description') else '')
-                        else:
-                            # If MRP not in actual_input_data_list
-                            if 'selling_price' in actual_input_data_list:
-                                # Update selling price
-                                RetailerProduct.objects.filter(id=request.data.get('product_id')).update(
-                                    selling_price=request.data.get('selling_price'))
-                            if 'product_name' in actual_input_data_list:
-                                # Update product name
-                                RetailerProduct.objects.filter(id=request.data.get('product_id')).update(
-                                    name=request.data.get('product_name'))
-                            if 'description' in actual_input_data_list:
-                                # Update description
-                                RetailerProduct.objects.filter(id=request.data.get('product_id')).update(
-                                    description=request.data.get('description'))
+                            # Update MRP
+                            product.update(mrp=request.data.get('mrp'))
+                        if 'selling_price' in actual_input_data_list:
+                            # Update selling price
+                            product.update(selling_price=request.data.get('selling_price'))
+                        if 'product_name' in actual_input_data_list:
+                            # Update product name
+                            product.update(name=request.data.get('product_name'))
+                        if 'description' in actual_input_data_list:
+                            # Update description
+                            product.update(description=request.data.get('description'))
 
-                    if product_status == "UPDATED":
-                        data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp', 'selling_price','description', 'sku_type',
+                    data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp', 'selling_price','description', 'sku_type',
                                                               'linked_product__product_name', 'created_at', 'modified_at').filter(id=request.data.get('product_id'))
-                    else:
-                        product = RetailerProduct.objects.all().last()
-                        data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp', 'selling_price',
-                                                              'description', 'sku_type',
-                                                              'linked_product__product_name', 'created_at',
-                                                              'modified_at').filter(id=product.id)
                     response_serializer = RetailerProductResponseSerializer(instance=data[0])
-                    message = {"is_success": True, "message": f"Product has been successfully {product_status}!",
+                    message = {"is_success": True, "message": f"Product has been successfully UPDATED!",
                                "response_data": response_serializer.data}
-                    if product_status == "UPDATED":
-                        return Response(message, status=status.HTTP_202_ACCEPTED)
-                    else:
-                        return Response(message, status=status.HTTP_201_CREATED)
+                    return Response(message, status=status.HTTP_202_ACCEPTED)
                 else:
                     msg = {'is_success': False,
                            'error_message': f"There is no product available with (product id : {request.data.get('product_id')}) "
