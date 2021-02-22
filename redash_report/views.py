@@ -1,35 +1,43 @@
-from django.shortcuts import render
-from .forms import RedashForm
+from datetime import datetime
+from datetime import date
+from django.http import HttpResponse
+
+from .tasks import send_mail
+from .models import RedashScheduledReport
 
 import logging
 info_logger = logging.getLogger('file-info')
-from global_config.models import GlobalConfig
-from django.core.mail import EmailMessage
-import urllib.request
 
 
-def scheduled_report(request):
-    context = {'form': RedashForm()}
-    if request.POST:
-        url = request.POST['csv_url']
-        response = urllib.request.urlopen(url).read()
-        recipient = request.POST['recipient']
-        subject = request.POST['subject']
-        body = request.POST['body']
-        ScheduledMail(response, recipient, subject, body)
-    return render(request, "admin/redash_report/redash.html", context)
+def redash_scheduled_report():
+    today = datetime.now()
+    week_day = today.strftime('%A')
+    month_date = str(date.today().day)
+    info_logger.info('redash_scheduled_report_cron started at {}'.format(datetime.now()))
+    reports = RedashScheduledReport.objects.all()
+
+    for report in reports:
+        # check for daily scheduled report
+        if report.schedule == "Daily":
+            send_mail(report)
+            info_logger.info('redash_scheduled_report_cron | Report sent for Daily Scheduled Report at {}'.format(datetime.now()))
+
+        # for weekly scheduled report checking day
+        elif report.schedule == week_day:
+            send_mail(report)
+            info_logger.info('redash_scheduled_report_cron | Report sent for Weekly Scheduled Report at {}'.format(datetime.now()))
+
+        # for monthly scheduled report checking month
+        elif report.schedule == month_date:
+            send_mail(report)
+            info_logger.info('redash_scheduled_report_cron | Report sent for Monthly Scheduled Report at '.format(datetime.now()))
+
+    info_logger.info('redash_scheduled_report_cron ended at {}'.format(datetime.now()))
+    return HttpResponse("Done")
 
 
-# schedule_email_notification(schedule=date, repeat=Task.DAILY)
-def ScheduledMail(response, recipient, subject, body):
-    try:
-        email = EmailMessage()
-        email.subject = subject
-        email.body = body
-        sender = GlobalConfig.objects.get(key='sender')
-        email.from_email = sender.value
-        email.to = [recipient]
-        email.attach('result.csv', response, 'application/csv')
-        email.send()
-    except Exception as e:
-        info_logger.error(e)
+
+
+
+
+

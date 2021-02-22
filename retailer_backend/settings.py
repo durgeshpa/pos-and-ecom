@@ -135,7 +135,9 @@ INSTALLED_APPS = [
     'tablib',
     'marketing',
     'global_config',
-    'redash_report'
+    'redash_report',
+    'background_task',
+
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -394,6 +396,7 @@ CRONJOBS = [
     ('*/5 * * * *', 'products.cron.deactivate_capping'),
     #('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
     ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
+    ('0 1 * * *', 'redash_report.views.redash_scheduled_report'),
 
 ]
 
