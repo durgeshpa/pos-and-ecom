@@ -134,7 +134,8 @@ INSTALLED_APPS = [
     'django_tables2',
     'tablib',
     'marketing',
-    'global_config'
+    'global_config',
+    'whc'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -393,6 +394,7 @@ CRONJOBS = [
     ('*/5 * * * *', 'products.cron.deactivate_capping'),
     #('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
     ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
+    ('*/5 * * * *', 'whc.cron.initiate_auto_order_processing'),
 
 ]
 

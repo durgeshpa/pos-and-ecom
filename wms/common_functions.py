@@ -191,8 +191,8 @@ class CommonPickupFunctions(object):
 
     @classmethod
     def create_pickup_entry(cls, warehouse, pickup_type, pickup_type_id, sku, quantity, status, inventory_type):
-        Pickup.objects.create(warehouse=warehouse, pickup_type=pickup_type, pickup_type_id=pickup_type_id, sku=sku,
-                              quantity=quantity, status=status, inventory_type=inventory_type)
+        return Pickup.objects.create(warehouse=warehouse, pickup_type=pickup_type, pickup_type_id=pickup_type_id, sku=sku,
+                                     quantity=quantity, status=status, inventory_type=inventory_type)
 
     @classmethod
     def get_filtered_pickup(cls, **kwargs):
