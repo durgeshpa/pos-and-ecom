@@ -15,6 +15,12 @@ class RetailerProduct(models.Model):
         (2, 'LINKED'),
         (3, 'LINKED_EDITED'),
     )
+
+    STATUS_CHOICES = (
+            ('pending_approval', 'Pending Approval'),
+            ('active', 'Active'),
+        )
+
     shop = models.ForeignKey(Shop, related_name='retailer_product', on_delete=models.CASCADE)
     sku = models.CharField(max_length=255, blank=False, unique=True)
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
@@ -23,7 +29,7 @@ class RetailerProduct(models.Model):
     linked_product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     description = models.CharField(max_length=255, validators=[ProductNameValidator], null=True, blank=True)
     sku_type = models.IntegerField(choices=PRODUCT_ORIGINS, default=1)
-    status = models.BooleanField(default=True)
+    status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False, verbose_name='Product Status')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -31,6 +37,9 @@ class RetailerProduct(models.Model):
         if not self.sku:
             self.sku = str(uuid.uuid4()).split('-')[-1][:6].upper()
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.sku + " - " + self.name
 
 
 class RetailerProductImage(models.Model):

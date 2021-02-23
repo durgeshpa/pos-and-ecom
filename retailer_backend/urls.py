@@ -71,6 +71,7 @@ urlpatterns = [
     url(r'^nested_admin/', include('nested_admin.urls')),
     url(r'^audit/', include('audit.urls')),
     url(r'^franchise/', include('franchise.urls')),
+    url(r'^pos/', include('pos.urls')),
     url(r'^admin/franchise/product-list/$', ProductList.as_view(), name='product-list'),
     url(r'^pos/', include('pos.urls')),
 ]
