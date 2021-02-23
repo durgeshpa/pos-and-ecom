@@ -30,7 +30,7 @@ class CatalogueProductCreation(GenericAPIView):
                 shop_id_from_token = Shop.objects.filter(shop_owner_id=request.user.id)
             else:
                 if Shop.objects.filter(related_users=request.user.id).exists():
-                    shop_id_from_token = Shop.objects.filter(related_users=request.user.id)
+                    shop_id_from_token = Shop.objects.filter(related_users=request.user.id).last()
                 else:
                     return "Please Provide a Valid TOKEN"
             shop_id = Shop.objects.filter(id=request.data.get('shop_id'))
