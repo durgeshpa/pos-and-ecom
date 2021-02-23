@@ -1,8 +1,11 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
+import os
+import csv
+import codecs
+
 from marketing.models import *
-from marketing.views import generate_user_referral_code
 
 
 class Command(BaseCommand):
@@ -31,39 +34,45 @@ class Command(BaseCommand):
                 ref_obj.save()
 
                 # Create profiles for all users
-                if Profile.objects.filter(user=mlmuser).exists():
-                    profile = Profile.objects.filter(user=mlmuser).last()
-                    profile.new_user = user
-                    profile.save()
+                Profile.objects.create(user=user)
+
+            # Other models
+            module_dir = os.path.dirname(__file__)
+            reward_file_path = os.path.join(module_dir, 'reward_point.csv')
+            reward_file = open(reward_file_path, 'rb')
+            reward_reader = csv.reader(codecs.iterdecode(reward_file, 'utf-8'))
+            for row in reward_reader:
+                mlmuser = MLMUser.objects.get(pk=row[0])
+                user = User.objects.get(phone_number=mlmuser.phone_number)
+                RewardPoint.objects.create(user=user, direct_users=row[1], indirect_users=row[2], direct_earned=row[3],
+                                           indirect_earned=row[4], points_used=row[5])
+
+            log_file_path = os.path.join(module_dir, 'reward_log.csv')
+            log_file = open(log_file_path, 'rb')
+            log_reader = csv.reader(codecs.iterdecode(log_file, 'utf-8'))
+            for row in log_reader:
+                mlmuser = MLMUser.objects.get(pk=row[0])
+                user = User.objects.get(phone_number=mlmuser.phone_number)
+                row[4] = row[4] if row[4] and row[4] != '' else 0
+                if row[5] and row[5] != '':
+                    changed_by = User.objects.get(pk=row[5])
+                    RewardLog.objects.create(user=user, transaction_type=row[1], transaction_id=row[2], points=row[3],
+                                             discount=row[4], changed_by=changed_by)
                 else:
-                    Profile.objects.create(user=mlmuser, new_user=user)
+                    RewardLog.objects.create(user=user, transaction_type=row[1], transaction_id=row[2], points=row[3],
+                                             discount=row[4])
 
-                # Add accounts user to reward model
-                if RewardPoint.objects.filter(user=mlmuser).exists():
-                    rpo = RewardPoint.objects.filter(user=mlmuser).last()
-                    rpo.new_user = user
-                    rpo.save()
+            ref_file_path = os.path.join(module_dir, 'referral.csv')
+            ref_file = open(ref_file_path, 'rb')
+            ref_reader = csv.reader(codecs.iterdecode(ref_file, 'utf-8'))
+            for row in ref_reader:
+                mlmuser_refto = MLMUser.objects.get(pk=row[0])
+                mlmuser_refby = MLMUser.objects.get(pk=row[1])
+                user_refto = User.objects.get(phone_number=mlmuser_refto.phone_number)
+                user_refby = User.objects.get(phone_number=mlmuser_refby.phone_number)
+                Referral.objects.create(referral_to=user_refto, referral_by=user_refby)
 
-                # Add accounts user to reward log model
-                if RewardLog.objects.filter(user=mlmuser).exists():
-                    rlo = RewardLog.objects.filter(user=mlmuser).all()
-                    for rl in rlo:
-                        rl.new_user = user
-                        rl.save()
 
-            # Add new referral_to and referral_by to reference accounts users in existing referrals
-            referrals = Referral.objects.all()
-            for referral in referrals:
-                referral_by_phone = referral.referral_by.phone_number
-                referral_by_user = User.objects.filter(phone_number=referral_by_phone).last()
-                referral_to_phone = referral.referral_to.phone_number
-                referral_to_user = User.objects.filter(phone_number=referral_to_phone).last()
-                if referral_to_user and referral_by_user:
-                    referral.new_referral_by = referral_by_user
-                    referral.new_referral_to = referral_to_user
-                    referral.save()
-                else:
-                    print("user does not exist {} - {}".format(referral.referral_by.phone_number, referral.referral_to.phone_number))
 
 
 

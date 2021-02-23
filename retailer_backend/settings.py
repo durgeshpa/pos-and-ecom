@@ -135,7 +135,8 @@ INSTALLED_APPS = [
     'tablib',
     'marketing',
     'global_config',
-    'whc'
+    'whc',
+    'pos.apps.PosConfig'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -382,16 +383,17 @@ CRONJOBS = [
     ('30 21 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
     ('*/1 * * * *', 'wms.views.release_blocking_with_cron', '>>/tmp/release.log'),
     ('*/5 * * * *', 'wms.views.pickup_entry_creation_with_cron', '>>/tmp/picking'),
+    ('30 2 * * *', 'retailer_backend.cron.sync_es_products'),
     ('0 2 * * *', 'wms.views.archive_inventory_cron'),
     ('0 3 * * *', 'wms.views.move_expired_inventory_cron'),
     ('0 23 * * *', 'audit.cron.update_audit_status_cron'),
     ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
     ('*/30 * * * *', 'audit.cron.create_picklist_cron'),
     ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
-    ('30 18 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
+    ('30 19 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
     ('30 22 * * *', 'wms.views.auto_report_for_expired_product'),
     ('*/5 * * * *', 'products.cron.deactivate_capping'),
-    ('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
+    #('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
     ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
     ('*/5 * * * *', 'whc.cron.initiate_auto_order_processing'),
 
