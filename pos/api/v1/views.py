@@ -14,11 +14,11 @@ from categories import models as categorymodel
 class ProductDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    """
-        API to get information of existing GramFactory product for POS product creation
-    """
 
     def get(self, *args, **kwargs):
+        """
+            API to get information of existing GramFactory product
+        """
         pk = self.kwargs.get('pk')
         msg = {'is_success': False, 'message': '', 'response_data': None}
         try:
@@ -37,8 +37,16 @@ class RetailerProductsList(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def search_query(self, request):
+        """
+            Es Search query to search for retailer products based on name, brand, category
+        """
         filter_list = []
         query = {"bool": {"filter": filter_list}}
+
+        product_ids = request.GET.get('product_ids')
+        if product_ids:
+            filter_list.append({"ids": {"type": "product", "values": product_ids}})
+            return query
 
         brands = request.GET.get('brands')
         categories = request.GET.get('categories')
@@ -60,6 +68,9 @@ class RetailerProductsList(APIView):
         return query
 
     def process_results(self, products_list):
+        """
+            Modify Es results for response
+        """
         p_list = []
         for p in products_list['hits']['hits']:
             mrp = p["_source"]["mrp"]
@@ -80,7 +91,10 @@ class RetailerProductsList(APIView):
         API to search for retailer products of a particular shop
         Inputs:
         shop_id
-        keyword (search for product name)
+        product_name
+        product_ids
+        brands
+        categories
         """
         shop_id = request.GET.get('shop_id')
         if not Shop.objects.filter(id=shop_id, status=True).exists():
@@ -98,6 +112,11 @@ class EanSearch(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
+        """
+            API to search GramFactory product catalogue based on product ean code exact match
+            Inputs
+            ean_code
+        """
         ean_code = request.GET.get('ean_code')
         if ean_code and ean_code != '':
             body = {
@@ -132,6 +151,14 @@ class GramProductsList(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
+        """
+        API to search for GramFactory products
+        Inputs:
+        product_name
+        product_ids
+        brands
+        categories
+        """
         query = self.search_query(request)
         body = {
             "from": int(request.GET.get('offset', 0)),
@@ -145,6 +172,9 @@ class GramProductsList(APIView):
         return self.get_response(p_list, 'Products Found' if p_list else 'No Products Found')
 
     def search_query(self, request):
+        """
+            Es Search query to search for products based on name, brand, category
+        """
         filter_list = [
             {"term": {"status": True}},
         ]

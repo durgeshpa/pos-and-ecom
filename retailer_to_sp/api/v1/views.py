@@ -240,6 +240,9 @@ class GramGRNProductsList(APIView):
     serializer_class = GramGRNProductsSearchSerializer
 
     def ean_search(self, request, ean_code):
+        """
+            search GramFactory product catalogue based on product ean code exact match
+        """
         body = {
             "from": int(request.data.get('offset', 0)),
             "size": int(request.data.get('pro_count', 50)),
@@ -387,6 +390,9 @@ class GramGRNProductsList(APIView):
         return p_list
 
     def get_response(self, data, is_store_active):
+        """
+            Return response based on is_store_active (True if shop approved if shop id provided) and data (search results)
+        """
         msg = {'is_store_active': is_store_active, 'is_success': True, 'message': ['Products found'],
                'response_data': data}
         if not data:
@@ -426,7 +432,6 @@ class AutoSuggest(APIView):
                 parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
                 if parent_mapping.parent.shop_type.shop_type == 'sp':
                     index = parent_mapping.parent.id
-
         products_list = es_search(index=index, body=body)
         p_list = []
         for p in products_list['hits']['hits']:
