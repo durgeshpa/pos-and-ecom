@@ -368,17 +368,17 @@ class GramGRNProductsList(APIView):
                     for c_p in cart_products:
                         if c_p.cart_product_id == p["_source"]["id"]:
                             if cart.offers:
-                                exampleSet2 = cart.offers
-                                array2 = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], exampleSet2))
-                                for i in array2:
+                                cart_offers = cart.offers
+                                discount_on_product_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], cart_offers))
+                                for i in discount_on_product_offers:
                                     if i['item_sku'] == c_p.cart_product.product_sku:
                                         discounted_product_subtotal = i['discounted_product_subtotal']
                                         p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
                                 p["_source"]["margin"] = (((float(check_price_mrp) - c_p.item_effective_prices) / float(
                                     check_price_mrp)) * 100)
-                                array3 = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], exampleSet2))
+                                discount_on_brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], cart_offers))
                                 for j in coupons:
-                                    for i in (array3 + array2):
+                                    for i in (discount_on_brand_offers + discount_on_product_offers):
                                         if j['coupon_code'] == i['coupon_code']:
                                             j['is_applied'] = True
                             user_selected_qty = c_p.qty or 0
