@@ -1883,23 +1883,14 @@ def auto_report_for_expired_product():
     info_logger.info("WMS : Auto Report for To be expired Products started at {}".format(datetime.now()))
 
     """To_be_Expired_Products workbook"""
-    workbook = Workbook()
-    worksheet = workbook.active
-    worksheet.title = 'To_be_Expired_Products'
+    f = StringIO()
+    writer = csv.writer(f)
+    filename = 'To_be_Expired_Products.csv'
 
     """Expired Products workbook"""
-    wb = Workbook()
-    sheet = wb.active
-    sheet.title = 'Expired_Products'
-
-    response = HttpResponse(
-        content=save_virtual_workbook(workbook), content_type='application/ms-excel'
-    )
-    responses = HttpResponse(
-        content=save_virtual_workbook(wb), content_type='application/ms-excel'
-    )
-    response['Content-Disposition'] = 'attachment; filename=To_be_Expired_Products.xlsx'
-    responses['Content-Disposition'] = 'attachment; filename=Expired_Products.xlsx'
+    f_expired = StringIO()
+    writer_expired = csv.writer(f_expired)
+    filename_expired = 'Expired_Products.csv'
 
     columns = ['Warehouse Name', 'SKU ID', 'SKU Name', 'Parent ID', 'Parent Name', 'Category', 'Sub Category',
                'EAN', 'MRP', 'Selling Price', 'Inner CategoryCase Size', 'Batch ID', 'Expiry Date',
@@ -1927,6 +1918,8 @@ def auto_report_for_expired_product():
             'batch_id', 'bin__bin_id',
             'inventory_type__inventory_type'
         )
+        writer.writerow(columns)
+        writer_expired.writerow(columns)
 
         for product in products:
             expiry_date_str = get_expiry_date(product['batch_id'])
@@ -1940,25 +1933,9 @@ def auto_report_for_expired_product():
                 """
                 if expiring_soon:
                     product_temp = iterate_data(product, product_list, expired_product_list, expiry_date)
-                    product_list[product['batch_id']] = product_temp
-                product_list_new = []
-
-                """
-                Writing Product Expiring withing 15 days in Excel Sheet
-                """
-                row_num = 1
-                for col_num, column_title in enumerate(columns, 1):
-                    cell = worksheet.cell(row=row_num, column=col_num)
-                    cell.value = column_title
-                row = 2
-                for key, value in product_list.items():
-                    col = 1
-                    product_list_new.append(value)
-                    for key_item, value_item in value.items():
-                        cell = worksheet.cell(row=row, column=col)
-                        cell.value = value_item
-                        col += 1
-                    row += 1
+                    batch_bin_key = product['batch_id'] + product['bin__bin_id']
+                    product_list[batch_bin_key] = product_temp
+                    writer.writerow(list(product_temp.values()))
 
             expired_products = expiry_date.date() <= today
             if expired_products:
@@ -1966,40 +1943,30 @@ def auto_report_for_expired_product():
                 Expired product
                 """
                 product_temp = iterate_data(product, product_list, expired_product_list, expiry_date)
-                expired_product_list[product['batch_id']] = product_temp
-            expired_product_list_new = []
+                batch_bin_key = product['batch_id'] + product['bin__bin_id']
+                expired_product_list[batch_bin_key] = product_temp
+                writer_expired.writerow(list(product_temp.values()))
 
-            """
-            Writing Expired product withing 15 days in Excel Sheet
-            """
-            row_num = 1
-            for col_num, column_title in enumerate(columns, 1):
-                cell = sheet.cell(row=row_num, column=col_num)
-                cell.value = column_title
-            row = 2
-            for key, value in expired_product_list.items():
-                col = 1
-                expired_product_list_new.append(value)
-                for key_item, value_item in value.items():
-                    cell = sheet.cell(row=row, column=col)
-                    cell.value = value_item
-                    col += 1
-                row += 1
-
-        workbook.save(response)
-        wb.save(responses)
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        f_expired.seek(0)
+        responses = HttpResponse(f_expired, content_type='text/csv')
+        responses['Content-Disposition'] = 'attachment; filename="{}"'.format(filename_expired)
         send_mail_w_attachment(response, responses, warehouse_id, product['warehouse__shop_name'])
     return response
 
 
 def iterate_data(product, product_list, expired_product_list, expiry_date):
-    if product['batch_id'] in product_list:
-        product_temp = product_list[product['batch_id']]
+
+    batch_bin_key = product['batch_id'] + product['bin__bin_id']
+    if batch_bin_key in product_list:
+        product_temp = product_list[batch_bin_key]
         available_qty = product['quantity'] + product['to_be_picked_qty']
         product_temp[product['inventory_type__inventory_type']] += available_qty
 
-    elif product['batch_id'] in expired_product_list:
-        product_temp = expired_product_list[product['batch_id']]
+    elif batch_bin_key in expired_product_list:
+        product_temp = expired_product_list[batch_bin_key]
         available_qty = product['quantity'] + product['to_be_picked_qty']
         product_temp[product['inventory_type__inventory_type']] += available_qty
 
