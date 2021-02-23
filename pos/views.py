@@ -25,7 +25,8 @@ class CatalogueProductCreation(GenericAPIView):
 
     def get_shop_id_or_error_message(self, request):
         # If Token and shop_id, check whether Token is valid for shop_id or not
-        if request.user.id and request.data.get('shop_id'):
+        shopID = request.data.get('shop_id')
+        if request.user.id and shopID:
             if Shop.objects.filter(shop_owner_id=request.user.id).exists():
                 shop_id_from_token = Shop.objects.filter(shop_owner_id=request.user.id)
             else:
@@ -33,12 +34,12 @@ class CatalogueProductCreation(GenericAPIView):
                     shop_id_from_token = Shop.objects.filter(related_users=request.user.id)
                 else:
                     return "Please Provide a Valid TOKEN"
-            shop_id = Shop.objects.filter(id=request.data.get('shop_id'))
+            shop_id = Shop.objects.filter(id=shopID)
             if not shop_id.values()[0].get('id') == shop_id_from_token.values()[0].get('id'):
                 return "INCORRECT TOKEN for given SHOP_ID"
 
-        if request.data.get('shop_id'):
-            return int(request.data.get('shop_id'))
+        if shopID:
+            return int(shopID)
         else:
             if request.user.id:
                 if Shop.objects.filter(shop_owner_id=request.user.id).exists():
@@ -71,6 +72,11 @@ class CatalogueProductCreation(GenericAPIView):
             serializer = self.get_serializer_class(0)(data=request.data)
             if serializer.is_valid():
                 product_sku = str(uuid.uuid4()).split('-')[-1][:6].upper()  # Generate a unique SKU by using uuid4
+                product_name = request.data.get('product_name')
+                mrp = request.data.get('mrp')
+                selling_price = request.data.get('selling_price')
+                linked_product_id = request.data.get('linked_product_id')
+                description = request.data.get('description') if request.data.get('description') else ''
                 # if else condition for checking whether, Product we are creating is linked with existing product or not
                 # with the help of 'linked_product_id'
                 if request.data.get('linked_product_id'):
@@ -81,31 +87,17 @@ class CatalogueProductCreation(GenericAPIView):
                                 decimal.Decimal(request.data.get('mrp')), ".2f"):
                             # If Linked_Product_MRP == Input_MRP , create a Product with [SKU TYPE : LINKED]
                             RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_sku,
-                                                                       request.data.get('product_name'),
-                                                                       request.data.get('mrp'),
-                                                                       request.data.get('selling_price'),
-                                                                       request.data.get('linked_product_id'), 2,
-                                                                       request.data.get(
-                                                                           'description') if request.data.get(
-                                                                           'description') else '')
+                                                                       product_name, mrp, selling_price,
+                                                                       linked_product_id, 2, description)
                         else:
                             # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
                             RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_sku,
-                                                                       request.data.get('product_name'),
-                                                                       request.data.get('mrp'),
-                                                                       request.data.get('selling_price'),
-                                                                       request.data.get('linked_product_id'), 3,
-                                                                       request.data.get(
-                                                                           'description') if request.data.get(
-                                                                           'description') else '')
+                                                                       product_name, mrp, selling_price,
+                                                                       linked_product_id, 3, description)
                 else:
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
-                    RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_sku,
-                                                               request.data.get('product_name'),
-                                                               request.data.get('mrp'),
-                                                               request.data.get('selling_price'), None, 1,
-                                                               request.data.get('description') if request.data.get(
-                                                                   'description') else '')
+                    RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_sku, product_name, mrp,
+                                                               selling_price, None, 1, description)
                 product = RetailerProduct.objects.all().last()
                 # Fetching the data of created product
                 data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp', 'selling_price',
@@ -145,20 +137,22 @@ class CatalogueProductCreation(GenericAPIView):
         if type(shop_id_or_error_message) == int:
             serializer = self.get_serializer_class(1)(data=request.data)
             if serializer.is_valid():
-                if RetailerProduct.objects.filter(id=request.data.get('product_id'),
+                product_id = request.data.get('product_id')
+                mrp = request.data.get('mrp')
+                if RetailerProduct.objects.filter(id=product_id,
                                                   shop_id=shop_id_or_error_message).exists():
                     expected_input_data_list = ['product_name', 'product_id', 'mrp', 'selling_price', 'description']
                     actual_input_data_list = []  # List of keys that user wants to update(If user wants to update product_name, this list wil only have product_name)
                     for key in expected_input_data_list:
                         if key in request.data.keys():
                             actual_input_data_list.append(key)
-                    product = RetailerProduct.objects.get(id=request.data.get('product_id'))
+                    product = RetailerProduct.objects.get(id=product_id)
                     linked_product_id = product.linked_product_id
                     if linked_product_id:
                         if 'mrp' in actual_input_data_list:
                             # If MRP in actual_input_data_list
                             linked_product = Product.objects.filter(id=linked_product_id)
-                            if format(decimal.Decimal(request.data.get('mrp')), ".2f") == str(
+                            if format(decimal.Decimal(mrp), ".2f") == str(
                                     linked_product.values()[0].get('product_mrp')):
                                 # If Input_MRP == Product_MRP, Update the product with [SKU Type : Linked]
                                 product.sku_type = 2
@@ -167,7 +161,7 @@ class CatalogueProductCreation(GenericAPIView):
                                 product.sku_type = 3
                     if 'mrp' in actual_input_data_list:
                         # If MRP in actual_input_data_list
-                        product.mrp = request.data.get('mrp')
+                        product.mrp = mrp
                     if 'selling_price' in actual_input_data_list:
                         # If selling price in actual_input_data_list
                         product.selling_price = request.data.get('selling_price')
@@ -189,7 +183,7 @@ class CatalogueProductCreation(GenericAPIView):
                     return Response(message, status=status.HTTP_202_ACCEPTED)
                 else:
                     msg = {'is_success': False,
-                           'error_message': f"There is no product available with (product id : {request.data.get('product_id')}) "
+                           'error_message': f"There is no product available with (product id : {product_id}) "
                                             f"for the shop_id provided",
                            'response_data': None}
                     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
