@@ -6,6 +6,7 @@ from django.core.validators import RegexValidator
 from wms.models import Bin, create_order_id
 from audit.models import AuditDetail
 from shops.models import Shop
+from products.models import Product
 
 
 phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
@@ -82,6 +83,22 @@ class HdposDataFetch(models.Model):
     to_date = models.DateTimeField(null=True, blank=True)
     process_text = models.CharField(max_length=255, null=True, blank=True)
     status = models.IntegerField(choices=((0, 'Started'), (1, 'Completed'), (2, 'Error')), default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class HdposInventoryHistory(models.Model):
+    shop_name = models.CharField(max_length=255, null=True, blank=True)
+    product_sku = models.CharField(max_length=255, null=True, blank=True)
+    product_name = models.CharField(max_length=255, null=True, blank=True)
+    quantity = models.CharField(max_length=255, null=True, blank=True)
+    error = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class WmsInventoryHistory(models.Model):
+    warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 
 

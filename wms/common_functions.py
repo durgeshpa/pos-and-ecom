@@ -398,6 +398,9 @@ def get_visibility_changes(shop, product):
         if len(product_qty_dict) == 0:
             visibility_changes[child.id] = False
             continue
+        if AuditProduct.objects.filter(warehouse=shop, sku=child, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
+            visibility_changes[child.id] = False
+            continue
         if child.reason_for_child_sku == 'offer':
             visibility_changes[child.id] = True
             continue
@@ -407,9 +410,6 @@ def get_visibility_changes(shop, product):
             continue
         if sum_qty_warehouse_entries <= 2*(int(child.product_inner_case_size)):
             visibility_changes[child.id] = True
-            continue
-        if AuditProduct.objects.filter(warehouse=shop, sku=child, status=AUDIT_PRODUCT_STATUS.BLOCKED).exists():
-            visibility_changes[child.id] = False
             continue
         bin_data = BinInventory.objects.filter(
             Q(warehouse=shop),
@@ -955,13 +955,13 @@ def cancel_pickup(pickup_object):
         info_logger.info("cancel_pickup | updated | Bin-{}, batch-{}, quantity-{}, to_be_picked_qty-{}"
                          .format(bi.bin_id, bi.batch_id, bin_quantity, to_be_picked_qty))
         bi_qs.update(quantity=bin_quantity, to_be_picked_qty=to_be_picked_qty)
-
-        InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
-                                                                     bi.bin,
-                                                                     type_normal, type_normal,
-                                                                     tr_type,
-                                                                     pickup_id,
-                                                                     remaining_qty)
+        if remaining_qty > 0:
+            InternalInventoryChange.create_bin_internal_inventory_change(bi.warehouse, bi.sku, bi.batch_id,
+                                                                         bi.bin,
+                                                                         type_normal, type_normal,
+                                                                         tr_type,
+                                                                         pickup_id,
+                                                                         remaining_qty)
         if picked_qty > 0:
             PutawayCommonFunctions.create_putaway_with_putaway_bin_inventory(
                 bi, type_normal, tr_type, pickup_id, picked_qty, False)
@@ -971,14 +971,14 @@ def cancel_pickup(pickup_object):
 
             info_logger.info("cancel_pickup | created putaway | Bin-{}, batch-{}, quantity-{}"
                              .format(bi.bin_id, bi.batch_id, picked_qty))
+    if total_remaining > 0:
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
+            state_to_be_picked, -1 * total_remaining, tr_type, pickup_id)
 
-    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-        pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
-        state_to_be_picked, -1 * total_remaining, tr_type, pickup_id)
-
-    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-        pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
-        state_ordered, total_remaining, tr_type, pickup_id)
+        CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+            pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
+            state_ordered, total_remaining, tr_type, pickup_id)
 
     pickup_object.status = tr_type
     pickup_object.save()

@@ -2195,7 +2195,7 @@ def bulk_product_vendor_csv_upload_view(request):
         if form.is_valid():
             upload_file = form.cleaned_data.get('file')
             vendor_id = request.POST.get('select')
-            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
             first_row = next(reader)
             try:
                 for row_id, row in enumerate(reader):

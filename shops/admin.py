@@ -30,7 +30,7 @@ from .views import (StockAdjustmentView,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
 from retailer_backend.admin import InputFilter
-from services.views import SalesReportFormView, SalesReport
+#from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel
 from retailer_backend.filters import ShopFilter, EmployeeFilter, ManagerFilter
 from common.constants import DOWNLOAD_BEAT_PLAN_CSV, FIFTY
@@ -251,16 +251,16 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                    #     self.admin_site.admin_view(stock_adjust_sample),
                    #     name="ShopStocks"
                    # ),
-                   url(
-                       r'^shop-sales-report/$',
-                       self.admin_site.admin_view(SalesReport.as_view()),
-                       name="shop-sales-report"
-                   ),
-                   url(
-                       r'^shop-sales-form/$',
-                       self.admin_site.admin_view(SalesReportFormView.as_view()),
-                       name="shop-sales-form"
-                   ),
+                   # url(
+                   #     r'^shop-sales-report/$',
+                   #     self.admin_site.admin_view(SalesReport.as_view()),
+                   #     name="shop-sales-report"
+                   # ),
+                   # url(
+                   #     r'^shop-sales-form/$',
+                   #     self.admin_site.admin_view(SalesReportFormView.as_view()),
+                   #     name="shop-sales-form"
+                   # ),
                    url(
                        r'^shop-timing-autocomplete/$',
                        self.admin_site.admin_view(ShopTimingAutocomplete.as_view()),
@@ -286,16 +286,16 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                         self.admin_site.admin_view(StockAdjustmentView.as_view()),
                         name="StockAdjustment"
                     ),
-                    url(
-                        r'^shop-sales-report/$',
-                        self.admin_site.admin_view(SalesReport.as_view()),
-                        name="shop-sales-report"
-                    ),
-                    url(
-                        r'^shop-sales-form/$',
-                        self.admin_site.admin_view(SalesReportFormView.as_view()),
-                        name="shop-sales-form"
-                    ),
+                    # url(
+                    #     r'^shop-sales-report/$',
+                    #     self.admin_site.admin_view(SalesReport.as_view()),
+                    #     name="shop-sales-report"
+                    # ),
+                    # url(
+                    #     r'^shop-sales-form/$',
+                    #     self.admin_site.admin_view(SalesReportFormView.as_view()),
+                    #     name="shop-sales-form"
+                    # ),
                     url(
                         r'^shop-timing-autocomplete/$',
                         self.admin_site.admin_view(ShopTimingAutocomplete.as_view()),
