@@ -73,6 +73,7 @@ urlpatterns = [
     url(r'^franchise/', include('franchise.urls')),
     url(r'^pos/', include('pos.urls')),
     url(r'^admin/franchise/product-list/$', ProductList.as_view(), name='product-list'),
+    url(r'^pos/', include('pos.urls')),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
