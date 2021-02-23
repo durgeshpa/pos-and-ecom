@@ -24,8 +24,15 @@ class CatalogueProductCreation(GenericAPIView):
     permission_classes = (AllowAny,)
 
     def get_shop_id_or_error_message(self, request):
+        # If Token and shop_id, check whether Token is valid for shop_id or not
         if request.user.id and request.data.get('shop_id'):
-            shop_id_from_token = Shop.objects.filter(shop_owner_id=request.user.id)
+            if Shop.objects.filter(shop_owner_id=request.user.id).exists():
+                shop_id_from_token = Shop.objects.filter(shop_owner_id=request.user.id)
+            else:
+                if Shop.objects.filter(related_users=request.user.id).exists():
+                    shop_id_from_token = Shop.objects.filter(related_users=request.user.id)
+                else:
+                    return "Please Provide a Valid TOKEN"
             shop_id = Shop.objects.filter(id=request.data.get('shop_id'))
             if not shop_id.values()[0].get('id') == shop_id_from_token.values()[0].get('id'):
                 return "INCORRECT TOKEN for given SHOP_ID"
@@ -34,7 +41,13 @@ class CatalogueProductCreation(GenericAPIView):
             return int(request.data.get('shop_id'))
         else:
             if request.user.id:
-                shop = Shop.objects.filter(shop_owner_id=request.user.id)
+                if Shop.objects.filter(shop_owner_id=request.user.id).exists():
+                    shop = Shop.objects.filter(shop_owner_id=request.user.id)
+                else:
+                    if Shop.objects.filter(related_users=request.user.id).exists():
+                        shop = Shop.objects.filter(related_users=request.user.id)
+                    else:
+                        return "Please Provide a Valid TOKEN"
                 return int(shop.values()[0].get('id'))
             return "Please provide SHOP_ID or Token"
 
