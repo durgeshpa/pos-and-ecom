@@ -135,7 +135,8 @@ INSTALLED_APPS = [
     'tablib',
     'marketing',
     'global_config',
-    'whc'
+    'whc',
+    'pos.apps.PosConfig'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
