@@ -532,6 +532,7 @@ class AutoOrderProcessor:
     def process_auto_po_gen(self, auto_processing_entry):
 
         grn_order = GRNOrder.objects.filter(id=auto_processing_entry.grn_id).values(
+            'order__order_no',
             'order__ordered_cart', 'order__ordered_cart__brand', 'order__ordered_cart__po_validity_date',
             'order__ordered_cart__payment_term', 'order__ordered_cart__delivery_term',
             'order__ordered_cart__po_status',
@@ -551,9 +552,16 @@ class AutoOrderProcessor:
         return auto_processing_entry
 
     def po_from_grn(self, grn):
+        source_po = POCarts.objects.filter(id=grn['order__ordered_cart']).last()
+        get_po_qs = AutoOrderProcessing.objects.filter(source_po=source_po,
+                                                       state__in=[
+                                                           AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED,
+                                                           AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE])
+        if get_po_qs.exists():
+            return get_po_qs.last().auto_po
         brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
 
-        cart_instance, _ = POCarts.objects.update_or_create(brand=brand, supplier_name=self.supplier, supplier_state=self.supplier.state,
+        cart_instance = POCarts.objects.create(brand=brand, supplier_name=self.supplier, supplier_state=self.supplier.state,
                                                       gf_shipping_address=self.shipp_bill_address,
                                                       gf_billing_address=self.shipp_bill_address,
                                                       po_validity_date=grn['order__ordered_cart__po_validity_date'],
@@ -562,7 +570,7 @@ class AutoOrderProcessor:
                                                       po_raised_by=self.user,last_modified_by=self.user,
                                                       cart_product_mapping_csv=
                                                       grn['order__ordered_cart__cart_product_mapping_csv'],
-                                                         defaults={'po_status':grn['order__ordered_cart__po_status']})
+                                                      po_status=grn['order__ordered_cart__po_status'])
 
         cart_product_mapping = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
             'cart_parent_product__parent_id', 'cart_product__id', '_tax_percentage', 'inner_case_size',

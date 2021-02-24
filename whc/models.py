@@ -50,6 +50,7 @@ class AutoOrderProcessing(BaseTimestampModel):
                                       (12, 'DELIVERED', 'Delivered'),
                                       (13, 'PO_CREATED', 'PO Created'),
                                       (14, 'AUTO_GRN_DONE', 'AUTO GRN Done'))
+    source_po = models.ForeignKey(POCart, related_name='auto_process_entries_for_po', on_delete=models.CASCADE, null=True)
     grn = models.OneToOneField(GRNOrder, related_name='auto_order', on_delete=models.CASCADE)
     grn_warehouse = models.ForeignKey(Shop, related_name='shop_grns_for_auto_processing', on_delete=models.CASCADE)
     state = models.PositiveSmallIntegerField(choices=ORDER_PROCESSING_STATUS, default=ORDER_PROCESSING_STATUS.PUTAWAY)
