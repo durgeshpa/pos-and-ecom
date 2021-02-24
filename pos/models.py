@@ -1,6 +1,8 @@
 import uuid
 
 from django.db import models
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
 
 from shops.models import Shop
 from products.models import Product
@@ -33,13 +35,15 @@ class RetailerProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        if not self.sku:
-            self.sku = (str(self.shop.id) + str(uuid.uuid4()).split('-')[-1].upper())[0:17]
-        super().save(*args, **kwargs)
-
     def __str__(self):
         return self.sku + " - " + self.name
+
+
+@receiver(pre_save, sender=RetailerProduct)
+def create_product_sku(sender, instance=None, created=False, **kwargs):
+    if not instance.sku:
+        # Generate a unique SKU by using shop_id & uuid4
+        instance.sku = str(str(instance.shop.id) + str(uuid.uuid4()).split('-')[-1].upper())[0:17]
 
 
 class RetailerProductImage(models.Model):
