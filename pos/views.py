@@ -71,7 +71,6 @@ class CatalogueProductCreation(GenericAPIView):
         if type(shop_id_or_error_message) == int:
             serializer = self.get_serializer_class(0)(data=request.data)
             if serializer.is_valid():
-                product_sku = str(uuid.uuid4()).split('-')[-1][:6].upper()  # Generate a unique SKU by using uuid4
                 product_name = request.data.get('product_name')
                 mrp = request.data.get('mrp')
                 selling_price = request.data.get('selling_price')
@@ -86,17 +85,17 @@ class CatalogueProductCreation(GenericAPIView):
                         if str(product.values()[0].get('product_mrp')) == format(
                                 decimal.Decimal(request.data.get('mrp')), ".2f"):
                             # If Linked_Product_MRP == Input_MRP , create a Product with [SKU TYPE : LINKED]
-                            RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_sku,
+                            RetailerProductCls.create_retailer_product(shop_id_or_error_message,
                                                                        product_name, mrp, selling_price,
                                                                        linked_product_id, 2, description)
                         else:
                             # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
-                            RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_sku,
+                            RetailerProductCls.create_retailer_product(shop_id_or_error_message,
                                                                        product_name, mrp, selling_price,
                                                                        linked_product_id, 3, description)
                 else:
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
-                    RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_sku, product_name, mrp,
+                    RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_name, mrp,
                                                                selling_price, None, 1, description)
                 product = RetailerProduct.objects.all().last()
                 # Fetching the data of created product

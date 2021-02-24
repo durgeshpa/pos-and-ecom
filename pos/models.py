@@ -35,7 +35,7 @@ class RetailerProduct(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.sku:
-            self.sku = str(uuid.uuid4()).split('-')[-1][:6].upper()
+            self.sku = str(str(self.shop.id) + str(uuid.uuid4()).split('-')[-1].upper())[0:17]
         super().save(*args, **kwargs)
 
     def __str__(self):
