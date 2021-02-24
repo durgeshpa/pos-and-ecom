@@ -43,9 +43,7 @@ class RetailerProduct(models.Model):
 def create_product_sku(sender, instance=None, created=False, **kwargs):
     if not instance.sku:
         # Generate a unique SKU by using shop_id & uuid4
-        uuid_code = str(uuid.uuid4()).split('-')
-        listToStr = ''.join([str(elem) for elem in uuid_code])
-        instance.sku = (str(instance.shop.id) + str(listToStr.upper()))[0:17]
+        instance.sku = (str(instance.shop.id) + str(uuid.uuid4().hex).upper())[0:17]
 
 
 class RetailerProductImage(models.Model):
