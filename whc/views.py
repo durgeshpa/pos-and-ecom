@@ -570,7 +570,7 @@ class AutoOrderProcessor:
                                                       po_raised_by=self.user,last_modified_by=self.user,
                                                       cart_product_mapping_csv=
                                                       grn['order__ordered_cart__cart_product_mapping_csv'],
-                                                      po_status=grn['order__ordered_cart__po_status'])
+                                                      po_status='OPEN')
 
         cart_product_mapping = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
             'cart_parent_product__parent_id', 'cart_product__id', '_tax_percentage', 'inner_case_size',
@@ -644,6 +644,8 @@ class AutoOrderProcessor:
                                              batch_id=grn_product.batch_id,
                                              barcode_id=grn_product.barcode_id)
             grn_obj.save()
+        auto_processing_entry.auto_po.po_status = auto_processing_entry.source_po.po_status
+        auto_processing_entry.auto_po.save()
         info_logger.info("create_auto_grn|COMPLETED")
         return auto_processing_entry
 
