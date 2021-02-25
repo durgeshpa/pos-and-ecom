@@ -558,19 +558,21 @@ class AutoOrderProcessor:
                                                            AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED,
                                                            AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE])
         if get_po_qs.exists():
-            return get_po_qs.last().auto_po
-        brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
-
-        cart_instance = POCarts.objects.create(brand=brand, supplier_name=self.supplier, supplier_state=self.supplier.state,
-                                                      gf_shipping_address=self.shipp_bill_address,
-                                                      gf_billing_address=self.shipp_bill_address,
-                                                      po_validity_date=grn['order__ordered_cart__po_validity_date'],
-                                                      payment_term=grn['order__ordered_cart__payment_term'],
-                                                      delivery_term=grn['order__ordered_cart__delivery_term'],
-                                                      po_raised_by=self.user,last_modified_by=self.user,
-                                                      cart_product_mapping_csv=
-                                                      grn['order__ordered_cart__cart_product_mapping_csv'],
-                                                      po_status='OPEN')
+            cart_instance = get_po_qs.last().auto_po
+            POCartProductMappings.objects.filter(cart=cart_instance).delete()
+            # return get_po_qs.last().auto_po
+        else:
+            brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
+            cart_instance = POCarts.objects.create(brand=brand, supplier_name=self.supplier, supplier_state=self.supplier.state,
+                                                          gf_shipping_address=self.shipp_bill_address,
+                                                          gf_billing_address=self.shipp_bill_address,
+                                                          po_validity_date=grn['order__ordered_cart__po_validity_date'],
+                                                          payment_term=grn['order__ordered_cart__payment_term'],
+                                                          delivery_term=grn['order__ordered_cart__delivery_term'],
+                                                          po_raised_by=self.user,last_modified_by=self.user,
+                                                          cart_product_mapping_csv=
+                                                          grn['order__ordered_cart__cart_product_mapping_csv'],
+                                                          po_status='OPEN')
 
         cart_product_mapping = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
             'cart_parent_product__parent_id', 'cart_product__id', '_tax_percentage', 'inner_case_size',
