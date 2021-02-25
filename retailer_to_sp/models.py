@@ -54,6 +54,8 @@ from django.db.models import Q
 from django.urls import reverse
 from retailer_backend import common_function
 from wms.models import WarehouseInventory
+
+from pos.models import RetailerProduct
 # from datetime import datetime, timedelta
 today = datetime.datetime.today()
 
@@ -78,6 +80,7 @@ PAYMENT_MODE_CHOICES = (
 RETAIL = 'RETAIL'
 BULK = 'BULK'
 DISCOUNTED = 'DISCOUNTED'
+BASIC = 'BASIC'
 
 BULK_ORDER_STATUS = (
     (RETAIL, 'Retail'),
@@ -103,6 +106,13 @@ PAYMENT_STATUS = (
 PAYMENT_MODE = (
     ('CREDIT', 'Credit'),
     ('INSTANT_PAYMENT', 'Instant_payment'),
+)
+
+CART_TYPES = (
+    (RETAIL, 'Retail'),
+    (BULK, 'Bulk'),
+    (DISCOUNTED, 'Discounted'),
+    (BASIC, 'Basic')
 )
 
 
@@ -154,6 +164,7 @@ class Cart(models.Model):
         Shop, related_name='rt_buyer_shop_cart',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
+    buyer = models.ForeignKey(User, related_name='rt_buyer_cart', null=True, blank=True, on_delete=models.DO_NOTHING)
     cart_status = models.CharField(
         max_length=200, choices=CART_STATUS,
         null=True, blank=True, db_index=True
@@ -169,7 +180,7 @@ class Cart(models.Model):
     # )
     approval_status = models.BooleanField(default=False, null=True)
     cart_type = models.CharField(
-        max_length=50, choices=BULK_ORDER_STATUS, null=True, default=RETAIL)
+        max_length=50, choices=CART_TYPES, null=True, default=RETAIL)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -835,6 +846,10 @@ class CartProductMapping(models.Model):
                              )
     cart_product = models.ForeignKey(
         Product, related_name='rt_cart_product_mapping', null=True,
+        on_delete=models.DO_NOTHING
+    )
+    retailer_product = models.ForeignKey(
+        RetailerProduct, related_name='rt_cart_retailer_product', null=True,
         on_delete=models.DO_NOTHING
     )
     cart_product_price = models.ForeignKey(
@@ -2694,7 +2709,7 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
-        if instance.cart_type == 'RETAIL':
+        if instance.cart_type == 'RETAIL' or instance.cart_type == 'BASIC':
             instance.order_id = common_function.order_id_pattern(
                 sender, 'order_id', instance.pk,
                 instance.seller_shop.
@@ -2752,7 +2767,8 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=CartProductMapping)
 def create_offers(sender, instance=None, created=False, **kwargs):
-    if instance.qty and instance.no_of_pieces and instance.cart.cart_type != 'DISCOUNTED':
+    if instance.qty and instance.no_of_pieces and instance.cart.cart_type != 'DISCOUNTED'\
+            and instance.cart.cart_type != 'BASIC':
         Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 
 

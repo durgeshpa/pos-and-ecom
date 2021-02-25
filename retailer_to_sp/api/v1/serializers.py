@@ -427,6 +427,14 @@ class CartSerializer(serializers.ModelSerializer):
         return self.context.get("delivery_message", None)
 
 
+class BasicCartSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Cart
+        fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
+                  'created_at', 'modified_at', 'rt_cart_list')
+
+
 class NoteSerializer(serializers.ModelSerializer):
     note_link = serializers.SerializerMethodField('note_link_id')
     note_type = serializers.SerializerMethodField()
