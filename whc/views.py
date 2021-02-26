@@ -154,6 +154,7 @@ class AutoOrderProcessor:
         if shipments:
             shipments.update(trip=trip)
         auto_processing_entry.order.order_status = Order.READY_TO_DISPATCH
+        auto_processing_entry.order.save()
         info_logger.info("WarehouseConsolidation|create_trip|Trip Created, order id-{}"
                          .format(auto_processing_entry.order.id))
         return auto_processing_entry
@@ -172,6 +173,7 @@ class AutoOrderProcessor:
         info_logger.info("WarehouseConsolidation|start_trip|inventory changes done, order id-{}"
                          .format(auto_processing_entry.order.id))
         auto_processing_entry.order.order_status = Order.DISPATCHED
+        auto_processing_entry.order.save()
         info_logger.info("WarehouseConsolidation|start_trip|Completed, order id-{}"
                          .format(auto_processing_entry.order.id))
         return auto_processing_entry
@@ -187,6 +189,7 @@ class AutoOrderProcessor:
             shipment.trip.save()
             shipment.save()
         auto_processing_entry.order.order_status = TRIP_ORDER_STATUS_MAP[Trip.COMPLETED]
+        auto_processing_entry.order.save()
         info_logger.info("WarehouseConsolidation|complete_trip|Completed, order id-{}"
                          .format(auto_processing_entry.order.id))
         return auto_processing_entry
@@ -559,8 +562,6 @@ class AutoOrderProcessor:
                                                            AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE])
         if get_po_qs.exists():
             cart_instance = get_po_qs.last().auto_po
-            POCartProductMappings.objects.filter(cart=cart_instance).delete()
-            # return get_po_qs.last().auto_po
         else:
             brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
             cart_instance = POCarts.objects.create(brand=brand, supplier_name=self.supplier, supplier_state=self.supplier.state,
@@ -584,11 +585,13 @@ class AutoOrderProcessor:
             parent_product = ParentProduct.objects.get(parent_id=cart_pro_map['cart_parent_product__parent_id'])
             product = Product.objects.get(id=cart_pro_map['cart_product__id'])
 
-            cart_mapped = POCartProductMappings.objects.filter(cart=cart_instance,
-                                                               cart_product=product)
+            cart_mapped = POCartProductMappings.objects.filter(cart=cart_instance, cart_product=product)
 
+            if cart_mapped:
+                cart_mapped.update(number_of_cases=cart_pro_map['number_of_cases'],
+                                   no_of_pieces=cart_pro_map['no_of_pieces'],
+                                   price=float(cart_pro_map['price']))
             if not cart_mapped:
-
                 product_mapping, _ = ProductVendorMapping.objects.get_or_create(vendor=self.supplier, product=product,
                                                                              product_price=cart_pro_map[
                                                                                 'vendor_product__product_price'],
