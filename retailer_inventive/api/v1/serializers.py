@@ -1,7 +1,7 @@
 
 from rest_framework import serializers
 
-from retailer_incentive.models import SchemeShopMapping, SchemeSlab
+from retailer_inventive.models import SchemeShopMapping, SchemeSlab
 
 
 class SchemeSlabSerializer(serializers.ModelSerializer):

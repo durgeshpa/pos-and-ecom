@@ -1,8 +1,8 @@
 from rest_framework import authentication, permissions
 
 from common.data_wrapper_view import DataWrapperViewSet
-from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer
-from retailer_incentive.models import SchemeShopMapping
+from retailer_inventive.api.v1.serializers import SchemeShopMappingSerializer
+from retailer_inventive.models import SchemeShopMapping
 
 
 class ShopSchemeMappingViewSet(DataWrapperViewSet):

@@ -137,6 +137,7 @@ INSTALLED_APPS = [
     'global_config',
     'whc',
     'redash_report',
+    'retailer_inventive'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
