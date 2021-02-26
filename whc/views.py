@@ -581,10 +581,11 @@ class AutoOrderProcessor:
             'per_unit_price', 'vendor_product__brand_to_gram_price_unit',
             'vendor_product__case_size', 'vendor_product__product_mrp', 'vendor_product__product_price',
             'vendor_product__product_price_pack')
+        all_source_po_product_ids = []
         for cart_pro_map in cart_product_mapping:
             parent_product = ParentProduct.objects.get(parent_id=cart_pro_map['cart_parent_product__parent_id'])
             product = Product.objects.get(id=cart_pro_map['cart_product__id'])
-
+            all_source_po_product_ids.append(cart_pro_map['cart_product__id'])
             cart_mapped = POCartProductMappings.objects.filter(cart=cart_instance, cart_product=product)
 
             if cart_mapped:
@@ -611,6 +612,12 @@ class AutoOrderProcessor:
                                                      no_of_pieces=cart_pro_map['no_of_pieces'],
                                                      vendor_product=product_mapping,
                                                      price=float(cart_pro_map['price']))
+
+        all_po_products = POCartProductMappings.objects.filter(cart=cart_instance).values('id', 'cart_product_id')
+        for p in all_po_products:
+            if p['cart_product_id'] not in all_source_po_product_ids:
+                POCartProductMappings.objects.filter(pk=p['id']).delete()
+
         return cart_instance
 
     @transaction.atomic
