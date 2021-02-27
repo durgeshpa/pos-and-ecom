@@ -4,5 +4,5 @@ from django.urls import path, include
 from . import views
 
 urlpatterns = [
-    url(r'^api/', include('retailer_inventive.api.v1.urls'))
+    url(r'^api/', include('retailer_incentive.api.v1.urls'))
 ]

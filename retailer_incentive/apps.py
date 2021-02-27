@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class RetailerInsentiveConfig(AppConfig):
-    name = 'retailer_inventive'
+    name = 'retailer_incentive'

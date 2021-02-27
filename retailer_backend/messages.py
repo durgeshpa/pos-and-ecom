@@ -46,6 +46,8 @@ SUCCESS_MESSAGES = {
     'CSV_UPLOADED_EXCEPT': 'CSV file has been successfully uploaded, except these ids:-%s',
     'AUDIT_ENDED_SKU': 'Audit completed for SKU {}',
     'AUDIT_ENDED_BIN': 'Audit completed for BIN {}',
+    'SCHEME_SLAB_ADD_MORE':'Buy worth {} more to earn {} incentive at {}%',''
+    'SCHEME_SLAB_HIGHEST':'You are already in the highest incentive slab earning margin at 2%. Buy more to earn more incentive',
     "2001": "Ok",
     "2002": "Executive Feedback saved successfully.",
 }
