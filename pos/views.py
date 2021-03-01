@@ -1,16 +1,22 @@
+import csv
 import decimal
 import uuid
 
+from dal import autocomplete
+from django.db.models import Q
+from django.http import JsonResponse, HttpResponse
+from django.shortcuts import render
 from rest_framework import status, authentication, permissions
 from rest_framework.generics import GenericAPIView, CreateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from pos.common_functions import RetailerProductCls
+from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm
 from pos.models import RetailerProduct, RetailerProductImage
 from pos.serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
     RetailerProductResponseSerializer
-from products.models import Product
+from products.models import Product, ParentProductCategory
 from shops.models import Shop
 
 POS_SERIALIZERS_MAP = {
@@ -204,3 +210,90 @@ class CatalogueProductCreation(GenericAPIView):
                    'error_message': shop_id_or_error_message,
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+
+class RetailerProductShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+
+def download_retailer_products_list_form_view(request):
+    form = RetailerProductsCSVDownloadForm()
+    return render(
+        request,
+        'admin/pos/retailerproductscsvdownload.html',
+        {'form': form}
+    )
+
+def upload_retailer_products_list(request):
+    if request.method == 'POST':
+        form = RetailerProductsCSVUploadForm(request.POST, request.FILES)
+
+        if form.errors:
+            return render(request, 'admin/pos/retailerproductscsvupload.html', {'form': form})
+
+        if form.is_valid():
+            shop_id = request.POST.get('shop')
+            return render(request, 'admin/pos/retailerproductscsvupload.html',
+                          {'form': form,
+                           'success': 'Products Uploaded Successfully!', })
+
+    else:
+        form = RetailerProductsCSVUploadForm()
+        return render(
+            request,
+            'admin/pos/retailerproductscsvupload.html',
+            {'form': form}
+        )
+
+
+def DownloadRetailerCatalogue(request, *args):
+    """
+    This function will return an Sample Excel File in xlsx format which can be used for uploading the master_data
+    """
+    shop_id = request.GET['shop_id']
+    filename = "retailer_products_catalogue.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(
+        ['shop', 'product_sku', 'product_name', 'product_mrp', 'selling_price', 'linked_product_sku', 'description',
+         'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status'])
+    if RetailerProduct.objects.filter(shop_id=int(shop_id)).exists():
+        retailer_products = RetailerProduct.objects.filter(shop_id=int(shop_id))
+
+        for product in retailer_products:
+            linked_product_sku = ''
+            sku_type = RetailerProductCls.get_sku_type(product.sku_type)
+            category = ''
+            sub_category = ''
+            brand = ''
+            sub_brand = ''
+            if product.linked_product:
+                linked_product_sku = product.linked_product.product_sku
+                p = Product.objects.values('parent_product__parent_brand__brand_name',
+                                           'parent_product__parent_brand__brand_parent__brand_name').filter(Q(id=product.linked_product.id))
+                if p[0]['parent_product__parent_brand__brand_parent__brand_name']:
+                   brand = p[0]['parent_product__parent_brand__brand_parent__brand_name']
+                   sub_brand = p[0]['parent_product__parent_brand__brand_name']
+                else:
+                    brand = p[0]['parent_product__parent_brand__brand_name']
+
+                cat = ParentProductCategory.objects.values('category__category_name',
+                                                           'category__category_parent__category_name').filter\
+                                                           (parent_product__id=product.linked_product.parent_product.id)
+                if cat[0]['category__category_parent__category_name']:
+                    category = cat[0]['category__category_parent__category_name']
+                    sub_category = cat[0]['category__category_name']
+                else:
+                    category = cat[0]['category__category_name']
+            writer.writerow(
+                [product.shop, product.sku, product.name,
+                 product.mrp, product.selling_price, linked_product_sku, product.description,
+                 sku_type, category, sub_category, brand, sub_brand, product.status])
+    else:
+        writer.writerow(["Products for selected shop doesn't exists"])
+    return response
