@@ -321,8 +321,7 @@ class CartCentral(APIView):
                                cart_status__in=['active', 'pending']).exists():
             cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
                                        cart_status__in=['active', 'pending']).last()
-            serializer = BasicCartSerializer(cart)
-            return get_response('Cart', serializer.data)
+            return get_response('Cart', self.get_serialize_process(cart))
         else:
             return get_response('Sorry no product added to this cart yet')
 
@@ -416,7 +415,7 @@ class CartCentral(APIView):
             if not i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id):
                 CartProductMapping.objects.filter(cart__id=cart.id, cart_product__id=i.cart_product.id).delete()
 
-    def get_serialize_process(self, cart, seller_shop, buyer_shop, shop_type):
+    def get_serialize_process(self, cart, seller_shop='', buyer_shop='', shop_type=''):
         """
             Get Cart
             Serialize and Modify Cart - Parent Product Image Check, MRP Check
@@ -445,9 +444,7 @@ class CartCentral(APIView):
                                                   context={'parent_mapping_id': seller_shop.id,
                                                            'delivery_message': self.delivery_message()})
         else:
-            serializer = CartSerializer(cart,
-                                        context={'parent_mapping_id': seller_shop.id,
-                                                 'buyer_shop_id': buyer_shop.id})
+            serializer = CartSerializer(cart)
         return serializer.data
 
     def retail_add_to_cart(self, request):
@@ -524,8 +521,7 @@ class CartCentral(APIView):
         cart_mapping.no_of_pieces = int(qty)
         cart_mapping.save()
         # serialize and return response
-        serializer = BasicCartSerializer(cart)
-        return get_response('Added To Cart', serializer.data)
+        return get_response('Added To Cart', self.post_serialize_process(cart))
 
     def post_retail_validate(self, request):
         """
@@ -720,7 +716,7 @@ class CartCentral(APIView):
                 return {'is_success': True, 'quantity_check': True}
         return {'is_success': True, 'quantity_check': False}
 
-    def post_serialize_process(self, cart, seller_shop, buyer_shop, product, shop_type):
+    def post_serialize_process(self, cart, seller_shop='', buyer_shop='', product='', shop_type=''):
         """
             Add To Cart
             Serialize and Modify Cart - MRP Check
@@ -735,7 +731,5 @@ class CartCentral(APIView):
             serializer = GramMappedCartSerializer(cart,
                                                   context={'parent_mapping_id': seller_shop.id})
         else:
-            serializer = CartSerializer(cart,
-                                        context={'parent_mapping_id': seller_shop.id,
-                                                 'buyer_shop_id': buyer_shop.id})
+            serializer = CartSerializer(cart)
         return serializer.data

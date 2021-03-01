@@ -16,9 +16,9 @@ class RetailerProductCls(object):
 
 def get_response(msg, data=None):
     if data:
-        ret = {"message": msg, "response_data": data, "is_success": True}
+        ret = {"is_success": True, "message": msg, "response_data": data}
     else:
-        ret = {"message": msg, "response_data": None, "is_success": False}
+        ret = {"is_success": False, "message": msg, "response_data": None}
     return Response(ret, status=status.HTTP_200_OK)
 
 
