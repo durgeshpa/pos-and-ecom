@@ -217,6 +217,7 @@ class AutoOrderProcessor:
             pick_up_obj = Pickup.objects.filter(sku_id=item['cart_product__product_sku'],
                                                 pickup_type_id=order.order_no) \
                 .exclude(status='picking_cancelled').last()
+
             OrderedProductMapping.objects.create(ordered_product=shipment, product_id=item['cart_product'],
                                                  shipped_qty=pick_up_obj.pickup_quantity,
                                                  picked_pieces=pick_up_obj.pickup_quantity)
@@ -249,30 +250,36 @@ class AutoOrderProcessor:
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
         state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
         tr_type = "picked"
-        pickup_bin_inventory_objects = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                                         pickup__status='picking_assigned')
-        for pbi in pickup_bin_inventory_objects:
-            tr_id = pbi.pickup_id
-            warehouse = pbi.bin.warehouse
-            sku = pbi.bin.sku
-            inventory_type = pbi.bin.inventory_type
-            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pbi.quantity, pbi.bin)
+        pickup_objects = Pickup.objects.filter(pickup_type_id=order_no, status='picking_assigned')
+        for p in pickup_objects:
+            pickup_bin_inventory_objects = PickupBinInventory.objects.filter(pickup=p)
+            picked_qty = 0
+            for pbi in pickup_bin_inventory_objects:
+                tr_id = pbi.pickup_id
+                warehouse = pbi.bin.warehouse
+                sku = pbi.bin.sku
+                inventory_type = pbi.bin.inventory_type
+                picked_qty += pbi.quantity
+                CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pbi.quantity, pbi.bin)
 
-            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                warehouse, sku, inventory_type, state_to_be_picked, -1 * pbi.quantity, tr_type, tr_id)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    warehouse, sku, inventory_type, state_to_be_picked, -1 * pbi.quantity, tr_type, tr_id)
 
-            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                warehouse, sku, inventory_type, state_total_available, -1 * pbi.quantity, tr_type, tr_id)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    warehouse, sku, inventory_type, state_total_available, -1 * pbi.quantity, tr_type, tr_id)
 
-            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                warehouse, sku, inventory_type, state_picked, pbi.quantity, tr_type, tr_id)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    warehouse, sku, inventory_type, state_picked, pbi.quantity, tr_type, tr_id)
 
-            pbi.pickup_quantity = pbi.quantity
-            pbi.last_picked_at = timezone.now()
-            pbi.save()
-            Pickup.objects.filter(id=tr_id).update(pickup_quantity=pbi.quantity, status='picking_complete')
+                pbi.pickup_quantity = pbi.quantity
+                pbi.last_picked_at = timezone.now()
+                pbi.save()
+            p.pickup_quantity = picked_qty
+            p.status = 'picking_complete'
+            p.save()
             info_logger.info("WarehouseConsolidation|complete_pickup| Picking done |order id-{}, sku-{}"
                              .format(order_no, sku))
+
 
     @transaction.atomic
     def generate_picklist(self, auto_processing_entry):
@@ -281,9 +288,11 @@ class AutoOrderProcessor:
             .values_list('idc', flat=True)
         putaway_bin_inventories = PutawayBinInventory.objects.filter(putaway__putaway_type='GRN',
                                                                      putaway__putaway_type_id__in=in_ids)
-        putaway_batch_bin_dict = {
-            pbi.sku_id: {'batch_id': pbi.batch_id, 'bin_id': pbi.bin_id, 'qty': pbi.putaway_quantity}
-            for pbi in putaway_bin_inventories}
+        putaway_batch_bin_dict = {}
+        for pbi in putaway_bin_inventories:
+            if putaway_batch_bin_dict.get(pbi.sku_id) is None:
+                putaway_batch_bin_dict[pbi.sku_id] = []
+            putaway_batch_bin_dict[pbi.sku_id].append({'batch_id': pbi.batch_id, 'bin_id': pbi.bin_id, 'qty': pbi.putaway_quantity})
         self.__generate_picklist(auto_processing_entry.cart, auto_processing_entry.order, putaway_batch_bin_dict)
         info_logger.info("WarehouseConsolidation|generate_picklist| Picklist Generated, order id-{}"
                          .format(auto_processing_entry.order_id))
@@ -311,35 +320,36 @@ class AutoOrderProcessor:
 
             tr_id = pickup_object.pk
             sku_id = pickup_object.sku_id
-            batch_id = sku_bin_dict[sku_id]['batch_id']
-            bin_id = sku_bin_dict[sku_id]['bin_id']
-            qty_to_be_picked = order_product.no_of_pieces
-            bin_inventory_obj = BinInventory.objects.filter(id=bin_id).last()
-            if bin_inventory_obj is None:
-                info_logger.info("WarehouseConsolidation|generate_picklist| BinInventory Object does not exists| "
-                                 "order id-{}, sku-{}, bin-{}, warehouse-{}"
-                                 .format(order.order_no, sku_id, bin_id, shop.id))
-                raise Exception('Picklist Generation Failed')
+            for item in sku_bin_dict[sku_id]:
+                batch_id = item['batch_id']
+                bin_id = item['bin_id']
+                qty_to_be_picked = item['qty']
+                bin_inventory_obj = BinInventory.objects.filter(id=bin_id).last()
+                if bin_inventory_obj is None:
+                    info_logger.info("WarehouseConsolidation|generate_picklist| BinInventory Object does not exists| "
+                                     "order id-{}, sku-{}, bin-{}, warehouse-{}"
+                                     .format(order.order_no, sku_id, bin_id, shop.id))
+                    raise Exception('Picklist Generation Failed')
 
-            bin_inventory_obj.quantity = bin_inventory_obj.quantity - qty_to_be_picked
-            bin_inventory_obj.to_be_picked_qty += qty_to_be_picked
-            bin_inventory_obj.save()
+                bin_inventory_obj.quantity = bin_inventory_obj.quantity - qty_to_be_picked
+                bin_inventory_obj.to_be_picked_qty += qty_to_be_picked
+                bin_inventory_obj.save()
 
-            CommonPickBinInvFunction.create_pick_bin_inventory(shop, pickup_object, batch_id, bin_inventory_obj,
-                                                               quantity=qty_to_be_picked,
-                                                               bin_quantity=bin_inventory_obj.quantity,
-                                                               pickup_quantity=None)
-            InternalInventoryChange.create_bin_internal_inventory_change(shop, pickup_object.sku, batch_id,
-                                                                         bin_inventory_obj.bin,
-                                                                         type_normal, type_normal,
-                                                                         tr_type, tr_id, qty_to_be_picked)
+                CommonPickBinInvFunction.create_pick_bin_inventory(shop, pickup_object, batch_id, bin_inventory_obj,
+                                                                   quantity=qty_to_be_picked,
+                                                                   bin_quantity=bin_inventory_obj.quantity,
+                                                                   pickup_quantity=None)
+                InternalInventoryChange.create_bin_internal_inventory_change(shop, pickup_object.sku, batch_id,
+                                                                             bin_inventory_obj.bin,
+                                                                             type_normal, type_normal,
+                                                                             tr_type, tr_id, qty_to_be_picked)
 
             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                shop, pickup_object.sku, type_normal, state_ordered, -1 * qty_to_be_picked,
+                shop, pickup_object.sku, type_normal, state_ordered, -1 * pickup_object.quantity,
                 tr_type, tr_id)
 
             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                shop, pickup_object.sku, type_normal, state_to_be_picked, qty_to_be_picked,
+                shop, pickup_object.sku, type_normal, state_to_be_picked, pickup_object.quantity,
                 tr_type, tr_id)
 
             info_logger.info("WarehouseConsolidation|generate_picklist| Pickup Generated| order id-{}, sku-{}"
