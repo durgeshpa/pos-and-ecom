@@ -374,7 +374,7 @@ class CartSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
-                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount','cart_product',
+                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
                   'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers')
 
     def rt_cart_list_dt(self, obj):
