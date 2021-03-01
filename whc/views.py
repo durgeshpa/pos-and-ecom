@@ -631,7 +631,7 @@ class AutoOrderProcessor:
         order = Ordered.objects.get(ordered_cart=auto_processing_entry.auto_po_id)
 
         grn_order = GRNOrder(order=order, invoice_no=grn_order.invoice_no, invoice_date=grn_order.invoice_date,
-                             invoice_amount=grn_order.invoice_amount, tcs_amount=grn_order.invoice_amount)
+                             invoice_amount=grn_order.invoice_amount, tcs_amount=grn_order.tcs_amount)
         grn_order.save()
 
         for doc in grn_doc:
