@@ -183,6 +183,10 @@ class AutoOrderProcessor:
                          .format(auto_processing_entry.order.id))
         shipments = OrderedProduct.objects.filter(order=auto_processing_entry.order)
         for shipment in shipments:
+            products_in_shipment = OrderedProductMapping.objects.filter(ordered_product=shipment)
+            for p in products_in_shipment:
+                p.delivered_qty = p.shipped_qty
+                p.save()
             shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
             shipment.trip.completed_at = timezone.now()
             shipment.trip.trip_status = Trip.RETURN_VERIFIED
