@@ -709,43 +709,55 @@ class CartCentral(APIView):
             check if capping is applicable to retail cart product
         """
         capping = product.get_current_shop_capping(seller_shop, buyer_shop)
+        # If there is quantity limit on product order for buyer and seller shop
         if capping:
             # get already ordered quantity for product
             ordered_qty = self.retail_ordered_quantity(capping, product, buyer_shop)
             # if ordered qty does not exceed capping qty, qty can be added full or partial
             if capping.capping_qty > ordered_qty:
-                # if full qty in cart can be added
-                if (capping.capping_qty - ordered_qty) >= int(qty):
-                    if int(qty) == 0:
-                        delete_cart_mapping(cart, product)
-                    else:
-                        return {'is_success': True, 'quantity_check': True}
-                else:
-                    # if only patial cart qty can be added
-                    serializer = CartSerializer(Cart.objects.get(id=cart.id), context={
-                        'parent_mapping_id': seller_shop.id, 'buyer_shop_id': buyer_shop.id})
-                    if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
-                        cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                        cart_mapping.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
-                                capping.capping_qty - ordered_qty)]
-                        cart_mapping.save()
-                    else:
-                        return {'is_success': False, 'message': 'The Purchase Limit of the Product is %s #%s' % (
-                            capping.capping_qty - ordered_qty, product.id), 'data': serializer.data}
+                return self.retail_capping_remaining(capping.capping_qty, ordered_qty)
             else:
-                # no qty can be added
-                delete_cart_mapping(cart, product)
-                serializer = CartSerializer(Cart.objects.get(id=cart.id), context={
-                    'parent_mapping_id': seller_shop.id, 'buyer_shop_id': buyer_shop.id})
-                return {'is_success': False, 'message': 'You have already exceeded the purchase limit of'
-                                                        ' this product #%s' % product.id, 'data': serializer.data}
+                # no product qty can be added further
+                return self.retail_capping_exhausted(cart, product, buyer_shop, seller_shop)
         else:
-            # no capping
+            # no quantity limit on product order for buyer and seller shop
             if int(qty) == 0:
                 delete_cart_mapping(cart, product)
             else:
                 return {'is_success': True, 'quantity_check': True}
         return {'is_success': True, 'quantity_check': False}
+
+    def retail_capping_remaining(self, capping_qty, ordered_qty, qty, cart, product, buyer_shop, seller_shop):
+        """
+            Add To Cart
+            Capping - When Full or partial quantity can be added to cart
+        """
+        # Full provided quantity can be added to cart
+        if (capping_qty - ordered_qty) >= int(qty):
+            if int(qty) == 0:
+                delete_cart_mapping(cart, product)
+            else:
+                return {'is_success': True, 'quantity_check': True}
+        else:
+            # Only partial qty can be added
+            serializer = CartSerializer(Cart.objects.get(id=cart.id), context={
+                'parent_mapping_id': seller_shop.id, 'buyer_shop_id': buyer_shop.id})
+            if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                cart_mapping.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
+                        capping_qty - ordered_qty)]
+                cart_mapping.save()
+            else:
+                return {'is_success': False, 'message': 'The Purchase Limit of the Product is %s #%s' % (
+                    capping_qty - ordered_qty, product.id), 'data': serializer.data}
+        return {'is_success': True, 'quantity_check': False}
+
+    def retail_capping_exhausted(self, cart, product, buyer_shop, seller_shop):
+        delete_cart_mapping(cart, product)
+        serializer = CartSerializer(Cart.objects.get(id=cart.id), context={
+            'parent_mapping_id': seller_shop.id, 'buyer_shop_id': buyer_shop.id})
+        return {'is_success': False, 'message': 'You have already exceeded the purchase limit of'
+                                                ' this product #%s' % product.id, 'data': serializer.data}
 
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
         """
