@@ -477,7 +477,7 @@ class CartCentral(APIView):
         # If Seller Shop is sp Type
         if shop_type == 'sp':
             # Update or create cart for user and shop
-            cart = self.post_update_cart(seller_shop, 'RETAIL', buyer_shop)
+            cart = self.post_update_retail_sp_cart(seller_shop, buyer_shop)
             # check for product capping
             proceed = self.retail_capping_check(product, seller_shop, buyer_shop, qty, cart)
             if not proceed['is_success']:
@@ -494,7 +494,7 @@ class CartCentral(APIView):
         # If Seller Shop is gf type
         elif shop_type == 'gf':
             # Update or create cart for user
-            cart = self.post_update_cart(seller_shop, 'retail_gf', buyer_shop)
+            cart = self.post_update_retail_gm_cart()
             # check quantity and add to cart
             if int(qty) == 0:
                 delete_cart_mapping(cart, product, 'retail_gf')
@@ -526,7 +526,7 @@ class CartCentral(APIView):
         customer = initial_validation['customer']
 
         # Update or create cart for customer and shop
-        cart = self.post_update_cart(shop, 'BASIC', '', customer)
+        cart = self.post_update_basic_cart(shop, customer)
         # Add quantity to cart
         cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product)
         cart_mapping.qty = qty
@@ -590,57 +590,58 @@ class CartCentral(APIView):
             return {'error': "User/Customer Not Found"}
         return {'product': product, 'shop': shop, 'quantity': qty, 'customer': customer}
 
-    def post_update_cart(self, seller_shop, cart_type, buyer_shop='', customer=''):
-        """
-            Add To Cart
-            Update cart object for retail_gf or normal cart
-        """
+    def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
         user = self.request.user
-        if cart_type == 'RETAIL':
-            if Cart.objects.filter(last_modified_by=user, buyer_shop=buyer_shop,
-                                   cart_status__in=['active', 'pending']).exists():
-                cart = Cart.objects.filter(last_modified_by=user, buyer_shop=buyer_shop,
-                                           cart_status__in=['active', 'pending']).last()
-                cart.cart_type = cart_type
-                cart.approval_status = False
-                cart.cart_status = 'active'
-                cart.seller_shop = seller_shop
-                cart.buyer_shop = buyer_shop
-                cart.save()
-            else:
-                cart = Cart(last_modified_by=user, cart_status='active')
-                cart.cart_type = cart_type
-                cart.approval_status = False
-                cart.seller_shop = seller_shop
-                cart.buyer_shop = buyer_shop
-                cart.save()
-        elif cart_type == 'retail_gf':
-            if GramMappedCart.objects.filter(last_modified_by=user, cart_status__in=['active', 'pending']).exists():
-                cart = GramMappedCart.objects.filter(last_modified_by=user,
-                                                     cart_status__in=['active', 'pending']).last()
-                cart.cart_status = 'active'
-                cart.save()
-            else:
-                cart = GramMappedCart(last_modified_by=user, cart_status='active')
-                cart.save()
+        if Cart.objects.filter(last_modified_by=user, buyer_shop=buyer_shop,
+                               cart_status__in=['active', 'pending']).exists():
+            cart = Cart.objects.filter(last_modified_by=user, buyer_shop=buyer_shop,
+                                       cart_status__in=['active', 'pending']).last()
+            cart.cart_type = 'RETAIL'
+            cart.approval_status = False
+            cart.cart_status = 'active'
+            cart.seller_shop = seller_shop
+            cart.buyer_shop = buyer_shop
+            cart.save()
         else:
-            if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
-                                   cart_status__in=['active', 'pending']).exists():
-                cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
-                                           cart_status__in=['active', 'pending']).last()
-                cart.cart_type = cart_type
-                cart.approval_status = False
-                cart.cart_status = 'active'
-                cart.seller_shop = seller_shop
-                cart.buyer = customer
-                cart.save()
-            else:
-                cart = Cart(last_modified_by=user, cart_status='active')
-                cart.cart_type = cart_type
-                cart.approval_status = False
-                cart.seller_shop = seller_shop
-                cart.buyer = customer
-                cart.save()
+            cart = Cart(last_modified_by=user, cart_status='active')
+            cart.cart_type = 'RETAIL'
+            cart.approval_status = False
+            cart.seller_shop = seller_shop
+            cart.buyer_shop = buyer_shop
+            cart.save()
+        return cart
+
+    def post_update_retail_gm_cart(self):
+        user = self.request.user
+        if GramMappedCart.objects.filter(last_modified_by=user, cart_status__in=['active', 'pending']).exists():
+            cart = GramMappedCart.objects.filter(last_modified_by=user,
+                                                 cart_status__in=['active', 'pending']).last()
+            cart.cart_status = 'active'
+            cart.save()
+        else:
+            cart = GramMappedCart(last_modified_by=user, cart_status='active')
+            cart.save()
+        return cart
+
+    def post_update_basic_cart(self, seller_shop, customer):
+        user = self.request.user
+        if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
+                               cart_status__in=['active', 'pending']).exists():
+            cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
+                                       cart_status__in=['active', 'pending']).last()
+            cart.cart_type = 'BASIC'
+            cart.approval_status = False
+            cart.cart_status = 'active'
+            cart.seller_shop = seller_shop
+            cart.buyer = customer
+            cart.save()
+        else:
+            cart = Cart(last_modified_by=user, cart_status='active')
+            cart.cart_type = 'BASIC'
+            cart.approval_status = False
+            cart.seller_shop = seller_shop
+            cart.buyer = customer
+            cart.save()
         return cart
 
     @staticmethod

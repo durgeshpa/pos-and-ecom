@@ -24,6 +24,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
 
 class RetailerProductsSearchSerializer(serializers.ModelSerializer):
+    """
+        Serializer for Cart Products, RetailerProduct data for BASIC cart
+    """
     product_pro_image = serializers.SerializerMethodField('product_pro_image_dt')
     product_opt_product = serializers.SerializerMethodField('product_opt_product_dt')
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
@@ -32,10 +35,16 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     cash_discount = serializers.SerializerMethodField('cash_discount_dt')
 
     def product_pro_image_dt(self, obj):
+        """
+            Image field to keep cart response same for all types
+        """
         qs = RetailerProductImage.objects.filter(product=obj)
         return RetailerProductImageSerializer(qs, many=True).data
 
     def product_case_size_picies_dt(self, obj):
+        """
+            returning product pieces - 1 for now
+        """
         return str(int(obj.product_inner_case_size) * int(obj.product_case_size))
 
     def loyalty_discount_dt(self, obj):
