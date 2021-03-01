@@ -287,12 +287,18 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     margin = serializers.SerializerMethodField('margin_dt')
 
     def product_info_dt(self, obj):
+        """
+            filtering different products - Product and RetailerProduct
+        """
         if obj.cart_product:
             return ProductsSearchSerializer(obj.cart_product, context=self.context).data
         else:
             return RetailerProductsSearchSerializer(obj.retailer_product, context=self.context).data
 
     def is_available_dt(self,obj):
+        """
+            Check is quantity of product is available
+        """
         self.is_available = True
         if obj.cart_product:
             ordered_product_sum = OrderedProductMapping.objects.filter(product=obj.cart_product).aggregate(available_qty_sum=Sum('available_qty'))
@@ -300,9 +306,15 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         return self.is_available
 
     def no_pieces_dt(self, obj):
+        """
+            No of pieces of Product
+        """
         return int(obj.cart_product.product_inner_case_size) * int(obj.qty) if obj.cart_product else obj.qty
 
     def product_sub_total_dt(self, obj):
+        """
+            Cart Product sub total / selling price
+        """
         if obj.cart_product:
             product_price = obj.cart_product.\
                 getRetailerPrice(self.context.get('parent_mapping_id'),
@@ -314,6 +326,9 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         return sub_total
 
     def product_coupons_dt(self, obj):
+        """
+            Coupons for a product
+        """
         if obj.cart_product:
             product_coupons = []
             date = datetime.datetime.now()
@@ -352,6 +367,9 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
             return []
 
     def margin_dt(self, obj):
+        """
+            Mrp, selling price margin
+        """
         if obj.cart_product:
             product_price = obj.cart_product.\
                 get_current_shop_price(self.context.get('parent_mapping_id'),
@@ -388,8 +406,12 @@ class CartSerializer(serializers.ModelSerializer):
                   'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers')
 
     def rt_cart_list_dt(self, obj):
+        """
+         Search and pagination on cart
+        """
         qs = CartProductMapping.objects.filter(cart=obj)
         search_text = self.context.get('search_text')
+        # search on name, ean and sku
         if search_text:
             if obj.cart_type == 'BASIC':
                 qs = qs.filter(Q(retailer_product__sku__icontains=search_text)
@@ -401,6 +423,7 @@ class CartSerializer(serializers.ModelSerializer):
                               | Q(cart_product__product_ean_code__icontains=search_text))
 
         if qs.exists():
+            # pagination
             per_page_products = self.context.get('records_per_page') if self.context.get('records_per_page') else 10
             paginator = Paginator(qs, int(per_page_products))
             page_number = self.context.get('page_number')

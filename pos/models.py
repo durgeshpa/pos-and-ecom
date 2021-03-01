@@ -50,10 +50,6 @@ class RetailerProduct(models.Model):
         return self.name
 
     @property
-    def product_long_description(self):
-        return ''
-
-    @property
     def product_sku(self):
         return self.sku
 
@@ -64,14 +60,6 @@ class RetailerProduct(models.Model):
     @property
     def product_price(self):
         return self.selling_price
-
-    @property
-    def product_inner_case_size(self):
-        return 1
-
-    @property
-    def product_case_size(self):
-        return 1
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.name)
