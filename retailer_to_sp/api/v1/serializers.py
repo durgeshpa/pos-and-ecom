@@ -2,6 +2,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from global_config.models import GlobalConfig
 
 from common.common_utils import convert_date_format_ddmmmyyyy
 
@@ -386,7 +387,9 @@ class CartSerializer(serializers.ModelSerializer):
 
 
         if qs.exists():
-            paginator = Paginator(qs, 10)  # Show 10 products per page
+            per_page = GlobalConfig.objects.get(key='per_page')
+            per_page_products = per_page.value
+            paginator = Paginator(qs, int(per_page_products))  # Show 10 products per page
             page_number = self.context.get('page')
             try:
                 qs = paginator.get_page(page_number)
