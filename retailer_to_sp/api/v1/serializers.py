@@ -1,6 +1,8 @@
 from decimal import Decimal
 from rest_framework import serializers
 
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+
 from common.common_utils import convert_date_format_ddmmmyyyy
 
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
@@ -13,7 +15,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
     OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
  )
 from addresses.models import Address,City,State,Country
-from payments.models import ShipmentPayment, PaymentMode
+# from payments.models import ShipmentPayment, PaymentMode
 
 from gram_to_brand.models import GRNOrderProductMapping
 
@@ -360,9 +362,8 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
 
 class CartSerializer(serializers.ModelSerializer):
-    rt_cart_list = CartProductMappingSerializer(many=True)
+    rt_cart_list = serializers.SerializerMethodField('rt_cart_list_dt')
     last_modified_by = UserSerializer()
-
     items_count = serializers.SerializerMethodField('items_count_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     total_discount = serializers.SerializerMethodField()
@@ -370,11 +371,35 @@ class CartSerializer(serializers.ModelSerializer):
     delivery_msg = serializers.SerializerMethodField()
     discounted_prices_sum = serializers.SerializerMethodField()
 
+
     class Meta:
         model = Cart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
-                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
+                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount','cart_product',
                   'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers')
+
+    def rt_cart_list_dt(self, obj):
+        qs = CartProductMapping.objects.filter(cart=obj)
+        if self.context.get('search_text'):
+            qs = qs.filter(Q(cart_product__product_sku__icontains=self.context.get('search_text'))
+                          | Q(cart_product__product_name__icontains=self.context.get('search_text'))
+                          | Q(cart_product__product_ean_code__icontains=self.context.get('search_text')))
+
+
+        if qs.exists():
+            paginator = Paginator(qs, 10)  # Show 10 products per page
+            page_number = self.context.get('page')
+            try:
+                qs = paginator.get_page(page_number)
+            except PageNotAnInteger:
+                # If page is not an integer, deliver first page.
+                qs = paginator.get_page(1)
+            except EmptyPage:
+                # If page is out of range, deliver last page of results.
+                qs = paginator.get_page(paginator.num_pages)
+            self.rt_cart_list = CartProductMappingSerializer(qs, many=True, context=self.context.get('search_text'))
+
+        return self.rt_cart_list.data
 
     def get_discounted_prices_sum(self, obj):
         sum = 0
@@ -804,7 +829,7 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
         model = GramMappedCart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
                   'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
-                  'items_count', 'sub_total', 'delivery_msg')
+                  'items_count', 'sub_total', 'delivery_msg','cart_product')
 
 
 class GramMappedOrderedProductSerializer(serializers.ModelSerializer):

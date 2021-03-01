@@ -6,10 +6,14 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from sp_to_gram.tasks import es_search
 from audit.views import BlockUnblockProduct
-from retailer_to_sp.api.v1.serializers import CartSerializer, GramMappedCartSerializer, ParentProductImageSerializer, BasicCartSerializer
+from retailer_to_sp.api.v1.serializers import CartSerializer,CartProductMappingSerializer, GramMappedCartSerializer, ParentProductImageSerializer, BasicCartSerializer
 from retailer_backend.common_function import getShopMapping
 from retailer_backend.messages import ERROR_MESSAGES
 from wms.common_functions import get_stock
+
+from django.db.models import Q
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from rest_framework.response import Response
 
 from accounts.models import User
 from wms.models import InventoryType
@@ -252,11 +256,14 @@ class CartCentral(APIView):
             return get_response('Please provide a valid cart_type')
 
     def get_retail_cart(self, request):
+
         """
             Get Cart
             For cart_type "retail"
         """
         # basic validations for inputs
+        search_text = request.GET.get('search_field')
+        page = request.GET.get('page')
         initial_validation = self.get_retail_validate(request)
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
@@ -264,6 +271,7 @@ class CartCentral(APIView):
         seller_shop = initial_validation['seller_shop']
         shop_type = initial_validation['shop_type']
         user = self.request.user
+
 
         # If Seller Shop is sp Type
         if shop_type == 'sp':
@@ -284,7 +292,7 @@ class CartCentral(APIView):
                 # Delete products without MRP
                 self.delete_products_without_mrp(cart)
                 # Process response - Product images, MRP check, Serialize
-                return get_response('Cart', self.get_serialize_process(cart, seller_shop, buyer_shop, shop_type))
+                return get_response('Cart', self.get_serialize_process(cart, seller_shop, buyer_shop, shop_type, search_text, page))
             else:
                 return get_response('Sorry no product added to this cart yet')
         # If Seller Shop is gf type
@@ -416,7 +424,7 @@ class CartCentral(APIView):
             if not i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id):
                 CartProductMapping.objects.filter(cart__id=cart.id, cart_product__id=i.cart_product.id).delete()
 
-    def get_serialize_process(self, cart, seller_shop, buyer_shop, shop_type):
+    def get_serialize_process(self, cart, seller_shop, buyer_shop, shop_type, search_text, page):
         """
             Get Cart
             Serialize and Modify Cart - Parent Product Image Check, MRP Check
@@ -425,6 +433,8 @@ class CartCentral(APIView):
             # Serialize Get Cart
             serializer = CartSerializer(Cart.objects.get(id=cart.id), context={'parent_mapping_id': seller_shop.id,
                                                                                'buyer_shop_id': buyer_shop.id,
+                                                                               'search_text': search_text,
+                                                                               'page': page,
                                                                                'delivery_message': self.delivery_message()})
             for i in serializer.data['rt_cart_list']:
                 # check if product has to use it's parent product image
@@ -447,7 +457,10 @@ class CartCentral(APIView):
         else:
             serializer = CartSerializer(cart,
                                         context={'parent_mapping_id': seller_shop.id,
-                                                 'buyer_shop_id': buyer_shop.id})
+                                                 'buyer_shop_id': buyer_shop.id,
+                                                 'search_text': search_text,
+                                                 'page': page,
+                                                 })
         return serializer.data
 
     def retail_add_to_cart(self, request):
