@@ -284,7 +284,11 @@ class CartCentral(APIView):
                 # Delete products without MRP
                 self.delete_products_without_mrp(cart)
                 # Process response - Product images, MRP check, Serialize
-                return get_response('Cart', self.get_serialize_process(cart, seller_shop, buyer_shop, shop_type))
+                search_text = request.GET.get('search_text', '')
+                page_number = request.GET.get('page_number', 1)
+                records_per_page = request.GET.get('records_per_page', 10)
+                return get_response('Cart', self.get_serialize_process(cart, seller_shop, buyer_shop, shop_type,
+                                                                       search_text, page_number, records_per_page))
             else:
                 return get_response('Sorry no product added to this cart yet')
         # If Seller Shop is gf type
@@ -321,7 +325,11 @@ class CartCentral(APIView):
                                cart_status__in=['active', 'pending']).exists():
             cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
                                        cart_status__in=['active', 'pending']).last()
-            return get_response('Cart', self.get_serialize_process(cart))
+            search_text = request.GET.get('search_text', '')
+            page_number = request.GET.get('page_number', 1)
+            records_per_page = request.GET.get('records_per_page', 10)
+            return get_response('Cart', self.get_serialize_process(cart, '', '', '', search_text, page_number,
+                                                                   records_per_page))
         else:
             return get_response('Sorry no product added to this cart yet')
 
@@ -415,7 +423,8 @@ class CartCentral(APIView):
             if not i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id):
                 CartProductMapping.objects.filter(cart__id=cart.id, cart_product__id=i.cart_product.id).delete()
 
-    def get_serialize_process(self, cart, seller_shop='', buyer_shop='', shop_type=''):
+    def get_serialize_process(self, cart, seller_shop='', buyer_shop='', shop_type='', search_text='', page_number=1,
+                              records_per_page=10):
         """
             Get Cart
             Serialize and Modify Cart - Parent Product Image Check, MRP Check
@@ -424,6 +433,9 @@ class CartCentral(APIView):
             # Serialize Get Cart
             serializer = CartSerializer(Cart.objects.get(id=cart.id), context={'parent_mapping_id': seller_shop.id,
                                                                                'buyer_shop_id': buyer_shop.id,
+                                                                               'search_text': search_text,
+                                                                               'page_number': page_number,
+                                                                               'records_per_page':records_per_page,
                                                                                'delivery_message': self.delivery_message()})
             for i in serializer.data['rt_cart_list']:
                 # check if product has to use it's parent product image
@@ -444,7 +456,8 @@ class CartCentral(APIView):
                                                   context={'parent_mapping_id': seller_shop.id,
                                                            'delivery_message': self.delivery_message()})
         else:
-            serializer = CartSerializer(cart)
+            serializer = CartSerializer(cart, context={'search_text': search_text, 'page_number': page_number,
+                                                       'records_per_page':records_per_page})
         return serializer.data
 
     def retail_add_to_cart(self, request):

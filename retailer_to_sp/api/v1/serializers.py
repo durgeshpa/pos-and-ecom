@@ -1,6 +1,9 @@
 from decimal import Decimal
 from rest_framework import serializers
 
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from global_config.models import GlobalConfig
+
 from common.common_utils import convert_date_format_ddmmmyyyy
 
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
@@ -375,9 +378,8 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
 
 class CartSerializer(serializers.ModelSerializer):
-    rt_cart_list = CartProductMappingSerializer(many=True)
+    rt_cart_list = serializers.SerializerMethodField('rt_cart_list_dt')
     last_modified_by = UserSerializer()
-
     items_count = serializers.SerializerMethodField('items_count_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     total_discount = serializers.SerializerMethodField()
@@ -390,6 +392,35 @@ class CartSerializer(serializers.ModelSerializer):
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
                   'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
                   'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers')
+
+    def rt_cart_list_dt(self, obj):
+        qs = CartProductMapping.objects.filter(cart=obj)
+        search_text = self.context.get('search_text')
+        if search_text:
+            if obj.cart_type == 'BASIC':
+                qs = qs.filter(Q(retailer_product__sku__icontains=search_text)
+                               | Q(retailer_product__name__icontains=search_text)
+                               | Q(retailer_product__product_ean_code__icontains=search_text))
+            else:
+                qs = qs.filter(Q(cart_product__product_sku__icontains=search_text)
+                              | Q(cart_product__product_name__icontains=search_text)
+                              | Q(cart_product__product_ean_code__icontains=search_text))
+
+        if qs.exists():
+            per_page_products = self.context.get('records_per_page') if self.context.get('records_per_page') else 10
+            paginator = Paginator(qs, int(per_page_products))
+            page_number = self.context.get('page_number')
+            try:
+                qs = paginator.get_page(page_number)
+            except PageNotAnInteger:
+                # If page is not an integer, deliver first page.
+                qs = paginator.get_page(1)
+            except EmptyPage:
+                # If page is out of range, deliver last page of results.
+                qs = paginator.get_page(paginator.num_pages)
+            self.rt_cart_list = CartProductMappingSerializer(qs, many=True, context=self.context)
+
+        return self.rt_cart_list.data
 
     def get_discounted_prices_sum(self, obj):
         sum = 0
