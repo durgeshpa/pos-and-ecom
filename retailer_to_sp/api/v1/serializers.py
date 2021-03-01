@@ -15,7 +15,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
     OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
  )
 from addresses.models import Address,City,State,Country
-# from payments.models import ShipmentPayment, PaymentMode
+from payments.models import ShipmentPayment, PaymentMode
 
 from gram_to_brand.models import GRNOrderProductMapping
 
@@ -829,7 +829,7 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
         model = GramMappedCart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
                   'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
-                  'items_count', 'sub_total', 'delivery_msg','cart_product')
+                  'items_count', 'sub_total', 'delivery_msg')
 
 
 class GramMappedOrderedProductSerializer(serializers.ModelSerializer):

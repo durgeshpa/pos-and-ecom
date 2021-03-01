@@ -11,10 +11,6 @@ from retailer_backend.common_function import getShopMapping
 from retailer_backend.messages import ERROR_MESSAGES
 from wms.common_functions import get_stock
 
-from django.db.models import Q
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from rest_framework.response import Response
-
 from accounts.models import User
 from wms.models import InventoryType
 from products.models import Product
@@ -256,7 +252,6 @@ class CartCentral(APIView):
             return get_response('Please provide a valid cart_type')
 
     def get_retail_cart(self, request):
-
         """
             Get Cart
             For cart_type "retail"
@@ -271,7 +266,6 @@ class CartCentral(APIView):
         seller_shop = initial_validation['seller_shop']
         shop_type = initial_validation['shop_type']
         user = self.request.user
-
 
         # If Seller Shop is sp Type
         if shop_type == 'sp':
