@@ -413,7 +413,7 @@ class CartSerializer(serializers.ModelSerializer):
                 # If page is out of range, deliver last page of results.
                 qs = paginator.get_page(paginator.num_pages)
 
-        return CartProductMappingSerializer(qs, many=True, context=self.context)
+        return CartProductMappingSerializer(qs, many=True, context=self.context).data
 
     def get_discounted_prices_sum(self, obj):
         sum = 0
