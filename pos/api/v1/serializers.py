@@ -10,9 +10,9 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
-   class Meta:
-      model = RetailerProductImage
-      fields = ('image_name', 'image_alt_text', 'image')
+    class Meta:
+        model = RetailerProductImage
+        fields = ('image_name', 'image_alt_text', 'image')
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):

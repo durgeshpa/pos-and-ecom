@@ -15,6 +15,9 @@ class RetailerProductCls(object):
 
 
 def get_response(msg, data=None):
+    """
+        General Response For API
+    """
     if data:
         ret = {"is_success": True, "message": msg, "response_data": data}
     else:

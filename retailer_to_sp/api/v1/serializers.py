@@ -2,7 +2,6 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
-from global_config.models import GlobalConfig
 
 from common.common_utils import convert_date_format_ddmmmyyyy
 
@@ -315,10 +314,9 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         return sub_total
 
     def product_coupons_dt(self, obj):
-        product_coupons = []
-        date = datetime.datetime.now()
         if obj.cart_product:
-            sku_no_of_pieces = int(obj.cart_product.product_inner_case_size) * int(obj.qty)
+            product_coupons = []
+            date = datetime.datetime.now()
             for rules in obj.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
                 for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
                     product_coupons.append(rule.coupon_code)
@@ -328,7 +326,6 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
             else:
                 parent_brand = None
             product_brand_id = obj.cart_product.parent_product.parent_brand.id if obj.cart_product.parent_product else None
-            # parent_brand = obj.cart_product.product_brand.brand_parent.id if obj.cart_product.product_brand.brand_parent else None
             brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
             for x in brand_coupons:
                 product_coupons.append(x.coupon_code)
@@ -344,13 +341,10 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                             for i in coupons:
                                 if i['coupon_type'] == 'catalog':
                                     i['max_qty'] = max_qty
-                keyValList3 = ['discount_on_product']
-                keyValList2 = ['discount_on_brand']
-                exampleSet3 = obj.cart.offers
-                array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet3))
-                array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet3))
+                product_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], obj.cart.offers))
+                brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], obj.cart.offers))
                 for j in coupons:
-                    for i in (array3 + array2):
+                    for i in (product_offers + brand_offers):
                         if j['coupon_code'] == i['coupon_code']:
                             j['is_applied'] = True
                 return coupons
@@ -473,14 +467,6 @@ class CartSerializer(serializers.ModelSerializer):
 
     def get_delivery_msg(self, obj):
         return self.context.get("delivery_message", None)
-
-
-class BasicCartSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Cart
-        fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
-                  'created_at', 'modified_at', 'rt_cart_list')
 
 
 class NoteSerializer(serializers.ModelSerializer):

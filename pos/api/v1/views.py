@@ -6,11 +6,10 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from sp_to_gram.tasks import es_search
 from audit.views import BlockUnblockProduct
-from retailer_to_sp.api.v1.serializers import CartSerializer, GramMappedCartSerializer, ParentProductImageSerializer, BasicCartSerializer
+from retailer_to_sp.api.v1.serializers import CartSerializer, GramMappedCartSerializer, ParentProductImageSerializer
 from retailer_backend.common_function import getShopMapping
 from retailer_backend.messages import ERROR_MESSAGES
 from wms.common_functions import get_stock
-
 from accounts.models import User
 from wms.models import InventoryType
 from products.models import Product
