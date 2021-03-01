@@ -4,7 +4,7 @@ from pos.models import RetailerProduct, RetailerProductImage
 
 # Register your models here.
 from pos.views import upload_retailer_products_list, \
-    download_retailer_products_list_form_view, DownloadRetailerCatalogue
+    download_retailer_products_list_form_view, DownloadRetailerCatalogue, RetailerCatalogueSampleFile
 
 
 class RetailerProductAdmin(admin.ModelAdmin):
@@ -30,6 +30,10 @@ class RetailerProductAdmin(admin.ModelAdmin):
            url(r'retailer_products_csv_upload',
                self.admin_site.admin_view(upload_retailer_products_list),
                name="retailer_products_csv_upload"),
+
+           url(r'download_sample_file',
+               self.admin_site.admin_view(RetailerCatalogueSampleFile),
+               name="download_sample_file"),
 
         ] + urls
         return urls

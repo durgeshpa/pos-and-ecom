@@ -24,8 +24,14 @@
                   <fieldset class="module aligned ">
                      {% csrf_token %}
                      <h4 style="margin: 10px">{{form.as_p}}</h4>
+                     <label style="margin: 30px" for="catalogue_product_status">Select an Option:</label>
+                     <select style="margin: 30px" name="catalogue_product_status" id="catalogue_product_status">
+                          <option value="default">----------------</option>
+                          <option value="update_products">Update Product Details</option>
+                          <option value="create_products">Create new Products</option>
+                     </select>
                   </fieldset>
-                  <h3 style="margin-left: 30px"><a href="#" id="id_download" onselect="ddlselect()" onclick="ddlselect()" style="margin-top: 15px;">Download Sample FIle</a></h3>
+                  <h3 style="margin-left: 30px"><a href="#" id="id_download" onclick="ddlselect()" style="margin-top: 15px;">Download Sample FIle</a></h3>
                </div>
                <div class="submit-row">
                   <input type="submit" value="Save" class="button" name="_save" id="saveBtn">
@@ -38,18 +44,55 @@
 <script>
    function ddlselect(){
        var d = document.getElementById("id_shop");
+       var c = document.getElementById("catalogue_product_status");
+       var product_status = c.options[c.selectedIndex].value;
+       console.log(product_status)
        var shop_id = d.options[d.selectedIndex].value;
-       if(shop_id===""){
-          alert("Please 'Select an Shop' to Download the Sample File")
+       if(product_status==="default" && shop_id===""){
+             alert("Please 'Select a Shop' OR 'Select an Option' for Download");
+       }
+       else{
+            if(product_status==="update_products" && shop_id===""){
+               alert("Please 'Select a Shop'");
+            }
        }
    }
 </script>
 <script>
-   document.getElementById("id_shop").onchange = function(){
-      var d = document.getElementById("id_shop");
+   document.getElementById("catalogue_product_status").onchange = function(event){
+       var d = document.getElementById("id_shop");
+       var c = document.getElementById("catalogue_product_status");
+       var product_status = c.options[c.selectedIndex].value;
+       var shop_id = d.options[d.selectedIndex].value;
+       if(product_status==="create_products"){
+         document.getElementById("id_download").href="{% url 'admin:download_sample_file'%}";
+       }
+       else{
+            if(shop_id!=""){
+             if(product_status==="update_products"){
+               document.getElementById("id_download").href="{% url 'admin:retailer_products_csv_download'%}" + "?shop_id=" + shop_id;
+             }
+             else if(product_status==="create_products"){
+               document.getElementById("id_download").href="{% url 'admin:download_sample_file'%}";
+             }
+          }
+       }
+
+   };
+</script>
+<script>
+   document.getElementById("id_shop").onchange = function(event){
+       var d = document.getElementById("id_shop");
+       var c = document.getElementById("catalogue_product_status");
+       var product_status = c.options[c.selectedIndex].value;
        var shop_id = d.options[d.selectedIndex].value;
        if(shop_id!=""){
-          document.getElementById("id_download").href="{% url 'admin:retailer_products_csv_download'%}" + "?shop_id=" + shop_id;
+          if(product_status==="update_products"){
+            document.getElementById("id_download").href="{% url 'admin:retailer_products_csv_download'%}" + "?shop_id=" + shop_id;
+          }
+          else if(product_status==="create_products"){
+            document.getElementById("id_download").href="{% url 'admin:download_sample_file'%}";
+          }
        }
    };
 </script>

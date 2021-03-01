@@ -1,3 +1,4 @@
+import codecs
 import csv
 import decimal
 import uuid
@@ -213,6 +214,9 @@ class CatalogueProductCreation(GenericAPIView):
 
 
 class RetailerProductShopAutocomplete(autocomplete.Select2QuerySetView):
+    """
+    Shop Filter for Retailer and Franchise Shops
+    """
     def get_queryset(self, *args, **kwargs):
         qs = Shop.objects.filter(shop_type__shop_type__in=['r', 'f'])
         if self.q:
@@ -221,6 +225,9 @@ class RetailerProductShopAutocomplete(autocomplete.Select2QuerySetView):
 
 
 def download_retailer_products_list_form_view(request):
+    """
+    Products Catalogue Download View
+    """
     form = RetailerProductsCSVDownloadForm()
     return render(
         request,
@@ -228,7 +235,11 @@ def download_retailer_products_list_form_view(request):
         {'form': form}
     )
 
+
 def upload_retailer_products_list(request):
+    """
+    Products Catalogue Upload View
+    """
     if request.method == 'POST':
         form = RetailerProductsCSVUploadForm(request.POST, request.FILES)
 
@@ -237,6 +248,32 @@ def upload_retailer_products_list(request):
 
         if form.is_valid():
             shop_id = request.POST.get('shop')
+            product_status = request.POST.get('catalogue_product_status')
+            reader = csv.reader(codecs.iterdecode(request.FILES.get('file'), 'utf-8', errors='ignore'))
+            header = next(reader, None)
+            uploaded_data_by_user_list = []
+            csv_dict = {}
+            count = 0
+            for id, row in enumerate(reader):
+                for ele in row:
+                    csv_dict[header[count]] = ele
+                    count += 1
+                uploaded_data_by_user_list.append(csv_dict)
+                csv_dict = {}
+                count = 0
+            if product_status == 'create_products':
+                for row in uploaded_data_by_user_list:
+                    if 'linked_product_sku' in row.keys():
+                        if row.get('linked_product_sku') != '':
+                            product = Product.objects.filter(product_sku=row.get('linked_product_sku'))
+
+                    RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'),
+                                                               product.values()[0].get('id'), row.get('mrp'),
+                                                               1, row.get('selling_price'), row.get('description'))
+                pass
+            else:
+                pass
+
             return render(request, 'admin/pos/retailerproductscsvupload.html',
                           {'form': form,
                            'success': 'Products Uploaded Successfully!', })
@@ -252,7 +289,7 @@ def upload_retailer_products_list(request):
 
 def DownloadRetailerCatalogue(request, *args):
     """
-    This function will return an Sample Excel File in xlsx format which can be used for uploading the master_data
+    This function will return an File in csv format which can be used for Downloading the Product Catalogue
     """
     shop_id = request.GET['shop_id']
     filename = "retailer_products_catalogue.csv"
@@ -274,13 +311,13 @@ def DownloadRetailerCatalogue(request, *args):
             sub_brand = ''
             if product.linked_product:
                 linked_product_sku = product.linked_product.product_sku
-                p = Product.objects.values('parent_product__parent_brand__brand_name',
+                prodct = Product.objects.values('parent_product__parent_brand__brand_name',
                                            'parent_product__parent_brand__brand_parent__brand_name').filter(Q(id=product.linked_product.id))
-                if p[0]['parent_product__parent_brand__brand_parent__brand_name']:
-                   brand = p[0]['parent_product__parent_brand__brand_parent__brand_name']
-                   sub_brand = p[0]['parent_product__parent_brand__brand_name']
+                if prodct[0]['parent_product__parent_brand__brand_parent__brand_name']:
+                   brand = prodct[0]['parent_product__parent_brand__brand_parent__brand_name']
+                   sub_brand = prodct[0]['parent_product__parent_brand__brand_name']
                 else:
-                    brand = p[0]['parent_product__parent_brand__brand_name']
+                    brand = prodct[0]['parent_product__parent_brand__brand_name']
 
                 cat = ParentProductCategory.objects.values('category__category_name',
                                                            'category__category_parent__category_name').filter\
@@ -296,4 +333,17 @@ def DownloadRetailerCatalogue(request, *args):
                  sku_type, category, sub_category, brand, sub_brand, product.status])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
+    return response
+
+
+def RetailerCatalogueSampleFile(request, *args):
+    """
+    This function will return an Sample File in csv format which can be used for Downloading RetailerCatalogue Sample File
+    (It is used when user wants to create new retailer products)
+    """
+    filename = "retailer_products_sample_file.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(['product_name', 'product_mrp', 'linked_product_sku', 'selling_price', 'description'])
     return response
