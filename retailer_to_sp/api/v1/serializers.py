@@ -371,7 +371,6 @@ class CartSerializer(serializers.ModelSerializer):
     delivery_msg = serializers.SerializerMethodField()
     discounted_prices_sum = serializers.SerializerMethodField()
 
-
     class Meta:
         model = Cart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
