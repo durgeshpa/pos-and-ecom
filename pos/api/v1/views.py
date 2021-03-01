@@ -224,11 +224,11 @@ class CartCentral(APIView):
                 cart_type (retail or basic)
                 phone_number (Customer phone number for 'basic' cart)
         """
-        cart_type = request.GET.get('cart_type')
+        cart_type = self.request.GET.get('cart_type')
         if cart_type == 'retail':
-            return self.get_retail_cart(request)
+            return self.get_retail_cart()
         elif cart_type == 'basic':
-            return self.get_basic_cart(request)
+            return self.get_basic_cart()
         else:
             return get_response('Please provide a valid cart_type')
 
@@ -242,21 +242,21 @@ class CartCentral(APIView):
                 qty (Quantity of product to be added)
                 phone_number (Customer phone number for 'basic' cart)
         """
-        cart_type = request.POST.get('cart_type')
+        cart_type = self.request.POST.get('cart_type')
         if cart_type == 'retail':
-            return self.retail_add_to_cart(request)
+            return self.retail_add_to_cart()
         elif cart_type == 'basic':
-            return self.basic_add_to_cart(request)
+            return self.basic_add_to_cart()
         else:
             return get_response('Please provide a valid cart_type')
 
-    def get_retail_cart(self, request):
+    def get_retail_cart(self):
         """
             Get Cart
             For cart_type "retail"
         """
         # basic validations for inputs
-        initial_validation = self.get_retail_validate(request)
+        initial_validation = self.get_retail_validate()
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         buyer_shop = initial_validation['buyer_shop']
@@ -282,12 +282,8 @@ class CartCentral(APIView):
                     return get_response('Sorry no product added to this cart yet')
                 # Delete products without MRP
                 self.delete_products_without_mrp(cart)
-                # Process response - Product images, MRP check, Serialize
-                search_text = request.GET.get('search_text', '')
-                page_number = request.GET.get('page_number', 1)
-                records_per_page = request.GET.get('records_per_page', 10)
-                return get_response('Cart', self.get_serialize_process(cart, seller_shop, buyer_shop, shop_type,
-                                                                       search_text, page_number, records_per_page))
+                # Process response - Product images, MRP check, Serialize - Search and Pagination
+                return get_response('Cart', self.get_serialize_process_sp(cart, seller_shop, buyer_shop))
             else:
                 return get_response('Sorry no product added to this cart yet')
         # If Seller Shop is gf type
@@ -301,43 +297,40 @@ class CartCentral(APIView):
                     return get_response('Sorry no product added to this cart yet')
                 else:
                     # Process response - Serialize
-                    return get_response('Cart', self.get_serialize_process(cart, seller_shop, buyer_shop, shop_type))
+                    return get_response('Cart', self.get_serialize_process_gf(cart, seller_shop))
             else:
                 return get_response('Sorry no product added to this cart yet')
         else:
             return get_response('Sorry shop is not associated with any GramFactory or any SP')
 
-    def get_basic_cart(self, request):
+    def get_basic_cart(self):
         """
             Get Cart
             For cart_type "basic"
         """
         # basic validations for inputs
-        initial_validation = self.get_basic_validate(request)
+        initial_validation = self.get_basic_validate()
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         seller_shop = initial_validation['shop']
         customer = initial_validation['customer']
         user = self.request.user
-
+        # Check If Cart exists
         if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
                                cart_status__in=['active', 'pending']).exists():
             cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
                                        cart_status__in=['active', 'pending']).last()
-            search_text = request.GET.get('search_text', '')
-            page_number = request.GET.get('page_number', 1)
-            records_per_page = request.GET.get('records_per_page', 10)
-            return get_response('Cart', self.get_serialize_process(cart, '', '', '', search_text, page_number,
-                                                                   records_per_page))
+            # Process response - Serialize - Search and Pagination
+            return get_response('Cart', self.get_serialize_process_basic(cart))
         else:
             return get_response('Sorry no product added to this cart yet')
 
-    def get_retail_validate(self, request):
+    def get_retail_validate(self):
         """
             Get Cart
             Input validation for cart type 'retail'
         """
-        shop_id = request.GET.get('shop_id')
+        shop_id = self.request.GET.get('shop_id')
         # Check if buyer shop exists
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
@@ -348,19 +341,19 @@ class CartCentral(APIView):
         return {'buyer_shop': parent_mapping.retailer, 'seller_shop': parent_mapping.parent,
                 'shop_type': parent_mapping.parent.shop_type.shop_type}
 
-    def get_basic_validate(self, request):
+    def get_basic_validate(self):
         """
             Get Cart
             Input validation for cart type 'basic'
         """
         # check if shop exists
         try:
-            shop = Shop.objects.get(id=request.GET.get('shop_id'))
+            shop = Shop.objects.get(id=self.request.GET.get('shop_id'))
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
         # Check Customer
         try:
-            customer = User.objects.get(phone_number=request.GET.get('phone_number'))
+            customer = User.objects.get(phone_number=self.request.GET.get('phone_number'))
         except ObjectDoesNotExist:
             return {'error': "User/Customer Not Found"}
         return {'shop': shop, 'customer': customer}
@@ -372,6 +365,7 @@ class CartCentral(APIView):
         """
         cart_products = CartProductMapping.objects.select_related('cart_product').filter(cart=cart)
         cart_product_to_be_deleted = []
+        # check and delete if product blocked for audit
         for p in cart_products:
             is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product, seller_shop)
             if is_blocked_for_audit:
@@ -422,50 +416,62 @@ class CartCentral(APIView):
             if not i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id):
                 CartProductMapping.objects.filter(cart__id=cart.id, cart_product__id=i.cart_product.id).delete()
 
-    def get_serialize_process(self, cart, seller_shop='', buyer_shop='', shop_type='', search_text='', page_number=1,
-                              records_per_page=10):
+    def get_serialize_process_sp(self, cart, seller_shop='', buyer_shop=''):
         """
-            Get Cart
-            Serialize and Modify Cart - Parent Product Image Check, MRP Check
+           Get Cart
+           Cart type retail - sp
+           Serialize and Modify Cart - Parent Product Image Check, MRP Check
         """
-        if shop_type == 'sp':
-            # Serialize Get Cart
-            serializer = CartSerializer(Cart.objects.get(id=cart.id), context={'parent_mapping_id': seller_shop.id,
-                                                                               'buyer_shop_id': buyer_shop.id,
-                                                                               'search_text': search_text,
-                                                                               'page_number': page_number,
-                                                                               'records_per_page':records_per_page,
-                                                                               'delivery_message': self.delivery_message()})
-            for i in serializer.data['rt_cart_list']:
-                # check if product has to use it's parent product image
-                if not i['cart_product']['product_pro_image']:
-                    product = Product.objects.get(id=i['cart_product']['id'])
-                    if product.use_parent_image:
-                        for im in product.parent_product.parent_product_pro_image.all():
-                            parent_image_serializer = ParentProductImageSerializer(im)
-                            i['cart_product']['product_pro_image'].append(parent_image_serializer.data)
-                # remove products without mrp
-                if not i['cart_product']['product_mrp']:
-                    i['qty'] = 0
-                    CartProductMapping.objects.filter(cart__id=i['cart']['id'],
-                                                      cart_product__id=i['cart_product']['id']).delete()
-        elif shop_type == 'gf':
-            # Serialize Get Cart
-            serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),
-                                                  context={'parent_mapping_id': seller_shop.id,
-                                                           'delivery_message': self.delivery_message()})
-        else:
-            serializer = CartSerializer(cart, context={'search_text': search_text, 'page_number': page_number,
-                                                       'records_per_page':records_per_page})
+        serializer = CartSerializer(Cart.objects.get(id=cart.id),
+                                    context={'parent_mapping_id': seller_shop.id, 'buyer_shop_id': buyer_shop.id,
+                                             'search_text': self.request.GET.get('search_text', ''),
+                                             'page_number': self.request.GET.get('page_number', 1),
+                                             'records_per_page': self.request.GET.get('records_per_page', 10),
+                                             'delivery_message': self.delivery_message()})
+        for i in serializer.data['rt_cart_list']:
+            # check if product has to use it's parent product image
+            if not i['cart_product']['product_pro_image']:
+                product = Product.objects.get(id=i['cart_product']['id'])
+                if product.use_parent_image:
+                    for im in product.parent_product.parent_product_pro_image.all():
+                        parent_image_serializer = ParentProductImageSerializer(im)
+                        i['cart_product']['product_pro_image'].append(parent_image_serializer.data)
+            # remove products without mrp
+            if not i['cart_product']['product_mrp']:
+                i['qty'] = 0
+                CartProductMapping.objects.filter(cart__id=i['cart']['id'],
+                                                  cart_product__id=i['cart_product']['id']).delete()
         return serializer.data
 
-    def retail_add_to_cart(self, request):
+    def get_serialize_process_gf(self, cart, seller_shop=''):
+        """
+           Get Cart
+           Cart type retail - gf
+           Serialize
+        """
+        serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),
+                                              context={'parent_mapping_id': seller_shop.id,
+                                                       'delivery_message': self.delivery_message()})
+        return serializer.data
+
+    def get_serialize_process_basic(self, cart):
+        """
+           Get Cart
+           Cart type basic
+           Serialize
+        """
+        serializer = CartSerializer(cart, context={'search_text': self.request.GET.get('search_text', ''),
+                                                   'page_number': self.request.GET.get('page_number', 1),
+                                                   'records_per_page': self.request.GET.get('records_per_page', 10),})
+        return serializer.data
+
+    def retail_add_to_cart(self):
         """
             Add To Cart
             For cart type 'retail'
         """
         # basic validations for inputs
-        initial_validation = self.post_retail_validate(request)
+        initial_validation = self.post_retail_validate()
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         buyer_shop = initial_validation['buyer_shop']
@@ -489,8 +495,7 @@ class CartCentral(APIView):
             if cart.rt_cart_list.count() <= 0:
                 return get_response('Sorry no product added to this cart yet')
             # process and return response
-            return get_response('Added To Cart',
-                                self.post_serialize_process(cart, seller_shop, buyer_shop, product, shop_type))
+            return get_response('Added To Cart', self.post_serialize_process_sp(cart, seller_shop, buyer_shop, product))
         # If Seller Shop is gf type
         elif shop_type == 'gf':
             # Update or create cart for user
@@ -506,18 +511,17 @@ class CartCentral(APIView):
             if cart.rt_cart_list.count() <= 0:
                 return get_response('Sorry no product added to this cart yet')
             # process and return response
-            return get_response('Added To Cart',
-                                self.post_serialize_process(cart, seller_shop, buyer_shop, product, shop_type))
+            return get_response('Added To Cart', self.post_serialize_process_gf(cart, seller_shop))
         else:
             return get_response('Sorry shop is not associated with any Gramfactory or any SP')
 
-    def basic_add_to_cart(self, request):
+    def basic_add_to_cart(self):
         """
             Add To Cart
             For cart type 'basic'
         """
         # basic validations for inputs
-        initial_validation = self.post_basic_validate(request)
+        initial_validation = self.post_basic_validate()
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         product = initial_validation['product']
@@ -533,15 +537,15 @@ class CartCentral(APIView):
         cart_mapping.no_of_pieces = int(qty)
         cart_mapping.save()
         # serialize and return response
-        return get_response('Added To Cart', self.post_serialize_process(cart))
+        return get_response('Added To Cart', self.post_serialize_process_basic(cart))
 
-    def post_retail_validate(self, request):
+    def post_retail_validate(self):
         """
             Add To Cart
             Input validation for cart type 'retail'
         """
-        qty = request.POST.get('qty')
-        shop_id = request.POST.get('shop_id')
+        qty = self.request.POST.get('qty')
+        shop_id = self.request.POST.get('shop_id')
         # Added Quantity check
         if qty is None or qty == '':
             return {'error': "Qty Not Found!"}
@@ -554,7 +558,7 @@ class CartCentral(APIView):
             return {'error': "Shop Mapping Doesn't Exist!"}
         # Check if product exists
         try:
-            product = Product.objects.get(id=request.POST.get('cart_product'))
+            product = Product.objects.get(id=self.request.POST.get('cart_product'))
         except ObjectDoesNotExist:
             return {'error': "Product Not Found!"}
         # Check if the product is blocked for audit
@@ -564,33 +568,36 @@ class CartCentral(APIView):
         return {'product': product, 'buyer_shop': parent_mapping.retailer, 'seller_shop': parent_mapping.parent,
                 'quantity': qty, 'shop_type': parent_mapping.parent.shop_type.shop_type}
 
-    def post_basic_validate(self, request):
+    def post_basic_validate(self):
         """
             Add To Cart
             Input validation for add to cart for cart type 'basic'
         """
-        qty = request.POST.get('qty')
+        qty = self.request.POST.get('qty')
         # Added Quantity check
         if qty is None or qty == '':
             return {'error': "Qty Not Found!"}
         # Check if shop exists
         try:
-            shop = Shop.objects.get(id=request.POST.get('shop_id'))
+            shop = Shop.objects.get(id=self.request.POST.get('shop_id'))
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
         # Check if product exists for that shop
         try:
-            product = RetailerProduct.objects.get(id=request.POST.get('cart_product'), shop=shop)
+            product = RetailerProduct.objects.get(id=self.request.POST.get('cart_product'), shop=shop)
         except ObjectDoesNotExist:
             return {'error': "Product Not Found!"}
         # Check Customer
         try:
-            customer = User.objects.get(phone_number=request.POST.get('phone_number'))
+            customer = User.objects.get(phone_number=self.request.POST.get('phone_number'))
         except ObjectDoesNotExist:
             return {'error': "User/Customer Not Found"}
         return {'product': product, 'shop': shop, 'quantity': qty, 'customer': customer}
 
     def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
+        """
+            Create or update/add product to retail sp Cart
+        """
         user = self.request.user
         if Cart.objects.filter(last_modified_by=user, buyer_shop=buyer_shop,
                                cart_status__in=['active', 'pending']).exists():
@@ -612,6 +619,9 @@ class CartCentral(APIView):
         return cart
 
     def post_update_retail_gm_cart(self):
+        """
+            Create or update/add product to retail gm Cart
+        """
         user = self.request.user
         if GramMappedCart.objects.filter(last_modified_by=user, cart_status__in=['active', 'pending']).exists():
             cart = GramMappedCart.objects.filter(last_modified_by=user,
@@ -624,6 +634,9 @@ class CartCentral(APIView):
         return cart
 
     def post_update_basic_cart(self, seller_shop, customer):
+        """
+            Create or update/add product to retail basic Cart
+        """
         user = self.request.user
         if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
                                cart_status__in=['active', 'pending']).exists():
@@ -651,6 +664,7 @@ class CartCentral(APIView):
         """
         ordered_qty = 0
         capping_start_date, capping_end_date = check_date_range(capping)
+        # get all orders for buyer shop
         if capping_start_date.date() == capping_end_date.date():
             capping_range_orders = Order.objects.filter(buyer_shop=buyer_shop,
                                                         created_at__gte=capping_start_date,
@@ -661,6 +675,7 @@ class CartCentral(APIView):
                                                         created_at__lte=capping_end_date
                                                         ).exclude(order_status='CANCELLED')
         if capping_range_orders:
+            # filters orders for the product and add ordered quantity
             for order in capping_range_orders:
                 if order.ordered_cart.rt_cart_list.filter(cart_product=product).exists():
                     ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product=product).last().qty
@@ -677,17 +692,14 @@ class CartCentral(APIView):
         cart_mapping, created = CartProductMapping.objects.get_or_create(cart=cart,
                                                                          cart_product=product)
         cart_mapping.qty = qty
-        available_qty = shop_products_dict[int(product.id)] // int(
-            cart_mapping.cart_product.product_inner_case_size)
+        available_qty = shop_products_dict[int(product.id)] // int(cart_mapping.cart_product.product_inner_case_size)
         if int(qty) <= available_qty:
             cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
             cart_mapping.capping_error_msg = ''
-            cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(
-                int(available_qty))
+            cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
             cart_mapping.save()
         else:
-            cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(
-                int(available_qty))
+            cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
             cart_mapping.save()
         return cart_mapping
 
@@ -698,14 +710,18 @@ class CartCentral(APIView):
         """
         capping = product.get_current_shop_capping(seller_shop, buyer_shop)
         if capping:
+            # get already ordered quantity for product
             ordered_qty = self.retail_ordered_quantity(capping, product, buyer_shop)
+            # if ordered qty does not exceed capping qty, qty can be added full or partial
             if capping.capping_qty > ordered_qty:
+                # if full qty in cart can be added
                 if (capping.capping_qty - ordered_qty) >= int(qty):
                     if int(qty) == 0:
                         delete_cart_mapping(cart, product)
                     else:
                         return {'is_success': True, 'quantity_check': True}
                 else:
+                    # if only patial cart qty can be added
                     serializer = CartSerializer(Cart.objects.get(id=cart.id), context={
                         'parent_mapping_id': seller_shop.id, 'buyer_shop_id': buyer_shop.id})
                     if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
@@ -717,32 +733,42 @@ class CartCentral(APIView):
                         return {'is_success': False, 'message': 'The Purchase Limit of the Product is %s #%s' % (
                             capping.capping_qty - ordered_qty, product.id), 'data': serializer.data}
             else:
+                # no qty can be added
                 delete_cart_mapping(cart, product)
                 serializer = CartSerializer(Cart.objects.get(id=cart.id), context={
                     'parent_mapping_id': seller_shop.id, 'buyer_shop_id': buyer_shop.id})
                 return {'is_success': False, 'message': 'You have already exceeded the purchase limit of'
                                                         ' this product #%s' % product.id, 'data': serializer.data}
         else:
+            # no capping
             if int(qty) == 0:
                 delete_cart_mapping(cart, product)
             else:
                 return {'is_success': True, 'quantity_check': True}
         return {'is_success': True, 'quantity_check': False}
 
-    def post_serialize_process(self, cart, seller_shop='', buyer_shop='', product='', shop_type=''):
+    def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
         """
             Add To Cart
-            Serialize and Modify Cart - MRP Check
+            Serialize and Modify Cart - MRP Check - retail sp cart
         """
-        if shop_type == 'sp':
-            serializer = CartSerializer(cart, context={'parent_mapping_id': seller_shop.id,
-                                                       'buyer_shop_id': buyer_shop.id})
-            for i in serializer.data['rt_cart_list']:
-                if not i['cart_product']['product_mrp']:
-                    delete_cart_mapping(cart, product)
-        elif shop_type == 'gf':
-            serializer = GramMappedCartSerializer(cart,
-                                                  context={'parent_mapping_id': seller_shop.id})
-        else:
-            serializer = CartSerializer(cart)
+        serializer = CartSerializer(cart, context={'parent_mapping_id': seller_shop.id,
+                                                   'buyer_shop_id': buyer_shop.id})
+        for i in serializer.data['rt_cart_list']:
+            if not i['cart_product']['product_mrp']:
+                delete_cart_mapping(cart, product)
         return serializer.data
+
+    def post_serialize_process_gf(self, cart, seller_shop=''):
+        """
+            Add To Cart
+            Serialize retail Gram Cart
+        """
+        return GramMappedCartSerializer(cart, context={'parent_mapping_id': seller_shop.id}).data
+
+    def post_serialize_process_basic(self, cart):
+        """
+            Add To Cart
+            Serialize basic cart
+        """
+        return CartSerializer(cart).data
