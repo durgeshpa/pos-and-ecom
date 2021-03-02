@@ -48,7 +48,6 @@ def process_rewards_on_sales():
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                 update_sales_ret_obj(sales_obj, False, "{} {} {}".format(exc_type, fname, exc_tb.tb_lineno))
-            return ""
 
 
 def update_sales_ret_obj(obj, rewards_status, error=''):
