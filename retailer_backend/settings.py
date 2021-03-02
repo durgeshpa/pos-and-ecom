@@ -137,6 +137,8 @@ INSTALLED_APPS = [
     'global_config',
     'whc',
     'pos.apps.PosConfig'
+    'redash_report',
+    'retailer_incentive'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -390,12 +392,14 @@ CRONJOBS = [
     ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
     ('*/30 * * * *', 'audit.cron.create_picklist_cron'),
     ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
-    ('30 19 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
+    #('30 19 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
     ('30 22 * * *', 'wms.views.auto_report_for_expired_product'),
     ('*/5 * * * *', 'products.cron.deactivate_capping'),
     #('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
     ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
     ('*/5 * * * *', 'whc.cron.initiate_auto_order_processing'),
+    ('0 1 * * *', 'redash_report.views.redash_scheduled_report'),
+
 
 ]
 
