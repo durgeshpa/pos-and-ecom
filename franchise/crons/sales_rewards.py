@@ -14,9 +14,11 @@ def process_rewards_on_sales():
     if specific_shops and specific_shops.value not in [None, '']:
         shops_str = specific_shops.value
         shops = shops_str.split('|')
-        sales_objs = FranchiseSales.objects.filter(rewards_status=False, shop_loc__in=shops)
+        sales_objs = FranchiseSales.objects.filter(rewards_status=False, shop_loc__in=shops,
+                                                   created_at__gte='2021-03-02')
     else:
-        sales_objs = FranchiseSales.objects.filter(rewards_status=False)
+        sales_objs = FranchiseSales.objects.filter(rewards_status=False,
+                                                   created_at__gte='2021-03-02')
 
     if sales_objs.exists():
         try:
