@@ -304,7 +304,8 @@ def DownloadRetailerCatalogue(request, *args):
 
         for product in retailer_products:
             linked_product_sku = ''
-            sku_type = RetailerProductCls.get_sku_type(product.sku_type)
+            sku_type = product.sku_type
+            sku_type = RetailerProductCls.get_sku_type(sku_type)
             category = ''
             sub_category = ''
             brand = ''
