@@ -17,10 +17,11 @@ class ShopSchemeMappingView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        shop_id = request.GET.get('shop_id')
-        shop_scheme = SchemeShopMapping.objects.none()
-        if shop_id is not None:
-            shop_scheme = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True).last()
+        shop = request.user.shop_employee.last().shop
+        shop_scheme = SchemeShopMapping.objects.filter(shop=shop, is_active=True).last()
+        if shop_scheme is None:
+            msg = {'is_success': False, 'message': 'No Scheme found for this shop', 'data': {}}
+            return Response(msg, status=status.HTTP_200_OK)
         serializer = SchemeShopMappingSerializer(shop_scheme)
         msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
@@ -31,7 +32,7 @@ class ShopPurchaseMatrix(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        shop_id = request.GET.get('shop_id')
+        shop_id = request.user.shop_employee.last().shop
         if not SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True).exists():
             msg = {'is_success': False, 'message': 'No Scheme Found for this shop', 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
