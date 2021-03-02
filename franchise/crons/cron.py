@@ -61,8 +61,9 @@ def franchise_sales_returns_inventory():
                     and 'code' in franchise_inv_resp and franchise_inv_resp['code'] == 'success':
 
                 # process returns data to adjust franchise inventory
-                process_returns_data()
-                mail_data()
+                # process_returns_data()
+                # mail_data()
+                pass
             else:
                 cron_logger.info('Could not fetch returns data/sales data not processed')
         else:
@@ -87,8 +88,6 @@ def fetch_franchise_data(fetch_name, to_date):
     """
 
     try:
-        if fetch_name == 'returns':
-            return {'code': 'success'}
         # proceed from last successful time till now
         fetch_type = 0 if fetch_name == 'sales' else 1
 
@@ -173,29 +172,13 @@ def process_sales_data(id=''):
         Proceed Inventory Adjustment Accounting for Sales of Franchise Shops
     """
     try:
+        return {'code': 'success'}
         if id != '':
             sales_objs = FranchiseSales.objects.filter(pk=id)
         else:
-            specific_shops = GlobalConfig.objects.filter(key="process_rewards_for_shops").last()
-            if specific_shops and specific_shops.value not in [None, '']:
-                shops_str = specific_shops.value
-                shops = shops_str.split('|')
-                # Rewards to be processed from when??? Include date + fetch sales from when
-                sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2], shop_loc__in=shops)
-            else:
-                sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2])
-
+            sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2], shop_loc__in=['PepperTap (Anshika Store)',
+                                                                                                'PepperTap (Gram Mart, Chipyana)'])
         if sales_objs.exists():
-            try:
-                conf_obj = GlobalConfig.objects.get(key='total_reward_percent_of_order')
-                total_reward_percent = conf_obj.value
-            except:
-                total_reward_percent = 10
-            try:
-                conf_obj = GlobalConfig.objects.get(key='direct_reward_percent')
-                direct_reward_percent = conf_obj.value
-            except:
-                direct_reward_percent = 50
             type_normal = InventoryType.objects.filter(inventory_type='normal').last(),
             state_available = InventoryState.objects.filter(inventory_state='total_available').last(),
             state_shipped = InventoryState.objects.filter(inventory_state='shipped').last(),
@@ -219,8 +202,7 @@ def process_sales_data(id=''):
 
                 bin_obj = Bin.objects.filter(warehouse=warehouse, bin_id=get_default_virtual_bin_id()).last()
                 sales_inventory_update_franchise(warehouse, bin_obj, sales_obj.quantity, type_normal, state_shipped,
-                                                 state_available, sku, sales_obj, total_reward_percent,
-                                                 direct_reward_percent)
+                                                 state_available, sku, sales_obj)
         return {'code': 'success'}
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -230,7 +212,7 @@ def process_sales_data(id=''):
 
 
 def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, state_shipped,
-                                             state_available, sku, sales_obj, total_reward_percent, direct_reward_percent):
+                                             state_available, sku, sales_obj):
     """
         Inventory Adjustment (available to shipped) Accounting for Sales of single Franchise Shop.
 
@@ -244,9 +226,6 @@ def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, 
     """
 
     try:
-        update_sales_ret_obj(sales_obj, 3)
-        rewards_account(sales_obj, total_reward_percent, direct_reward_percent)
-        return ""
         with transaction.atomic():
             if quantity > 0:
                 transaction_type = 'franchise_sales'
@@ -306,7 +285,6 @@ def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, 
                                                                                          transaction_type, transaction_id,
                                                                                          already_picked)
                     update_sales_ret_obj(sales_obj, 1)
-                    rewards_account(sales_obj)
             else:
                 update_sales_ret_obj(sales_obj, 2, 'sales quantity not positive')
 
@@ -422,14 +400,13 @@ def rewards_account(sales_obj, total_reward_percent, direct_reward_percent):
         Account for used rewards by user w.r.t sales order
         Account for rewards to referrer (direct and indirect) w.r.t sales order
     """
-
     if sales_obj.phone_number and sales_obj.phone_number != '':
         sales_user = MLMUser.objects.filter(phone_number=sales_obj.phone_number).last()
         if sales_user:
             self_reward_points = sales_obj.amount * 0.05
             self_reward(sales_user, self_reward_points, sales_obj.id)
             reward_points = sales_obj.amount * (total_reward_percent / 100)
-            referrer_reward(sales_user, sales_obj.id, reward_points)
+            referrer_reward(sales_user, sales_obj.id, reward_points, direct_reward_percent)
 
 
 def referrer_reward(sales_user, transaction_id, reward_points, direct_reward_percent):
