@@ -407,7 +407,8 @@ def rewards_account(sales_obj, total_reward_percent, direct_reward_percent):
             self_reward(sales_user, self_reward_points, sales_obj.id)
             reward_points = sales_obj.amount * (total_reward_percent / 100)
             referrer_reward(sales_user, sales_obj.id, reward_points, direct_reward_percent)
-
+            return True
+    return False
 
 def referrer_reward(sales_user, transaction_id, reward_points, direct_reward_percent):
     """
