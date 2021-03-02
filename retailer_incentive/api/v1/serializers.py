@@ -30,6 +30,7 @@ class SchemeShopMappingSerializer(serializers.ModelSerializer):
     scheme = SchemeSerializer()
     slabs = serializers.SerializerMethodField('scheme_slab')
 
+
     def scheme_slab(self, obj):
         slabs = SchemeSlab.objects.filter(scheme=obj.scheme)
         serializer = SchemeSlabSerializer(slabs, many=True)
