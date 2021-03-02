@@ -153,7 +153,7 @@ class FranchiseSalesAdmin(admin.ModelAdmin, ExportSalesReturns):
     list_per_page = 50
     actions = ["export_as_csv_sales_returns"]
     list_filter = [('shop_loc', DropdownFilter), BarcodeFilter, SkuFilter, ('invoice_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter),
-                   ('error', DropdownFilter), InvoiceNumberFilter]
+                   ('error', DropdownFilter), InvoiceNumberFilter, ('rewards_status', ChoiceDropdownFilter)]
 
     class Media:
         pass

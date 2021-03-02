@@ -14,10 +14,10 @@ def process_rewards_on_sales():
     if specific_shops and specific_shops.value not in [None, '']:
         shops_str = specific_shops.value
         shops = shops_str.split('|')
-        sales_objs = FranchiseSales.objects.filter(rewards_status=False, shop_loc__in=shops,
+        sales_objs = FranchiseSales.objects.filter(rewards_status=0, shop_loc__in=shops,
                                                    created_at__gte='2021-03-02')
     else:
-        sales_objs = FranchiseSales.objects.filter(rewards_status=False,
+        sales_objs = FranchiseSales.objects.filter(rewards_status=0,
                                                    created_at__gte='2021-03-02')
 
     if sales_objs.exists():
@@ -36,16 +36,16 @@ def process_rewards_on_sales():
             try:
                 with transaction.atomic():
                     if not ShopLocationMap.objects.filter(location_name=sales_obj.shop_loc).exists():
-                        update_sales_ret_obj(sales_obj, False, 'shop mapping not found')
+                        update_sales_ret_obj(sales_obj, 2, 'shop mapping not found')
                         continue
                     if not Product.objects.filter(product_sku=sales_obj.product_sku).exists():
-                        update_sales_ret_obj(sales_obj, False, 'product sku not matched')
+                        update_sales_ret_obj(sales_obj, 2, 'product sku not matched')
                         continue
                     ret = rewards_account(sales_obj, total_reward_percent, direct_reward_percent)
                     if ret:
-                        update_sales_ret_obj(sales_obj, True)
+                        update_sales_ret_obj(sales_obj, 1)
                     else:
-                        update_sales_ret_obj(sales_obj, False, 'user not found')
+                        update_sales_ret_obj(sales_obj, 2, 'user not found')
             except Exception as e:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
