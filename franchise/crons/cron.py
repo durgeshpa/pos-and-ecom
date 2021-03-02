@@ -87,6 +87,8 @@ def fetch_franchise_data(fetch_name, to_date):
     """
 
     try:
+        if fetch_name == 'returns':
+            return {'code': 'success'}
         # proceed from last successful time till now
         fetch_type = 0 if fetch_name == 'sales' else 1
 
@@ -174,9 +176,26 @@ def process_sales_data(id=''):
         if id != '':
             sales_objs = FranchiseSales.objects.filter(pk=id)
         else:
-            sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2], shop_loc__in=['PepperTap (Anshika Store)',
-                                                                                                'PepperTap (Gram Mart, Chipyana)'])
+            specific_shops = GlobalConfig.objects.filter(key="process_rewards_for_shops").last()
+            if specific_shops and specific_shops.value not in [None, '']:
+                shops_str = specific_shops.value
+                shops = shops_str.split('|')
+                # Rewards to be processed from when??? Include date + fetch sales from when
+                sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2], shop_loc__in=shops)
+            else:
+                sales_objs = FranchiseSales.objects.filter(process_status__in=[0, 2])
+
         if sales_objs.exists():
+            try:
+                conf_obj = GlobalConfig.objects.get(key='total_reward_percent_of_order')
+                total_reward_percent = conf_obj.value
+            except:
+                total_reward_percent = 10
+            try:
+                conf_obj = GlobalConfig.objects.get(key='direct_reward_percent')
+                direct_reward_percent = conf_obj.value
+            except:
+                direct_reward_percent = 50
             type_normal = InventoryType.objects.filter(inventory_type='normal').last(),
             state_available = InventoryState.objects.filter(inventory_state='total_available').last(),
             state_shipped = InventoryState.objects.filter(inventory_state='shipped').last(),
@@ -200,7 +219,8 @@ def process_sales_data(id=''):
 
                 bin_obj = Bin.objects.filter(warehouse=warehouse, bin_id=get_default_virtual_bin_id()).last()
                 sales_inventory_update_franchise(warehouse, bin_obj, sales_obj.quantity, type_normal, state_shipped,
-                                                 state_available, sku, sales_obj)
+                                                 state_available, sku, sales_obj, total_reward_percent,
+                                                 direct_reward_percent)
         return {'code': 'success'}
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -210,7 +230,7 @@ def process_sales_data(id=''):
 
 
 def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, state_shipped,
-                                             state_available, sku, sales_obj):
+                                             state_available, sku, sales_obj, total_reward_percent, direct_reward_percent):
     """
         Inventory Adjustment (available to shipped) Accounting for Sales of single Franchise Shop.
 
@@ -224,6 +244,9 @@ def sales_inventory_update_franchise(warehouse, bin_obj, quantity, type_normal, 
     """
 
     try:
+        update_sales_ret_obj(sales_obj, 3)
+        rewards_account(sales_obj, total_reward_percent, direct_reward_percent)
+        return ""
         with transaction.atomic():
             if quantity > 0:
                 transaction_type = 'franchise_sales'
@@ -298,6 +321,7 @@ def process_returns_data():
         Proceed Inventory Adjustment Accounting for Returns of Franchise Shops
     """
     try:
+        return {'code': 'success'}
         returns_objs = FranchiseReturns.objects.filter(process_status__in=[0, 2], shop_loc__in=['PepperTap (Anshika Store)',
                                                                                                 'PepperTap (Gram Mart, Chipyana)'])
         from_date = datetime.datetime(int(config('HDPOS_START_YEAR')), int(config('HDPOS_START_MONTH')),
@@ -393,7 +417,7 @@ def update_sales_ret_obj(obj, status, error=''):
     obj.save()
 
 
-def rewards_account(sales_obj):
+def rewards_account(sales_obj, total_reward_percent, direct_reward_percent):
     """
         Account for used rewards by user w.r.t sales order
         Account for rewards to referrer (direct and indirect) w.r.t sales order
@@ -402,16 +426,13 @@ def rewards_account(sales_obj):
     if sales_obj.phone_number and sales_obj.phone_number != '':
         sales_user = MLMUser.objects.filter(phone_number=sales_obj.phone_number).last()
         if sales_user:
-            try:
-                conf_obj = GlobalConfig.objects.get(key='total_reward_percent_of_order')
-                total_reward_percent = conf_obj.value
-            except:
-                total_reward_percent = 10
+            self_reward_points = sales_obj.amount * 0.05
+            self_reward(sales_user, self_reward_points, sales_obj.id)
             reward_points = sales_obj.amount * (total_reward_percent / 100)
             referrer_reward(sales_user, sales_obj.id, reward_points)
 
 
-def referrer_reward(sales_user, transaction_id, reward_points):
+def referrer_reward(sales_user, transaction_id, reward_points, direct_reward_percent):
     """
         Account for reward (direct and indirect) w.r.t sales order
     """
@@ -421,12 +442,6 @@ def referrer_reward(sales_user, transaction_id, reward_points):
     referral_obj = Referral.objects.filter(referral_to=sales_user).last()
     if referral_obj:
         parent_referrer = referral_obj.referral_by
-        try:
-            conf_obj = GlobalConfig.objects.get(key='direct_reward_percent')
-            direct_reward_percent = conf_obj.value
-        except:
-            direct_reward_percent = 50
-
         # account for direct reward to user who referred sales_user
         direct_reward_points = int(reward_points * (direct_reward_percent / 100))
         direct_reward(parent_referrer, direct_reward_points, transaction_id)
@@ -434,6 +449,17 @@ def referrer_reward(sales_user, transaction_id, reward_points):
         # account for indirect reward to ancestor referrers
         indirect_reward_points = int(reward_points * ((100 - direct_reward_percent) / 100))
         indirect_reward(parent_referrer, indirect_reward_points, transaction_id)
+
+
+def self_reward(user, points, transaction_id):
+    reward_obj = RewardPoint.objects.filter(user=user).last()
+    if reward_obj:
+        reward_obj.direct_earned += points
+        reward_obj.save()
+    else:
+        RewardPoint.objects.create(user=user, direct_earned=points)
+
+    RewardLog.objects.create(user=user, transaction_type='purchase_reward', transaction_id=transaction_id, points=points)
 
 
 def direct_reward(parent_referrer, direct_reward_points, transaction_id):
@@ -477,6 +503,7 @@ def indirect_reward(parent_referrer, indirect_reward_points, transaction_id):
 
 
 def mail_data():
+    return ""
     curr_date = datetime.datetime.now()
     curr_date = curr_date.strftime('%Y-%m-%d %H:%M:%S')
 
