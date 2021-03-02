@@ -3,6 +3,7 @@ import uuid
 from django.db import models
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
+from django.utils.text import slugify
 
 from shops.models import Shop
 from products.models import Product
@@ -26,6 +27,8 @@ class RetailerProduct(models.Model):
     shop = models.ForeignKey(Shop, related_name='retailer_product', on_delete=models.CASCADE)
     sku = models.CharField(max_length=255, blank=False, unique=True)
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
+    product_slug = models.SlugField(max_length=255, blank=True)
+    product_ean_code = models.CharField(max_length=255, blank=True)
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     linked_product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
@@ -37,6 +40,30 @@ class RetailerProduct(models.Model):
 
     def __str__(self):
         return self.sku + " - " + self.name
+
+    @property
+    def product_short_description(self):
+        return self.name
+
+    @property
+    def product_name(self):
+        return self.name
+
+    @property
+    def product_sku(self):
+        return self.sku
+
+    @property
+    def product_mrp(self):
+        return self.mrp
+
+    @property
+    def product_price(self):
+        return self.selling_price
+
+    def save(self, *args, **kwargs):
+        self.product_slug = slugify(self.name)
+        super(RetailerProduct, self).save(*args, **kwargs)
 
 
 def sku_generator(shop_id):
