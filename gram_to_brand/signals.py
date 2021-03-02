@@ -48,7 +48,10 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                 return
             source_wh = Shop.objects.filter(pk=source_wh_id).last()
             if shop.retailer.id == source_wh.id:
-                AutoOrderProcessing.objects.create(grn=instance, grn_warehouse=source_wh, state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.GRN)
+                AutoOrderProcessing.objects.create(source_po=instance.order.ordered_cart,
+                                                   grn=instance,
+                                                   grn_warehouse=source_wh,
+                                                   state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.GRN)
                 info_logger.info("updated AutoOrderProcessing for GRN.")
 
         # data = {}
