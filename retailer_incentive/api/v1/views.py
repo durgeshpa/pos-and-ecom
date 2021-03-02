@@ -17,7 +17,11 @@ class ShopSchemeMappingView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        shop = request.user.shop_employee.last().shop
+        shop_id = request.GET.get('shop_id')
+        shop = Shop.objects.filter(id=shop_id).last()
+        if shop is None:
+            msg = {'is_success': False, 'message': 'No shop found', 'data':{} }
+            return Response(msg, status=status.HTTP_200_OK)
         shop_scheme = SchemeShopMapping.objects.filter(shop=shop, is_active=True).last()
         if shop_scheme is None:
             msg = {'is_success': False, 'message': 'No Scheme found for this shop', 'data': {}}
@@ -32,7 +36,7 @@ class ShopPurchaseMatrix(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        shop_id = request.user.shop_employee.last().shop
+        shop_id = request.GET.get('shop_id')
         if not SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True).exists():
             msg = {'is_success': False, 'message': 'No Scheme Found for this shop', 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
@@ -79,7 +83,8 @@ class ShopUserMappingView(APIView):
     permission_classes = (permissions.IsAuthenticated, )
 
     def get(self, request):
-        shop = request.user.shop_employee.last().shop
+        shop_id = request.GET.get('shop_id')
+        shop = Shop.objects.filter(id=shop_id).last()
         if shop is None:
             msg = {'is_success': False, 'message': 'No shop found', 'data':{} }
             return Response(msg, status=status.HTTP_200_OK)
