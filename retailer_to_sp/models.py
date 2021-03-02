@@ -713,30 +713,6 @@ class BulkOrder(models.Model):
             super().save(*args, **kwargs)
 
 
-@receiver(post_save, sender=Cart)
-def create_order_id(sender, instance=None, created=False, **kwargs):
-    if created:
-        if instance.cart_type == 'RETAIL':
-            instance.order_id = order_id_pattern(
-                sender, 'order_id', instance.pk,
-                instance.seller_shop.
-                    shop_name_address_mapping.filter(
-                    address_type='billing').last().pk)
-        elif instance.cart_type == 'BULK':
-            instance.order_id = order_id_pattern_bulk(
-                sender, 'order_id', instance.pk,
-                instance.seller_shop.
-                    shop_name_address_mapping.filter(
-                    address_type='billing').last().pk)
-        elif instance.cart_type == 'DISCOUNTED':
-            instance.order_id = order_id_pattern_discounted(
-                sender, 'order_id', instance.pk,
-                instance.seller_shop.
-                    shop_name_address_mapping.filter(
-                    address_type='billing').last().pk)
-        instance.save()
-
-
 @receiver(post_save, sender=BulkOrder)
 def create_bulk_order(sender, instance=None, created=False, **kwargs):
     info_logger.info("Post save for Bulk Order called")
@@ -813,7 +789,6 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 OrderManagement.create_reserved_order(reserved_args)
                 info_logger.info("reserved_bulk_order_success")
                 order, _ = Order.objects.get_or_create(ordered_cart=instance.cart)
-                order.order_no = instance.cart.order_id
                 order.ordered_cart = instance.cart
                 order.seller_shop = instance.seller_shop
                 order.buyer_shop = instance.buyer_shop
@@ -2706,28 +2681,29 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
 
 # post_save.connect(get_order_report, sender=Order)
 
-@receiver(post_save, sender=Cart)
-def create_order_id(sender, instance=None, created=False, **kwargs):
+@receiver(pre_save, sender=Order)
+def create_order_no(sender, instance=None, created=False, **kwargs):
     if created:
-        if instance.cart_type == 'RETAIL' or instance.cart_type == 'BASIC':
-            instance.order_id = common_function.order_id_pattern(
-                sender, 'order_id', instance.pk,
+        if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC']:
+            instance.order_no = common_function.order_id_pattern(
+                sender, 'order_no', instance.pk,
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk)
-        elif instance.cart_type == 'BULK':
-            instance.order_id = common_function.order_id_pattern_bulk(
-                sender, 'order_id', instance.pk,
+        elif instance.ordered_cart.cart_type == 'BULK':
+            instance.order_no = common_function.order_id_pattern_bulk(
+                sender, 'order_no', instance.pk,
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk)
-        elif instance.cart_type == 'DISCOUNTED':
-            instance.order_id = common_function.order_id_pattern_discounted(
-                sender, 'order_id', instance.pk,
+        elif instance.ordered_cart.cart_type == 'DISCOUNTED':
+            instance.order_no = common_function.order_id_pattern_discounted(
+                sender, 'order_no', instance.pk,
                 instance.seller_shop.
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk)
         instance.save()
+        Cart.objects.filter(id=instance.ordered_cart.id).update(order_id=instance.order_no)
 
 
 @receiver(post_save, sender=Payment)

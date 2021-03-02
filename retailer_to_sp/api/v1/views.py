@@ -1115,7 +1115,7 @@ class CreateOrder(APIView):
 
                     if order_reserve_obj:
                         order, _ = Order.objects.get_or_create(last_modified_by=request.user, ordered_by=request.user,
-                                                               ordered_cart=cart, order_no=cart.order_id)
+                                                               ordered_cart=cart)
 
                         order.billing_address = billing_address
                         order.shipping_address = shipping_address
@@ -1173,8 +1173,7 @@ class CreateOrder(APIView):
 
                 if GramOrderedProductReserved.objects.filter(cart=cart).exists():
                     order, _ = GramMappedOrder.objects.get_or_create(last_modified_by=request.user,
-                                                                     ordered_by=request.user, ordered_cart=cart,
-                                                                     order_no=cart.order_id)
+                                                                     ordered_by=request.user, ordered_cart=cart)
 
                     order.billing_address = billing_address
                     order.shipping_address = shipping_address
