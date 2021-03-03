@@ -761,13 +761,13 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
 
     if put_away_status is True:
         PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
-                                           bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
+                                           bin=CommonBinInventoryFunctions.get_filtered_bin_inventory(bin_id=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last()).last(),
                                            putaway_quantity=val, putaway_status=True,
                                            sku=pu[0].sku, batch_id=pu[0].batch_id,
                                            putaway_type=pu[0].putaway_type)
     else:
         PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
-                                           bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
+                                           bin=CommonBinInventoryFunctions.get_filtered_bin_inventory(bin_id=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last()).last(),
                                            putaway_quantity=val, putaway_status=False,
                                            sku=pu[0].sku, batch_id=pu[0].batch_id,
                                            putaway_type=pu[0].putaway_type)
