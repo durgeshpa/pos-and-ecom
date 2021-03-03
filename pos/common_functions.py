@@ -47,4 +47,3 @@ def delete_cart_mapping(cart, product, cart_type='retail'):
     elif cart_type == 'retail_gf':
         if GramMappedCartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
             GramMappedCartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
-
