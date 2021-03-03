@@ -263,20 +263,72 @@ def upload_retailer_products_list(request):
                 count = 0
             if product_status == 'create_products':
                 for row in uploaded_data_by_user_list:
+                    # if else condition for checking whether, Product we are creating is linked with existing product or not
+                    # with the help of 'linked_product_id'
                     if 'linked_product_sku' in row.keys():
                         if row.get('linked_product_sku') != '':
-                            product = Product.objects.filter(product_sku=row.get('linked_product_sku'))
+                            # If product is linked with existing product
+                            if Product.objects.filter(product_sku=row.get('linked_product_sku')):
+                                product = Product.objects.get(product_sku=row.get('linked_product_sku'))
+                                if str(product.product_mrp) == format(
+                                        decimal.Decimal(row.get('mrp')), ".2f"):
+                                    # If Linked_Product_MRP == Input_MRP , create a Product with [SKU TYPE : LINKED]
+                                    RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
+                                                                               row.get('selling_price'), product.id,
+                                                                               2, row.get('description'))
+                                else:
+                                    # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
+                                    RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
+                                                                               row.get('selling_price'), product.id,
+                                                                               3, row.get('description'))
+                    else:
+                        # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
+                        RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
+                                                                   row.get('selling_price'), None,
+                                                                   1, row.get('description'))
+                return render(request, 'admin/pos/retailerproductscsvupload.html',
+                              {'form': form,
+                               'success': 'Products Created Successfully!', })
 
-                    RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'),
-                                                               product.values()[0].get('id'), row.get('mrp'),
-                                                               1, row.get('selling_price'), row.get('description'))
-                pass
             else:
-                pass
-
-            return render(request, 'admin/pos/retailerproductscsvupload.html',
-                          {'form': form,
-                           'success': 'Products Uploaded Successfully!', })
+                for row in uploaded_data_by_user_list:
+                    product_id = row.get('product_id')
+                    product_mrp = row.get('mrp')
+                    if RetailerProduct.objects.filter(id=product_id, shop_id=shop_id).exists():
+                        expected_input_data_list = ['product_name', 'product_id', 'mrp', 'selling_price', 'description']
+                        actual_input_data_list = []  # List of keys that user wants to update(If user wants to update product_name, this list wil have product_name with product_id)
+                        for key in expected_input_data_list:
+                            if key in row.keys():
+                                actual_input_data_list.append(key)
+                        product = RetailerProduct.objects.get(id=product_id)
+                        linked_product_id = product.linked_product_id
+                        if linked_product_id:
+                            if 'mrp' in actual_input_data_list:
+                                # If MRP in actual_input_data_list
+                                linked_product = Product.objects.filter(id=linked_product_id)
+                                if format(decimal.Decimal(product_mrp), ".2f") == str(
+                                        linked_product.values()[0].get('mrp')):
+                                    # If Input_MRP == Product_MRP, Update the product with [SKU Type : Linked]
+                                    product.sku_type = 2
+                                else:
+                                    # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
+                                    product.sku_type = 3
+                        if 'mrp' in actual_input_data_list:
+                            # If MRP in actual_input_data_list
+                            product.mrp = product_mrp
+                        if 'selling_price' in actual_input_data_list:
+                            # If selling price in actual_input_data_list
+                            product.selling_price = row.get('selling_price')
+                        if 'product_name' in actual_input_data_list:
+                            # Update Product Name
+                            product.name = row.get('product_name')
+                        if 'description' in actual_input_data_list:
+                            # Update Description
+                            product.description = row.get('description')
+                        product.save()
+                return render(request, 'admin/pos/retailerproductscsvupload.html',
+                              {'form': form,
+                               'success': 'Products Updated Successfully!', })
 
     else:
         form = RetailerProductsCSVUploadForm()
@@ -292,12 +344,12 @@ def DownloadRetailerCatalogue(request, *args):
     This function will return an File in csv format which can be used for Downloading the Product Catalogue
     """
     shop_id = request.GET['shop_id']
-    filename = "retailer_products_catalogue.csv"
+    filename = "retailer_products_update_sample_file.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(
-        ['shop', 'product_sku', 'product_name', 'product_mrp', 'selling_price', 'linked_product_sku', 'description',
+        ['product_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku', 'description',
          'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status'])
     if RetailerProduct.objects.filter(shop_id=int(shop_id)).exists():
         retailer_products = RetailerProduct.objects.filter(shop_id=int(shop_id))
@@ -313,7 +365,8 @@ def DownloadRetailerCatalogue(request, *args):
             if product.linked_product:
                 linked_product_sku = product.linked_product.product_sku
                 prodct = Product.objects.values('parent_product__parent_brand__brand_name',
-                                           'parent_product__parent_brand__brand_parent__brand_name').filter(Q(id=product.linked_product.id))
+                                                'parent_product__parent_brand__brand_parent__brand_name').filter(
+                                                Q(id=product.linked_product.id))
                 if prodct[0]['parent_product__parent_brand__brand_parent__brand_name']:
                    brand = prodct[0]['parent_product__parent_brand__brand_parent__brand_name']
                    sub_brand = prodct[0]['parent_product__parent_brand__brand_name']
@@ -329,7 +382,7 @@ def DownloadRetailerCatalogue(request, *args):
                 else:
                     category = cat[0]['category__category_name']
             writer.writerow(
-                [product.shop, product.sku, product.name,
+                [product.id, product.shop, product.sku, product.name,
                  product.mrp, product.selling_price, linked_product_sku, product.description,
                  sku_type, category, sub_category, brand, sub_brand, product.status])
     else:
@@ -342,9 +395,10 @@ def RetailerCatalogueSampleFile(request, *args):
     This function will return an Sample File in csv format which can be used for Downloading RetailerCatalogue Sample File
     (It is used when user wants to create new retailer products)
     """
-    filename = "retailer_products_sample_file.csv"
+    filename = "retailer_products_create_sample_file.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_name', 'product_mrp', 'linked_product_sku', 'selling_price', 'description'])
+    writer.writerow(['product_name', 'mrp', 'linked_product_sku', 'selling_price', 'description'])
+    writer.writerow(['Noodles', '12', 'ORCPCRTOY000000020820', '10', 'XYZ'])
     return response

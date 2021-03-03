@@ -15,6 +15,9 @@ class RetailerProductCls(object):
 
     @classmethod
     def get_sku_type(cls, sku_type):
+        """
+            Get SKU_TYPE
+        """
         if sku_type == 1:
             return 'CREATED'
         if sku_type == 2:

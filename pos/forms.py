@@ -9,13 +9,15 @@ import csv
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
-
 from pos.models import RetailerProduct
 from products.models import Product
 from shops.models import Shop
 
 
 class RetailerProductsCSVDownloadForm(forms.Form):
+    """
+        Select shop for downloading  Products Catalogue
+    """
     shop = forms.ModelChoiceField(
         label='Select Shop',
         queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
@@ -24,6 +26,9 @@ class RetailerProductsCSVDownloadForm(forms.Form):
 
 
 class RetailerProductsCSVUploadForm(forms.Form):
+    """
+        Select shop for create or updating Products
+    """
     shop = forms.ModelChoiceField(
         label='Select Shop',
         queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
@@ -32,6 +37,9 @@ class RetailerProductsCSVUploadForm(forms.Form):
     file = forms.FileField(label='Upload Products')
 
     def check_mandatory_data(self, row, key_string, row_num):
+        """
+            Check Mandatory Fields
+        """
         if key_string not in row.keys():
             raise ValidationError(_(f"Row {row_num} | Please provide {key_string}"))
 
@@ -40,29 +48,49 @@ class RetailerProductsCSVUploadForm(forms.Form):
                 raise ValidationError(_(f"Row {row_num} | Please provide {key_string}"))
 
     def validate_data_for_create_products(self, uploaded_data_by_user_list):
+        """
+            Check Mandatory Fields
+        """
         row_num = 1
         for row in uploaded_data_by_user_list:
             row_num += 1
             self.check_mandatory_data(row, 'product_name', row_num)
-            self.check_mandatory_data(row, 'product_mrp', row_num)
+            self.check_mandatory_data(row, 'mrp', row_num)
             self.check_mandatory_data(row, 'selling_price', row_num)
 
-            if not re.match("^\d+[.]?[\d]{0,2}$", str(row['product_mrp'])):
+            if not re.match("^\d+[.]?[\d]{0,2}$", str(row['mrp'])):
                 raise ValidationError(_(f"Row {row_num} | 'Product MRP' can only be a numeric value."))
 
             if not re.match("^\d+[.]?[\d]{0,2}$", str(row['selling_price'])):
                 raise ValidationError(_(f"Row {row_num} | 'Selling Price' can only be a numeric value."))
 
-            if decimal.Decimal(row['selling_price']) > decimal.Decimal(row['product_mrp']):
+            if decimal.Decimal(row['selling_price']) > decimal.Decimal(row['mrp']):
                 raise ValidationError(_(f"Row {row_num} | 'Selling Price' cannot be greater than 'Product Mrp'"))
 
             if 'linked_product_sku' in row.keys():
                 if row['linked_product_sku'] !='':
-                    if not Product.objects.filter(product_sku=row['sku_id']).exists():
+                    if not Product.objects.filter(product_sku=row['linked_product_sku']).exists():
                         raise ValidationError(_(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
 
     def validate_data_for_update_products(self, uploaded_data_by_user_list):
-            pass
+        row_num = 1
+        for row in uploaded_data_by_user_list:
+            row_num += 1
+            self.check_mandatory_data(row, 'product_id', row_num)
+            self.check_mandatory_data(row, 'product_name', row_num)
+            self.check_mandatory_data(row, 'mrp', row_num)
+            self.check_mandatory_data(row, 'selling_price', row_num)
+
+
+            if not RetailerProduct.objects.filter(id=row['product_id']).exists():
+                raise ValidationError(_(f"Row {row_num} | {row['product_id']} | 'product_id' doesn't exist."))
+
+            if not re.match("^\d+[.]?[\d]{0,2}$", str(row['selling_price'])):
+                raise ValidationError(_(f"Row {row_num} | 'Selling Price' can only be a numeric value."))
+
+            if decimal.Decimal(row['selling_price']) > decimal.Decimal(row['mrp']):
+                raise ValidationError(_(f"Row {row_num} | 'Selling Price' cannot be greater than 'Product Mrp'"))
+
 
     def validate_data(self, uploaded_data_by_user_list, catalogue_product_status):
         if catalogue_product_status == 'update_products':
