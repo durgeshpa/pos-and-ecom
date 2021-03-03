@@ -42,9 +42,8 @@ class ShopPurchaseMatrix(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         scheme_shop_mapping = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True).last()
         scheme = scheme_shop_mapping.scheme
-        total_sales = self.get_total_sales(shop_id, scheme_shop_mapping.start_date, scheme_shop_mapping.end_date)
-        scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lte=total_sales)\
-                                        .order_by('min_value').last()
+        total_sales = self.get_total_sales(shop_id, scheme.start_date, scheme.end_date)
+        scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lte=total_sales).order_by('min_value').last()
 
         discount_percentage = 0
         if scheme_slab is not None:
