@@ -398,12 +398,21 @@ class CartSerializer(serializers.ModelSerializer):
     sub_total = serializers.SerializerMethodField('sub_total_id')
     delivery_msg = serializers.SerializerMethodField()
     discounted_prices_sum = serializers.SerializerMethodField()
+    order_id = serializers.SerializerMethodField('order_id_dt')
 
     class Meta:
         model = Cart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
                   'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
                   'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers')
+
+    def order_id_dt(self, obj):
+        """
+            Refresh Order Id in response object once order is placed
+        """
+        if Order.objects.filter(ordered_cart=obj).exists():
+            return obj.rt_order_cart_mapping.order_no
+        return None
 
     def rt_cart_list_dt(self, obj):
         """
@@ -477,7 +486,6 @@ class CartSerializer(serializers.ModelSerializer):
                 else:
                     self.total_amount += 0
         return self.total_amount
-
 
 
     def sub_total_id(self, obj):

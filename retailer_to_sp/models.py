@@ -2681,9 +2681,13 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
 
 # post_save.connect(get_order_report, sender=Order)
 
-@receiver(pre_save, sender=Order)
+@receiver(post_save, sender=Order)
 def create_order_no(sender, instance=None, created=False, **kwargs):
-    if created:
+    """
+        Order number creation
+        Cart order_id add
+    """
+    if not instance.order_no and instance.seller_shop and instance.seller_shop:
         if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC']:
             instance.order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
@@ -2703,6 +2707,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
                     shop_name_address_mapping.filter(
                     address_type='billing').last().pk)
         instance.save()
+        # Update order id in cart
         Cart.objects.filter(id=instance.ordered_cart.id).update(order_id=instance.order_no)
 
 
