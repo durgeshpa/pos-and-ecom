@@ -48,7 +48,7 @@ class ShopPurchaseMatrix(APIView):
         discount_percentage = 0
         if scheme_slab is not None:
             discount_percentage = scheme_slab.discount_value
-        discount_value = discount_percentage * total_sales/100
+        discount_value = round(discount_percentage * total_sales/100, 2)
         next_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__gt=total_sales).order_by('min_value').first()
         message = SUCCESS_MESSAGES['SCHEME_SLAB_HIGHEST']
         if next_slab is not None:
