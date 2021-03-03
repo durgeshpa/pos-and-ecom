@@ -326,6 +326,12 @@ def upload_retailer_products_list(request):
                             # Update Description
                             product.description = row.get('description')
                         product.save()
+
+                    else:
+                        return render(request, 'admin/pos/retailerproductscsvupload.html',
+                              {'form': form,
+                               'error':f"There is no product available with (product id : {product_id}) "
+                                                f"for the shop_id provided", })
                 return render(request, 'admin/pos/retailerproductscsvupload.html',
                               {'form': form,
                                'success': 'Products Updated Successfully!', })
