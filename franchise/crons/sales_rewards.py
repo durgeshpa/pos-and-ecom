@@ -10,15 +10,12 @@ from franchise.crons.cron import rewards_account
 
 
 def process_rewards_on_sales():
+    shops = []
     specific_shops = GlobalConfig.objects.filter(key="hdpos_users_from_shops").last()
     if specific_shops and specific_shops.value not in [None, '']:
         shops_str = specific_shops.value
         shops = shops_str.split('|')
-        sales_objs = FranchiseSales.objects.filter(rewards_status=0, shop_loc__in=shops,
-                                                   created_at__gte='2021-03-02')
-    else:
-        sales_objs = FranchiseSales.objects.filter(rewards_status=0,
-                                                   created_at__gte='2021-03-02')
+    sales_objs = FranchiseSales.objects.filter(rewards_status=0, created_at__gte='2021-03-02')
 
     if sales_objs.exists():
         try:
@@ -35,6 +32,9 @@ def process_rewards_on_sales():
         for sales_obj in sales_objs:
             try:
                 with transaction.atomic():
+                    if shops and shops != [] and not sales_obj.shop_loc in shops:
+                        update_sales_ret_obj(sales_obj, 2, 'shop not eligible')
+                        continue
                     if not ShopLocationMap.objects.filter(location_name=sales_obj.shop_loc).exists():
                         update_sales_ret_obj(sales_obj, 2, 'shop mapping not found')
                         continue
