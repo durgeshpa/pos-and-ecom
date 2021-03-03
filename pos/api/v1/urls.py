@@ -6,5 +6,6 @@ urlpatterns = [
     url('^gram-product-detail/(?P<pk>\d+)/$', ProductDetail.as_view()),
     url('^search/retailer-product/$', RetailerProductsList.as_view()),
     url('^search/gram-product/$', GramProductsList.as_view()),
-    url('^cart/$', CartCentral.as_view())
+    url('^cart/$', CartCentral.as_view()),
+    url('^cart/(?P<pk>\d+)/$', CartCentral.as_view())
 ]
