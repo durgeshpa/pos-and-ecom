@@ -16,7 +16,7 @@ from shops.models import Shop
 
 class RetailerProductsCSVDownloadForm(forms.Form):
     """
-        Select shop for downloading  Products Catalogue
+        Select shop for downloading Retailer Products
     """
     shop = forms.ModelChoiceField(
         label='Select Shop',
@@ -27,7 +27,7 @@ class RetailerProductsCSVDownloadForm(forms.Form):
 
 class RetailerProductsCSVUploadForm(forms.Form):
     """
-        Select shop for create or updating Products
+        Select shop for create or update Products
     """
     shop = forms.ModelChoiceField(
         label='Select Shop',
