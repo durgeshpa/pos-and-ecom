@@ -20,14 +20,14 @@ class ShopSchemeMappingView(APIView):
         shop_id = request.GET.get('shop_id')
         shop = Shop.objects.filter(id=shop_id).last()
         if shop is None:
-            msg = {'is_success': False, 'message': 'No shop found', 'data':{} }
+            msg = {'is_success': False, 'message': ['No shop found'], 'data':{} }
             return Response(msg, status=status.HTTP_200_OK)
         shop_scheme = SchemeShopMapping.objects.filter(shop=shop, is_active=True).last()
         if shop_scheme is None:
-            msg = {'is_success': False, 'message': 'No Scheme found for this shop', 'data': {}}
+            msg = {'is_success': False, 'message': ['No Scheme found for this shop'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
         serializer = SchemeShopMappingSerializer(shop_scheme)
-        msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
+        msg = {'is_success': True, 'message': ['OK'], 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
 
 
@@ -38,7 +38,7 @@ class ShopPurchaseMatrix(APIView):
     def get(self, request):
         shop_id = request.GET.get('shop_id')
         if not SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True).exists():
-            msg = {'is_success': False, 'message': 'No Scheme Found for this shop', 'data': {}}
+            msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
         scheme_shop_mapping = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True).last()
         scheme = scheme_shop_mapping.scheme
@@ -55,7 +55,7 @@ class ShopPurchaseMatrix(APIView):
         if next_slab is not None:
             message = SUCCESS_MESSAGES['SCHEME_SLAB_ADD_MORE'].format((next_slab.min_value - total_sales),
                         (next_slab.min_value * next_slab.discount_value / 100), next_slab.discount_value)
-        msg = {'is_success': True, 'message': 'OK', 'data': {'total_sales' : total_sales,
+        msg = {'is_success': True, 'message': ['OK'], 'data': {'total_sales' : total_sales,
                                                              'discount_percentage': discount_percentage,
                                                              'discount_value': discount_value,
                                                              'message': message}}
@@ -86,26 +86,29 @@ class ShopUserMappingView(APIView):
         shop_id = request.GET.get('shop_id')
         shop = Shop.objects.filter(id=shop_id).last()
         if shop is None:
-            msg = {'is_success': False, 'message': 'No shop found', 'data':{} }
+            msg = {'is_success': False, 'message': ['No shop found'], 'data':{} }
             return Response(msg, status=status.HTTP_200_OK)
 
-        se = shop.shop_user.filter(employee_group__name='Sales Executive').last()
-        sm = shop.shop_user.filter(employee=se.employee).last()
         sales_executive_name = ''
         sales_executive_number = ''
         sales_manager_name = ''
         sales_manager_number = ''
-        if se is not None:
-            sales_executive_name = se.employee.first_name + ' ' + se.employee.last_name
-            sales_executive_number = se.employee.phone_number
-        if sm is not None:
-            sales_manager_name = sm.employee.first_name + ' ' + sm.employee.last_name
-            sales_manager_number = sm.employee.phone_number
-        msg = {'is_success': True, 'message': 'OK', 'data': {'se_name': sales_executive_name,
-                                                             'se_no': sales_executive_number,
-                                                             'sm_name': sales_manager_name,
-                                                             'sm_no': sales_manager_number
-                                                             }}
+
+        shop_user_mapping = shop.shop_user.filter(employee_group__name='Sales Executive').last()
+
+        if shop_user_mapping is not None:
+            se = shop_user_mapping.employee
+            sales_executive_name = se.first_name + ' ' + se.last_name
+            sales_executive_number = se.phone_number
+            if shop_user_mapping.manager is not None:
+                sm = shop_user_mapping.manager.employee
+                sales_manager_name = sm.first_name + ' ' + sm.last_name
+                sales_manager_number = sm.phone_number
+        msg = {'is_success': True, 'message': ['OK'], 'data': {'se_name': sales_executive_name,
+                                                               'se_no': sales_executive_number,
+                                                               'sm_name': sales_manager_name,
+                                                               'sm_no': sales_manager_number
+                                                               }}
         return Response(msg, status=status.HTTP_200_OK)
 
 #
