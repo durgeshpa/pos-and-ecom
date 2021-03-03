@@ -4,7 +4,7 @@ from products.models import Product
 from shops.models import Shop
 from wms.common_functions import CommonWarehouseInventoryFunctions
 from wms.models import BinInventory, WarehouseInventory, InventoryState, InventoryType, WarehouseInternalInventoryChange
-warehouse_list = Shop.objects.get(pk=1393)
+warehouse_list = [Shop.objects.get(pk=1393)]
 # warehouse_list = [Shop.objects.get(pk=32154), Shop.objects.get(pk=600)]
 state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
 state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()

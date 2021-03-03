@@ -1,10 +1,12 @@
 import datetime
 
+from dal import autocomplete
 from django import forms
 from django.core.exceptions import ValidationError
 from tempus_dominus.widgets import DatePicker
 
-from retailer_incentive.models import Scheme, SchemeSlab
+from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
+from shops.models import Shop
 
 
 class SchemeCreationForm(forms.ModelForm):
@@ -30,3 +32,15 @@ class SchemeSlabCreationForm(forms.ModelForm):
     class Meta:
         model = SchemeSlab
         fields = ('min_value', 'max_value', 'discount_value', 'discount_type')
+
+
+class SchemeShopMappingCreationForm(forms.ModelForm):
+    shop_choice = Shop.objects.filter(shop_type__shop_type__in=['f', 'r'])
+    scheme = forms.ModelChoiceField(queryset=Scheme.objects.all())
+    shop = forms.ModelChoiceField(queryset=shop_choice,
+                                  widget=autocomplete.ModelSelect2(url='shop-autocomplete'))
+
+    class Meta:
+        model = SchemeShopMapping
+        fields = ('scheme', 'shop', 'is_active')
+
