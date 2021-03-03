@@ -9,7 +9,7 @@ from retailer_backend.messages import SUCCESS_MESSAGES
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SchemeSlabSerializer
 from retailer_incentive.models import SchemeShopMapping, SchemeSlab
 from retailer_to_sp.models import Order, OrderedProduct, OrderedProductMapping
-from shops.models import ShopUserMapping, Shop
+from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
 
 
 class ShopSchemeMappingView(APIView):
@@ -43,7 +43,7 @@ class ShopPurchaseMatrix(APIView):
         scheme_shop_mapping = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True).last()
         scheme = scheme_shop_mapping.scheme
         total_sales = self.get_total_sales(shop_id, scheme.start_date, scheme.end_date)
-        scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lte=total_sales).order_by('min_value').last()
+        scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by('min_value').last()
 
         discount_percentage = 0
         if scheme_slab is not None:
@@ -74,7 +74,7 @@ class ShopPurchaseMatrix(APIView):
                                                                       'FULLY_DELIVERED_AND_CLOSED'])
         for s in shipment_products:
             total_sales += s.basic_rate*s.delivered_qty
-        return total_sales
+        return round(total_sales, 2)
 
 
 class ShopUserMappingView(APIView):
@@ -93,14 +93,17 @@ class ShopUserMappingView(APIView):
         sales_manager_name = ''
         sales_manager_number = ''
 
-        shop_user_mapping = shop.shop_user.filter(employee_group__name='Sales Executive').last()
+        shop_user_mapping = shop.shop_user.filter(employee_group__name='Sales Executive', status=True).last()
 
         if shop_user_mapping is not None:
             se = shop_user_mapping.employee
             sales_executive_name = se.first_name + ' ' + se.last_name
             sales_executive_number = se.phone_number
-            if shop_user_mapping.manager is not None:
-                sm = shop_user_mapping.manager.employee
+            parent_shop_id = ParentRetailerMapping.objects.filter(retailer_id=shop_id).last().parent_id
+            parent_shop_user_mapping = ShopUserMapping.objects.filter(shop=parent_shop_id,
+                                                                      employee=se, status=True).last()
+            if parent_shop_user_mapping.manager is not None:
+                sm = parent_shop_user_mapping.manager.employee
                 sales_manager_name = sm.first_name + ' ' + sm.last_name
                 sales_manager_number = sm.phone_number
         msg = {'is_success': True, 'message': ['OK'], 'data': {'se_name': sales_executive_name,
