@@ -15,6 +15,8 @@ class BaseTimestampModel(models.Model):
 
 class Scheme(BaseTimestampModel):
     name = models.CharField(max_length=50)
+    start_date = models.DateField()
+    end_date = models.DateField()
     is_active = models.BooleanField()
 
     def __str__(self):
@@ -27,15 +29,13 @@ class SchemeSlab(BaseTimestampModel):
     min_value = models.IntegerField(verbose_name='Slab Start Value')
     max_value = models.IntegerField(verbose_name='Slab End Value')
     discount_value = models.FloatField()
-    discount_type = models.CharField(max_length=50, choices=DISCOUNT_TYPE_CHOICE, default=DISCOUNT_TYPE_CHOICE.PERCENTAGE)
+    discount_type = models.IntegerField(choices=DISCOUNT_TYPE_CHOICE, default=DISCOUNT_TYPE_CHOICE.PERCENTAGE)
 
     def __str__(self):
-        return "{}-{}, {}".format(self.start_value, self.end_value, self.discount_value)
+        return "{}-{}, {}".format(self.min_value, self.max_value, self.discount_value)
 
 
 class SchemeShopMapping(BaseTimestampModel):
     scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
-    start_date = models.DateField()
-    end_date = models.DateField()
     is_active = models.BooleanField(default=True)
