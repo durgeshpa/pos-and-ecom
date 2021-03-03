@@ -137,19 +137,19 @@ class RewardLogAdmin(admin.ModelAdmin):
         return obj.points
 
     def purchase_user(self, obj):
-        if obj.transaction_type == 'direct_reward' or obj.transaction_type == 'indirect_reward':
+        if obj.transaction_type in ['direct_reward', 'indirect_reward', 'purchase_reward']:
             sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
             return sales_obj.phone_number if sales_obj else '-'
         return '-'
 
     def user_purchase_shop_location(self, obj):
-        if obj.transaction_type == 'direct_reward' or obj.transaction_type == 'indirect_reward':
+        if obj.transaction_type in ['direct_reward', 'indirect_reward', 'purchase_reward']:
             sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
             return sales_obj.shop_loc if sales_obj else '-'
         return '-'
 
     def purchase_invoice(self, obj):
-        if obj.transaction_type == 'direct_reward' or obj.transaction_type == 'indirect_reward':
+        if obj.transaction_type in ['direct_reward', 'indirect_reward', 'purchase_reward']:
             sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
             return sales_obj.invoice_number if sales_obj else '-'
         return '-'
