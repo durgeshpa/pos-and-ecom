@@ -10,10 +10,10 @@ from shops.models import ShopUserMapping
 
 class SchemeSlabSerializer(serializers.ModelSerializer):
 
-    def validate(self, data):
-        if data['min_value'] > data['max_value']:
-            raise serializers.ValidationError("min_value must be less than max value")
-        return data
+    discount_type = serializers.SerializerMethodField('m_discount_type')
+
+    def m_discount_type(self, obj):
+        return SchemeSlab.DISCOUNT_TYPE_CHOICE[obj.discount_type]
 
     class Meta:
         model = SchemeSlab
@@ -23,32 +23,37 @@ class SchemeSlabSerializer(serializers.ModelSerializer):
 class SchemeSerializer(object):
     class Meta:
         model = Scheme
-        fields = ('id', 'name')
+        fields = ('id', 'name', 'start_date', 'end_date')
 
 
 class SchemeShopMappingSerializer(serializers.ModelSerializer):
-    scheme = SchemeSerializer()
+    scheme_name = serializers.SerializerMethodField('m_scheme_name')
+    start_date = serializers.SerializerMethodField('m_start_date')
+    end_date = serializers.SerializerMethodField('m_end_date')
     slabs = serializers.SerializerMethodField('scheme_slab')
-
 
     def scheme_slab(self, obj):
         slabs = SchemeSlab.objects.filter(scheme=obj.scheme)
         serializer = SchemeSlabSerializer(slabs, many=True)
         return serializer.data
 
-    def to_representation(self, obj):
-        representation = super(SchemeShopMappingSerializer, self).to_representation(obj)
-        representation['scheme_name'] = obj.scheme.name
-        return representation
+    def m_scheme_name(self, obj):
+        return obj.scheme.name
 
-    def validate(self, data):
-        if data['start_date'] > data['end_date']:
-            raise serializers.ValidationError("start_date must be earlier than end_date")
-        return data
+    def m_start_date(self, obj):
+        return obj.scheme.start_date
+
+    def m_end_date(self, obj):
+        return obj.scheme.end_date
+    #
+    # def to_representation(self, obj):
+    #     representation = super(SchemeShopMappingSerializer, self).to_representation(obj)
+    #     representation['scheme_name'] = obj.scheme.name
+    #     return representation
 
     class Meta:
         model = SchemeShopMapping
-        fields = ('scheme', 'shop', 'start_date', 'end_date', 'slabs')
+        fields = ('scheme', 'scheme_name', 'start_date', 'end_date', 'shop', 'slabs')
 
 #
 # class ShopSalesMatrixSerializer(serializers.ModelSerializer):
