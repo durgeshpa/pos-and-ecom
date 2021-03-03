@@ -286,10 +286,6 @@ def upload_retailer_products_list(request):
                         RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
                                                                    row.get('selling_price'), None,
                                                                    1, row.get('description'))
-                return render(request, 'admin/pos/retailerproductscsvupload.html',
-                              {'form': form,
-                               'success': 'Products Created Successfully!', })
-
             else:
                 for row in uploaded_data_by_user_list:
                     product_id = row.get('product_id')
@@ -332,9 +328,9 @@ def upload_retailer_products_list(request):
                               {'form': form,
                                'error':f"There is no product available with (product id : {product_id}) "
                                                 f"for the (shop_id: {shop_id})", })
-                return render(request, 'admin/pos/retailerproductscsvupload.html',
-                              {'form': form,
-                               'success': 'Products Updated Successfully!', })
+            return render(request, 'admin/pos/retailerproductscsvupload.html',
+                          {'form': form,
+                           'success': 'Products Created/Updated Successfully!', })
 
     else:
         form = RetailerProductsCSVUploadForm()
