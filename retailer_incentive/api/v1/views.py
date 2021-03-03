@@ -90,12 +90,21 @@ class ShopUserMappingView(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         se = shop.shop_user.filter(employee_group__name='Sales Executive').last()
-        sm = shop.shop_user.filter(employee_group__name='Sales Manager').last()
-
-        msg = {'is_success': True, 'message': 'OK', 'data': {'se_name':se.employee.first_name+' '+se.employee.last_name,
-                                                             'se_no':se.employee.phone_number,
-                                                             'sm_name': sm.employee.first_name + ' ' + sm.employee.last_name,
-                                                             'sm_no': sm.employee.phone_number
+        sm = shop.shop_user.filter(employee=se.employee).last()
+        sales_executive_name = ''
+        sales_executive_number = ''
+        sales_manager_name = ''
+        sales_manager_number = ''
+        if se is not None:
+            sales_executive_name = se.employee.first_name + ' ' + se.employee.last_name
+            sales_executive_number = se.employee.phone_number
+        if sm is not None:
+            sales_manager_name = sm.employee.first_name + ' ' + sm.employee.last_name
+            sales_manager_number = sm.employee.phone_number
+        msg = {'is_success': True, 'message': 'OK', 'data': {'se_name': sales_executive_name,
+                                                             'se_no': sales_executive_number,
+                                                             'sm_name': sales_manager_name,
+                                                             'sm_no': sales_manager_number
                                                              }}
         return Response(msg, status=status.HTTP_200_OK)
 
