@@ -10,6 +10,9 @@ from shops.models import Shop
 
 
 class SchemeCreationForm(forms.ModelForm):
+    """
+    This class is used to create the Scheme
+    """
 
     class Meta:
         model = Scheme
@@ -29,12 +32,18 @@ class SchemeCreationForm(forms.ModelForm):
 
 
 class SchemeSlabCreationForm(forms.ModelForm):
+    """
+    This class is used to create the Scheme Slabs
+    """
     class Meta:
         model = SchemeSlab
         fields = ('min_value', 'max_value', 'discount_value', 'discount_type')
 
 
 class SchemeShopMappingCreationForm(forms.ModelForm):
+    """
+    This class is used to create the Scheme Shop Mapping
+    """
     shop_choice = Shop.objects.filter(shop_type__shop_type__in=['f', 'r'])
     scheme = forms.ModelChoiceField(queryset=Scheme.objects.all())
     shop = forms.ModelChoiceField(queryset=shop_choice,

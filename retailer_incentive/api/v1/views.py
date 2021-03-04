@@ -93,6 +93,14 @@ class ShopPurchaseMatrix(APIView):
 
 
 class ShopUserMappingView(APIView):
+
+    """
+    This class is used to get the Shop User Mapping related data
+    Returns:
+        Sales Executive name and number
+        Sales Manager name and number
+    """
+
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated, )
 
