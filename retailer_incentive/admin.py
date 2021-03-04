@@ -12,6 +12,9 @@ class SchemeSlabAdmin(NestedTabularInline):
     form = SchemeSlabCreationForm
     list_display = ('min_value', 'max_value','discount_value', 'discount_type')
 
+    class Media:
+        pass
+
 
 @admin.register(Scheme)
 class SchemeAdmin(admin.ModelAdmin):
@@ -20,10 +23,20 @@ class SchemeAdmin(admin.ModelAdmin):
     list_display =  ('name', 'start_date','end_date', 'is_active')
     inlines = [SchemeSlabAdmin, ]
 
+    class Media:
+        pass
 
 @admin.register(SchemeShopMapping)
 class SchemeShopMappingAdmin(admin.ModelAdmin):
     model = SchemeShopMapping
     form = SchemeShopMappingCreationForm
-    fields = ('scheme', 'shop','is_active')
-    list_display = ('scheme', 'shop', 'is_active')
+    list_display = ('scheme_id', 'scheme_name', 'shop', 'priority', 'is_active', 'user')
+
+    def scheme_id(self, obj):
+        return obj.scheme_id
+
+    def scheme_name(self, obj):
+        return obj.scheme.name
+
+    class Media:
+        pass

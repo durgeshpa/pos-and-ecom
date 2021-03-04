@@ -136,7 +136,6 @@ INSTALLED_APPS = [
     'marketing',
     'global_config',
     'whc',
-    'pos.apps.PosConfig',
     'redash_report',
     'retailer_incentive'
 ]
