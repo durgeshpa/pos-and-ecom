@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
@@ -531,8 +532,13 @@ class CartCentral(APIView):
 
         # Update or create cart for customer and shop
         cart = self.post_update_basic_cart(shop, customer)
+        # Check if price needs to be updated and return selling price
+        selling_price = self.get_basic_cart_product_price(product)
         # Add quantity to cart
+        if Decimal(selling_price) > product.mrp:
+            return get_response("Selling Price cannot be greater than MRP")
         cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product)
+        cart_mapping.selling_price = selling_price
         cart_mapping.qty = qty
         cart_mapping.no_of_pieces = int(qty)
         cart_mapping.save()
@@ -758,6 +764,23 @@ class CartCentral(APIView):
             'parent_mapping_id': seller_shop.id, 'buyer_shop_id': buyer_shop.id})
         return {'is_success': False, 'message': 'You have already exceeded the purchase limit of'
                                                 ' this product #%s' % product.id, 'data': serializer.data}
+
+    def get_basic_cart_product_price(self, product):
+        """
+            Check if retail product price needs to be changed on checkout
+            price_change - True or False
+            price_change_type - all (for future carts also), or only for current one
+        """
+        # Check If Price Change
+        price_change = self.request.POST.get('price_change')
+        selling_price = None
+        if price_change:
+            selling_price = self.request.POST.get('selling_price')
+            change_type = self.request.POST.get('price_change_type')
+            if change_type == 'all' and selling_price:
+                RetailerProduct.objects.filter(id=product.id).update(selling_price=selling_price)
+
+        return selling_price if selling_price else product.selling_price
 
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
         """
