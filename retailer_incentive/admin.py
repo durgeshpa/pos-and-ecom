@@ -77,7 +77,7 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
                 continue
             active_mappings = get_active_mappings(item.shop)
             if active_mappings.count() >= 2:
-                error_messages.append("Shop Id - {} already has 2 active mappings".format(item.scheme_id))
+                error_messages.append("Shop Id - {} already has 2 active mappings".format(item.shop_id))
                 to_be_deleted.append(item.id)
                 continue
             existing_active_mapping = active_mappings.last()
