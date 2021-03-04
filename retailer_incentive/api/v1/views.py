@@ -1,18 +1,20 @@
-from django.db.models import Q
+from math import floor
+
 from rest_framework import authentication, permissions, status
-from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from common.data_wrapper_view import DataWrapperViewSet
 from retailer_backend.messages import SUCCESS_MESSAGES
-from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SchemeSlabSerializer
+from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer
 from retailer_incentive.models import SchemeShopMapping, SchemeSlab
-from retailer_to_sp.models import Order, OrderedProduct, OrderedProductMapping
+from retailer_to_sp.models import OrderedProductMapping
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
 
 
 class ShopSchemeMappingView(APIView):
+    """
+    This class is used to get Scheme mapped with a shop
+    """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -32,6 +34,10 @@ class ShopSchemeMappingView(APIView):
 
 
 class ShopPurchaseMatrix(APIView):
+    """
+    This class is used to get the purchase matrix of a shop under mapped scheme
+    """
+
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -48,7 +54,7 @@ class ShopPurchaseMatrix(APIView):
         discount_percentage = 0
         if scheme_slab is not None:
             discount_percentage = scheme_slab.discount_value
-        discount_value = round(discount_percentage * total_sales/100, 2)
+        discount_value = floor(discount_percentage * total_sales/100)
         next_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__gt=total_sales).order_by('min_value').first()
         message = SUCCESS_MESSAGES['SCHEME_SLAB_HIGHEST']
         if next_slab is not None:
@@ -61,6 +67,15 @@ class ShopPurchaseMatrix(APIView):
         return Response(msg, status=status.HTTP_200_OK)
 
     def get_total_sales(self, shop_id, start_date, end_date):
+        """
+        Returns the total purchase of a shop between given start_date and end_date
+        Param :
+            shop_id : id of shop
+            start_date : start date from which sales to be considered
+            end_date : date till which the sales to be considered
+        Returns:
+            floor value of total purchase of a shop between given start_date and end_date
+        """
         total_sales = 0
         shipment_products = OrderedProductMapping.objects.filter(ordered_product__order__buyer_shop_id=shop_id,
                                                                  ordered_product__created_at__gte=start_date,
@@ -72,9 +87,9 @@ class ShopPurchaseMatrix(APIView):
                                                                       'FULLY_DELIVERED_AND_VERIFIED',
                                                                       'PARTIALLY_DELIVERED_AND_CLOSED',
                                                                       'FULLY_DELIVERED_AND_CLOSED'])
-        for s in shipment_products:
-            total_sales += s.basic_rate*s.delivered_qty
-        return round(total_sales, 2)
+        for shipped_item in shipment_products:
+            total_sales += shipped_item.basic_rate*shipped_item.delivered_qty
+        return floor(total_sales)
 
 
 class ShopUserMappingView(APIView):
@@ -96,52 +111,19 @@ class ShopUserMappingView(APIView):
         shop_user_mapping = shop.shop_user.filter(employee_group__name='Sales Executive', status=True).last()
 
         if shop_user_mapping is not None:
-            se = shop_user_mapping.employee
-            sales_executive_name = se.first_name + ' ' + se.last_name
-            sales_executive_number = se.phone_number
+            sales_executive = shop_user_mapping.employee
+            sales_executive_name = sales_executive.first_name + ' ' + sales_executive.last_name
+            sales_executive_number = sales_executive.phone_number
             parent_shop_id = ParentRetailerMapping.objects.filter(retailer_id=shop_id).last().parent_id
             parent_shop_user_mapping = ShopUserMapping.objects.filter(shop=parent_shop_id,
-                                                                      employee=se, status=True).last()
+                                                                      employee=sales_executive, status=True).last()
             if parent_shop_user_mapping and parent_shop_user_mapping.manager is not None:
-                sm = parent_shop_user_mapping.manager.employee
-                sales_manager_name = sm.first_name + ' ' + sm.last_name
-                sales_manager_number = sm.phone_number
+                sales_manager = parent_shop_user_mapping.manager.employee
+                sales_manager_name = sales_manager.first_name + ' ' + sales_manager.last_name
+                sales_manager_number = sales_manager.phone_number
         msg = {'is_success': True, 'message': ['OK'], 'data': {'se_name': sales_executive_name,
                                                                'se_no': sales_executive_number,
                                                                'sm_name': sales_manager_name,
                                                                'sm_no': sales_manager_number
                                                                }}
         return Response(msg, status=status.HTTP_200_OK)
-
-#
-#
-# class ShopSchemeMappingViewSet(DataWrapperViewSet):
-#
-#     model = SchemeShopMapping
-#     serializer_class = SchemeShopMappingSerializer
-#     queryset = SchemeShopMapping.objects.filter(is_active=True)
-#     authentication_classes = (authentication.TokenAuthentication,)
-#     permission_classes = (permissions.IsAuthenticated,)
-#
-#     def get_serializer_class(self):
-#
-#         serializer_action_classes = {
-#             'retrieve': SchemeShopMappingSerializer
-#         }
-#
-#         if hasattr(self, 'action'):
-#             return serializer_action_classes.get(self.action, self.serializer_class)
-#         return self.serializer_class
-#
-#     def get_queryset(self):
-#         shop_id = self.request.user.shop_employee.last().shop_id
-#         if shop_id is not None:
-#             return SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True)
-#         return SchemeShopMapping.objects.none()
-#
-#
-#     @action(detail=True, methods=['get'])
-#     def purchase_matrix(self, request, pk=None):
-#         shop_id = request.user.shop_employee.last().shop_id
-#         serializer = ShopSalesMatrixSerializer(context={'shop_id': shop_id})
-#         return serializer.data
