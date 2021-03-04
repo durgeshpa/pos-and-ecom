@@ -1,5 +1,5 @@
 from django.contrib import admin
-from pos.models import RetailerProduct, RetailerProductImage
+from pos.models import RetailerProduct, RetailerProductImage, RetailerOffer
 
 
 # Register your models here.
@@ -12,3 +12,4 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(RetailerProductImage)
+admin.site.register(RetailerOffer)

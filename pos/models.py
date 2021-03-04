@@ -88,3 +88,30 @@ class RetailerProductImage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
+
+class RetailerOffer(models.Model):
+    STATUS_CHOICES = (
+        ('inactive', 'Inactive'),
+        ('active', 'Active'),
+    )
+    Offer_Type = (
+        (1, "Coupon Code"),
+        (2, "Combo Deals"),
+    )
+    offer_type = models.IntegerField(choices=Offer_Type)
+    coupon_name = models.CharField(max_length=255)
+    order_value = models.IntegerField(blank=True, null=True)
+    discount_value = models.DecimalField(decimal_places=2, max_digits=10)
+    status = models.CharField(max_length=15, default='active', choices=STATUS_CHOICES, blank=False)
+    offer_start_date = models.DateField()
+    offer_end_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    primary_product = models.ForeignKey(RetailerProduct, related_name='retailer_primary_product', on_delete=models.CASCADE, blank=True, null=True)
+    primary_product_qty = models.PositiveIntegerField(blank=True, null=True)
+    free_product = models.ForeignKey(RetailerProduct, related_name='retailer_free_product', on_delete=models.CASCADE, blank=True, null=True)
+    free_product_qty = models.PositiveIntegerField(blank=True, null=True)
+
+    def __str__(self):
+        return self.coupon_name

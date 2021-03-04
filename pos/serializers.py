@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils.translation import ugettext_lazy as _
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, RetailerOffer
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from shops.models import Shop
@@ -134,3 +134,25 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
 
         return attrs
 
+
+class CouponCodeSerializer(serializers.ModelSerializer):
+    order_value = serializers.IntegerField(required=True)
+
+    class Meta:
+        model = RetailerOffer
+        fields = ('offer_type', 'coupon_name', 'order_value', 'discount_value', 'status',
+                  'offer_start_date', 'offer_end_date')
+
+
+class ComboDealsSerializer(serializers.ModelSerializer):
+    primary_product = serializers.IntegerField(required=True)
+    primary_product_qty = serializers.IntegerField(required=True)
+    free_product = serializers.IntegerField(required=True)
+    free_product_qty = serializers.IntegerField(required=True)
+
+
+
+    class Meta:
+        model = RetailerOffer
+        fields = ('offer_type', 'coupon_name', 'discount_value', 'status', 'primary_product', 'primary_product_qty',
+                  'free_product', 'free_product_qty', 'offer_start_date', 'offer_end_date')

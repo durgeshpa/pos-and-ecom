@@ -7,9 +7,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from pos.common_functions import RetailerProductCls
-from pos.models import RetailerProduct, RetailerProductImage
+from pos.models import RetailerProduct, RetailerProductImage, RetailerOffer
 from pos.serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
-    RetailerProductResponseSerializer
+    RetailerProductResponseSerializer, CouponCodeSerializer, ComboDealsSerializer
 from products.models import Product
 from shops.models import Shop
 
@@ -204,3 +204,58 @@ class CatalogueProductCreation(GenericAPIView):
                    'error_message': shop_id_or_error_message,
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+
+class OfferCreation(GenericAPIView):
+    permission_classes = (AllowAny,)
+
+    def post(self, request, *args, **kwargs):
+        """
+        POST API for Offer Creation.
+        """
+        offer_type = request.data.get('offer_type')
+        if int(offer_type) == 1:
+            serializer = CouponCodeSerializer(data=request.data)
+            if serializer.is_valid():  #raise_exception=True
+                serializer.save()
+                message = {"is_success": True, "message": "Coupon Offer has been successfully created!",
+                           "response_data": serializer.data}
+                return Response(message, status=status.HTTP_201_CREATED)
+            else:
+                errors = []
+                for field in serializer.errors:
+                    for error in serializer.errors[field]:
+                        if 'non_field_errors' in field:
+                            result = error
+                        else:
+                            result = ''.join('{} : {}'.format(field, error))
+                        errors.append(result)
+                msg = {'is_success': False,
+                       'error_message': errors[0] if len(errors) == 1 else [error for error in errors],
+                       'response_data': None}
+                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        elif int(offer_type) == 2:
+            serializer = ComboDealsSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                message = {"is_success": True, "message": "Combo Offer has been successfully created!",
+                           "response_data": serializer.data}
+                return Response(message, status=status.HTTP_201_CREATED)
+
+            else:
+                errors = []
+                for field in serializer.errors:
+                    for error in serializer.errors[field]:
+                        if 'non_field_errors' in field:
+                            result = error
+                        else:
+                            result = ''.join('{} : {}'.format(field, error))
+                        errors.append(result)
+                msg = {'is_success': False,
+                       'error_message': errors[0] if len(errors) == 1 else [error for error in errors],
+                       'response_data': None}
+                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+    def put(self, request, *args, **kwargs):
+        pass
