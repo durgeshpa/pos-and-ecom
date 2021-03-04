@@ -1,10 +1,18 @@
-from django.contrib import admin
+import csv
+import datetime
+
+from django.contrib import admin, messages
+from io import StringIO
 
 # Register your models here.
+from django.db.models import Q
+from django.http import HttpResponse
 from nested_admin.nested import NestedTabularInline
+from rest_framework.exceptions import ValidationError
 
 from retailer_incentive.forms import SchemeCreationForm, SchemeSlabCreationForm, SchemeShopMappingCreationForm
 from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
+from retailer_incentive.utils import get_active_mappings
 
 
 class SchemeSlabAdmin(NestedTabularInline):
@@ -37,12 +45,69 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
     model = SchemeShopMapping
     form = SchemeShopMappingCreationForm
     list_display = ('scheme_id', 'scheme_name', 'shop', 'priority', 'is_active', 'user')
+    actions = ['download_active_scheme_mappings','deactivate_selected_mappings', 'activate_selected_mappings']
 
     def scheme_id(self, obj):
         return obj.scheme_id
 
     def scheme_name(self, obj):
         return obj.scheme.name
+
+    def activate_selected_mappings(self, request, queryset):
+        to_be_deleted = []
+        error_messages = []
+        count = 0
+        for item in queryset:
+            if item.scheme.end_date < datetime.datetime.today().date():
+                error_messages.append("Scheme Id - {} has already expired. scheme end date {}"
+                                      .format(item.scheme_id, item.scheme.end_date))
+                to_be_deleted.append(item.id)
+                continue
+            active_mappings = get_active_mappings(item.shop)
+            if active_mappings.count() >= 2:
+                error_messages.append("Shop Id - {} already has 2 active mappings".format(item.scheme_id))
+                to_be_deleted.append(item.id)
+                continue
+            if not item.is_active:
+                count = count + 1
+        error_messages = set(error_messages)
+        for message in error_messages:
+            messages.error(request, message)
+        queryset.filter(~Q(id__in=to_be_deleted)).update(is_active=True)
+        messages.success(request, "{} mappings activated.".format(count))
+
+    def deactivate_selected_mappings(self, request, queryset):
+        count = queryset.filter(is_active=True).count()
+        queryset.update(is_active=False)
+        messages.success(request, "{} mappings de-activated.".format(count))
+
+
+    def download_active_scheme_mappings(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(['Scheme ID', 'Scheme Name', 'Shop ID', 'Shop Name', 'Priority', 'Is Active',
+                         'Created By', 'Created At'])
+
+        queryset = queryset.filter(is_active=True, scheme__end_date__gte=datetime.datetime.today().date())
+        error_messages = []
+        for obj in queryset:
+            try:
+                writer.writerow([obj.scheme_id, obj.scheme.name, obj.shop_id,
+                                 obj.shop.shop_name, SchemeShopMapping.PRIORITY_CHOICE[obj.priority],
+                                 obj.is_active, obj.user, obj.created_at])
+
+            except Exception as e:
+                error_messages.append(e)
+
+        if len(error_messages) == 0:
+            f.seek(0)
+            response = HttpResponse(f, content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename=auditDetails.csv'
+            return response
+        error_messages = set(error_messages)
+        for message in error_messages:
+            messages.error(request, message)
+
 
     class Media:
         pass
