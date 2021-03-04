@@ -43,5 +43,5 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
 
     class Meta:
         model = SchemeShopMapping
-        fields = ('scheme', 'shop', 'is_active')
+        fields = ('scheme', 'shop', 'priority', 'is_active')
 

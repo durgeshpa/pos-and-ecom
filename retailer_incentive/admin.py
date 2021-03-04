@@ -30,7 +30,7 @@ class SchemeAdmin(admin.ModelAdmin):
 class SchemeShopMappingAdmin(admin.ModelAdmin):
     model = SchemeShopMapping
     form = SchemeShopMappingCreationForm
-    list_display = ('scheme_id', 'scheme_name', 'shop', 'is_active', 'user')
+    list_display = ('scheme_id', 'scheme_name', 'shop', 'priority', 'is_active', 'user')
 
     def scheme_id(self, obj):
         return obj.scheme_id

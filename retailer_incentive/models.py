@@ -44,10 +44,12 @@ class SchemeSlab(BaseTimestampModel):
 
 
 class SchemeShopMapping(BaseTimestampModel):
+    PRIORITY_CHOICE = Choices((0, 'P1', 'P1'), (1, 'P2', 'P2'))
     scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
-    user = models.ForeignKey(get_user_model(), related_name='shop_mappings', on_delete=models.CASCADE, verbose_name='Created By')
+    priority = models.SmallIntegerField(choices=PRIORITY_CHOICE)
     is_active = models.BooleanField(default=True)
+    user = models.ForeignKey(get_user_model(), related_name='shop_mappings', on_delete=models.CASCADE, verbose_name='Created By')
 
 
     def save(self, *args, **kwargs):
