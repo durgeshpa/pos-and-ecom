@@ -252,13 +252,21 @@ class CartCentral(APIView):
     def add_customer_to_cart(self, cart):
         # Check phone_number
         ph_no = self.request.data.get('phone_number')
+        name = self.request.data.get('name')
+        email = self.request.data.get('email')
         if not ph_no:
             return get_response("Please provide customer phone number")
         # Check Customer
         try:
             customer = User.objects.get(phone_number=ph_no)
         except ObjectDoesNotExist:
-            return get_response("User/Customer Not Found")
+            customer = User.objects.create_user(phone_number=ph_no)
+            if email:
+                customer.email = email
+            if name:
+                customer.first_name = name
+            customer.is_active = False
+            customer.save()
         # Update customer as buyer in cart
         cart.buyer = customer
         cart.save()
