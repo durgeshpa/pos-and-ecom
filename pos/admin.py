@@ -1,8 +1,7 @@
 from django.contrib import admin
+from django.conf.urls import url
+
 from pos.models import RetailerProduct, RetailerProductImage
-
-
-# Register your models here.
 from pos.views import upload_retailer_products_list, \
     download_retailer_products_list_form_view, DownloadRetailerCatalogue, RetailerCatalogueSampleFile
 
@@ -16,7 +15,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
     change_list_template = 'admin/pos/pos_change_list.html'
 
     def get_urls(self):
-        from django.conf.urls import url
+        """" Download & Upload(For Creating OR Updating Bulk Products) Retailer Product CSV"""
         urls = super(RetailerProductAdmin, self).get_urls()
         urls = [
             url(r'retailer_products_csv_download_form',

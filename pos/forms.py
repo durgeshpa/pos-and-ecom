@@ -1,13 +1,12 @@
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+
 import codecs
 import re
 import decimal
-
 from dal import autocomplete
 from django import forms
 import csv
-
-from django.core.exceptions import ValidationError
-from django.utils.translation import gettext_lazy as _
 
 from pos.models import RetailerProduct
 from products.models import Product
@@ -38,7 +37,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
 
     def check_mandatory_data(self, row, key_string, row_num):
         """
-            Check Mandatory Fields
+            Check Mandatory Fields from uploaded CSV for creating or updating Retailer Products
         """
         if key_string not in row.keys():
             raise ValidationError(_(f"Row {row_num} | Please provide {key_string}"))
@@ -49,7 +48,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
 
     def validate_data_for_create_products(self, uploaded_data_by_user_list):
         """
-            Check Mandatory Fields
+            Validation for create Products Catalogue
         """
         row_num = 1
         for row in uploaded_data_by_user_list:
@@ -73,6 +72,9 @@ class RetailerProductsCSVUploadForm(forms.Form):
                         raise ValidationError(_(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
 
     def validate_data_for_update_products(self, uploaded_data_by_user_list):
+        """
+            Validation for update Products Catalogue
+        """
         row_num = 1
         for row in uploaded_data_by_user_list:
             row_num += 1
@@ -80,7 +82,6 @@ class RetailerProductsCSVUploadForm(forms.Form):
             self.check_mandatory_data(row, 'product_name', row_num)
             self.check_mandatory_data(row, 'mrp', row_num)
             self.check_mandatory_data(row, 'selling_price', row_num)
-
 
             if not RetailerProduct.objects.filter(id=row['product_id']).exists():
                 raise ValidationError(_(f"Row {row_num} | {row['product_id']} | 'product_id' doesn't exist."))
@@ -93,6 +94,9 @@ class RetailerProductsCSVUploadForm(forms.Form):
 
 
     def validate_data(self, uploaded_data_by_user_list, catalogue_product_status):
+        """
+            Validation for create/update Products based on selected option(catalogue_product_status)
+        """
         if catalogue_product_status == 'update_products':
             self.validate_data_for_update_products(uploaded_data_by_user_list)
         else:
@@ -112,7 +116,11 @@ class RetailerProductsCSVUploadForm(forms.Form):
         self.validate_data(uploaded_data_by_user_list, catalogue_product_status)
 
     def clean_file(self):
+        """
+            FileField validation Check if file ends with only .csv
+        """
         if self.cleaned_data.get('file'):
+
             if not self.cleaned_data['file'].name[-4:] in ('.csv'):
                 raise forms.ValidationError("Please upload only CSV File")
             else:
