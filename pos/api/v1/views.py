@@ -276,30 +276,6 @@ class CartCentral(APIView):
         else:
             return get_response('Please provide a valid cart_type')
 
-    def add_customer_to_cart(self, cart):
-        # Check phone_number
-        ph_no = self.request.data.get('phone_number')
-        name = self.request.data.get('name')
-        email = self.request.data.get('email')
-        if not ph_no:
-            return get_response("Please provide customer phone number")
-        # Check Customer
-        try:
-            customer = User.objects.get(phone_number=ph_no)
-        except ObjectDoesNotExist:
-            customer = User.objects.create_user(phone_number=ph_no)
-            if email:
-                customer.email = email
-            if name:
-                customer.first_name = name
-            customer.is_active = False
-            customer.save()
-        # Update customer as buyer in cart
-        cart.buyer = customer
-        cart.save()
-        serializer = UserSerializer(customer)
-        return get_response("Customer Details Updated Successfully!", serializer.data)
-
     def put(self, request, pk):
         """
             Update Customer Details For Basic Cart
@@ -317,6 +293,33 @@ class CartCentral(APIView):
             return self.add_customer_to_cart(cart)
         else:
             return get_response('Direct Update Not Available For This Cart')
+
+    def add_customer_to_cart(self, cart):
+        """
+            Update customer details in basic cart
+        """
+        # Check phone_number
+        ph_no = self.request.data.get('phone_number')
+        name = self.request.data.get('name')
+        email = self.request.data.get('email')
+        if not ph_no:
+            return get_response("Please provide customer phone number")
+        # Check Customer - Update Or Create
+        try:
+            customer = User.objects.get(phone_number=ph_no)
+        except ObjectDoesNotExist:
+            customer = User.objects.create_user(phone_number=ph_no)
+            if email:
+                customer.email = email
+            if name:
+                customer.first_name = name
+            customer.is_active = False
+            customer.save()
+        # Update customer as buyer in cart
+        cart.buyer = customer
+        cart.save()
+        serializer = UserSerializer(customer)
+        return get_response("Customer Details Updated Successfully!", serializer.data)
 
     def get_retail_cart(self):
         """
