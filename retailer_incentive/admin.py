@@ -18,6 +18,9 @@ class SchemeSlabAdmin(NestedTabularInline):
 
 @admin.register(Scheme)
 class SchemeAdmin(admin.ModelAdmin):
+    """
+    This class is used to get the Scheme data on admin
+    """
     model = Scheme
     form = SchemeCreationForm
     list_display = ('name', 'start_date','end_date', 'is_active')
@@ -28,6 +31,9 @@ class SchemeAdmin(admin.ModelAdmin):
 
 @admin.register(SchemeShopMapping)
 class SchemeShopMappingAdmin(admin.ModelAdmin):
+    """
+    This class is used to get the Scheme Shop Mapping data on admin
+    """
     model = SchemeShopMapping
     form = SchemeShopMappingCreationForm
     list_display = ('scheme_id', 'scheme_name', 'shop', 'priority', 'is_active', 'user')
