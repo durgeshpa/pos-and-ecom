@@ -9,6 +9,9 @@ from shops.models import Shop
 
 
 class BaseTimestampModel(models.Model):
+    """
+    This abstract class is used as a base model. This provides two fields, created_at and updated_at
+    """
     created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
     updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
 
@@ -16,6 +19,9 @@ class BaseTimestampModel(models.Model):
         abstract = True
 
 class Scheme(BaseTimestampModel):
+    """
+    This class is used as representation of Incentive Scheme
+    """
     name = models.CharField(max_length=50)
     start_date = models.DateField()
     end_date = models.DateField()
@@ -32,6 +38,9 @@ class Scheme(BaseTimestampModel):
 
 
 class SchemeSlab(BaseTimestampModel):
+    """
+    This class is represents of Incentive Scheme Slabs
+    """
     DISCOUNT_TYPE_CHOICE = Choices((0, 'PERCENTAGE', 'Percentage'), (1, 'VALUE', 'Value'))
     scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
     min_value = models.IntegerField(verbose_name='Slab Start Value')
@@ -44,6 +53,9 @@ class SchemeSlab(BaseTimestampModel):
 
 
 class SchemeShopMapping(BaseTimestampModel):
+    """
+    This class is represents of Shop Scheme Mapping
+    """
     PRIORITY_CHOICE = Choices((0, 'P1', 'P1'), (1, 'P2', 'P2'))
     scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
