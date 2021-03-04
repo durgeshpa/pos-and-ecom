@@ -516,8 +516,9 @@ class Cart(models.Model):
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
-            for cart_product in self.rt_cart_list.all():
-                cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
+            if self.cart_type != 'BASIC':
+                for cart_product in self.rt_cart_list.all():
+                    cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
 
         super().save(*args, **kwargs)
 
@@ -1012,6 +1013,7 @@ class Order(models.Model):
         Shop, related_name='rt_buyer_shop_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
+    buyer = models.ForeignKey(User, related_name='rt_buyer_order', null=True, blank=True, on_delete=models.DO_NOTHING)
     ordered_cart = models.OneToOneField(
         Cart, related_name='rt_order_cart_mapping', null=True,
         on_delete=models.DO_NOTHING

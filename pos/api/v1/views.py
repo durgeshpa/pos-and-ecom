@@ -467,7 +467,7 @@ class CartCentral(APIView):
            Cart type basic
            Serialize
         """
-        serializer = CartSerializer(cart, context={'search_text': self.request.GET.get('search_text', ''),
+        serializer = CartSerializer(Cart.objects.get(id=cart.id), context={'search_text': self.request.GET.get('search_text', ''),
                                                    'page_number': self.request.GET.get('page_number', 1),
                                                    'records_per_page': self.request.GET.get('records_per_page', 10),})
         return serializer.data
@@ -538,11 +538,17 @@ class CartCentral(APIView):
 
         # Update or create cart for customer and shop
         cart = self.post_update_basic_cart(shop, customer)
-        # Add quantity to cart
-        cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product)
-        cart_mapping.qty = qty
-        cart_mapping.no_of_pieces = int(qty)
-        cart_mapping.save()
+        # Check if product has to be removed
+        if int(qty) == 0:
+            delete_cart_mapping(cart, product, 'basic')
+        else:
+            # Add quantity to cart
+            cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product)
+            cart_mapping.qty = qty
+            cart_mapping.no_of_pieces = int(qty)
+            cart_mapping.save()
+        if cart.rt_cart_list.count() <= 0:
+            return get_response('No product added to this cart yet')
         # serialize and return response
         return get_response('Added To Cart', self.post_serialize_process_basic(cart))
 
@@ -771,7 +777,7 @@ class CartCentral(APIView):
             Add To Cart
             Serialize and Modify Cart - MRP Check - retail sp cart
         """
-        serializer = CartSerializer(cart, context={'parent_mapping_id': seller_shop.id,
+        serializer = CartSerializer(Cart.objects.get(id=cart.id), context={'parent_mapping_id': seller_shop.id,
                                                    'buyer_shop_id': buyer_shop.id})
         for i in serializer.data['rt_cart_list']:
             if not i['cart_product']['product_mrp']:
@@ -783,14 +789,15 @@ class CartCentral(APIView):
             Add To Cart
             Serialize retail Gram Cart
         """
-        return GramMappedCartSerializer(cart, context={'parent_mapping_id': seller_shop.id}).data
+        return GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),
+                                        context={'parent_mapping_id': seller_shop.id}).data
 
     def post_serialize_process_basic(self, cart):
         """
             Add To Cart
             Serialize basic cart
         """
-        return CartSerializer(cart).data
+        return CartSerializer(Cart.objects.get(id=cart.id)).data
 
 
 class OrderCentral(APIView):
@@ -862,7 +869,7 @@ class OrderCentral(APIView):
                             order.delete()
                             return get_response('No item in this cart.')
                         # Serialize and return response
-                        return get_response('', self.post_serialize_process_sp(order, parent_mapping))
+                        return get_response('Ordered Successfully!', self.post_serialize_process_sp(order, parent_mapping))
                     # Order reserve not found
                     else:
                         return get_response('Sorry! your session has timed out.')
@@ -881,7 +888,7 @@ class OrderCentral(APIView):
                     # Update reserve to ordered
                     self.update_ordered_reserve_gf(cart)
                     # Serialize and return response
-                    return get_response('', self.post_serialize_process_gf(order, parent_mapping))
+                    return get_response('Ordered Successfully!', self.post_serialize_process_gf(order, parent_mapping))
                 else:
                     return get_response('Available Quantity Is None')
         # Shop type neither sp nor gf
@@ -894,7 +901,19 @@ class OrderCentral(APIView):
             Place Order
             For basic cart
         """
-        pass
+        # basic validations for inputs
+        initial_validation = self.post_basic_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        shop = initial_validation['shop']
+        cart = initial_validation['cart']
+
+        with transaction.atomic():
+            # Update Cart To Ordered
+            cart.cart_status = 'ordered'
+            cart.save()
+            order = self.create_basic_order(cart, shop)
+        return get_response('Ordered Successfully!', self.post_serialize_process_basic(order))
 
     def post_retail_validate(self):
         """
@@ -923,6 +942,31 @@ class OrderCentral(APIView):
             return {'error': "Shipping address not found"}
         return {'parent_mapping': parent_mapping, 'shop_type': parent_mapping.parent.shop_type.shop_type,
                 'billing_add': billing_address, 'shipping_add': shipping_address}
+
+    def post_basic_validate(self):
+        """
+            Place Order
+            Input validation for cart type 'basic'
+        """
+        # Check if seller shop exists
+        shop_id = self.request.POST.get('shop_id')
+        try:
+            shop = Shop.objects.get(id=shop_id)
+        except ObjectDoesNotExist:
+            return {'error': "Shop Doesn't Exist!"}
+        # Check if cart exists
+        cart_id = self.request.POST.get('cart_id')
+        try:
+            cart = Cart.objects.get(id=cart_id, last_modified_by=self.request.user, seller_shop=shop)
+        except ObjectDoesNotExist:
+            return {'error': "Cart Doesn't Exist!"}
+        if not cart.buyer:
+            return {'error': "Cart customer not found!"}
+        # Check if products available in cart
+        cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart)
+        if cart_products.count() <= 0:
+            return {'error': 'No product is available in cart'}
+        return {'shop':shop, 'cart':cart}
 
     def retail_capping_check(self, cart, parent_mapping):
         """
@@ -1011,6 +1055,16 @@ class OrderCentral(APIView):
         order.save()
         return order
 
+    def create_basic_order(self, cart, shop):
+        user = self.request.user
+        order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
+        order.buyer = cart.buyer
+        order.seller_shop = shop
+        order.total_tax_amount = float(self.request.POST.get('total_tax_amount', 0))
+        order.order_status = Order.ORDERED
+        order.save()
+        return order
+
     def update_ordered_reserve_sp(self, cart, parent_mapping, order):
         """
             Place Order
@@ -1026,7 +1080,7 @@ class OrderCentral(APIView):
         sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
         reserved_args = json.dumps({
             'shop_id': parent_mapping.parent.id,
-            'transaction_id': cart.order_id,
+            'transaction_id': cart.id,
             'transaction_type': 'ordered',
             'order_status': order.order_status
         })
@@ -1052,7 +1106,7 @@ class OrderCentral(APIView):
             Get Order Reserve For retail sp cart
         """
         return OrderReserveRelease.objects.filter(warehouse=parent_mapping.retailer.get_shop_parent.id,
-                                                  transaction_id=cart.order_id,
+                                                  transaction_id=cart.id,
                                                   warehouse_internal_inventory_release=None).last()
 
     @staticmethod
@@ -1083,9 +1137,10 @@ class OrderCentral(APIView):
             Place Order
             Serialize retail order for sp shop
         """
-        serializer = OrderSerializer(order, context={'parent_mapping_id': parent_mapping.parent.id,
-                                                     'buyer_shop_id': parent_mapping.retailer.id,
-                                                     'current_url': self.request.get_host()})
+        serializer = OrderSerializer(Order.objects.get(pk=order.id),
+                                     context={'parent_mapping_id': parent_mapping.parent.id,
+                                              'buyer_shop_id': parent_mapping.retailer.id,
+                                              'current_url': self.request.get_host()})
         return serializer.data
 
     def post_serialize_process_gf(self, order, parent_mapping):
@@ -1095,4 +1150,12 @@ class OrderCentral(APIView):
         """
         serializer = GramMappedOrderSerializer(order, context={'parent_mapping_id': parent_mapping.parent.id,
                                                                'current_url': self.request.get_host()})
+        return serializer.data
+
+    def post_serialize_process_basic(self, order):
+        """
+            Place Order
+            Serialize retail order for sp shop
+        """
+        serializer = OrderSerializer(Order.objects.get(order.id), context={'current_url': self.request.get_host()})
         return serializer.data
