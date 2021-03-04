@@ -39,7 +39,6 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
     scheme = forms.ModelChoiceField(queryset=Scheme.objects.all())
     shop = forms.ModelChoiceField(queryset=shop_choice,
                                   widget=autocomplete.ModelSelect2(url='shop-autocomplete'))
-    priority = forms.CharField
 
     class Meta:
         model = SchemeShopMapping
