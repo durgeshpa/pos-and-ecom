@@ -1,8 +1,10 @@
+from django.contrib.auth import get_user_model
 from django.db import models
 
 # Create your models here.
 from model_utils import Choices
 
+from accounts.middlewares import get_current_user
 from shops.models import Shop
 
 
@@ -17,10 +19,16 @@ class Scheme(BaseTimestampModel):
     name = models.CharField(max_length=50)
     start_date = models.DateField()
     end_date = models.DateField()
-    is_active = models.BooleanField()
-
+    is_active = models.BooleanField(default=True)
+    user = models.ForeignKey(get_user_model(), related_name='schemes',
+                             on_delete=models.CASCADE, verbose_name='Created By')
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.user = get_current_user()
+        super(Scheme, self).save(*args, **kwargs)
 
 
 class SchemeSlab(BaseTimestampModel):
@@ -36,6 +44,15 @@ class SchemeSlab(BaseTimestampModel):
 
 
 class SchemeShopMapping(BaseTimestampModel):
+    PRIORITY_CHOICE = Choices((0, 'P1', 'P1'), (1, 'P2', 'P2'))
     scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+    priority = models.SmallIntegerField(choices=PRIORITY_CHOICE)
     is_active = models.BooleanField(default=True)
+    user = models.ForeignKey(get_user_model(), related_name='shop_mappings', on_delete=models.CASCADE, verbose_name='Created By')
+
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.user = get_current_user()
+        super(SchemeShopMapping, self).save(*args, **kwargs)

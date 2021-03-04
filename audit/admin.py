@@ -152,8 +152,6 @@ class AuditDetailAdmin(admin.ModelAdmin,ExportCsvMixin):
         else:
             return audit_level
 
-
-
     def started_at(self, obj):
         return get_audit_start_time(obj)
 
