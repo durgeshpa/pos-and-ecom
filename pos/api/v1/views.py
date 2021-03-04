@@ -144,12 +144,18 @@ class EanSearch(APIView):
             return get_response('Provide Ean Code')
 
     def search_gf(self, body):
+        """
+            Search GramFactory products
+        """
         body['_source'] = {"includes": ["id", "name"]}
         products_list = es_search(index="all_products", body=body)
         p_list = self.process_results(products_list)
         return p_list
 
     def search_retail(self, body, shop_id):
+        """
+            Search retail product
+        """
         body['_source'] = {"includes": ["id", "name", "selling_price", "mrp"]}
         products_list = es_search(index='rp-{}'.format(shop_id), body=body)
         p_list = self.process_results(products_list)
