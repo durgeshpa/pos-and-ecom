@@ -103,6 +103,9 @@ class RetailerProductsCSVUploadForm(forms.Form):
             self.validate_data_for_create_products(uploaded_data_by_user_list)
 
     def read_file(self, headers, reader, catalogue_product_status):
+        """
+            Reading & validating File Uploaded by user
+        """
         uploaded_data_by_user_list = []
         csv_dict = {}
         count = 0
