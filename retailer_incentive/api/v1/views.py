@@ -102,7 +102,7 @@ class ShopUserMappingView(APIView):
             parent_shop_id = ParentRetailerMapping.objects.filter(retailer_id=shop_id).last().parent_id
             parent_shop_user_mapping = ShopUserMapping.objects.filter(shop=parent_shop_id,
                                                                       employee=se, status=True).last()
-            if parent_shop_user_mapping.manager is not None:
+            if parent_shop_user_mapping and parent_shop_user_mapping.manager is not None:
                 sm = parent_shop_user_mapping.manager.employee
                 sales_manager_name = sm.first_name + ' ' + sm.last_name
                 sales_manager_number = sm.phone_number
