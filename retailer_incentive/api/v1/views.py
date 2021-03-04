@@ -58,7 +58,7 @@ class ShopPurchaseMatrix(APIView):
         next_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__gt=total_sales).order_by('min_value').first()
         message = SUCCESS_MESSAGES['SCHEME_SLAB_HIGHEST']
         if next_slab is not None:
-            message = SUCCESS_MESSAGES['SCHEME_SLAB_ADD_MORE'].format((next_slab.min_value - total_sales),
+            message = SUCCESS_MESSAGES['SCHEME_SLAB_ADD_MORE'].format(floor(next_slab.min_value - total_sales),
                         (next_slab.min_value * next_slab.discount_value / 100), next_slab.discount_value)
         msg = {'is_success': True, 'message': ['OK'], 'data': {'total_sales' : total_sales,
                                                              'discount_percentage': discount_percentage,
