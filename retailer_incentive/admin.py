@@ -20,7 +20,7 @@ class SchemeSlabAdmin(NestedTabularInline):
 class SchemeAdmin(admin.ModelAdmin):
     model = Scheme
     form = SchemeCreationForm
-    list_display =  ('name', 'start_date','end_date', 'is_active')
+    list_display = ('name', 'start_date','end_date', 'is_active')
     inlines = [SchemeSlabAdmin, ]
 
     class Media:
