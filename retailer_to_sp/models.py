@@ -832,6 +832,7 @@ class CartProductMapping(models.Model):
         ProductPrice, related_name='rt_cart_product_price_mapping',
         on_delete=models.DO_NOTHING, null=True, blank=True
     )
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     qty = models.PositiveIntegerField(default=0)
     no_of_pieces = models.PositiveIntegerField(default=0)
     qty_error_msg = models.CharField(

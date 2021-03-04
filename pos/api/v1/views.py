@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from django.db import transaction
 from rest_framework.views import APIView
@@ -123,24 +124,50 @@ class EanSearch(APIView):
 
     def get(self, request):
         """
-            API to search GramFactory product catalogue based on product ean code exact match
+            API to search GramFactory product catalogue OR Retailer Product catalogue
+            Based on product ean code exact match
             Inputs
             ean_code
+            search_type - gf or retail
+            shop_id - in case of retail search
         """
         ean_code = request.GET.get('ean_code')
         if ean_code and ean_code != '':
             body = {
                 "from": int(request.GET.get('offset', 0)),
                 "size": int(request.GET.get('pro_count', 50)),
-                "query": {"bool": {"filter": [{"term": {"status": True}}, {"match": {"ean": {"query": ean_code}}}]}},
-                "_source": {
-                    "includes": ["id", "name", "product_images"]}
+                "query": {"bool": {"filter": [{"match": {"ean": {"query": ean_code}}}]}}
             }
-            products_list = es_search(index="all_products", body=body)
-            p_list = self.process_results(products_list)
+            search_type = request.GET.get('type', 'gf')
+            if search_type == 'gf':
+                p_list = self.search_gf(body)
+            elif search_type == 'retail':
+                shop_id = request.GET.get('shop_id')
+                if shop_id and shop_id != '':
+                    p_list = self.search_retail(body, shop_id)
+                else:
+                    return get_response('Provide Shop Id For Search Type Retail')
             return get_response('Products Found' if p_list else 'No Products Found', p_list)
         else:
             return get_response('Provide Ean Code')
+
+    def search_gf(self, body):
+        """
+            Search GramFactory products
+        """
+        body['_source'] = {"includes": ["id", "name"]}
+        products_list = es_search(index="all_products", body=body)
+        p_list = self.process_results(products_list)
+        return p_list
+
+    def search_retail(self, body, shop_id):
+        """
+            Search retail product
+        """
+        body['_source'] = {"includes": ["id", "name", "selling_price", "mrp"]}
+        products_list = es_search(index='rp-{}'.format(shop_id), body=body)
+        p_list = self.process_results(products_list)
+        return p_list
 
     def process_results(self, products_list):
         p_list = []
@@ -542,6 +569,10 @@ class CartCentral(APIView):
         if int(qty) == 0:
             delete_cart_mapping(cart, product, 'basic')
         else:
+            # Check if price needs to be updated and return selling price
+            selling_price = self.get_basic_cart_product_price(product)
+            if Decimal(selling_price) > product.mrp:
+                return get_response("Selling Price cannot be greater than MRP")
             # Add quantity to cart
             cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product)
             cart_mapping.qty = qty
@@ -771,6 +802,23 @@ class CartCentral(APIView):
             'parent_mapping_id': seller_shop.id, 'buyer_shop_id': buyer_shop.id})
         return {'is_success': False, 'message': 'You have already exceeded the purchase limit of'
                                                 ' this product #%s' % product.id, 'data': serializer.data}
+
+    def get_basic_cart_product_price(self, product):
+        """
+            Check if retail product price needs to be changed on checkout
+            price_change - True or False
+            price_change_type - all (for future carts also), or only for current one
+        """
+        # Check If Price Change
+        price_change = self.request.POST.get('price_change')
+        selling_price = None
+        if price_change:
+            selling_price = self.request.POST.get('selling_price')
+            change_type = self.request.POST.get('price_change_type')
+            if change_type == 'all' and selling_price:
+                RetailerProduct.objects.filter(id=product.id).update(selling_price=selling_price)
+
+        return selling_price if selling_price else product.selling_price
 
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
         """
@@ -1157,5 +1205,5 @@ class OrderCentral(APIView):
             Place Order
             Serialize retail order for sp shop
         """
-        serializer = OrderSerializer(Order.objects.get(order.id), context={'current_url': self.request.get_host()})
+        serializer = OrderSerializer(Order.objects.get(pk=order.id), context={'current_url': self.request.get_host()})
         return serializer.data
