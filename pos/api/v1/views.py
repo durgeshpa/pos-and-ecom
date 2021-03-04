@@ -958,8 +958,7 @@ class OrderCentral(APIView):
 
         with transaction.atomic():
             # Update Cart To Ordered
-            cart.cart_status = 'ordered'
-            cart.save()
+            self.update_cart_basic(cart)
             order = self.create_basic_order(cart, shop)
         return get_response('Ordered Successfully!', self.post_serialize_process_basic(order))
 
@@ -1065,6 +1064,15 @@ class OrderCentral(APIView):
             Place order
             Update cart to ordered
             For retail cart gf type shop
+        """
+        cart.cart_status = 'ordered'
+        cart.save()
+
+    def update_cart_basic(self, cart):
+        """
+            Place order
+            Update cart to ordered
+            For basic cart
         """
         cart.cart_status = 'ordered'
         cart.save()
