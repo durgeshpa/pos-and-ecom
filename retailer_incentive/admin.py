@@ -54,10 +54,22 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
         return obj.scheme.name
 
     def activate_selected_mappings(self, request, queryset):
+        """
+        Action method to activate selected scheme mappings
+        Validations:
+            Scheme should be active
+            Scheme should not be expired
+            total active scheme of the shop should not be more than two
+        """
         to_be_deleted = []
         error_messages = []
         count = 0
         for item in queryset:
+            if not item.scheme.is_active:
+                error_messages.append("Scheme Id - {} is not active"
+                                      .format(item.scheme_id))
+                to_be_deleted.append(item.id)
+                continue
             if item.scheme.end_date < datetime.datetime.today().date():
                 error_messages.append("Scheme Id - {} has already expired. scheme end date {}"
                                       .format(item.scheme_id, item.scheme.end_date))
@@ -66,6 +78,12 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
             active_mappings = get_active_mappings(item.shop)
             if active_mappings.count() >= 2:
                 error_messages.append("Shop Id - {} already has 2 active mappings".format(item.scheme_id))
+                to_be_deleted.append(item.id)
+                continue
+            existing_active_mapping = active_mappings.last()
+            if existing_active_mapping and existing_active_mapping.priority == item.priority:
+                error_messages.append("Shop Id - {} already has an active {} mappings"
+                                      .format(item.shop_id, SchemeShopMapping.PRIORITY_CHOICE[item.priority]))
                 to_be_deleted.append(item.id)
                 continue
             if not item.is_active:
@@ -77,12 +95,18 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
         messages.success(request, "{} mappings activated.".format(count))
 
     def deactivate_selected_mappings(self, request, queryset):
+        """
+        Action method to deactivate selected scheme mappings
+        """
         count = queryset.filter(is_active=True).count()
         queryset.update(is_active=False)
         messages.success(request, "{} mappings de-activated.".format(count))
 
 
     def download_active_scheme_mappings(self, request, queryset):
+        """
+        Action method to download CSV file of all the active scheme mappings
+        """
         f = StringIO()
         writer = csv.writer(f)
         writer.writerow(['Scheme ID', 'Scheme Name', 'Shop ID', 'Shop Name', 'Priority', 'Is Active',
@@ -107,7 +131,6 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
         error_messages = set(error_messages)
         for message in error_messages:
             messages.error(request, message)
-
 
     class Media:
         pass
