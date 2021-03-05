@@ -89,28 +89,14 @@ class UploadSchemeShopMappingForm(forms.Form):
         for row_id, row in enumerate(reader):
             if len(row) == 0:
                 continue
-            if '' in row:
-                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' ):
-                    continue
-            if not row[0]:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Scheme ID' can not be empty."))
-            elif not Scheme.objects.filter(id=row[0], is_active=True, end_date__gte=datetime.datetime.today().date()).exists():
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Scheme'"))
-            if not row[1]:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Scheme name' can not be empty."))
-            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[1]):
-                raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_NAME']}."))
-            if not row[2]:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Shop Id' can not be empty."))
-            elif not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['f','r']).exists():
-                raise ValidationError(_(f"Row {row_id + 1} | No retailer/franchise shop exists in the system with thid ID."))
-            if not row[3]:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Shop Name' can not be empty."))
-            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[3]):
-                raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_NAME']}."))
-            if not row[4]:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Priority' can not be empty."))
-            elif row[4] not in SchemeShopMapping.PRIORITY_CHOICE._identifier_map.keys():
-                raise ValidationError(_(f"Row {row_id + 1} | 'Priority' can only be P1 or P2"))
+            if row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '':
+                continue
+            if not row[0] or not Scheme.objects.filter(id=row[0], is_active=True,
+                                                       end_date__gte=datetime.datetime.today().date()).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Scheme ID'"))
+            if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['f','r']).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id', no retailer/franchise shop exists in the system with thid ID."))
+            if not row[4] or row[4] not in SchemeShopMapping.PRIORITY_CHOICE._identifier_map.keys():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Priority'"))
 
         return self.cleaned_data['file']
