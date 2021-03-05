@@ -65,6 +65,7 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
         to_be_deleted = []
         error_messages = []
         count = 0
+        unique_mapping = set()
         for item in queryset:
             if not item.scheme.is_active:
                 error_messages.append("Scheme Id - {} is not active"
@@ -87,6 +88,10 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
                                       .format(item.shop_id, SchemeShopMapping.PRIORITY_CHOICE[item.priority]))
                 to_be_deleted.append(item.id)
                 continue
+            if (item.shop_id, item.scheme_id, item.priority) in unique_mapping:
+                to_be_deleted.append(item.id)
+                continue
+            unique_mapping.add((item.shop_id, item.scheme_id, item.priority))
             if not item.is_active:
                 count = count + 1
         error_messages = set(error_messages)
