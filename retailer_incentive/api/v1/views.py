@@ -43,10 +43,14 @@ class ShopPurchaseMatrix(APIView):
 
     def get(self, request):
         shop_id = request.GET.get('shop_id')
-        if not SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True).exists():
+        shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True)
+        if not shop_scheme_mapping_qs.exists():
             msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
-        scheme_shop_mapping = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True).last()
+        if shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).exists():
+            scheme_shop_mapping = shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).last()
+        else:
+            scheme_shop_mapping = shop_scheme_mapping_qs.last()
         scheme = scheme_shop_mapping.scheme
         total_sales = self.get_total_sales(shop_id, scheme.start_date, scheme.end_date)
         scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by('min_value').last()
