@@ -876,7 +876,10 @@ class CartCentral(APIView):
             Add To Cart
             Serialize basic cart
         """
-        return CartSerializer(Cart.objects.get(id=cart.id)).data
+        serializer = CartSerializer(Cart.objects.get(id=cart.id))
+        for i in serializer.data['rt_cart_list']:
+            i['cart_product']['product_price'] = i['product_price']
+        return serializer.data
 
 
 class OrderCentral(APIView):

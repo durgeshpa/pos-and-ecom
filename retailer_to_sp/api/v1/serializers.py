@@ -285,6 +285,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_coupons = serializers.SerializerMethodField('product_coupons_dt')
     margin = serializers.SerializerMethodField('margin_dt')
+    product_price = serializers.SerializerMethodField('product_price_dt')
 
     def product_info_dt(self, obj):
         """
@@ -311,18 +312,27 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         """
         return int(obj.cart_product.product_inner_case_size) * int(obj.qty) if obj.cart_product else obj.qty
 
-    def product_sub_total_dt(self, obj):
+    def product_price_dt(self, obj):
         """
-            Cart Product sub total / selling price
+            Product price single
         """
         if obj.cart_product:
             product_price = obj.cart_product.\
                 getRetailerPrice(self.context.get('parent_mapping_id'),
                                  self.context.get('buyer_shop_id'))
-            sub_total = (Decimal(obj.cart_product.product_inner_case_size) *
-                Decimal(obj.qty) * Decimal(product_price))
         else:
-            sub_total = obj.selling_price if obj.selling_price else obj.retailer_product.selling_price
+            product_price = obj.selling_price if obj.selling_price else obj.retailer_product.selling_price
+        return product_price
+
+    def product_sub_total_dt(self, obj):
+        """
+            Cart Product sub total / selling price
+        """
+        if obj.cart_product:
+            sub_total = (Decimal(obj.cart_product.product_inner_case_size) *
+                Decimal(obj.qty) * Decimal(self.product_price_dt(obj)))
+        else:
+            sub_total = Decimal(self.product_price_dt(obj)) * Decimal(obj.qty)
         return sub_total
 
     def product_coupons_dt(self, obj):
@@ -387,7 +397,8 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'capping_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons', 'margin')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'capping_error_msg', 'is_available',
+                  'no_of_pieces','product_sub_total', 'product_coupons', 'product_price', 'margin')
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -466,8 +477,8 @@ class CartSerializer(serializers.ModelSerializer):
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
             if cart_pro.retailer_product:
-                self.total_amount += cart_pro.selling_price if cart_pro.selling_price \
-                    else cart_pro.retailer_product.selling_price
+                self.total_amount += Decimal(cart_pro.selling_price if cart_pro.selling_price \
+                    else cart_pro.retailer_product.selling_price) * Decimal(cart_pro.qty)
             else:
                 pro_price = cart_pro.cart_product.get_current_shop_price(
                     self.context.get('parent_mapping_id'),

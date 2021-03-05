@@ -193,9 +193,14 @@ class Cart(models.Model):
     @property
     def subtotal(self):
         try:
-            return round(self.rt_cart_list.aggregate(
-                subtotal_sum=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'),
-                                 output_field=FloatField()))['subtotal_sum'], 2)
+            if self.cart_type == 'BASIC':
+                return round(self.rt_cart_list.aggregate(
+                    subtotal_sum=Sum(F('selling_price') * F('no_of_pieces'),
+                                     output_field=FloatField()))['subtotal_sum'], 2)
+            else:
+                return round(self.rt_cart_list.aggregate(
+                    subtotal_sum=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'),
+                                     output_field=FloatField()))['subtotal_sum'], 2)
         except:
             return None
 
@@ -213,9 +218,14 @@ class Cart(models.Model):
     @property
     def mrp_subtotal(self):
         try:
-            return round(self.rt_cart_list.aggregate(
-                subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'), output_field=FloatField()))[
-                             'subtotal_sum'], 2)
+            if self.cart_type == 'BASIC':
+                return round(self.rt_cart_list.aggregate(
+                    subtotal_sum=Sum(F('retailer_product__mrp') * F('no_of_pieces'), output_field=FloatField()))[
+                                 'subtotal_sum'], 2)
+            else:
+                return round(self.rt_cart_list.aggregate(
+                    subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'), output_field=FloatField()))[
+                                 'subtotal_sum'], 2)
         except:
             return None
 
@@ -234,6 +244,8 @@ class Cart(models.Model):
         return self.rt_cart_list.aggregate(qty_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
 
     def offers_applied(self):
+        if self.cart_type == 'BAISC':
+            return []
         offers_list = []
         discount_value = 0
         shop = self.seller_shop
@@ -850,18 +862,15 @@ class CartProductMapping(models.Model):
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        if self.cart_product:
-            return self.cart_product.product_name
-        else:
-            return self.retailer_product.name
+        return self.cart_product.product_name if self.cart_product else self.retailer_product.name
 
     @property
     def product_case_size(self):
-        return self.cart_product.product_case_size.product_case_size
+        return self.cart_product.product_case_size.product_case_size if self.cart_product else 1
 
     @property
     def product_inner_case_size(self):
-        return self.cart_product.product_inner_case_size
+        return self.cart_product.product_inner_case_size if self.cart_product else 1
 
     @property
     def order_number(self):
@@ -869,19 +878,22 @@ class CartProductMapping(models.Model):
 
     @property
     def cart_product_sku(self):
-        return self.cart_product.product_sku
+        return self.cart_product.product_sku if self.cart_product else self.retailer_product.sku
 
     @property
     def item_effective_prices(self):
         try:
             item_effective_price = 0
-            if self.cart.offers:
-                array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
-                for i in array:
-                    if self.cart_product.id == i['item_id']:
-                        item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
+            if self.cart_product:
+                if self.cart.offers:
+                    array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+                    for i in array:
+                        if self.cart_product.id == i['item_id']:
+                            item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
+                else:
+                    item_effective_price = float(self.cart_product_price.selling_price)
             else:
-                item_effective_price = float(self.cart_product_price.selling_price)
+                item_effective_price = float(self.selling_price)
         except:
             logger.exception("Cart product price not found")
         return item_effective_price
@@ -896,14 +908,8 @@ class CartProductMapping(models.Model):
             self.set_cart_product_price(seller_shop_id, buyer_shop_id)
         return self.cart_product_price
 
-    def get_product_latest_mrp(self, shop):
-        if self.cart_product_price:
-            return self.cart_product_price.mrp
-        else:
-            return self.cart_product.get_current_shop_price(seller_shop_id, buyer_shop_id).mrp
-
     def clean(self, *args, **kwargs):
-        if self.discounted_price > self.cart_product_price.selling_price:
+        if self.cart_product and self.discounted_price > self.cart_product_price.selling_price:
             raise ValidationError("Discounted Price of %s can't be more than Product Price." % (self.cart_product))
         else:
             super(CartProductMapping, self).clean(*args, **kwargs)
