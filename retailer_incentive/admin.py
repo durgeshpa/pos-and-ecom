@@ -139,6 +139,9 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
             messages.error(request, message)
 
     def get_urls(self):
+        """
+        returns the added action urls for Scheme Shop Mapping
+        """
         from django.conf.urls import url
         urls = super(SchemeShopMappingAdmin, self).get_urls()
         urls = [

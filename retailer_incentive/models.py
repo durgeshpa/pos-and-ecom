@@ -54,7 +54,7 @@ class SchemeSlab(BaseTimestampModel):
 
 class SchemeShopMapping(BaseTimestampModel):
     """
-    This class is represents of Shop Scheme Mapping
+    This class represents of Shop Scheme Mapping
     """
     PRIORITY_CHOICE = Choices((0, 'P1', 'P1'), (1, 'P2', 'P2'))
     scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
