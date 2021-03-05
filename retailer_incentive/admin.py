@@ -13,6 +13,7 @@ from rest_framework.exceptions import ValidationError
 from retailer_incentive.forms import SchemeCreationForm, SchemeSlabCreationForm, SchemeShopMappingCreationForm
 from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
 from retailer_incentive.utils import get_active_mappings
+from retailer_incentive.views import get_scheme_shop_mapping_sample_csv, scheme_shop_mapping_csv_upload
 
 
 class SchemeSlabAdmin(NestedTabularInline):
@@ -132,5 +133,24 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
         for message in error_messages:
             messages.error(request, message)
 
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(SchemeShopMappingAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^scheme-shop-mapping-csv-sample/$',
+                       self.admin_site.admin_view(get_scheme_shop_mapping_sample_csv),
+                       name="scheme-shop-mapping-csv-sample"
+                   ),
+                   url(
+                       r'^scheme-shop-mapping-csv-upload/$',
+                       self.admin_site.admin_view(scheme_shop_mapping_csv_upload),
+                       name="scheme-shop-mapping-csv-upload"
+                   ),
+
+               ] + urls
+        return urls
+
+    change_list_template = 'admin/retailer_incentive/scheme-shop-mapping-change-list.html'
     class Media:
         pass
