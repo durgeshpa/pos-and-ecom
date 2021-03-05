@@ -8,5 +8,6 @@ urlpatterns = [
     url('^search/retailer-product/$', RetailerProductsList.as_view()),
     url('^search/gram-product/$', GramProductsList.as_view()),
     url('^cart/$', CartCentral.as_view()),
+    url('^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
     url('^order/$', OrderCentral.as_view())
 ]

@@ -850,7 +850,10 @@ class CartProductMapping(models.Model):
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.cart_product.product_name
+        if self.cart_product:
+            return self.cart_product.product_name
+        else:
+            return self.retailer_product.name
 
     @property
     def product_case_size(self):
