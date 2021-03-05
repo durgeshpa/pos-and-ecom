@@ -292,14 +292,11 @@ class CartCentral(APIView):
         """
         # Check If Cart Exists
         try:
-            cart = Cart.objects.get(id=pk, last_modified_by=self.request.user, cart_status__in=['active', 'pending'])
+            cart = Cart.objects.get(id=pk, last_modified_by=self.request.user, cart_status__in=['active', 'pending'],
+                                    cart_type='BASIC')
         except:
             return get_response("Cart Not Found")
-        cart_type = cart.cart_type
-        if cart_type == 'BASIC':
-            return self.add_customer_to_cart(cart)
-        else:
-            return get_response('Direct Update Not Available For This Cart')
+        return self.add_customer_to_cart(cart)
 
     def add_customer_to_cart(self, cart):
         """
@@ -394,9 +391,9 @@ class CartCentral(APIView):
         user = self.request.user
         # Check If Cart exists
         if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
-                               cart_status__in=['active', 'pending']).exists():
+                               cart_status__in=['active', 'pending'], cart_type='BASIC').exists():
             cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
-                                       cart_status__in=['active', 'pending']).last()
+                                       cart_status__in=['active', 'pending'], cart_type='BASIC').last()
             # Process response - Serialize - Search and Pagination
             return get_response('Cart', self.get_serialize_process_basic(cart))
         else:
@@ -535,6 +532,8 @@ class CartCentral(APIView):
         serializer = CartSerializer(Cart.objects.get(id=cart.id), context={'search_text': self.request.GET.get('search_text', ''),
                                                    'page_number': self.request.GET.get('page_number', 1),
                                                    'records_per_page': self.request.GET.get('records_per_page', 10),})
+        for i in serializer.data['rt_cart_list']:
+            i['cart_product']['product_price'] = i['product_price']
         return serializer.data
 
     def retail_add_to_cart(self):
@@ -716,9 +715,9 @@ class CartCentral(APIView):
         """
         user = self.request.user
         if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
-                               cart_status__in=['active', 'pending']).exists():
+                               cart_status__in=['active', 'pending'], cart_type='BASIC').exists():
             cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
-                                       cart_status__in=['active', 'pending']).last()
+                                       cart_status__in=['active', 'pending'], cart_type='BASIC').last()
             cart.cart_type = 'BASIC'
             cart.approval_status = False
             cart.cart_status = 'active'
