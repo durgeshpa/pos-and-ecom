@@ -8,9 +8,9 @@ from io import StringIO
 from django.db.models import Q
 from django.http import HttpResponse
 from nested_admin.nested import NestedTabularInline
-from rest_framework.exceptions import ValidationError
 
-from retailer_incentive.forms import SchemeCreationForm, SchemeSlabCreationForm, SchemeShopMappingCreationForm
+from retailer_incentive.forms import SchemeCreationForm, SchemeSlabCreationForm, SchemeShopMappingCreationForm, \
+    SlabInlineFormSet
 from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
 from retailer_incentive.utils import get_active_mappings
 from retailer_incentive.views import get_scheme_shop_mapping_sample_csv, scheme_shop_mapping_csv_upload
@@ -19,7 +19,10 @@ from retailer_incentive.views import get_scheme_shop_mapping_sample_csv, scheme_
 class SchemeSlabAdmin(NestedTabularInline):
     model = SchemeSlab
     form = SchemeSlabCreationForm
+    formset = SlabInlineFormSet
     list_display = ('min_value', 'max_value','discount_value', 'discount_type')
+    extra = 5
+    min_num = 1
 
     class Media:
         pass
@@ -132,7 +135,7 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
         if len(error_messages) == 0:
             f.seek(0)
             response = HttpResponse(f, content_type='text/csv')
-            response['Content-Disposition'] = 'attachment; filename=auditDetails.csv'
+            response['Content-Disposition'] = 'attachment; filename=scheme-shop-mapping.csv'
             return response
         error_messages = set(error_messages)
         for message in error_messages:

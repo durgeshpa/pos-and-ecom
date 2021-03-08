@@ -1,14 +1,13 @@
 import codecs
 import csv
 import datetime
-import re
 
 from dal import autocomplete
 from django import forms
 from django.core.exceptions import ValidationError
+from django.forms import formset_factory, BaseInlineFormSet
 from django.utils.translation import gettext_lazy as _
 
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
 from retailer_incentive.utils import get_active_mappings
 from shops.models import Shop
@@ -43,6 +42,38 @@ class SchemeSlabCreationForm(forms.ModelForm):
     class Meta:
         model = SchemeSlab
         fields = ('min_value', 'max_value', 'discount_value', 'discount_type')
+
+
+class SlabInlineFormSet(BaseInlineFormSet):
+    """
+        This class is used to create the Scheme Slab Forms
+    """
+    def clean(self):
+        super(SlabInlineFormSet, self).clean()
+        last_slab_end_value = 0
+        is_first_slab = True
+        counter = 1
+        non_empty_forms = 0
+        for form in self:
+            if form.cleaned_data:
+                non_empty_forms += 1
+        non_empty_forms = non_empty_forms - len(self.deleted_forms)
+        if non_empty_forms < 0:
+            raise ValidationError("please add atleast one slab!")
+        for form in self.forms:
+            slab_data = form.cleaned_data
+            if slab_data.get('min_value') and slab_data.get('max_value') and slab_data.get('discount_value'):
+                if slab_data['min_value'] < 0 or slab_data['max_value'] < 0:
+                    raise ValidationError("Value should be greater than 0")
+                if not is_first_slab and slab_data['min_value'] < last_slab_end_value:
+                    raise ValidationError("Slab start value should be greater than the end value in earlier slab")
+                if counter < non_empty_forms and slab_data['min_value'] > slab_data['max_value']:
+                    raise ValidationError("Slab end value should be greater than slab start value")
+                last_slab_end_value = slab_data['max_value']
+                if counter == non_empty_forms and slab_data['max_value'] != 0:
+                    raise ValidationError("For last slab max value should be zero")
+                is_first_slab = False
+                counter = counter + 1
 
 
 class SchemeShopMappingCreationForm(forms.ModelForm):
