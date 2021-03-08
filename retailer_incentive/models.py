@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.validators import RegexValidator
 from django.db import models
 
 # Create your models here.
@@ -22,7 +23,8 @@ class Scheme(BaseTimestampModel):
     """
     This class is used as representation of Incentive Scheme
     """
-    name = models.CharField(max_length=50)
+    name_regex = RegexValidator(r'^[0-9a-zA-Z]*$', "Scheme name is not valid")
+    name = models.CharField(validators=[name_regex], max_length=50)
     start_date = models.DateField()
     end_date = models.DateField()
     is_active = models.BooleanField(default=True)
@@ -54,7 +56,7 @@ class SchemeSlab(BaseTimestampModel):
 
 class SchemeShopMapping(BaseTimestampModel):
     """
-    This class is represents of Shop Scheme Mapping
+    This class represents of Shop Scheme Mapping
     """
     PRIORITY_CHOICE = Choices((0, 'P1', 'P1'), (1, 'P2', 'P2'))
     scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)

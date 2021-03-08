@@ -27,6 +27,9 @@ class ShopAutocomplete(autocomplete.Select2QuerySetView):
 
 
 def get_scheme_shop_mapping_sample_csv(request):
+    """
+    returns sample CSV for bulk creation of shop scheme mappings
+    """
     filename = "scheme_shop_mapping_sample.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
@@ -36,6 +39,9 @@ def get_scheme_shop_mapping_sample_csv(request):
     return response
 
 def scheme_shop_mapping_csv_upload(request):
+    """
+    Creates shop scheme mappings in bulk through CSV upload
+    """
     if request.method == 'POST':
         form = UploadSchemeShopMappingForm(request.POST, request.FILES)
 
