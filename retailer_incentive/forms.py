@@ -1,14 +1,13 @@
 import codecs
 import csv
 import datetime
-import re
 
 from dal import autocomplete
 from django import forms
 from django.core.exceptions import ValidationError
+from django.forms import formset_factory, BaseInlineFormSet
 from django.utils.translation import gettext_lazy as _
 
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
 from retailer_incentive.utils import get_active_mappings
 from shops.models import Shop
@@ -43,6 +42,38 @@ class SchemeSlabCreationForm(forms.ModelForm):
     class Meta:
         model = SchemeSlab
         fields = ('min_value', 'max_value', 'discount_value', 'discount_type')
+
+
+class SlabInlineFormSet(BaseInlineFormSet):
+    """
+        This class is used to create the Scheme Slab Forms
+    """
+    def clean(self):
+        super(SlabInlineFormSet, self).clean()
+        last_slab_end_value = 0
+        is_first_slab = True
+        counter = 1
+        non_empty_forms = 0
+        for form in self:
+            if form.cleaned_data:
+                non_empty_forms += 1
+        non_empty_forms = non_empty_forms - len(self.deleted_forms)
+        if non_empty_forms < 0:
+            raise ValidationError("please add atleast one slab!")
+        for form in self.forms:
+            slab_data = form.cleaned_data
+            if slab_data.get('min_value') and slab_data.get('max_value') and slab_data.get('discount_value'):
+                if slab_data['min_value'] < 0 or slab_data['max_value'] < 0:
+                    raise ValidationError("Value should be greater than 0")
+                if not is_first_slab and slab_data['min_value'] < last_slab_end_value:
+                    raise ValidationError("Slab start value should be greater than the end value in earlier slab")
+                if counter < non_empty_forms and slab_data['min_value'] > slab_data['max_value']:
+                    raise ValidationError("Slab end value should be greater than slab start value")
+                last_slab_end_value = slab_data['max_value']
+                if counter == non_empty_forms and slab_data['max_value'] != 0:
+                    raise ValidationError("For last slab max value should be zero")
+                is_first_slab = False
+                counter = counter + 1
 
 
 class SchemeShopMappingCreationForm(forms.ModelForm):
@@ -89,28 +120,14 @@ class UploadSchemeShopMappingForm(forms.Form):
         for row_id, row in enumerate(reader):
             if len(row) == 0:
                 continue
-            if '' in row:
-                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' ):
-                    continue
-            if not row[0]:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Scheme ID' can not be empty."))
-            elif not Scheme.objects.filter(id=row[0], is_active=True, end_date__gte=datetime.datetime.today().date()).exists():
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Scheme'"))
-            if not row[1]:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Scheme name' can not be empty."))
-            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[1]):
-                raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_NAME']}."))
-            if not row[2]:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Shop Id' can not be empty."))
-            elif not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['f','r']).exists():
-                raise ValidationError(_(f"Row {row_id + 1} | No retailer/franchise shop exists in the system with thid ID."))
-            if not row[3]:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Shop Name' can not be empty."))
-            elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[3]):
-                raise ValidationError(_(f"Row {row_id + 1} | {VALIDATION_ERROR_MESSAGES['INVALID_NAME']}."))
-            if not row[4]:
-                raise ValidationError(_(f"Row {row_id + 1} | 'Priority' can not be empty."))
-            elif row[4] not in SchemeShopMapping.PRIORITY_CHOICE._identifier_map.keys():
-                raise ValidationError(_(f"Row {row_id + 1} | 'Priority' can only be P1 or P2"))
+            if row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '':
+                continue
+            if not row[0] or not Scheme.objects.filter(id=row[0], is_active=True,
+                                                       end_date__gte=datetime.datetime.today().date()).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Scheme ID'"))
+            if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['f','r']).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id', no retailer/franchise shop exists in the system with thid ID."))
+            if not row[4] or row[4] not in SchemeShopMapping.PRIORITY_CHOICE._identifier_map.keys():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Priority'"))
 
         return self.cleaned_data['file']
