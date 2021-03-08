@@ -22,7 +22,7 @@ class SchemeSlabAdmin(NestedTabularInline):
     formset = SlabInlineFormSet
     list_display = ('min_value', 'max_value','discount_value', 'discount_type')
     extra = 5
-    min_num = 1
+    min_num = 2
 
     class Media:
         pass
@@ -48,7 +48,7 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
     """
     model = SchemeShopMapping
     form = SchemeShopMappingCreationForm
-    list_display = ('scheme_id', 'scheme_name', 'shop', 'priority', 'is_active', 'user')
+    list_display = ('scheme_id', 'scheme_name', 'shop_name', 'priority', 'is_active', 'user')
     actions = ['download_active_scheme_mappings','deactivate_selected_mappings', 'activate_selected_mappings']
 
     def scheme_id(self, obj):
@@ -56,6 +56,9 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
 
     def scheme_name(self, obj):
         return obj.scheme.name
+
+    def shop_name(self, obj):
+        return obj.shop
 
     def activate_selected_mappings(self, request, queryset):
         """
