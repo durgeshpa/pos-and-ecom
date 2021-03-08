@@ -4,7 +4,7 @@ from rest_framework import status
 from pos.models import RetailerProduct
 from retailer_to_sp.models import CartProductMapping
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
-
+from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
 
 class RetailerProductCls(object):
 
@@ -12,6 +12,27 @@ class RetailerProductCls(object):
     def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description):
         RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
                                        mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description)
+
+
+class OffersCls(object):
+    @classmethod
+    def rule_set_cretion(cls, ruleset_type, rulename, start_date, expiry_date, discount_qty_amount=None, discount_obj=None):
+        ruleset = CouponRuleSet.objects.create(ruleset_type=ruleset_type, rulename=rulename, all_users=True,
+                                               start_date=start_date, expiry_date=expiry_date, is_active=True,
+                                               discount_qty_amount=discount_qty_amount, discount=discount_obj)
+        return ruleset
+
+    @classmethod
+    def rule_set_product_mapping(cls, rule_id, retailer_primary_product, purchased_product_qty, retailer_free_product, free_product_qty, combo_offer_name, start_date, expiry_date):
+        RuleSetProductMapping.objects.create(rule_id=rule_id, retailer_primary_product=retailer_primary_product,
+                                             purchased_product_qty=purchased_product_qty, retailer_free_product=retailer_free_product,
+                                             free_product_qty=free_product_qty, combo_offer_name=combo_offer_name,
+                                             start_date=start_date, expiry_date=expiry_date)
+
+    @classmethod
+    def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, start_date, expiry_date):
+        Coupon.objects.create(rule_id=rule_id, coupon_name=coupon_name, coupon_type=coupon_type,
+                                             start_date=start_date, expiry_date=expiry_date)
 
 
 def get_response(msg, data=None):

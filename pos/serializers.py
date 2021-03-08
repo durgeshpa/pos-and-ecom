@@ -1,9 +1,11 @@
 from rest_framework import serializers
 from django.utils.translation import ugettext_lazy as _
-from pos.models import RetailerProduct, RetailerOffer
+from pos.models import RetailerProduct
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from shops.models import Shop
+from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping
+import datetime
 
 
 class RetailerProductCreateSerializer(serializers.Serializer):
@@ -117,7 +119,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
 
         product_id = attrs.get('product_id')
         if product_id:
-            if not RetailerProduct.objects.filter(id=product_id).exists():
+            if not Product.objects.filter(id=product_id).exists():
                 raise serializers.ValidationError(_("Please enter a valid product_id"))
 
             selling_price = attrs.get('selling_price')
@@ -135,24 +137,130 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         return attrs
 
 
+def validate_retailer_product(retailer_primary_product):
+    if not RetailerProduct.objects.filter(id=retailer_primary_product).exists():
+        raise serializers.ValidationError(_("Please enter a valid Product"))
+
+
+def date_validation(data):
+    """
+        Check that the start date is before the expiry date.
+    """
+    if data['start_date'] > data['expiry_date']:
+        raise serializers.ValidationError("expiry date must occur after start date")
+    """
+        Check that the expiry date is before the today.
+    """
+    if data['expiry_date'] < datetime.date.today():
+        raise serializers.ValidationError("expiry date must be greater than today")
+
+
 class CouponCodeSerializer(serializers.ModelSerializer):
-    order_value = serializers.IntegerField(required=True)
+
+    coupon_name = serializers.CharField(required=True)
+    discount_qty_amount = serializers.DecimalField(required=True, max_digits=12, decimal_places=4)
+    discount_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=4)
+
+    def validate(self, data):
+        """
+            start & expiry date validation.
+        """
+        date_validation(data)
+        """
+            Check that the Coupon name should be unique.
+        """
+        coupon_name = data.get('coupon_name')
+        if coupon_name:
+            if CouponRuleSet.objects.filter(rulename=coupon_name).exists():
+                raise serializers.ValidationError(_("This Coupon name has already been registered."))
+        """
+            Check that the discount value should be less then discount_qty_amount.
+        """
+        if data['discount_value'] > data['discount_qty_amount']:
+            raise serializers.ValidationError("discount value must less then order value")
+        return data
 
     class Meta:
-        model = RetailerOffer
-        fields = ('offer_type', 'coupon_name', 'order_value', 'discount_value', 'status',
-                  'offer_start_date', 'offer_end_date')
+        model = Coupon
+        fields = ('coupon_name', 'start_date', 'expiry_date', 'discount_qty_amount', 'discount_value')
 
 
 class ComboDealsSerializer(serializers.ModelSerializer):
-    primary_product = serializers.IntegerField(required=True)
-    primary_product_qty = serializers.IntegerField(required=True)
-    free_product = serializers.IntegerField(required=True)
+    combo_offer_name = serializers.CharField(required=True)
+    retailer_primary_product = serializers.IntegerField(required=True)
+    purchased_product_qty = serializers.IntegerField(required=True)
+    retailer_free_product = serializers.IntegerField(required=True)
     free_product_qty = serializers.IntegerField(required=True)
 
+    def validate(self, data):
+        """
+            start & expiry date validation.
+        """
+        date_validation(data)
+        """
+            Check that the retailer_primary_product & retailer_free_product is present in RetailerProduct.
+        """
+        retailer_primary_product = data.get('retailer_primary_product')
+        if retailer_primary_product:
+            validate_retailer_product(retailer_primary_product)
+        retailer_free_product = data.get('retailer_free_product')
+        if retailer_free_product:
+            validate_retailer_product(retailer_primary_product)
 
+        """
+            Check that the Combo offer name should be unique.
+        """
+        combo_offer_name = data.get('combo_offer_name')
+        if combo_offer_name:
+            if CouponRuleSet.objects.filter(rulename=combo_offer_name).exists():
+                raise serializers.ValidationError(_("This Offer name has already been registered."))
+
+        return data
 
     class Meta:
-        model = RetailerOffer
-        fields = ('offer_type', 'coupon_name', 'discount_value', 'status', 'primary_product', 'primary_product_qty',
-                  'free_product', 'free_product_qty', 'offer_start_date', 'offer_end_date')
+        model = RuleSetProductMapping
+        fields = ('combo_offer_name', 'retailer_primary_product', 'retailer_free_product',
+                  'purchased_product_qty', 'free_product_qty', 'start_date', 'expiry_date')
+
+
+class CouponCodeUpdateSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=True)
+    coupon_name = serializers.CharField(required=False)
+    discount_qty_amount = serializers.DecimalField(required=False, max_digits=12, decimal_places=4)
+    discount_value = serializers.DecimalField(required=False, max_digits=12, decimal_places=4)
+    start_date = serializers.DateField(required=False)
+    expiry_date = serializers.DateField(required=False)
+
+    def validate(self, data):
+        if data.get('start_date') and data.get('expiry_date'):
+            date_validation(data)
+        return data
+
+    class Meta:
+        model = Coupon
+        fields = ('id', 'coupon_name', 'start_date', 'expiry_date', 'discount_qty_amount', 'discount_value')
+
+
+class ComboDealsUpdateSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=True)
+    combo_offer_name = serializers.CharField(required=False)
+    retailer_primary_product = serializers.IntegerField(required=False)
+    purchased_product_qty = serializers.IntegerField(required=False)
+    retailer_free_product = serializers.IntegerField(required=False)
+    free_product_qty = serializers.IntegerField(required=False)
+    start_date = serializers.DateField(required=False)
+    expiry_date = serializers.DateField(required=False)
+
+    def validate(self, data):
+        if data.get('start_date') and data.get('expiry_date'):
+            date_validation(data)
+        if data.get('retailer_primary_product'):
+            validate_retailer_product(data.get('retailer_primary_product'))
+        if data.get('retailer_free_product'):
+            validate_retailer_product(data.get('retailer_free_product'))
+        return data
+
+    class Meta:
+        model = RuleSetProductMapping
+        fields = ('id', 'combo_offer_name', 'retailer_primary_product', 'retailer_free_product',
+                  'purchased_product_qty', 'free_product_qty', 'start_date', 'expiry_date')
