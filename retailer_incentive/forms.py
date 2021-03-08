@@ -126,7 +126,7 @@ class UploadSchemeShopMappingForm(forms.Form):
                                                        end_date__gte=datetime.datetime.today().date()).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Scheme ID'"))
             if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['f','r']).exists():
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id', no retailer/franchise shop exists in the system with thid ID."))
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id', no retailer/franchise shop exists in the system with this ID."))
             if not row[4] or row[4] not in SchemeShopMapping.PRIORITY_CHOICE._identifier_map.keys():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Priority'"))
 
