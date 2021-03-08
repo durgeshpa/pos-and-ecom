@@ -193,7 +193,7 @@ class CouponOfferCreation(GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         """
-        POST API for CouponOfferCreation Creation.
+        POST API for CouponOfferCreation.
         Using CouponCodeSerializer for Coupon Creation and ComboDealsSerializer for Combo Offer Creation.
         """
         rule_type = request.data.get('rule_type')
@@ -222,6 +222,11 @@ class CouponOfferCreation(GenericAPIView):
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
     def put(self,  request, *args, **kwargs):
+
+        """
+           PUT API for CouponOfferUpdation.
+           Using CouponCodeSerializer for Coupon Updation and ComboDealsSerializer for Combo Offer Updation.
+        """
         rule_type = request.data.get('rule_type')
         if int(rule_type) == 1:
             """
@@ -346,6 +351,9 @@ def update_coupon(request, coupon_id, serializer):
 
 
 def update_combo(request, combo_id, serializer):
+    """
+        Updating Ruleset & RuleSetProductMapping
+    """
     rule_set_product_mapping = RuleSetProductMapping.objects.get(id=combo_id)
     coupon_ruleset = CouponRuleSet.objects.get(rulename=rule_set_product_mapping.combo_offer_name)
 
