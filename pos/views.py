@@ -244,7 +244,6 @@ class CouponOfferCreation(GenericAPIView):
                                             f"for the shop_id provided",
                            'response_data': None}
                     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-
             else:
                 msg = serializer_error(serializer)
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
