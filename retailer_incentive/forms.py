@@ -51,6 +51,7 @@ class SlabInlineFormSet(BaseInlineFormSet):
     def clean(self):
         super(SlabInlineFormSet, self).clean()
         last_slab_end_value = 0
+        last_slab_discount_value = 0
         is_first_slab = True
         counter = 1
         non_empty_forms = 0
@@ -62,14 +63,19 @@ class SlabInlineFormSet(BaseInlineFormSet):
             raise ValidationError("please add atleast one slab!")
         for form in self.forms:
             slab_data = form.cleaned_data
-            if slab_data.get('min_value') and slab_data.get('max_value') and slab_data.get('discount_value'):
+            if slab_data.get('min_value') is not None and \
+                    slab_data.get('max_value') is not None and \
+                    slab_data.get('discount_value') is not None:
                 if slab_data['min_value'] < 0 or slab_data['max_value'] < 0:
                     raise ValidationError("Value should be greater than 0")
                 if not is_first_slab and slab_data['min_value'] < last_slab_end_value:
-                    raise ValidationError("Slab start value should be greater than the end value in earlier slab")
-                if counter < non_empty_forms and slab_data['min_value'] > slab_data['max_value']:
+                    raise ValidationError("Slab start value should be greater than or equal to the end value in earlier slab")
+                if counter < non_empty_forms and slab_data['min_value'] >= slab_data['max_value']:
                     raise ValidationError("Slab end value should be greater than slab start value")
+                if slab_data['discount_value'] < last_slab_discount_value:
+                    raise ValidationError("Slab discount value should be greater than last slab discount value")
                 last_slab_end_value = slab_data['max_value']
+                last_slab_discount_value = slab_data['discount_value']
                 if counter == non_empty_forms and slab_data['max_value'] != 0:
                     raise ValidationError("For last slab max value should be zero")
                 is_first_slab = False
