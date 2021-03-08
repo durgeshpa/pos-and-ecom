@@ -259,6 +259,12 @@ class CouponOfferCreation(GenericAPIView):
                 if RuleSetProductMapping.objects.filter(id=combo_offer_id).exists():
                     msg = update_combo(request, combo_offer_id, serializer)
                     return Response(msg, status=status.HTTP_201_CREATED)
+                else:
+                    msg = {'is_success': False,
+                           'error_message': f"There is no combo offer available with (coupon id : {combo_offer_id}) "
+                                            f"for the shop_id provided",
+                           'response_data': None}
+                    return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
             else:
                 msg = serializer_error(serializer)
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
