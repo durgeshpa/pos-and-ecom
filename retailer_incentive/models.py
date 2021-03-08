@@ -47,7 +47,8 @@ class SchemeSlab(BaseTimestampModel):
     scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
     min_value = models.IntegerField(verbose_name='Slab Start Value')
     max_value = models.IntegerField(verbose_name='Slab End Value')
-    discount_value = models.FloatField()
+    discount_value = models.DecimalField(max_digits=4, decimal_places=2)
+
     discount_type = models.IntegerField(choices=DISCOUNT_TYPE_CHOICE, default=DISCOUNT_TYPE_CHOICE.PERCENTAGE)
 
     def __str__(self):
