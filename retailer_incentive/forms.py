@@ -151,5 +151,5 @@ class UploadSchemeShopMappingForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | This shop already has an active {row[4]} mappings"))
             elif existing_active_mapping and existing_active_mapping.scheme_id == int(row[0]):
                 info_logger.info("Shop Id - {} already mapped with scheme id {}".format(shop_id, row[0]))
-                raise ValidationError(_(f"Row {row_id + 1} | already mapped with scheme id {row[0]}"))
+                raise ValidationError(_(f"Row {row_id + 1} | This shop is already mapped with scheme id {row[0]}"))
         return self.cleaned_data['file']
