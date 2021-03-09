@@ -7,7 +7,6 @@ from addresses.models import City
 from django.db.models import F, FloatField, Sum
 
 
-
 class DiscountValue(models.Model):
     discount_value = models.FloatField(default=0, null=True, blank=True)
     is_percentage = models.BooleanField(default=False)
