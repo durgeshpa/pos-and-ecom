@@ -72,7 +72,7 @@ class SlabInlineFormSet(BaseInlineFormSet):
                     raise ValidationError("Slab start value should be greater than or equal to the end value in earlier slab")
                 if counter < non_empty_forms and slab_data['min_value'] >= slab_data['max_value']:
                     raise ValidationError("Slab end value should be greater than slab start value")
-                if slab_data['discount_value'] < last_slab_discount_value:
+                if slab_data['discount_value'] <= last_slab_discount_value:
                     raise ValidationError("Slab discount value should be greater than last slab discount value")
                 last_slab_end_value = slab_data['max_value']
                 last_slab_discount_value = slab_data['discount_value']
