@@ -4,7 +4,7 @@ from pos.models import RetailerProduct
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from shops.models import Shop
-from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping
+from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
 import datetime
 
 
@@ -273,3 +273,44 @@ class ComboDealsUpdateSerializer(serializers.ModelSerializer):
         model = RuleSetProductMapping
         fields = ('id', 'combo_offer_name', 'retailer_primary_product', 'retailer_free_product',
                   'purchased_product_qty', 'free_product_qty', 'start_date', 'expiry_date')
+
+
+class DiscountSerializer(serializers.ModelSerializer):
+    discount_value = serializers.DecimalField(required=False, max_digits=12, decimal_places=4)
+
+    class Meta:
+        model = DiscountValue
+        fields = ('discount_value', )
+
+
+class CouponRuleSetGetSerializer(serializers.ModelSerializer):
+    discount = serializers.SerializerMethodField('discount_value')
+
+    class Meta:
+        model = CouponRuleSet
+        fields = ('rulename', 'discount', 'is_active')
+
+    def discount_value(self, obj):
+       return DiscountSerializer(obj.discount, context=self.context).data
+
+
+class CouponCodeGetSerializer(serializers.ModelSerializer):
+    rule = serializers.SerializerMethodField('rule_dt')
+
+    class Meta:
+        model = Coupon
+        fields = ('coupon_name', 'is_display', 'rule')
+
+    def rule_dt(self, obj):
+        return CouponRuleSetGetSerializer(obj.rule, context=self.context).data
+
+
+class ComboCodeGetSerializer(serializers.ModelSerializer):
+    rule = serializers.SerializerMethodField('rule_dt')
+
+    class Meta:
+        model = RuleSetProductMapping
+        fields = ('combo_offer_name', 'is_display', 'rule')
+
+    def rule_dt(self, obj):
+         return CouponRuleSetGetSerializer(obj.rule, context=self.context).data
