@@ -354,7 +354,7 @@ def create_coupon(request, serializer, shop_id):
                                     shop, start_date, expiry_date)
     msg = {"is_success": True, "message": "Coupon has been successfully created!",
            "response_data": serializer.data}
-    status_code = {"status_code": 404}
+    status_code = {"status_code": 201}
     return msg, status_code
 
 
