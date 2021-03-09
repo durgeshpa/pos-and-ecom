@@ -490,7 +490,7 @@ def update_coupon(request, coupon_id, serializer, shop_id):
 
     coupon_ruleset = CouponRuleSet.objects.get(rulename=coupon.coupon_name)
     discount = DiscountValue.objects.get(id=coupon_ruleset.discount.id)
-    expected_input_data_list = ['id', 'coupon_name', 'discount_qty_amount', 'discount_value', 'start_date', 'expiry_date']
+    expected_input_data_list = ['id', 'coupon_name', 'discount_qty_amount', 'discount_value', 'start_date', 'expiry_date', 'is_active']
     actual_input_data_list = []
     for key in expected_input_data_list:
         if key in request.data.keys():
@@ -513,6 +513,10 @@ def update_coupon(request, coupon_id, serializer, shop_id):
     if 'expiry_date' in actual_input_data_list:
         # If expiry_date in actual_input_data_list
         coupon.expiry_date = request.data.get('expiry_date')
+
+    if 'is_active' in actual_input_data_list:
+        # If is_active in actual_input_data_list
+        coupon.is_active = request.data.get('is_active')
 
     coupon_ruleset.save()
     discount.save()
@@ -587,6 +591,10 @@ def update_combo(request, combo_id, serializer, shop_id):
     if 'free_product_qty' in actual_input_data_list:
         # If free_product_qty in actual_input_data_list
         rule_set_product_mapping.free_product_qty = request.data.get('free_product_qty')
+
+    if 'is_active' in actual_input_data_list:
+        # If is_active in actual_input_data_list
+        rule_set_product_mapping.is_active = request.data.get('is_active')
 
     coupon_ruleset.save()
     rule_set_product_mapping.save()

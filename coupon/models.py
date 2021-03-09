@@ -127,7 +127,7 @@ class RuleSetProductMapping(models.Model):
     max_qty_per_use = models.PositiveIntegerField(default=0, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)
-    is_display = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False, db_index=True)
     start_date = models.DateField()
     expiry_date = models.DateField()
     shop = models.ForeignKey(Shop, related_name='retailer_shop_offer', on_delete=models.CASCADE, null=True,
