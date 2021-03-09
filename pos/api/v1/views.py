@@ -8,6 +8,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from sp_to_gram.tasks import es_search
 from audit.views import BlockUnblockProduct
 from retailer_to_sp.api.v1.serializers import CartSerializer, GramMappedCartSerializer, ParentProductImageSerializer
+from accounts.api.v1.serializers import UserSerializer
 from retailer_backend.common_function import getShopMapping
 from retailer_backend.messages import ERROR_MESSAGES
 from wms.common_functions import get_stock
@@ -249,7 +250,6 @@ class CartCentral(APIView):
             Inputs:
                 shop_id
                 cart_type (retail or basic)
-                phone_number (Customer phone number for 'basic' cart)
         """
         cart_type = self.request.GET.get('cart_type')
         if cart_type == 'retail':
@@ -267,7 +267,6 @@ class CartCentral(APIView):
                 cart_product (Product for 'retail', RetailerProduct for 'basic'
                 shop_id (Buyer shop id for 'retail', Shop id for selling shop in case of 'basic')
                 qty (Quantity of product to be added)
-                phone_number (Customer phone number for 'basic' cart)
         """
         cart_type = self.request.POST.get('cart_type')
         if cart_type == 'retail':
@@ -276,6 +275,51 @@ class CartCentral(APIView):
             return self.basic_add_to_cart()
         else:
             return get_response('Please provide a valid cart_type')
+
+    def put(self, request, pk):
+        """
+            Update Customer Details For Basic Cart
+            Inputs
+            cart_id
+            phone_number - Customer phone number
+        """
+        # Check If Cart Exists
+        try:
+            cart = Cart.objects.get(id=pk, last_modified_by=self.request.user, cart_status__in=['active', 'pending'])
+        except:
+            return get_response("Cart Not Found")
+        cart_type = cart.cart_type
+        if cart_type == 'BASIC':
+            return self.add_customer_to_cart(cart)
+        else:
+            return get_response('Direct Update Not Available For This Cart')
+
+    def add_customer_to_cart(self, cart):
+        """
+            Update customer details in basic cart
+        """
+        # Check phone_number
+        ph_no = self.request.data.get('phone_number')
+        name = self.request.data.get('name')
+        email = self.request.data.get('email')
+        if not ph_no:
+            return get_response("Please provide customer phone number")
+        # Check Customer - Update Or Create
+        try:
+            customer = User.objects.get(phone_number=ph_no)
+        except ObjectDoesNotExist:
+            customer = User.objects.create_user(phone_number=ph_no)
+            if email:
+                customer.email = email
+            if name:
+                customer.first_name = name
+            customer.is_active = False
+            customer.save()
+        # Update customer as buyer in cart
+        cart.buyer = customer
+        cart.save()
+        serializer = UserSerializer(customer)
+        return get_response("Customer Details Updated Successfully!", serializer.data)
 
     def get_retail_cart(self):
         """
@@ -340,12 +384,11 @@ class CartCentral(APIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         seller_shop = initial_validation['shop']
-        customer = initial_validation['customer']
         user = self.request.user
         # Check If Cart exists
-        if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
+        if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
                                cart_status__in=['active', 'pending']).exists():
-            cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
+            cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
                                        cart_status__in=['active', 'pending']).last()
             # Process response - Serialize - Search and Pagination
             return get_response('Cart', self.get_serialize_process_basic(cart))
@@ -378,12 +421,7 @@ class CartCentral(APIView):
             shop = Shop.objects.get(id=self.request.GET.get('shop_id'))
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
-        # Check Customer
-        try:
-            customer = User.objects.get(phone_number=self.request.GET.get('phone_number'))
-        except ObjectDoesNotExist:
-            return {'error': "User/Customer Not Found"}
-        return {'shop': shop, 'customer': customer}
+        return {'shop': shop}
 
     @staticmethod
     def filter_cart_products(cart, seller_shop):
@@ -554,10 +592,9 @@ class CartCentral(APIView):
         product = initial_validation['product']
         shop = initial_validation['shop']
         qty = initial_validation['quantity']
-        customer = initial_validation['customer']
 
-        # Update or create cart for customer and shop
-        cart = self.post_update_basic_cart(shop, customer)
+        # Update or create cart for shop
+        cart = self.post_update_basic_cart(shop)
         # Check if price needs to be updated and return selling price
         selling_price = self.get_basic_cart_product_price(product)
         # Add quantity to cart
@@ -619,12 +656,7 @@ class CartCentral(APIView):
             product = RetailerProduct.objects.get(id=self.request.POST.get('cart_product'), shop=shop)
         except ObjectDoesNotExist:
             return {'error': "Product Not Found!"}
-        # Check Customer
-        try:
-            customer = User.objects.get(phone_number=self.request.POST.get('phone_number'))
-        except ObjectDoesNotExist:
-            return {'error': "User/Customer Not Found"}
-        return {'product': product, 'shop': shop, 'quantity': qty, 'customer': customer}
+        return {'product': product, 'shop': shop, 'quantity': qty}
 
     def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
         """
@@ -665,27 +697,25 @@ class CartCentral(APIView):
             cart.save()
         return cart
 
-    def post_update_basic_cart(self, seller_shop, customer):
+    def post_update_basic_cart(self, seller_shop):
         """
             Create or update/add product to retail basic Cart
         """
         user = self.request.user
-        if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
+        if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
                                cart_status__in=['active', 'pending']).exists():
-            cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, buyer=customer,
+            cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
                                        cart_status__in=['active', 'pending']).last()
             cart.cart_type = 'BASIC'
             cart.approval_status = False
             cart.cart_status = 'active'
             cart.seller_shop = seller_shop
-            cart.buyer = customer
             cart.save()
         else:
             cart = Cart(last_modified_by=user, cart_status='active')
             cart.cart_type = 'BASIC'
             cart.approval_status = False
             cart.seller_shop = seller_shop
-            cart.buyer = customer
             cart.save()
         return cart
 
