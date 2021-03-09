@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.validators import RegexValidator
 from django.db import models
 
 # Create your models here.
@@ -9,6 +10,9 @@ from shops.models import Shop
 
 
 class BaseTimestampModel(models.Model):
+    """
+    This abstract class is used as a base model. This provides two fields, created_at and updated_at
+    """
     created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
     updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
 
@@ -16,7 +20,11 @@ class BaseTimestampModel(models.Model):
         abstract = True
 
 class Scheme(BaseTimestampModel):
-    name = models.CharField(max_length=50)
+    """
+    This class is used as representation of Incentive Scheme
+    """
+    name_regex = RegexValidator(r'^[0-9a-zA-Z ]*$', "Scheme name is not valid")
+    name = models.CharField(validators=[name_regex], max_length=50)
     start_date = models.DateField()
     end_date = models.DateField()
     is_active = models.BooleanField(default=True)
@@ -32,11 +40,15 @@ class Scheme(BaseTimestampModel):
 
 
 class SchemeSlab(BaseTimestampModel):
+    """
+    This class is represents of Incentive Scheme Slabs
+    """
     DISCOUNT_TYPE_CHOICE = Choices((0, 'PERCENTAGE', 'Percentage'), (1, 'VALUE', 'Value'))
     scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
     min_value = models.IntegerField(verbose_name='Slab Start Value')
     max_value = models.IntegerField(verbose_name='Slab End Value')
-    discount_value = models.FloatField()
+    discount_value = models.DecimalField(max_digits=4, decimal_places=2)
+
     discount_type = models.IntegerField(choices=DISCOUNT_TYPE_CHOICE, default=DISCOUNT_TYPE_CHOICE.PERCENTAGE)
 
     def __str__(self):
@@ -44,6 +56,9 @@ class SchemeSlab(BaseTimestampModel):
 
 
 class SchemeShopMapping(BaseTimestampModel):
+    """
+    This class represents of Shop Scheme Mapping
+    """
     PRIORITY_CHOICE = Choices((0, 'P1', 'P1'), (1, 'P2', 'P2'))
     scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
