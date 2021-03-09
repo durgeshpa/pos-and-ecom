@@ -1,8 +1,10 @@
 from django.db import models
 from accounts.models import User
 from brand.models import Brand
+from categories.models import Category
 from shops.models import Shop
 from addresses.models import City
+from django.db.models import F, FloatField, Sum
 
 
 

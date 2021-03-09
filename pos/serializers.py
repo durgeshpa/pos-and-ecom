@@ -119,7 +119,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
 
         product_id = attrs.get('product_id')
         if product_id:
-            if not Product.objects.filter(id=product_id).exists():
+            if not RetailerProduct.objects.filter(id=product_id).exists():
                 raise serializers.ValidationError(_("Please enter a valid product_id"))
 
             selling_price = attrs.get('selling_price')
