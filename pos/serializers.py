@@ -1,11 +1,13 @@
 from rest_framework import serializers
 from django.utils.translation import ugettext_lazy as _
+import datetime
+
 from pos.models import RetailerProduct
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from shops.models import Shop
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
-import datetime
+
 
 
 class RetailerProductCreateSerializer(serializers.Serializer):
@@ -159,7 +161,6 @@ def date_validation(data):
 
 
 class CouponCodeSerializer(serializers.ModelSerializer):
-
     coupon_name = serializers.CharField(required=True)
     discount_qty_amount = serializers.DecimalField(required=True, max_digits=12, decimal_places=4)
     discount_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=4)
@@ -302,7 +303,7 @@ class CouponCodeGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Coupon
-        fields = ('coupon_name', 'is_active', 'rule')
+        fields = ('coupon_name', 'rule', 'is_active')
 
     def rule_dt(self, obj):
         return CouponRuleSetGetSerializer(obj.rule, context=self.context).data
@@ -313,7 +314,7 @@ class ComboCodeGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RuleSetProductMapping
-        fields = ('combo_offer_name', 'is_active', 'rule')
+        fields = ('combo_offer_name', 'rule', 'is_active')
 
     def rule_dt(self, obj):
          return CouponRuleSetGetSerializer(obj.rule, context=self.context).data
