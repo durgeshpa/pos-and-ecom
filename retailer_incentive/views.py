@@ -56,8 +56,20 @@ def scheme_shop_mapping_csv_upload(request):
 
             try:
                 for row_id, row in enumerate(reader):
-                    SchemeShopMapping.objects.create(shop_id=row[2], scheme_id=row[0],
-                                                     priority=SchemeShopMapping.PRIORITY_CHOICE._identifier_map[row[4]],
+                    scheme_id = row[0]
+                    shop_id = row[2]
+                    priority = SchemeShopMapping.PRIORITY_CHOICE._identifier_map[row[4]]
+
+                    active_mappings = get_active_mappings(shop_id)
+                    if active_mappings.count() >= 2:
+                        info_logger.info("Shop Id - {} already has 2 active mappings".format(shop_id))
+                        continue
+                    existing_active_mapping = active_mappings.last()
+                    if existing_active_mapping and existing_active_mapping.priority == priority:
+                        info_logger.info("Shop Id - {} already has an active {} mappings"
+                                              .format(shop_id, priority))
+                        continue
+                    SchemeShopMapping.objects.create(shop_id=shop_id, scheme_id=scheme_id, priority=priority,
                                                      is_active=True, user=get_current_user())
 
             except Exception as e:
