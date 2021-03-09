@@ -232,6 +232,9 @@ class CouponCodeUpdateSerializer(serializers.ModelSerializer):
     expiry_date = serializers.DateField(required=False)
 
     def validate(self, data):
+        """
+            start & expiry date validation.
+        """
         if data.get('start_date') and data.get('expiry_date'):
             date_validation(data)
         return data
@@ -252,6 +255,9 @@ class ComboDealsUpdateSerializer(serializers.ModelSerializer):
     expiry_date = serializers.DateField(required=False)
 
     def validate(self, data):
+        """
+            start & expiry date & product validation.
+        """
         if data.get('start_date') and data.get('expiry_date'):
             date_validation(data)
         if data.get('retailer_primary_product'):
