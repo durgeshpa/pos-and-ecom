@@ -2921,7 +2921,9 @@ def check_date_range(capping):
     return start date and end date
     """
     if capping.capping_type == 0:
-        return capping.start_date, capping.end_date
+        end_date = datetime.datetime.today()
+        start_date = datetime.datetime.today()
+        return end_date, start_date
     elif capping.capping_type == 1:
         end_date = datetime.datetime.today()
         start_date = end_date - datetime.timedelta(days=today.weekday())
