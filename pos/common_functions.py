@@ -23,16 +23,16 @@ class OffersCls(object):
         return ruleset
 
     @classmethod
-    def rule_set_product_mapping(cls, rule_id, retailer_primary_product, purchased_product_qty, retailer_free_product, free_product_qty, combo_offer_name, start_date, expiry_date):
+    def rule_set_product_mapping(cls, rule_id, retailer_primary_product, purchased_product_qty, retailer_free_product, free_product_qty, combo_offer_name, start_date, expiry_date, shop):
         RuleSetProductMapping.objects.create(rule_id=rule_id, retailer_primary_product=retailer_primary_product,
                                              purchased_product_qty=purchased_product_qty, retailer_free_product=retailer_free_product,
                                              free_product_qty=free_product_qty, combo_offer_name=combo_offer_name,
-                                             start_date=start_date, expiry_date=expiry_date)
+                                             start_date=start_date, expiry_date=expiry_date, shop=shop)
 
     @classmethod
-    def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, start_date, expiry_date):
+    def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, shop, start_date, expiry_date):
         Coupon.objects.create(rule_id=rule_id, coupon_name=coupon_name, coupon_type=coupon_type,
-                                             start_date=start_date, expiry_date=expiry_date)
+                              shop=shop, start_date=start_date, expiry_date=expiry_date)
 
 
 def get_response(msg, data=None):

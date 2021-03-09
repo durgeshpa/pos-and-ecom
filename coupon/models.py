@@ -66,6 +66,8 @@ class Coupon(models.Model):
     updated_at = models.DateTimeField(auto_now_add=True)
     start_date = models.DateField()
     expiry_date = models.DateField()
+    shop = models.ForeignKey(Shop, related_name='retailer_shop_coupon', on_delete=models.CASCADE, null=True,
+                             blank=True)
 
     def __str__(self):
         return self.coupon_name
@@ -126,6 +128,8 @@ class RuleSetProductMapping(models.Model):
     updated_at = models.DateTimeField(auto_now_add=True)
     start_date = models.DateField()
     expiry_date = models.DateField()
+    shop = models.ForeignKey(Shop, related_name='retailer_shop_offer', on_delete=models.CASCADE, null=True,
+                             blank=True)
 
     def __str__(self):
         return "%s->%s" % (self.purchased_product, self.free_product)

@@ -14,7 +14,7 @@ from products.models import Product
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 from global_config.models import GlobalConfig
-
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 
 POS_SERIALIZERS_MAP = {
@@ -208,11 +208,10 @@ class CouponOfferCreation(GenericAPIView):
                     """
                        rule_type is Coupon Code Creating Coupon
                     """
-
                     try:
                         with transaction.atomic():
-                            msg = create_coupon(request, serializer)
-                            return Response(msg, status=status.HTTP_201_CREATED)
+                            msg, status_code = create_coupon(request, serializer, shop_id)
+                            return Response(msg, status=status_code.get("status_code"))
                     except:
                         msg = {"is_success": False, "message": "Something went wrong",
                                "response_data": serializer.data}
@@ -229,8 +228,8 @@ class CouponOfferCreation(GenericAPIView):
                     """
                     try:
                         with transaction.atomic():
-                            msg = create_combo_offer(request, serializer)
-                            return Response(msg, status=status.HTTP_201_CREATED)
+                            msg, status_code = create_combo_offer(request, serializer, shop_id)
+                            return Response(msg, status=status_code.get("status_code"))
                     except:
                         msg = {"is_success": False, "message": "Something went wrong",
                                "response_data": serializer.data}
@@ -252,7 +251,6 @@ class CouponOfferCreation(GenericAPIView):
         """
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
-
             rule_type = request.data.get('rule_type')
             if int(rule_type) == 1:
                 """
@@ -261,11 +259,11 @@ class CouponOfferCreation(GenericAPIView):
                 serializer = CouponCodeUpdateSerializer(data=request.data)
                 if serializer.is_valid():
                     coupon_id = request.data.get('id')
-                    if Coupon.objects.filter(id=coupon_id).exists():
+                    if Coupon.objects.filter(id=coupon_id, shop=shop_id).exists():
                         try:
                             with transaction.atomic():
-                                msg = update_coupon(request, coupon_id, serializer)
-                                return Response(msg, status=status.HTTP_201_CREATED)
+                                msg, status_code = update_coupon(request, coupon_id, serializer, shop_id)
+                                return Response(msg, status=status_code.get("status_code"))
                         except:
                             msg = {"is_success": False, "message": "Something went wrong",
                                    "response_data": serializer.data}
@@ -273,7 +271,7 @@ class CouponOfferCreation(GenericAPIView):
                     else:
                         msg = {'is_success': False,
                                'error_message': f"There is no coupon available with (coupon id : {coupon_id}) "
-                                                f"for the shop_id provided",
+                                                f"for the shop_id : {shop_id}",
                                'response_data': None}
                         return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                 else:
@@ -290,8 +288,8 @@ class CouponOfferCreation(GenericAPIView):
                     if RuleSetProductMapping.objects.filter(id=combo_offer_id).exists():
                         try:
                             with transaction.atomic():
-                                msg = update_combo(request, combo_offer_id, serializer)
-                                return Response(msg, status=status.HTTP_201_CREATED)
+                                msg, status_code = update_combo(request, combo_offer_id, serializer, shop_id)
+                                return Response(msg, status=status_code.get("status_code"))
                         except:
                             msg = {"is_success": False, "message": "Something went wrong",
                                    "response_data": serializer.data}
@@ -328,10 +326,18 @@ def get_shop_id_from_token(request):
     return "Please provide Token"
 
 
-def create_coupon(request, serializer):
+def create_coupon(request, serializer, shop_id):
     """
         Creating Discount, Ruleset & Coupon
     """
+    try:
+        shop = Shop.objects.get(id=shop_id)
+    except ObjectDoesNotExist:
+        msg = {"is_success": False, "error": "shop Not Found",
+               "response_data": serializer.data}
+        status_code = {"status_code": 404}
+        return msg, status_code
+
     coupon_name = request.data.get('coupon_name')
     start_date = request.data.get('start_date')
     expiry_date = request.data.get('expiry_date')
@@ -345,42 +351,73 @@ def create_coupon(request, serializer):
     coupon_type = coupon_type.value
     # creating Coupon with coupon_type(cart)
     OffersCls.rule_set_cart_mapping(coupon_obj.id, coupon_type, coupon_name,
-                                    start_date, expiry_date)
+                                    shop, start_date, expiry_date)
     msg = {"is_success": True, "message": "Coupon has been successfully created!",
            "response_data": serializer.data}
-    return msg
+    status_code = {"status_code": 404}
+    return msg, status_code
 
 
-def create_combo_offer(request, serializer):
+def create_combo_offer(request, serializer, shop_id):
     """
         Creating Ruleset & RuleSetProductMapping
     """
+    try:
+        shop = Shop.objects.get(id=shop_id)
+    except ObjectDoesNotExist:
+        msg = {"is_success": False, "error": "shop Not Found",
+               "response_data": serializer.data}
+        status_code = {"status_code": 404}
+        return msg, status_code
+
+    retailer_primary_product = request.data.get('retailer_primary_product')
+    try:
+        retailer_primary_product_obj = RetailerProduct.objects.get(id=retailer_primary_product, shop=shop_id)
+    except ObjectDoesNotExist:
+        msg = {"is_success": False, "error": "retailer_primary_product Not Found",
+               "response_data": serializer.data,
+               },
+        status_code = {"status_code": 404}
+        return msg, status_code
+
+    retailer_free_product = request.data.get('retailer_free_product')
+    try:
+        retailer_free_product_obj = RetailerProduct.objects.get(id=retailer_free_product, shop=shop_id)
+    except ObjectDoesNotExist:
+        msg = {"is_success": False, "error": "retailer_free_product Not Found",
+               "response_data": serializer.data}
+        status_code = {"status_code": 404}
+        return msg, status_code
+
     combo_offer_name = request.data.get('combo_offer_name')
     start_date = request.data.get('start_date')
     expiry_date = request.data.get('expiry_date')
     # creating CouponRuleSet
-
     coupon_obj = OffersCls.rule_set_cretion(2, combo_offer_name, start_date, expiry_date)
-    retailer_primary_product = request.data.get('retailer_primary_product')
-    retailer_primary_product_obj = RetailerProduct.objects.get(id=retailer_primary_product)
-    retailer_free_product = request.data.get('retailer_free_product')
-    retailer_free_product_obj = RetailerProduct.objects.get(id=retailer_free_product)
     # creating Combo Offer with primary & free products
     OffersCls.rule_set_product_mapping(coupon_obj.id, retailer_primary_product_obj,
                                        request.data.get('purchased_product_qty'),
                                        retailer_free_product_obj, request.data.get('free_product_qty'),
-                                       combo_offer_name, start_date, expiry_date)
+                                       combo_offer_name, start_date, expiry_date, shop)
 
     msg = {"is_success": True, "message": "Combo Offer has been successfully created!",
            "response_data": serializer.data}
-    return msg
+    status_code = {"status_code": 201}
+    return msg, status_code
 
 
-def update_coupon(request, coupon_id, serializer):
+def update_coupon(request, coupon_id, serializer, shop_id):
     """
         Updating Discount, Ruleset & Coupon
     """
-    coupon = Coupon.objects.get(id=coupon_id)
+    try:
+        coupon = Coupon.objects.get(id=coupon_id, shop=shop_id)
+    except ObjectDoesNotExist:
+        msg = {"is_success": False, "error": "coupon Not Found",
+               "response_data": serializer.data}
+        status_code = {"status_code": 404}
+        return msg, status_code
+
     coupon_ruleset = CouponRuleSet.objects.get(rulename=coupon.coupon_name)
     discount = DiscountValue.objects.get(id=coupon_ruleset.discount.id)
     expected_input_data_list = ['id', 'coupon_name', 'discount_qty_amount', 'discount_value', 'start_date', 'expiry_date']
@@ -412,17 +449,23 @@ def update_coupon(request, coupon_id, serializer):
     coupon.save()
     msg = {"is_success": True, "message": f"Coupon has been successfully UPDATED!",
            "response_data": serializer.data}
+    status_code = {"status_code": 201}
+    return msg, status_code
 
-    return msg
 
-
-def update_combo(request, combo_id, serializer):
+def update_combo(request, combo_id, serializer, shop_id):
     """
         Updating Ruleset & RuleSetProductMapping
     """
-    rule_set_product_mapping = RuleSetProductMapping.objects.get(id=combo_id)
-    coupon_ruleset = CouponRuleSet.objects.get(rulename=rule_set_product_mapping.combo_offer_name)
+    try:
+        rule_set_product_mapping = RuleSetProductMapping.objects.get(id=combo_id, shop=shop_id)
+    except ObjectDoesNotExist:
+        msg = {"is_success": False, "error": "Offer Not Found",
+               "response_data": serializer.data}
+        status_code = {"status_code": 404}
+        return msg, status_code
 
+    coupon_ruleset = CouponRuleSet.objects.get(rulename=rule_set_product_mapping.combo_offer_name)
     expected_input_data_list = ['combo_offer_name', 'expiry_date', 'start_date',
                                 'retailer_primary_product', 'retailer_free_product', 'purchased_product_qty',
                                 'free_product_qty']
@@ -445,13 +488,27 @@ def update_combo(request, combo_id, serializer):
     if 'retailer_primary_product' in actual_input_data_list:
         # If retailer_primary_product in actual_input_data_list
         retailer_primary_product = request.data.get('retailer_primary_product')
-        retailer_primary_product_obj = RetailerProduct.objects.get(id=retailer_primary_product, shop=32394)
+        try:
+            retailer_primary_product_obj = RetailerProduct.objects.get(id=retailer_primary_product, shop=shop_id)
+        except ObjectDoesNotExist:
+            msg = {"is_success": False, "error": "retailer_primary_product Not Found",
+                   "response_data": serializer.data,
+                   },
+            status_code = {"status_code": 404}
+            return msg, status_code
+
         rule_set_product_mapping.retailer_primary_product = retailer_primary_product_obj
 
     if 'retailer_free_product' in actual_input_data_list:
         # If retailer_free_product in actual_input_data_list
         retailer_free_product = request.data.get('retailer_free_product')
-        retailer_free_product_obj = RetailerProduct.objects.get(id=retailer_free_product, shop=32394)
+        try:
+            retailer_free_product_obj = RetailerProduct.objects.get(id=retailer_free_product, shop=shop_id)
+        except ObjectDoesNotExist:
+            msg = {"is_success": False, "error": "retailer_free_product Not Found",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
         rule_set_product_mapping.retailer_free_product = retailer_free_product_obj
 
     if 'purchased_product_qty' in actual_input_data_list:
@@ -466,8 +523,8 @@ def update_combo(request, combo_id, serializer):
 
     msg = {"is_success": True, "message": f"Coupon has been successfully UPDATED!",
            "response_data": serializer.data}
-
-    return msg
+    status_code = {"status_code": 201}
+    return msg, status_code
 
 
 def serializer_error(serializer):
