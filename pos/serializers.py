@@ -137,8 +137,11 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         return attrs
 
 
-def validate_retailer_product(retailer_primary_product):
-    if not RetailerProduct.objects.filter(id=retailer_primary_product).exists():
+def validate_retailer_product(retailer_product):
+    """
+        Check that the product is present in RetailerProduct.
+    """
+    if not RetailerProduct.objects.filter(id=retailer_product).exists():
         raise serializers.ValidationError(_("Please enter a valid Product"))
 
 
@@ -198,7 +201,7 @@ class ComboDealsSerializer(serializers.ModelSerializer):
         """
         date_validation(data)
         """
-            Check that the retailer_primary_product & retailer_free_product is present in RetailerProduct.
+            Check that the retailer_primary_product & retailer_free_product are present in RetailerProduct.
         """
         retailer_primary_product = data.get('retailer_primary_product')
         if retailer_primary_product:
