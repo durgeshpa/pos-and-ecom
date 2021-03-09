@@ -28,7 +28,7 @@ class ShopSchemeMappingView(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         scheme_shop_mapping = get_shop_scheme_mapping(shop_id)
         if scheme_shop_mapping is None:
-            msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data': {}}
+            msg = {'is_success': False, 'message': ['No Scheme found for this shop'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
         serializer = SchemeShopMappingSerializer(scheme_shop_mapping)
         msg = {'is_success': True, 'message': ['OK'], 'data': serializer.data}
