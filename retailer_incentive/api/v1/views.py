@@ -1,3 +1,4 @@
+import datetime
 from math import floor
 
 from rest_framework import authentication, permissions, status
@@ -24,11 +25,17 @@ class ShopSchemeMappingView(APIView):
         if shop is None:
             msg = {'is_success': False, 'message': ['No shop found'], 'data':{} }
             return Response(msg, status=status.HTTP_200_OK)
-        shop_scheme = SchemeShopMapping.objects.filter(shop=shop, is_active=True).last()
-        if shop_scheme is None:
+
+        shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True,
+                                                                  scheme__end_date__gt=datetime.datetime.today().date())
+        if shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).exists():
+            scheme_shop_mapping = shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).last()
+        else:
+            scheme_shop_mapping = shop_scheme_mapping_qs.last()
+        if scheme_shop_mapping is None:
             msg = {'is_success': False, 'message': ['No Scheme found for this shop'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
-        serializer = SchemeShopMappingSerializer(shop_scheme)
+        serializer = SchemeShopMappingSerializer(scheme_shop_mapping)
         msg = {'is_success': True, 'message': ['OK'], 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
 
@@ -43,7 +50,9 @@ class ShopPurchaseMatrix(APIView):
 
     def get(self, request):
         shop_id = request.GET.get('shop_id')
-        shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True)
+        shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True,
+                                                                  scheme__end_date__gt=datetime.datetime.today().date()
+                                                                  )
         if not shop_scheme_mapping_qs.exists():
             msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
