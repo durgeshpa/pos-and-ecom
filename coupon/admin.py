@@ -55,8 +55,8 @@ class CouponRuleSetAdmin( admin.ModelAdmin):
     list_display = ('rulename', 'rule_description', 'all_users', 'discount_qty_step', 'discount_qty_amount', 'discount', 'is_free_shipment', 'cart_qualifying_min_sku_value', 'cart_qualifying_min_sku_item', 'is_active', 'created_at', 'expiry_date')
 
 class CouponAdmin( admin.ModelAdmin):
-    fields = ('coupon_code', 'coupon_name', 'rule', 'limit_per_user_per_day', 'limit_of_usages', 'coupon_type', 'no_of_times_used', 'is_display', 'is_active', 'expiry_date')
-    list_display = ('coupon_code', 'coupon_name', 'rule', 'limit_per_user_per_day', 'limit_of_usages', 'coupon_type', 'no_of_times_used', 'is_display', 'is_active', 'created_at', 'expiry_date')
+    fields = ('coupon_code', 'coupon_name', 'rule', 'limit_per_user_per_day', 'limit_of_usages', 'coupon_type', 'no_of_times_used', 'is_active', 'expiry_date')
+    list_display = ('coupon_code', 'coupon_name', 'rule', 'limit_per_user_per_day', 'limit_of_usages', 'coupon_type', 'no_of_times_used', 'is_active', 'created_at', 'expiry_date')
     list_filter = (RuleSetFilter, CouponNameFilter, CouponCodeFilter,'coupon_type', 'is_active')
     readonly_fields = ('no_of_times_used',)
 
