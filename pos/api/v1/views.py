@@ -11,7 +11,6 @@ from sp_to_gram.tasks import es_search
 from audit.views import BlockUnblockProduct
 from retailer_to_sp.api.v1.serializers import CartSerializer, GramMappedCartSerializer, ParentProductImageSerializer,\
     GramMappedOrderSerializer, OrderSerializer
-from accounts.api.v1.serializers import UserSerializer
 from retailer_backend.common_function import getShopMapping
 from retailer_backend.messages import ERROR_MESSAGES
 from wms.common_functions import get_stock, OrderManagement
@@ -30,7 +29,7 @@ from addresses.models import Address
 from pos.models import RetailerProduct
 from pos.common_functions import get_response, delete_cart_mapping
 
-from .serializers import ProductDetailSerializer
+from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer
 
 
 class ProductDetail(APIView):
@@ -335,7 +334,7 @@ class CartCentral(APIView):
         # Update customer as buyer in cart
         cart.buyer = customer
         cart.save()
-        serializer = CartSerializer(cart)
+        serializer = BasicCartSerializer(cart)
         return get_response("Cart Updated Successfully!", serializer.data)
 
     def get_retail_cart(self):
@@ -538,11 +537,10 @@ class CartCentral(APIView):
            Cart type basic
            Serialize
         """
-        serializer = CartSerializer(Cart.objects.get(id=cart.id), context={'search_text': self.request.GET.get('search_text', ''),
-                                                   'page_number': self.request.GET.get('page_number', 1),
-                                                   'records_per_page': self.request.GET.get('records_per_page', 10),})
-        for i in serializer.data['rt_cart_list']:
-            i['cart_product']['product_price'] = i['product_price']
+        serializer = BasicCartSerializer(Cart.objects.get(id=cart.id),
+                                         context={'search_text': self.request.GET.get('search_text', ''),
+                                                  'page_number': self.request.GET.get('page_number', 1),
+                                                  'records_per_page': self.request.GET.get('records_per_page', 10)})
         return serializer.data
 
     def retail_add_to_cart(self):
@@ -896,9 +894,7 @@ class CartCentral(APIView):
             Add To Cart
             Serialize basic cart
         """
-        serializer = CartSerializer(Cart.objects.get(id=cart.id))
-        for i in serializer.data['rt_cart_list']:
-            i['cart_product']['product_price'] = i['product_price']
+        serializer = BasicCartSerializer(Cart.objects.get(id=cart.id))
         return serializer.data
 
 
@@ -1170,6 +1166,7 @@ class OrderCentral(APIView):
         order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
         order.buyer = cart.buyer
         order.seller_shop = shop
+        order.received_by = cart.buyer
         order.total_tax_amount = float(self.request.POST.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
         order.save()
@@ -1267,5 +1264,6 @@ class OrderCentral(APIView):
             Place Order
             Serialize retail order for sp shop
         """
-        serializer = OrderSerializer(Order.objects.get(pk=order.id), context={'current_url': self.request.get_host()})
+        serializer = BasicOrderSerializer(Order.objects.get(pk=order.id),
+                                          context={'current_url': self.request.get_host()})
         return serializer.data
