@@ -30,7 +30,7 @@ def create_order_from_cart(form, formsets, request, Order):
     order_amounts = get_order_mrp_tax_discount_final_amount(formsets)
 
     order, _ = Order.objects.get_or_create(
-    	ordered_cart=cart_data.get('cart'), order_no=cart_data.get('order_id'))
+    	ordered_cart=cart_data.get('cart'))
 
     order.seller_shop = cart_data.get('seller_shop')
     order.buyer_shop = cart_data.get('buyer_shop')
@@ -279,7 +279,7 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
     writer.writerow([
         'Order No', 'Order Status', 'Order Created At', 'Seller Shop ID',
         'Seller Shop Name', 'Buyer Shop ID',
-        'Buyer Shop Name', 'Mobie No.(Buyer Shop)', 'City(Buyer Shop)',
+        'Buyer Shop Name', 'Buyer Shop Type', 'Buyer Shop SubType', 'Mobie No.(Buyer Shop)', 'City(Buyer Shop)',
         'Pincode(Buyer Shop)', 'Order MRP Amount', 'Order Amount',
         'Order Paid Amount', 'Invoice No', 'Invoice Amount', 'Shipment Status',
         'Shipment Return Reason', 'Shipment Created At', 'Shipment Delivered At',
@@ -304,7 +304,9 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
                 output_field=FloatField()))).values('sum')[:1]))\
         .values('order_no', 'order_status', 'created_at', 'seller_shop_id',
                 'seller_shop__shop_name', 'buyer_shop_id',
-                'buyer_shop__shop_name', 'buyer_shop__shop_owner__phone_number',
+                'buyer_shop__shop_name', 'buyer_shop__shop_type__shop_type',
+                'buyer_shop__shop_type__shop_sub_type__retailer_type_name',
+                'buyer_shop__shop_owner__phone_number',
                 'shipping_address__city__city_name',
                 'shipping_address__pincode_link__pincode',
                 'rt_order_order_product__invoice__invoice_no',
@@ -338,6 +340,8 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
             order.get('seller_shop__shop_name'),
             order.get('buyer_shop_id'),
             order.get('buyer_shop__shop_name'),
+            order.get('buyer_shop__shop_type__shop_type'),
+            order.get('buyer_shop__shop_type__shop_sub_type__retailer_type_name'),
             order.get('buyer_shop__shop_owner__phone_number'),
             order.get('shipping_address__city__city_name'),
             order.get('shipping_address__pincode_link__pincode'),

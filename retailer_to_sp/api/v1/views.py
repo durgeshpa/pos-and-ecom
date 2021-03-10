@@ -611,7 +611,7 @@ class AddToCart(APIView):
 
                     else:
                         cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                        available_qty = shop_products_dict[int(cart_product)] // int(
+                        available_qty = shop_products_dict.get(int(cart_product),0) // int(
                             cart_mapping.cart_product.product_inner_case_size)
                         cart_mapping.qty = qty
                         if int(qty) <= available_qty:
@@ -1115,7 +1115,7 @@ class CreateOrder(APIView):
 
                     if order_reserve_obj:
                         order, _ = Order.objects.get_or_create(last_modified_by=request.user, ordered_by=request.user,
-                                                               ordered_cart=cart, order_no=cart.order_id)
+                                                               ordered_cart=cart)
 
                         order.billing_address = billing_address
                         order.shipping_address = shipping_address
@@ -1173,8 +1173,7 @@ class CreateOrder(APIView):
 
                 if GramOrderedProductReserved.objects.filter(cart=cart).exists():
                     order, _ = GramMappedOrder.objects.get_or_create(last_modified_by=request.user,
-                                                                     ordered_by=request.user, ordered_cart=cart,
-                                                                     order_no=cart.order_id)
+                                                                     ordered_by=request.user, ordered_cart=cart)
 
                     order.billing_address = billing_address
                     order.shipping_address = shipping_address

@@ -154,6 +154,7 @@ class AutoOrderProcessor:
         if shipments:
             shipments.update(trip=trip)
         auto_processing_entry.order.order_status = Order.READY_TO_DISPATCH
+        auto_processing_entry.order.save()
         info_logger.info("WarehouseConsolidation|create_trip|Trip Created, order id-{}"
                          .format(auto_processing_entry.order.id))
         return auto_processing_entry
@@ -172,6 +173,7 @@ class AutoOrderProcessor:
         info_logger.info("WarehouseConsolidation|start_trip|inventory changes done, order id-{}"
                          .format(auto_processing_entry.order.id))
         auto_processing_entry.order.order_status = Order.DISPATCHED
+        auto_processing_entry.order.save()
         info_logger.info("WarehouseConsolidation|start_trip|Completed, order id-{}"
                          .format(auto_processing_entry.order.id))
         return auto_processing_entry
@@ -181,12 +183,17 @@ class AutoOrderProcessor:
                          .format(auto_processing_entry.order.id))
         shipments = OrderedProduct.objects.filter(order=auto_processing_entry.order)
         for shipment in shipments:
+            products_in_shipment = OrderedProductMapping.objects.filter(ordered_product=shipment)
+            for p in products_in_shipment:
+                p.delivered_qty = p.shipped_qty
+                p.save()
             shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
             shipment.trip.completed_at = timezone.now()
             shipment.trip.trip_status = Trip.RETURN_VERIFIED
             shipment.trip.save()
             shipment.save()
         auto_processing_entry.order.order_status = TRIP_ORDER_STATUS_MAP[Trip.COMPLETED]
+        auto_processing_entry.order.save()
         info_logger.info("WarehouseConsolidation|complete_trip|Completed, order id-{}"
                          .format(auto_processing_entry.order.id))
         return auto_processing_entry
@@ -214,6 +221,7 @@ class AutoOrderProcessor:
             pick_up_obj = Pickup.objects.filter(sku_id=item['cart_product__product_sku'],
                                                 pickup_type_id=order.order_no) \
                 .exclude(status='picking_cancelled').last()
+
             OrderedProductMapping.objects.create(ordered_product=shipment, product_id=item['cart_product'],
                                                  shipped_qty=pick_up_obj.pickup_quantity,
                                                  picked_pieces=pick_up_obj.pickup_quantity)
@@ -246,30 +254,36 @@ class AutoOrderProcessor:
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
         state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
         tr_type = "picked"
-        pickup_bin_inventory_objects = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
-                                                                         pickup__status='picking_assigned')
-        for pbi in pickup_bin_inventory_objects:
-            tr_id = pbi.pickup_id
-            warehouse = pbi.bin.warehouse
-            sku = pbi.bin.sku
-            inventory_type = pbi.bin.inventory_type
-            CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pbi.quantity, pbi.bin)
+        pickup_objects = Pickup.objects.filter(pickup_type_id=order_no, status='picking_assigned')
+        for p in pickup_objects:
+            pickup_bin_inventory_objects = PickupBinInventory.objects.filter(pickup=p)
+            picked_qty = 0
+            for pbi in pickup_bin_inventory_objects:
+                tr_id = pbi.pickup_id
+                warehouse = pbi.bin.warehouse
+                sku = pbi.bin.sku
+                inventory_type = pbi.bin.inventory_type
+                picked_qty += pbi.quantity
+                CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pbi.quantity, pbi.bin)
 
-            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                warehouse, sku, inventory_type, state_to_be_picked, -1 * pbi.quantity, tr_type, tr_id)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    warehouse, sku, inventory_type, state_to_be_picked, -1 * pbi.quantity, tr_type, tr_id)
 
-            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                warehouse, sku, inventory_type, state_total_available, -1 * pbi.quantity, tr_type, tr_id)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    warehouse, sku, inventory_type, state_total_available, -1 * pbi.quantity, tr_type, tr_id)
 
-            CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                warehouse, sku, inventory_type, state_picked, pbi.quantity, tr_type, tr_id)
+                CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+                    warehouse, sku, inventory_type, state_picked, pbi.quantity, tr_type, tr_id)
 
-            pbi.pickup_quantity = pbi.quantity
-            pbi.last_picked_at = timezone.now()
-            pbi.save()
-            Pickup.objects.filter(id=tr_id).update(pickup_quantity=pbi.quantity, status='picking_complete')
+                pbi.pickup_quantity = pbi.quantity
+                pbi.last_picked_at = timezone.now()
+                pbi.save()
+            p.pickup_quantity = picked_qty
+            p.status = 'picking_complete'
+            p.save()
             info_logger.info("WarehouseConsolidation|complete_pickup| Picking done |order id-{}, sku-{}"
                              .format(order_no, sku))
+
 
     @transaction.atomic
     def generate_picklist(self, auto_processing_entry):
@@ -278,9 +292,11 @@ class AutoOrderProcessor:
             .values_list('idc', flat=True)
         putaway_bin_inventories = PutawayBinInventory.objects.filter(putaway__putaway_type='GRN',
                                                                      putaway__putaway_type_id__in=in_ids)
-        putaway_batch_bin_dict = {
-            pbi.sku_id: {'batch_id': pbi.batch_id, 'bin_id': pbi.bin_id, 'qty': pbi.putaway_quantity}
-            for pbi in putaway_bin_inventories}
+        putaway_batch_bin_dict = {}
+        for pbi in putaway_bin_inventories:
+            if putaway_batch_bin_dict.get(pbi.sku_id) is None:
+                putaway_batch_bin_dict[pbi.sku_id] = []
+            putaway_batch_bin_dict[pbi.sku_id].append({'batch_id': pbi.batch_id, 'bin_id': pbi.bin_id, 'qty': pbi.putaway_quantity})
         self.__generate_picklist(auto_processing_entry.cart, auto_processing_entry.order, putaway_batch_bin_dict)
         info_logger.info("WarehouseConsolidation|generate_picklist| Picklist Generated, order id-{}"
                          .format(auto_processing_entry.order_id))
@@ -308,35 +324,36 @@ class AutoOrderProcessor:
 
             tr_id = pickup_object.pk
             sku_id = pickup_object.sku_id
-            batch_id = sku_bin_dict[sku_id]['batch_id']
-            bin_id = sku_bin_dict[sku_id]['bin_id']
-            qty_to_be_picked = order_product.no_of_pieces
-            bin_inventory_obj = BinInventory.objects.filter(id=bin_id).last()
-            if bin_inventory_obj is None:
-                info_logger.info("WarehouseConsolidation|generate_picklist| BinInventory Object does not exists| "
-                                 "order id-{}, sku-{}, bin-{}, warehouse-{}"
-                                 .format(order.order_no, sku_id, bin_id, shop.id))
-                raise Exception('Picklist Generation Failed')
+            for item in sku_bin_dict[sku_id]:
+                batch_id = item['batch_id']
+                bin_id = item['bin_id']
+                qty_to_be_picked = item['qty']
+                bin_inventory_obj = BinInventory.objects.filter(id=bin_id).last()
+                if bin_inventory_obj is None:
+                    info_logger.info("WarehouseConsolidation|generate_picklist| BinInventory Object does not exists| "
+                                     "order id-{}, sku-{}, bin-{}, warehouse-{}"
+                                     .format(order.order_no, sku_id, bin_id, shop.id))
+                    raise Exception('Picklist Generation Failed')
 
-            bin_inventory_obj.quantity = bin_inventory_obj.quantity - qty_to_be_picked
-            bin_inventory_obj.to_be_picked_qty += qty_to_be_picked
-            bin_inventory_obj.save()
+                bin_inventory_obj.quantity = bin_inventory_obj.quantity - qty_to_be_picked
+                bin_inventory_obj.to_be_picked_qty += qty_to_be_picked
+                bin_inventory_obj.save()
 
-            CommonPickBinInvFunction.create_pick_bin_inventory(shop, pickup_object, batch_id, bin_inventory_obj,
-                                                               quantity=qty_to_be_picked,
-                                                               bin_quantity=bin_inventory_obj.quantity,
-                                                               pickup_quantity=None)
-            InternalInventoryChange.create_bin_internal_inventory_change(shop, pickup_object.sku, batch_id,
-                                                                         bin_inventory_obj.bin,
-                                                                         type_normal, type_normal,
-                                                                         tr_type, tr_id, qty_to_be_picked)
+                CommonPickBinInvFunction.create_pick_bin_inventory(shop, pickup_object, batch_id, bin_inventory_obj,
+                                                                   quantity=qty_to_be_picked,
+                                                                   bin_quantity=bin_inventory_obj.quantity,
+                                                                   pickup_quantity=None)
+                InternalInventoryChange.create_bin_internal_inventory_change(shop, pickup_object.sku, batch_id,
+                                                                             bin_inventory_obj.bin,
+                                                                             type_normal, type_normal,
+                                                                             tr_type, tr_id, qty_to_be_picked)
 
             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                shop, pickup_object.sku, type_normal, state_ordered, -1 * qty_to_be_picked,
+                shop, pickup_object.sku, type_normal, state_ordered, -1 * pickup_object.quantity,
                 tr_type, tr_id)
 
             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                shop, pickup_object.sku, type_normal, state_to_be_picked, qty_to_be_picked,
+                shop, pickup_object.sku, type_normal, state_to_be_picked, pickup_object.quantity,
                 tr_type, tr_id)
 
             info_logger.info("WarehouseConsolidation|generate_picklist| Pickup Generated| order id-{}, sku-{}"
@@ -558,19 +575,19 @@ class AutoOrderProcessor:
                                                            AutoOrderProcessing.ORDER_PROCESSING_STATUS.PO_CREATED,
                                                            AutoOrderProcessing.ORDER_PROCESSING_STATUS.AUTO_GRN_DONE])
         if get_po_qs.exists():
-            return get_po_qs.last().auto_po
-        brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
-
-        cart_instance = POCarts.objects.create(brand=brand, supplier_name=self.supplier, supplier_state=self.supplier.state,
-                                                      gf_shipping_address=self.shipp_bill_address,
-                                                      gf_billing_address=self.shipp_bill_address,
-                                                      po_validity_date=grn['order__ordered_cart__po_validity_date'],
-                                                      payment_term=grn['order__ordered_cart__payment_term'],
-                                                      delivery_term=grn['order__ordered_cart__delivery_term'],
-                                                      po_raised_by=self.user,last_modified_by=self.user,
-                                                      cart_product_mapping_csv=
-                                                      grn['order__ordered_cart__cart_product_mapping_csv'],
-                                                      po_status='OPEN')
+            cart_instance = get_po_qs.last().auto_po
+        else:
+            brand = Brand.objects.get(id=grn['order__ordered_cart__brand'])
+            cart_instance = POCarts.objects.create(brand=brand, supplier_name=self.supplier, supplier_state=self.supplier.state,
+                                                          gf_shipping_address=self.shipp_bill_address,
+                                                          gf_billing_address=self.shipp_bill_address,
+                                                          po_validity_date=grn['order__ordered_cart__po_validity_date'],
+                                                          payment_term=grn['order__ordered_cart__payment_term'],
+                                                          delivery_term=grn['order__ordered_cart__delivery_term'],
+                                                          po_raised_by=self.user,last_modified_by=self.user,
+                                                          cart_product_mapping_csv=
+                                                          grn['order__ordered_cart__cart_product_mapping_csv'],
+                                                          po_status='OPEN')
 
         cart_product_mapping = POCartProductMappings.objects.filter(cart_id=grn['order__ordered_cart']).values(
             'cart_parent_product__parent_id', 'cart_product__id', '_tax_percentage', 'inner_case_size',
@@ -578,15 +595,18 @@ class AutoOrderProcessor:
             'per_unit_price', 'vendor_product__brand_to_gram_price_unit',
             'vendor_product__case_size', 'vendor_product__product_mrp', 'vendor_product__product_price',
             'vendor_product__product_price_pack')
+        all_source_po_product_ids = []
         for cart_pro_map in cart_product_mapping:
             parent_product = ParentProduct.objects.get(parent_id=cart_pro_map['cart_parent_product__parent_id'])
             product = Product.objects.get(id=cart_pro_map['cart_product__id'])
+            all_source_po_product_ids.append(cart_pro_map['cart_product__id'])
+            cart_mapped = POCartProductMappings.objects.filter(cart=cart_instance, cart_product=product)
 
-            cart_mapped = POCartProductMappings.objects.filter(cart=cart_instance,
-                                                               cart_product=product)
-
+            if cart_mapped:
+                cart_mapped.update(number_of_cases=cart_pro_map['number_of_cases'],
+                                   no_of_pieces=cart_pro_map['no_of_pieces'],
+                                   price=float(cart_pro_map['price']))
             if not cart_mapped:
-
                 product_mapping, _ = ProductVendorMapping.objects.get_or_create(vendor=self.supplier, product=product,
                                                                              product_price=cart_pro_map[
                                                                                 'vendor_product__product_price'],
@@ -606,6 +626,12 @@ class AutoOrderProcessor:
                                                      no_of_pieces=cart_pro_map['no_of_pieces'],
                                                      vendor_product=product_mapping,
                                                      price=float(cart_pro_map['price']))
+
+        all_po_products = POCartProductMappings.objects.filter(cart=cart_instance).values('id', 'cart_product_id')
+        for p in all_po_products:
+            if p['cart_product_id'] not in all_source_po_product_ids:
+                POCartProductMappings.objects.filter(pk=p['id']).delete()
+
         return cart_instance
 
     @transaction.atomic
@@ -619,7 +645,7 @@ class AutoOrderProcessor:
         order = Ordered.objects.get(ordered_cart=auto_processing_entry.auto_po_id)
 
         grn_order = GRNOrder(order=order, invoice_no=grn_order.invoice_no, invoice_date=grn_order.invoice_date,
-                             invoice_amount=grn_order.invoice_amount, tcs_amount=grn_order.invoice_amount)
+                             invoice_amount=grn_order.invoice_amount, tcs_amount=grn_order.tcs_amount)
         grn_order.save()
 
         for doc in grn_doc:

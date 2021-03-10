@@ -131,8 +131,15 @@ def update_putaway(id, batch_id, warehouse, put_quantity, user):
         updated_putaway = pu.last().putaway_quantity
         if updated_putaway == pu.last().quantity:
             return put_quantity
-        pu.update(putaway_quantity=updated_putaway + put_away_new, putaway_user=user)
-        put_quantity = put_quantity - put_away_new
+        put_away_quantity = updated_putaway + put_away_new
+        if pu.last().quantity < put_away_quantity:
+            diff_quantity = pu.last().quantity - updated_putaway
+            quantity = updated_putaway + diff_quantity
+            put_quantity = put_quantity - diff_quantity
+        else:
+            quantity = put_away_quantity
+            put_quantity = 0
+        pu.update(putaway_quantity=quantity, putaway_user=user)
         info_logger.info(put_quantity, "Put away quantity updated successfully.")
         return put_quantity
     except Exception as e:
