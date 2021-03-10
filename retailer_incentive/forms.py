@@ -1,6 +1,7 @@
 import codecs
 import csv
 import datetime
+import logging
 
 from dal import autocomplete
 from django import forms
@@ -12,6 +13,7 @@ from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
 from retailer_incentive.utils import get_active_mappings
 from shops.models import Shop
 
+info_logger = logging.getLogger('file-info')
 
 class SchemeCreationForm(forms.ModelForm):
     """
@@ -72,7 +74,7 @@ class SlabInlineFormSet(BaseInlineFormSet):
                     raise ValidationError("Slab start value should be greater than or equal to the end value in earlier slab")
                 if counter < non_empty_forms and slab_data['min_value'] >= slab_data['max_value']:
                     raise ValidationError("Slab end value should be greater than slab start value")
-                if slab_data['discount_value'] < last_slab_discount_value:
+                if slab_data['discount_value'] <= last_slab_discount_value:
                     raise ValidationError("Slab discount value should be greater than last slab discount value")
                 last_slab_end_value = slab_data['max_value']
                 last_slab_discount_value = slab_data['discount_value']
@@ -136,4 +138,18 @@ class UploadSchemeShopMappingForm(forms.Form):
             if not row[4] or row[4] not in SchemeShopMapping.PRIORITY_CHOICE._identifier_map.keys():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Priority'"))
 
+            shop_id = row[2]
+            priority = SchemeShopMapping.PRIORITY_CHOICE._identifier_map[row[4]]
+
+            active_mappings = get_active_mappings(shop_id)
+            if active_mappings.count() >= 2:
+                info_logger.info("Shop Id - {} already has 2 active mappings".format(shop_id))
+                raise ValidationError(_(f"Row {row_id + 1} | This shop already has 2 active mappings"))
+            existing_active_mapping = active_mappings.last()
+            if existing_active_mapping and existing_active_mapping.priority == priority:
+                info_logger.info("Shop Id - {} already has an active {} mappings".format(shop_id, row[4]))
+                raise ValidationError(_(f"Row {row_id + 1} | This shop already has an active {row[4]} mappings"))
+            elif existing_active_mapping and existing_active_mapping.scheme_id == int(row[0]):
+                info_logger.info("Shop Id - {} already mapped with scheme id {}".format(shop_id, row[0]))
+                raise ValidationError(_(f"Row {row_id + 1} | This shop is already mapped with scheme id {row[0]}"))
         return self.cleaned_data['file']

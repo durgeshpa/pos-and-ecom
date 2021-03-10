@@ -228,7 +228,8 @@ class RewardLog(models.Model):
         ('welcome_reward', "Welcome Reward"),
         ('used_reward', 'Used Reward'),
         ('direct_reward', 'Direct Reward'),
-        ('indirect_reward', 'Indirect Reward')
+        ('indirect_reward', 'Indirect Reward'),
+        ('purchase_reward', 'Purchase Reward')
     )
     user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=TRANSACTION_CHOICES)
