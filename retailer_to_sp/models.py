@@ -77,12 +77,14 @@ PAYMENT_MODE_CHOICES = (
     ("neft", "NEFT"),
     ("credit", "credit")
 )
+AUTO = 'AUTO'
 RETAIL = 'RETAIL'
 BULK = 'BULK'
 DISCOUNTED = 'DISCOUNTED'
 BASIC = 'BASIC'
 
 BULK_ORDER_STATUS = (
+    (AUTO, 'Auto'),
     (RETAIL, 'Retail'),
     (BULK, 'Bulk'),
     (DISCOUNTED, 'Discounted'),
@@ -1761,7 +1763,13 @@ class OrderedProduct(models.Model):  # Shipment
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if self.order.ordered_cart.cart_type == 'RETAIL':
+        if self.order.ordered_cart.cart_type == 'AUTO':
+            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+                CommonFunction.generate_invoice_number(
+                    'invoice_no', self.pk,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    self.invoice_amount)
+        elif self.order.ordered_cart.cart_type == 'RETAIL':
             if self.shipment_status == OrderedProduct.READY_TO_SHIP:
                 CommonFunction.generate_invoice_number(
                     'invoice_no', self.pk,
@@ -2700,7 +2708,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
         Cart order_id add
     """
     if not instance.order_no and instance.seller_shop and instance.seller_shop:
-        if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC']:
+        if instance.ordered_cart.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
             instance.order_no = common_function.order_id_pattern(
                 sender, 'order_no', instance.pk,
                 instance.seller_shop.
@@ -2760,8 +2768,7 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=CartProductMapping)
 def create_offers(sender, instance=None, created=False, **kwargs):
-    if instance.qty and instance.no_of_pieces and instance.cart.cart_type != 'DISCOUNTED'\
-            and instance.cart.cart_type != 'BASIC':
+    if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC'):
         Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 
 
@@ -2770,7 +2777,7 @@ from django.db.models.signals import post_delete
 
 @receiver(post_delete, sender=CartProductMapping)
 def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
-    if instance.qty and instance.no_of_pieces and instance.cart.cart_type != 'DISCOUNTED':
+    if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED'):
         Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 
 
@@ -2916,7 +2923,9 @@ def check_date_range(capping):
     return start date and end date
     """
     if capping.capping_type == 0:
-        return capping.start_date, capping.end_date
+        end_date = datetime.datetime.today()
+        start_date = datetime.datetime.today()
+        return end_date, start_date
     elif capping.capping_type == 1:
         end_date = datetime.datetime.today()
         start_date = end_date - datetime.timedelta(days=today.weekday())

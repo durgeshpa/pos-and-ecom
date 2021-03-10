@@ -37,7 +37,7 @@ class OrderForm(forms.ModelForm):
 
 class POGenerationForm(forms.ModelForm):
     brand = forms.ModelChoiceField(
-        queryset=Brand.objects.filter(brand_parent__isnull=True,active_status='active'),
+        queryset=Brand.objects.filter(active_status='active'),
         widget=autocomplete.ModelSelect2(url='brand-autocomplete',)
     )
     supplier_state = forms.ModelChoiceField(
@@ -129,7 +129,7 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID_STRING']%("Gram_to_brand_Price_Unit"))
 
-                if not row[9] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[9]):
+                if not row[9] or not re.match("[0-9]*([1-9][0-9]*(\.[0-9]*)?|\.[0-9]*[1-9][0-9]*)", row[9]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("Brand_to_gram"))
 

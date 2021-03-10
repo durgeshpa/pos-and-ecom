@@ -22,7 +22,7 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_PRODUCT_ID':'Invalid Product Id',
     'INVALID_PRODUCT_SKU':'Invalid Product SKU',
     'EMPTY':'%s cant be empty',
-    'EMPTY_OR_NOT_VALID':'%s cant be empty or not valid( eg: 11.11)',
+    'EMPTY_OR_NOT_VALID':'%s cant be empty or not valid( eg: 0)',
     'EMPTY_OR_NOT_VALID_STRING': '%s cant be empty or only be a "Per Pack" or "Per Piece"',
     'INVALID_GSTIN_Number': 'Invalid Gstin number',
     'INVALID_MARGIN': '%s has not valid format( eg: 0, 201, 17.11)',
@@ -46,6 +46,8 @@ SUCCESS_MESSAGES = {
     'CSV_UPLOADED_EXCEPT': 'CSV file has been successfully uploaded, except these ids:-%s',
     'AUDIT_ENDED_SKU': 'Audit completed for SKU {}',
     'AUDIT_ENDED_BIN': 'Audit completed for BIN {}',
+    'SCHEME_SLAB_ADD_MORE':'Buy worth ₹{} more to earn ₹{} incentive at {}%',''
+    'SCHEME_SLAB_HIGHEST':'You are already in the highest incentive slab earning margin at 2%. Buy more to earn more incentive',
     "2001": "Ok",
     "2002": "Executive Feedback saved successfully.",
 }

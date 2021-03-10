@@ -620,9 +620,9 @@ def trip_planning_change(request, pk):
                                             shipment_product_batch.save()
                                     shipment.shipment_status='FULLY_DELIVERED_AND_VERIFIED'
                                     shipment.save()
-                        franchise_inv_add_trip_block = GlobalConfig.objects.filter(key='franchise_inv_add_trip_block').last()
-                        if not franchise_inv_add_trip_block or franchise_inv_add_trip_block.value != 1:
-                            check_franchise_inventory_update(trip)
+                        # franchise_inv_add_trip_block = GlobalConfig.objects.filter(key='franchise_inv_add_trip_block').last()
+                        # if not franchise_inv_add_trip_block or franchise_inv_add_trip_block.value != 1:
+                        #     check_franchise_inventory_update(trip)
 
                         return redirect('/admin/retailer_to_sp/trip/')
 

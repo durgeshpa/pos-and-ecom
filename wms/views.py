@@ -131,8 +131,15 @@ def update_putaway(id, batch_id, warehouse, put_quantity, user):
         updated_putaway = pu.last().putaway_quantity
         if updated_putaway == pu.last().quantity:
             return put_quantity
-        pu.update(putaway_quantity=updated_putaway + put_away_new, putaway_user=user)
-        put_quantity = put_quantity - put_away_new
+        put_away_quantity = updated_putaway + put_away_new
+        if pu.last().quantity < put_away_quantity:
+            diff_quantity = pu.last().quantity - updated_putaway
+            quantity = updated_putaway + diff_quantity
+            put_quantity = put_quantity - diff_quantity
+        else:
+            quantity = put_away_quantity
+            put_quantity = 0
+        pu.update(putaway_quantity=quantity, putaway_user=user)
         info_logger.info(put_quantity, "Put away quantity updated successfully.")
         return put_quantity
     except Exception as e:
@@ -873,7 +880,9 @@ def pickup_entry_creation_with_cron():
     order_obj = Order.objects.filter(order_status='ordered',
                                      order_closed=False,
                                      created_at__lt=current_time,
-                                     created_at__gt=start_time)
+                                     created_at__gt=start_time)\
+                             .exclude(order_no__in=Cart.objects.filter(cart_type='AUTO')
+                                                               .values_list('order_id', flat=True))
     if order_obj.count() == 0:
         cron_logger.info("{}| no orders to generate picklist for".format(cron_name))
         return
@@ -1728,7 +1737,6 @@ class PicklistRefresh:
             inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
         state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
         state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
-        state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
         shop = Shop.objects.filter(id=order.seller_shop.id).last()
         with transaction.atomic():
             for order_product in order.ordered_cart.rt_cart_list.all():
