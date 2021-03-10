@@ -2,38 +2,25 @@ import codecs
 import csv
 import decimal
 
-<<<<<<< HEAD
-from django.core.exceptions import ObjectDoesNotExist
-from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
-from django.db import transaction
+from dal import autocomplete
+from django.db.models import Q
+from django.http import HttpResponse
+from django.shortcuts import render
 from rest_framework import status, authentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from django.core.exceptions import ObjectDoesNotExist
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from django.db import transaction
 
 from pos.common_functions import RetailerProductCls, OffersCls, get_shop_id_from_token, serializer_error
-from pos.models import RetailerProduct, RetailerProductImage
 from pos.serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
     RetailerProductResponseSerializer, CouponCodeSerializer, ComboDealsSerializer,\
     CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponCodeGetSerializer, ComboCodeGetSerializer
-from products.models import Product
-=======
-from dal import autocomplete
-from django.db.models import Q
-from django.http import JsonResponse, HttpResponse
-from django.shortcuts import render
-from rest_framework import status, authentication, permissions
-from rest_framework.generics import GenericAPIView, CreateAPIView
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-
-from pos.common_functions import RetailerProductCls
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm
 from pos.models import RetailerProduct, RetailerProductImage
-from pos.serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
-    RetailerProductResponseSerializer
 from products.models import Product, ParentProductCategory
->>>>>>> pos_system
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 from global_config.models import GlobalConfig
