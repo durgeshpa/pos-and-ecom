@@ -37,9 +37,9 @@ class OffersCls(object):
         """
            rule_set Creation for Offer/Coupon
         """
-        ruleset = CouponRuleSet.objects.create(ruleset_type=ruleset_type, rulename=rulename, all_users=True,
-                                               start_date=start_date, expiry_date=expiry_date, is_active=True,
-                                               discount_qty_amount=discount_qty_amount, discount=discount_obj)
+        ruleset = CouponRuleSet.objects.create(ruleset_type=ruleset_type, rulename=rulename, start_date=start_date,
+                                               expiry_date=expiry_date, is_active=True, discount_qty_amount=
+                                               discount_qty_amount, discount=discount_obj)
         return ruleset
 
     @classmethod

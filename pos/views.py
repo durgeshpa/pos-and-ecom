@@ -26,8 +26,6 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 from global_config.models import GlobalConfig
 
 
-
-
 POS_SERIALIZERS_MAP = {
     '0': RetailerProductCreateSerializer,
     '1': RetailerProductUpdateSerializer
@@ -199,12 +197,15 @@ class CouponOfferCreation(GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         """
-            GET API for CouponOfferLIST.
+            GET API for CouponOfferEdit.
             Using CouponCodeSerializer for Coupon Coupon LIST and ComboDealsSerializer for Combo Offer LIST.
         """
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
-            coupon_offers = self.get_serialize_process(request, shop_id)
+            if request.data.get('id'):
+                coupon_offers = self.get_coupons_combo_offers(request, shop_id)
+            else:
+                coupon_offers = self.get_serialize_process(request, shop_id)
             msg = {"is_success": True, "message": "Coupon/Offers Retrieved Successfully",
                    "response_data": coupon_offers}
             return Response(msg, status=200)
@@ -325,6 +326,29 @@ class CouponOfferCreation(GenericAPIView):
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
+    def get_coupons_combo_offers(self, request, shop_id):
+        """
+          Get Offers/Coupons
+          Serialize Offers/Coupons
+       """
+        rule_type = request.data.get('rule_type')
+        if int(rule_type) == 1:
+            """
+              rule_type is Coupon Code getting Coupon
+            """
+            coupon_id = request.data.get('id')
+            offers = Coupon.objects.filter(shop=shop_id, id=coupon_id).order_by('-created_at').\
+                values('id', 'rule__ruleset_type', 'coupon_name', 'coupon_code', 'start_date', 'expiry_date')
+        else:
+            """
+                 rule_type is Coupon Code getting Combo offer
+            """
+            combo_offer_id = request.data.get('id')
+            offers = RuleSetProductMapping.objects.filter(shop=shop_id, id=combo_offer_id).order_by('-created_at').\
+                values('id', 'rule__ruleset_type', 'retailer_primary_product__name',
+                       'retailer_free_product__name', 'start_date', 'expiry_date')
+        return offers
+
     def get_serialize_process(self, request, shop_id):
         """
           Get Offers/Coupons
@@ -372,37 +396,38 @@ class CouponOfferCreation(GenericAPIView):
         }
         return coupon_offers_data
 
-    def create_coupon(self, request, serializer, shop_id):
-        """
-            Creating Discount, Ruleset & Coupon
-        """
-        try:
-            shop = Shop.objects.get(id=shop_id)
-        except ObjectDoesNotExist:
-            msg = {"is_success": False, "error": "Shop Not Found",
-                   "response_data": serializer.data}
-            status_code = {"status_code": 404}
-            return msg, status_code
 
-        coupon_name = request.data.get('coupon_name')
-        start_date = request.data.get('start_date')
-        expiry_date = request.data.get('expiry_date')
-        discount_value = request.data.get('discount_value')
-        discount_qty_amount = request.data.get('discount_qty_amount')
-        # creating Discount
-        discount_obj = DiscountValue.objects.create(discount_value=discount_value)
-        # creating CouponRuleSet
-        coupon_obj = OffersCls.rule_set_creation(1, coupon_name, start_date, expiry_date, discount_qty_amount,
-                                                 discount_obj)
-        coupon_type = GlobalConfig.objects.get(key='coupon_type')
-        coupon_type = coupon_type.value
-        # creating Coupon with coupon_type(cart)
-        OffersCls.rule_set_cart_mapping(coupon_obj.id, coupon_type, coupon_name,
-                                        shop, start_date, expiry_date)
-        msg = {"is_success": True, "message": "Coupon has been successfully created!",
-               "response_data": serializer.data}
-        status_code = {"status_code": 201}
-        return msg, status_code
+    def create_coupon(self, request, serializer, shop_id):
+            """
+                Creating Discount, Ruleset & Coupon
+            """
+            try:
+                shop = Shop.objects.get(id=shop_id)
+            except ObjectDoesNotExist:
+                msg = {"is_success": False, "error": "Shop Not Found",
+                       "response_data": serializer.data}
+                status_code = {"status_code": 404}
+                return msg, status_code
+
+            coupon_name = request.data.get('coupon_name')
+            start_date = request.data.get('start_date')
+            expiry_date = request.data.get('expiry_date')
+            discount_value = request.data.get('discount_value')
+            discount_qty_amount = request.data.get('discount_qty_amount')
+            # creating Discount
+            discount_obj = DiscountValue.objects.create(discount_value=discount_value)
+            # creating CouponRuleSet
+            coupon_obj = OffersCls.rule_set_creation(1, coupon_name, start_date, expiry_date, discount_qty_amount,
+                                                     discount_obj)
+            coupon_type = GlobalConfig.objects.get(key='coupon_type')
+            coupon_type = coupon_type.value
+            # creating Coupon with coupon_type(cart)
+            OffersCls.rule_set_cart_mapping(coupon_obj.id, coupon_type, coupon_name,
+                                            shop, start_date, expiry_date)
+            msg = {"is_success": True, "message": "Coupon has been successfully created!",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 201}
+            return msg, status_code
 
     def create_combo_offer(self, request, serializer, shop_id):
         """
