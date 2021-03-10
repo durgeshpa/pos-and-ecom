@@ -762,9 +762,9 @@ def products_vendor_mapping(request,pk=None):
 
         for p in vendor_products:
             if p.brand_to_gram_price_unit == "Per Piece":
-                writer.writerow([p.product.parent_product.parent_id, p.product.parent_name, p.product_id,p.product.product_name,p.product.product_sku,p.case_size,'',p.product_mrp,p.brand_to_gram_price_unit,p.product_price])
+                writer.writerow([p.product.parent_product.parent_id, p.product.parent_name, p.product_id,p.product.product_name,p.product.product_sku,p.case_size,'',p.product.product_mrp,p.brand_to_gram_price_unit,p.product_price])
             else :
-                writer.writerow([p.product.parent_product.parent_id, p.product.parent_name, p.product_id,p.product.product_name,p.product.product_sku,p.case_size,'',p.product_mrp,p.brand_to_gram_price_unit,p.product_price_pack])
+                writer.writerow([p.product.parent_product.parent_id, p.product.parent_name, p.product_id,p.product.product_name,p.product.product_sku,p.case_size,'',p.product.product_mrp,p.brand_to_gram_price_unit,p.product_price_pack])
     except:
         writer.writerow(["Make sure you have selected vendor before downloading CSV file"])
     return response
