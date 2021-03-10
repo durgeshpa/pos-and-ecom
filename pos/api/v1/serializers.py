@@ -45,4 +45,4 @@ class RetailerProductsSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerProduct
         fields = ('id','product_name','product_short_description','product_sku', 'product_mrp', 'product_ean_code',
-                  'created_at','modified_at','status','product_pro_image', 'product_price')
+                  'created_at','modified_at','status','product_pro_image')
