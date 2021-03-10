@@ -202,8 +202,9 @@ class CouponOfferCreation(GenericAPIView):
         """
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
-            if request.data.get('id'):
-                coupon_offers = self.get_coupons_combo_offers(request, shop_id)
+            combo_coupon_id = request.data.get('id')
+            if combo_coupon_id:
+                coupon_offers = self.get_coupons_combo_offers_by_id(request, shop_id, combo_coupon_id)
             else:
                 coupon_offers = self.get_serialize_process(request, shop_id)
             msg = {"is_success": True, "message": "Coupon/Offers Retrieved Successfully",
@@ -326,7 +327,7 @@ class CouponOfferCreation(GenericAPIView):
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
-    def get_coupons_combo_offers(self, request, shop_id):
+    def get_coupons_combo_offers_by_id(self, request, shop_id, combo_coupon_id):
         """
           Get Offers/Coupons
           Serialize Offers/Coupons
@@ -336,15 +337,13 @@ class CouponOfferCreation(GenericAPIView):
             """
               rule_type is Coupon Code getting Coupon
             """
-            coupon_id = request.data.get('id')
-            offers = Coupon.objects.filter(shop=shop_id, id=coupon_id).order_by('-created_at').\
+            offers = Coupon.objects.filter(shop=shop_id, id=combo_coupon_id).order_by('-created_at').\
                 values('id', 'rule__ruleset_type', 'coupon_name', 'coupon_code', 'start_date', 'expiry_date')
         else:
             """
                  rule_type is Coupon Code getting Combo offer
             """
-            combo_offer_id = request.data.get('id')
-            offers = RuleSetProductMapping.objects.filter(shop=shop_id, id=combo_offer_id).order_by('-created_at').\
+            offers = RuleSetProductMapping.objects.filter(shop=shop_id, id=combo_coupon_id).order_by('-created_at').\
                 values('id', 'rule__ruleset_type', 'retailer_primary_product__name',
                        'retailer_free_product__name', 'start_date', 'expiry_date')
         return offers
@@ -395,7 +394,6 @@ class CouponOfferCreation(GenericAPIView):
             'data': list(coupon_offers)
         }
         return coupon_offers_data
-
 
     def create_coupon(self, request, serializer, shop_id):
             """
