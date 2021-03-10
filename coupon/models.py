@@ -17,11 +17,6 @@ class DiscountValue(models.Model):
 
 
 class CouponRuleSet(models.Model):
-    RuleSet_Type = (
-        (1, "Coupon Code"),
-        (2, "Combo Deals"),
-    )
-    ruleset_type = models.IntegerField(choices=RuleSet_Type)
     rulename = models.CharField(max_length=255, unique=True, null=True)
     rule_description = models.CharField(max_length=255, null=True)
     no_of_users_allowed = models.ManyToManyField(User, blank=True)
@@ -31,7 +26,7 @@ class CouponRuleSet(models.Model):
     discount = models.ForeignKey(DiscountValue, related_name='discount_value_id', on_delete=models.CASCADE, null=True,
                                  blank=True)
     is_free_shipment = models.BooleanField(default=False, null=True, blank=True)
-    cart_qualifying_min_sku_value = models.PositiveIntegerField(default=0, blank=True, null=True)
+    cart_qualifying_min_sku_value = models.FloatField(default=0, blank=True, null=True)
     cart_qualifying_min_sku_item = models.PositiveIntegerField(default=0, blank=True, null=True)
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -129,8 +124,7 @@ class RuleSetProductMapping(models.Model):
     is_active = models.BooleanField(default=False, db_index=True)
     start_date = models.DateField()
     expiry_date = models.DateField()
-    shop = models.ForeignKey(Shop, related_name='retailer_shop_offer', on_delete=models.CASCADE, null=True,
-                             blank=True)
+
 
     def __str__(self):
         return "%s->%s" % (self.purchased_product, self.free_product)

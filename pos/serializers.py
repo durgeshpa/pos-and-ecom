@@ -293,7 +293,7 @@ class DiscountSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DiscountValue
-        fields = ('discount_value',)
+        fields = ('discount_value', 'is_percentage', 'max_discount')
 
 
 class CouponRuleSetGetSerializer(serializers.ModelSerializer):

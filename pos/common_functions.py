@@ -33,18 +33,18 @@ class RetailerProductCls(object):
 
 class OffersCls(object):
     @classmethod
-    def rule_set_creation(cls, ruleset_type, rulename, start_date, expiry_date, discount_qty_amount=None, discount_obj=None):
+    def rule_set_creation(cls, rulename, start_date, expiry_date, discount_qty_amount=None, discount_obj=None):
         """
            rule_set Creation for Offer/Coupon
         """
-        ruleset = CouponRuleSet.objects.create(ruleset_type=ruleset_type, rulename=rulename, start_date=start_date,
-                                               expiry_date=expiry_date, is_active=True, discount_qty_amount=
+        ruleset = CouponRuleSet.objects.create(rulename=rulename, start_date=start_date,
+                                               expiry_date=expiry_date, is_active=True, cart_qualifying_min_sku_value=
                                                discount_qty_amount, discount=discount_obj)
         return ruleset
 
     @classmethod
     def rule_set_product_mapping(cls, rule_id, retailer_primary_product, purchased_product_qty, retailer_free_product,
-                                 free_product_qty, combo_offer_name, start_date, expiry_date, shop):
+                                 free_product_qty, combo_offer_name, start_date, expiry_date):
         """
             rule_set Mapping with product for combo offer
         """
@@ -52,7 +52,7 @@ class OffersCls(object):
                                              purchased_product_qty=purchased_product_qty, retailer_free_product=
                                              retailer_free_product, free_product_qty=free_product_qty,
                                              combo_offer_name=combo_offer_name, start_date=start_date,
-                                             expiry_date=expiry_date, shop=shop)
+                                             expiry_date=expiry_date, is_active=True)
 
     @classmethod
     def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, shop, start_date, expiry_date):
@@ -60,7 +60,8 @@ class OffersCls(object):
             rule_set cart mapping for coupon creation
         """
         Coupon.objects.create(rule_id=rule_id, coupon_name=coupon_name, coupon_type=coupon_type,
-                              shop=shop, start_date=start_date, expiry_date=expiry_date)
+                              shop=shop, start_date=start_date, expiry_date=expiry_date, coupon_code=coupon_name,
+                              is_active=True)
 
 
 def get_response(msg, data=None):
