@@ -1,7 +1,10 @@
 import decimal
 
-from rest_framework import status, authentication, permissions
-from rest_framework.generics import GenericAPIView, CreateAPIView
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
+
+from rest_framework import status, authentication
+from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
@@ -14,9 +17,8 @@ from products.models import Product
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 from global_config.models import GlobalConfig
-from django.core.exceptions import ObjectDoesNotExist
-from django.db import transaction
-from pos.common_functions import get_response
+
+
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
 POS_SERIALIZERS_MAP = {
@@ -190,8 +192,6 @@ class CatalogueProductCreation(GenericAPIView):
                    'error_message': shop_id_or_error_message,
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-
-
 
 
 class CouponOfferCreation(GenericAPIView):
@@ -461,7 +461,6 @@ def update_coupon(request, coupon_id, serializer, shop_id):
     if 'expiry_date' in actual_input_data_list:
         # If expiry_date in actual_input_data_list
         coupon.expiry_date = request.data.get('expiry_date')
-
     if 'is_active' in actual_input_data_list:
         # If is_active in actual_input_data_list
         coupon.is_active = request.data.get('is_active')
@@ -506,7 +505,6 @@ def update_combo(request, combo_id, serializer, shop_id):
     if 'expiry_date' in actual_input_data_list:
         # If expiry_date in actual_input_data_list
         rule_set_product_mapping.expiry_date = request.data.get('expiry_date')
-
     if 'retailer_primary_product' in actual_input_data_list:
         # If retailer_primary_product in actual_input_data_list
         retailer_primary_product = request.data.get('retailer_primary_product')
@@ -520,7 +518,6 @@ def update_combo(request, combo_id, serializer, shop_id):
             return msg, status_code
 
         rule_set_product_mapping.retailer_primary_product = retailer_primary_product_obj
-
     if 'retailer_free_product' in actual_input_data_list:
         # If retailer_free_product in actual_input_data_list
         retailer_free_product = request.data.get('retailer_free_product')
@@ -532,14 +529,12 @@ def update_combo(request, combo_id, serializer, shop_id):
             status_code = {"status_code": 404}
             return msg, status_code
         rule_set_product_mapping.retailer_free_product = retailer_free_product_obj
-
     if 'purchased_product_qty' in actual_input_data_list:
         # If purchased_product_qty in actual_input_data_list
         rule_set_product_mapping.purchased_product_qty = request.data.get('purchased_product_qty')
     if 'free_product_qty' in actual_input_data_list:
         # If free_product_qty in actual_input_data_list
         rule_set_product_mapping.free_product_qty = request.data.get('free_product_qty')
-
     if 'is_active' in actual_input_data_list:
         # If is_active in actual_input_data_list
         rule_set_product_mapping.is_active = request.data.get('is_active')
