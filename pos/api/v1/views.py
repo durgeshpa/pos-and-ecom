@@ -10,7 +10,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from sp_to_gram.tasks import es_search
 from audit.views import BlockUnblockProduct
 from retailer_to_sp.api.v1.serializers import CartSerializer, GramMappedCartSerializer, ParentProductImageSerializer,\
-    GramMappedOrderSerializer, OrderSerializer
+    GramMappedOrderSerializer, OrderSerializer, OrderDetailSerializer
 from retailer_backend.common_function import getShopMapping
 from retailer_backend.messages import ERROR_MESSAGES
 from wms.common_functions import get_stock, OrderManagement
@@ -900,6 +900,21 @@ class CartCentral(APIView):
 
 class OrderCentral(APIView):
 
+    def get(self, request):
+        """
+            Get Order Details
+            Inputs
+            cart_type
+            order_id
+        """
+        cart_type = request.GET.get('cart_type')
+        if cart_type == '1':
+            return self.get_retail_order()
+        elif cart_type == '2':
+            return self.get_basic_order()
+        else:
+            return get_response('Provide a valid cart_type')
+
     def post(self, request):
         """
             Place Order
@@ -921,6 +936,37 @@ class OrderCentral(APIView):
             return self.post_basic_order()
         else:
             return get_response('Provide a valid cart_type')
+
+    def get_retail_order(self):
+        """
+            Get Order
+            For retail cart
+        """
+        # basic validations for inputs
+        initial_validation = self.get_retail_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        parent_mapping = initial_validation['parent_mapping']
+        shop_type = initial_validation['shop_type']
+        order = initial_validation['order']
+        if shop_type == 'sp':
+            return get_response('Order', self.get_serialize_process_sp(order, parent_mapping))
+        elif shop_type == 'gf':
+            return get_response('Order', self.get_serialize_process_gf(order, parent_mapping))
+        else:
+            return get_response('Sorry shop is not associated with any GramFactory or any SP')
+
+    def get_basic_order(self):
+        """
+            Get Order
+            For Basic Cart
+        """
+        # basic validation for inputs
+        initial_validation = self.get_basic_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        return get_response('Order', self.get_serialize_process_basic(order))
 
     def post_retail_order(self):
         """
@@ -1011,6 +1057,39 @@ class OrderCentral(APIView):
             self.update_cart_basic(cart)
             order = self.create_basic_order(cart, shop)
         return get_response('Ordered Successfully!', self.post_serialize_process_basic(order))
+
+    def get_retail_validate(self):
+        """
+            Get Order
+            Input validation for cart type 'retail'
+        """
+        shop_id = self.request.GET.get('shop_id')
+        # Check if buyer shop exists
+        if not Shop.objects.filter(id=shop_id).exists():
+            return {'error': "Shop Doesn't Exist!"}
+        # Check if buyer shop is mapped to parent/seller shop
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
+            return {'error': "Shop Mapping Doesn't Exist!"}
+        shop_type = parent_mapping.parent.shop_type.shop_type
+        # Check if order exists
+        order = None
+        try:
+            if shop_type == 'sp':
+                order = Order.objects.get(pk=self.request.GET.get('order_id'))
+            elif shop_type == 'gf':
+                order = GramMappedOrder.objects.get(pk=self.request.GET.get('order_id'))
+        except ObjectDoesNotExist:
+            return {'error': 'Order Not Found!'}
+        return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
+
+    def get_basic_validate(self):
+        # Check if order exists
+        try:
+            order = Order.objects.get(pk=self.request.GET.get('order_id'))
+        except ObjectDoesNotExist:
+            return {'error': 'Order Not Found!'}
+        return {'order': order}
 
     def post_retail_validate(self):
         """
@@ -1238,6 +1317,33 @@ class OrderCentral(APIView):
             ordered_reserve.order_product_reserved.save()
             ordered_reserve.reserve_status = 'ordered'
             ordered_reserve.save()
+
+    def get_serialize_process_sp(self, order, parent_mapping):
+        """
+           Get Order
+           Cart type retail - sp
+        """
+        serializer = OrderDetailSerializer(order, context={'parent_mapping_id': parent_mapping.parent.id,
+                                                           'current_url': self.request.get_host(),
+                                                           'buyer_shop_id': parent_mapping.retailer.id})
+        return serializer.data
+
+    def get_serialize_process_gf(self, order, parent_mapping):
+        """
+           Get Order
+           Cart type retail - gf
+        """
+        serializer = GramMappedOrderSerializer(order, context={'parent_mapping_id': parent_mapping.parent.id,
+                                                               'current_url': self.request.get_host()})
+        return serializer.data
+
+    def get_serialize_process_basic(self, order):
+        """
+           Get Order
+           Cart type basic
+        """
+        serializer = BasicOrderSerializer(order)
+        return serializer.data
 
     def post_serialize_process_sp(self, order, parent_mapping):
         """

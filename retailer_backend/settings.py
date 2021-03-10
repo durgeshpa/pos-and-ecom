@@ -135,7 +135,7 @@ INSTALLED_APPS = [
     'tablib',
     'marketing',
     'global_config',
-    'pos.apps.PosConfig'
+    'pos.apps.PosConfig',
     'whc',
     'redash_report',
     'retailer_incentive'
