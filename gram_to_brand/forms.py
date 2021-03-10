@@ -120,7 +120,7 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("No_of_cases"))
 
-                if not ProductVendorMapping.objects.filter(product=row[2]).last().case_size == int(row[5]):
+                if not ProductVendorMapping.objects.filter(product=row[2], vendor_id=self.data['supplier_name'], status=True).last().case_size == int(row[5]):
                     raise ValidationError(
                         "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
                             'NOT_VALID'] % ("Case size"))
@@ -129,7 +129,12 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("MRP"))
 
-                if not Product.objects.filter(id=row[2]).last().product_mrp == int(row[7]):
+                if Product.objects.filter(id=row[2], status='deactivated').exists():
+                    raise ValidationError(
+                        "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
+                            'DEACTIVATE'] % ("Product"))
+
+                if not Product.objects.filter(id=row[2], status__in=['active', 'pending_approval']).last().product_mrp == int(row[7]):
                     raise ValidationError(
                         "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
                             'NOT_VALID'] % ("MRP"))
