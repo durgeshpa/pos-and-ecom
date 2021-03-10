@@ -486,7 +486,7 @@ class CartProductPrice(serializers.ModelSerializer):
         return obj.selling_price
 
     def product_mrp_dt(self,obj):
-        return obj.mrp
+        return obj.product.product_mrp
 
     class Meta:
         model = ProductPrice
