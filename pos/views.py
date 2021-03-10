@@ -192,57 +192,6 @@ class CatalogueProductCreation(GenericAPIView):
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
 
-def get_serialize_process(shop_id, request):
-    """
-      Get Offers/Coupons
-      Serialize Offers/Coupons
-   """
-    coupon_offers = []
-    if request.GET.get('search_text'):
-        """
-             Get Offers/Coupons
-             when search_text is given
-        """
-        for coupons in Coupon.objects.filter(shop=shop_id, coupon_name__icontains=
-                                             request.GET.get('search_text')).order_by('-created_at'):
-            serializer = CouponCodeGetSerializer(coupons)
-            coupon_offers.append(serializer.data)
-
-        for offer in RuleSetProductMapping.objects.filter(shop=shop_id, combo_offer_name__icontains=
-                                                          request.GET.get('search_text')).order_by('-created_at'):
-            serializer = ComboCodeGetSerializer(offer)
-            coupon_offers.append(serializer.data)
-    else:
-        """
-            Get Offers/Coupons
-            when search_text is not given
-       """
-        for coupons in Coupon.objects.filter(shop=shop_id).order_by('-created_at'):
-            serializer = CouponCodeGetSerializer(coupons)
-            coupon_offers.append(serializer.data)
-
-        for offer in RuleSetProductMapping.objects.filter(shop=shop_id).order_by('-created_at'):
-            serializer = ComboCodeGetSerializer(offer)
-            coupon_offers.append(serializer.data)
-
-    """
-        Pagination on Offers/coupon
-    """
-    per_page_products = request.GET.get('records_per_page') if request.GET.get('records_per_page') else 10
-    paginator = Paginator(coupon_offers,  int(per_page_products))
-    page_number = request.GET.get('page_number')
-    try:
-        coupon_offers = paginator.page(page_number)
-    except PageNotAnInteger:
-        coupon_offers = paginator.page(1)
-    except EmptyPage:
-        coupon_offers = paginator.page(paginator.num_pages)
-    data = {
-        'previous_page': coupon_offers.has_previous() and coupon_offers.previous_page_number() or None,
-        'next_page': coupon_offers.has_next() and coupon_offers.next_page_number() or None,
-        'data': list(coupon_offers)
-    }
-    return data
 
 
 class CouponOfferCreation(GenericAPIView):
@@ -252,7 +201,7 @@ class CouponOfferCreation(GenericAPIView):
     def get(self, request, *args, **kwargs):
         """
             GET API for CouponOfferLIST.
-            Using CouponCodeSerializer for Coupon CouponOfferLIST and ComboDealsSerializer for Combo Offer LIST.
+            Using CouponCodeSerializer for Coupon Coupon LIST and ComboDealsSerializer for Combo Offer LIST.
         """
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
@@ -315,7 +264,6 @@ class CouponOfferCreation(GenericAPIView):
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
     def put(self,  request, *args, **kwargs):
-
         """
            PUT API for CouponOfferUpdation.
            Using CouponCodeSerializer for Coupon Updation and ComboDealsSerializer for Combo Offer Updation.
@@ -603,6 +551,54 @@ def update_combo(request, combo_id, serializer, shop_id):
            "response_data": serializer.data}
     status_code = {"status_code": 201}
     return msg, status_code
+
+
+def get_serialize_process(shop_id, request):
+    """
+      Get Offers/Coupons
+      Serialize Offers/Coupons
+   """
+    coupon_offers = []
+    if request.GET.get('search_text'):
+        """
+             Get Offers/Coupons when search_text is given in params
+        """
+        for coupons in Coupon.objects.filter(shop=shop_id, coupon_name__icontains=
+                                             request.GET.get('search_text')).order_by('-created_at'):
+            serializer = CouponCodeGetSerializer(coupons)
+            coupon_offers.append(serializer.data)
+        for offer in RuleSetProductMapping.objects.filter(shop=shop_id, combo_offer_name__icontains=
+                                                          request.GET.get('search_text')).order_by('-created_at'):
+            serializer = ComboCodeGetSerializer(offer)
+            coupon_offers.append(serializer.data)
+    else:
+        """
+            Get Offers/Coupons when search_text is not given in params
+       """
+        for coupons in Coupon.objects.filter(shop=shop_id).order_by('-created_at'):
+            serializer = CouponCodeGetSerializer(coupons)
+            coupon_offers.append(serializer.data)
+        for offer in RuleSetProductMapping.objects.filter(shop=shop_id).order_by('-created_at'):
+            serializer = ComboCodeGetSerializer(offer)
+            coupon_offers.append(serializer.data)
+    """
+        Pagination on Offers/Coupons
+    """
+    per_page_coupons_offers = request.GET.get('records_per_page') if request.GET.get('records_per_page') else 10
+    paginator = Paginator(coupon_offers,  int(per_page_coupons_offers))
+    page_number = request.GET.get('page_number')
+    try:
+        coupon_offers = paginator.page(page_number)
+    except PageNotAnInteger:
+        coupon_offers = paginator.page(1)
+    except EmptyPage:
+        coupon_offers = paginator.page(paginator.num_pages)
+    coupon_offers_data = {
+        'previous_page': coupon_offers.has_previous() and coupon_offers.previous_page_number() or None,
+        'next_page': coupon_offers.has_next() and coupon_offers.next_page_number() or None,
+        'data': list(coupon_offers)
+    }
+    return coupon_offers_data
 
 
 def serializer_error(serializer):
