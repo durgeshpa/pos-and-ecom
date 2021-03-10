@@ -147,12 +147,13 @@ class HdposDataFetchAdmin(admin.ModelAdmin):
 @admin.register(FranchiseSales)
 class FranchiseSalesAdmin(admin.ModelAdmin, ExportSalesReturns):
     list_display = ['id', 'shop_loc', 'shop_name', 'barcode', 'product_sku', 'quantity', 'amount', 'process_status',
+                    'rewards_status',
                     'error', 'invoice_number', 'invoice_date', 'invoice_date_full', 'created_at', 'modified_at', 'customer_name',
                     'phone_number', 'discount_amount']
     list_per_page = 50
     actions = ["export_as_csv_sales_returns"]
     list_filter = [('shop_loc', DropdownFilter), BarcodeFilter, SkuFilter, ('invoice_date', DateTimeRangeFilter), ('process_status', ChoiceDropdownFilter),
-                   ('error', DropdownFilter), InvoiceNumberFilter]
+                   ('error', DropdownFilter), InvoiceNumberFilter, ('rewards_status', ChoiceDropdownFilter)]
 
     class Media:
         pass

@@ -611,7 +611,7 @@ class AddToCart(APIView):
 
                     else:
                         cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                        available_qty = shop_products_dict[int(cart_product)] // int(
+                        available_qty = shop_products_dict.get(int(cart_product),0) // int(
                             cart_mapping.cart_product.product_inner_case_size)
                         cart_mapping.qty = qty
                         if int(qty) <= available_qty:

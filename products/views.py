@@ -928,7 +928,7 @@ def parent_product_upload(request):
 
         if form.is_valid():
             upload_file = form.cleaned_data.get('file')
-            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
             first_row = next(reader)
             def gst_mapper(gst):
                 if '0' in gst:
