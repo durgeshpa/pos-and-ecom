@@ -317,7 +317,7 @@ class CouponOfferCreation(GenericAPIView):
             msg = {'is_success': False, 'error_message': f"There is no shop available with (shop id : {shop_id})",
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        
+
     def get_serialize_process(self, request, shop_id):
         """
           Get Offers/Coupons
