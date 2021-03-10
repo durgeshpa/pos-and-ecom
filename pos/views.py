@@ -674,6 +674,7 @@ def bulk_update_products(request, form ,shop_id, uploaded_data_by_user_list):
                            'error': f"There is no product available with (product id : {product_id}) "
                                     f"for the (shop_id: {shop_id})", })
 
+
 def upload_retailer_products_list(request):
     """
     Products Catalogue Upload View
@@ -715,6 +716,7 @@ def upload_retailer_products_list(request):
             {'form': form}
         )
 
+
 def retailer_products_list(product):
     """
         This function will return product related linked_product_sku, sku_type, category, sub_category, brand & sub_brand
@@ -747,6 +749,7 @@ def retailer_products_list(product):
             category = cat[0]['category__category_name']
     return linked_product_sku, sku_type, category, sub_category, brand, sub_brand
 
+
 def DownloadRetailerCatalogue(request, *args):
     """
     This function will return an File in csv format which can be used for Downloading the Product Catalogue
@@ -773,6 +776,7 @@ def DownloadRetailerCatalogue(request, *args):
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
 
+
 def RetailerCatalogueSampleFile(request, *args):
     """
     This function will return an Sample File in csv format which can be used for Downloading RetailerCatalogue Sample File
@@ -785,4 +789,3 @@ def RetailerCatalogueSampleFile(request, *args):
     writer.writerow(['product_name', 'mrp', 'linked_product_sku', 'selling_price', 'description'])
     writer.writerow(['Noodles', '12', 'ORCPCRTOY000000020820', '10', 'XYZ'])
     return response
-
