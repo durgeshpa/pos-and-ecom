@@ -36,9 +36,10 @@ class OffersCls(object):
             rule_set Mapping with product for combo offer
         """
         RuleSetProductMapping.objects.create(rule_id=rule_id, retailer_primary_product=retailer_primary_product,
-                                             purchased_product_qty=purchased_product_qty, retailer_free_product=retailer_free_product,
-                                             free_product_qty=free_product_qty, combo_offer_name=combo_offer_name,
-                                             start_date=start_date, expiry_date=expiry_date, shop=shop)
+                                             purchased_product_qty=purchased_product_qty, retailer_free_product=
+                                             retailer_free_product, free_product_qty=free_product_qty,
+                                             combo_offer_name=combo_offer_name, start_date=start_date,
+                                             expiry_date=expiry_date, shop=shop)
 
     @classmethod
     def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, shop, start_date, expiry_date):

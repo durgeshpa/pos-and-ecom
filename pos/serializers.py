@@ -9,9 +9,7 @@ from shops.models import Shop
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
 
 
-
 class RetailerProductCreateSerializer(serializers.Serializer):
-
     shop_id = serializers.IntegerField(required=False)
     linked_product_id = serializers.IntegerField(required=False)
     product_name = serializers.CharField(required=True, validators=[ProductNameValidator])
@@ -61,7 +59,6 @@ class RetailerProductResponseSerializer(serializers.Serializer):
     linked_product = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
     modified_at = serializers.SerializerMethodField()
-
 
     def get_id(self, obj):
         return obj['id']
@@ -139,6 +136,24 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         return attrs
 
 
+def coupon_name_validation(coupon_name):
+    """
+       Check that the Coupon name should be unique.
+   """
+    if coupon_name:
+        if CouponRuleSet.objects.filter(rulename=coupon_name).exists():
+            raise serializers.ValidationError(_("This Coupon name has already been registered."))
+
+
+def combo_offer_name_validation(combo_offer_name):
+    """
+        Check that the Combo Offer name should be unique.
+    """
+    if combo_offer_name:
+        if CouponRuleSet.objects.filter(rulename=combo_offer_name).exists():
+            raise serializers.ValidationError(_("This Offer name has already been registered."))
+
+
 def validate_retailer_product(retailer_product):
     """
         Check that the product is present in RetailerProduct.
@@ -175,19 +190,12 @@ class CouponCodeSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """
-            start & expiry date validation.
+            Check start & expiry date validation,
+            Coupon name should be unique,
+            Discount value should be less then discount_qty_amount.
         """
         date_validation(data)
-        """
-            Check that the Coupon name should be unique.
-        """
-        coupon_name = data.get('coupon_name')
-        if coupon_name:
-            if CouponRuleSet.objects.filter(rulename=coupon_name).exists():
-                raise serializers.ValidationError(_("This Coupon name has already been registered."))
-        """
-            Check that the discount value should be less then discount_qty_amount.
-        """
+        coupon_name_validation(data.get('coupon_name'))
         discount_validation(data)
         return data
 
@@ -205,27 +213,12 @@ class ComboDealsSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """
-            start & expiry date validation.
+            start & expiry date, combo_offer_name & product validation.
         """
         date_validation(data)
-        """
-            Check that the retailer_primary_product & retailer_free_product are present in RetailerProduct.
-        """
-        retailer_primary_product = data.get('retailer_primary_product')
-        if retailer_primary_product:
-            validate_retailer_product(retailer_primary_product)
-        retailer_free_product = data.get('retailer_free_product')
-        if retailer_free_product:
-            validate_retailer_product(retailer_primary_product)
-
-        """
-            Check that the Combo offer name should be unique.
-        """
-        combo_offer_name = data.get('combo_offer_name')
-        if combo_offer_name:
-            if CouponRuleSet.objects.filter(rulename=combo_offer_name).exists():
-                raise serializers.ValidationError(_("This Offer name has already been registered."))
-
+        validate_retailer_product(data.get('retailer_primary_product'))
+        validate_retailer_product(data.get('retailer_free_product'))
+        combo_offer_name_validation(data.get('combo_offer_name'))
         return data
 
     class Meta:
@@ -243,23 +236,24 @@ class CouponCodeUpdateSerializer(serializers.ModelSerializer):
     expiry_date = serializers.DateField(required=False)
     is_active = serializers.BooleanField(required=False)
 
-
     def validate(self, data):
         """
-            start & expiry date validation.
+            Check start & expiry date validation,
+            Coupon name should be unique,
+            Discount value should be less then discount_qty_amount.
         """
         if data.get('start_date') and data.get('expiry_date'):
             date_validation(data)
-        """
-           Check that the discount value should be less then discount_qty_amount.
-        """
         if data.get('discount_value') and data.get('discount_qty_amount'):
             discount_validation(data)
+        if data.get('coupon_name'):
+            coupon_name_validation(data.get('coupon_name'))
         return data
 
     class Meta:
         model = Coupon
-        fields = ('id', 'coupon_name', 'start_date', 'expiry_date', 'discount_qty_amount', 'discount_value', 'is_active')
+        fields = (
+        'id', 'coupon_name', 'start_date', 'expiry_date', 'discount_qty_amount', 'discount_value', 'is_active')
 
 
 class ComboDealsUpdateSerializer(serializers.ModelSerializer):
@@ -275,7 +269,7 @@ class ComboDealsUpdateSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """
-            start & expiry date & product validation.
+            start & expiry date, combo_offer_name & product validation.
         """
         if data.get('start_date') and data.get('expiry_date'):
             date_validation(data)
@@ -283,6 +277,8 @@ class ComboDealsUpdateSerializer(serializers.ModelSerializer):
             validate_retailer_product(data.get('retailer_primary_product'))
         if data.get('retailer_free_product'):
             validate_retailer_product(data.get('retailer_free_product'))
+        if data.get('combo_offer_name'):
+            combo_offer_name_validation(data.get('combo_offer_name'))
         return data
 
     class Meta:
@@ -296,7 +292,7 @@ class DiscountSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DiscountValue
-        fields = ('discount_value', )
+        fields = ('discount_value',)
 
 
 class CouponRuleSetGetSerializer(serializers.ModelSerializer):
@@ -307,7 +303,7 @@ class CouponRuleSetGetSerializer(serializers.ModelSerializer):
         fields = ('rulename', 'discount', 'is_active')
 
     def discount_value(self, obj):
-       return DiscountSerializer(obj.discount, context=self.context).data
+        return DiscountSerializer(obj.discount, context=self.context).data
 
 
 class CouponCodeGetSerializer(serializers.ModelSerializer):
@@ -329,4 +325,4 @@ class ComboCodeGetSerializer(serializers.ModelSerializer):
         fields = ('combo_offer_name', 'rule', 'is_active')
 
     def rule_dt(self, obj):
-         return CouponRuleSetGetSerializer(obj.rule, context=self.context).data
+        return CouponRuleSetGetSerializer(obj.rule, context=self.context).data

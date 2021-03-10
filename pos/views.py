@@ -351,7 +351,7 @@ def create_coupon(request, serializer, shop_id):
     try:
         shop = Shop.objects.get(id=shop_id)
     except ObjectDoesNotExist:
-        msg = {"is_success": False, "error": "shop Not Found",
+        msg = {"is_success": False, "error": "Shop Not Found",
                "response_data": serializer.data}
         status_code = {"status_code": 404}
         return msg, status_code
