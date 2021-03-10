@@ -14,7 +14,7 @@ def deactivate_coupon_combo_offer():
     """
         Cron job for set status False in Coupon & RuleSetProductMapping model if expiry date is less then current date
         :return:
-        """
+    """
     try:
         cron_logger.info('cron job for deactivate the coupon_combo_offer|started')
         today = datetime.datetime.today()

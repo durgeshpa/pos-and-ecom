@@ -5,6 +5,7 @@ from pos.models import RetailerProduct
 from retailer_to_sp.models import CartProductMapping
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
+from shops.models import Shop
 
 
 class RetailerProductCls(object):
@@ -20,7 +21,7 @@ class RetailerProductCls(object):
 
 class OffersCls(object):
     @classmethod
-    def rule_set_cretion(cls, ruleset_type, rulename, start_date, expiry_date, discount_qty_amount=None, discount_obj=None):
+    def rule_set_creation(cls, ruleset_type, rulename, start_date, expiry_date, discount_qty_amount=None, discount_obj=None):
         """
            rule_set Creation for Offer/Coupon
         """
@@ -74,3 +75,37 @@ def delete_cart_mapping(cart, product, cart_type='retail'):
     elif cart_type == 'basic':
         if CartProductMapping.objects.filter(cart=cart, retailer_product=product).exists():
             CartProductMapping.objects.filter(cart=cart, retailer_product=product).delete()
+
+
+def get_shop_id_from_token(request):
+    """
+        If Token is valid get shop_id from token
+    """
+    if request.user.id:
+        if Shop.objects.filter(shop_owner_id=request.user.id).exists():
+            shop = Shop.objects.filter(shop_owner_id=request.user.id)
+        else:
+            if Shop.objects.filter(related_users=request.user.id).exists():
+                shop = Shop.objects.filter(related_users=request.user.id)
+            else:
+                return "Please Provide a Valid TOKEN"
+        return int(shop.values()[0].get('id'))
+    return "Please provide Token"
+
+
+def serializer_error(serializer):
+    """
+        Serializer Error Method
+    """
+    errors = []
+    for field in serializer.errors:
+        for error in serializer.errors[field]:
+            if 'non_field_errors' in field:
+                result = error
+            else:
+                result = ''.join('{} : {}'.format(field, error))
+            errors.append(result)
+    msg = {'is_success': False,
+           'error_message': errors[0] if len(errors) == 1 else [error for error in errors],
+           'response_data': None}
+    return msg
