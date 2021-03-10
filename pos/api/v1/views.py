@@ -256,12 +256,12 @@ class CartCentral(APIView):
             Get Cart
             Inputs:
                 shop_id
-                cart_type (retail or basic)
+                cart_type (retail-1 or basic-2)
         """
         cart_type = self.request.GET.get('cart_type')
-        if cart_type == 'retail':
+        if cart_type == '1':
             return self.get_retail_cart()
-        elif cart_type == 'basic':
+        elif cart_type == '2':
             return self.get_basic_cart()
         else:
             return get_response('Please provide a valid cart_type')
@@ -270,15 +270,16 @@ class CartCentral(APIView):
         """
             Add To Cart
             Inputs
-                cart_type (retail or basic)
+                cart_type (retail-1 or basic-2)
                 cart_product (Product for 'retail', RetailerProduct for 'basic'
                 shop_id (Buyer shop id for 'retail', Shop id for selling shop in case of 'basic')
+                cart_id (For Basic Cart)
                 qty (Quantity of product to be added)
         """
         cart_type = self.request.POST.get('cart_type')
-        if cart_type == 'retail':
+        if cart_type == '1':
             return self.retail_add_to_cart()
-        elif cart_type == 'basic':
+        elif cart_type == '2':
             return self.basic_add_to_cart()
         else:
             return get_response('Please provide a valid cart_type')
@@ -298,11 +299,23 @@ class CartCentral(APIView):
             return get_response("Cart Not Found")
         return self.add_customer_to_cart(cart)
 
+    def delete(self, request, pk):
+        """
+            Update Cart Status To deleted For Basic Cart
+        """
+        # Check If Cart Exists
+        try:
+            cart = Cart.objects.get(id=pk, last_modified_by=self.request.user, cart_status__in=['active', 'pending'],
+                                    cart_type='BASIC')
+        except:
+            return get_response("Cart Not Found")
+        Cart.objects.filter(id=cart.id).update(cart_status=Cart.DELETED)
+        return get_response('Deleted Cart', self.post_serialize_process_basic(cart))
+
     def add_customer_to_cart(self, cart):
         """
             Update customer details in basic cart
         """
-        # Check phone_number
         ph_no = self.request.data.get('phone_number')
         name = self.request.data.get('name')
         email = self.request.data.get('email')
@@ -322,8 +335,8 @@ class CartCentral(APIView):
         # Update customer as buyer in cart
         cart.buyer = customer
         cart.save()
-        serializer = UserSerializer(customer)
-        return get_response("Customer Details Updated Successfully!", serializer.data)
+        serializer = CartSerializer(cart)
+        return get_response("Cart Updated Successfully!", serializer.data)
 
     def get_retail_cart(self):
         """
@@ -387,17 +400,8 @@ class CartCentral(APIView):
         initial_validation = self.get_basic_validate()
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
-        seller_shop = initial_validation['shop']
-        user = self.request.user
-        # Check If Cart exists
-        if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
-                               cart_status__in=['active', 'pending'], cart_type='BASIC').exists():
-            cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
-                                       cart_status__in=['active', 'pending'], cart_type='BASIC').last()
-            # Process response - Serialize - Search and Pagination
-            return get_response('Cart', self.get_serialize_process_basic(cart))
-        else:
-            return get_response('Sorry no product added to this cart yet')
+        cart = initial_validation['cart']
+        return get_response('Cart', self.get_serialize_process_basic(cart))
 
     def get_retail_validate(self):
         """
@@ -425,7 +429,12 @@ class CartCentral(APIView):
             shop = Shop.objects.get(id=self.request.GET.get('shop_id'))
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
-        return {'shop': shop}
+        try:
+            cart = Cart.objects.get(last_modified_by=self.request.user, seller_shop=shop, cart_type='BASIC',
+                                       id=self.request.GET.get('cart_id'), cart_status__in=['active', 'pending'])
+        except ObjectDoesNotExist:
+            return {'error': "Cart Not Found!"}
+        return {'shop': shop, 'cart': cart}
 
     @staticmethod
     def filter_cart_products(cart, seller_shop):
@@ -598,17 +607,17 @@ class CartCentral(APIView):
         product = initial_validation['product']
         shop = initial_validation['shop']
         qty = initial_validation['quantity']
+        cart_id = self.request.POST.get('cart_id')
+        price_change = self.request.POST.get('price_change')
 
         # Update or create cart for shop
-        cart = self.post_update_basic_cart(shop)
+        cart = self.post_update_basic_cart(shop, cart_id)
         # Check if product has to be removed
         if int(qty) == 0:
             delete_cart_mapping(cart, product, 'basic')
         else:
             # Check if price needs to be updated and return selling price
             selling_price = self.get_basic_cart_product_price(product)
-            if Decimal(selling_price) > product.mrp:
-                return get_response("Selling Price cannot be greater than MRP")
             # Add quantity to cart
             cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product)
             cart_mapping.selling_price = selling_price
@@ -668,6 +677,19 @@ class CartCentral(APIView):
             product = RetailerProduct.objects.get(id=self.request.POST.get('cart_product'), shop=shop)
         except ObjectDoesNotExist:
             return {'error': "Product Not Found!"}
+        # Check if existing or new cart
+        cart_id = self.request.POST.get('cart_id')
+        if cart_id and not Cart.objects.filter(id=cart_id, last_modified_by=self.request.user, seller_shop=shop,
+                                   cart_type='BASIC', cart_status__in=['active', 'pending']).exists():
+            return {'error': "Cart Not Found!"}
+        # Check if selling price is less than equal to mrp if price change
+        price_change = self.request.POST.get('price_change')
+        if price_change in ['1', '2']:
+            selling_price = self.request.POST.get('selling_price')
+            if not selling_price:
+                return {'error': "Please provide selling price to change price"}
+            if Decimal(selling_price) > product.mrp:
+                return {'error': "Selling Price cannot be greater than MRP"}
         return {'product': product, 'shop': shop, 'quantity': qty}
 
     def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
@@ -709,14 +731,15 @@ class CartCentral(APIView):
             cart.save()
         return cart
 
-    def post_update_basic_cart(self, seller_shop):
+    def post_update_basic_cart(self, seller_shop, cart_id=None):
         """
             Create or update/add product to retail basic Cart
         """
         user = self.request.user
-        if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
+
+        if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, id=cart_id,
                                cart_status__in=['active', 'pending'], cart_type='BASIC').exists():
-            cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop,
+            cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, id=cart_id,
                                        cart_status__in=['active', 'pending'], cart_type='BASIC').last()
             cart.cart_type = 'BASIC'
             cart.approval_status = False
@@ -836,16 +859,14 @@ class CartCentral(APIView):
     def get_basic_cart_product_price(self, product):
         """
             Check if retail product price needs to be changed on checkout
-            price_change - True or False
-            price_change_type - all (for future carts also), or only for current one
+            price_change - 1 (change for all), 2 (change for current cart only)
         """
         # Check If Price Change
         price_change = self.request.POST.get('price_change')
         selling_price = None
-        if price_change:
+        if price_change in ['1', '2']:
             selling_price = self.request.POST.get('selling_price')
-            change_type = self.request.POST.get('price_change_type')
-            if change_type == 'all' and selling_price:
+            if price_change == '1' and selling_price:
                 RetailerProduct.objects.filter(id=product.id).update(selling_price=selling_price)
 
         return selling_price if selling_price else product.selling_price
@@ -888,7 +909,7 @@ class OrderCentral(APIView):
             Place Order
             Inputs
             cart_id
-            cart_type (retail or basic)
+            cart_type (retail-1 or basic-2)
                 retail
                     shop_id (Buyer shop id)
                     billing_address_id
@@ -898,9 +919,9 @@ class OrderCentral(APIView):
                     shop_id (Seller shop id)
         """
         cart_type = self.request.POST.get('cart_type')
-        if cart_type == 'retail':
+        if cart_type == '1':
             return self.post_retail_order()
-        elif cart_type == 'basic':
+        elif cart_type == '2':
             return self.post_basic_order()
         else:
             return get_response('Provide a valid cart_type')
