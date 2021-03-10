@@ -147,6 +147,14 @@ def validate_retailer_product(retailer_product):
         raise serializers.ValidationError(_("Please enter a valid Product"))
 
 
+def discount_validation(data):
+    """
+         Check that the discount value should be less then discount_qty_amount.
+    """
+    if data['discount_value'] > data['discount_qty_amount']:
+        raise serializers.ValidationError("discount value must less then order value")
+
+
 def date_validation(data):
     """
         Check that the start date is before the expiry date.
@@ -180,8 +188,7 @@ class CouponCodeSerializer(serializers.ModelSerializer):
         """
             Check that the discount value should be less then discount_qty_amount.
         """
-        if data['discount_value'] > data['discount_qty_amount']:
-            raise serializers.ValidationError("discount value must less then order value")
+        discount_validation(data)
         return data
 
     class Meta:
@@ -243,6 +250,11 @@ class CouponCodeUpdateSerializer(serializers.ModelSerializer):
         """
         if data.get('start_date') and data.get('expiry_date'):
             date_validation(data)
+        """
+           Check that the discount value should be less then discount_qty_amount.
+        """
+        if data.get('discount_value') and data.get('discount_qty_amount'):
+            discount_validation(data)
         return data
 
     class Meta:
