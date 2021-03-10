@@ -1,0 +1,60 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block title %}Download Products | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/pos/" xmlns="http://www.w3.org/1999/html">Pos</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/pos/retailerproduct/">Retailer products</a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Download Products</a>{% endblock %}
+
+{% block content %}
+    <div id="content" class="colM">
+      <h1>{% block content_header %}{% endblock %}</h1>
+      <div id="content-main">
+         <ul class="object-tools">
+         </ul>
+         {% if error %}
+            <span class="errornote">{{ error|escape }}</span>
+         {% endif %}
+         {% if success %}
+            <ul class="messagelist">
+            <li class="success">{{ success|escape }}</li>
+            </ul>
+         {% endif %}
+         <div>
+            <form method="post" enctype="multipart/form-data">
+               <div>
+                  <fieldset class="module aligned ">
+                     {% csrf_token %}
+                     <h4 style="margin: 10px" onchange="ddlselect()">{{form.as_p}}</h4>
+                  </fieldset>
+                  <h3 style="margin-left: 20px"><a href="#" id="id_download" style="margin-top: 25px;" onclick="alertfunc()">Download Products Catalogue</a></h3>
+               </div>
+            </form>
+         </div>
+      </div>
+   </div>
+<script>
+   function alertfunc(){
+      var d = document.getElementById("id_shop");
+      var display_text = d.options[d.selectedIndex].value;
+      console.log(display_text)
+      if(display_text===""){
+         alert("Please 'Select a Shop' to Download the Products Catalogue")
+      }
+   }
+</script>
+<script type="text/javascript">
+   function ddlselect()
+   {
+      var c = document.getElementById("id_shop");
+      var shop_id = c.options[c.selectedIndex].value;
+
+      if(shop_id==="")
+      {
+         document.getElementById("id_download").href="#";
+      }
+      else
+      {
+         document.getElementById("id_download").href="{% url 'admin:retailer_products_csv_download'%}" + "?shop_id=" + shop_id;
+      }
+   }
+</script>
+{% endblock %}
