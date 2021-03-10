@@ -156,6 +156,17 @@ class AuditCancelledPicklist(BaseTimestampModel):
         verbose_name_plural = "Audit Cancelled Picklists"
 
 
+class AuditUpdatedPickup(BaseTimestampModel):
+    audit = models.ForeignKey(AuditDetail, null=False, on_delete=models.DO_NOTHING, related_name='+')
+    order_no = models.CharField(max_length=20, null=False)
+    batch_id = models.CharField(max_length=50, null=False)
+    bin = models.ForeignKey(Bin, null=False,  on_delete=models.DO_NOTHING, related_name='+')
+
+    class Meta:
+        db_table = "wms_audit_updated_pickups"
+        verbose_name = "Audit Updated Pickup"
+        verbose_name_plural = "Audit Updated Pickups"
+
 class AuditTicketManual(BaseTimestampModel):
     warehouse = models.ForeignKey(Shop, null=False, related_name='+', on_delete=models.DO_NOTHING)
     audit_run = models.ForeignKey(AuditRun, null=False, on_delete=models.CASCADE)
