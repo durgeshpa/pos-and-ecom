@@ -1,6 +1,9 @@
 import uuid
 
 from django.db import models
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
+from django.utils.text import slugify
 
 from shops.models import Shop
 from products.models import Product
@@ -24,6 +27,8 @@ class RetailerProduct(models.Model):
     shop = models.ForeignKey(Shop, related_name='retailer_product', on_delete=models.CASCADE)
     sku = models.CharField(max_length=255, blank=False, unique=True)
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
+    product_slug = models.SlugField(max_length=255, blank=True)
+    product_ean_code = models.CharField(max_length=255, blank=True)
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     linked_product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
@@ -33,13 +38,46 @@ class RetailerProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        if not self.sku:
-            self.sku = str(uuid.uuid4()).split('-')[-1][:6].upper()
-        super().save(*args, **kwargs)
-
     def __str__(self):
         return self.sku + " - " + self.name
+
+    @property
+    def product_short_description(self):
+        return self.name
+
+    @property
+    def product_name(self):
+        return self.name
+
+    @property
+    def product_sku(self):
+        return self.sku
+
+    @property
+    def product_mrp(self):
+        return self.mrp
+
+    @property
+    def product_price(self):
+        return self.selling_price
+
+    def save(self, *args, **kwargs):
+        self.product_slug = slugify(self.name)
+        super(RetailerProduct, self).save(*args, **kwargs)
+
+
+def sku_generator(shop_id):
+    return (str(shop_id) + str(uuid.uuid4().hex).upper())[0:17]
+
+
+@receiver(pre_save, sender=RetailerProduct)
+def create_product_sku(sender, instance=None, created=False, **kwargs):
+    if not instance.sku:
+        # Generate a unique SKU by using shop_id & uuid4 once, then check the db. If exists, keep trying.
+        sku_id = sku_generator(instance.shop.id)
+        while RetailerProduct.objects.filter(sku=sku_id).exists():
+            sku_id = sku_generator(instance.shop.id)
+        instance.sku = sku_id
 
 
 class RetailerProductImage(models.Model):

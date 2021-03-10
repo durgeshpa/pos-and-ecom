@@ -135,6 +135,7 @@ INSTALLED_APPS = [
     'tablib',
     'marketing',
     'global_config',
+    'pos.apps.PosConfig',
     'whc',
     'redash_report',
     'retailer_incentive'
@@ -391,7 +392,8 @@ CRONJOBS = [
     ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
     ('*/30 * * * *', 'audit.cron.create_picklist_cron'),
     ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
-    #('30 19 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
+    ('30 19 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
+    ('30 21 * * *', 'franchise.crons.sales_rewards.process_rewards_on_sales'),
     ('30 22 * * *', 'wms.views.auto_report_for_expired_product'),
     ('*/5 * * * *', 'products.cron.deactivate_capping'),
     #('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),

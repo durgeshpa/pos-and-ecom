@@ -129,7 +129,7 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
         for obj in queryset:
             try:
                 writer.writerow([obj.scheme_id, obj.scheme.name, obj.shop_id,
-                                 obj.shop.shop_name, SchemeShopMapping.PRIORITY_CHOICE[obj.priority],
+                                 obj.shop, SchemeShopMapping.PRIORITY_CHOICE[obj.priority],
                                  obj.is_active, obj.user, obj.created_at])
 
             except Exception as e:
