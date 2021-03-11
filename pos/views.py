@@ -482,6 +482,7 @@ class CouponOfferCreation(GenericAPIView):
             # If coupon_name in actual_input_data_list
             coupon_ruleset.rulename = request.data.get('coupon_name')
             coupon.coupon_name = request.data.get('coupon_name')
+            coupon.coupon_code = request.data.get('coupon_name')
         if 'discount_qty_amount' in actual_input_data_list:
             # If discount_qty_amount in actual_input_data_list
             coupon_ruleset.cart_qualifying_min_sku_value = request.data.get('discount_qty_amount')
@@ -535,6 +536,7 @@ class CouponOfferCreation(GenericAPIView):
             coupon_ruleset.rulename = request.data.get('combo_offer_name')
             rule_set_product_mapping.combo_offer_name = request.data.get('combo_offer_name')
             coupon.coupon_name = request.data.get('combo_offer_name')
+            coupon.coupon_code = request.data.get('combo_offer_name')
         if 'start_date' in actual_input_data_list:
             # If start_date in actual_input_data_list
             coupon_ruleset.start_date = request.data.get('start_date')
