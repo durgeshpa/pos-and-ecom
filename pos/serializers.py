@@ -327,3 +327,13 @@ class ComboCodeGetSerializer(serializers.ModelSerializer):
 
     def rule_dt(self, obj):
         return CouponRuleSetGetSerializer(obj.rule, context=self.context).data
+
+
+class Combo(serializers.ModelSerializer):
+    coupon_ruleset = CouponCodeUpdateSerializer()
+    product_ruleset = ComboDealsUpdateSerializer()
+
+    class Meta:
+        model = CouponRuleSet
+        fields = ('id', 'is_active', 'product_ruleset', 'coupon_ruleset')
+

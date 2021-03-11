@@ -17,7 +17,7 @@ from django.db import transaction
 from pos.common_functions import RetailerProductCls, OffersCls, get_shop_id_from_token, serializer_error
 from pos.serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
     RetailerProductResponseSerializer, CouponCodeSerializer, ComboDealsSerializer,\
-    CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponCodeGetSerializer, ComboCodeGetSerializer
+    CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponCodeGetSerializer, ComboCodeGetSerializer, Combo
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm
 from pos.models import RetailerProduct, RetailerProductImage
 from products.models import Product, ParentProductCategory
@@ -304,7 +304,7 @@ class CouponOfferCreation(GenericAPIView):
                 serializer = ComboDealsUpdateSerializer(data=request.data)
                 if serializer.is_valid():
                     combo_offer_id = request.data.get('id')
-                    if RuleSetProductMapping.objects.filter(id=combo_offer_id, shop=shop_id).exists():
+                    if Coupon.objects.filter(id=combo_offer_id, shop=shop_id).exists():
                         try:
                             with transaction.atomic():
                                 msg, status_code = self.update_combo(request, combo_offer_id, serializer, shop_id)
@@ -338,14 +338,17 @@ class CouponOfferCreation(GenericAPIView):
               rule_type is Coupon Code getting Coupon
             """
             offers = Coupon.objects.filter(shop=shop_id, id=combo_coupon_id).order_by('-created_at').\
-                values('id', 'coupon_name', 'coupon_code', 'start_date', 'expiry_date')
+                values('id', 'coupon_type', 'coupon_name', 'coupon_code', 'start_date', 'expiry_date')
         else:
             """
                  rule_type is Coupon Code getting Combo offer
             """
-            offers = RuleSetProductMapping.objects.filter(shop=shop_id, id=combo_coupon_id).order_by('-created_at').\
-                values('id', 'retailer_primary_product__name',
-                       'retailer_free_product__name', 'start_date', 'expiry_date')
+            offers = Coupon.objects.filter(shop=shop_id, id=combo_coupon_id).order_by('-created_at').\
+                values('id', 'coupon_type', 'rule__id')
+            for offer in offers:
+                offers = RuleSetProductMapping.objects.filter(rule=offer['rule__id']).order_by('-created_at').\
+                    values('rule__id', 'retailer_primary_product__name',
+                           'retailer_free_product__name', 'start_date', 'expiry_date',)
         return offers
 
     def get_serialize_process(self, request, shop_id):
@@ -358,23 +361,20 @@ class CouponOfferCreation(GenericAPIView):
             """
                  Get Offers/Coupons when search_text is given in params
             """
-            for coupons in Coupon.objects.filter(shop=shop_id, coupon_name__icontains=
-            request.GET.get('search_text')).order_by('-created_at'):
+            for coupons in Coupon.objects.filter(shop=shop_id, coupon_name__icontains=request.GET.get('search_text')).order_by('-created_at'):
                 serializer = CouponCodeGetSerializer(coupons)
                 coupon_offers.append(serializer.data)
-            for offer in RuleSetProductMapping.objects.filter(shop=shop_id, combo_offer_name__icontains=
-            request.GET.get('search_text')).order_by('-created_at'):
-                serializer = ComboCodeGetSerializer(offer)
-                coupon_offers.append(serializer.data)
+            coupon = Coupon.objects.filter(shop=shop_id, coupon_name__icontains=request.GET.get('search_text'))
+            for coupons in coupon:
+                for offer in RuleSetProductMapping.objects.filter(combo_offer_name=coupons['coupon_name']).order_by('-created_at'):
+                    serializer = Combo(offer)
+                    coupon_offers.append(serializer.data)
         else:
             """
                 Get Offers/Coupons when search_text is not given in params
            """
-            for coupons in Coupon.objects.filter(shop=shop_id).order_by('-created_at'):
-                serializer = CouponCodeGetSerializer(coupons)
-                coupon_offers.append(serializer.data)
-            for offer in RuleSetProductMapping.objects.filter(shop=shop_id).order_by('-created_at'):
-                serializer = ComboCodeGetSerializer(offer)
+            for coupons in Coupon.objects.filter(shop=shop_id).order_by('-created_at').values('rule'):
+                serializer = Combo(coupons['rule'])
                 coupon_offers.append(serializer.data)
         """
             Pagination on Offers/Coupons
@@ -466,7 +466,7 @@ class CouponOfferCreation(GenericAPIView):
                                            request.data.get('purchased_product_qty'),
                                            retailer_free_product_obj, request.data.get('free_product_qty'),
                                            combo_offer_name, start_date, expiry_date)
-
+        # creating Coupon with coupon_type(catalog)
         OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name,
                                         shop, start_date, expiry_date)
         msg = {"is_success": True, "message": "Combo Offer has been successfully created!",
@@ -501,19 +501,21 @@ class CouponOfferCreation(GenericAPIView):
             coupon.coupon_name = request.data.get('coupon_name')
         if 'discount_qty_amount' in actual_input_data_list:
             # If discount_qty_amount in actual_input_data_list
-            coupon_ruleset.discount_qty_amount = request.data.get('discount_qty_amount')
+            coupon_ruleset.cart_qualifying_min_sku_value = request.data.get('discount_qty_amount')
         if 'discount_value' in actual_input_data_list:
             # If discount_qty_amount in actual_input_data_list
             discount.discount_value = request.data.get('discount_value')
         if 'start_date' in actual_input_data_list:
             # If start_date in actual_input_data_list
-            coupon.start_date = request.data.get('start_date')
+            coupon_ruleset.start_date = request.data.get('start_date')
             coupon.start_date = request.data.get('start_date')
         if 'expiry_date' in actual_input_data_list:
             # If expiry_date in actual_input_data_list
+            coupon_ruleset.expiry_date = request.data.get('expiry_date')
             coupon.expiry_date = request.data.get('expiry_date')
         if 'is_active' in actual_input_data_list:
             # If is_active in actual_input_data_list
+            coupon_ruleset.is_active = request.data.get('is_active')
             coupon.is_active = request.data.get('is_active')
 
         coupon_ruleset.save()
@@ -529,15 +531,15 @@ class CouponOfferCreation(GenericAPIView):
             Updating Ruleset & RuleSetProductMapping
         """
         try:
-            rule_set_product_mapping = RuleSetProductMapping.objects.get(id=combo_id, shop=shop_id)
+            coupon = Coupon.objects.get(id=combo_id, shop=shop_id)
         except ObjectDoesNotExist:
             msg = {"is_success": False, "error": "Offer Not Found",
                    "response_data": serializer.data}
             status_code = {"status_code": 404}
             return msg, status_code
-
-        coupon_ruleset = CouponRuleSet.objects.get(rulename=rule_set_product_mapping.combo_offer_name)
-        expected_input_data_list = ['combo_offer_name', 'expiry_date', 'start_date',
+        coupon_ruleset = CouponRuleSet.objects.get(rulename=coupon.coupon_name)
+        rule_set_product_mapping = RuleSetProductMapping.objects.get(combo_offer_name=coupon.coupon_name)
+        expected_input_data_list = ['id', 'combo_offer_name', 'expiry_date', 'start_date',
                                     'retailer_primary_product', 'retailer_free_product', 'purchased_product_qty',
                                     'free_product_qty']
         actual_input_data_list = []
@@ -549,12 +551,17 @@ class CouponOfferCreation(GenericAPIView):
             # If coupon_name in actual_input_data_list
             coupon_ruleset.rulename = request.data.get('combo_offer_name')
             rule_set_product_mapping.combo_offer_name = request.data.get('combo_offer_name')
+            coupon.coupon_name = request.data.get('combo_offer_name')
         if 'start_date' in actual_input_data_list:
             # If start_date in actual_input_data_list
+            coupon_ruleset.start_date = request.data.get('start_date')
             rule_set_product_mapping.start_date = request.data.get('start_date')
+            coupon.start_date = request.data.get('start_date')
         if 'expiry_date' in actual_input_data_list:
             # If expiry_date in actual_input_data_list
+            coupon_ruleset.expiry_date = request.data.get('expiry_date')
             rule_set_product_mapping.expiry_date = request.data.get('expiry_date')
+            coupon.expiry_date = request.data.get('expiry_date')
         if 'retailer_primary_product' in actual_input_data_list:
             # If retailer_primary_product in actual_input_data_list
             retailer_primary_product = request.data.get('retailer_primary_product')
@@ -588,9 +595,12 @@ class CouponOfferCreation(GenericAPIView):
         if 'is_active' in actual_input_data_list:
             # If is_active in actual_input_data_list
             rule_set_product_mapping.is_active = request.data.get('is_active')
+            coupon_ruleset.is_active = request.data.get('is_active')
+            coupon.is_active = request.data.get('is_active')
 
         coupon_ruleset.save()
         rule_set_product_mapping.save()
+        coupon.save()
 
         msg = {"is_success": True, "message": f"Combo Offer has been successfully UPDATED!",
                "response_data": serializer.data}
