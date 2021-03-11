@@ -378,40 +378,40 @@ class CouponOfferCreation(GenericAPIView):
         return coupon_offers_data
 
     def create_coupon(self, request, serializer, shop_id):
-            """
-                Creating Discount, Ruleset & Coupon
-            """
-            try:
-                shop = Shop.objects.get(id=shop_id)
-            except ObjectDoesNotExist:
-                msg = {"is_success": False, "error": "Shop Not Found",
-                       "response_data": serializer.data}
-                status_code = {"status_code": 404}
-                return msg, status_code
-
-            coupon_name = request.data.get('coupon_name')
-            start_date = request.data.get('start_date')
-            expiry_date = request.data.get('expiry_date')
-            discount_value = request.data.get('discount_value')
-            discount_amount = request.data.get('discount_qty_amount')
-            # creating Discount
-            if request.data.get('is_percentage'):
-                discount_obj = DiscountValue.objects.create(discount_value=discount_value,
-                                                            max_discount=request.data.get('max_discount'),
-                                                            is_percentage=True)
-            else:
-                discount_obj = DiscountValue.objects.create(discount_value=discount_value)
-            # creating CouponRuleSet
-            coupon_obj = OffersCls.rule_set_creation(coupon_name, start_date, expiry_date, discount_amount,
-                                                     discount_obj)
-
-            # creating Coupon with coupon_type(cart)
-            OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name,
-                                            shop, start_date, expiry_date)
-            msg = {"is_success": True, "message": "Coupon has been successfully created!",
+        """
+            Creating Discount, Ruleset & Coupon
+        """
+        try:
+            shop = Shop.objects.get(id=shop_id)
+        except ObjectDoesNotExist:
+            msg = {"is_success": False, "error": "Shop Not Found",
                    "response_data": serializer.data}
-            status_code = {"status_code": 201}
+            status_code = {"status_code": 404}
             return msg, status_code
+
+        coupon_name = request.data.get('coupon_name')
+        start_date = request.data.get('start_date')
+        expiry_date = request.data.get('expiry_date')
+        discount_value = request.data.get('discount_value')
+        discount_amount = request.data.get('discount_qty_amount')
+        # creating Discount
+        if request.data.get('is_percentage'):
+            discount_obj = DiscountValue.objects.create(discount_value=discount_value,
+                                                        max_discount=request.data.get('max_discount'),
+                                                        is_percentage=True)
+        else:
+            discount_obj = DiscountValue.objects.create(discount_value=discount_value)
+        # creating CouponRuleSet
+        coupon_obj = OffersCls.rule_set_creation(coupon_name, start_date, expiry_date, discount_amount,
+                                                 discount_obj)
+
+        # creating Coupon with coupon_type(cart)
+        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name,
+                                        shop, start_date, expiry_date)
+        msg = {"is_success": True, "message": "Coupon has been successfully created!",
+               "response_data": serializer.data}
+        status_code = {"status_code": 201}
+        return msg, status_code
 
     def create_combo_offer(self, request, serializer, shop_id):
         """
