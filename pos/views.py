@@ -476,7 +476,7 @@ class CouponOfferCreation(GenericAPIView):
         coupon_ruleset = CouponRuleSet.objects.get(rulename=coupon.coupon_name)
         discount = DiscountValue.objects.get(id=coupon_ruleset.discount.id)
         expected_input_data_list = ['id', 'coupon_name', 'discount_qty_amount', 'discount_value', 'start_date',
-                                    'expiry_date', 'is_active']
+                                    'expiry_date', 'is_active', 'is_percentage', 'max_discount']
         actual_input_data_list = []
         for key in expected_input_data_list:
             if key in request.data.keys():
@@ -493,6 +493,12 @@ class CouponOfferCreation(GenericAPIView):
         if 'discount_value' in actual_input_data_list:
             # If discount_qty_amount in actual_input_data_list
             discount.discount_value = request.data.get('discount_value')
+        if 'is_percentage' in actual_input_data_list:
+            # If discount_qty_amount in actual_input_data_list
+            discount.is_percentage = request.data.get('is_percentage')
+        if 'max_discount' in actual_input_data_list:
+            # If discount_qty_amount in actual_input_data_list
+            discount.max_discount = request.data.get('max_discount')
         if 'start_date' in actual_input_data_list:
             # If start_date in actual_input_data_list
             coupon_ruleset.start_date = request.data.get('start_date')
