@@ -1,10 +1,16 @@
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from elasticsearch import Elasticsearch
+
 from accounts.models import User
 from brand.models import Brand
-from categories.models import Category
 from shops.models import Shop
 from addresses.models import City
-from django.db.models import F, FloatField, Sum
+from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
+
+es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
+
 # Create your models here.
 class DiscountValue(models.Model):
     discount_value = models.FloatField(default = 0, null=True, blank=True)
@@ -117,3 +123,78 @@ class RuleSetBrandMapping(models.Model):
 #     seller_shop = models.ForeignKey(Shop, related_name ='seller_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)
 #     buyer_shop = models.ForeignKey(Shop, related_name ='buyer_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)
 #     city = models.ForeignKey(City, related_name ='city_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)
+
+
+def create_es_index(index):
+    return "{}-{}".format(es_prefix, index)
+
+
+@receiver(post_save, sender=Coupon)
+def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+    # POS Coupons
+    if instance.shop:
+        if not instance.coupon_type in ['catalog', 'cart']:
+            return ""
+        params = get_common_coupon_params(instance)
+        coupon_type = instance.coupon_type
+        if coupon_type == 'catalog':
+            response = get_catalogue_coupon_params(instance)
+            if 'error' in response:
+                return ""
+        else:
+            response = get_cart_coupon_params(instance)
+        params.update(response)
+        es.index(index=create_es_index('rc-{}'.format(instance.shop.id)), id=params['id'], body=params)
+
+
+def get_common_coupon_params(coupon):
+    params = {
+        'id': coupon.id,
+        'coupon_code': coupon.coupon_code,
+        'limit_per_user_per_day': coupon.limit_per_user_per_day,
+        'limit_of_usages': coupon.limit_of_usages,
+        'active': coupon.is_active,
+        'description': coupon.rule.rule_description,
+        'start_date':coupon.start_date,
+        'end_date':coupon.expiry_date
+    }
+    return params
+
+
+def get_catalogue_coupon_params(coupon):
+    # Product rule set should exist for catalog type coupon
+    if not coupon.rule.product_ruleset:
+        return ""
+    # Either Discount on product OR Combo Offer
+    params = dict()
+    params['purchased_product'] = coupon.rule.product_ruleset.retailer_primary_product.id
+    params['max_qty_per_use'] = coupon.rule.product_ruleset.max_qty_per_use
+    # Discount on product
+    if coupon.rule.discount:
+        params['minimum_cart_product_qty'] = coupon.rule.discount_qty_step
+        params['discount'] = coupon.rule.discount.discount_value
+        params['is_percentage'] = coupon.rule.discount.is_percentage
+        params['max_discount'] = coupon.rule.discount.max_discount
+        params['coupon_type'] = 'catalog_discount'
+    # Combo Offer on Product
+    elif coupon.rule.product_ruleset.retailer_free_product:
+        params['free_product'] = coupon.rule.product_ruleset.retailer_free_product.id
+        params['free_product_name'] = coupon.rule.product_ruleset.retailer_free_product.name
+        params['coupon_type'] = 'catalogue_combo'
+        params['combo_offer_name'] = coupon.rule.product_ruleset.combo_offer_name
+        params['purchased_product_qty'] = coupon.rule.product_ruleset.purchased_product_qty
+        params['free_product_qty'] = coupon.rule.product_ruleset.free_product_qty
+    else:
+        return {'error': "Catalogue coupon invalid"}
+    return params
+
+
+def get_cart_coupon_params(coupon):
+    if coupon.rule.discount:
+        params = dict()
+        params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
+        params['discount'] = coupon.rule.discount.discount_value
+        params['is_percentage'] = coupon.rule.discount.is_percentage
+        params['max_discount'] = coupon.rule.discount.max_discount
+        params['coupon_type'] = 'cart'
+    return params
