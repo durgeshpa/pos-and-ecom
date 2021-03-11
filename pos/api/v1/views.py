@@ -400,6 +400,8 @@ class CartCentral(APIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         cart = initial_validation['cart']
+        # Update offers
+        Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
         return get_response('Cart', self.get_serialize_process_basic(cart))
 
     def get_retail_validate(self):

@@ -148,7 +148,13 @@ class BasicCartSerializer(serializers.ModelSerializer):
         """
             Discount on cart
         """
-        return 0
+        discount = 0
+        if obj.offers:
+            array1 = list(filter(lambda d: d['type'] in ['discount'], obj.offers))
+            for i in array1:
+                discount = discount + i['discount']
+        return round(discount, 2)
+
 
     def sub_total_dt(self, obj):
         """
