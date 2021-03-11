@@ -128,7 +128,7 @@ class EanSearch(APIView):
             Based on product ean code exact match
             Inputs
             ean_code
-            search_type - gf or retail
+            search_type - 1 (GramFactory products), 2 (pos/retailer products)
             shop_id - in case of retail search
         """
         ean_code = request.GET.get('ean_code')
@@ -138,15 +138,15 @@ class EanSearch(APIView):
                 "size": int(request.GET.get('pro_count', 50)),
                 "query": {"bool": {"filter": [{"match": {"ean": {"query": ean_code}}}]}}
             }
-            search_type = request.GET.get('type', 'gf')
-            if search_type == 'gf':
-                p_list = self.search_gf(body)
-            elif search_type == 'retail':
+            search_type = request.GET.get('search_type', '1')
+            if search_type == '2':
                 shop_id = request.GET.get('shop_id')
                 if shop_id and shop_id != '':
-                    p_list = self.search_retail(body, shop_id)
+                    p_list = self.search_basic(body, shop_id)
                 else:
                     return get_response('Provide Shop Id For Search Type Retail')
+            else:
+                p_list = self.search_gf(body)
             return get_response('Products Found' if p_list else 'No Products Found', p_list)
         else:
             return get_response('Provide Ean Code')
@@ -160,7 +160,7 @@ class EanSearch(APIView):
         p_list = self.process_results(products_list)
         return p_list
 
-    def search_retail(self, body, shop_id):
+    def search_basic(self, body, shop_id):
         """
             Search retail product
         """

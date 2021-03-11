@@ -135,8 +135,7 @@ class SendSmsOTP(CreateAPIView):
             phone_otp.save()
             msg = {'is_success': True,
                     'message': ["message sent"],
-                    'response_data': None,
-                    'user_exists': False  }
+                    'response_data': None}
             return Response(msg,
                 status=status.HTTP_200_OK
             )
