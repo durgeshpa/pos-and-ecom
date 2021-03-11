@@ -42,3 +42,4 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(RetailerProductImage)
+
