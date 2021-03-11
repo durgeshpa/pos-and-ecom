@@ -299,7 +299,7 @@ class DiscountSerializer(serializers.ModelSerializer):
 class CouponGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Coupon
-        fields = ('id', 'coupon_name', 'is_active')
+        fields = ('id', 'coupon_name', 'is_active', 'coupon_type')
 
 
 class ComboGetSerializer(serializers.ModelSerializer):
