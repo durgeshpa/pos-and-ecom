@@ -30,7 +30,7 @@ class BasicCartOffers(object):
                     'free_item_id': coupon['free_product'],
                     'free_item_name': coupon['free_product_name'],
                     'free_item_quantity': free_item_qty,
-                    'discounted_product_subtotal': price * qty
+                    'discounted_product_subtotal': float(price * qty)
                 })
         return offers
 
@@ -83,15 +83,15 @@ class BasicCartOffers(object):
                         },
                         {
                             "range": {
-                                "lte": {
-                                    "start_date": date
+                                "start_date": {
+                                    "lte": date
                                 }
                             }
                         },
                         {
                             "range": {
-                                "gte": {
-                                    "end_date": date
+                                "end_date": {
+                                    "gte": date
                                 }
                             }
                         },
@@ -125,15 +125,15 @@ class BasicCartOffers(object):
                         },
                         {
                             "range": {
-                                "lte": {
-                                    "start_date": date
+                                "start_date": {
+                                    "lte": date
                                 }
                             }
                         },
                         {
                             "range": {
-                                "gte": {
-                                    "end_date": date
+                                "end_date": {
+                                    "gte": date
                                 }
                             }
                         },

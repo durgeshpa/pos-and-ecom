@@ -132,7 +132,10 @@ class RuleSetProductMapping(models.Model):
 
 
     def __str__(self):
-        return "%s->%s" % (self.purchased_product, self.free_product)
+        if self.retailer_primary_product:
+            return "%s->%s" % (self.retailer_primary_product, self.retailer_free_product)
+        else:
+            return "%s->%s" % (self.purchased_product, self.free_product)
 
 
 class RuleSetBrandMapping(models.Model):
@@ -195,8 +198,9 @@ def get_catalogue_coupon_params(coupon):
         return ""
     # Either Discount on product OR Combo Offer
     params = dict()
-    params['purchased_product'] = coupon.rule.product_ruleset.retailer_primary_product.id
-    params['max_qty_per_use'] = coupon.rule.product_ruleset.max_qty_per_use
+    product_ruleset = RuleSetProductMapping.objects.get(rule_id=coupon.rule.id)
+    params['purchased_product'] = product_ruleset.retailer_primary_product.id
+    params['max_qty_per_use'] = product_ruleset.max_qty_per_use
     # Discount on product
     if coupon.rule.discount:
         params['minimum_cart_product_qty'] = coupon.rule.discount_qty_step
@@ -205,13 +209,13 @@ def get_catalogue_coupon_params(coupon):
         params['max_discount'] = coupon.rule.discount.max_discount
         params['coupon_type'] = 'catalog_discount'
     # Combo Offer on Product
-    elif coupon.rule.product_ruleset.retailer_free_product:
-        params['free_product'] = coupon.rule.product_ruleset.retailer_free_product.id
-        params['free_product_name'] = coupon.rule.product_ruleset.retailer_free_product.name
+    elif product_ruleset.retailer_free_product:
+        params['free_product'] = product_ruleset.retailer_free_product.id
+        params['free_product_name'] = product_ruleset.retailer_free_product.name
         params['coupon_type'] = 'catalogue_combo'
-        params['combo_offer_name'] = coupon.rule.product_ruleset.combo_offer_name
-        params['purchased_product_qty'] = coupon.rule.product_ruleset.purchased_product_qty
-        params['free_product_qty'] = coupon.rule.product_ruleset.free_product_qty
+        params['combo_offer_name'] = product_ruleset.combo_offer_name
+        params['purchased_product_qty'] = product_ruleset.purchased_product_qty
+        params['free_product_qty'] = product_ruleset.free_product_qty
     else:
         return {'error': "Catalogue coupon invalid"}
     return params

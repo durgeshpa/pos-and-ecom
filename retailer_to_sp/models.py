@@ -527,10 +527,10 @@ class Cart(models.Model):
                 price = product_mapping.selling_price
                 cart_value += price * qty
                 c_list = BasicCartOffers.get_basic_combo_coupons(purchased_product.id, self.seller_shop.id, date)
-                offers_list.append(BasicCartOffers.get_basic_product_offers(purchased_product, qty, price, c_list))
+                offers_list += BasicCartOffers.get_basic_product_offers(purchased_product, qty, price, c_list)
         # Cart Offers
-        c_list = BasicCartOffers.get_basic_cart_coupons(date, self.seller_shop.id)
-        offers_list.append(BasicCartOffers.get_basic_cart_offers(c_list, cart_value))
+        c_list = BasicCartOffers.get_basic_cart_coupons(self.seller_shop.id, date)
+        offers_list += BasicCartOffers.get_basic_cart_offers(c_list, cart_value)
         return offers_list
 
     def retail_offers(self):
