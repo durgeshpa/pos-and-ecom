@@ -393,11 +393,16 @@ class CouponOfferCreation(GenericAPIView):
             start_date = request.data.get('start_date')
             expiry_date = request.data.get('expiry_date')
             discount_value = request.data.get('discount_value')
-            discount_qty_amount = request.data.get('discount_qty_amount')
+            discount_amount = request.data.get('discount_qty_amount')
             # creating Discount
-            discount_obj = DiscountValue.objects.create(discount_value=discount_value)
+            if request.data.get('is_percentage'):
+                discount_obj = DiscountValue.objects.create(discount_value=discount_value,
+                                                            max_discount=request.data.get('max_discount'),
+                                                            is_percentage=True)
+            else:
+                discount_obj = DiscountValue.objects.create(discount_value=discount_value)
             # creating CouponRuleSet
-            coupon_obj = OffersCls.rule_set_creation(coupon_name, start_date, expiry_date, discount_qty_amount,
+            coupon_obj = OffersCls.rule_set_creation(coupon_name, start_date, expiry_date, discount_amount,
                                                      discount_obj)
 
             # creating Coupon with coupon_type(cart)
