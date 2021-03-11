@@ -17,7 +17,7 @@ from django.db import transaction
 from pos.common_functions import RetailerProductCls, OffersCls, get_shop_id_from_token, serializer_error
 from pos.serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
     RetailerProductResponseSerializer, CouponCodeSerializer, ComboDealsSerializer,\
-    CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponRuleSetSerializers
+    CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponRuleSetSerializers, CouponListSerializers
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm
 from pos.models import RetailerProduct, RetailerProductImage
 from products.models import Product, ParentProductCategory
@@ -348,16 +348,15 @@ class CouponOfferCreation(GenericAPIView):
             """
                  Get Offers/Coupons when search_text is given in params
             """
-            for coupon_ruleset in CouponRuleSet.objects.filter(coupon_ruleset__shop=shop_id,
-                                                               rulename__icontains=request.GET.get('search_text')):
-                serializer = CouponRuleSetSerializers(coupon_ruleset)
+            for coupon in Coupon.objects.filter(shop=shop_id, coupon_code__icontains=request.GET.get('search_text')):
+                serializer = CouponListSerializers(coupon)
                 coupon_offers.append(serializer.data)
         else:
             """
                 Get Offers/Coupons when search_text is not given in params
            """
-            for coupon_ruleset in CouponRuleSet.objects.filter(coupon_ruleset__shop=shop_id):
-                serializer = CouponRuleSetSerializers(coupon_ruleset)
+            for coupon_ruleset in Coupon.objects.filter(shop=shop_id):
+                serializer = CouponListSerializers(coupon_ruleset)
                 coupon_offers.append(serializer.data)
         """
             Pagination on Offers/Coupons

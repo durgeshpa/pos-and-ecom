@@ -319,3 +319,21 @@ class CouponRuleSetSerializers(serializers.ModelSerializer):
         fields = ('rulename', 'is_active', 'cart_qualifying_min_sku_value', 'discount',
                   'product_ruleset', 'coupon_ruleset',)
 
+
+class CouponRuleSetGetSerializer(serializers.ModelSerializer):
+    discount = serializers.SerializerMethodField('discount_value')
+
+    class Meta:
+        model = CouponRuleSet
+        fields = ('rulename', 'discount', 'is_active')
+
+    def discount_value(self, obj):
+        return DiscountSerializer(obj.discount, context=self.context).data
+
+
+class CouponListSerializers(serializers.ModelSerializer):
+    rule = CouponRuleSetGetSerializer()
+
+    class Meta:
+        model = Coupon
+        fields = ('is_active', 'coupon_code', 'rule')
