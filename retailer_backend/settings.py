@@ -398,9 +398,9 @@ CRONJOBS = [
     ('*/5 * * * *', 'products.cron.deactivate_capping'),
     #('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
     ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
+    ('*/5 * * * *', 'pos.cron.deactivate_coupon_combo_offer'),
     ('*/5 * * * *', 'whc.cron.initiate_auto_order_processing'),
     ('0 1 * * *', 'redash_report.views.redash_scheduled_report'),
-
 
 ]
 
