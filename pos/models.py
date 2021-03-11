@@ -9,7 +9,6 @@ from shops.models import Shop
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator, NameValidator
 
-# Create your models here.
 
 
 class RetailerProduct(models.Model):
