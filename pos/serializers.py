@@ -296,44 +296,26 @@ class DiscountSerializer(serializers.ModelSerializer):
         fields = ('discount_value', 'is_percentage', 'max_discount')
 
 
-class CouponRuleSetGetSerializer(serializers.ModelSerializer):
-    discount = serializers.SerializerMethodField('discount_value')
-
-    class Meta:
-        model = CouponRuleSet
-        fields = ('rulename', 'discount', 'is_active')
-
-    def discount_value(self, obj):
-        return DiscountSerializer(obj.discount, context=self.context).data
-
-
-class CouponCodeGetSerializer(serializers.ModelSerializer):
-    rule = serializers.SerializerMethodField('rule_dt')
-
+class CouponGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Coupon
-        fields = ('coupon_name', 'rule', 'is_active')
-
-    def rule_dt(self, obj):
-        return CouponRuleSetGetSerializer(obj.rule, context=self.context).data
+        fields = ('id', 'coupon_name', 'is_active')
 
 
-class ComboCodeGetSerializer(serializers.ModelSerializer):
-    rule = serializers.SerializerMethodField('rule_dt')
-
+class ComboGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = RuleSetProductMapping
-        fields = ('combo_offer_name', 'rule', 'is_active')
-
-    def rule_dt(self, obj):
-        return CouponRuleSetGetSerializer(obj.rule, context=self.context).data
+        fields = ('combo_offer_name', 'retailer_primary_product', 'retailer_free_product',
+                  'purchased_product_qty', 'free_product_qty', 'is_active')
 
 
-class Combo(serializers.ModelSerializer):
-    coupon_ruleset = CouponCodeUpdateSerializer()
-    product_ruleset = ComboDealsUpdateSerializer()
+class CouponRuleSetSerializers(serializers.ModelSerializer):
+    coupon_ruleset = CouponGetSerializer()
+    product_ruleset = ComboGetSerializer()
+    discount = DiscountSerializer()
 
     class Meta:
         model = CouponRuleSet
-        fields = ('id', 'is_active', 'product_ruleset', 'coupon_ruleset')
+        fields = ('rulename', 'is_active', 'cart_qualifying_min_sku_value', 'discount',
+                  'product_ruleset', 'coupon_ruleset',)
 

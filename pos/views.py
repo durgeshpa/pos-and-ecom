@@ -17,13 +17,12 @@ from django.db import transaction
 from pos.common_functions import RetailerProductCls, OffersCls, get_shop_id_from_token, serializer_error
 from pos.serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
     RetailerProductResponseSerializer, CouponCodeSerializer, ComboDealsSerializer,\
-    CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponCodeGetSerializer, ComboCodeGetSerializer, Combo
+    CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponRuleSetSerializers
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm
 from pos.models import RetailerProduct, RetailerProductImage
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
-from global_config.models import GlobalConfig
 
 
 POS_SERIALIZERS_MAP = {
@@ -332,24 +331,12 @@ class CouponOfferCreation(GenericAPIView):
           Get Offers/Coupons
           Serialize Offers/Coupons
        """
-        rule_type = request.data.get('rule_type')
-        if int(rule_type) == 1:
-            """
-              rule_type is Coupon Code getting Coupon
-            """
-            offers = Coupon.objects.filter(shop=shop_id, id=combo_coupon_id).order_by('-created_at').\
-                values('id', 'coupon_type', 'coupon_name', 'coupon_code', 'start_date', 'expiry_date')
-        else:
-            """
-                 rule_type is Coupon Code getting Combo offer
-            """
-            offers = Coupon.objects.filter(shop=shop_id, id=combo_coupon_id).order_by('-created_at').\
-                values('id', 'coupon_type', 'rule__id')
-            for offer in offers:
-                offers = RuleSetProductMapping.objects.filter(rule=offer['rule__id']).order_by('-created_at').\
-                    values('rule__id', 'retailer_primary_product__name',
-                           'retailer_free_product__name', 'start_date', 'expiry_date',)
-        return offers
+        coupon_offers = []
+        for coupon_ruleset in CouponRuleSet.objects.filter(coupon_ruleset__shop=shop_id,
+                                                           coupon_ruleset__id=combo_coupon_id):
+            serializer = CouponRuleSetSerializers(coupon_ruleset)
+            coupon_offers.append(serializer.data)
+        return coupon_offers
 
     def get_serialize_process(self, request, shop_id):
         """
@@ -361,20 +348,16 @@ class CouponOfferCreation(GenericAPIView):
             """
                  Get Offers/Coupons when search_text is given in params
             """
-            for coupons in Coupon.objects.filter(shop=shop_id, coupon_name__icontains=request.GET.get('search_text')).order_by('-created_at'):
-                serializer = CouponCodeGetSerializer(coupons)
+            for coupon_ruleset in CouponRuleSet.objects.filter(coupon_ruleset__shop=shop_id,
+                                                               rulename__icontains=request.GET.get('search_text')):
+                serializer = CouponRuleSetSerializers(coupon_ruleset)
                 coupon_offers.append(serializer.data)
-            coupon = Coupon.objects.filter(shop=shop_id, coupon_name__icontains=request.GET.get('search_text'))
-            for coupons in coupon:
-                for offer in RuleSetProductMapping.objects.filter(combo_offer_name=coupons['coupon_name']).order_by('-created_at'):
-                    serializer = Combo(offer)
-                    coupon_offers.append(serializer.data)
         else:
             """
                 Get Offers/Coupons when search_text is not given in params
            """
-            for coupons in Coupon.objects.filter(shop=shop_id).order_by('-created_at').values('rule'):
-                serializer = Combo(coupons['rule'])
+            for coupon_ruleset in CouponRuleSet.objects.filter(coupon_ruleset__shop=shop_id):
+                serializer = CouponRuleSetSerializers(coupon_ruleset)
                 coupon_offers.append(serializer.data)
         """
             Pagination on Offers/Coupons
