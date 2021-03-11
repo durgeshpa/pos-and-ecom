@@ -310,8 +310,8 @@ class ComboGetSerializer(serializers.ModelSerializer):
 
 
 class CouponRuleSetSerializers(serializers.ModelSerializer):
-    coupon_ruleset = CouponGetSerializer()
-    product_ruleset = ComboGetSerializer()
+    coupon_ruleset = CouponGetSerializer(many=True)
+    product_ruleset = ComboGetSerializer(many=True)
     discount = DiscountSerializer()
 
     class Meta:
