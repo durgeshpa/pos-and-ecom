@@ -120,6 +120,11 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("No_of_cases"))
 
+                if not ProductVendorMapping.objects.filter(product=row[2], vendor_id=self.data['supplier_name'], status=True).exists():
+                    raise ValidationError(
+                        "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
+                            'VENDOR_NOT_MAPPED'] % ("Vendor"))
+
                 if not ProductVendorMapping.objects.filter(product=row[2], vendor_id=self.data['supplier_name'], status=True).last().case_size == int(row[5]):
                     raise ValidationError(
                         "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[

@@ -24,6 +24,7 @@ VALIDATION_ERROR_MESSAGES = {
     'EMPTY':'%s cant be empty',
     'EMPTY_OR_NOT_VALID':'%s cant be empty or not valid( eg: 0)',
     'NOT_VALID':'%s is not valid.',
+    'VENDOR_NOT_MAPPED':'%s is not mapped.',
     'DEACTIVATE':'%s is deactivated.',
     'EMPTY_OR_NOT_VALID_STRING': '%s cant be empty or only be a "Per Pack" or "Per Piece"',
     'INVALID_GSTIN_Number': 'Invalid Gstin number',
