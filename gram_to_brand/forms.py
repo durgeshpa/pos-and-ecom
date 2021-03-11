@@ -139,7 +139,7 @@ class POGenerationForm(forms.ModelForm):
                         "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
                             'DEACTIVATE'] % ("Product"))
 
-                if not Product.objects.filter(id=row[2], status__in=['active', 'pending_approval']).last().product_mrp == int(row[7]):
+                if not float(Product.objects.filter(id=row[2], status__in=['active', 'pending_approval']).last().product_mrp) == float(row[7]):
                     raise ValidationError(
                         "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
                             'NOT_VALID'] % ("MRP"))
