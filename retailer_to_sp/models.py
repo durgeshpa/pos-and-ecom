@@ -41,7 +41,7 @@ from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
 from pos.models import RetailerProduct
-from sp_to_gram.tasks import es_search
+from pos.offers import BasicCartOffers
 
 today = datetime.datetime.today()
 
@@ -526,95 +526,15 @@ class Cart(models.Model):
                 qty = product_mapping.qty
                 price = product_mapping.selling_price
                 cart_value += price * qty
-                c_list = self.get_basic_combo_coupons(purchased_product.id, date)
-                offers_list.append(self.get_basic_product_offers(purchased_product, qty, price, c_list, date))
+                c_list = BasicCartOffers.get_basic_combo_coupons(purchased_product.id, self.seller_shop.id, date)
+                offers_list.append(BasicCartOffers.get_basic_product_offers(purchased_product, qty, price, c_list))
         # Cart Offers
-        c_list = self.get_basic_cart_coupons(date)
-        offers_list.append(self.get_basic_cart_offers(c_list, cart_value))
+        c_list = BasicCartOffers.get_basic_cart_coupons(date, self.seller_shop.id)
+        offers_list.append(BasicCartOffers.get_basic_cart_offers(c_list, cart_value))
         return offers_list
 
-    def get_basic_product_offers(self, purchased_product, qty, price, c_list):
-        """
-            Offers on a product in basic cart
-            Currently combo only
-        """
-        offers = []
-        for coupon in c_list:
-            # Quantity in cart should be greater than purchased product quantity given for combo
-            if qty > coupon['purchased_product_qty']:
-                # Units of purchased product quantity
-                purchased_product_multiple = int(qty / coupon['purchased_product_qty'])
-                # No of free items to be given on total product added in cart
-                free_item_qty = purchased_product_multiple * coupon['free_product_qty']
-                offers.append({
-                    'coupon_type': 'catalog',
-                    'type': 'combo',
-                    'coupon_id': coupon['id'],
-                    'coupon_code': coupon['coupon_code'],
-                    'discount': 0,
-                    'item': purchased_product.name,
-                    'item_id': purchased_product.id,
-                    'free_item_id': coupon['free_product'],
-                    'free_item_name': coupon['free_product_name'],
-                    'free_item_quantity': free_item_qty,
-                    'discounted_product_subtotal': price * qty
-                })
-        return offers
-
-    def get_basic_cart_offers(self, c_list, cart_value):
-        offers = []
-        for coupon in c_list:
-            if cart_value >= coupon['cart_minimum_value']:
-                if not coupon['is_percentage']:
-                    discount_value_cart = coupon['discount']
-                else:
-                    if coupon['max_discount'] == 0 or coupon['max_discount'] > (coupon['discount'] / 100) * cart_value:
-                        discount_value_cart = round((coupon['discount'] / 100) * cart_value, 2)
-                    else:
-                        discount_value_cart = coupon['max_discount']
-                offers.append(
-                    {'coupon_type': 'cart',
-                     'type': 'discount',
-                     'coupon_id': coupon['id'],
-                     'coupon_code': coupon['coupon_code'],
-                     'discount': discount_value_cart})
-        return offers
-
-    def get_basic_combo_coupons(self, purchased_product_id, date):
-        """
-            Get Product combo coupons from elasticsearch
-        """
-        body = {
-            "from": 0,
-            "size": 50,
-            "query": {"bool": {"filter": [{"match": {"purchased_product": {"query": purchased_product_id}}},
-                                          {"match": {"coupon_type": {"query": 'catalogue_combo'}}}
-                                          {"range": {"lte": {"start_date": date}}},
-                                          {"range": {"gte": {"end_date": date}}}
-                                          ]}}
-        }
-        shop_id = self.seller_shop.id
-        coupons_list = es_search(index="rc-{}".format(shop_id), body=body)
-        c_list = []
-        for c in coupons_list['hits']['hits']:
-            c_list.append(c["_source"])
-        return c_list
-
-    def get_basic_cart_coupons(self, date):
-        body = {
-            "from": 0,
-            "size": 50,
-            "query": {"bool": {"filter": [{"match": {"coupon_type": {"query": 'cart'}}},
-                                          {"range": {"lte": {"start_date": date}}},
-                                          {"range": {"gte": {"end_date": date}}}
-                                          ]}}
-        }
-        shop_id = self.seller_shop.id
-        coupons_list = es_search(index="rc-{}".format(shop_id), body=body)
-        c_list = []
-        for c in coupons_list['hits']['hits']:
-            c_list.append(c["_source"])
-        return c_list
+    def retail_offers(self):
+        pass
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
