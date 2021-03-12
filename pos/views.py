@@ -23,7 +23,7 @@ from pos.models import RetailerProduct, RetailerProductImage
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
-
+from pos.api.v1.pagination import pagination
 
 POS_SERIALIZERS_MAP = {
     '0': RetailerProductCreateSerializer,
@@ -79,6 +79,7 @@ class CatalogueProductCreation(GenericAPIView):
                 mrp = request.data.get('mrp')
                 selling_price = request.data.get('selling_price')
                 linked_product_id = request.data.get('linked_product_id')
+                product_ean_code = request.data.get('product_ean_code')
                 description = request.data.get('description') if request.data.get('description') else ''
                 # if else condition for checking whether, Product we are creating is linked with existing product or not
                 # with the help of 'linked_product_id'
@@ -91,20 +92,22 @@ class CatalogueProductCreation(GenericAPIView):
                             # If Linked_Product_MRP == Input_MRP , create a Product with [SKU TYPE : LINKED]
                             RetailerProductCls.create_retailer_product(shop_id_or_error_message,
                                                                        product_name, mrp, selling_price,
-                                                                       linked_product_id, 2, description)
+                                                                       linked_product_id, 2, description,
+                                                                       product_ean_code)
                         else:
                             # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
                             RetailerProductCls.create_retailer_product(shop_id_or_error_message,
                                                                        product_name, mrp, selling_price,
-                                                                       linked_product_id, 3, description)
+                                                                       linked_product_id, 3, description,
+                                                                       product_ean_code)
                 else:
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
                     RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_name, mrp,
-                                                               selling_price, None, 1, description)
+                                                               selling_price, None, 1, description, product_ean_code)
                 product = RetailerProduct.objects.all().last()
                 # Fetching the data of created product
                 data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp', 'selling_price',
-                                                      'description', 'sku_type',
+                                                      'description', 'sku_type', 'product_ean_code',
                                                       'linked_product__product_name', 'created_at',
                                                       'modified_at').filter(id=product.id)
                 response_serializer = RetailerProductResponseSerializer(instance=data[0])
@@ -203,9 +206,9 @@ class CouponOfferCreation(GenericAPIView):
         if type(shop_id) == int:
             combo_coupon_id = request.data.get('id')
             if combo_coupon_id:
-                coupon_offers = self.get_coupons_combo_offers_by_id(request, shop_id, combo_coupon_id)
+                coupon_offers = self.get_coupons_combo_offers_by_id(shop_id, combo_coupon_id)
             else:
-                coupon_offers = self.get_serialize_process(request, shop_id)
+                coupon_offers = self.get_coupons_combo_offers_list(request, shop_id)
             msg = {"is_success": True, "message": "Coupon/Offers Retrieved Successfully",
                    "response_data": coupon_offers}
             return Response(msg, status=200)
@@ -326,55 +329,37 @@ class CouponOfferCreation(GenericAPIView):
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
-    def get_coupons_combo_offers_by_id(self, request, shop_id, combo_coupon_id):
+    def get_coupons_combo_offers_by_id(self, shop_id, combo_coupon_id):
         """
           Get Offers/Coupons
           Serialize Offers/Coupons
        """
-
         coupon_offers = CouponRuleSet.objects.filter(coupon_ruleset__shop=shop_id,
                                                      coupon_ruleset__id=combo_coupon_id)
         serializer = CouponRuleSetSerializers(coupon_offers, many=True)
         return serializer.data
 
-    def get_serialize_process(self, request, shop_id):
+    def get_coupons_combo_offers_list(self, request, shop_id):
         """
           Get Offers/Coupons
           Serialize Offers/Coupons
        """
-        coupon_offers = []
         if request.GET.get('search_text'):
             """
                  Get Offers/Coupons when search_text is given in params
             """
             coupon = Coupon.objects.filter(shop=shop_id, coupon_code__icontains=request.GET.get('search_text'))
             serializer = CouponListSerializers(coupon, many=True)
-            coupon_offers.append(serializer.data)
         else:
             """
                 Get Offers/Coupons when search_text is not given in params
            """
             coupon_ruleset = Coupon.objects.filter(shop=shop_id)
             serializer = CouponListSerializers(coupon_ruleset, many=True)
-            coupon_offers.append(serializer.data)
         """
             Pagination on Offers/Coupons
         """
-        per_page_coupons_offers = request.GET.get('records_per_page') if request.GET.get('records_per_page') else 10
-        paginator = Paginator(coupon_offers, int(per_page_coupons_offers))
-        page_number = request.GET.get('page_number')
-        try:
-            coupon_offers = paginator.page(page_number)
-        except PageNotAnInteger:
-            coupon_offers = paginator.page(1)
-        except EmptyPage:
-            coupon_offers = paginator.page(paginator.num_pages)
-        coupon_offers_data = {
-            'previous_page': coupon_offers.has_previous() and coupon_offers.previous_page_number() or None,
-            'next_page': coupon_offers.has_next() and coupon_offers.next_page_number() or None,
-            'data': list(coupon_offers)
-        }
-        return coupon_offers_data
+        return pagination(request, serializer)
 
     def create_coupon(self, request, serializer, shop_id):
         """

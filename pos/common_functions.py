@@ -11,12 +11,12 @@ from shops.models import Shop
 class RetailerProductCls(object):
 
     @classmethod
-    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description):
+    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description, product_ean_code):
         """
             General Response For API
         """
         RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
-                                       mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description)
+                                       mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description, product_ean_code=product_ean_code)
 
     @classmethod
     def get_sku_type(cls, sku_type):

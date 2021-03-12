@@ -58,6 +58,7 @@ class RetailerProductResponseSerializer(serializers.Serializer):
     description = serializers.SerializerMethodField()
     sku_type = serializers.SerializerMethodField()
     linked_product = serializers.SerializerMethodField()
+    product_ean_code = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
     modified_at = serializers.SerializerMethodField()
 
@@ -97,6 +98,9 @@ class RetailerProductResponseSerializer(serializers.Serializer):
 
     def get_created_at(self, obj):
         return obj['created_at']
+
+    def get_product_ean_code_at(self, obj):
+        return obj['product_ean_code']
 
     def get_modified_at(self, obj):
         return obj['modified_at']
