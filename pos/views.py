@@ -433,7 +433,7 @@ class CouponOfferCreation(GenericAPIView):
         free_product_qty = request.data.get('free_product_qty')
 
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
-                           f"  +  Get {free_product_qty} {retailer_free_product_obj.name} Free"
+                           f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
 
         combo_ruleset_name = f"{combo_offer_name}_{retailer_primary_product_obj.name}_" \
                              f"{retailer_free_product_obj.name}"
@@ -570,7 +570,7 @@ class CouponOfferCreation(GenericAPIView):
 
             rule_set_product_mapping.retailer_primary_product = retailer_primary_product_obj
             combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} { retailer_primary_product_obj.name}" \
-                         f"  +  Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
+                         f" + Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
             coupon.coupon_code = combo_code
 
             combo_ruleset_name = f"{rule_set_product_mapping.combo_offer_name}_{retailer_primary_product_obj.name}_" \
@@ -589,7 +589,7 @@ class CouponOfferCreation(GenericAPIView):
                 return msg, status_code
             rule_set_product_mapping.retailer_free_product = retailer_free_product_obj
             combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} {rule_set_product_mapping.retailer_primary_product.name}" \
-                         f"  +  Get {rule_set_product_mapping.free_product_qty} {retailer_free_product_obj.name} Free"
+                         f" + Get {rule_set_product_mapping.free_product_qty} {retailer_free_product_obj.name} Free"
             coupon.coupon_code = combo_code
             combo_ruleset_name = f"{rule_set_product_mapping.combo_offer_name}_{rule_set_product_mapping.retailer_primary_product.name}_" \
                                  f"{retailer_free_product_obj.name}"
@@ -599,13 +599,13 @@ class CouponOfferCreation(GenericAPIView):
             # If purchased_product_qty in actual_input_data_list
             rule_set_product_mapping.purchased_product_qty = request.data.get('purchased_product_qty')
             combo_code = f"Buy {request.data.get('purchased_product_qty')} {rule_set_product_mapping.retailer_primary_product.name}" \
-                         f"  +  Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
+                         f" + Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
             coupon.coupon_code = combo_code
         if 'free_product_qty' in actual_input_data_list:
             # If free_product_qty in actual_input_data_list
             rule_set_product_mapping.free_product_qty = request.data.get('free_product_qty')
             combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} {rule_set_product_mapping.retailer_primary_product.name}" \
-                         f"  +  Get {request.data.get('free_product_qty')} {rule_set_product_mapping.retailer_free_product.name} Free"
+                         f" + Get {request.data.get('free_product_qty')} {rule_set_product_mapping.retailer_free_product.name} Free"
 
             coupon.coupon_code = combo_code
         if 'is_active' in actual_input_data_list:
