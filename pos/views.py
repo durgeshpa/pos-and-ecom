@@ -443,19 +443,26 @@ class CouponOfferCreation(GenericAPIView):
             status_code = {"status_code": 404}
             return msg, status_code
 
-        combo_offer_name = request.data.get('combo_offer_name')
         start_date = request.data.get('start_date')
         expiry_date = request.data.get('expiry_date')
+        purchased_product_qty = request.data.get('purchased_product_qty')
+        free_product_qty = request.data.get('free_product_qty')
+
+        combo_coupo_name = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
+                           f"  +  Get {free_product_qty} {retailer_free_product_obj.name}"
         # creating CouponRuleSet
-        coupon_obj = OffersCls.rule_set_creation(combo_offer_name, start_date, expiry_date)
+        coupon_obj = OffersCls.rule_set_creation(combo_coupo_name, start_date, expiry_date)
+        if type(coupon_obj) == str:
+            msg = {"is_success": False, "message": coupon_obj,
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
         # creating Combo Offer with primary & free products
-        OffersCls.rule_set_product_mapping(coupon_obj.id, retailer_primary_product_obj,
-                                           request.data.get('purchased_product_qty'),
-                                           retailer_free_product_obj, request.data.get('free_product_qty'),
-                                           combo_offer_name, start_date, expiry_date)
+        OffersCls.rule_set_product_mapping(coupon_obj.id, retailer_primary_product_obj, purchased_product_qty,
+                                           retailer_free_product_obj, free_product_qty,
+                                           combo_coupo_name, start_date, expiry_date)
         # creating Coupon with coupon_type(catalog)
-        coupo_name = combo_offer_name + retailer_primary_product_obj.name + retailer_free_product_obj.name
-        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', coupo_name,
+        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_coupo_name,
                                         shop, start_date, expiry_date)
         msg = {"is_success": True, "message": "Combo Offer has been successfully created!",
                "response_data": serializer.data}

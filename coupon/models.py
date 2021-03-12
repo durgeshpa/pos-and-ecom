@@ -61,6 +61,8 @@ class Coupon(models.Model):
     updated_at = models.DateTimeField(auto_now_add=True)
     start_date = models.DateField()
     expiry_date = models.DateField()
+    is_automate = models.BooleanField(default=True, db_index=True)
+    is_manual = models.BooleanField(default=False, db_index=True)
     shop = models.ForeignKey(Shop, related_name='retailer_shop_coupon', on_delete=models.CASCADE, null=True,
                              blank=True)
 
