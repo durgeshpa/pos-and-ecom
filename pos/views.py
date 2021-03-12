@@ -431,10 +431,12 @@ class CouponOfferCreation(GenericAPIView):
         expiry_date = request.data.get('expiry_date')
         purchased_product_qty = request.data.get('purchased_product_qty')
         free_product_qty = request.data.get('free_product_qty')
-
+        #coupon_code  creation for combo offers using retailer_primary_product,retailer_free_product
+        # purchased_product_qty,free_product_qty
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
                            f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
-
+        # combo_ruleset_name  creation for combo offers using combo_offer_name,retailer_primary_product,
+        # retailer_free_product ruleset_name will be uniq.
         combo_ruleset_name = f"{combo_offer_name}_{retailer_primary_product_obj.name}_" \
                              f"{retailer_free_product_obj.name}"
         # creating CouponRuleSet
@@ -538,8 +540,8 @@ class CouponOfferCreation(GenericAPIView):
 
         if 'combo_offer_name' in actual_input_data_list:
             # If coupon_name in actual_input_data_list
-
             combo_offer_name = request.data.get('combo_offer_name')
+            # update ruleset_name with existing retailer_primary_product & retailer_free_product name
             combo_ruleset_name = f"{combo_offer_name}_{rule_set_product_mapping.retailer_primary_product.name}_" \
                                  f"{rule_set_product_mapping.retailer_free_product.name}"
             coupon_ruleset.rulename = combo_ruleset_name
@@ -569,10 +571,11 @@ class CouponOfferCreation(GenericAPIView):
                 return msg, status_code
 
             rule_set_product_mapping.retailer_primary_product = retailer_primary_product_obj
+            # update ruleset_name & combo_code with existing ruleset_name , retailer_free_product name,
+            # purchased_product_qty & free_product_qty
             combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} { retailer_primary_product_obj.name}" \
                          f" + Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
             coupon.coupon_code = combo_code
-
             combo_ruleset_name = f"{rule_set_product_mapping.combo_offer_name}_{retailer_primary_product_obj.name}_" \
                                  f"{rule_set_product_mapping.retailer_free_product.name}"
             coupon_ruleset.rulename = combo_ruleset_name
@@ -588,6 +591,8 @@ class CouponOfferCreation(GenericAPIView):
                 status_code = {"status_code": 404}
                 return msg, status_code
             rule_set_product_mapping.retailer_free_product = retailer_free_product_obj
+            # update ruleset_name & combo_code with existing ruleset_name , retailer_primary_product name,
+            # purchased_product_qty & free_product_qty
             combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} {rule_set_product_mapping.retailer_primary_product.name}" \
                          f" + Get {rule_set_product_mapping.free_product_qty} {retailer_free_product_obj.name} Free"
             coupon.coupon_code = combo_code
@@ -598,12 +603,16 @@ class CouponOfferCreation(GenericAPIView):
         if 'purchased_product_qty' in actual_input_data_list:
             # If purchased_product_qty in actual_input_data_list
             rule_set_product_mapping.purchased_product_qty = request.data.get('purchased_product_qty')
+            # update combo_code with existing ruleset_name , retailer_primary_product, retailer_free_product name,
+            #  & free_product_qty
             combo_code = f"Buy {request.data.get('purchased_product_qty')} {rule_set_product_mapping.retailer_primary_product.name}" \
                          f" + Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
             coupon.coupon_code = combo_code
         if 'free_product_qty' in actual_input_data_list:
             # If free_product_qty in actual_input_data_list
             rule_set_product_mapping.free_product_qty = request.data.get('free_product_qty')
+            # update combo_code with existing ruleset_name , retailer_primary_product, retailer_free_product name,
+            #  & purchased_product_qty
             combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} {rule_set_product_mapping.retailer_primary_product.name}" \
                          f" + Get {request.data.get('free_product_qty')} {rule_set_product_mapping.retailer_free_product.name} Free"
 
