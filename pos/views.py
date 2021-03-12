@@ -430,7 +430,7 @@ class CouponOfferCreation(GenericAPIView):
             retailer_primary_product_obj = RetailerProduct.objects.get(id=retailer_primary_product, shop=shop_id)
         except ObjectDoesNotExist:
             msg = {"is_success": False, "error": "retailer_primary_product Not Found",
-                   "response_data": serializer.data },
+                   "response_data": serializer.data},
             status_code = {"status_code": 404}
             return msg, status_code
 
@@ -454,7 +454,8 @@ class CouponOfferCreation(GenericAPIView):
                                            retailer_free_product_obj, request.data.get('free_product_qty'),
                                            combo_offer_name, start_date, expiry_date)
         # creating Coupon with coupon_type(catalog)
-        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name,
+        coupo_name = combo_offer_name + retailer_primary_product_obj.name + retailer_free_product_obj.name
+        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', coupo_name,
                                         shop, start_date, expiry_date)
         msg = {"is_success": True, "message": "Combo Offer has been successfully created!",
                "response_data": serializer.data}

@@ -7,7 +7,7 @@ from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from products.models import Product, ProductImage
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order
-from accounts.api.v1.serializers import UserSerializer
+from accounts.api.v1.serializers import UserSerializer, UserPhoneSerializer
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
@@ -172,3 +172,17 @@ class BasicOrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = ('id', 'ordered_cart', 'order_status', 'total_final_amount', 'total_discount_amount',
                   'total_tax_amount', 'total_mrp_amount', 'ordered_by', 'created_at', 'modified_at')
+
+
+class BasicOrderListSerializer(serializers.ModelSerializer):
+    """
+        Order Placed Data For Basic Cart
+    """
+    ordered_by = UserPhoneSerializer()
+    order_status = serializers.CharField(source='get_order_status_display')
+    total_final_amount = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Order
+        fields = ('id', 'order_status', 'total_final_amount',
+                  'ordered_by',)
