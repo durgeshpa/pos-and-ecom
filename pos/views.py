@@ -331,12 +331,11 @@ class CouponOfferCreation(GenericAPIView):
           Get Offers/Coupons
           Serialize Offers/Coupons
        """
-        coupon_offers = []
-        for coupon_ruleset in CouponRuleSet.objects.filter(coupon_ruleset__shop=shop_id,
-                                                           coupon_ruleset__id=combo_coupon_id):
-            serializer = CouponRuleSetSerializers(coupon_ruleset)
-            coupon_offers.append(serializer.data)
-        return coupon_offers
+
+        coupon_offers = CouponRuleSet.objects.filter(coupon_ruleset__shop=shop_id,
+                                                     coupon_ruleset__id=combo_coupon_id)
+        serializer = CouponRuleSetSerializers(coupon_offers, many=True)
+        return serializer.data
 
     def get_serialize_process(self, request, shop_id):
         """
@@ -348,16 +347,16 @@ class CouponOfferCreation(GenericAPIView):
             """
                  Get Offers/Coupons when search_text is given in params
             """
-            for coupon in Coupon.objects.filter(shop=shop_id, coupon_code__icontains=request.GET.get('search_text')):
-                serializer = CouponListSerializers(coupon)
-                coupon_offers.append(serializer.data)
+            coupon = Coupon.objects.filter(shop=shop_id, coupon_code__icontains=request.GET.get('search_text'))
+            serializer = CouponListSerializers(coupon, many=True)
+            coupon_offers.append(serializer.data)
         else:
             """
                 Get Offers/Coupons when search_text is not given in params
            """
-            for coupon_ruleset in Coupon.objects.filter(shop=shop_id):
-                serializer = CouponListSerializers(coupon_ruleset)
-                coupon_offers.append(serializer.data)
+            coupon_ruleset = Coupon.objects.filter(shop=shop_id)
+            serializer = CouponListSerializers(coupon_ruleset, many=True)
+            coupon_offers.append(serializer.data)
         """
             Pagination on Offers/Coupons
         """
