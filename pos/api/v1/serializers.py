@@ -176,7 +176,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
 class BasicOrderListSerializer(serializers.ModelSerializer):
     """
-        Order Placed Data For Basic Cart
+        Order List For Basic Cart
     """
     ordered_by = UserPhoneSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
@@ -184,5 +184,4 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'total_final_amount',
-                  'ordered_by',)
+        fields = ('id', 'order_status', 'total_final_amount', 'ordered_by',)

@@ -6,8 +6,8 @@ from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
+from .pagination import pagination
 from sp_to_gram.tasks import es_search
 from audit.views import BlockUnblockProduct
 from retailer_to_sp.api.v1.serializers import CartSerializer, GramMappedCartSerializer, ParentProductImageSerializer,\
@@ -31,7 +31,6 @@ from pos.models import RetailerProduct
 from pos.common_functions import get_response, delete_cart_mapping
 
 from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, BasicOrderListSerializer
-from .pagination import pagination
 
 
 class ProductDetail(APIView):
@@ -906,6 +905,7 @@ class OrderListCentral(APIView):
             Get Order List
             Inputs
             cart_type
+            shop_id for Basic cart_type
         """
         cart_type = request.GET.get('cart_type')
         if cart_type == '1':
@@ -1003,6 +1003,9 @@ class OrderListCentral(APIView):
                                          context={'parent_mapping_id': parent_mapping.parent.id,
                                                   'current_url': self.request.get_host(),
                                                   'buyer_shop_id': parent_mapping.retailer.id})
+        """
+            Pagination on Order List
+        """
         return pagination(self.request, serializer)
 
     def get_serialize_process_gf(self, order, parent_mapping):
@@ -1014,6 +1017,9 @@ class OrderListCentral(APIView):
                                                context={'parent_mapping_id': parent_mapping.parent.id,
                                                         'current_url': self.request.get_host(),
                                                         'buyer_shop_id': parent_mapping.retailer.id})
+        """
+            Pagination on Order List
+        """
         return pagination(self.request, serializer)
 
     def get_serialize_process_basic(self, order):
@@ -1023,7 +1029,7 @@ class OrderListCentral(APIView):
         """
         serializer = BasicOrderListSerializer(order, many=True)
         """
-            Pagination on Orders
+            Pagination on Order List
         """
         return pagination(self.request, serializer)
 

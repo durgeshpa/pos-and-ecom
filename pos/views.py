@@ -11,9 +11,9 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.db import transaction
 
+from pos.api.v1.pagination import pagination
 from pos.common_functions import RetailerProductCls, OffersCls, get_shop_id_from_token, serializer_error
 from pos.serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
     RetailerProductResponseSerializer, CouponCodeSerializer, ComboDealsSerializer,\
@@ -23,7 +23,7 @@ from pos.models import RetailerProduct, RetailerProductImage
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
-from pos.api.v1.pagination import pagination
+
 
 POS_SERIALIZERS_MAP = {
     '0': RetailerProductCreateSerializer,
@@ -311,7 +311,7 @@ class CouponOfferCreation(GenericAPIView):
                             with transaction.atomic():
                                 msg, status_code = self.update_combo(request, combo_offer_id, serializer, shop_id)
                                 return Response(msg, status=status_code.get("status_code"))
-                        except Exception as e:
+                        except:
                             msg = {"is_success": False, "message": "Something went wrong",
                                    "response_data": serializer.data}
                             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
