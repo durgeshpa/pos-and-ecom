@@ -84,10 +84,14 @@ class ProductTable(tables.Table):
     sku = tables.Column()
     name = tables.Column()
     mrp = tables.Column()
+    ean_code = tables.Column()
+    category = tables.Column()
+    brand = tables.Column()
     child_reason = tables.Column()
     case_size = tables.Column()
     product_status = tables.Column()
     active_product_price = tables.Column()
+    product_price = tables.Column()
     price_end_date = tables.Column()
     earliest_expiry_date = tables.Column()
     audit_blocked = tables.Column()
@@ -125,7 +129,9 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                                                                                            'sku__child_product_pro_image',
                                                                                            'sku__parent_product__parent_product_pro_image',
                                                                                            'sku__product_pro_price__seller_shop',
-                                                                                           'sku__rt_audit_sku')
+                                                                                           'sku__rt_audit_sku',
+                                                                                           'sku__parent_product__parent_product_pro_category',
+                                                                                           'sku__parent_product__parent_brand')[0:10]
         filter = self.request.GET.copy()
         filter['visible'] = ''
         self.filter = ProductFilter(filter, queryset=products)
@@ -136,10 +142,14 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     parent_id = myproduct.sku.parent_product.parent_id
                     parent_name = myproduct.sku.parent_product.name
                     case_size = myproduct.sku.parent_product.inner_case_size
+                    category = myproduct.sku.parent_product.parent_product_pro_category.last().category
+                    brand = myproduct.sku.parent_product.parent_brand
                 except:
                     parent_id = ''
                     parent_name = ''
                     case_size = ''
+                    category=''
+                    brand=''
                 binproducts = myproduct.sku.rt_product_sku.all()
                 earliest_expiry_date = datetime.datetime.strptime("01/01/2300", "%d/%m/%Y")
                 for binproduct in binproducts:
@@ -150,12 +160,14 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                 price_list = myproduct.sku.product_pro_price.all()
                 is_price = False
                 price_end_date = ''
+                product_price=''
                 if price_list.count() > 0:
                     for price in price_list:
                         if price.end_date and price.seller_shop == self.shop:
                             if price.end_date >= today and price.approval_status == 2 and price.status:
                                 is_price = True
                                 price_end_date = price.end_date.date()
+                                product_price = price.selling_price
                 audit_blocked = False
                 product_blocked_list = myproduct.sku.rt_audit_sku.all()
                 for product_blocked in product_blocked_list:
@@ -168,10 +180,14 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     'mrp': myproduct.sku.product_mrp,
                     'parent_id': parent_id,
                     'parent_name': parent_name,
+                    'ean_code':myproduct.sku.product_ean_code,
+                    'category':category,
+                    'brand':brand,
                     'child_reason': myproduct.sku.reason_for_child_sku,
                     'case_size': case_size,
                     'product_status': myproduct.sku.status,
                     'active_product_price': is_price,
+                    'product_price': product_price,
                     'price_end_date': price_end_date,
                     'earliest_expiry_date': earliest_expiry_date.date(),
                     'normal':0,
