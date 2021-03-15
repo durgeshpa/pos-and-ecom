@@ -117,6 +117,7 @@ class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
             return qs
 
         product_qs = Product.objects.exclude(repackaging_type='destination')
+        product_qs = product_qs.exclude(status='deactivated')
         product_id = ProductVendorMapping.objects \
             .filter(vendor__id=supplier_id, case_size__gt=0, status=True).values('product')
         parent_product_ids = product_qs.filter(id__in=[product_id]).values('parent_product')

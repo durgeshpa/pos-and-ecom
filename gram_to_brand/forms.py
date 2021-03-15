@@ -88,7 +88,7 @@ class POGenerationForm(forms.ModelForm):
     
             if not self.cleaned_data['cart_product_mapping_csv'].name[-4:] in ('.csv'):
                 raise forms.ValidationError("Sorry! Only csv file accepted")
-            reader = csv.reader(codecs.iterdecode(self.cleaned_data['cart_product_mapping_csv'], 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(self.cleaned_data['cart_product_mapping_csv'], 'utf-8', errors='ignore'))
             first_row = next(reader)
             for id,row in enumerate(reader):
                 
@@ -120,9 +120,29 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("No_of_cases"))
 
+                if not ProductVendorMapping.objects.filter(product=row[2], vendor_id=self.data['supplier_name'], status=True).exists():
+                    raise ValidationError(
+                        "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
+                            'VENDOR_NOT_MAPPED'] % ("Vendor"))
+
+                if not ProductVendorMapping.objects.filter(product=row[2], vendor_id=self.data['supplier_name'], status=True).last().case_size == int(row[5]):
+                    raise ValidationError(
+                        "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
+                            'NOT_VALID'] % ("Case size"))
+
                 if not row[7] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[7]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("MRP"))
+
+                if Product.objects.filter(id=row[2], status='deactivated').exists():
+                    raise ValidationError(
+                        "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
+                            'DEACTIVATE'] % ("Product"))
+
+                if not float(Product.objects.filter(id=row[2], status__in=['active', 'pending_approval']).last().product_mrp) == float(row[7]):
+                    raise ValidationError(
+                        "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
+                            'NOT_VALID'] % ("MRP"))
 
                 if not (row[8].lower()  == "per piece" or row[8].lower() == "per pack"):
 
