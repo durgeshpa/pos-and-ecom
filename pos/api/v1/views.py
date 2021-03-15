@@ -31,7 +31,7 @@ from pos.models import RetailerProduct
 from pos.common_functions import get_response, delete_cart_mapping, order_search
 from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer,\
     BasicOrderListSerializer
-
+from pos.offers import BasicCartOffers
 
 class ProductDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -114,8 +114,11 @@ class RetailerProductsList(APIView):
         query = self.search_query(request)
         body = {"from": 0, "size": 5, "query": query, "_source": {"includes": ["name", "selling_price", "mrp",
                                                                                "images"]}}
-        products_list = es_search(index="rp-{}".format(shop_id), body=body)
-        p_list = self.process_results(products_list)
+        try:
+            products_list = es_search(index="rp-{}".format(shop_id), body=body)
+            p_list = self.process_results(products_list)
+        except:
+            p_list = []
         return get_response('Products Found For Shop' if p_list else 'No Products Found', p_list)
 
 
@@ -166,8 +169,11 @@ class EanSearch(APIView):
             Search retail product
         """
         body['_source'] = {"includes": ["id", "name", "selling_price", "mrp"]}
-        products_list = es_search(index='rp-{}'.format(shop_id), body=body)
-        p_list = self.process_results(products_list)
+        try:
+            products_list = es_search(index='rp-{}'.format(shop_id), body=body)
+            p_list = self.process_results(products_list)
+        except:
+            p_list = []
         return p_list
 
     def process_results(self, products_list):

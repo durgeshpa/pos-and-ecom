@@ -181,6 +181,14 @@ class BasicCartOffers(object):
                     final_offer = offer
                     offer['applied'] = 1
                 offer['applicable'] = 1
+                if not coupon['is_percentage']:
+                    discount = coupon['discount']
+                else:
+                    if coupon['max_discount'] == 0 or coupon['max_discount'] > (coupon['discount'] / 100) * cart_value:
+                        discount = round((coupon['discount'] / 100) * cart_value, 2)
+                    else:
+                        discount = coupon['max_discount']
+                offer['discount_value_cart'] = discount
                 applicable_offers.append(offer)
             else:
                 offer['applicable'] = 0

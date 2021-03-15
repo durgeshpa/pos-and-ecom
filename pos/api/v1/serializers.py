@@ -121,8 +121,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
 
         if qs.exists():
             # Pagination
-            records_per_page = GlobalConfig.objects.get(key='records_per_page')
-            records_per_page = records_per_page.value
+            records_per_page = 10
             per_page_products = self.context.get('records_per_page') if self.context.get('records_per_page') else records_per_page
             paginator = Paginator(qs, int(per_page_products))
             page_number = self.context.get('page_number')
@@ -210,6 +209,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
     total_discount = serializers.SerializerMethodField()
     total_amount = serializers.SerializerMethodField()
     amount_payable = serializers.SerializerMethodField()
+    buyer = UserSerializer()
 
     def get_total_amount(self, obj):
         """
