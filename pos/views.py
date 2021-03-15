@@ -452,6 +452,13 @@ class CouponOfferCreation(GenericAPIView):
                    "response_data": serializer.data}
             status_code = {"status_code": 404}
             return msg, status_code
+
+        ruleset = RuleSetProductMapping.objects.filter(retailer_primary_product=retailer_primary_product_obj)
+        if ruleset:
+            msg = {"is_success": False, "message": "Offer already exist for this primary_product",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
         # creating Combo Offer with primary & free products
         OffersCls.rule_set_product_mapping(coupon_obj.id, retailer_primary_product_obj, purchased_product_qty,
                                            retailer_free_product_obj, free_product_qty,
