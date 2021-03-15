@@ -259,7 +259,7 @@ class CouponOfferCreation(GenericAPIView):
                         with transaction.atomic():
                             msg, status_code = self.create_combo_offer(request, serializer, shop_id)
                             return Response(msg, status=status_code.get("status_code"))
-                    except Exception as e:
+                    except:
                         msg = {"is_success": False, "message": "Something went wrong",
                                "response_data": serializer.data}
                         return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
@@ -432,18 +432,19 @@ class CouponOfferCreation(GenericAPIView):
                    "response_data": serializer.data}
             status_code = {"status_code": 404}
             return msg, status_code
+
         combo_offer_name = request.data.get('combo_offer_name')
         start_date = request.data.get('start_date')
         expiry_date = request.data.get('expiry_date')
         purchased_product_qty = request.data.get('purchased_product_qty')
         free_product_qty = request.data.get('free_product_qty')
+
         ruleset = RuleSetProductMapping.objects.filter(retailer_primary_product=retailer_primary_product_obj)
         # checking if offer already exist with retailer_primary_product,
         # you can not map two different type of free_product for one primary product
         if ruleset:
-            try:
-                ruleset.filter(retailer_free_product=retailer_free_product_obj)
-            except:
+            rule = ruleset.filter(retailer_free_product=retailer_free_product_obj)
+            if not rule:
                 msg = {"is_success": False, "message": "Offer already exist for this primary_product",
                        "response_data": serializer.data}
                 status_code = {"status_code": 404}
@@ -560,7 +561,6 @@ class CouponOfferCreation(GenericAPIView):
             combo_offer_name = request.data.get('combo_offer_name')
             rule_set_product_mapping.combo_offer_name = combo_offer_name
             coupon.coupon_name = combo_offer_name
-
         if 'start_date' in actual_input_data_list:
             # If start_date in actual_input_data_list
             coupon_ruleset.start_date = request.data.get('start_date')
@@ -587,9 +587,8 @@ class CouponOfferCreation(GenericAPIView):
             # checking if offer already exist with retailer_primary_product,
             # you can not map two different type of free_product for one primary product
             if ruleset:
-                try:
-                    ruleset.filter(retailer_free_product=rule_set_product_mapping.retailer_free_product)
-                except:
+                rule = ruleset.filter(retailer_free_product=rule_set_product_mapping.retailer_free_product)
+                if not rule:
                     msg = {"is_success": False, "message": "Offer already exist for this primary_product",
                            "response_data": serializer.data}
                     status_code = {"status_code": 404}
