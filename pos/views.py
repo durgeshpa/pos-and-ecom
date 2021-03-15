@@ -588,7 +588,8 @@ class CouponOfferCreation(GenericAPIView):
                 return msg, status_code
 
             ruleset = RuleSetProductMapping.objects.filter(retailer_primary_product=retailer_primary_product_obj)
-            # checking if offer already exist with retailer_primary_product, you can not map two different type of free_product for one primary product
+            # checking if offer already exist with retailer_primary_product,
+            # you can not map two different type of free_product for one primary product
             if ruleset:
                 msg = {"is_success": False, "message": "Offer already exist for this primary_product",
                        "response_data": serializer.data}
