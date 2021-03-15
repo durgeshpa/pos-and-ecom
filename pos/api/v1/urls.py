@@ -1,6 +1,6 @@
 from django.conf.urls import include, url
 
-from .views import ProductDetail, RetailerProductsList, EanSearch, GramProductsList, CartCentral, OrderCentral
+from .views import ProductDetail, RetailerProductsList, EanSearch, GramProductsList, CartCentral, OrderCentral, OrderListCentral
 
 urlpatterns = [
     url('^search/ean/$', EanSearch.as_view()),
@@ -9,5 +9,7 @@ urlpatterns = [
     url('^search/gram-product/$', GramProductsList.as_view()),
     url('^cart/$', CartCentral.as_view()),
     url('^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
-    url('^order/$', OrderCentral.as_view())
+    url('^order/$', OrderCentral.as_view()),
+    url('^order-list/$', OrderListCentral.as_view())
+
 ]
