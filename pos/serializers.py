@@ -17,6 +17,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
+    product_ean_code = serializers.CharField(required=True)
 
     def validate(self, attrs):
         serializer_list = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price", "description"]
@@ -109,6 +110,7 @@ class RetailerProductResponseSerializer(serializers.Serializer):
 class RetailerProductUpdateSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(required=True)
     shop_id = serializers.IntegerField(required=False)
+    product_ean_code = serializers.CharField(required=False)
     product_name = serializers.CharField(required=False, validators=[ProductNameValidator])
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
