@@ -934,7 +934,8 @@ class OrderListCentral(APIView):
             return {'error': "Shop Doesn't Exist!"}
         try:
             search_text = request.GET.get('search_text')
-            orders = Order.objects.filter(seller_shop=request.GET.get('shop_id'))
+            order_status = request.GET.get('order_status')
+            orders = Order.objects.filter(seller_shop=request.GET.get('shop_id'), order_status=order_status)
             if search_text:
                 order = order_search(orders, search_text)
             else:
@@ -980,14 +981,15 @@ class OrderListCentral(APIView):
         order = None
         try:
             search_text = self.request.GET.get('search_text')
+            order_status = self.request.GET.get('order_status')
             if shop_type == 'sp':
-                orders = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
+                orders = Order.objects.filter(buyer_shop=parent_mapping.retailer, order_status=order_status).order_by('-created_at')
                 if search_text:
                     order = order_search(orders, search_text)
                 else:
                     order = orders
             elif shop_type == 'gf':
-                orders = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
+                orders = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer, order_status=order_status).order_by('-created_at')
                 if search_text:
                     order = order_search(orders, search_text)
                 else:
