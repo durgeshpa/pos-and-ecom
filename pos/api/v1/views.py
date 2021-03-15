@@ -29,8 +29,8 @@ from sp_to_gram.models import OrderedProductReserved
 from addresses.models import Address
 from pos.models import RetailerProduct
 from pos.common_functions import get_response, delete_cart_mapping, order_search
-
-from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, BasicOrderListSerializer
+from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer,\
+    BasicOrderListSerializer
 
 
 class ProductDetail(APIView):
@@ -242,6 +242,101 @@ class GramProductsList(APIView):
         return p_list
 
 
+class CartCheckout(APIView):
+    """
+        Checkout after items added
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        """
+            Checkout
+            Apply Any Available Cart Offer
+            Inputs
+            cart_id
+            coupon_id
+        """
+        # Input validation
+        initial_validation = self.post_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        cart = initial_validation['cart']
+        # Get offers available now and apply coupon if applicable
+        response = BasicCartOffers.checkout_apply_offer(cart, self.request.data.get('coupon_id'))
+        if 'error' in  response:
+            return get_response(response['error'])
+        return get_response("Offer Applied Successfully" if response['applied'] else "Offer Not Found", self.serialize(cart))
+
+    def get(self, request):
+        """
+            Get Checkout Amount Info, Offers Applied-Applicable
+        """
+        # Input validation
+        initial_validation = self.get_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        cart = initial_validation['cart']
+        # Auto apply highest applicable discount
+        auto_apply = self.request.GET.get('auto_apply')
+        # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
+        offers = BasicCartOffers.refresh_offers(cart, auto_apply)
+        if 'error' in offers:
+            return get_response(offers['error'])
+        return get_response("Offers", self.serialize(cart, offers['total_offers']))
+
+    def delete(self, request):
+        """
+            Checkout
+            Delete any applied cart offers
+        """
+        cart_id = self.request.GET.get('cart_id')
+        try:
+            cart = Cart.objects.get(pk=cart_id)
+        except ObjectDoesNotExist:
+            return get_response("Cart Does Not Exist")
+        offers = BasicCartOffers.remove_cart_offer(cart.offers)
+        Cart.objects.filter(pk=cart.id).update(offers=offers)
+        return get_response("Deleted Successfully", [], True)
+
+    def post_validate(self):
+        """
+            Add cart offer in checkout
+            Input validation
+        """
+        cart_id = self.request.data.get('cart_id')
+        try:
+            cart = Cart.objects.get(pk=cart_id)
+        except ObjectDoesNotExist:
+            return {'error' : "Cart Does Not Exist"}
+        if not self.request.data.get('coupon_id'):
+            return {'error': "Provide Coupon Id"}
+        return {'cart': cart}
+
+    def get_validate(self):
+        """
+            Get Checkout
+            Input validation
+        """
+        cart_id = self.request.GET.get('cart_id')
+        try:
+            cart = Cart.objects.get(pk=cart_id)
+        except ObjectDoesNotExist:
+            return {'error' : "Cart Does Not Exist"}
+        return {'cart': cart}
+
+    def serialize(self, cart, offers=None):
+        """
+            Checkout serializer
+            Payment Info plus Offers
+        """
+        serializer = CheckoutSerializer(Cart.objects.get(pk=cart.id))
+        response = serializer.data
+        if offers:
+            response['available_offers'] = offers
+        return response
+
+
 class CartCentral(APIView):
     """
         Get Cart
@@ -276,7 +371,7 @@ class CartCentral(APIView):
                 cart_id (For Basic Cart)
                 qty (Quantity of product to be added)
         """
-        cart_type = self.request.POST.get('cart_type')
+        cart_type = self.request.data.get('cart_type')
         if cart_type == '1':
             return self.retail_add_to_cart()
         elif cart_type == '2':
@@ -401,6 +496,10 @@ class CartCentral(APIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         cart = initial_validation['cart']
+        # Refresh - add/remove/update combo and cart level offers
+        offers = BasicCartOffers.refresh_offers(cart)
+        if 'error' in offers:
+            return get_response(offers['error'])
         return get_response('Cart', self.get_serialize_process_basic(cart))
 
     def get_retail_validate(self):
@@ -606,11 +705,10 @@ class CartCentral(APIView):
         product = initial_validation['product']
         shop = initial_validation['shop']
         qty = initial_validation['quantity']
-        cart_id = self.request.POST.get('cart_id')
-        price_change = self.request.POST.get('price_change')
+        cart = initial_validation['cart']
 
         # Update or create cart for shop
-        cart = self.post_update_basic_cart(shop, cart_id)
+        cart = self.post_update_basic_cart(shop, cart)
         # Check if product has to be removed
         if int(qty) == 0:
             delete_cart_mapping(cart, product, 'basic')
@@ -633,8 +731,8 @@ class CartCentral(APIView):
             Add To Cart
             Input validation for cart type 'retail'
         """
-        qty = self.request.POST.get('qty')
-        shop_id = self.request.POST.get('shop_id')
+        qty = self.request.data.get('qty')
+        shop_id = self.request.data.get('shop_id')
         # Added Quantity check
         if qty is None or qty == '':
             return {'error': "Qty Not Found!"}
@@ -647,7 +745,7 @@ class CartCentral(APIView):
             return {'error': "Shop Mapping Doesn't Exist!"}
         # Check if product exists
         try:
-            product = Product.objects.get(id=self.request.POST.get('cart_product'))
+            product = Product.objects.get(id=self.request.data.get('cart_product'))
         except ObjectDoesNotExist:
             return {'error': "Product Not Found!"}
         # Check if the product is blocked for audit
@@ -662,34 +760,38 @@ class CartCentral(APIView):
             Add To Cart
             Input validation for add to cart for cart type 'basic'
         """
-        qty = self.request.POST.get('qty')
+        qty = self.request.data.get('qty')
         # Added Quantity check
         if qty is None or qty == '':
             return {'error': "Qty Not Found!"}
         # Check if shop exists
         try:
-            shop = Shop.objects.get(id=self.request.POST.get('shop_id'))
+            shop = Shop.objects.get(id=self.request.data.get('shop_id'))
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
         # Check if product exists for that shop
         try:
-            product = RetailerProduct.objects.get(id=self.request.POST.get('cart_product'), shop=shop)
+            product = RetailerProduct.objects.get(id=self.request.data.get('cart_product'), shop=shop)
         except ObjectDoesNotExist:
             return {'error': "Product Not Found!"}
         # Check if existing or new cart
-        cart_id = self.request.POST.get('cart_id')
-        if cart_id and not Cart.objects.filter(id=cart_id, last_modified_by=self.request.user, seller_shop=shop,
-                                   cart_type='BASIC', cart_status__in=['active', 'pending']).exists():
-            return {'error': "Cart Not Found!"}
+        cart = None
+        cart_id = self.request.data.get('cart_id')
+        if cart_id:
+            try:
+                cart = Cart.objects.get(id=cart_id, last_modified_by=self.request.user, seller_shop=shop,
+                                   cart_type='BASIC', cart_status__in=['active', 'pending'])
+            except ObjectDoesNotExist:
+                return {'error': "Cart Not Found!"}
         # Check if selling price is less than equal to mrp if price change
-        price_change = self.request.POST.get('price_change')
+        price_change = self.request.data.get('price_change')
         if price_change in ['1', '2']:
-            selling_price = self.request.POST.get('selling_price')
+            selling_price = self.request.data.get('selling_price')
             if not selling_price:
                 return {'error': "Please provide selling price to change price"}
             if Decimal(selling_price) > product.mrp:
                 return {'error': "Selling Price cannot be greater than MRP"}
-        return {'product': product, 'shop': shop, 'quantity': qty}
+        return {'product': product, 'shop': shop, 'quantity': qty, 'cart': cart}
 
     def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
         """
@@ -730,16 +832,13 @@ class CartCentral(APIView):
             cart.save()
         return cart
 
-    def post_update_basic_cart(self, seller_shop, cart_id=None):
+    def post_update_basic_cart(self, seller_shop, cart=None):
         """
             Create or update/add product to retail basic Cart
         """
         user = self.request.user
 
-        if Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, id=cart_id,
-                               cart_status__in=['active', 'pending'], cart_type='BASIC').exists():
-            cart = Cart.objects.filter(last_modified_by=user, seller_shop=seller_shop, id=cart_id,
-                                       cart_status__in=['active', 'pending'], cart_type='BASIC').last()
+        if cart:
             cart.cart_type = 'BASIC'
             cart.approval_status = False
             cart.cart_status = 'active'
@@ -861,10 +960,10 @@ class CartCentral(APIView):
             price_change - 1 (change for all), 2 (change for current cart only)
         """
         # Check If Price Change
-        price_change = self.request.POST.get('price_change')
+        price_change = self.request.data.get('price_change')
         selling_price = None
         if price_change in ['1', '2']:
-            selling_price = self.request.POST.get('selling_price')
+            selling_price = self.request.data.get('selling_price')
             if price_change == '1' and selling_price:
                 RetailerProduct.objects.filter(id=product.id).update(selling_price=selling_price)
 
@@ -1087,7 +1186,7 @@ class OrderCentral(APIView):
                 basic
                     shop_id (Seller shop id)
         """
-        cart_type = self.request.POST.get('cart_type')
+        cart_type = self.request.data.get('cart_type')
         if cart_type == '1':
             return self.post_retail_order()
         elif cart_type == '2':
@@ -1141,7 +1240,7 @@ class OrderCentral(APIView):
         shipping_address = initial_validation['shipping_add']
 
         user = self.request.user
-        cart_id = self.request.POST.get('cart_id')
+        cart_id = self.request.data.get('cart_id')
 
         # If Seller Shop is sp Type
         if shop_type == 'sp':
@@ -1254,7 +1353,7 @@ class OrderCentral(APIView):
             Place Order
             Input validation for cart type 'retail'
         """
-        shop_id = self.request.POST.get('shop_id')
+        shop_id = self.request.data.get('shop_id')
         # Check if buyer shop exists
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
@@ -1263,13 +1362,13 @@ class OrderCentral(APIView):
         if parent_mapping is None:
             return {'error': "Shop Mapping Doesn't Exist!"}
         # Get billing address
-        billing_address_id = self.request.POST.get('billing_address_id')
+        billing_address_id = self.request.data.get('billing_address_id')
         try:
             billing_address = Address.objects.get(id=billing_address_id)
         except ObjectDoesNotExist:
             return {'error': "Billing address not found"}
         # Get shipping address
-        shipping_address_id = self.request.POST.get('shipping_address_id')
+        shipping_address_id = self.request.data.get('shipping_address_id')
         try:
             shipping_address = Address.objects.get(id=shipping_address_id)
         except ObjectDoesNotExist:
@@ -1283,13 +1382,13 @@ class OrderCentral(APIView):
             Input validation for cart type 'basic'
         """
         # Check if seller shop exists
-        shop_id = self.request.POST.get('shop_id')
+        shop_id = self.request.data.get('shop_id')
         try:
             shop = Shop.objects.get(id=shop_id)
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
         # Check if cart exists
-        cart_id = self.request.POST.get('cart_id')
+        cart_id = self.request.data.get('cart_id')
         try:
             cart = Cart.objects.get(id=cart_id, last_modified_by=self.request.user, seller_shop=shop)
         except ObjectDoesNotExist:
@@ -1376,7 +1475,7 @@ class OrderCentral(APIView):
         order.shipping_address = shipping_address
         order.buyer_shop = parent_mapping.retailer
         order.seller_shop = parent_mapping.parent
-        order.total_tax_amount = float(self.request.POST.get('total_tax_amount', 0))
+        order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
         order.save()
         return order
@@ -1404,7 +1503,7 @@ class OrderCentral(APIView):
         order.buyer = cart.buyer
         order.seller_shop = shop
         order.received_by = cart.buyer
-        order.total_tax_amount = float(self.request.POST.get('total_tax_amount', 0))
+        order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
         order.save()
         return order

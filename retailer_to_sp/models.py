@@ -1,18 +1,14 @@
 import datetime
 import logging
-from decimal import Decimal
 import csv
 import codecs
 import re
 import json
 
-from django.db import models
-from accounts.middlewares import get_current_user
 from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-
 from django.db.models import F, FloatField, Sum, Func, Q, Count, Case, Value, When
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
@@ -20,43 +16,32 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html, format_html_join
 from django.core.exceptions import ObjectDoesNotExist
-from django.utils.crypto import get_random_string
+from django.db.models import Sum
+from django.db.models import Q
+from django.urls import reverse
+from django.contrib.postgres.fields import JSONField
+
 from accounts.middlewares import get_current_user
-from addresses.models import Address
 from retailer_backend import common_function as CommonFunction
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
-from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
-                    order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
-                    order_damaged_amount, order_delivered_value, order_shipment_status_reason,
+from .utils import (order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
+                    order_damaged_amount, order_shipment_status_reason,
                     picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at)
-from shops.models import Shop, ShopNameDisplay
-from brand.models import Brand
 from addresses.models import Address
-from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType, \
+from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType, \
     InventoryState, Bin
-from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
+from wms.common_functions import common_on_return_and_partial, \
     get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice, Repackaging
 from shops.models import Shop, ParentRetailerMapping
-
-from .utils import (order_invoices, order_shipment_amount,
-                    order_shipment_details_util, order_shipment_status)
-
+from .utils import order_invoices, order_shipment_amount, order_shipment_details_util, order_shipment_status
 from accounts.models import UserWithName, User
-from django.core.validators import RegexValidator
-from django.contrib.postgres.fields import JSONField
-# from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
-from django.db.models import Sum
-from django.db.models import Q
-from django.urls import reverse
 from retailer_backend import common_function
-from wms.models import WarehouseInventory
-
 from pos.models import RetailerProduct
-# from datetime import datetime, timedelta
+
 today = datetime.datetime.today()
 
 logger = logging.getLogger(__name__)
@@ -246,8 +231,6 @@ class Cart(models.Model):
         return self.rt_cart_list.aggregate(qty_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
 
     def offers_applied(self):
-        if self.cart_type == 'BAISC':
-            return []
         offers_list = []
         discount_value = 0
         shop = self.seller_shop
@@ -527,6 +510,7 @@ class Cart(models.Model):
                                                   coupon.get('coupon_type') != 'cart']
 
         return offers_list
+
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
@@ -2764,21 +2748,6 @@ def order_notification(sender, instance=None, created=False, **kwargs):
             message.send()
         except Exception as e:
             logger.exception("Unable to send SMS for order : {}".format(order_no))
-
-
-@receiver(post_save, sender=CartProductMapping)
-def create_offers(sender, instance=None, created=False, **kwargs):
-    if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC'):
-        Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
-
-
-from django.db.models.signals import post_delete
-
-
-@receiver(post_delete, sender=CartProductMapping)
-def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
-    if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED'):
-        Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 
 
 @receiver(post_save, sender=PickerDashboard)

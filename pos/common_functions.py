@@ -70,10 +70,12 @@ class OffersCls(object):
                               is_active=True)
 
 
-def get_response(msg, data=None):
+def get_response(msg, data=None, success=False):
     """
         General Response For API
     """
+    if success:
+        ret = {"is_success": True, "message": msg, "response_data": data}
     if data:
         ret = {"is_success": True, "message": msg, "response_data": data}
     else:
