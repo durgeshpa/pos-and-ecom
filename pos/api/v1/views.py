@@ -929,11 +929,8 @@ class OrderListCentral(APIView):
         if parent_mapping is None:
             return {'error': "Shop Mapping Doesn't Exist!"}
         shop_type = parent_mapping.parent.shop_type.shop_type
-        try:
-            # Check if order exists
-            order = self.get_retail_order(shop_type, parent_mapping)
-        except:
-            return {'error': 'Order Not Found!'}
+        # Check if order exists
+        order = self.get_retail_order(shop_type, parent_mapping)
         return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
 
     def get_retail_order(self, shop_type, parent_mapping):
@@ -996,16 +993,12 @@ class OrderListCentral(APIView):
            Get Order
            Input validation for cart type 'basic'
         """
-
         shop_id = self.request.GET.get('shop_id')
         # Check if seller shop exist
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
-        try:
-            # get order list
-           order = self.get_basic_order(request)
-        except:
-            return {'error': 'Order Not Found!'}
+        # get order list
+        order = self.get_basic_order(request)
         return {'order': order}
 
     def get_basic_order(self, request):
