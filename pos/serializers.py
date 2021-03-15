@@ -20,7 +20,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     product_ean_code = serializers.CharField(required=True)
 
     def validate(self, attrs):
-        serializer_list = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price", "description"]
+        serializer_list = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price",
+                           "product_ean_code", "description"]
 
         for key in self.initial_data.keys():
             if key not in serializer_list:
@@ -100,7 +101,7 @@ class RetailerProductResponseSerializer(serializers.Serializer):
     def get_created_at(self, obj):
         return obj['created_at']
 
-    def get_product_ean_code_at(self, obj):
+    def get_product_ean_code(self, obj):
         return obj['product_ean_code']
 
     def get_modified_at(self, obj):
