@@ -118,7 +118,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
 
     def validate(self, attrs):
-        serializer_list = ['shop_id', 'product_id', "product_name", "mrp", "selling_price", "description", "linked_product_id"]
+        serializer_list = ['shop_id', 'product_id', "product_name", "mrp", "selling_price", "description"]
 
         for key in self.initial_data.keys():
             if key not in serializer_list:
@@ -140,9 +140,6 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             # If user provide shop_id
             if not Shop.objects.filter(id=shop_id).exists():
                 raise serializers.ValidationError(_("Shop ID not found! Please enter a valid Shop ID!"))
-
-        if attrs.get('linked_product_id'):
-            raise serializers.ValidationError(_("linked_product_id can not be modified!"))
 
         return attrs
 
