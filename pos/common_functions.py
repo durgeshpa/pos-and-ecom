@@ -1,5 +1,6 @@
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import Q
 
 from pos.models import RetailerProduct
 from retailer_to_sp.models import CartProductMapping
@@ -126,3 +127,9 @@ def serializer_error(serializer):
            'error_message': errors[0] if len(errors) == 1 else [error for error in errors],
            'response_data': None}
     return msg
+
+
+def order_search(orders, search_text):
+    order = orders.filter(Q(order_no__icontains=search_text) |
+                          Q(buyer__phone_number__icontains=search_text))
+    return order
