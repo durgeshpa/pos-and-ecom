@@ -157,9 +157,7 @@ class CatalogueProductCreation(GenericAPIView):
                             else:
                                 # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
                                 product.sku_type = 3
-                    if 'linked_product_id' in actual_input_data_list:
-                        # If product_ean_code in actual_input_data_list
-                        product.product_ean_code = request.data.get('linked_product_id')
+
                     if 'product_ean_code' in actual_input_data_list:
                         # If product_ean_code in actual_input_data_list
                         product.product_ean_code = request.data.get('product_ean_code')
