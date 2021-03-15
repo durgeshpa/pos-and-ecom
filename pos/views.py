@@ -441,20 +441,20 @@ class CouponOfferCreation(GenericAPIView):
         # checking if offer already exist with retailer_primary_product,
         # you can not map two different type of free_product for one primary product
         if ruleset:
-            msg = {"is_success": False, "message": "Offer already exist for this primary_product",
-                   "response_data": serializer.data}
-            status_code = {"status_code": 404}
-            return msg, status_code
+            try:
+                ruleset.filter(retailer_free_product=retailer_free_product_obj)
+            except:
+                msg = {"is_success": False, "message": "Offer already exist for this primary_product",
+                       "response_data": serializer.data}
+                status_code = {"status_code": 404}
+                return msg, status_code
 
         # coupon_code creation for combo offers using retailer_primary_product, retailer_free_product
         # purchased_product_qty, free_product_qty
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
                            f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
-        # combo_ruleset_name creation for combo offers using combo_offer_name,
-        # retailer_primary_product, retailer_free_product
         # ruleset_name will be uniq.
-        combo_ruleset_name = f"{combo_offer_name}_{retailer_primary_product_obj.name}_" \
-                             f"{retailer_free_product_obj.name}"
+        combo_ruleset_name = combo_code
         # creating CouponRuleSet
         coupon_obj = OffersCls.rule_set_creation(combo_ruleset_name, start_date, expiry_date)
         if type(coupon_obj) == str:
@@ -558,10 +558,6 @@ class CouponOfferCreation(GenericAPIView):
         if 'combo_offer_name' in actual_input_data_list:
             # If coupon_name in actual_input_data_list
             combo_offer_name = request.data.get('combo_offer_name')
-            # update ruleset_name with existing retailer_primary_product & retailer_free_product name
-            combo_ruleset_name = f"{combo_offer_name}_{rule_set_product_mapping.retailer_primary_product.name}_" \
-                                 f"{rule_set_product_mapping.retailer_free_product.name}"
-            coupon_ruleset.rulename = combo_ruleset_name
             rule_set_product_mapping.combo_offer_name = combo_offer_name
             coupon.coupon_name = combo_offer_name
 
@@ -591,10 +587,13 @@ class CouponOfferCreation(GenericAPIView):
             # checking if offer already exist with retailer_primary_product,
             # you can not map two different type of free_product for one primary product
             if ruleset:
-                msg = {"is_success": False, "message": "Offer already exist for this primary_product",
-                       "response_data": serializer.data}
-                status_code = {"status_code": 404}
-                return msg, status_code
+                try:
+                    ruleset.filter(retailer_free_product=rule_set_product_mapping.retailer_free_product)
+                except:
+                    msg = {"is_success": False, "message": "Offer already exist for this primary_product",
+                           "response_data": serializer.data}
+                    status_code = {"status_code": 404}
+                    return msg, status_code
 
             rule_set_product_mapping.retailer_primary_product = retailer_primary_product_obj
             # update ruleset_name & combo_code with existing ruleset_name , retailer_free_product name,
@@ -602,8 +601,8 @@ class CouponOfferCreation(GenericAPIView):
             combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} { retailer_primary_product_obj.name}" \
                          f" + Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
             coupon.coupon_code = combo_code
-            combo_ruleset_name = f"{rule_set_product_mapping.combo_offer_name}_{retailer_primary_product_obj.name}_" \
-                                 f"{rule_set_product_mapping.retailer_free_product.name}"
+            # update ruleset_name with existing retailer_primary_product & retailer_free_product name
+            combo_ruleset_name =combo_code
             coupon_ruleset.rulename = combo_ruleset_name
 
         if 'retailer_free_product' in actual_input_data_list:
@@ -622,8 +621,7 @@ class CouponOfferCreation(GenericAPIView):
             combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} {rule_set_product_mapping.retailer_primary_product.name}" \
                          f" + Get {rule_set_product_mapping.free_product_qty} {retailer_free_product_obj.name} Free"
             coupon.coupon_code = combo_code
-            combo_ruleset_name = f"{rule_set_product_mapping.combo_offer_name}_{rule_set_product_mapping.retailer_primary_product.name}_" \
-                                 f"{retailer_free_product_obj.name}"
+            combo_ruleset_name = combo_code
             coupon_ruleset.rulename = combo_ruleset_name
 
         if 'purchased_product_qty' in actual_input_data_list:
@@ -634,6 +632,7 @@ class CouponOfferCreation(GenericAPIView):
             combo_code = f"Buy {request.data.get('purchased_product_qty')} {rule_set_product_mapping.retailer_primary_product.name}" \
                          f" + Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
             coupon.coupon_code = combo_code
+            coupon_ruleset.rulename = combo_code
         if 'free_product_qty' in actual_input_data_list:
             # If free_product_qty in actual_input_data_list
             rule_set_product_mapping.free_product_qty = request.data.get('free_product_qty')
@@ -643,6 +642,7 @@ class CouponOfferCreation(GenericAPIView):
                          f" + Get {request.data.get('free_product_qty')} {rule_set_product_mapping.retailer_free_product.name} Free"
 
             coupon.coupon_code = combo_code
+            coupon_ruleset.rulename = combo_code
         if 'is_active' in actual_input_data_list:
             # If is_active in actual_input_data_list
             rule_set_product_mapping.is_active = request.data.get('is_active')
