@@ -405,7 +405,7 @@ class CouponOfferCreation(GenericAPIView):
 
     def create_combo_offer(self, request, serializer, shop_id):
         """
-            Creating Ruleset & RuleSetProductMapping
+            Creating Ruleset, RuleSetProductMapping & Coupon
         """
         try:
             shop = Shop.objects.get(id=shop_id)
@@ -437,12 +437,22 @@ class CouponOfferCreation(GenericAPIView):
         expiry_date = request.data.get('expiry_date')
         purchased_product_qty = request.data.get('purchased_product_qty')
         free_product_qty = request.data.get('free_product_qty')
-        #coupon_code  creation for combo offers using retailer_primary_product,retailer_free_product
-        # purchased_product_qty,free_product_qty
+        ruleset = RuleSetProductMapping.objects.filter(retailer_primary_product=retailer_primary_product_obj)
+        # checking if offer already exist with retailer_primary_product,
+        # you can not map two different type of free_product for one primary product
+        if ruleset:
+            msg = {"is_success": False, "message": "Offer already exist for this primary_product",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
+
+        # coupon_code creation for combo offers using retailer_primary_product, retailer_free_product
+        # purchased_product_qty, free_product_qty
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
                            f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
-        # combo_ruleset_name  creation for combo offers using combo_offer_name,retailer_primary_product,
-        # retailer_free_product ruleset_name will be uniq.
+        # combo_ruleset_name creation for combo offers using combo_offer_name,
+        # retailer_primary_product, retailer_free_product
+        # ruleset_name will be uniq.
         combo_ruleset_name = f"{combo_offer_name}_{retailer_primary_product_obj.name}_" \
                              f"{retailer_free_product_obj.name}"
         # creating CouponRuleSet
@@ -453,13 +463,6 @@ class CouponOfferCreation(GenericAPIView):
             status_code = {"status_code": 404}
             return msg, status_code
 
-        ruleset = RuleSetProductMapping.objects.filter(retailer_primary_product=retailer_primary_product_obj)
-        # checking if offer already exist with retailer_primary_product, you can not map two different type of free_product for one primary product
-        if ruleset:
-            msg = {"is_success": False, "message": "Offer already exist for this primary_product",
-                   "response_data": serializer.data}
-            status_code = {"status_code": 404}
-            return msg, status_code
         # creating Combo Offer with primary & free products
         OffersCls.rule_set_product_mapping(coupon_obj.id, retailer_primary_product_obj, purchased_product_qty,
                                            retailer_free_product_obj, free_product_qty,
@@ -591,7 +594,7 @@ class CouponOfferCreation(GenericAPIView):
                        "response_data": serializer.data}
                 status_code = {"status_code": 404}
                 return msg, status_code
-            
+
             rule_set_product_mapping.retailer_primary_product = retailer_primary_product_obj
             # update ruleset_name & combo_code with existing ruleset_name , retailer_free_product name,
             # purchased_product_qty & free_product_qty
