@@ -17,9 +17,11 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
+    product_ean_code = serializers.CharField(required=True)
 
     def validate(self, attrs):
-        serializer_list = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price", "description"]
+        serializer_list = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price",
+                           "product_ean_code", "description"]
 
         for key in self.initial_data.keys():
             if key not in serializer_list:
@@ -58,6 +60,7 @@ class RetailerProductResponseSerializer(serializers.Serializer):
     description = serializers.SerializerMethodField()
     sku_type = serializers.SerializerMethodField()
     linked_product = serializers.SerializerMethodField()
+    product_ean_code = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
     modified_at = serializers.SerializerMethodField()
 
@@ -98,6 +101,9 @@ class RetailerProductResponseSerializer(serializers.Serializer):
     def get_created_at(self, obj):
         return obj['created_at']
 
+    def get_product_ean_code(self, obj):
+        return obj['product_ean_code']
+
     def get_modified_at(self, obj):
         return obj['modified_at']
 
@@ -105,6 +111,7 @@ class RetailerProductResponseSerializer(serializers.Serializer):
 class RetailerProductUpdateSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(required=True)
     shop_id = serializers.IntegerField(required=False)
+    product_ean_code = serializers.CharField(required=False)
     product_name = serializers.CharField(required=False, validators=[ProductNameValidator])
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
