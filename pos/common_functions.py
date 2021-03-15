@@ -1,5 +1,6 @@
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import Q
 
 from pos.models import RetailerProduct
 from retailer_to_sp.models import CartProductMapping
@@ -11,12 +12,13 @@ from shops.models import Shop
 class RetailerProductCls(object):
 
     @classmethod
-    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description):
+    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description, product_ean_code):
         """
             General Response For API
         """
         RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
-                                       mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description)
+                                       mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description,
+                                       product_ean_code=product_ean_code)
 
     @classmethod
     def get_sku_type(cls, sku_type):
@@ -37,9 +39,13 @@ class OffersCls(object):
         """
            rule_set Creation for Offer/Coupon
         """
-        ruleset = CouponRuleSet.objects.create(rulename=rulename, start_date=start_date,
-                                               expiry_date=expiry_date, is_active=True, cart_qualifying_min_sku_value=
-                                               discount_qty_amount, discount=discount_obj)
+        if CouponRuleSet.objects.filter(rulename=rulename):
+            ruleset = "cannot create a Offer that already exists"
+        else:
+            ruleset = CouponRuleSet.objects.create(rulename=rulename, start_date=start_date,
+                                                   expiry_date=expiry_date, is_active=True,
+                                                   cart_qualifying_min_sku_value=discount_qty_amount,
+                                                   discount=discount_obj)
         return ruleset
 
     @classmethod
@@ -55,12 +61,12 @@ class OffersCls(object):
                                              expiry_date=expiry_date, is_active=True)
 
     @classmethod
-    def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, shop, start_date, expiry_date):
+    def rule_set_cart_mapping(cls, rule_id, coupon_type, coupon_name, coupon_code, shop, start_date, expiry_date):
         """
             rule_set cart mapping for coupon creation
         """
         Coupon.objects.create(rule_id=rule_id, coupon_name=coupon_name, coupon_type=coupon_type,
-                              shop=shop, start_date=start_date, expiry_date=expiry_date, coupon_code=coupon_name,
+                              shop=shop, start_date=start_date, expiry_date=expiry_date, coupon_code=coupon_code,
                               is_active=True)
 
 
@@ -124,3 +130,12 @@ def serializer_error(serializer):
            'error_message': errors[0] if len(errors) == 1 else [error for error in errors],
            'response_data': None}
     return msg
+
+
+def order_search(orders, search_text):
+    """
+        Order Listing Based On Search
+    """
+    order = orders.filter(Q(order_no__icontains=search_text) |
+                          Q(buyer__phone_number__icontains=search_text))
+    return order
