@@ -53,12 +53,13 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
     product_price = serializers.SerializerMethodField('product_price_dt')
     margin = serializers.SerializerMethodField('margin_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
+    combo_text = serializers.SerializerMethodField('combo_text_dt')
 
     def product_price_dt(self, obj):
         """
             Product price single
         """
-        return obj.selling_price if obj.selling_price else obj.retailer_product.selling_price
+        return obj.selling_price
 
     def product_sub_total_dt(self, obj):
         """
@@ -72,9 +73,20 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
         """
         return ((obj.retailer_product.mrp - Decimal(self.product_price_dt(obj))) / obj.retailer_product.mrp) * 100
 
+    def combo_text_dt(self, obj):
+        """
+            If combo offer on product, display whether offer is applied or more products should be added
+        """
+        if obj.selling_price > 0:
+            offers = obj.cart.offers
+            for offer in offers:
+                if offer['type'] == 'combo' and offer['item_id'] == obj.retailer_product.id:
+                    return offer['combo_text']
+        return False
+
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'retailer_product', 'qty', 'product_price', 'margin', 'product_sub_total')
+        fields = ('id', 'retailer_product', 'qty', 'product_price', 'margin', 'product_sub_total', 'combo_text')
 
 
 class BasicCartSerializer(serializers.ModelSerializer):
@@ -91,7 +103,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_status', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount',
+        fields = ('id', 'cart_status', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount', 'offers',
                   'total_discount', 'sub_total', 'buyer', 'created_at', 'modified_at')
 
     def rt_cart_list_dt(self, obj):
@@ -140,8 +152,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
         """
         total_amount = 0
         for cart_pro in obj.rt_cart_list.all():
-            total_amount += Decimal(cart_pro.selling_price if cart_pro.selling_price \
-                                        else cart_pro.retailer_product.selling_price) * Decimal(cart_pro.qty)
+            total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
     def get_total_discount(self, obj):
@@ -149,10 +160,18 @@ class BasicCartSerializer(serializers.ModelSerializer):
             Discount on cart
         """
         discount = 0
-        if obj.offers:
-            array1 = list(filter(lambda d: d['type'] in ['discount'], obj.offers))
+        offers = obj.offers
+        cart_value = self.total_amount_dt(obj)
+        if offers:
+            array1 = list(filter(lambda d: d['type'] in ['discount'], offers))
             for i in array1:
-                discount = discount + i['discount']
+                if not i['is_percentage']:
+                    discount = i['discount']
+                else:
+                    if i['max_discount'] == 0 or i['max_discount'] > (i['discount'] / 100) * cart_value:
+                        discount = round((i['discount'] / 100) * cart_value, 2)
+                    else:
+                        discount = i['max_discount']
         return round(discount, 2)
 
 
@@ -178,3 +197,53 @@ class BasicOrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = ('id', 'ordered_cart', 'order_status', 'total_final_amount', 'total_discount_amount',
                   'total_tax_amount', 'total_mrp_amount', 'ordered_by', 'created_at', 'modified_at')
+
+
+class CheckoutSerializer(serializers.ModelSerializer):
+    """
+        Checkout Serializer - After products are added
+    """
+    total_discount = serializers.SerializerMethodField()
+    total_amount = serializers.SerializerMethodField()
+    amount_payable = serializers.SerializerMethodField()
+
+    def get_total_amount(self, obj):
+        """
+            Total amount of products added
+        """
+        total_amount = 0
+        for cart_pro in obj.rt_cart_list.all():
+            total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+        return total_amount
+
+    def get_total_discount(self, obj):
+        """
+            Discounts applied on cart
+        """
+        discount = 0
+        offers = obj.offers
+        cart_value = self.get_total_amount(obj)
+        if offers:
+            array1 = list(filter(lambda d: d['type'] in ['discount'], offers))
+            for i in array1:
+                if not i['is_percentage']:
+                    discount = i['discount']
+                else:
+                    if i['max_discount'] == 0 or i['max_discount'] > (i['discount'] / 100) * cart_value:
+                        discount = round((i['discount'] / 100) * cart_value, 2)
+                    else:
+                        discount = i['max_discount']
+        return round(discount, 2)
+
+    def get_amount_payable(self, obj):
+        """
+            Get Payable amount - (Total - Discount)
+        """
+        sub_total = float(self.get_total_amount(obj)) - self.get_total_discount(obj)
+        return round(sub_total, 2)
+
+    class Meta:
+        model = Cart
+        fields = ('id', 'total_amount', 'offers', 'total_discount', 'amount_payable', 'buyer')
+
+

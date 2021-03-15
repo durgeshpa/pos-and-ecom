@@ -41,7 +41,7 @@ from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
 from pos.models import RetailerProduct
-from pos.offers import BasicCartOffers
+# from pos.offers import BasicCartOffers
 
 today = datetime.datetime.today()
 
@@ -232,8 +232,6 @@ class Cart(models.Model):
         return self.rt_cart_list.aggregate(qty_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
 
     def offers_applied(self):
-        if self.cart_type == 'BASIC':
-            return self.basic_offers()
         offers_list = []
         discount_value = 0
         shop = self.seller_shop
@@ -512,25 +510,6 @@ class Cart(models.Model):
                                 offers_list[:] = [coupon for coupon in offers_list if
                                                   coupon.get('coupon_type') != 'cart']
 
-        return offers_list
-
-    def basic_offers(self):
-        offers_list = []
-        date = datetime.datetime.today()
-        cart_value = 0
-        # Catalog Offers
-        cart_products = self.rt_cart_list.all()
-        if cart_products:
-            for product_mapping in cart_products:
-                purchased_product = product_mapping.retailer_product
-                qty = product_mapping.qty
-                price = product_mapping.selling_price
-                cart_value += price * qty
-                c_list = BasicCartOffers.get_basic_combo_coupons(purchased_product.id, self.seller_shop.id, date)
-                offers_list += BasicCartOffers.get_basic_product_offers(purchased_product, qty, price, c_list)
-        # Cart Offers
-        c_list = BasicCartOffers.get_basic_cart_coupons(self.seller_shop.id, date)
-        offers_list += BasicCartOffers.get_basic_cart_offers(c_list, cart_value)
         return offers_list
 
     def retail_offers(self):
@@ -2772,21 +2751,6 @@ def order_notification(sender, instance=None, created=False, **kwargs):
             message.send()
         except Exception as e:
             logger.exception("Unable to send SMS for order : {}".format(order_no))
-
-
-@receiver(post_save, sender=CartProductMapping)
-def create_offers(sender, instance=None, created=False, **kwargs):
-    if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC'):
-        Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
-
-
-from django.db.models.signals import post_delete
-
-
-@receiver(post_delete, sender=CartProductMapping)
-def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
-    if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED'):
-        Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 
 
 @receiver(post_save, sender=PickerDashboard)
