@@ -905,7 +905,7 @@ class OrderListCentral(APIView):
             Get Order List
             Inputs
             cart_type
-            shop_id for Basic cart_type
+            shop_id
         """
         cart_type = request.GET.get('cart_type')
         if cart_type == '1':
@@ -929,9 +929,8 @@ class OrderListCentral(APIView):
         if parent_mapping is None:
             return {'error': "Shop Mapping Doesn't Exist!"}
         shop_type = parent_mapping.parent.shop_type.shop_type
-        # Check if order exists
-        order = None
         try:
+            # Check if order exists
             order = self.get_retail_order(shop_type, parent_mapping)
         except:
             return {'error': 'Order Not Found!'}
