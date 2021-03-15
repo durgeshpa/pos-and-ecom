@@ -41,7 +41,6 @@ from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
 from pos.models import RetailerProduct
-# from pos.offers import BasicCartOffers
 
 today = datetime.datetime.today()
 
@@ -512,8 +511,6 @@ class Cart(models.Model):
 
         return offers_list
 
-    def retail_offers(self):
-        pass
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:

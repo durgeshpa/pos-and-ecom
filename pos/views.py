@@ -36,7 +36,6 @@ class CatalogueProductCreation(GenericAPIView):
     permission_classes = (AllowAny,)
 
     def get_shop_id_or_error_message(self, request):
-        return 34021
         # If Token and shop_id, check whether Token is valid for shop_id or not
         shopID = request.data.get('shop_id')
         if request.user.id and shopID:

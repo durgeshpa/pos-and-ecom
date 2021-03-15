@@ -157,15 +157,19 @@ class RuleSetBrandMapping(models.Model):
 
 
 def create_es_index(index):
+    """
+        Return elastic search index specific to environment
+    """
     return "{}-{}".format(es_prefix, index)
 
 
 @receiver(post_save, sender=Coupon)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+    """
+        Update coupon in es
+    """
     # POS Coupons
     if instance.shop:
-        if not instance.coupon_type in ['catalog', 'cart']:
-            return ""
         params = get_common_coupon_params(instance)
         coupon_type = instance.coupon_type
         if coupon_type == 'catalog':
@@ -179,11 +183,12 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
 
 
 def get_common_coupon_params(coupon):
+    """
+        Basic coupon parameters
+    """
     params = {
         'id': coupon.id,
         'coupon_code': coupon.coupon_code,
-        'limit_per_user_per_day': coupon.limit_per_user_per_day,
-        'limit_of_usages': coupon.limit_of_usages,
         'active': coupon.is_active,
         'description': coupon.rule.rule_description,
         'start_date':coupon.start_date,
@@ -193,6 +198,9 @@ def get_common_coupon_params(coupon):
 
 
 def get_catalogue_coupon_params(coupon):
+    """
+        Get coupon fields for adding in es for catalog coupons - combo/discount
+    """
     # Product rule set should exist for catalog type coupon
     if not coupon.rule.product_ruleset:
         return ""
@@ -200,7 +208,6 @@ def get_catalogue_coupon_params(coupon):
     params = dict()
     product_ruleset = RuleSetProductMapping.objects.get(rule_id=coupon.rule.id)
     params['purchased_product'] = product_ruleset.retailer_primary_product.id
-    params['max_qty_per_use'] = product_ruleset.max_qty_per_use
     # Discount on product
     if coupon.rule.discount:
         params['minimum_cart_product_qty'] = coupon.rule.discount_qty_step
@@ -222,6 +229,9 @@ def get_catalogue_coupon_params(coupon):
 
 
 def get_cart_coupon_params(coupon):
+    """
+        Get coupon fields for adding in es for cart coupons - discount
+    """
     if coupon.rule.discount:
         params = dict()
         params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
