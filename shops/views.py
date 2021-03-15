@@ -131,7 +131,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                                                                                            'sku__product_pro_price__seller_shop',
                                                                                            'sku__rt_audit_sku',
                                                                                            'sku__parent_product__parent_product_pro_category',
-                                                                                           'sku__parent_product__parent_brand')[0:10]
+                                                                                           'sku__parent_product__parent_brand')
         filter = self.request.GET.copy()
         filter['visible'] = ''
         self.filter = ProductFilter(filter, queryset=products)
