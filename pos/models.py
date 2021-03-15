@@ -21,13 +21,14 @@ class RetailerProduct(models.Model):
     STATUS_CHOICES = (
             ('pending_approval', 'Pending Approval'),
             ('active', 'Active'),
+            ('deactivated', 'Deactivated'),
         )
 
     shop = models.ForeignKey(Shop, related_name='retailer_product', on_delete=models.CASCADE)
     sku = models.CharField(max_length=255, blank=False, unique=True)
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255, blank=True)
-    product_ean_code = models.CharField(max_length=255, blank=True)
+    product_ean_code = models.CharField(max_length=255,  blank=False)
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     linked_product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)

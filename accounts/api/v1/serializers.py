@@ -64,3 +64,12 @@ class DeliveryAppVersionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppVersion
         fields = ('app_version', 'update_recommended','force_update_required')
+
+
+class UserPhoneSerializer(serializers.ModelSerializer):
+    """
+         UserPhoneNumber Serializer
+    """
+    class Meta:
+        model = User
+        fields = ('phone_number', )
