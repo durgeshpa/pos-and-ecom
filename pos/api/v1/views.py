@@ -915,38 +915,51 @@ class OrderListCentral(APIView):
         else:
             return get_response('Provide a valid cart_type')
 
-    def get_basic_order_list(self, request):
+    def get_retail_validate(self):
         """
             Get Order
-            For Basic Cart
+            Input validation for cart type 'retail'
         """
-        # basic validation for inputs
-        initial_validation = self.get_basic_list_validate(request)
-        if 'error' in initial_validation:
-            return get_response(initial_validation['error'])
-        order = initial_validation['order']
-        return get_response('Order', self.get_serialize_process_basic(order))
-
-    def get_basic_list_validate(self, request):
         shop_id = self.request.GET.get('shop_id')
-        # Check if seller shop exist
+        # Check if buyer shop exists
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
+        # Check if buyer shop is mapped to parent/seller shop
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
+            return {'error': "Shop Mapping Doesn't Exist!"}
+        shop_type = parent_mapping.parent.shop_type.shop_type
+        # Check if order exists
+        order = None
         try:
-            search_text = request.GET.get('search_text')
-            order_status = request.GET.get('order_status')
-            if order_status is None:
-                orders = Order.objects.filter(seller_shop=request.GET.get('shop_id'))
-            else:
-                orders = Order.objects.filter(seller_shop=request.GET.get('shop_id'),
-                                              order_status=order_status)
+            order = self.get_retail_order(shop_type, parent_mapping)
+        except:
+            return {'error': 'Order Not Found!'}
+        return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
+
+    def get_retail_order(self, shop_type, parent_mapping):
+        """
+           Get Retail Orders
+        """
+        search_text = self.request.GET.get('search_text')
+        order_status = self.request.GET.get('order_status')
+        if shop_type == 'sp':
+            orders = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
+            if order_status:
+                orders = orders.filter(order_status=order_status)
             if search_text:
                 order = order_search(orders, search_text)
             else:
                 order = orders
-        except ObjectDoesNotExist:
-            return {'error': 'Order Not Found!'}
-        return {'order': order}
+        elif shop_type == 'gf':
+            orders = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
+            if order_status:
+                orders = orders.filter(order_status=order_status)
+            if search_text:
+                order = order_search(orders, search_text)
+            else:
+                order = orders
+        return order
 
     def get_retail_order_list(self):
         """
@@ -967,48 +980,49 @@ class OrderListCentral(APIView):
         else:
             return get_response('Sorry shop is not associated with any GramFactory or any SP')
 
-    def get_retail_validate(self):
+    def get_basic_order_list(self, request):
         """
             Get Order
-            Input validation for cart type 'retail'
+            For Basic Cart
         """
+        # basic validation for inputs
+        initial_validation = self.get_basic_list_validate(request)
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        return get_response('Order', self.get_serialize_process_basic(order))
+
+    def get_basic_list_validate(self, request):
+        """
+           Get Order
+           Input validation for cart type 'basic'
+        """
+
         shop_id = self.request.GET.get('shop_id')
-        # Check if buyer shop exists
+        # Check if seller shop exist
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
-        # Check if buyer shop is mapped to parent/seller shop
-        parent_mapping = getShopMapping(shop_id)
-        if parent_mapping is None:
-            return {'error': "Shop Mapping Doesn't Exist!"}
-        shop_type = parent_mapping.parent.shop_type.shop_type
-        # Check if order exists
-        order = None
         try:
-            search_text = self.request.GET.get('search_text')
-            order_status = self.request.GET.get('order_status')
-            if shop_type == 'sp':
-                if order_status is None:
-                    orders = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
-                else:
-                    orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                  order_status=order_status).order_by('-created_at')
-                if search_text:
-                    order = order_search(orders, search_text)
-                else:
-                    order = orders
-            elif shop_type == 'gf':
-                if order_status is None:
-                    orders = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
-                else:
-                    orders = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                            order_status=order_status).order_by('-created_at')
-                if search_text:
-                    order = order_search(orders, search_text)
-                else:
-                    order = orders
-        except ObjectDoesNotExist:
+            # get order list
+           order = self.get_basic_order(request)
+        except:
             return {'error': 'Order Not Found!'}
-        return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
+        return {'order': order}
+
+    def get_basic_order(self, request):
+        """
+          Get Basic Orders
+        """
+        search_text = request.GET.get('search_text')
+        order_status = request.GET.get('order_status')
+        orders = Order.objects.filter(seller_shop=request.GET.get('shop_id'))
+        if order_status:
+            orders = orders.filter(order_status=order_status)
+        if search_text:
+            order = order_search(orders, search_text)
+        else:
+            order = orders
+        return order
 
     def get_serialize_process_sp(self, order, parent_mapping):
         """
