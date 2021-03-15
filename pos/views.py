@@ -138,7 +138,8 @@ class CatalogueProductCreation(GenericAPIView):
                 if RetailerProduct.objects.filter(id=product_id,
                                                   shop_id=shop_id_or_error_message).exists():
                     expected_input_data_list = ['product_name', 'product_id', 'mrp',
-                                                'product_ean_code', 'selling_price', 'description']
+                                                'product_ean_code', 'selling_price',
+                                                'description', 'linked_product_id']
                     actual_input_data_list = []  # List of keys that user wants to update(If user wants to update product_name, this list wil only have product_name)
                     for key in expected_input_data_list:
                         if key in request.data.keys():
@@ -156,6 +157,9 @@ class CatalogueProductCreation(GenericAPIView):
                             else:
                                 # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
                                 product.sku_type = 3
+                    if 'linked_product_id' in actual_input_data_list:
+                        # If product_ean_code in actual_input_data_list
+                        product.product_ean_code = request.data.get('linked_product_id')
                     if 'product_ean_code' in actual_input_data_list:
                         # If product_ean_code in actual_input_data_list
                         product.product_ean_code = request.data.get('product_ean_code')

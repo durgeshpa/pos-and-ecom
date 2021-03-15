@@ -1,8 +1,16 @@
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from global_config.models import GlobalConfig
 
 
 def pagination(request, serializer):
-    per_page_orders = request.GET.get('records_per_page') if request.GET.get('records_per_page') else 10
+    """
+         Common Pagination Function for Paginate Queryset
+    """
+
+    records_per_page = GlobalConfig.objects.get(key='records_per_page')
+    records_per_page = records_per_page.value
+
+    per_page_orders = request.GET.get('records_per_page') if request.GET.get('records_per_page') else records_per_page
     paginator = Paginator(serializer.data, int(per_page_orders))
     page_number = request.GET.get('page_number')
     try:

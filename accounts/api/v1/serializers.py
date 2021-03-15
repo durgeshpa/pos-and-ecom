@@ -67,6 +67,9 @@ class DeliveryAppVersionSerializer(serializers.ModelSerializer):
 
 
 class UserPhoneSerializer(serializers.ModelSerializer):
+    """
+         UserPhoneNumber Serializer
+    """
     class Meta:
         model = User
         fields = ('phone_number', )

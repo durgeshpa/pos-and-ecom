@@ -4,6 +4,7 @@ from rest_framework import serializers
 from django.db.models import Q
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
+from global_config.models import GlobalConfig
 from products.models import Product, ProductImage
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order
@@ -105,9 +106,12 @@ class BasicCartSerializer(serializers.ModelSerializer):
             qs = qs.filter(Q(retailer_product__sku__icontains=search_text)
                            | Q(retailer_product__name__icontains=search_text)
                            | Q(retailer_product__product_ean_code__icontains=search_text))
-        # Pagination
+
         if qs.exists():
-            per_page_products = self.context.get('records_per_page') if self.context.get('records_per_page') else 10
+            # Pagination
+            records_per_page = GlobalConfig.objects.get(key='records_per_page')
+            records_per_page = records_per_page.value
+            per_page_products = self.context.get('records_per_page') if self.context.get('records_per_page') else records_per_page
             paginator = Paginator(qs, int(per_page_products))
             page_number = self.context.get('page_number')
             try:
