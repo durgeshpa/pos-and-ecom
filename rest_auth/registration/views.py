@@ -32,7 +32,8 @@ from rest_auth.utils import jwt_encode
 from rest_auth.views import LoginView
 from .app_settings import RegisterSerializer, register_permission_classes
 from rest_auth.serializers import MlmResponseSerializer, LoginResponseSerializer
-
+from pos.common_functions import create_user_shop_mapping
+from shops.models import Shop
 
 sensitive_post_parameters_m = method_decorator(
     sensitive_post_parameters('password1', 'password2')
@@ -126,7 +127,9 @@ class RegisterView(CreateAPIView):
             self.token = jwt_encode(user)
         else:
             create_token(self.token_model, user, serializer)
-
+        if self.request.data.get('shop_id'):
+            shop_id = Shop.objects.get(id=self.request.data.get('shop_id'))
+            create_user_shop_mapping(user=user, shop_id=shop_id)
         complete_signup(self.request._request, user,
                         allauth_settings.EMAIL_VERIFICATION,
                         None)

@@ -2,7 +2,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
 
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, UserMappedShop
 from retailer_to_sp.models import CartProductMapping
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
@@ -141,3 +141,7 @@ def order_search(orders, search_text):
     order = orders.filter(Q(order_no__icontains=search_text) |
                           Q(buyer__phone_number__icontains=search_text))
     return order
+
+
+def create_user_shop_mapping(user, shop_id):
+    UserMappedShop.objects.create(user=user, shop_id=shop_id)

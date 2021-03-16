@@ -8,7 +8,7 @@ from django.utils.text import slugify
 from shops.models import Shop
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator, NameValidator
-
+from accounts.models import User
 
 
 class RetailerProduct(models.Model):
@@ -88,3 +88,8 @@ class RetailerProductImage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
+
+class UserMappedShop(models.Model):
+    user = models.ForeignKey(User, related_name='registered_user', null=True, blank=True, on_delete=models.CASCADE)
+    shop_id = models.ForeignKey(Shop, related_name='registered_shop', null=True, blank=True, on_delete=models.CASCADE)
