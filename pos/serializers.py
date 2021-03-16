@@ -12,6 +12,7 @@ from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, Discount
 
 class RetailerProductCreateSerializer(serializers.Serializer):
     shop_id = serializers.IntegerField(required=False)
+    status = serializers.CharField(required=False)
     linked_product_id = serializers.IntegerField(required=False)
     product_name = serializers.CharField(required=True, validators=[ProductNameValidator])
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
@@ -21,7 +22,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         serializer_list = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price",
-                           "product_ean_code", "description"]
+                           "product_ean_code", "description", "status"]
 
         for key in self.initial_data.keys():
             if key not in serializer_list:
@@ -63,9 +64,13 @@ class RetailerProductResponseSerializer(serializers.Serializer):
     product_ean_code = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
     modified_at = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
 
     def get_id(self, obj):
         return obj['id']
+
+    def get_status(self, obj):
+        return obj['status']
 
     def get_shop(self, obj):
         return obj['shop__shop_name']
@@ -116,9 +121,10 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
+    status = serializers.CharField(required=False)
 
     def validate(self, attrs):
-        serializer_list = ['shop_id', 'product_id', "product_name", "mrp", "selling_price", "description"]
+        serializer_list = ['shop_id', 'product_id', "product_name", "mrp", "selling_price", "description", "status"]
 
         for key in self.initial_data.keys():
             if key not in serializer_list:
