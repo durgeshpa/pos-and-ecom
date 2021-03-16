@@ -309,10 +309,13 @@ class BasicCartOffers(object):
                 }
             }
         }
-        coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
         c_list = []
-        for c in coupons_list['hits']['hits']:
-            c_list.append(c["_source"])
+        try:
+            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
+        except:
+            pass
         return c_list
 
     @classmethod
@@ -358,10 +361,13 @@ class BasicCartOffers(object):
                 {"cart_minimum_value": "asc"},
             ]
         }
-        coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
         c_list = []
-        for c in coupons_list['hits']['hits']:
-            c_list.append(c["_source"])
+        try:
+            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
+        except:
+            pass
         return c_list
 
     @classmethod
