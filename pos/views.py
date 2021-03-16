@@ -80,6 +80,7 @@ class CatalogueProductCreation(GenericAPIView):
                 selling_price = request.data.get('selling_price')
                 linked_product_id = request.data.get('linked_product_id')
                 product_ean_code = request.data.get('product_ean_code')
+                product_status = request.data.get('status')
                 description = request.data.get('description') if request.data.get('description') else ''
                 # if else condition for checking whether, Product we are creating is linked with existing product or not
                 # with the help of 'linked_product_id'
@@ -93,23 +94,24 @@ class CatalogueProductCreation(GenericAPIView):
                             RetailerProductCls.create_retailer_product(shop_id_or_error_message,
                                                                        product_name, mrp, selling_price,
                                                                        linked_product_id, 2, description,
-                                                                       product_ean_code)
+                                                                       product_ean_code, product_status)
                         else:
                             # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
                             RetailerProductCls.create_retailer_product(shop_id_or_error_message,
                                                                        product_name, mrp, selling_price,
                                                                        linked_product_id, 3, description,
-                                                                       product_ean_code)
+                                                                       product_ean_code, product_status)
                 else:
                     # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
                     RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_name, mrp,
-                                                               selling_price, None, 1, description, product_ean_code)
+                                                               selling_price, None, 1, description,
+                                                               product_ean_code, product_status)
                 product = RetailerProduct.objects.all().last()
                 # Fetching the data of created product
                 data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp', 'selling_price',
                                                       'description', 'sku_type', 'product_ean_code',
                                                       'linked_product__product_name', 'created_at',
-                                                      'modified_at').filter(id=product.id)
+                                                      'modified_at', 'status').filter(id=product.id)
                 response_serializer = RetailerProductResponseSerializer(instance=data[0])
                 message = {"is_success": True, "message": "Product has been successfully created!",
                            "response_data": response_serializer.data}
@@ -139,7 +141,7 @@ class CatalogueProductCreation(GenericAPIView):
                                                   shop_id=shop_id_or_error_message).exists():
                     expected_input_data_list = ['product_name', 'product_id', 'mrp',
                                                 'product_ean_code', 'selling_price',
-                                                'description']
+                                                'description', 'status']
                     actual_input_data_list = []  # List of keys that user wants to update(If user wants to update product_name, this list wil only have product_name)
                     for key in expected_input_data_list:
                         if key in request.data.keys():
@@ -163,6 +165,9 @@ class CatalogueProductCreation(GenericAPIView):
                     if 'mrp' in actual_input_data_list:
                         # If MRP in actual_input_data_list
                         product.mrp = mrp
+                    if 'status' in actual_input_data_list:
+                        # If MRP in actual_input_data_list
+                        product.status = request.data.get('status')
                     if 'selling_price' in actual_input_data_list:
                         # If selling price in actual_input_data_list
                         product.selling_price = request.data.get('selling_price')
@@ -177,7 +182,7 @@ class CatalogueProductCreation(GenericAPIView):
                     data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp',
                                                           'selling_price', 'description', 'sku_type',
                                                           'product_ean_code', 'linked_product__product_name',
-                                                          'created_at', 'modified_at').\
+                                                          'created_at', 'modified_at', 'status').\
                                                            filter(id=request.data.get('product_id'))
                     response_serializer = RetailerProductResponseSerializer(instance=data[0])
                     message = {"is_success": True, "message": f"Product has been successfully UPDATED!",
@@ -438,14 +443,15 @@ class CouponOfferCreation(GenericAPIView):
         expiry_date = request.data.get('expiry_date')
         purchased_product_qty = request.data.get('purchased_product_qty')
         free_product_qty = request.data.get('free_product_qty')
-
-        ruleset = RuleSetProductMapping.objects.filter(retailer_primary_product=retailer_primary_product_obj)
         # checking if offer already exist with retailer_primary_product,
-        # you can not map two different type of free_product for one primary product
+
+        ruleset = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
+                                                       retailer_primary_product=retailer_primary_product_obj)
         if ruleset:
-            rule = ruleset.filter(retailer_free_product=retailer_free_product_obj)
-            if not rule:
-                msg = {"is_success": False, "message": "Offer already exist for this primary_product",
+            # you can not create offer if same qty offer already exist
+            rule = ruleset.filter(purchased_product_qty=purchased_product_qty)
+            if rule:
+                msg = {"is_success": False, "message": "Offer already exist for this primary product ",
                        "response_data": serializer.data}
                 status_code = {"status_code": 404}
                 return msg, status_code
@@ -455,7 +461,7 @@ class CouponOfferCreation(GenericAPIView):
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
                            f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
         # ruleset_name will be uniq.
-        combo_ruleset_name = combo_code
+        combo_ruleset_name = f"{shop_id}_{combo_code}"
         # creating CouponRuleSet
         coupon_obj = OffersCls.rule_set_creation(combo_ruleset_name, start_date, expiry_date)
         if type(coupon_obj) == str:
@@ -583,17 +589,6 @@ class CouponOfferCreation(GenericAPIView):
                 status_code = {"status_code": 404}
                 return msg, status_code
 
-            ruleset = RuleSetProductMapping.objects.filter(retailer_primary_product=retailer_primary_product_obj)
-            # checking if offer already exist with retailer_primary_product,
-            # you can not map two different type of free_product for one primary product
-            if ruleset:
-                rule = ruleset.filter(retailer_free_product=rule_set_product_mapping.retailer_free_product)
-                if not rule:
-                    msg = {"is_success": False, "message": "Offer already exist for this primary_product",
-                           "response_data": serializer.data}
-                    status_code = {"status_code": 404}
-                    return msg, status_code
-
             rule_set_product_mapping.retailer_primary_product = retailer_primary_product_obj
             # update ruleset_name & combo_code with existing ruleset_name , retailer_free_product name,
             # purchased_product_qty & free_product_qty
@@ -601,7 +596,7 @@ class CouponOfferCreation(GenericAPIView):
                          f" + Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
             coupon.coupon_code = combo_code
             # update ruleset_name with existing retailer_primary_product & retailer_free_product name
-            combo_ruleset_name =combo_code
+            combo_ruleset_name =f"{shop_id}_combo_code"
             coupon_ruleset.rulename = combo_ruleset_name
 
         if 'retailer_free_product' in actual_input_data_list:
@@ -625,6 +620,16 @@ class CouponOfferCreation(GenericAPIView):
 
         if 'purchased_product_qty' in actual_input_data_list:
             # If purchased_product_qty in actual_input_data_list
+            ruleset = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id, retailer_primary_product=
+                                                           rule_set_product_mapping.retailer_primary_product)
+            if ruleset:
+                rule = ruleset.filter(purchased_product_qty=request.data.get('purchased_product_qty'))
+                if rule:
+                    msg = {"is_success": False, "message": "Offer already exist for this primary product ",
+                           "response_data": serializer.data}
+                    status_code = {"status_code": 404}
+                    return msg, status_code
+
             rule_set_product_mapping.purchased_product_qty = request.data.get('purchased_product_qty')
             # update combo_code with existing ruleset_name , retailer_primary_product, retailer_free_product name,
             #  & free_product_qty
