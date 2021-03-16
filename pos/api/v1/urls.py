@@ -1,7 +1,7 @@
 from django.conf.urls import include, url
 
 from .views import ProductDetail, RetailerProductsList, EanSearch, GramProductsList, CartCentral, \
-    OrderCentral, CartCheckout, OrderListCentral
+    OrderCentral, CartCheckout, OrderListCentral, OrderedItemCentralDashBoard
 
 urlpatterns = [
     url('^search/ean/$', EanSearch.as_view()),
@@ -12,5 +12,6 @@ urlpatterns = [
     url('^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
     url('^cart/checkout/$', CartCheckout.as_view()),
     url('^order/$', OrderCentral.as_view()),
-    url('^order-list/$', OrderListCentral.as_view())
+    url('^order-list/$', OrderListCentral.as_view()),
+    url('^order-dashboared/$', OrderedItemCentralDashBoard.as_view())
 ]

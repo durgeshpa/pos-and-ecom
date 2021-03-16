@@ -27,11 +27,12 @@ from brand.models import Brand
 from gram_to_brand.models import (OrderedProductReserved as GramOrderedProductReserved, PickList)
 from sp_to_gram.models import OrderedProductReserved
 from addresses.models import Address
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, UserMappedShop
 from pos.common_functions import get_response, delete_cart_mapping, order_search
 from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer,\
-    BasicOrderListSerializer
+    BasicOrderListSerializer, OrderedDashBoardSerializer
 from pos.offers import BasicCartOffers
+
 
 class ProductDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -1636,3 +1637,80 @@ class OrderCentral(APIView):
         serializer = BasicOrderSerializer(Order.objects.get(pk=order.id),
                                           context={'current_url': self.request.get_host()})
         return serializer.data
+
+
+class OrderedItemCentralDashBoard(APIView):
+    def get(self, request):
+        """
+            Get Order Details
+            Inputs
+            cart_type
+            shop_id
+        """
+        cart_type = request.GET.get('cart_type')
+        if cart_type == '1':
+            return self.get_retail_order()
+        elif cart_type == '2':
+            return self.get_basic_order_list(request)
+        else:
+            return get_response('Provide a valid cart_type')
+
+    def get_basic_order_list(self, request):
+        """
+            Get Order
+            For Basic Cart
+        """
+        # basic validation for inputs
+        initial_validation = self.get_basic_list_validate(request)
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        return get_response('Order', self.get_serialize_process_basic(order))
+
+    def get_basic_list_validate(self, request):
+        """
+           Get Order
+           Input validation for cart type 'basic'
+        """
+        shop_id = self.request.GET.get('shop_id')
+        # Check if seller shop exist
+        if not Shop.objects.filter(id=shop_id).exists():
+            return {'error': "Shop Doesn't Exist!"}
+        # get order list
+        order = self.get_basic_orders_count(request)
+        return {'order': order}
+
+    def get_basic_orders_count(self, request):
+        """
+          Get Basic Orders
+        """
+        seller_shop_id = request.GET.get('shop_id')
+        filters = request.GET.get('filters')
+        orders = Order.objects.filter(seller_shop=seller_shop_id, order_status='ordered')
+        products = RetailerProduct.objects.filter(shop=seller_shop_id)
+        users = UserMappedShop.objects.filter(shop_id=seller_shop_id)
+        total_final_amount = 0
+        for order in orders:
+            total_final_amount += order.total_final_amount
+        if filters == "Today":
+            orders = orders.filter(created_at=datetime.today())
+        elif filters == "Yesterday":
+            pass
+        elif filters == "Lastweek":
+            pass
+        elif filters == "Lastmonth":
+            pass
+
+        order_count = orders.count()
+        users_count = users.count()
+        products_count = products.count()
+        overview = [{"order": order_count, "user": users_count, "product": products_count, "total_final_amount":total_final_amount}]
+        return overview
+
+    def get_serialize_process_basic(self, order):
+        """
+           Get Order
+           Cart type basic
+        """
+        serializer = OrderedDashBoardSerializer(order, many=True).data
+        return serializer
