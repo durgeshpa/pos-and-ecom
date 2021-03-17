@@ -81,9 +81,9 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
         if obj.selling_price > 0:
             offers = obj.cart.offers
             for offer in offers:
-                if offer['type'] == 'combo' and offer['item_id'] == obj.retailer_product.id:
+                if offer['type'] == 'combo' and offer['item_id'] == obj.retailer_product.id and not offer['applied']:
                     return offer['combo_text']
-        return False
+        return ''
 
     class Meta:
         model = CartProductMapping
