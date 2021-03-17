@@ -1642,10 +1642,14 @@ class OrderCentral(APIView):
 class OrderedItemCentralDashBoard(APIView):
     def get(self, request):
         """
-            Get Order, Product & User Counts Overview
+            Get Order, Product & User Counts(Overview)
             Inputs
             cart_type
             shop_id
+            retail
+                shop_id (Buyer shop id)
+            basic
+                shop_id (Seller shop id)
         """
         cart_type = request.GET.get('cart_type')
         if cart_type == '1':
@@ -1664,8 +1668,8 @@ class OrderedItemCentralDashBoard(APIView):
         initial_validation = self.get_basic_list_validate(request)
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
-        order_overview = initial_validation['order_overview']
-        return get_response('Order', self.get_serialize_process(order_overview))
+        order = initial_validation['order']
+        return get_response('Order', self.get_serialize_process(order))
 
     def get_basic_list_validate(self, request):
         """
@@ -1676,15 +1680,17 @@ class OrderedItemCentralDashBoard(APIView):
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
         # get a order_overview
-        order_overview = self.get_basic_orders_count(request)
-        return {'order_overiew': order_overview}
+        order = self.get_basic_orders_count(request)
+        return {'order': order}
 
     def get_basic_orders_count(self, request):
         """
           Get Basic Order Overview based on filters
         """
         seller_shop_id = request.GET.get('shop_id')
-        filters = request.GET.get('filters').lower()
+        filters = request.GET.get('filters')
+        if filters is not None:
+            filters = filters.lower()
         order_status = request.GET.get('order_status')
         today = datetime.today()
 
