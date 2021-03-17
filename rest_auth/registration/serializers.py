@@ -270,6 +270,7 @@ class OtpRegisterSerializer(serializers.Serializer):
                 raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Referral_code'])
 
         if 'shop_id' in data and data['shop_id'] not in ['', None]:
+            # map a user for specific shop with shop_id
             Shop_id = Shop.objects.filter(id=data['shop_id'])
             if not Shop_id:
                 raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Shop_id'])
