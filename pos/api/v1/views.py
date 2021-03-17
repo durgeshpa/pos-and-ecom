@@ -1689,8 +1689,9 @@ class OrderedItemCentralDashBoard(APIView):
         """
         seller_shop_id = request.GET.get('shop_id')
         filters = request.GET.get('filters')
-        if filters is not None:
-            filters = filters.lower()
+        if filters is not '':
+            # check if filter parameter is not none convert it to int
+            filters = int(filters)
         order_status = request.GET.get('order_status')
         today = datetime.today()
 
@@ -1705,31 +1706,36 @@ class OrderedItemCentralDashBoard(APIView):
             # get total orders for given shop_id & order_status
             orders = Order.objects.filter(seller_shop=seller_shop_id, order_status=order_status)
 
-        # filter by order, product & user get modified
-        if filters == "today":
+        # filter order, product & user by get modified date
+        if filters == 1:  #today
+            # filter order, product & user on modified date today
             orders = orders.filter(modified_at__date=today)
             products = products.filter(modified_at__date=today)
             users = users.filter(modified_at__date=today)
 
-        elif filters == "yesterday":
+        elif filters == 2: #yesterday
+            # filter order, product & user on modified date yesterday
             yesterday = today - timedelta(days=1)
             orders = orders.filter(modified_at__date=yesterday)
             products = products.filter(modified_at__date=yesterday)
             users = users.filter(modified_at__date=yesterday)
 
-        elif filters == "lastweek":
+        elif filters == 3: #lastweek
+            # filter order, product & user on modified date lastweek
             lastweek = today - timedelta(weeks=1)
             orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
             products = products.filter(modified_at__week=lastweek.isocalendar()[1])
             users = users.filter(modified_at__week=lastweek.isocalendar()[1])
 
-        elif filters == "lastmonth":
+        elif filters == 4: #lastmonth
+            # filter order, product & user on modified date lastmonth
             lastmonth = today - timedelta(days=30)
             orders = orders.filter(modified_at__month=lastmonth.month)
             products = products.filter(modified_at__month=lastmonth.month)
             users = users.filter(modified_at__month=lastmonth.month)
 
-        elif filters == "lastyear":
+        elif filters == 5:  #lastyear
+            # filter order, product & user on modified date lastyear
             lastyear = today - timedelta(days=365)
             orders = orders.filter(modified_at__year=lastyear.year)
             products = products.filter(modified_at__year=lastyear.year)
@@ -1737,6 +1743,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         total_final_amount = 0
         for order in orders:
+            # total final amount calculation
             total_final_amount += order.total_final_amount
 
         # counts of order with total_final_amount, users, & products
@@ -1794,27 +1801,33 @@ class OrderedItemCentralDashBoard(APIView):
             orders = orders.filter(order_status=order_status)
 
         # filter by order on modified date
-        if filters == "today":
+        if filters == 1: #today
+            # filter order, total_final_amount on modified date today
             orders = orders.filter(modified_at__date=today)
 
-        elif filters == "yesterday":
+        elif filters == 2: #yesterday
+            # filter order, total_final_amount on modified date yesterday
             yesterday = today - timedelta(days=1)
             orders = orders.filter(modified_at__date=yesterday)
 
-        elif filters == "lastweek":
+        elif filters == 3: #lastweek
+            # filter order, total_final_amount on modified date lastweek
             lastweek = today - timedelta(weeks=1)
             orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
 
-        elif filters == "lastmonth":
+        elif filters == 4: #lastmonth
+            # filter order, total_final_amount on modified date lastmonth
             lastmonth = today - timedelta(days=30)
             orders = orders.filter(modified_at__month=lastmonth.month)
 
-        elif filters == "lastyear":
+        elif filters == 5: #lastyear
+            # filter order, total_final_amount on modified date lastyear
             lastyear = today - timedelta(days=365)
             orders = orders.filter(modified_at__year=lastyear.year)
 
         total_final_amount = 0
         for order in orders:
+            # total final amount calculation
             total_final_amount += order.total_final_amount
 
         # counts of order with total_final_amount for buyer_shop
