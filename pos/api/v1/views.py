@@ -1686,25 +1686,52 @@ class OrderedItemCentralDashBoard(APIView):
         """
         seller_shop_id = request.GET.get('shop_id')
         filters = request.GET.get('filters')
-        orders = Order.objects.filter(seller_shop=seller_shop_id, order_status='ordered')
+        order_status = request.GET.get('order_status')
+
+        orders = Order.objects.filter(seller_shop=seller_shop_id, order_status=order_status)
         products = RetailerProduct.objects.filter(shop=seller_shop_id)
         users = UserMappedShop.objects.filter(shop_id=seller_shop_id)
         total_final_amount = 0
         for order in orders:
             total_final_amount += order.total_final_amount
-        if filters == "Today":
-            orders = orders.filter(created_at=datetime.today())
-        elif filters == "Yesterday":
-            pass
-        elif filters == "Lastweek":
-            pass
-        elif filters == "Lastmonth":
-            pass
+        from datetime import timedelta, datetime
+        today = datetime.today()
+        last_week = today - timedelta(days=7)
+        last_month = today.month-1
+        year = today.year
+
+        # filter by date modified
+        if filters == "today":
+            orders = orders.filter(modified_at__date=today)
+            products = products.filter(modified_at__date=today)
+            users = users.filter(modified_at__date=today)
+
+        elif filters == "yesterday":
+            yesterday = today - timedelta(days=1)
+            orders = orders.filter(modified_at__date=yesterday)
+            products = products.filter(modified_at__date=yesterday)
+            users = users.filter(modified_at__date=yesterday)
+
+        elif filters == "lastweek":
+            orders = orders.filter(modified_at__date__gte=last_week, modified_at__date__lte=today)
+            products = products.filter(modified_at__date__gte=last_week, modified_at__date__lte=today)
+            users = users.filter(modified_at__date__gte=last_week, modified_at__date__lte=today)
+
+        elif filters == "lastmonth":
+            orders = orders.filter(modified_at__month=last_month, modified_at__year=year)
+            products = products.filter(modified_at__month=last_month, modified_at__year=year)
+            users = users.filter(modified_at__month=last_month, modified_at__year=year)
+
+        elif filters == 'lastyear':
+            orders = orders.filter(modified_at__month=last_month, modified_at__year=year)
+            products = products.filter(modified_at__month=last_month, modified_at__year=year)
+            users = users.filter(modified_at__month=last_month, modified_at__year=year)
 
         order_count = orders.count()
         users_count = users.count()
         products_count = products.count()
-        overview = [{"order": order_count, "user": users_count, "product": products_count, "total_final_amount":total_final_amount}]
+        overview = [{"order": order_count, "user": users_count, "product": products_count,
+                     "total_final_amount": total_final_amount}]
         return overview
 
     def get_serialize_process_basic(self, order):
