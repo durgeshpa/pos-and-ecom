@@ -141,7 +141,7 @@ class SearchView(APIView):
         p_list = []
         # Raw Output
         if output_type == '1':
-            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp"]}
+            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -150,7 +150,7 @@ class SearchView(APIView):
                 pass
         # Processed Output
         else:
-            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "images"]}
+            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "images"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
