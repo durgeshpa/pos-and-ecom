@@ -1789,6 +1789,9 @@ class OrderedItemCentralDashBoard(APIView):
            Get Retail Order Overview based on filters
         """
         filters = self.request.GET.get('filters')
+        if filters is not '':
+            # check if filter parameter is not none convert it to int
+            filters = int(filters)
         order_status = self.request.GET.get('order_status')
         today = datetime.today()
 
