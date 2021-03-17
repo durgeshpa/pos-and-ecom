@@ -1649,13 +1649,13 @@ class OrderedItemCentralDashBoard(APIView):
         """
         cart_type = request.GET.get('cart_type')
         if cart_type == '1':
-            return self.get_retail_order()
+            return self.get_retail_order_overview()
         elif cart_type == '2':
-            return self.get_basic_order_list(request)
+            return self.get_basic_order_overview(request)
         else:
             return get_response('Provide a valid cart_type')
 
-    def get_basic_order_list(self, request):
+    def get_basic_order_overview(self, request):
         """
             Get Order
             For Basic Cart
@@ -1665,7 +1665,7 @@ class OrderedItemCentralDashBoard(APIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         order = initial_validation['order']
-        return get_response('Order', self.get_serialize_process_basic(order))
+        return get_response('Order', self.get_serialize_process(order))
 
     def get_basic_list_validate(self, request):
         """
@@ -1685,22 +1685,22 @@ class OrderedItemCentralDashBoard(APIView):
           Get Basic Orders
         """
         seller_shop_id = request.GET.get('shop_id')
-        filters = request.GET.get('filters')
+        filters = request.GET.get('filters').lower()
         order_status = request.GET.get('order_status')
-
-        orders = Order.objects.filter(seller_shop=seller_shop_id, order_status=order_status)
-        products = RetailerProduct.objects.filter(shop=seller_shop_id)
-        users = UserMappedShop.objects.filter(shop_id=seller_shop_id)
-        total_final_amount = 0
-        for order in orders:
-            total_final_amount += order.total_final_amount
-        from datetime import timedelta, datetime
         today = datetime.today()
-        last_week = today - timedelta(days=7)
-        last_month = today.month-1
-        year = today.year
 
-        # filter by date modified
+        # get total orders for shop_id
+        orders = Order.objects.filter(seller_shop=seller_shop_id)
+        # get total products for shop_id
+        products = RetailerProduct.objects.filter(shop=seller_shop_id)
+        # get total users for shop_id
+        users = UserMappedShop.objects.filter(shop_id=seller_shop_id)
+
+        if order_status:
+            # get total orders for given shop_id & order_status
+            orders = Order.objects.filter(seller_shop=seller_shop_id, order_status=order_status)
+
+        # filter by order, product & user get modified
         if filters == "today":
             orders = orders.filter(modified_at__date=today)
             products = products.filter(modified_at__date=today)
@@ -1713,20 +1713,28 @@ class OrderedItemCentralDashBoard(APIView):
             users = users.filter(modified_at__date=yesterday)
 
         elif filters == "lastweek":
-            orders = orders.filter(modified_at__date__gte=last_week, modified_at__date__lte=today)
-            products = products.filter(modified_at__date__gte=last_week, modified_at__date__lte=today)
-            users = users.filter(modified_at__date__gte=last_week, modified_at__date__lte=today)
+            lastweek = today - timedelta(weeks=1)
+            orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
+            products = products.filter(modified_at__week=lastweek.isocalendar()[1])
+            users = users.filter(modified_at__week=lastweek.isocalendar()[1])
 
         elif filters == "lastmonth":
-            orders = orders.filter(modified_at__month=last_month, modified_at__year=year)
-            products = products.filter(modified_at__month=last_month, modified_at__year=year)
-            users = users.filter(modified_at__month=last_month, modified_at__year=year)
+            lastmonth = today - timedelta(days=30)
+            orders = orders.filter(modified_at__month=lastmonth.month)
+            products = products.filter(modified_at__month=lastmonth.month)
+            users = users.filter(modified_at__month=lastmonth.month)
 
-        elif filters == 'lastyear':
-            orders = orders.filter(modified_at__month=last_month, modified_at__year=year)
-            products = products.filter(modified_at__month=last_month, modified_at__year=year)
-            users = users.filter(modified_at__month=last_month, modified_at__year=year)
+        elif filters == "lastyear":
+            lastyear = today - timedelta(days=365)
+            orders = orders.filter(modified_at__year=lastyear.year)
+            products = products.filter(modified_at__year=lastyear.year)
+            users = users.filter(modified_at__year=lastyear.year)
 
+        total_final_amount = 0
+        for order in orders:
+            total_final_amount += order.total_final_amount
+
+        # counts of order with total_final_amount, users, & products
         order_count = orders.count()
         users_count = users.count()
         products_count = products.count()
@@ -1734,10 +1742,86 @@ class OrderedItemCentralDashBoard(APIView):
                      "total_final_amount": total_final_amount}]
         return overview
 
-    def get_serialize_process_basic(self, order):
+    def get_serialize_process(self, order):
         """
-           Get Order
+           Get Overview of Orders, Users & Products
            Cart type basic
         """
         serializer = OrderedDashBoardSerializer(order, many=True).data
         return serializer
+
+    def get_retail_order_overview(self):
+        """
+            Get Order
+            For retail cart
+        """
+        # basic validations for inputs
+        initial_validation = self.get_retail_list_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+
+        order = initial_validation['order']
+        return get_response('Order', self.get_serialize_process(order))
+
+    def get_retail_list_validate(self):
+        """
+            Get Order
+            Input validation for cart type 'retail'
+        """
+        shop_id = self.request.GET.get('shop_id')
+        # Check if buyer shop exists
+        if not Shop.objects.filter(id=shop_id).exists():
+            return {'error': "Shop Doesn't Exist!"}
+        # Check if buyer shop is mapped to parent/seller shop
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
+            return {'error': "Shop Mapping Doesn't Exist!"}
+        shop_type = parent_mapping.parent.shop_type.shop_type
+        # Check if order exists
+        order = self.get_retail_orders_count(shop_type, parent_mapping)
+        return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
+
+    def get_retail_orders_count(self, shop_type, parent_mapping):
+        """
+           Get Retail Orders
+        """
+        filters = self.request.GET.get('filters')
+        order_status = self.request.GET.get('order_status')
+        today = datetime.today()
+
+        if shop_type == 'sp':
+            orders = Order.objects.filter(buyer_shop=parent_mapping.retailer)
+        elif shop_type == 'gf':
+            orders = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer)
+
+        if order_status:
+            orders = orders.filter(order_status=order_status)
+
+        # filter by order on modified date
+        if filters == "today":
+            orders = orders.filter(modified_at__date=today)
+
+        elif filters == "yesterday":
+            yesterday = today - timedelta(days=1)
+            orders = orders.filter(modified_at__date=yesterday)
+
+        elif filters == "lastweek":
+            lastweek = today - timedelta(weeks=1)
+            orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
+
+        elif filters == "lastmonth":
+            lastmonth = today - timedelta(days=30)
+            orders = orders.filter(modified_at__month=lastmonth.month)
+
+        elif filters == "lastyear":
+            lastyear = today - timedelta(days=365)
+            orders = orders.filter(modified_at__year=lastyear.year)
+
+        total_final_amount = 0
+        for order in orders:
+            total_final_amount += order.total_final_amount
+
+        # counts of order with total_final_amount for buyer_shop
+        orders = orders.count()
+        overview = [{"order": orders, "total_final_amount": total_final_amount}]
+        return overview

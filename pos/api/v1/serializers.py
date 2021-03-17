@@ -268,6 +268,6 @@ class OrderedDashBoardSerializer(serializers.Serializer):
         Order, User, Product & total_final_amount count for Basic Cart
     """
     order = serializers.IntegerField()
-    user = serializers.IntegerField()
-    product = serializers.IntegerField()
-    total_final_amount = serializers.DecimalField(max_digits=9, decimal_places=2)
+    user = serializers.IntegerField(required=False)
+    product = serializers.IntegerField(required=False)
+    total_final_amount = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
