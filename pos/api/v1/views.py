@@ -1642,7 +1642,7 @@ class OrderCentral(APIView):
 class OrderedItemCentralDashBoard(APIView):
     def get(self, request):
         """
-            Get Order Details
+            Get Order, Product & User Counts Overview
             Inputs
             cart_type
             shop_id
@@ -1657,32 +1657,31 @@ class OrderedItemCentralDashBoard(APIView):
 
     def get_basic_order_overview(self, request):
         """
-            Get Order
+            Get Order, Product, & User Counts
             For Basic Cart
         """
         # basic validation for inputs
         initial_validation = self.get_basic_list_validate(request)
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
-        order = initial_validation['order']
-        return get_response('Order', self.get_serialize_process(order))
+        order_overview = initial_validation['order_overview']
+        return get_response('Order', self.get_serialize_process(order_overview))
 
     def get_basic_list_validate(self, request):
         """
-           Get Order
            Input validation for cart type 'basic'
         """
         shop_id = self.request.GET.get('shop_id')
         # Check if seller shop exist
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
-        # get order list
-        order = self.get_basic_orders_count(request)
-        return {'order': order}
+        # get a order_overview
+        order_overview = self.get_basic_orders_count(request)
+        return {'order_overiew': order_overview}
 
     def get_basic_orders_count(self, request):
         """
-          Get Basic Orders
+          Get Basic Order Overview based on filters
         """
         seller_shop_id = request.GET.get('shop_id')
         filters = request.GET.get('filters').lower()
@@ -1742,24 +1741,15 @@ class OrderedItemCentralDashBoard(APIView):
                      "total_final_amount": total_final_amount}]
         return overview
 
-    def get_serialize_process(self, order):
-        """
-           Get Overview of Orders, Users & Products
-           Cart type basic
-        """
-        serializer = OrderedDashBoardSerializer(order, many=True).data
-        return serializer
-
     def get_retail_order_overview(self):
         """
-            Get Order
+            Get Orders, Users & Products Counts
             For retail cart
         """
         # basic validations for inputs
         initial_validation = self.get_retail_list_validate()
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
-
         order = initial_validation['order']
         return get_response('Order', self.get_serialize_process(order))
 
@@ -1777,13 +1767,13 @@ class OrderedItemCentralDashBoard(APIView):
         if parent_mapping is None:
             return {'error': "Shop Mapping Doesn't Exist!"}
         shop_type = parent_mapping.parent.shop_type.shop_type
-        # Check if order exists
+        # Check if order exists get a count of orders
         order = self.get_retail_orders_count(shop_type, parent_mapping)
         return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
 
     def get_retail_orders_count(self, shop_type, parent_mapping):
         """
-           Get Retail Orders
+           Get Retail Order Overview based on filters
         """
         filters = self.request.GET.get('filters')
         order_status = self.request.GET.get('order_status')
@@ -1823,5 +1813,13 @@ class OrderedItemCentralDashBoard(APIView):
 
         # counts of order with total_final_amount for buyer_shop
         orders = orders.count()
-        overview = [{"order": orders, "total_final_amount": total_final_amount}]
-        return overview
+        order = [{"order": orders, "total_final_amount": total_final_amount}]
+        return order
+
+    def get_serialize_process(self, order):
+        """
+           Get Overview of Orders, Users & Products
+           Cart type basic & Retail
+        """
+        serializer = OrderedDashBoardSerializer(order, many=True).data
+        return serializer
