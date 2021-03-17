@@ -265,7 +265,7 @@ class BasicCartOffers(object):
         return new_offers
 
     @classmethod
-    def get_basic_combo_coupons(cls, purchased_product_ids, shop_id, size=1):
+    def get_basic_combo_coupons(cls, purchased_product_ids, shop_id, size=10, source=None):
         """
             Get Product combo coupons from elasticsearch
         """
@@ -309,6 +309,8 @@ class BasicCartOffers(object):
                 }
             }
         }
+        if source:
+            body["_source"] = {"includes" : source}
         c_list = []
         try:
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)

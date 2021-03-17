@@ -239,97 +239,106 @@ class GramGRNProductsList(APIView):
     permission_classes = (AllowAny,)
     serializer_class = GramGRNProductsSearchSerializer
 
-    def ean_search(self, request, ean_code):
-        """
-            search GramFactory product catalogue based on product ean code exact match
-        """
-        body = {
-            "from": int(request.data.get('offset', 0)),
-            "size": int(request.data.get('pro_count', 50)),
-            "query": {"bool": {"filter": [{"match": {"ean": {"query": ean_code}}}]}},
-            "_source": {
-                "includes": ["name", "id"]}
-        }
-        products_list = es_search(index="all_products", body=body)
-        p_list = self.process_results(products_list, False)
-
-        return self.get_response(p_list, False)
-
     def search_query(self, request):
         filter_list = [
             {"term": {"status": True}},
             {"term": {"visible": True}},
             {"range": {"available": {"gt": 0}}}
         ]
+        if self.product_ids:
+            filter_list.append({"ids": {"type": "product", "values": self.product_ids}})
+            query = {"bool": {"filter": filter_list}}
+            return query
         query = {"bool": {"filter": filter_list}}
-
-        product_ids = request.data.get('product_ids')
-        if product_ids:
-            filter_list.append({"ids": {"type": "product", "values": product_ids}})
+        if not (self.category or self.brand or self.keyword):
             return query
+        if self.brand:
+            brand_name = "{} -> {}".format(Brand.objects.filter(id__in=list(self.brand)).last(), self.keyword)
+            filter_list.append({"match": {
+                "brand": {"query": brand_name, "fuzziness": "AUTO", "operator": "and"}
+            }})
 
-        brands = request.data.get('brands')
-        categories = request.data.get('categories')
-        keyword = request.data.get('product_name')
-
-        if not (categories or brands or keyword):
-            return query
-
-        if brands:
-            brand_name = "{} -> {}".format(Brand.objects.filter(id__in=list(brands)).last(), keyword)
-            filter_list.append({"match": {"brand": {"query": brand_name, "fuzziness": "AUTO", "operator": "and"}}})
-        elif keyword:
-            q = {"multi_match": {"query": keyword, "fields": ["name^5", "category", "brand"], "type": "cross_fields"}}
+        elif self.keyword:
+            q = {
+                    "multi_match": {
+                        "query":     self.keyword,
+                        "fields":    ["name^5", "category", "brand"],
+                        "type":      "cross_fields"
+                    }
+                }
             query["bool"]["must"] = [q]
-        if categories:
-            category_filter = str(categorymodel.Category.objects.filter(id__in=categories, status=True).last())
+        if self.category:
+            category_filter = str(categorymodel.Category.objects.filter(id__in=self.category, status=True).last())
             filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
 
         return query
 
     def post(self, request, format=None):
-        # check for ean search
-        ean_code = request.data.get('ean_code')
-        if ean_code and ean_code != '':
-            return self.ean_search(request, ean_code)
-
-        # other (category, brand, product) searches
+        self.product_ids = request.data.get('product_ids')
+        self.brand = request.data.get('brands')
+        self.category = request.data.get('categories')
+        self.keyword = request.data.get('product_name', None)
+        shop_id = request.data.get('shop_id')
         offset = int(request.data.get('offset', 0))
         page_size = int(request.data.get('pro_count', 50))
-        shop_id = request.data.get('shop_id')
+        grn_dict = None
+        cart_check = False
+        is_store_active = True
+        sort_preference = request.GET.get('sort_by_price')
 
+        '''1st Step
+            Check If Shop Is exists then 2nd pt else 3rd Pt
+        '''
         query = self.search_query(request)
-        body = {"from": offset, "size": page_size, "query": query}
 
-        # Check If Shop Exists
         try:
             shop = Shop.objects.get(id=shop_id, status=True)
-            # If Shop Exists, Check Whether It Is Approved
-            if shop.shop_approved:
-                # If Shop Is Approved, Check Whether It Is sp Or retailer
+        except ObjectDoesNotExist:
+            '''3rd Step
+                If no shop found then
+            '''
+            message = "Shop not active or does not exists"
+            is_store_active = False
+        else:
+            '''2nd Step
+                Check if shop found then check whether it is sp 4th Step or retailer 5th Step
+            '''
+            if not shop.shop_approved:
+                message = "Shop Mapping Not Found"
+                is_store_active = False
+            # try:
+            #     parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+            # except ObjectDoesNotExist:
+            else:
                 parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
                 if parent_mapping.parent.shop_type.shop_type == 'sp':
+                    '''4th Step
+                        SP mapped data shown
+                    '''
+                    body = {"from": offset, "size": page_size, "query": query}
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
                     info_logger.info("user {} ".format(self.request.user))
                     info_logger.info("shop {} ".format(shop_id))
-                    p_list = self.process_results(products_list, True, parent_mapping, shop_id)
-                    return self.get_response(p_list, True)
-        except ObjectDoesNotExist:
-            pass
 
-        body['_source'] = {
-            "includes": ["name", "product_images", "pack_size", "weight_unit", "weight_value", "visible"]}
-        products_list = es_search(index="all_products", body=body)
-        p_list = self.process_results(products_list, False)
-        return self.get_response(p_list, False)
-
-    def process_results(self, products_list, is_store_active, parent_mapping='', shop_id=''):
+                    cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop_id=shop_id,
+                                               cart_status__in=['active', 'pending']).last()
+                    if cart:
+                        cart_products = cart.rt_cart_list.all()
+                        cart_check = True
+                else:
+                    is_store_active = False
         p_list = []
         if not is_store_active:
-            for p in products_list['hits']['hits']:
-                p_list.append(p["_source"])
-        else:
-            for p in products_list['hits']['hits']:
+            body = {
+                "from": offset,
+                "size": page_size,
+                "query": query,
+                "_source": {"includes": ["name", "product_images", "pack_size", "weight_unit", "weight_value", "visible"]}
+            }
+            products_list = es_search(index="all_products", body=body)
+
+        for p in products_list['hits']['hits']:
+            if is_store_active:
                 if not Product.objects.filter(id=p["_source"]["id"]).exists():
                     logger.info("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
                     continue
@@ -352,53 +361,54 @@ class GramGRNProductsList(APIView):
                                     if i['coupon_type'] == 'catalog':
                                         i['max_qty'] = max_qty
 
+                # product = Product.objects.get(id=p["_source"]["id"])
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
                 if not check_price:
                     continue
+                # # check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
                 check_price_mrp = product.product_mrp
                 p["_source"]["ptr"] = check_price.selling_price
                 p["_source"]["mrp"] = check_price_mrp
                 p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
                 # loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
                 # cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
-                cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop_id=shop_id,
-                                           cart_status__in=['active', 'pending']).last()
-                if cart:
-                    cart_products = cart.rt_cart_list.all()
-                    for c_p in cart_products:
-                        if c_p.cart_product_id == p["_source"]["id"]:
-                            if cart.offers:
-                                cart_offers = cart.offers
-                                discount_on_product_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], cart_offers))
-                                for i in discount_on_product_offers:
-                                    if i['item_sku'] == c_p.cart_product.product_sku:
-                                        discounted_product_subtotal = i['discounted_product_subtotal']
-                                        p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
-                                p["_source"]["margin"] = (((float(check_price_mrp) - c_p.item_effective_prices) / float(
-                                    check_price_mrp)) * 100)
-                                discount_on_brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], cart_offers))
-                                for j in coupons:
-                                    for i in (discount_on_brand_offers + discount_on_product_offers):
-                                        if j['coupon_code'] == i['coupon_code']:
-                                            j['is_applied'] = True
-                            user_selected_qty = c_p.qty or 0
-                            no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
-                            p["_source"]["user_selected_qty"] = user_selected_qty
-                            p["_source"]["no_of_pieces"] = no_of_pieces
-                            p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
-                p_list.append(p["_source"])
-        return p_list
+            if cart_check == True:
+                for c_p in cart_products:
+                    if c_p.cart_product_id == p["_source"]["id"]:
+                        keyValList2 = ['discount_on_product']
+                        keyValList3 = ['discount_on_brand']
+                        if cart.offers:
+                            exampleSet2 = cart.offers
+                            array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
+                            for i in array2:
+                                if i['item_sku'] == c_p.cart_product.product_sku:
+                                    discounted_product_subtotal = i['discounted_product_subtotal']
+                                    p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
+                            p["_source"]["margin"] = (((float(check_price_mrp) - c_p.item_effective_prices) / float(
+                                check_price_mrp)) * 100)
+                            array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet2))
+                            for j in coupons:
+                                for i in (array3 + array2):
+                                    if j['coupon_code'] == i['coupon_code']:
+                                        j['is_applied'] = True
+                        user_selected_qty = c_p.qty or 0
+                        no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
+                        p["_source"]["user_selected_qty"] = user_selected_qty
+                        p["_source"]["no_of_pieces"] = no_of_pieces
+                        p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
+            p_list.append(p["_source"])
 
-    def get_response(self, data, is_store_active):
-        """
-            Return response based on is_store_active (True if shop approved if shop id provided) and data (search results)
-        """
-        msg = {'is_store_active': is_store_active, 'is_success': True, 'message': ['Products found'],
-               'response_data': data}
-        if not data:
-            msg = {'is_store_active': is_store_active, 'is_success': False, 'message': ['Sorry! No products found'],
+        msg = {'is_store_active': is_store_active,
+               'is_success': True,
+               'message': ['Products found'],
+               'response_data': p_list}
+        if not p_list:
+            msg = {'is_store_active': is_store_active,
+                   'is_success': False,
+                   'message': ['Sorry! No product found'],
                    'response_data': None}
-        return Response(msg, status=200)
+        return Response(msg,
+                        status=200)
 
 
 class AutoSuggest(APIView):
