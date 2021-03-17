@@ -705,17 +705,20 @@ def bulk_create_products(shop_id, uploaded_data_by_user_list):
                         # If Linked_Product_MRP == Input_MRP , create a Product with [SKU TYPE : LINKED]
                         RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
                                                                    row.get('selling_price'), product.id,
-                                                                   2, row.get('description'))
+                                                                   2, row.get('description'), row.get('product_ean_code'),
+                                                                   row.get('status'))
                     else:
                         # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
                         RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
                                                                    row.get('selling_price'), product.id,
-                                                                   3, row.get('description'))
+                                                                   3, row.get('description'), row.get('product_ean_code'),
+                                                                   row.get('status'))
         else:
             # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
             RetailerProductCls.create_retailer_product(shop_id, row.get('product_name'), row.get('mrp'),
                                                        row.get('selling_price'), None,
-                                                       1, row.get('description'))
+                                                       1, row.get('description'), row.get('product_ean_code'),
+                                                       row.get('status'))
 
 
 def bulk_update_products(request, form ,shop_id, uploaded_data_by_user_list):
@@ -726,7 +729,7 @@ def bulk_update_products(request, form ,shop_id, uploaded_data_by_user_list):
         product_id = row.get('product_id')
         product_mrp = row.get('mrp')
         if RetailerProduct.objects.filter(id=product_id, shop_id=shop_id).exists():
-            expected_input_data_list = ['product_name', 'product_id', 'mrp', 'selling_price', 'description']
+            expected_input_data_list = ['product_name', 'product_id', 'mrp', 'selling_price', 'product_ean_code', 'description', 'status']
             actual_input_data_list = []  # List of keys that user wants to update(If user wants to update product_name, this list wil have product_name with product_id)
             for key in expected_input_data_list:
                 if key in row.keys():
@@ -753,9 +756,15 @@ def bulk_update_products(request, form ,shop_id, uploaded_data_by_user_list):
             if 'product_name' in actual_input_data_list:
                 # Update Product Name
                 product.name = row.get('product_name')
+            if 'product_ean_code' in actual_input_data_list:
+                # Update product_ean_code
+                product.product_ean_code = row.get('product_ean_code')
             if 'description' in actual_input_data_list:
                 # Update Description
                 product.description = row.get('description')
+            if 'status' in actual_input_data_list:
+                # Update product_ean_code
+                product.status = row.get('status')
             product.save()
 
         else:
@@ -852,16 +861,15 @@ def DownloadRetailerCatalogue(request, *args):
     writer = csv.writer(response)
     writer.writerow(
         ['product_id', 'shop', 'product_sku', 'product_name', 'mrp', 'selling_price', 'linked_product_sku',
-         'description',
-         'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status'])
+         'product_ean_code', 'description', 'sku_type', 'category', 'sub_category', 'brand', 'sub_brand', 'status'])
     if RetailerProduct.objects.filter(shop_id=int(shop_id)).exists():
         retailer_products = RetailerProduct.objects.filter(shop_id=int(shop_id))
         for product in retailer_products:
             product_data = retailer_products_list(product)
             writer.writerow([product.id, product.shop, product.sku, product.name,
-                            product.mrp, product.selling_price, product_data[0], product.description,
-                            product_data[1], product_data[2], product_data[3], product_data[4],
-                            product_data[5], product.status])
+                            product.mrp, product.selling_price, product_data[0], product.product_ean_code,
+                            product.description, product_data[1], product_data[2], product_data[3],
+                            product_data[4], product_data[5], product.status])
     else:
         writer.writerow(["Products for selected shop doesn't exists"])
     return response
@@ -876,6 +884,6 @@ def RetailerCatalogueSampleFile(request, *args):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_name', 'mrp', 'linked_product_sku', 'selling_price', 'description'])
-    writer.writerow(['Noodles', '12', 'ORCPCRTOY000000020820', '10', 'XYZ'])
+    writer.writerow(['product_name', 'mrp', 'linked_product_sku', 'product_ean_code', 'selling_price', 'description', 'status'])
+    writer.writerow(['Noodles', 12, 'PROPROTOY00000019', 'EAEASDF', 10, 'XYZ', 'active'])
     return response

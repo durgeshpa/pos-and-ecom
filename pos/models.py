@@ -89,6 +89,9 @@ class RetailerProductImage(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def __str__(self):
+        return self.product.sku + " - " + self.product.name
+
 
 class UserMappedShop(models.Model):
     user = models.ForeignKey(User, related_name='registered_user', null=True, blank=True, on_delete=models.CASCADE)
