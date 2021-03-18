@@ -27,11 +27,14 @@ from brand.models import Brand
 from gram_to_brand.models import (OrderedProductReserved as GramOrderedProductReserved, PickList)
 from sp_to_gram.models import OrderedProductReserved
 from addresses.models import Address
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, UserMappedShop
 from pos.common_functions import get_response, delete_cart_mapping, order_search
 from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer,\
-    BasicOrderListSerializer
+    BasicOrderListSerializer, OrderedDashBoardSerializer
 from pos.offers import BasicCartOffers
+from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
+
+
 
 class ProductDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -437,6 +440,11 @@ class CartCentral(APIView):
                 customer.first_name = name
             customer.is_active = False
             customer.save()
+            shop_id = get_shop_id_from_token(self.request)
+            shop_id = Shop.objects.get(id=shop_id)
+            if shop_id:
+                # create_user with seller shop_id
+                create_user_shop_mapping(user=customer, shop_id=shop_id)
         # Update customer as buyer in cart
         cart.buyer = customer
         cart.save()
@@ -1641,3 +1649,211 @@ class OrderCentral(APIView):
         serializer = BasicOrderSerializer(Order.objects.get(pk=order.id),
                                           context={'current_url': self.request.get_host()})
         return serializer.data
+
+
+class OrderedItemCentralDashBoard(APIView):
+    def get(self, request):
+        """
+            Get Order, Product & User Counts(Overview)
+            Inputs
+            cart_type
+            shop_id
+            retail
+                shop_id (Buyer shop id)
+            basic
+                shop_id (Seller shop id)
+        """
+        cart_type = request.GET.get('cart_type')
+        if cart_type == '1':
+            return self.get_retail_order_overview()
+        elif cart_type == '2':
+            return self.get_basic_order_overview(request)
+        else:
+            return get_response('Provide a valid cart_type')
+
+    def get_basic_order_overview(self, request):
+        """
+            Get Order, Product, & User Counts
+            For Basic Cart
+        """
+        # basic validation for inputs
+        initial_validation = self.get_basic_list_validate(request)
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        return get_response('Order', self.get_serialize_process(order))
+
+    def get_basic_list_validate(self, request):
+        """
+           Input validation for cart type 'basic'
+        """
+        shop_id = self.request.GET.get('shop_id')
+        # Check if seller shop exist
+        if not Shop.objects.filter(id=shop_id).exists():
+            return {'error': "Shop Doesn't Exist!"}
+        # get a order_overview
+        order = self.get_basic_orders_count(request)
+        return {'order': order}
+
+    def get_basic_orders_count(self, request):
+        """
+          Get Basic Order Overview based on filters
+        """
+        seller_shop_id = request.GET.get('shop_id')
+        filters = request.GET.get('filters')
+        if filters is not '':
+            # check if filter parameter is not none convert it to int
+            filters = int(filters)
+        order_status = request.GET.get('order_status')
+        today = datetime.today()
+
+        # get total orders for shop_id
+        orders = Order.objects.filter(seller_shop=seller_shop_id)
+        # get total products for shop_id
+        products = RetailerProduct.objects.filter(shop=seller_shop_id)
+        # get total users for shop_id
+        users = UserMappedShop.objects.filter(shop_id=seller_shop_id)
+
+        if order_status:
+            # get total orders for given shop_id & order_status
+            orders = orders.filter(order_status=order_status)
+
+        # filter order, product & user by get modified date
+        if filters == 1:  #today
+            # filter order, product & user on modified date today
+            orders = orders.filter(modified_at__date=today)
+            products = products.filter(modified_at__date=today)
+            users = users.filter(modified_at__date=today)
+
+        elif filters == 2: #yesterday
+            # filter order, product & user on modified date yesterday
+            yesterday = today - timedelta(days=1)
+            orders = orders.filter(modified_at__date=yesterday)
+            products = products.filter(modified_at__date=yesterday)
+            users = users.filter(modified_at__date=yesterday)
+
+        elif filters == 3: #lastweek
+            # filter order, product & user on modified date lastweek
+            lastweek = today - timedelta(weeks=1)
+            orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
+            products = products.filter(modified_at__week=lastweek.isocalendar()[1])
+            users = users.filter(modified_at__week=lastweek.isocalendar()[1])
+
+        elif filters == 4: #lastmonth
+            # filter order, product & user on modified date lastmonth
+            lastmonth = today - timedelta(days=30)
+            orders = orders.filter(modified_at__month=lastmonth.month)
+            products = products.filter(modified_at__month=lastmonth.month)
+            users = users.filter(modified_at__month=lastmonth.month)
+
+        elif filters == 5:  #lastyear
+            # filter order, product & user on modified date lastyear
+            lastyear = today - timedelta(days=365)
+            orders = orders.filter(modified_at__year=lastyear.year)
+            products = products.filter(modified_at__year=lastyear.year)
+            users = users.filter(modified_at__year=lastyear.year)
+
+        total_final_amount = 0
+        for order in orders:
+            # total final amount calculation
+            total_final_amount += order.total_final_amount
+
+        # counts of order with total_final_amount, users, & products
+        order_count = orders.count()
+        users_count = users.count()
+        products_count = products.count()
+        overview = [{"order": order_count, "user": users_count, "product": products_count,
+                     "total_final_amount": total_final_amount}]
+        return overview
+
+    def get_retail_order_overview(self):
+        """
+            Get Orders, Users & Products Counts
+            For retail cart
+        """
+        # basic validations for inputs
+        initial_validation = self.get_retail_list_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        return get_response('Order', self.get_serialize_process(order))
+
+    def get_retail_list_validate(self):
+        """
+            Get Order
+            Input validation for cart type 'retail'
+        """
+        shop_id = self.request.GET.get('shop_id')
+        # Check if buyer shop exists
+        if not Shop.objects.filter(id=shop_id).exists():
+            return {'error': "Shop Doesn't Exist!"}
+        # Check if buyer shop is mapped to parent/seller shop
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
+            return {'error': "Shop Mapping Doesn't Exist!"}
+        shop_type = parent_mapping.parent.shop_type.shop_type
+        # Check if order exists get a count of orders
+        order = self.get_retail_orders_count(shop_type, parent_mapping)
+        return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
+
+    def get_retail_orders_count(self, shop_type, parent_mapping):
+        """
+           Get Retail Order Overview based on filters
+        """
+        filters = self.request.GET.get('filters')
+        if filters is not '':
+            # check if filter parameter is not none convert it to int
+            filters = int(filters)
+        order_status = self.request.GET.get('order_status')
+        today = datetime.today()
+
+        if shop_type == 'sp':
+            orders = Order.objects.filter(buyer_shop=parent_mapping.retailer)
+        elif shop_type == 'gf':
+            orders = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer)
+
+        if order_status:
+            orders = orders.filter(order_status=order_status)
+
+        # filter by order on modified date
+        if filters == 1: #today
+            # filter order, total_final_amount on modified date today
+            orders = orders.filter(modified_at__date=today)
+
+        elif filters == 2: #yesterday
+            # filter order, total_final_amount on modified date yesterday
+            yesterday = today - timedelta(days=1)
+            orders = orders.filter(modified_at__date=yesterday)
+
+        elif filters == 3: #lastweek
+            # filter order, total_final_amount on modified date lastweek
+            lastweek = today - timedelta(weeks=1)
+            orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
+
+        elif filters == 4: #lastmonth
+            # filter order, total_final_amount on modified date lastmonth
+            lastmonth = today - timedelta(days=30)
+            orders = orders.filter(modified_at__month=lastmonth.month)
+
+        elif filters == 5: #lastyear
+            # filter order, total_final_amount on modified date lastyear
+            lastyear = today - timedelta(days=365)
+            orders = orders.filter(modified_at__year=lastyear.year)
+
+        total_final_amount = 0
+        for order in orders:
+            # total final amount calculation
+            total_final_amount += order.total_final_amount
+
+        # counts of order with total_final_amount for buyer_shop
+        orders = orders.count()
+        order = [{"order": orders, "total_final_amount": total_final_amount}]
+        return order
+
+    def get_serialize_process(self, order):
+        """
+           Get Overview of Orders, Users & Products
+           Cart type basic & Retail
+        """
+        serializer = OrderedDashBoardSerializer(order, many=True).data
+        return serializer
