@@ -308,11 +308,11 @@ class BasicCartOffers(object):
                 if coupon_id == coupon['id']:
                     applied = True
                     final_offer_coupon_id = offer
-                    offer['applied'] = 1
+                    continue
                 # If already applied coupon_id is still applicable, refresh the discount amount/offer
                 if applied_offer and applied_offer['coupon_id'] == coupon['id'] and not auto_apply:
                     final_offer_applied = offer
-                    offer['applied'] = 1
+                    continue
                 applicable_offers.append(offer)
             else:
                 offer['applicable'] = 0
@@ -338,6 +338,7 @@ class BasicCartOffers(object):
             applicable_offers = sorted(applicable_offers, key=itemgetter('discount_value'), reverse=True)
             # Apply highest discount coupon if auto apply
             if auto_apply and not applied:
+                applicable_offers[0]['applied'] = 1
                 final_offer = applicable_offers[0]
                 applied = True
         if other_offers:
