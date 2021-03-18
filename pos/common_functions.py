@@ -144,4 +144,8 @@ def order_search(orders, search_text):
 
 
 def create_user_shop_mapping(user, shop_id):
+    """
+       while registration of user, store
+       shop_id of seller shop with user in UserMappedShop
+    """
     UserMappedShop.objects.create(user=user, shop_id=shop_id)

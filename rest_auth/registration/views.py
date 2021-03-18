@@ -129,6 +129,7 @@ class RegisterView(CreateAPIView):
             create_token(self.token_model, user, serializer)
         if self.request.data.get('shop_id'):
             shop_id = Shop.objects.get(id=self.request.data.get('shop_id'))
+            # create_user with seller shop_id
             create_user_shop_mapping(user=user, shop_id=shop_id)
         complete_signup(self.request._request, user,
                         allauth_settings.EMAIL_VERIFICATION,
