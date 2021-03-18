@@ -32,6 +32,8 @@ from pos.common_functions import get_response, delete_cart_mapping, order_search
 from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer,\
     BasicOrderListSerializer, OrderedDashBoardSerializer
 from pos.offers import BasicCartOffers
+from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
+
 
 
 class ProductDetail(APIView):
@@ -434,6 +436,11 @@ class CartCentral(APIView):
                 customer.first_name = name
             customer.is_active = False
             customer.save()
+            shop_id = get_shop_id_from_token(self.request)
+            shop_id = Shop.objects.get(id=shop_id)
+            if shop_id:
+                # create_user with seller shop_id
+                create_user_shop_mapping(user=customer, shop_id=shop_id)
         # Update customer as buyer in cart
         cart.buyer = customer
         cart.save()
