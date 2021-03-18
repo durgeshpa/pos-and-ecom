@@ -23,7 +23,7 @@ from .serializers import AuditDetailSerializer
 from ...cron import release_products_from_audit
 from ...models import AuditDetail, AUDIT_DETAIL_STATUS_CHOICES, AUDIT_RUN_TYPE_CHOICES, AUDIT_DETAIL_STATE_CHOICES, \
     AuditRun, AUDIT_RUN_STATUS_CHOICES, AUDIT_LEVEL_CHOICES, AuditRunItem, AUDIT_STATUS_CHOICES, AuditCancelledPicklist, \
-    AuditedBinRecord, AuditedProductRecord
+    AuditedBinRecord, AuditedProductRecord, AuditUpdatedPickup
 from ...tasks import update_audit_status, generate_pick_list, create_audit_tickets
 from ...utils import is_audit_started, is_diff_batch_in_this_bin, get_product_image, get_audit_start_time
 from ...views import BlockUnblockProduct, create_pick_list_by_audit, create_audit_tickets_by_audit, \
@@ -367,7 +367,7 @@ class AuditEndView(APIView):
         audit.save()
         update_audit_status_by_audit(audit.id)
         create_audit_tickets.delay(audit.id)
-        generate_pick_list.delay(audit.id)
+        # generate_pick_list.delay(audit.id)
         return True
 
     def end_audit_for_bin(self, audit, audit_run, bin_id):
@@ -653,7 +653,8 @@ class AuditInventory(APIView):
                     inventory_type = InventoryType.objects.filter(inventory_type=inv_type).last()
                     if self.picklist_cancel_required(warehouse, batch_id, bin,
                                                      inventory_type, qty):
-                        self.cancel_picklist(audit, warehouse, batch_id, bin)
+                        # self.cancel_picklist(audit, warehouse, batch_id, bin)
+                        self.refresh_pickup_data(audit, warehouse, batch_id, bin, qty)
                         current_inventory = self.get_bin_inventory(warehouse, batch_id, bin)
                     self.log_audit_data(warehouse, audit_run, batch_id, bin, sku, inventory_type, inventory_state,
                                         current_inventory[inv_type], qty)
@@ -796,6 +797,49 @@ class AuditInventory(APIView):
                 PicklistRefresh.cancel_picklist_by_order(order_no)
 
         info_logger.info('AuditInventory|cancel_picklist|picklist cancelled')
+
+
+    def refresh_pickup_data(self, audit, warehouse, batch_id, bin, physical_qty):
+        """
+        For any given batch and bin, refresh the picklist based on available stock for this particular batch and bin
+        """
+        state_to_be_picked = InventoryState.objects.filter(inventory_state='to_be_picked').last()
+        state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
+        pickup_bin_qs = PickupBinInventory.objects.filter(warehouse=warehouse, batch_id=batch_id, bin__bin_id=bin,
+                                                          pickup__status__in=['pickup_creation', 'picking_assigned']).order_by('id')
+
+        with transaction.atomic():
+            for pb in pickup_bin_qs:
+                order_no = pb.pickup.pickup_type_id
+                AuditUpdatedPickup.objects.create(audit=audit, order_no=order_no, batch_id=batch_id, bin=bin)
+                info_logger.info('AuditInventory|refresh_pickup_data| audit no {}, batch id {}, bin id'
+                                 .format(audit.id,batch_id, bin))
+                picked_qty = pb.pickup_quantity if pb.pickup_quantity else 0
+                if pb.quantity - picked_qty > physical_qty:
+                    qty_diff = pb.quantity - (picked_qty + physical_qty)
+                    pb.quantity = picked_qty + physical_qty
+                    pb.save()
+                    pb.pickup.quantity = pb.pickup.quantity - qty_diff
+                    pb.pickup.save()
+                    # update to be picked quantity in Bin as well as warehouse
+                    CommonWarehouseInventoryFunctions\
+                        .create_warehouse_inventory_with_transaction_log(warehouse, pb.pickup.sku,
+                                                                         pb.pickup.inventory_type,
+                                                                         state_to_be_picked,
+                                                                         -1 * qty_diff, 'manual_audit_deduct',
+                                                                         audit.audit_no)
+                    CommonWarehouseInventoryFunctions \
+                        .create_warehouse_inventory_with_transaction_log(warehouse, pb.pickup.sku,
+                                                                         pb.pickup.inventory_type,
+                                                                         state_total_available,
+                                                                         -1 * qty_diff, 'manual_audit_deduct',
+                                                                         audit.audit_no)
+                    CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(qty_diff, pb.bin)
+                if physical_qty > 0:
+                    physical_qty = physical_qty - (pb.quantity - picked_qty)
+
+        info_logger.info('AuditInventory|cancel_picklist|picklist cancelled')
+
 
     @classmethod
     def create_in_out_entry(cls, warehouse, sku, batch_id, bin, tr_type, tr_type_id, inventory_type, qty):
