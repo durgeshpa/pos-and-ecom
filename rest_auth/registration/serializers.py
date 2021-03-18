@@ -18,6 +18,7 @@ except ImportError:
     raise ImportError("allauth needs to be added to INSTALLED_APPS.")
 
 from marketing.models import ReferralCode
+from shops.models import Shop
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from otp.models import PhoneOTP
 from otp.views import ValidateOTP
@@ -242,6 +243,7 @@ class OtpRegisterSerializer(serializers.Serializer):
     )
     otp = serializers.CharField(required=True, max_length=10)
     referral_code = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    shop_id = serializers.IntegerField(required=False)
 
     def validate_username(self, username):
         username = get_adapter().clean_username(username)
@@ -266,7 +268,14 @@ class OtpRegisterSerializer(serializers.Serializer):
             user_ref_code = ReferralCode.objects.filter(referral_code=data['referral_code'])
             if not user_ref_code:
                 raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Referral_code'])
+
+        if 'shop_id' in data and data['shop_id'] not in ['', None]:
+            # map a user for specific shop with shop_id
+            Shop_id = Shop.objects.filter(id=data['shop_id'])
+            if not Shop_id:
+                raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Shop_id'])
         return data
+
 
     def get_cleaned_data(self):
         return {

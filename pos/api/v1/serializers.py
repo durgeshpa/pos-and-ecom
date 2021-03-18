@@ -4,7 +4,6 @@ from rest_framework import serializers
 from django.db.models import Q
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
-from global_config.models import GlobalConfig
 from products.models import Product, ProductImage
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order
@@ -262,3 +261,13 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_status', 'total_final_amount', 'ordered_by',)
+
+
+class OrderedDashBoardSerializer(serializers.Serializer):
+    """
+        Get Order, User, Product & total_final_amount count
+    """
+    order = serializers.IntegerField()
+    user = serializers.IntegerField(required=False)
+    product = serializers.IntegerField(required=False)
+    total_final_amount = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
