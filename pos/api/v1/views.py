@@ -275,7 +275,7 @@ class CartCheckout(APIView):
         offers = BasicCartOffers.refresh_offers(cart, False, self.request.data.get('coupon_id'))
         if 'error' in  offers:
             return get_response(offers['error'])
-        return get_response("Offer Applied Successfully" if offers['applied'] else "Offer Not Found", self.serialize(cart))
+        return get_response("Offer Applied Successfully" if offers['applied'] else "Offer Not Applicable", self.serialize(cart))
 
     def get(self, request):
         """
