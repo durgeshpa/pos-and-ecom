@@ -269,10 +269,10 @@ class CartCheckout(APIView):
             return get_response(initial_validation['error'])
         cart = initial_validation['cart']
         # Get offers available now and apply coupon if applicable
-        response = BasicCartOffers.checkout_apply_offer(cart, self.request.data.get('coupon_id'))
-        if 'error' in  response:
-            return get_response(response['error'])
-        return get_response("Offer Applied Successfully" if response['applied'] else "Offer Not Found", self.serialize(cart))
+        offers = BasicCartOffers.refresh_offers(cart, False, self.request.data.get('coupon_id'))
+        if 'error' in  offers:
+            return get_response(offers['error'])
+        return get_response("Offer Applied Successfully" if offers['applied'] else "Offer Not Found", self.serialize(cart))
 
     def get(self, request):
         """
@@ -301,8 +301,12 @@ class CartCheckout(APIView):
             cart = Cart.objects.get(pk=cart_id)
         except ObjectDoesNotExist:
             return get_response("Cart Does Not Exist")
-        offers = BasicCartOffers.remove_cart_offer(cart.offers)
-        Cart.objects.filter(pk=cart.id).update(offers=offers)
+        cart_products = cart.rt_cart_list.all()
+        cart_value = 0
+        for product_map in cart_products:
+            cart_value += product_map.selling_price * product_map.qty
+        offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
+        Cart.objects.filter(pk=cart.id).update(offers=offers_list)
         return get_response("Deleted Successfully", [], True)
 
     def post_validate(self):
@@ -722,7 +726,8 @@ class CartCentral(APIView):
             # Check if price needs to be updated and return selling price
             selling_price = self.get_basic_cart_product_price(product)
             # Add quantity to cart
-            cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product)
+            cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
+                                                                       parent_retailer_product=None)
             cart_mapping.selling_price = selling_price
             cart_mapping.qty = qty
             cart_mapping.no_of_pieces = int(qty)
