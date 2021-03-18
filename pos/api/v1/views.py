@@ -1704,7 +1704,7 @@ class OrderedItemCentralDashBoard(APIView):
 
         if order_status:
             # get total orders for given shop_id & order_status
-            orders = Order.objects.filter(seller_shop=seller_shop_id, order_status=order_status)
+            orders = orders.filter(order_status=order_status)
 
         # filter order, product & user by get modified date
         if filters == 1:  #today

@@ -265,7 +265,7 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
 
 class OrderedDashBoardSerializer(serializers.Serializer):
     """
-        Order, User, Product & total_final_amount count for Basic Cart
+        Get Order, User, Product & total_final_amount count
     """
     order = serializers.IntegerField()
     user = serializers.IntegerField(required=False)
