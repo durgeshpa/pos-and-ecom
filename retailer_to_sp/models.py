@@ -522,7 +522,7 @@ class Cart(models.Model):
 
     @property
     def buyer_contact_no(self):
-        return self.buyer_shop.shop_owner.phone_number
+        return self.buyer.phone_number if self.buyer else self.buyer_shop.shop_owner.phone_number
 
     @property
     def seller_contact_no(self):
@@ -826,6 +826,10 @@ class CartProductMapping(models.Model):
         RetailerProduct, related_name='rt_cart_retailer_product', null=True,
         on_delete=models.DO_NOTHING
     )
+    parent_retailer_product = models.ForeignKey(
+        RetailerProduct, related_name='rt_cart_retailer_product_parent', null=True,
+        on_delete=models.DO_NOTHING
+    )
     cart_product_price = models.ForeignKey(
         ProductPrice, related_name='rt_cart_product_price_mapping',
         on_delete=models.DO_NOTHING, null=True, blank=True
@@ -852,11 +856,11 @@ class CartProductMapping(models.Model):
 
     @property
     def product_case_size(self):
-        return self.cart_product.product_case_size.product_case_size if self.cart_product else 1
+        return 1 if self.retailer_product else self.cart_product.product_case_size.product_case_size
 
     @property
     def product_inner_case_size(self):
-        return self.cart_product.product_inner_case_size if self.cart_product else 1
+        return 1 if self.retailer_product else self.cart_product.product_inner_case_size
 
     @property
     def order_number(self):
@@ -864,13 +868,21 @@ class CartProductMapping(models.Model):
 
     @property
     def cart_product_sku(self):
-        return self.cart_product.product_sku if self.cart_product else self.retailer_product.sku
+        return self.retailer_product.sku if self.retailer_product else self.cart_product.product_sku
 
     @property
     def item_effective_prices(self):
         try:
             item_effective_price = 0
-            if self.cart_product:
+            if self.retailer_product:
+                if self.cart.offers and self.selling_price:
+                    array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+                    for i in array:
+                        if self.retailer_product.id == i['item_id']:
+                            item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
+                else:
+                    item_effective_price = float(self.selling_price)
+            else:
                 if self.cart.offers:
                     array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
                     for i in array:
@@ -878,16 +890,15 @@ class CartProductMapping(models.Model):
                             item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
                 else:
                     item_effective_price = float(self.cart_product_price.selling_price)
-            else:
-                item_effective_price = float(self.selling_price)
         except:
             logger.exception("Cart product price not found")
         return item_effective_price
 
     def set_cart_product_price(self, seller_shop_id, buyer_shop_id):
-        self.cart_product_price = self.cart_product. \
-            get_current_shop_price(seller_shop_id, buyer_shop_id)
-        self.save()
+        if self.cart_product:
+            self.cart_product_price = self.cart_product. \
+                get_current_shop_price(seller_shop_id, buyer_shop_id)
+            self.save()
 
     def get_cart_product_price(self, seller_shop_id, buyer_shop_id):
         if not self.cart_product_price:

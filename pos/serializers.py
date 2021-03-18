@@ -13,7 +13,7 @@ from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, Discount
 class RetailerProductCreateSerializer(serializers.Serializer):
     shop_id = serializers.IntegerField(required=False)
     status = serializers.CharField(required=False)
-    linked_product_id = serializers.IntegerField(required=False)
+    linked_product_id = serializers.IntegerField(required=False, allow_null=True, default=None)
     product_name = serializers.CharField(required=True, validators=[ProductNameValidator])
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
