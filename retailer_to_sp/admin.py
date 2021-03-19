@@ -1383,21 +1383,28 @@ class ShipmentAdmin(NestedModelAdmin):
 
 
     def pincode(self, obj):
-        return obj.order.shipping_address.pincode
+        address = obj.order.shipping_address
+        if address:
+            return address.pincode
+        return ""
 
     def seller_shop(self, obj):
         return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
         address = obj.order.shipping_address
-        address_line = address.address_line1
-        contact = address.address_contact_number
-        shop_name = address.shop_name.shop_name
-        return str("%s, %s(%s)") % (shop_name, address_line, contact)
+        if address:
+            address_line = address.address_line1
+            contact = address.address_contact_number
+            shop_name = address.shop_name.shop_name
+            return str("%s, %s(%s)") % (shop_name, address_line, contact)
+        return "-"
 
     def invoice_city(self, obj):
-        city = obj.order.shipping_address.city
-        return str(city)
+        address = obj.order.shipping_address
+        if address:
+            return str(address.city)
+        return "-"
 
     def start_qc(self,obj):
         if obj.order.order_status == Order.CANCELLED:

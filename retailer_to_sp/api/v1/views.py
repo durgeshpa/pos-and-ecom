@@ -1307,7 +1307,10 @@ class DownloadInvoiceSP(APIView):
             # check pk is exist or not for Order product model
             ordered_product = get_object_or_404(OrderedProduct, pk=pk)
             # call pdf generation method to generate pdf and download the pdf
-            pdf_generation(request, ordered_product)
+            if ordered_product.order.ordered_cart.cart_type == 'BASIC':
+                pdf_generation_retailer(request, ordered_product)
+            else:
+                pdf_generation(request, ordered_product)
             result = requests.get(ordered_product.invoice.invoice_pdf.url)
             file_prefix = PREFIX_INVOICE_FILE_NAME
             # generate pdf file
@@ -1599,6 +1602,95 @@ def pdf_generation(request, ordered_product):
                 "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin, "hsn_list": list1}
+
+        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        try:
+            create_invoice_data(ordered_product)
+            ordered_product.invoice.invoice_pdf.save("{}".format(filename),
+                                                     ContentFile(response.rendered_content), save=True)
+        except Exception as e:
+            logger.exception(e)
+
+
+def pdf_generation_retailer(request, ordered_product):
+    """
+    :param request: request object
+    :param ordered_product: Order product object
+    :return: pdf instance
+    """
+    file_prefix = PREFIX_INVOICE_FILE_NAME
+    filename = create_file_name(file_prefix, ordered_product)
+    template_name = 'admin/invoice/invoice_retailer.html'
+    if type(request) is str:
+        request = None
+        ordered_product = get_object_or_404(OrderedProduct, pk=ordered_product)
+    else:
+        request = request
+        ordered_product = ordered_product
+
+    try:
+        # Don't create pdf if already created
+        if ordered_product.invoice.invoice_pdf.url:
+            pass
+    except Exception as e:
+        logger.exception(e)
+        barcode = barcodeGen(ordered_product.invoice_no)
+        # Products
+        product_listing = []
+        # Total invoice qty
+        sum_qty = 0
+        # Total Ordered Amount
+        total = 0
+        for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
+            sum_qty += m.delivered_qty
+            cart_product_map = ordered_product.order.ordered_cart.rt_cart_list.filter(
+                retailer_product=m.retailer_product,
+                parent_retailer_product=m.parent_retailer_product
+                ).last()
+            product_pro_price_ptr = cart_product_map.selling_price
+            ordered_p = {
+                "id": cart_product_map.id,
+                "product_short_description": m.retailer_product.product_short_description,
+                "mrp": m.retailer_product.mrp,
+                "qty": m.delivered_qty,
+                "rate": float(product_pro_price_ptr),
+                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr)
+            }
+            total += ordered_p['product_sub_total']
+            if m.parent_retailer_product:
+                ordered_p['product_short_description'] += " Free with " + m.parent_retailer_product.name
+            product_listing.append(ordered_p)
+        from operator import itemgetter
+        product_listing = sorted(product_listing, key=itemgetter('id'))
+        # Total payable amount
+        total_amount = ordered_product.invoice_amount
+        total_amount_int = round(total_amount)
+        # Total discount
+        discount = total - total_amount
+        # Total payable amount in words
+        amt = [num2words(i) for i in str(total_amount_int).split('.')]
+        rupees = amt[0]
+        # Shop Details
+        nick_name = '-'
+        address_line1 = '-'
+        city = '-'
+        state = '-'
+        pincode = '-'
+        address_contact_number = ''
+        for z in ordered_product.order.seller_shop.shop_name_address_mapping.all():
+            nick_name, address_line1 = z.nick_name, z.address_line1
+            city, state, pincode = z.city, z.state, z.pincode
+            address_contact_number = z.address_contact_number
+
+        data = {"shipment": ordered_product, "order": ordered_product.order, "url": request.get_host(),
+                "scheme": request.is_secure() and "https" or "http", "total_amount": total_amount, 'total': total,
+                'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
+                "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
+                "state": state,
+                "pincode": pincode, "address_contact_number": address_contact_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
