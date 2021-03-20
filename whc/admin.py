@@ -53,8 +53,8 @@ class AutoOrderProcessingAdmin(admin.ModelAdmin):
                 for product in obj.grn_order_grn_order_product.all():
                     tax_percentage = product.product.product_gst
                     total_amount = (product.delivered_qty*product.po_product_price)
-                    writer.writerow([query.cart.rt_order_cart_mapping.rt_order_order_product.all()[0].invoice.invoice_no,
-                                     query.cart.rt_order_cart_mapping.rt_order_order_product.all()[0].invoice.created_at,
+                    writer.writerow([obj.invoice_date.invoice_no,
+                                     obj.invoice_date,
                                      query.grn_warehouse.parent_shop, query.grn_warehouse.id,
                                      query.grn_warehouse.get_shop_parent.get_shop_shipping_address,
                                      obj.grn_id, obj.grn_date, obj.order.ordered_cart.po_no, product.product.product_sku,
@@ -65,7 +65,7 @@ class AutoOrderProcessingAdmin(admin.ModelAdmin):
                                      product.product.product_cess,
                                      query.cart.rt_order_cart_mapping.rt_order_order_product.all().last().order.total_discount_amount,
                                      obj.tcs_amount,
-                                     query.cart.rt_order_cart_mapping.rt_order_order_product.all()[0].invoice.invoice_amount,
+                                     obj.invoice_no,
                                      ])
 
         f.seek(0)
