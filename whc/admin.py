@@ -17,7 +17,7 @@ debug_logger = logging.getLogger('file-debug')
 # Register your models here.
 class AutoOrderProcessingAdmin(admin.ModelAdmin):
     actions = ['download_csv_for_auto_order']
-    list_display = ('invoice_number', 'invoice_date', 'source_po', 'grn', 'auto_po', 'cart', 'order', 'grn_warehouse',
+    list_display = ('invoice_number', 'invoice_date', 'source_po', 'grn', 'auto_po', 'grn_warehouse',
                     'retailer_shop',)
     list_per_page = 50
 
@@ -29,7 +29,7 @@ class AutoOrderProcessingAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super(AutoOrderProcessingAdmin, self).get_queryset(request)
-        return qs.filter(state=14)
+        return qs.filter(state=14).order_by('-auto_po').distinct('auto_po').select_related()
 
     def download_csv_for_auto_order(self, request, queryset):
         """
