@@ -17,8 +17,7 @@ debug_logger = logging.getLogger('file-debug')
 # Register your models here.
 class AutoOrderProcessingAdmin(admin.ModelAdmin):
     actions = ['download_csv_for_auto_order']
-    list_display = ('invoice_number', 'invoice_date', 'source_po', 'auto_po', 'order', 'cart', 'grn_warehouse',
-                    'retailer_shop',)
+    list_display = ('source_po', 'auto_po', 'grn_warehouse', 'retailer_shop',)
     list_per_page = 50
 
     def invoice_number(self, obj):
