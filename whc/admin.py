@@ -17,8 +17,7 @@ debug_logger = logging.getLogger('file-debug')
 # Register your models here.
 class AutoOrderProcessingAdmin(admin.ModelAdmin):
     actions = ['download_csv_for_auto_order']
-    list_display = ('invoice_number', 'invoice_date', 'source_po', 'grn', 'auto_po', 'grn_warehouse',
-                    'retailer_shop',)
+    list_display = ('source_po', 'auto_po', 'grn_warehouse', 'retailer_shop',)
     list_per_page = 50
 
     def invoice_number(self, obj):
@@ -45,7 +44,6 @@ class AutoOrderProcessingAdmin(admin.ModelAdmin):
                          "GRN Number(GFDN)", "GRN Date", "PO Number(GFDN)", "SKU ID", "Product Name", "GST Rate",
                          "Delivered Qty(GRN)", "Buying Price", "Amount (Qty*Buying Price)", "CGST", "SGST", "IGST",
                          "CESS", "Discount", "TCS Amount", "Invoice Amount"])
-
         for query in queryset:
             # iteration for selected id from Admin Dashboard and get the instance
             for obj in query.auto_po.order_cart_mapping.order_grn_order.all():
@@ -53,20 +51,25 @@ class AutoOrderProcessingAdmin(admin.ModelAdmin):
                 for product in obj.grn_order_grn_order_product.all():
                     tax_percentage = product.product.product_gst
                     total_amount = (product.delivered_qty*product.po_product_price)
-                    writer.writerow([query.cart.rt_order_cart_mapping.rt_order_order_product.all()[0].invoice.invoice_no,
-                                     query.cart.rt_order_cart_mapping.rt_order_order_product.all()[0].invoice.created_at,
-                                     query.grn_warehouse.parent_shop, query.grn_warehouse.id,
-                                     query.grn_warehouse.get_shop_parent.get_shop_shipping_address,
-                                     obj.grn_id, obj.grn_date, obj.order.ordered_cart.po_no, product.product.product_sku,
-                                     product.product.product_name, product.product.product_gst, product.delivered_qty,
-                                     product.po_product_price, total_amount,
-                                     ((total_amount)*(tax_percentage/100))/2, ((total_amount)*(tax_percentage/100))/2,
-                                     '',
-                                     product.product.product_cess,
-                                     query.cart.rt_order_cart_mapping.rt_order_order_product.all().last().order.total_discount_amount,
-                                     obj.tcs_amount,
-                                     query.cart.rt_order_cart_mapping.rt_order_order_product.all()[0].invoice.invoice_amount,
-                                     ])
+                    amount_exclude_tax = (total_amount)/(1+tax_percentage/100)
+                    tax_amount = total_amount - amount_exclude_tax
+                    if product.delivered_qty == 0:
+                        continue
+                    else:
+                        writer.writerow([str(query.cart.rt_order_cart_mapping.rt_order_order_product.all()[0].invoice.invoice_no),
+                                         str(query.cart.rt_order_cart_mapping.rt_order_order_product.all()[0].invoice.created_at),
+                                         str(query.auto_po.supplier_name.company_name), str(query.auto_po.supplier_name_id),
+                                         str(query.auto_po.supplier_name.address_line1),
+                                         str(obj.grn_id), str(obj.grn_date), str(obj.order.ordered_cart.po_no), str(product.product.product_sku),
+                                         str(product.product.product_name), str(product.product.product_gst), str(product.delivered_qty),
+                                         str(product.po_product_price), str(total_amount),
+                                         "{:.1f}".format((tax_amount/2)), "{:.1f}".format((tax_amount/2)),
+                                         '',
+                                         str(product.product.product_cess),
+                                         str(query.cart.rt_order_cart_mapping.rt_order_order_product.all().last().order.total_discount_amount),
+                                         str(obj.tcs_amount),
+                                         str(obj.invoice_amount),
+                                         ])
 
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
