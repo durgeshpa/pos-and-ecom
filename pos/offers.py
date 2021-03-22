@@ -67,7 +67,7 @@ class BasicCartOffers(object):
         return offers_list
 
     @classmethod
-    def get_basic_combo_coupons(cls, purchased_product_ids, shop_id, size=10):
+    def get_basic_combo_coupons(cls, purchased_product_ids, shop_id, size=10, source=None):
         """
             Get Product combo coupons from elasticsearch
         """
@@ -86,6 +86,8 @@ class BasicCartOffers(object):
                 {"purchased_product_qty": "desc"},
             ]
         }
+        if source:
+            body["_source"] = {"includes": source}
         c_list = []
         try:
             coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
@@ -123,8 +125,9 @@ class BasicCartOffers(object):
                 # No of free items to be given on qty left
                 free_item_qty = int(purchased_product_multiple * int(coupon['free_product_qty']))
                 # No of free items to be given on total qty in cart
-                free_item_ids[offer['free_item_id']] = free_item_qty + free_item_ids[offer['free_item_id']] if free_item_ids and\
-                    offer['free_item_id'] in free_item_ids else free_item_qty
+                free_item_ids[offer['free_item_id']] = free_item_qty + free_item_ids[
+                    offer['free_item_id']] if free_item_ids and \
+                                              offer['free_item_id'] in free_item_ids else free_item_qty
                 applied_offers.append(offer)
                 # Remaining product qty to check other offers
                 qty = qty - purchased_product_multiple * int(coupon['purchased_product_qty'])
@@ -349,7 +352,7 @@ class BasicCartOffers(object):
         else:
             # Cart does not qualify for any offer
             offers_list = BasicCartOffers.update_cart_offer(offers_list, cart_value)
-        return {'offers_list': offers_list, 'total_offers': applicable_offers + other_offers, 'applied':applied}
+        return {'offers_list': offers_list, 'total_offers': applicable_offers + other_offers, 'applied': applied}
 
     @classmethod
     def get_offer_cart_coupon(cls, coupon):
@@ -357,15 +360,15 @@ class BasicCartOffers(object):
             Cart available offer
         """
         return {
-                'coupon_type': 'cart',
-                'type': 'discount',
-                'coupon_id': coupon['id'],
-                'coupon_code': coupon['coupon_code'],
-                'cart_minimum_value': coupon['cart_minimum_value'],
-                'is_percentage': coupon['is_percentage'],
-                'discount': coupon['discount'],
-                'max_discount': coupon['max_discount']
-            }
+            'coupon_type': 'cart',
+            'type': 'discount',
+            'coupon_id': coupon['id'],
+            'coupon_code': coupon['coupon_code'],
+            'cart_minimum_value': coupon['cart_minimum_value'],
+            'is_percentage': coupon['is_percentage'],
+            'discount': coupon['discount'],
+            'max_discount': coupon['max_discount']
+        }
 
     @classmethod
     def update_cart_offer(cls, offers_list, cart_value, new_offer=None):

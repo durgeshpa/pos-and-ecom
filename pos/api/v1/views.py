@@ -6,6 +6,7 @@ from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
+from rest_framework.permissions import AllowAny
 
 from .pagination import pagination
 from sp_to_gram.tasks import es_search
@@ -37,6 +38,141 @@ from pos.common_functions import create_user_shop_mapping, get_shop_id_from_toke
 
 
 
+
+class SearchView(APIView):
+    """
+        Search Catalogue ElasticSearch
+    """
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """
+            Search and get catalogue products from ElasticSearch
+            Inputs
+            ---------
+            index ('string')
+                values
+                    '1' : Complete GramFactory Catalogue
+                    '2' : GramFactory Shop Catalogue
+                    '3' : Retailer Shop Catalogue
+            shop_id ('string')
+                description
+                    To get products from index '2' and '3'
+            search_type ('string')
+                values
+                    '1' : Exact Match
+                    '2' : Normal Match
+            output_type ('string')
+                values
+                    '1' : Raw
+                    '2' : Processed
+            ean_code ('string')
+                description
+                    To get products for search_type '1' based on given ean_code
+            keyword ('string')
+                description
+                    To get products for search_type '2' based on given keyword
+        """
+        index_type = request.GET.get('index_type')
+        # Complete GramFactory Catalogue
+        if index_type == '1':
+            return self.gf_search()
+        # GramFactory Shop Catalogue
+        elif index_type == '2':
+            return self.gf_shop_search()
+        # Retailer Shop Catalogue
+        elif index_type == '3':
+            return self.rp_search()
+        else:
+            return get_response("Provide a valid index for search")
+
+    def rp_search(self):
+        """
+            Search Retailer Shop Catalogue
+        """
+        shop_id = self.request.GET.get('shop_id')
+        if not Shop.objects.filter(id=shop_id, status=True).exists():
+            return get_response('Shop Not Found/Active')
+
+        search_type = self.request.GET.get('search_type', '1')
+        # Exact Search
+        if search_type == '1':
+            return self.rp_exact_search(shop_id)
+        # Normal Search
+        elif search_type == '2':
+            return self.rp_normal_search(shop_id)
+        else:
+            return get_response("Provide a valid search type")
+
+    def rp_exact_search(self, shop_id):
+        """
+            Search Retailer Shop Catalogue On Exact Match
+        """
+        ean_code = self.request.GET.get('ean_code')
+        output_type = self.request.GET.get('output_type', '1')
+        body = dict()
+        if ean_code and ean_code != '':
+            body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
+        return self.process_rp(output_type, body, shop_id)
+
+    def rp_normal_search(self, shop_id):
+        """
+            Search Retailer Shop Catalogue On Similar Match
+        """
+        keyword = self.request.GET.get('keyword')
+        output_type = self.request.GET.get('output_type', '1')
+        body = dict()
+        if keyword:
+            keyword = keyword.strip()
+            tokens = keyword.split()
+            keyword = ""
+            for word in tokens:
+                keyword += "*" + word + "* "
+            keyword = keyword.strip()
+            if keyword.isnumeric():
+                body['query'] = {"query_string": {"query": keyword + "*", "fields": ["ean"]}}
+            else:
+                body['query'] = {
+                    "query_string": {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}}
+        return self.process_rp(output_type, body, shop_id)
+
+    def process_rp(self, output_type, body, shop_id):
+        """
+            Modify Es results for response based on output_type - Raw OR Processed
+        """
+        body["from"] = int(self.request.GET.get('offset', 0))
+        body["size"] = int(self.request.GET.get('count', 10))
+        p_list = []
+        # Raw Output
+        if output_type == '1':
+            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin"]}
+            try:
+                products_list = es_search(index='rp-{}'.format(shop_id), body=body)
+                for p in products_list['hits']['hits']:
+                    p_list.append(p["_source"])
+            except:
+                pass
+        # Processed Output
+        else:
+            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "images"]}
+            try:
+                products_list = es_search(index='rp-{}'.format(shop_id), body=body)
+                for p in products_list['hits']['hits']:
+                    # Combo Offers On Products
+                    p["_source"]['coupons'] = BasicCartOffers.get_basic_combo_coupons([p["_source"]["id"]], shop_id, 10,
+                                                                                      ["coupon_code", "coupon_type"])
+                    p_list.append(p["_source"])
+            except:
+                pass
+        return get_response('Products Found' if p_list else 'No Products Found', p_list)
+
+    def gf_search(self):
+        pass
+
+    def gf_shop_search(self):
+        pass
+
+
 class ProductDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -53,138 +189,6 @@ class ProductDetail(APIView):
 
         product_detail_serializer = ProductDetailSerializer(product)
         return get_response('Product Found', product_detail_serializer.data)
-
-
-class RetailerProductsList(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def search_query(self, request):
-        """
-            Es Search query to search for retailer products based on name, brand, category
-        """
-        filter_list = []
-        query = {"bool": {"filter": filter_list}}
-
-        product_ids = request.GET.get('product_ids')
-        if product_ids:
-            filter_list.append({"ids": {"type": "product", "values": product_ids}})
-            return query
-
-        brands = request.GET.get('brands')
-        categories = request.GET.get('categories')
-        keyword = request.GET.get('product_name')
-
-        if not (categories or brands or keyword):
-            return query
-
-        if brands:
-            brand_name = "{} -> {}".format(Brand.objects.filter(id__in=list(brands)).last(), keyword)
-            filter_list.append({"match": {"brand": {"query": brand_name, "fuzziness": "AUTO", "operator": "and"}}})
-        elif keyword:
-            q = {"multi_match": {"query": keyword, "fields": ["name^5", "category", "brand"], "type": "cross_fields"}}
-            query["bool"]["must"] = [q]
-        if categories:
-            category_filter = str(categorymodel.Category.objects.filter(id__in=categories, status=True).last())
-            filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
-
-        return query
-
-    def process_results(self, products_list):
-        """
-            Modify Es results for response
-        """
-        p_list = []
-        for p in products_list['hits']['hits']:
-            mrp = p["_source"]["mrp"]
-            sp = p["_source"]["selling_price"]
-            p["_source"]["margin"] = ((mrp - sp) / mrp) * 100
-            p_list.append(p["_source"])
-        return p_list
-
-    def get(self, request):
-        """
-        API to search for retailer products of a particular shop
-        Inputs:
-        shop_id
-        product_name
-        product_ids
-        brands
-        categories
-        """
-        shop_id = request.GET.get('shop_id')
-        if not Shop.objects.filter(id=shop_id, status=True).exists():
-            return get_response('Shop Not Found/Active')
-        query = self.search_query(request)
-        body = {"from": 0, "size": 5, "query": query, "_source": {"includes": ["name", "selling_price", "mrp",
-                                                                               "images"]}}
-        try:
-            products_list = es_search(index="rp-{}".format(shop_id), body=body)
-            p_list = self.process_results(products_list)
-        except:
-            p_list = []
-        return get_response('Products Found For Shop' if p_list else 'No Products Found', p_list)
-
-
-class EanSearch(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def get(self, request):
-        """
-            API to search GramFactory product catalogue OR Retailer Product catalogue
-            Based on product ean code exact match
-            Inputs
-            ean_code
-            search_type - 1 (GramFactory products), 2 (pos/retailer products)
-            shop_id - in case of retail search
-        """
-        ean_code = request.GET.get('ean_code')
-        if ean_code and ean_code != '':
-            body = {
-                "from": int(request.GET.get('offset', 0)),
-                "size": int(request.GET.get('pro_count', 50)),
-                "query": {"bool": {"filter": [{"match": {"ean": {"query": ean_code}}}]}}
-            }
-            search_type = request.GET.get('search_type', '1')
-            if search_type == '2':
-                shop_id = request.GET.get('shop_id')
-                if shop_id and shop_id != '':
-                    p_list = self.search_basic(body, shop_id)
-                else:
-                    return get_response('Provide Shop Id For Search Type Retail')
-            else:
-                p_list = self.search_gf(body)
-            return get_response('Products Found' if p_list else 'No Products Found', p_list)
-        else:
-            return get_response('Provide Ean Code')
-
-    def search_gf(self, body):
-        """
-            Search GramFactory products
-        """
-        body['_source'] = {"includes": ["id", "name"]}
-        products_list = es_search(index="all_products", body=body)
-        p_list = self.process_results(products_list)
-        return p_list
-
-    def search_basic(self, body, shop_id):
-        """
-            Search retail product
-        """
-        body['_source'] = {"includes": ["id", "name", "selling_price", "mrp"]}
-        try:
-            products_list = es_search(index='rp-{}'.format(shop_id), body=body)
-            p_list = self.process_results(products_list)
-        except:
-            p_list = []
-        return p_list
-
-    def process_results(self, products_list):
-        p_list = []
-        for p in products_list['hits']['hits']:
-            p_list.append(p["_source"])
-        return p_list
 
 
 class GramProductsList(APIView):
