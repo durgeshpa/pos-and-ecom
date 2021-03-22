@@ -1764,6 +1764,12 @@ class OrderedProduct(models.Model):  # Shipment
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+        if self.order.ordered_cart.cart_type == 'BASIC':
+            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+                CommonFunction.generate_invoice_number(
+                    'invoice_no', self.pk,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    self.invoice_amount)
         elif self.order.ordered_cart.cart_type == 'RETAIL':
             if self.shipment_status == OrderedProduct.READY_TO_SHIP:
                 CommonFunction.generate_invoice_number(
@@ -1900,6 +1906,14 @@ class OrderedProductMapping(models.Model):
         Product, related_name='rt_product_order_product',
         null=True, on_delete=models.DO_NOTHING
     )
+    retailer_product = models.ForeignKey(
+        RetailerProduct, related_name='rt_retailer_product_order_product',
+        null=True, on_delete=models.DO_NOTHING
+    )
+    parent_retailer_product = models.ForeignKey(
+        RetailerProduct, related_name='rt_retailer_product_parent_order_product', null=True,
+        on_delete=models.DO_NOTHING
+    )
     shipped_qty = models.PositiveIntegerField(default=0, verbose_name="Shipped Pieces")
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
@@ -1933,6 +1947,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_weight(self):
+        if self.retailer_product:
+            return 0
         if self.product.weight_value:
             weight = self.product.weight_value * self.shipped_qty
             return weight
@@ -1942,8 +1958,12 @@ class OrderedProductMapping(models.Model):
     @property
     def ordered_qty(self):
         if self.ordered_product:
-            no_of_pieces = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-                cart_product=self.product).values('no_of_pieces')
+            if self.retailer_product:
+                no_of_pieces = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                    retailer_product=self.retailer_product, parent_retailer_product=self.parent_retailer_product).values('no_of_pieces')
+            else:
+                no_of_pieces = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                    cart_product=self.product).values('no_of_pieces')
             no_of_pieces = no_of_pieces.first().get('no_of_pieces')
             return str(no_of_pieces)
         return str("-")
@@ -1952,10 +1972,13 @@ class OrderedProductMapping(models.Model):
 
     @property
     def already_shipped_qty(self):
-        already_shipped_qty = OrderedProductMapping.objects.filter(
-            ordered_product__in=self.ordered_product.order.rt_order_order_product.all(),
-            product=self.product).aggregate(
-            Sum('delivered_qty')).get('delivered_qty__sum', 0)
+        qs = OrderedProductMapping.objects.filter(ordered_product__in=self.ordered_product.order.rt_order_order_product.all())
+        if self.retailer_product:
+            qs = qs.filter(retailer_product=self.retailer_product,
+                                            parent_retailer_product=self.parent_retailer_product)
+        else:
+            qs = qs.filter(product=self.product)
+        already_shipped_qty = qs.aggregate(Sum('delivered_qty')).get('delivered_qty__sum', 0)
         return already_shipped_qty if already_shipped_qty else 0
 
     already_shipped_qty.fget.short_description = "Delivered Qty"
@@ -1976,9 +1999,11 @@ class OrderedProductMapping(models.Model):
     @property
     def to_be_shipped_qty(self):
         all_ordered_product = self.ordered_product.order.rt_order_order_product.all()
-        qty = OrderedProductMapping.objects.filter(
-            ordered_product__in=all_ordered_product,
-            product=self.product)
+        qty = OrderedProductMapping.objects.filter(ordered_product__in=all_ordered_product)
+        if self.retailer_product:
+            qty = qty.filter(retailer_product=self.retailer_product, parent_retailer_product=self.parent_retailer_product)
+        else:
+            qty = qty.filter(product=self.product)
         to_be_shipped_qty = qty.aggregate(
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
         to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
@@ -2003,8 +2028,13 @@ class OrderedProductMapping(models.Model):
         all_ordered_product = self.ordered_product.order.rt_order_order_product.all()
         all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
         to_be_shipped_qty = OrderedProductMapping.objects.filter(
-            ordered_product__in=all_ordered_product_exclude_current,
-            product=self.product).aggregate(
+            ordered_product__in=all_ordered_product_exclude_current)
+        if self.retailer_product:
+            to_be_shipped_qty = to_be_shipped_qty.filter(retailer_product=self.retailer_product,
+                                                         parent_retailer_product=self.parent_retailer_product)
+        else:
+            to_be_shipped_qty = to_be_shipped_qty.filter(product=self.product)
+        to_be_shipped_qty = to_be_shipped_qty.aggregate(
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
         to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
         return to_be_shipped_qty
@@ -2018,6 +2048,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def mrp(self):
+        if self.retailer_product:
+            return self.retailer_product.mrp
         if self.product.product_mrp:
             return self.product.product_mrp
         return self.ordered_product.order.ordered_cart.rt_cart_list \
@@ -2198,10 +2230,16 @@ class OrderedProductMapping(models.Model):
         # if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty, self.returned_qty]):
         #     raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
         # else:
-        self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-            cart_product=self.product).last().item_effective_prices
-        self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-            cart_product=self.product).last().discounted_price
+        if self.retailer_product:
+            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                retailer_product=self.retailer_product, parent_retailer_product = self.parent_retailer_product).last().item_effective_prices
+            self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                retailer_product=self.retailer_product, parent_retailer_product = self.parent_retailer_product).last().discounted_price
+        else:
+            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                cart_product=self.product).last().item_effective_prices
+            self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                cart_product=self.product).last().discounted_price
         super().save(*args, **kwargs)
 
 
