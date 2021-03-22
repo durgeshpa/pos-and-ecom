@@ -23,6 +23,12 @@ class AutoOrderProcessingAdmin(admin.ModelAdmin):
     list_filter = [('created_at', DateTimeRangeFilter)]
     list_per_page = 50
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
     @staticmethod
     def invoice_number(obj):
         """
@@ -113,7 +119,7 @@ class AutoOrderProcessingAdmin(admin.ModelAdmin):
             writer.writerow(value)
         f.seek(0)
         response = HttpResponse(f, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename=auto_order.csv'
+        response['Content-Disposition'] = 'attachment; filename=auto_po_invoice.csv'
         return response
 
     download_csv_for_auto_order.short_description = "Download CSV of Auto Order"
