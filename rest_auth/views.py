@@ -26,7 +26,8 @@ from .app_settings import (
     PasswordResetSerializer, PasswordResetConfirmSerializer,
     PasswordChangeSerializer, JWTSerializer, create_token
 )
-from .serializers import PasswordResetValidateSerializer, OtpLoginSerializer, MlmResponseSerializer, LoginResponseSerializer
+from .serializers import PasswordResetValidateSerializer, OtpLoginSerializer, MlmResponseSerializer, \
+    LoginResponseSerializer, PosLoginResponseSerializer
 from .models import TokenModel
 from .utils import jwt_encode
 from otp.models import PhoneOTP
@@ -48,7 +49,7 @@ APPLICATION_LOGIN_SERIALIZERS_MAP = {
 APPLICATION_LOGIN_RESPONSE_SERIALIZERS_MAP = {
     '0' : LoginResponseSerializer,
     '1' : MlmResponseSerializer,
-    '2' : LoginResponseSerializer
+    '2' : PosLoginResponseSerializer
 }
 
 
@@ -120,7 +121,8 @@ class LoginView(GenericAPIView):
             serializer = serializer_class(instance=self.token, context={'request': self.request})
 
         response_serializer_class = self.get_response_serializer()
-        response_serializer = response_serializer_class(instance={'user': self.user, 'token': serializer.data['key'], 'action': 'login'})
+        response_serializer = response_serializer_class(instance={'user': self.user, 'token': serializer.data['key'],
+                                                                  'action': 'login', 'app_type': self.request.data.get('app_type', 0)})
         return Response({'is_success': True, 'message': ['Successfully logged in'],
                          'response_data': [response_serializer.data]}, status=status.HTTP_200_OK)
 

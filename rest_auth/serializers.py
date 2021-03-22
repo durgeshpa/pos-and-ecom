@@ -5,6 +5,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_decode as uid_decoder
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
+from django.db.models import Q
 from django.core.validators import RegexValidator
 from rest_framework import serializers, exceptions
 from rest_framework.exceptions import ValidationError
@@ -224,6 +225,18 @@ class LoginResponseSerializer(serializers.Serializer):
 
     def get_access_token(self, obj):
         return obj['token']
+
+class PosLoginResponseSerializer(serializers.Serializer):
+    access_token = serializers.SerializerMethodField()
+    shop_name = serializers.SerializerMethodField()
+
+    def get_access_token(self, obj):
+        return obj['token']
+
+    def get_shop_name(self, obj):
+        user = obj['user']
+        shop = Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f').last()
+        return shop.shop_name
 
 
 class TokenSerializer(serializers.ModelSerializer):
