@@ -6,9 +6,7 @@ def pagination(request, serializer):
     """
          Common Pagination Function for Paginate Queryset
     """
-
-    records_per_page = GlobalConfig.objects.get(key='records_per_page')
-    records_per_page = records_per_page.value
+    records_per_page = 10
 
     per_page_orders = request.GET.get('records_per_page') if request.GET.get('records_per_page') else records_per_page
     paginator = Paginator(serializer.data, int(per_page_orders))
