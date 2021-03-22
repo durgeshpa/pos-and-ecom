@@ -58,3 +58,4 @@ class AutoOrderProcessing(BaseTimestampModel):
     cart = models.OneToOneField(Cart, related_name='auto_processing_carts', on_delete=models.CASCADE, null=True)
     order = models.OneToOneField(Order, related_name='auto_processing_orders', on_delete=models.CASCADE, null=True)
     auto_po = models.ForeignKey(POCart, related_name='grn_for_po', on_delete=models.CASCADE, null=True)
+    auto_grn = models.OneToOneField(GRNOrder, related_name='auto_processing_by_grn', on_delete=models.CASCADE, null=True)
