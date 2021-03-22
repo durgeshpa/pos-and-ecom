@@ -19,7 +19,8 @@ from accounts.models import User
 from wms.models import InventoryType, OrderReserveRelease
 from products.models import Product
 from categories import models as categorymodel
-from retailer_to_sp.models import Cart, CartProductMapping, Order, check_date_range, capping_check
+from retailer_to_sp.models import Cart, CartProductMapping, Order, check_date_range, capping_check, OrderedProduct,\
+    OrderedProductMapping, OrderedProductBatch
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
 from shops.models import Shop
@@ -1332,6 +1333,7 @@ class OrderCentral(APIView):
             # Update Cart To Ordered
             self.update_cart_basic(cart)
             order = self.create_basic_order(cart, shop)
+            self.auto_process_order(order)
         return get_response('Ordered Successfully!', self.post_serialize_process_basic(order))
 
     def get_retail_validate(self):
@@ -1649,6 +1651,35 @@ class OrderCentral(APIView):
         serializer = BasicOrderSerializer(Order.objects.get(pk=order.id),
                                           context={'current_url': self.request.get_host()})
         return serializer.data
+
+    def auto_process_order(self, order):
+        # Create shipment
+        shipment = OrderedProduct(order=order)
+        shipment.save()
+
+        cart_products = CartProductMapping.objects.filter(cart_id=order.ordered_cart.id
+                                                          ).values('retailer_product', 'parent_retailer_product', 'qty')
+        for product_map in cart_products:
+            ordered_product_mapping = OrderedProductMapping.objects.create(ordered_product=shipment,
+                                                                           retailer_product_id=product_map[
+                                                                               'retailer_product'],
+                                                                           parent_retailer_product_id=product_map[
+                                                                               'parent_retailer_product'],
+                                                                           shipped_qty=product_map['qty'],
+                                                                           picked_pieces=product_map['qty'],
+                                                                           delivered_qty=product_map['qty'])
+            OrderedProductBatch.objects.create(
+                ordered_product_mapping=ordered_product_mapping,
+                quantity=product_map['qty'],
+                pickup_quantity=product_map['qty'],
+                delivered_qty=product_map['qty'],
+                ordered_pieces=product_map['qty']
+            )
+
+        shipment.shipment_status = OrderedProduct.READY_TO_SHIP
+        shipment.save()
+        shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
+        shipment.save()
 
 
 class OrderedItemCentralDashBoard(APIView):
