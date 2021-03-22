@@ -638,14 +638,14 @@ class AutoOrderProcessor:
     def create_auto_grn(self, auto_processing_entry):
         info_logger.info("create_auto_grn|STARTED")
 
-        grn_order = GRNOrder.objects.filter(id=auto_processing_entry.grn_id).last()
+        source_grn_order = GRNOrder.objects.filter(id=auto_processing_entry.grn_id).last()
         grn_products = GRNOrderProductMapping.objects.filter(grn_order=auto_processing_entry.grn_id)
         grn_doc = Document.objects.filter(grn_order=auto_processing_entry.grn_id).values('document_number',
                                                                                          'document_image')
         order = Ordered.objects.get(ordered_cart=auto_processing_entry.auto_po_id)
-
-        grn_order = GRNOrder(order=order, invoice_no=grn_order.invoice_no, invoice_date=grn_order.invoice_date,
-                             invoice_amount=grn_order.invoice_amount, tcs_amount=grn_order.tcs_amount)
+        invoice_no = auto_processing_entry.order.rt_order_order_product.last().invoice_no
+        grn_order = GRNOrder(order=order, invoice_no=invoice_no, invoice_date=source_grn_order.invoice_date,
+                             invoice_amount=source_grn_order.invoice_amount, tcs_amount=source_grn_order.tcs_amount)
         grn_order.save()
 
         for doc in grn_doc:
@@ -670,6 +670,7 @@ class AutoOrderProcessor:
                                              batch_id=grn_product.batch_id,
                                              barcode_id=grn_product.barcode_id)
             grn_obj.save()
+        auto_processing_entry.auto_grn = grn_order
         auto_processing_entry.auto_po.po_status = auto_processing_entry.source_po.po_status
         auto_processing_entry.auto_po.save()
         info_logger.info("create_auto_grn|COMPLETED")
