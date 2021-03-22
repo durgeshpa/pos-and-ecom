@@ -23,13 +23,16 @@ def run():
 
         source_dest_map[entry['grn_id']] = dest_grn_entry.last().id
     print(source_dest_map)
-    #
-    # for source, dest in source_dest_map.items():
-    #     AutoOrderProcessing.objects.filter(grn_id=source).update(auto_grn_id=dest)
 
+    for source, dest in source_dest_map.items():
+        AutoOrderProcessing.objects.filter(grn_id=source).update(auto_grn_id=dest)
+
+    print("Auto GRN Updated")
 
     auto_processing_entries = AutoOrderProcessing.objects.filter(state=14)
     for entry in auto_processing_entries:
         if entry.auto_grn:
             entry.auto_grn.invoice_no = OrderedProduct.objects.filter(order=entry.order).last().invoice.invoice_no
             entry.auto_grn.save()
+
+    print("Invoice No Updated")
