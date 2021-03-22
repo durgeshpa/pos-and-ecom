@@ -29,6 +29,7 @@ from otp.views import ValidateOTP
 from marketing.models import ReferralCode, RewardPoint, Referral, Profile
 from global_config.models import GlobalConfig
 from marketing.views import generate_user_referral_code
+from retailer_to_sp.models import Shop
 
 # Get the UserModel
 UserModel = get_user_model()
@@ -162,6 +163,9 @@ class OtpLoginSerializer(serializers.Serializer):
                 user = UserModel.objects.filter(phone_number=number).last()
                 if not user:
                     raise serializers.ValidationError("User does not exist. Please sign up!")
+                if attrs.get('app_type') == 2 and not (Shop.objects.filter(shop_owner=user, shop_type__shop_type='f').exists() or
+                                                   Shop.objects.filter(related_users=user, shop_type__shop_type='f').exists()):
+                    raise serializers.ValidationError("Shop Doesn't Exist!")
             else:
                 message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
                 raise serializers.ValidationError(message)
