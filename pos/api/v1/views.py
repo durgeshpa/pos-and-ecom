@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta
 from decimal import Decimal
-
+import logging
 from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
@@ -34,6 +34,12 @@ from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrde
     BasicOrderListSerializer, OrderedDashBoardSerializer
 from pos.offers import BasicCartOffers
 from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
+
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron_log')
 
 
 class SearchView(APIView):
@@ -198,8 +204,9 @@ class SearchView(APIView):
                 products_list = es_search(index='all_products', body=body)
                 for p in products_list['hits']['hits']:
                     p_list.append(p["_source"])
-            except:
-                pass
+            except Exception as e:
+                error_logger.error(e)
+
         # Processed Output
         else:
             body["_source"] = {"includes": ["id", "name", "product_images", "mrp", "ptr", "ean"]}
