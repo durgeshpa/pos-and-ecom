@@ -105,10 +105,10 @@ def get_shop_id_from_token(request):
         If Token is valid get shop_id from token
     """
     if request.user.id:
-        if Shop.objects.filter(shop_owner_id=request.user.id).exists():
+        if Shop.objects.filter(shop_owner_id=request.user.id, shop_type__shop_type='f').exists():
             shop = Shop.objects.filter(shop_owner_id=request.user.id)
         else:
-            if Shop.objects.filter(related_users=request.user.id).exists():
+            if Shop.objects.filter(related_users=request.user.id, shop_type__shop_type='f').exists():
                 shop = Shop.objects.filter(related_users=request.user.id)
             else:
                 return "Please Provide a Valid TOKEN"

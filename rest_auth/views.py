@@ -12,6 +12,7 @@ from django.views.decorators.debug import sensitive_post_parameters
 from django.utils import timezone
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_text
+from django.db.models import Q
 
 from rest_framework import status, authentication, permissions, serializers, exceptions
 from rest_framework.views import APIView
@@ -32,6 +33,7 @@ from .models import TokenModel
 from .utils import jwt_encode
 from otp.models import PhoneOTP
 from accounts.tokens import account_activation_token
+from shops.models import Shop
 
 UserModel = get_user_model()
 
@@ -121,8 +123,12 @@ class LoginView(GenericAPIView):
             serializer = serializer_class(instance=self.token, context={'request': self.request})
 
         response_serializer_class = self.get_response_serializer()
+        app_type = self.request.data.get('app_type', 0)
+        shop_object = None
+        if app_type == '2':
+            shop_object = Shop.objects.filter(Q(shop_owner=self.user) | Q(related_users=self.user), shop_type__shop_type='f').last()
         response_serializer = response_serializer_class(instance={'user': self.user, 'token': serializer.data['key'],
-                                                                  'action': 'login', 'app_type': self.request.data.get('app_type', 0)})
+                                                                  'shop_object': shop_object})
         return Response({'is_success': True, 'message': ['Successfully logged in'],
                          'response_data': [response_serializer.data]}, status=status.HTTP_200_OK)
 
