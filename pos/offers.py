@@ -2,7 +2,8 @@ from operator import itemgetter
 from datetime import datetime
 from elasticsearch import Elasticsearch
 
-from retailer_to_sp.models import CartProductMapping, Cart
+from retailer_to_sp.models import Cart
+from pos.models import RetailerProduct
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
@@ -11,7 +12,7 @@ es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-sou
 class BasicCartOffers(object):
 
     @classmethod
-    def refresh_offers(cls, cart, auto_apply=False, coupon_id=''):
+    def refresh_offers(cls, cart, auto_apply=False, coupon_id=None):
         """
             Refresh All Cart Offers
             Combo On all products
@@ -45,29 +46,25 @@ class BasicCartOffers(object):
                 products_id += [product_map.retailer_product.id]
         # Get combo coupons applicable for all products from es
         combo_offers = BasicCartOffers.get_basic_combo_coupons(products_id, cart.seller_shop.id,
-                                                               (len(products_id) * 10))
+                                                               (len(products_id)))
         # Offers corresponding to product
         offers_mapping = {}
         for offer in combo_offers:
-            if offer['purchased_product'] in offers_mapping:
-                previous_offers = offers_mapping[offer['purchased_product']]
-                offers_mapping[offer['purchased_product']] = previous_offers + [offer]
-            else:
-                offers_mapping[offer['purchased_product']] = [offer]
+            offers_mapping[offer['purchased_product']] = offer
+
         offers_list = cart.offers
         for product_map in cart_products:
-            # Refresh combo for all added product
-            if product_map.selling_price > 0:
-                c_list = offers_mapping[
-                    product_map.retailer_product.id] if product_map.retailer_product.id in offers_mapping else []
+            # Refresh combo for all added products
+            if product_map.product_type == 1:
+                coupon = offers_mapping[
+                    product_map.retailer_product.id] if product_map.retailer_product.id in offers_mapping else {}
                 # Add/remove/update combo on a product
-                offers_list = BasicCartOffers.basic_combo_offers(product_map.qty, c_list, Cart.objects.get(pk=cart.id),
-                                                                 product_map.retailer_product, offers_list,
-                                                                 float(product_map.selling_price))
+                offers_list = BasicCartOffers.basic_combo_offers(int(product_map.qty), float(product_map.selling_price),
+                                                                 product_map.retailer_product.id, coupon, offers_list)
         return offers_list
 
     @classmethod
-    def get_basic_combo_coupons(cls, purchased_product_ids, shop_id, size=10, source=None):
+    def get_basic_combo_coupons(cls, purchased_product_ids, shop_id, size=1, source=None):
         """
             Get Product combo coupons from elasticsearch
         """
@@ -98,61 +95,38 @@ class BasicCartOffers(object):
         return c_list
 
     @classmethod
-    def basic_combo_offers(cls, qty, c_list, cart, product, offers_list, sp):
+    def basic_combo_offers(cls, qty, sp, product_id, coupon, offers_list):
         """
             Combo Offers on a product in basic cart
         """
         offers_list = [] if not offers_list else offers_list
         # Product price total
         product_total = qty * sp
-        # To add details of product discount subtotal if no combo offers present
-        general_offer = {}
-        if not c_list:
-            general_offer = BasicCartOffers.get_offer_no_coupon(product.id, product_total)
-        # Applied combo offers on product
-        applied_offers = []
-        # Free item ids of applied combo offers on product
-        free_item_ids = {}
-        # Next applicable combo offer on product
-        next_offer = {}
-        added_qty = qty
-        for coupon in c_list:
-            # Quantity in cart should be greater than purchased product quantity given for combo
-            if int(qty) >= int(coupon['purchased_product_qty']):
-                offer = BasicCartOffers.get_offer_combo_coupon(coupon, product_total)
-                # Units of purchased product quantity
-                purchased_product_multiple = int(int(qty) / int(coupon['purchased_product_qty']))
-                # No of free items to be given on qty left
-                free_item_qty = int(purchased_product_multiple * int(coupon['free_product_qty']))
-                # No of free items to be given on total qty in cart
-                free_item_ids[offer['free_item_id']] = free_item_qty + free_item_ids[
-                    offer['free_item_id']] if free_item_ids and \
-                                              offer['free_item_id'] in free_item_ids else free_item_qty
-                applied_offers.append(offer)
-                # Remaining product qty to check other offers
-                qty = qty - purchased_product_multiple * int(coupon['purchased_product_qty'])
-            elif not applied_offers:
-                # Next applicable combo offer on product
-                next_offer = BasicCartOffers.get_offer_next(coupon, product_total, added_qty)
-
-        # Update quantities of all free products in applied offers
-        for offer in applied_offers:
-            cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart,
-                                                                       retailer_product_id=offer['free_item_id'],
-                                                                       parent_retailer_product_id=offer['item_id'])
-            cart_mapping.selling_price = 0
-            cart_mapping.qty = free_item_ids[offer['free_item_id']]
-            cart_mapping.no_of_pieces = free_item_ids[offer['free_item_id']]
-            cart_mapping.save()
-
-        # Add next_offer and general_offer to total offers list
-        if next_offer:
-            applied_offers.append(next_offer)
-        if general_offer:
-            applied_offers.append(general_offer)
+        # Check if coupon is there
+        if not coupon:
+            offer = BasicCartOffers.get_offer_no_coupon(product_id, product_total)
+            return BasicCartOffers.update_combo(product_id, offers_list, offer)
+        # Check free product
+        free_product = RetailerProduct.objects.filter(id=coupon['free_product']).last()
+        if not free_product:
+            offer = BasicCartOffers.get_offer_no_coupon(product_id, product_total)
+            return BasicCartOffers.update_combo(product_id, offers_list, offer)
+        # Check and apply coupon
+        # Quantity in cart should be greater than purchased product quantity given for combo
+        if int(qty) >= int(coupon['purchased_product_qty']):
+            offer = BasicCartOffers.get_offer_combo_coupon(coupon, product_total)
+            # Units of purchased product quantity
+            purchased_product_multiple = int(int(qty) / int(coupon['purchased_product_qty']))
+            # No of free items to be given on qty left
+            free_item_qty = int(purchased_product_multiple * int(coupon['free_product_qty']))
+            offer['free_item_name'] = free_product.name
+            offer['free_item_mrp'] = float(free_product.mrp)
+            offer['free_item_qty_added'] = free_item_qty
+        else:
+            # Next applicable combo offer on product
+            offer = BasicCartOffers.get_offer_next(coupon, product_total, qty)
         # Update offers, remove previous not applicable combos on product
-        offers_list = BasicCartOffers.update_combo(cart, product, applied_offers, offers_list, free_item_ids)
-        return offers_list
+        return BasicCartOffers.update_combo(product_id, offers_list, offer)
 
     @classmethod
     def get_offer_no_coupon(cls, product_id, product_total):
@@ -165,8 +139,7 @@ class BasicCartOffers(object):
             "available_type": "none",
             'item_id': product_id,
             'product_subtotal': product_total,
-            'discounted_product_subtotal': product_total,
-            'discounted_product_subtotal_after_sku_discount': product_total,
+            'discounted_product_subtotal': product_total
         }
 
     @classmethod
@@ -182,8 +155,7 @@ class BasicCartOffers(object):
             'coupon_code': coupon['coupon_code'],
             'item_id': coupon['purchased_product'],
             'product_subtotal': product_total,
-            'discounted_product_subtotal': product_total,
-            'discounted_product_subtotal_after_sku_discount': product_total
+            'discounted_product_subtotal': product_total
         }
 
     @classmethod
@@ -213,25 +185,22 @@ class BasicCartOffers(object):
         return ret
 
     @classmethod
-    def update_combo(cls, cart, product, applied_offers, offers_list, free_item_ids):
+    def update_combo(cls, product_id, offers_list, new_offer):
         """
             Return updated list of offers after adding/updating combo offer on product
         """
         cart_offers_new = []
         if offers_list:
             for offer in offers_list:
-                if offer['coupon_type'] == 'catalog' and int(offer['item_id']) == int(product.id):
-                    if offer['type'] == 'combo' and int(offer['free_item_id']) not in free_item_ids:
-                        CartProductMapping.objects.filter(cart=cart,
-                                                          retailer_product_id=offer['free_item_id'],
-                                                          parent_retailer_product_id=offer['item_id']).delete()
+                if offer['coupon_type'] == 'catalog' and int(offer['item_id']) == int(product_id):
                     continue
                 cart_offers_new.append(offer)
-        cart_offers_new += applied_offers
+        if new_offer:
+            cart_offers_new.append(new_offer)
         return cart_offers_new
 
     @classmethod
-    def refresh_basic_cart_offers(cls, cart, cart_value, offers_list, auto_apply=False, coupon_id=''):
+    def refresh_basic_cart_offers(cls, cart, cart_value, offers_list, auto_apply=False, coupon_id=None):
         """
             Refresh cart level discount
         """
@@ -267,7 +236,7 @@ class BasicCartOffers(object):
         return c_list
 
     @classmethod
-    def basic_cart_offers(cls, c_list, cart_value, cart, offers_list, auto_apply=False, coupon_id=''):
+    def basic_cart_offers(cls, c_list, cart_value, cart, offers_list, auto_apply=False, coupon_id=None):
         """
             Check if cart applicable offers can be applied
             Remove already applied offer if not valid
@@ -275,10 +244,6 @@ class BasicCartOffers(object):
         """
         # Intended coupon is applied or not
         applied = False
-        # To Remove any offer from cart if no coupons available
-        if not c_list:
-            offers_list = BasicCartOffers.update_cart_offer(offers_list, cart_value)
-            return {'offers_list': offers_list, 'total_offers': []}
         # All available and applicable coupons on cart
         applicable_offers = []
         # All available and currently not applicable coupons on cart
@@ -336,6 +301,10 @@ class BasicCartOffers(object):
             applicable_offers.append(final_offer_applied)
             applied = True
             final_offer = final_offer_applied
+        elif applied_offer and 'sub_type' in applied_offer and applied_offer['sub_type'] == 'spot_discount' \
+                and not auto_apply:
+            applied = True
+            final_offer = applied_offer
 
         if applicable_offers:
             applicable_offers = sorted(applicable_offers, key=itemgetter('discount_value'), reverse=True)
@@ -368,6 +337,23 @@ class BasicCartOffers(object):
             'is_percentage': coupon['is_percentage'],
             'discount': coupon['discount'],
             'max_discount': coupon['max_discount']
+        }
+
+    @classmethod
+    def get_offer_spot_discount(cls, is_percentage, discount, discount_value):
+        """
+            Spot discount cart
+        """
+        return {
+            'coupon_type': 'cart',
+            'type': 'discount',
+            'sub_type': 'spot_discount',
+            'coupon_id': '',
+            'coupon_code': '',
+            'is_percentage': is_percentage,
+            'discount': discount,
+            'discount_value': discount_value,
+            'applied': 1
         }
 
     @classmethod
@@ -413,6 +399,29 @@ class BasicCartOffers(object):
                 new_offers_list.append(offer)
         new_offers_list = BasicCartOffers.update_cart_offer(new_offers_list, cart_total, cart_offer)
         return new_offers_list
+
+    @classmethod
+    def apply_spot_discount(cls, cart, spot_discount, is_percentage):
+        """
+            Apply spot discount on cart
+            Remove other offers
+        """
+        cart_products = cart.rt_cart_list.all()
+        if cart_products:
+            cart_value = 0
+            if cart_products:
+                for product_mapping in cart_products:
+                    cart_value += product_mapping.selling_price * product_mapping.qty
+            discount_value = round((spot_discount / 100) * float(cart_value), 2) if is_percentage else spot_discount
+            if discount_value <= cart_value:
+                offer = BasicCartOffers.get_offer_spot_discount(is_percentage, spot_discount, discount_value)
+                offers = BasicCartOffers.update_cart_offer(cart.offers, cart_value, offer)
+                Cart.objects.filter(pk=cart.id).update(offers=offers)
+                return {'applied': True, 'offers_list': offers}
+            else:
+                return {'error': 'Please provide spot discount less than cart value'}
+        else:
+            return {'error': 'No Products In Cart Yet!'}
 
 
 def create_es_index(index):
