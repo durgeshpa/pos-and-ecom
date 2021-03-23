@@ -687,6 +687,16 @@ class BulkOrder(models.Model):
                             error_dict[row[0]] = msg[1]
                     else:
                         pass
+
+                    from audit.views import BlockUnblockProduct
+                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product,
+                                                                                            self.seller_shop)
+                    if is_blocked_for_audit is False:
+                        pass
+                    else:
+                        message = "Failed because of SKU {} is Blocked for Audit".format(str(product.product_sku))
+                        error_dict[row[0]] = message
+
                     if product_available >= ordered_qty:
                         count += 1
                     if count == 0:
@@ -755,6 +765,14 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                                     continue
                                 else:
                                     pass
+                            else:
+                                pass
+
+                            from audit.views import BlockUnblockProduct
+                            is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product,
+                                                                                                    instance.seller_shop)
+                            if is_blocked_for_audit:
+                                continue
                             else:
                                 pass
                             product_available = int(
