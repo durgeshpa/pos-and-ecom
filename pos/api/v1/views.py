@@ -20,7 +20,7 @@ from wms.models import InventoryType, OrderReserveRelease
 from products.models import Product
 from categories import models as categorymodel
 from retailer_to_sp.models import Cart, CartProductMapping, Order, check_date_range, capping_check, OrderedProduct, \
-    OrderedProductMapping, OrderedProductBatch, Payment, PAYMENT_MODE_CHOICES
+    OrderedProductMapping, OrderedProductBatch
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
 from shops.models import Shop
@@ -28,10 +28,10 @@ from brand.models import Brand
 from gram_to_brand.models import (OrderedProductReserved as GramOrderedProductReserved, PickList)
 from sp_to_gram.models import OrderedProductReserved
 from addresses.models import Address
-from pos.models import RetailerProduct, UserMappedShop
+from pos.models import RetailerProduct, UserMappedShop, Payment, PAYMENT_MODE
 from pos.common_functions import get_response, delete_cart_mapping, order_search
 from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer, \
-    BasicOrderListSerializer, OrderedDashBoardSerializer
+    BasicOrderListSerializer, OrderedDashBoardSerializer, BasicCartListSerializer
 from pos.offers import BasicCartOffers
 from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
 
@@ -448,7 +448,10 @@ class CartCentral(APIView):
         if cart_type == '1':
             return self.get_retail_cart()
         elif cart_type == '2':
-            return self.get_basic_cart()
+            if self.request.GET.get('cart_id'):
+                return self.get_basic_cart()
+            else:
+                return self.get_basic_cart_list()
         else:
             return get_response('Please provide a valid cart_type')
 
@@ -601,6 +604,17 @@ class CartCentral(APIView):
         if 'error' in offers:
             return get_response(offers['error'])
         return get_response('Cart', self.get_serialize_process_basic(cart))
+
+    def get_basic_cart_list(self):
+        """
+            List active carts for seller shop
+        """
+        # Check Shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {'error': "Shop Doesn't Exist!"}
+        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
+        return get_response("Open Orders", BasicCartListSerializer(carts, many=True).data)
 
     def get_retail_validate(self):
         """
@@ -1529,7 +1543,7 @@ class OrderCentral(APIView):
             return {'error': 'No product is available in cart'}
         # Check payment method
         payment_method = self.request.data.get('payment_method')
-        if not payment_method or payment_method not in dict(PAYMENT_MODE_CHOICES):
+        if not payment_method or payment_method not in dict(PAYMENT_MODE):
             return {'error': 'Please provide a valid payment method'}
         return {'shop': shop, 'cart': cart, 'payment_method': payment_method}
 
@@ -1787,10 +1801,10 @@ class OrderCentral(APIView):
                 cart_map.save()
         # Create payment
         Payment.objects.create(
-            order_id=order,
-            paid_amount=order.total_final_amount,
-            payment_choice=payment_method,
-            payment_status='payment_done'
+            order=order,
+            payment_mode=payment_method,
+            paid_by=order.buyer,
+            processed_by=self.request.user
         )
         # Create shipment
         shipment = OrderedProduct(order=order)

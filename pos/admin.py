@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.conf.urls import url
 
-from pos.models import RetailerProduct, RetailerProductImage
+from pos.models import RetailerProduct, RetailerProductImage, Payment
 from pos.views import upload_retailer_products_list, \
     download_retailer_products_list_form_view, DownloadRetailerCatalogue, RetailerCatalogueSampleFile
 
@@ -40,6 +40,18 @@ class RetailerProductAdmin(admin.ModelAdmin):
         return urls
 
 
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ('order', 'payment_mode', 'paid_by', 'processed_by', 'created_at')
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(RetailerProductImage)
-
+admin.site.register(Payment, PaymentAdmin)
