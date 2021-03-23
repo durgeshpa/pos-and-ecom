@@ -60,7 +60,8 @@ NOTE_TYPE_CHOICES = (
 PAYMENT_MODE_CHOICES = (
     ("cash_on_delivery", "Cash On Delivery"),
     ("neft", "NEFT"),
-    ("credit", "credit")
+    ("credit", "credit"),
+    ("online", "Online")
 )
 AUTO = 'AUTO'
 RETAIL = 'RETAIL'
@@ -844,10 +845,7 @@ class CartProductMapping(models.Model):
         RetailerProduct, related_name='rt_cart_retailer_product', null=True,
         on_delete=models.DO_NOTHING
     )
-    parent_retailer_product = models.ForeignKey(
-        RetailerProduct, related_name='rt_cart_retailer_product_parent', null=True,
-        on_delete=models.DO_NOTHING
-    )
+    product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
     cart_product_price = models.ForeignKey(
         ProductPrice, related_name='rt_cart_product_price_mapping',
         on_delete=models.DO_NOTHING, null=True, blank=True
@@ -893,7 +891,7 @@ class CartProductMapping(models.Model):
         try:
             item_effective_price = 0
             if self.retailer_product:
-                if self.cart.offers and self.selling_price:
+                if self.cart.offers and self.product_type:
                     array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
                     for i in array:
                         if self.retailer_product.id == i['item_id']:
@@ -1928,10 +1926,7 @@ class OrderedProductMapping(models.Model):
         RetailerProduct, related_name='rt_retailer_product_order_product',
         null=True, on_delete=models.DO_NOTHING
     )
-    parent_retailer_product = models.ForeignKey(
-        RetailerProduct, related_name='rt_retailer_product_parent_order_product', null=True,
-        on_delete=models.DO_NOTHING
-    )
+    product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
     shipped_qty = models.PositiveIntegerField(default=0, verbose_name="Shipped Pieces")
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
@@ -1978,7 +1973,7 @@ class OrderedProductMapping(models.Model):
         if self.ordered_product:
             if self.retailer_product:
                 no_of_pieces = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-                    retailer_product=self.retailer_product, parent_retailer_product=self.parent_retailer_product).values('no_of_pieces')
+                    retailer_product=self.retailer_product, product_type=self.product_type).values('no_of_pieces')
             else:
                 no_of_pieces = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                     cart_product=self.product).values('no_of_pieces')
@@ -1992,8 +1987,7 @@ class OrderedProductMapping(models.Model):
     def already_shipped_qty(self):
         qs = OrderedProductMapping.objects.filter(ordered_product__in=self.ordered_product.order.rt_order_order_product.all())
         if self.retailer_product:
-            qs = qs.filter(retailer_product=self.retailer_product,
-                                            parent_retailer_product=self.parent_retailer_product)
+            qs = qs.filter(retailer_product=self.retailer_product, product_type=self.product_type)
         else:
             qs = qs.filter(product=self.product)
         already_shipped_qty = qs.aggregate(Sum('delivered_qty')).get('delivered_qty__sum', 0)
@@ -2019,7 +2013,7 @@ class OrderedProductMapping(models.Model):
         all_ordered_product = self.ordered_product.order.rt_order_order_product.all()
         qty = OrderedProductMapping.objects.filter(ordered_product__in=all_ordered_product)
         if self.retailer_product:
-            qty = qty.filter(retailer_product=self.retailer_product, parent_retailer_product=self.parent_retailer_product)
+            qty = qty.filter(retailer_product=self.retailer_product, product_type=self.product_type)
         else:
             qty = qty.filter(product=self.product)
         to_be_shipped_qty = qty.aggregate(
@@ -2049,7 +2043,7 @@ class OrderedProductMapping(models.Model):
             ordered_product__in=all_ordered_product_exclude_current)
         if self.retailer_product:
             to_be_shipped_qty = to_be_shipped_qty.filter(retailer_product=self.retailer_product,
-                                                         parent_retailer_product=self.parent_retailer_product)
+                                                         product_type=self.product_type)
         else:
             to_be_shipped_qty = to_be_shipped_qty.filter(product=self.product)
         to_be_shipped_qty = to_be_shipped_qty.aggregate(
@@ -2250,9 +2244,9 @@ class OrderedProductMapping(models.Model):
         # else:
         if self.retailer_product:
             self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-                retailer_product=self.retailer_product, parent_retailer_product = self.parent_retailer_product).last().item_effective_prices
+                retailer_product=self.retailer_product, product_type = self.product_type).last().item_effective_prices
             self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-                retailer_product=self.retailer_product, parent_retailer_product = self.parent_retailer_product).last().discounted_price
+                retailer_product=self.retailer_product, product_type = self.product_type).last().discounted_price
         else:
             self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 cart_product=self.product).last().item_effective_prices
@@ -2497,10 +2491,12 @@ class Payment(models.Model):
     PAYMENT_DONE_APPROVAL_PENDING = "payment_done_approval_pending"
     CASH_COLLECTED = "cash_collected"
     APPROVED_BY_FINANCE = "approved_by_finance"
+    PAYMENT_DONE = "payment_done"
     PAYMENT_STATUS = (
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment done approval pending"),
         (CASH_COLLECTED, "Cash Collected"),
         (APPROVED_BY_FINANCE, "Approved by finance"),
+        (PAYMENT_DONE, "Payment Done")
     )
 
     order_id = models.ForeignKey(
@@ -2784,7 +2780,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
-    if created:
+    if created and instance.order_id.buyer_shop:
         if instance.order_id.buyer_shop.shop_owner.first_name:
             username = instance.order_id.buyer_shop.shop_owner.first_name
         else:

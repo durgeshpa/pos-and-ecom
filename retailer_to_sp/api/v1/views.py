@@ -5,6 +5,7 @@ import json
 import jsonpickle
 from num2words import num2words
 from datetime import datetime, timedelta
+from operator import itemgetter
 
 from audit.views import BlockUnblockProduct
 from barCodeGenerator import barcodeGen
@@ -1655,25 +1656,22 @@ def pdf_generation_retailer(request, ordered_product):
         # Total Ordered Amount
         total = 0
         for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
-            sum_qty += m.delivered_qty
+            sum_qty += m.shipped_qty
             cart_product_map = ordered_product.order.ordered_cart.rt_cart_list.filter(
                 retailer_product=m.retailer_product,
-                parent_retailer_product=m.parent_retailer_product
+                product_type=m.product_type
                 ).last()
             product_pro_price_ptr = cart_product_map.selling_price
             ordered_p = {
                 "id": cart_product_map.id,
                 "product_short_description": m.retailer_product.product_short_description,
                 "mrp": m.retailer_product.mrp,
-                "qty": m.delivered_qty,
+                "qty": m.shipped_qty,
                 "rate": float(product_pro_price_ptr),
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr)
             }
             total += ordered_p['product_sub_total']
-            if m.parent_retailer_product:
-                ordered_p['product_short_description'] += " Free with " + m.parent_retailer_product.name
             product_listing.append(ordered_p)
-        from operator import itemgetter
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
         total_amount = ordered_product.invoice_amount
