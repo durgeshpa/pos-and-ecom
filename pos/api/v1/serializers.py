@@ -311,7 +311,7 @@ class OrderedDashBoardSerializer(serializers.Serializer):
     """
         Get Order, User, Product & total_final_amount count
     """
-    order = serializers.IntegerField()
-    user = serializers.IntegerField(required=False)
-    product = serializers.IntegerField(required=False)
-    total_final_amount = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+    orders = serializers.IntegerField()
+    register_users = serializers.IntegerField(required=False)
+    products = serializers.IntegerField(required=False)
+    revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)

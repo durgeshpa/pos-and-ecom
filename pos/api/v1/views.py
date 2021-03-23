@@ -144,7 +144,7 @@ class SearchView(APIView):
         p_list = []
         # Raw Output
         if output_type == '1':
-            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "ean"]}
+            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "ean", "images"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -1832,7 +1832,7 @@ class OrderedItemCentralDashBoard(APIView):
             basic
                 shop_id (Seller shop id)
         """
-        cart_type = request.GET.get('cart_type')
+        cart_type = request.GET.get('app_type')
         if cart_type == '1':
             return self.get_retail_order_overview()
         elif cart_type == '2':
@@ -1930,8 +1930,8 @@ class OrderedItemCentralDashBoard(APIView):
         order_count = orders.count()
         users_count = users.count()
         products_count = products.count()
-        overview = [{"order": order_count, "user": users_count, "product": products_count,
-                     "total_final_amount": total_final_amount}]
+        overview = [{"orders": order_count, "register_users": users_count, "products": products_count,
+                     "revenue": total_final_amount}]
         return overview
 
     def get_retail_order_overview(self):
