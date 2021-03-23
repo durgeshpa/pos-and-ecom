@@ -1780,11 +1780,9 @@ class OrderCentral(APIView):
                 cart_map.save()
         # Create payment
         Payment.objects.create(
-            order=order,
+            order_id=order,
             paid_amount=order.total_final_amount,
-            payment_mode_name=payment_method,
-            paid_by=order.buyer,
-            processed_by=self.request.user,
+            payment_choice=payment_method,
             payment_status='payment_done'
         )
         # Create shipment

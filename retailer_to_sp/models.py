@@ -2762,7 +2762,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
-    if created:
+    if created and instance.order_id.buyer_shop:
         if instance.order_id.buyer_shop.shop_owner.first_name:
             username = instance.order_id.buyer_shop.shop_owner.first_name
         else:
