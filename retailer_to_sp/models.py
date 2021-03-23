@@ -60,8 +60,7 @@ NOTE_TYPE_CHOICES = (
 PAYMENT_MODE_CHOICES = (
     ("cash_on_delivery", "Cash On Delivery"),
     ("neft", "NEFT"),
-    ("credit", "credit"),
-    ("online", "Online")
+    ("credit", "credit")
 )
 AUTO = 'AUTO'
 RETAIL = 'RETAIL'
@@ -2491,12 +2490,10 @@ class Payment(models.Model):
     PAYMENT_DONE_APPROVAL_PENDING = "payment_done_approval_pending"
     CASH_COLLECTED = "cash_collected"
     APPROVED_BY_FINANCE = "approved_by_finance"
-    PAYMENT_DONE = "payment_done"
     PAYMENT_STATUS = (
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment done approval pending"),
         (CASH_COLLECTED, "Cash Collected"),
-        (APPROVED_BY_FINANCE, "Approved by finance"),
-        (PAYMENT_DONE, "Payment Done")
+        (APPROVED_BY_FINANCE, "Approved by finance")
     )
 
     order_id = models.ForeignKey(
@@ -2780,7 +2777,7 @@ def create_order_no(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
-    if created and instance.order_id.buyer_shop:
+    if created:
         if instance.order_id.buyer_shop.shop_owner.first_name:
             username = instance.order_id.buyer_shop.shop_owner.first_name
         else:
