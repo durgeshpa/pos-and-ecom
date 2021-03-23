@@ -10,6 +10,11 @@ from products.models import Product
 from retailer_backend.validators import ProductNameValidator, NameValidator
 from accounts.models import User
 
+PAYMENT_MODE = (
+    ('cash', 'Cash Payment'),
+    ('online', 'Online Payment'),
+    ('credit', 'Credit Payment')
+)
 
 class RetailerProduct(models.Model):
     PRODUCT_ORIGINS = (
@@ -96,5 +101,14 @@ class RetailerProductImage(models.Model):
 class UserMappedShop(models.Model):
     user = models.ForeignKey(User, related_name='registered_user', null=True, blank=True, on_delete=models.CASCADE)
     shop_id = models.ForeignKey(Shop, related_name='registered_shop', null=True, blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
+class Payment(models.Model):
+    order = models.ForeignKey('retailer_to_sp.Order', related_name='rt_payment_retailer_order', on_delete=models.DO_NOTHING)
+    payment_mode = models.CharField(max_length=50, choices=PAYMENT_MODE, default="cash")
+    paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True, on_delete=models.SET_NULL)
+    processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
