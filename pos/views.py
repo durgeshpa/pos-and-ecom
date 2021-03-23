@@ -446,15 +446,24 @@ class CouponOfferCreation(GenericAPIView):
         # checking if offer already exist with retailer_primary_product,
 
         ruleset = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
-                                                       retailer_primary_product=retailer_primary_product_obj)
+                                                       retailer_primary_product=retailer_primary_product_obj,
+                                                       rule__coupon_ruleset__is_active=True)
         if ruleset:
-            # you can not create offer if same qty offer already exist
-            rule = ruleset.filter(purchased_product_qty=purchased_product_qty)
-            if rule:
-                msg = {"is_success": False, "message": "Offer already exist for this primary product ",
-                       "response_data": serializer.data}
-                status_code = {"status_code": 404}
-                return msg, status_code
+            msg = {"is_success": False, "message": "Offer already exist for this primary product ",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
+
+        ruleset = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
+                                                        retailer_free_product=retailer_primary_product_obj,
+                                                        retailer_primary_product=retailer_free_product_obj,
+                                                        rule__coupon_ruleset__is_active=True)
+
+        if ruleset:
+            msg = {"is_success": False, "message": "Offer exists for given primary product as free product of given free product!",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
 
         # coupon_code creation for combo offers using retailer_primary_product, retailer_free_product
         # purchased_product_qty, free_product_qty

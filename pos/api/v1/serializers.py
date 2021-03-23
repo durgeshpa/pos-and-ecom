@@ -2,23 +2,26 @@ from decimal import Decimal
 
 from rest_framework import serializers
 from django.db.models import Q
+from django.urls import reverse
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
 from products.models import Product, ProductImage
 from pos.models import RetailerProduct, RetailerProductImage
-from retailer_to_sp.models import CartProductMapping, Cart, Order
+from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct
 from accounts.api.v1.serializers import UserSerializer, UserPhoneSerializer
 
+
 class ProductImageSerializer(serializers.ModelSerializer):
-   class Meta:
-      model = ProductImage
-      fields = ('image_name', 'image_alt_text', 'image')
+    class Meta:
+        model = ProductImage
+        fields = ('image_name', 'image_alt_text', 'image')
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
     """
         Images for RetailerProduct
     """
+
     class Meta:
         model = RetailerProductImage
         fields = ('image_name', 'image_alt_text', 'image')
@@ -32,7 +35,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ('product_name','product_short_description','product_mrp', 'product_pro_image')
+        fields = ('product_name', 'product_short_description', 'product_mrp', 'product_pro_image')
 
 
 class RetailerProductsSearchSerializer(serializers.ModelSerializer):
@@ -69,31 +72,27 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
 
     def margin_dt(self, obj):
         """
-            Mrp, selling price margin
+            Mrp, cart product price margin
         """
-        return ((obj.retailer_product.mrp - Decimal(self.product_price_dt(obj))) / obj.retailer_product.mrp) * 100
+        return ((float(obj.retailer_product.mrp) - float(obj.item_effective_prices)) / float(
+            obj.retailer_product.mrp)) * 100
 
     def display_text_dt(self, obj):
         """
             If combo offer on product, display whether offer is applied or more products should be added
         """
-        display_text_applied = ''
-        display_text_add = ''
+        display_text = ''
         if obj.selling_price > 0:
             offers = obj.cart.offers
             for offer in offers:
-                if offer['coupon_type'] == 'catalog' and offer['available_type'] != 'none' and\
+                if offer['coupon_type'] == 'catalog' and offer['available_type'] != 'none' and \
                         offer['item_id'] == obj.retailer_product.id:
-                    if offer['type'] == 'none':
-                        display_text_add += offer['display_text']
-                    else:
-                        display_text_applied = offer['display_text']
-        return display_text_applied + ' | ' + display_text_add if display_text_applied or display_text_add else ''
+                    display_text = offer['display_text']
+        return display_text
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'retailer_product', 'qty', 'product_price', 'margin', 'product_sub_total', 'display_text',
-                  'parent_retailer_product')
+        fields = ('id', 'retailer_product', 'qty', 'product_price', 'margin', 'product_sub_total', 'display_text')
 
 
 class BasicCartSerializer(serializers.ModelSerializer):
@@ -117,7 +116,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
         """
          Search and pagination on cart
         """
-        qs = CartProductMapping.objects.filter(cart=obj)
+        qs = CartProductMapping.objects.filter(cart=obj, product_type=1)
         search_text = self.context.get('search_text')
         # Search on name, ean and sku
         if search_text:
@@ -128,7 +127,8 @@ class BasicCartSerializer(serializers.ModelSerializer):
         if qs.exists():
             # Pagination
             records_per_page = 10
-            per_page_products = self.context.get('records_per_page') if self.context.get('records_per_page') else records_per_page
+            per_page_products = self.context.get('records_per_page') if self.context.get(
+                'records_per_page') else records_per_page
             paginator = Paginator(qs, int(per_page_products))
             page_number = self.context.get('page_number')
             try:
@@ -140,37 +140,50 @@ class BasicCartSerializer(serializers.ModelSerializer):
 
         # Order Cart In Purchased And Free Products
         cart_products = BasicCartProductMappingSerializer(qs, many=True, context=self.context).data
-        purchased_products = []
-        for product in cart_products:
-            if not product['parent_retailer_product']:
-                purchased_products += [product]
+        product_offer_map = {}
 
-        free_products = {}
-        for product in cart_products:
-            if product['parent_retailer_product']:
-                free_products[product['parent_retailer_product']] = free_products[product['parent_retailer_product']] \
-                                                                    + [product] if product['parent_retailer_product'] \
-                                                                                   in free_products else [product]
-        for product in purchased_products:
-            if product['retailer_product']['id'] in free_products:
-                product['free_products'] = free_products[product['retailer_product']['id']]
+        for offer in obj.offers:
+            if offer['coupon_type'] == 'catalog' and offer['type'] == 'combo':
+                product_offer_map[offer['item_id']] = offer
 
-        return purchased_products
+        for cart_product in cart_products:
+            if cart_product['retailer_product']['id'] in product_offer_map:
+                offer = product_offer_map[cart_product['retailer_product']['id']]
+                free_product = {
+                    'id': offer['free_item_id'],
+                    'mrp': offer['free_item_mrp'],
+                    'name': offer['free_item_name'],
+                    'qty': offer['free_item_qty_added'],
+                    'coupon_code': offer['coupon_code']
+                }
+                cart_product['free_product'] = free_product
+
+        return cart_products
 
     def items_count_dt(self, obj):
         """
             Total Types Of Products
         """
-        return obj.rt_cart_list.count()
+        free_items = 0
+        product_added = []
+        for offer in obj.offers:
+            if offer['type'] == 'combo' and offer['free_item_id'] not in product_added:
+                free_items += 1
+                product_added += [offer['free_item_id']]
+        return obj.rt_cart_list.filter(product_type=1).count() + free_items
 
     def total_quantity_dt(self, obj):
         """
             Total Quantity Of All Products
         """
         qty = 0
-        for cart_pro in obj.rt_cart_list.all():
+        for cart_pro in obj.rt_cart_list.filter(product_type=1):
             qty += int(cart_pro.qty)
-        return qty
+        free_item_qty = 0
+        for offer in obj.offers:
+            if offer['type'] == 'combo':
+                free_item_qty += int(offer['free_item_qty_added'])
+        return qty + free_item_qty
 
     def total_amount_dt(self, obj):
         """
@@ -193,13 +206,24 @@ class BasicCartSerializer(serializers.ModelSerializer):
                 discount += i['discount_value']
         return round(discount, 2)
 
-
     def sub_total_dt(self, obj):
         """
             Final To be paid amount
         """
         sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
         return round(sub_total, 2)
+
+
+class BasicOrderedProductSerializer(serializers.ModelSerializer):
+    invoice_link = serializers.SerializerMethodField('invoice_link_id')
+
+    def invoice_link_id(self, obj):
+        current_url = self.context.get("current_url", None)
+        return "{0}{1}".format(current_url, reverse('download_invoice_sp', args=[obj.pk]))
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('order', 'invoice_no', 'invoice_link')
 
 
 class BasicOrderSerializer(serializers.ModelSerializer):
@@ -210,14 +234,22 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     ordered_by = UserSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
     total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
+    rt_order_order_product = BasicOrderedProductSerializer(many=True)
 
     def total_discount_amount_dt(self, obj):
-        return obj.total_mrp_amount - obj.total_final_amount
+        discount = 0
+        offers = obj.ordered_cart.offers
+        if offers:
+            array = list(filter(lambda d: d['type'] in ['discount'], offers))
+            for i in array:
+                discount += i['discount_value']
+        return round(discount, 2)
 
     class Meta:
         model = Order
         fields = ('id', 'ordered_cart', 'order_status', 'total_final_amount', 'total_discount_amount',
-                  'total_tax_amount', 'total_mrp_amount', 'ordered_by', 'created_at', 'modified_at')
+                  'total_tax_amount', 'total_mrp_amount', 'rt_order_order_product', 'ordered_by', 'created_at',
+                  'modified_at')
 
 
 class CheckoutSerializer(serializers.ModelSerializer):
@@ -259,7 +291,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'total_amount', 'offers', 'total_discount', 'amount_payable', 'buyer')
+        fields = ('id', 'total_amount', 'total_discount', 'amount_payable', 'buyer')
 
 
 class BasicOrderListSerializer(serializers.ModelSerializer):

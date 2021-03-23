@@ -6,12 +6,11 @@ from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
-from rest_framework.permissions import AllowAny
 
 from .pagination import pagination
 from sp_to_gram.tasks import es_search
 from audit.views import BlockUnblockProduct
-from retailer_to_sp.api.v1.serializers import CartSerializer, GramMappedCartSerializer, ParentProductImageSerializer,\
+from retailer_to_sp.api.v1.serializers import CartSerializer, GramMappedCartSerializer, ParentProductImageSerializer, \
     GramMappedOrderSerializer, OrderSerializer, OrderDetailSerializer, OrderListSerializer
 from retailer_backend.common_function import getShopMapping
 from retailer_backend.messages import ERROR_MESSAGES
@@ -20,8 +19,8 @@ from accounts.models import User
 from wms.models import InventoryType, OrderReserveRelease
 from products.models import Product
 from categories import models as categorymodel
-from retailer_to_sp.models import Cart, CartProductMapping, Order, check_date_range, capping_check, OrderedProduct,\
-    OrderedProductMapping, OrderedProductBatch
+from retailer_to_sp.models import Cart, CartProductMapping, Order, check_date_range, capping_check, OrderedProduct, \
+    OrderedProductMapping, OrderedProductBatch, Payment, PAYMENT_MODE_CHOICES
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
 from shops.models import Shop
@@ -31,7 +30,7 @@ from sp_to_gram.models import OrderedProductReserved
 from addresses.models import Address
 from pos.models import RetailerProduct, UserMappedShop
 from pos.common_functions import get_response, delete_cart_mapping, order_search
-from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer,\
+from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer, \
     BasicOrderListSerializer, OrderedDashBoardSerializer
 from pos.offers import BasicCartOffers
 from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
@@ -324,11 +323,16 @@ class CartCheckout(APIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         cart = initial_validation['cart']
-        # Get offers available now and apply coupon if applicable
-        offers = BasicCartOffers.refresh_offers(cart, False, self.request.data.get('coupon_id'))
-        if 'error' in  offers:
+        # Check spot discount
+        spot_discount = self.request.data.get('spot_discount')
+        if spot_discount:
+            offers = BasicCartOffers.apply_spot_discount(cart, spot_discount, self.request.data.get('is_percentage'))
+        else:
+            # Get offers available now and apply coupon if applicable
+            offers = BasicCartOffers.refresh_offers(cart, False, self.request.data.get('coupon_id'))
+        if 'error' in offers:
             return get_response(offers['error'])
-        return get_response("Offer Applied Successfully" if offers['applied'] else "Offer Not Applicable", self.serialize(cart))
+        return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(cart))
 
     def get(self, request):
         """
@@ -381,9 +385,13 @@ class CartCheckout(APIView):
         try:
             cart = Cart.objects.get(pk=cart_id, seller_shop_id=shop_id)
         except ObjectDoesNotExist:
-            return {'error' : "Cart Does Not Exist"}
-        if not self.request.data.get('coupon_id'):
-            return {'error': "Provide Coupon Id"}
+            return {'error': "Cart Does Not Exist"}
+        if not self.request.data.get('coupon_id') and not self.request.data.get('spot_discount'):
+            return {'error': "Provide Coupon Id/Spot Discount"}
+        if self.request.data.get('coupon_id') and self.request.data.get('spot_discount'):
+            return {'error': "Provide either of coupon_id or spot_discount"}
+        if self.request.data.get('spot_discount') and self.request.data.get('is_percentage') not in [0, 1]:
+            return {'error': "Provide a valid spot discount type"}
         return {'cart': cart}
 
     def get_validate(self):
@@ -393,12 +401,12 @@ class CartCheckout(APIView):
         """
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
-            return {'error':"Shop Doesn't Exist!"}
+            return {'error': "Shop Doesn't Exist!"}
         cart_id = self.request.GET.get('cart_id')
         try:
             cart = Cart.objects.get(pk=cart_id, seller_shop_id=shop_id)
         except ObjectDoesNotExist:
-            return {'error' : "Cart Does Not Exist"}
+            return {'error': "Cart Does Not Exist"}
         return {'cart': cart}
 
     def serialize(self, cart, offers=None):
@@ -611,14 +619,14 @@ class CartCentral(APIView):
         # check if shop exists
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
-            return {'error':"Shop Doesn't Exist!"}
+            return {'error': "Shop Doesn't Exist!"}
         try:
             shop = Shop.objects.get(id=shop_id)
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
         try:
             cart = Cart.objects.get(last_modified_by=self.request.user, seller_shop=shop, cart_type='BASIC',
-                                       id=self.request.GET.get('cart_id'), cart_status__in=['active', 'pending'])
+                                    id=self.request.GET.get('cart_id'), cart_status__in=['active', 'pending'])
         except ObjectDoesNotExist:
             return {'error': "Cart Not Found!"}
         return {'shop': shop, 'cart': cart}
@@ -805,7 +813,7 @@ class CartCentral(APIView):
             selling_price = self.get_basic_cart_product_price(product)
             # Add quantity to cart
             cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
-                                                                       parent_retailer_product=None)
+                                                                       product_type=1)
             cart_mapping.selling_price = selling_price
             cart_mapping.qty = qty
             cart_mapping.no_of_pieces = int(qty)
@@ -873,7 +881,7 @@ class CartCentral(APIView):
         if cart_id:
             try:
                 cart = Cart.objects.get(id=cart_id, last_modified_by=self.request.user, seller_shop=shop,
-                                   cart_type='BASIC', cart_status__in=['active', 'pending'])
+                                        cart_type='BASIC', cart_status__in=['active', 'pending'])
             except ObjectDoesNotExist:
                 return {'error': "Cart Not Found!"}
         # Check if selling price is less than equal to mrp if price change
@@ -1068,7 +1076,7 @@ class CartCentral(APIView):
             Serialize and Modify Cart - MRP Check - retail sp cart
         """
         serializer = CartSerializer(Cart.objects.get(id=cart.id), context={'parent_mapping_id': seller_shop.id,
-                                                   'buyer_shop_id': buyer_shop.id})
+                                                                           'buyer_shop_id': buyer_shop.id})
         for i in serializer.data['rt_cart_list']:
             if not i['cart_product']['product_mrp']:
                 delete_cart_mapping(cart, product)
@@ -1092,7 +1100,6 @@ class CartCentral(APIView):
 
 
 class OrderListCentral(APIView):
-
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -1192,7 +1199,7 @@ class OrderListCentral(APIView):
         # Check if seller shop exist
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
-            return {'error':"Shop Doesn't Exist!"}
+            return {'error': "Shop Doesn't Exist!"}
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
         # get order list
@@ -1255,7 +1262,6 @@ class OrderListCentral(APIView):
 
 
 class OrderCentral(APIView):
-
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -1372,7 +1378,8 @@ class OrderCentral(APIView):
                             order.delete()
                             return get_response('No item in this cart.')
                         # Serialize and return response
-                        return get_response('Ordered Successfully!', self.post_serialize_process_sp(order, parent_mapping))
+                        return get_response('Ordered Successfully!',
+                                            self.post_serialize_process_sp(order, parent_mapping))
                     # Order reserve not found
                     else:
                         return get_response('Sorry! your session has timed out.')
@@ -1410,12 +1417,13 @@ class OrderCentral(APIView):
             return get_response(initial_validation['error'])
         shop = initial_validation['shop']
         cart = initial_validation['cart']
+        payment_method = initial_validation['payment_method']
 
         with transaction.atomic():
             # Update Cart To Ordered
             self.update_cart_basic(cart)
             order = self.create_basic_order(cart, shop)
-            self.auto_process_order(order)
+            self.auto_process_order(order, payment_method)
         return get_response('Ordered Successfully!', self.post_serialize_process_basic(order))
 
     def get_retail_validate(self):
@@ -1494,7 +1502,7 @@ class OrderCentral(APIView):
         # Check if seller shop exists
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
-            return {'error':"Shop Doesn't Exist!"}
+            return {'error': "Shop Doesn't Exist!"}
         try:
             shop = Shop.objects.get(id=shop_id)
         except ObjectDoesNotExist:
@@ -1502,16 +1510,21 @@ class OrderCentral(APIView):
         # Check if cart exists
         cart_id = self.request.data.get('cart_id')
         try:
-            cart = Cart.objects.get(id=cart_id, last_modified_by=self.request.user, seller_shop=shop)
+            cart = Cart.objects.get(id=cart_id, last_modified_by=self.request.user, seller_shop=shop,
+                                    cart_status__in=['active', 'pending'])
         except ObjectDoesNotExist:
             return {'error': "Cart Doesn't Exist!"}
         if not cart.buyer:
             return {'error': "Cart customer not found!"}
         # Check if products available in cart
-        cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart)
+        cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
             return {'error': 'No product is available in cart'}
-        return {'shop':shop, 'cart':cart}
+        # Check payment method
+        payment_method = self.request.data.get('payment_method')
+        if not payment_method or payment_method not in dict(PAYMENT_MODE_CHOICES):
+            return {'error': 'Please provide a valid payment method'}
+        return {'shop': shop, 'cart': cart, 'payment_method': payment_method}
 
     def retail_capping_check(self, cart, parent_mapping):
         """
@@ -1711,7 +1724,7 @@ class OrderCentral(APIView):
            Get Order
            Cart type basic
         """
-        serializer = BasicOrderSerializer(order)
+        serializer = BasicOrderSerializer(order, context={'current_url': self.request.get_host()})
         return serializer.data
 
     def post_serialize_process_sp(self, order, parent_mapping):
@@ -1743,22 +1756,54 @@ class OrderCentral(APIView):
                                           context={'current_url': self.request.get_host()})
         return serializer.data
 
-    def auto_process_order(self, order):
+    def auto_process_order(self, order, payment_method):
+        """
+            Auto process add payment, shipment, invoice for retailer and customer
+        """
+        # Add free products
+        offers = order.ordered_cart.offers
+        product_qty_map = {}
+        if offers:
+            for offer in offers:
+                if offer['type'] == 'combo':
+                    qty = offer['free_item_qty_added']
+                    product_qty_map[offer['free_item_id']] = product_qty_map[offer['free_item_id']] + qty if \
+                        offer['free_item_id'] in product_qty_map else qty
+
+            for product_id in product_qty_map:
+                cart_map, _ = CartProductMapping.objects.get_or_create(cart=order.ordered_cart,
+                                                                       retailer_product_id=product_id,
+                                                                       product_type=0)
+                cart_map.selling_price = 0
+                cart_map.qty = product_qty_map[product_id]
+                cart_map.no_of_pieces = product_qty_map[product_id]
+                cart_map.save()
+        # Create payment
+        Payment.objects.create(
+            order=order,
+            paid_amount=order.total_final_amount,
+            payment_mode_name=payment_method,
+            paid_by=order.buyer,
+            processed_by=self.request.user,
+            payment_status='payment_done'
+        )
         # Create shipment
         shipment = OrderedProduct(order=order)
         shipment.save()
-
+        # Create Order Items
         cart_products = CartProductMapping.objects.filter(cart_id=order.ordered_cart.id
-                                                          ).values('retailer_product', 'parent_retailer_product', 'qty')
+                                                          ).values('retailer_product', 'qty', 'product_type')
         for product_map in cart_products:
+            # Order Item
             ordered_product_mapping = OrderedProductMapping.objects.create(ordered_product=shipment,
                                                                            retailer_product_id=product_map[
                                                                                'retailer_product'],
-                                                                           parent_retailer_product_id=product_map[
-                                                                               'parent_retailer_product'],
+                                                                           product_type=product_map[
+                                                                               'product_type'],
                                                                            shipped_qty=product_map['qty'],
                                                                            picked_pieces=product_map['qty'],
                                                                            delivered_qty=product_map['qty'])
+            # Order Item Batch
             OrderedProductBatch.objects.create(
                 ordered_product_mapping=ordered_product_mapping,
                 quantity=product_map['qty'],
@@ -1766,15 +1811,15 @@ class OrderCentral(APIView):
                 delivered_qty=product_map['qty'],
                 ordered_pieces=product_map['qty']
             )
-
+        # Invoice Number Generate
         shipment.shipment_status = OrderedProduct.READY_TO_SHIP
         shipment.save()
+        # TODO with returns
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
 
 
 class OrderedItemCentralDashBoard(APIView):
-
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -1816,7 +1861,7 @@ class OrderedItemCentralDashBoard(APIView):
         # Check if seller shop exist
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
-            return {'error':"Shop Doesn't Exist!"}
+            return {'error': "Shop Doesn't Exist!"}
         # get a order_overview
         order = self.get_basic_orders_count(request, shop_id)
         return {'order': order}
@@ -1844,34 +1889,34 @@ class OrderedItemCentralDashBoard(APIView):
             orders = orders.filter(order_status=order_status)
 
         # filter order, product & user by get modified date
-        if filters == 1:  #today
+        if filters == 1:  # today
             # filter order, product & user on modified date today
             orders = orders.filter(modified_at__date=today)
             products = products.filter(modified_at__date=today)
             users = users.filter(modified_at__date=today)
 
-        elif filters == 2: #yesterday
+        elif filters == 2:  # yesterday
             # filter order, product & user on modified date yesterday
             yesterday = today - timedelta(days=1)
             orders = orders.filter(modified_at__date=yesterday)
             products = products.filter(modified_at__date=yesterday)
             users = users.filter(modified_at__date=yesterday)
 
-        elif filters == 3: #lastweek
+        elif filters == 3:  # lastweek
             # filter order, product & user on modified date lastweek
             lastweek = today - timedelta(weeks=1)
             orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
             products = products.filter(modified_at__week=lastweek.isocalendar()[1])
             users = users.filter(modified_at__week=lastweek.isocalendar()[1])
 
-        elif filters == 4: #lastmonth
+        elif filters == 4:  # lastmonth
             # filter order, product & user on modified date lastmonth
             lastmonth = today - timedelta(days=30)
             orders = orders.filter(modified_at__month=lastmonth.month)
             products = products.filter(modified_at__month=lastmonth.month)
             users = users.filter(modified_at__month=lastmonth.month)
 
-        elif filters == 5:  #lastyear
+        elif filters == 5:  # lastyear
             # filter order, product & user on modified date lastyear
             lastyear = today - timedelta(days=365)
             orders = orders.filter(modified_at__year=lastyear.year)
@@ -1941,26 +1986,26 @@ class OrderedItemCentralDashBoard(APIView):
             orders = orders.filter(order_status=order_status)
 
         # filter by order on modified date
-        if filters == 1: #today
+        if filters == 1:  # today
             # filter order, total_final_amount on modified date today
             orders = orders.filter(modified_at__date=today)
 
-        elif filters == 2: #yesterday
+        elif filters == 2:  # yesterday
             # filter order, total_final_amount on modified date yesterday
             yesterday = today - timedelta(days=1)
             orders = orders.filter(modified_at__date=yesterday)
 
-        elif filters == 3: #lastweek
+        elif filters == 3:  # lastweek
             # filter order, total_final_amount on modified date lastweek
             lastweek = today - timedelta(weeks=1)
             orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
 
-        elif filters == 4: #lastmonth
+        elif filters == 4:  # lastmonth
             # filter order, total_final_amount on modified date lastmonth
             lastmonth = today - timedelta(days=30)
             orders = orders.filter(modified_at__month=lastmonth.month)
 
-        elif filters == 5: #lastyear
+        elif filters == 5:  # lastyear
             # filter order, total_final_amount on modified date lastyear
             lastyear = today - timedelta(days=365)
             orders = orders.filter(modified_at__year=lastyear.year)
