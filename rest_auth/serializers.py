@@ -145,6 +145,7 @@ class OtpLoginSerializer(serializers.Serializer):
         required=True
     )
     otp = serializers.CharField(max_length=10)
+    app_type = serializers.IntegerField(required=False)
 
     def validate(self, attrs):
         """
@@ -152,7 +153,12 @@ class OtpLoginSerializer(serializers.Serializer):
         """
         number = attrs.get('username')
         otp = attrs.get('otp')
-        user = None
+        user = UserModel.objects.filter(phone_number=number).last()
+        if not user:
+            raise serializers.ValidationError("User does not exist. Please sign up!")
+        if attrs.get('app_type') == 2 and not (Shop.objects.filter(shop_owner=user, shop_type__shop_type='f').exists()
+                                                or Shop.objects.filter(related_users=user, shop_type__shop_type='f').exists()):
+            raise serializers.ValidationError("Shop Doesn't Exist!")
 
         phone_otps = PhoneOTP.objects.filter(phone_number=number)
         if phone_otps.exists():
@@ -161,12 +167,7 @@ class OtpLoginSerializer(serializers.Serializer):
             to_verify_otp = ValidateOTP()
             msg, status_code = to_verify_otp.verify(otp, phone_otp)
             if status_code == 200:
-                user = UserModel.objects.filter(phone_number=number).last()
-                if not user:
-                    raise serializers.ValidationError("User does not exist. Please sign up!")
-                if attrs.get('app_type') == 2 and not (Shop.objects.filter(shop_owner=user, shop_type__shop_type='f').exists() or
-                                                   Shop.objects.filter(related_users=user, shop_type__shop_type='f').exists()):
-                    raise serializers.ValidationError("Shop Doesn't Exist!")
+                pass
             else:
                 message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
                 raise serializers.ValidationError(message)
