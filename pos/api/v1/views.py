@@ -31,7 +31,7 @@ from addresses.models import Address
 from pos.models import RetailerProduct, UserMappedShop
 from pos.common_functions import get_response, delete_cart_mapping, order_search
 from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer, \
-    BasicOrderListSerializer, OrderedDashBoardSerializer
+    BasicOrderListSerializer, OrderedDashBoardSerializer, BasicCartListSerializer
 from pos.offers import BasicCartOffers
 from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
 
@@ -441,7 +441,10 @@ class CartCentral(APIView):
         if cart_type == '1':
             return self.get_retail_cart()
         elif cart_type == '2':
-            return self.get_basic_cart()
+            if self.request.GET.get('cart_id'):
+                return self.get_basic_cart()
+            else:
+                return self.get_basic_cart_list()
         else:
             return get_response('Please provide a valid cart_type')
 
@@ -594,6 +597,17 @@ class CartCentral(APIView):
         if 'error' in offers:
             return get_response(offers['error'])
         return get_response('Cart', self.get_serialize_process_basic(cart))
+
+    def get_basic_cart_list(self):
+        """
+            List active carts for seller shop
+        """
+        # Check Shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {'error': "Shop Doesn't Exist!"}
+        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
+        return get_response("Open Orders", BasicCartListSerializer(carts, many=True).data)
 
     def get_retail_validate(self):
         """

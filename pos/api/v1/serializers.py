@@ -307,6 +307,52 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         fields = ('id', 'order_status', 'total_final_amount', 'ordered_by',)
 
 
+class BasicCartListSerializer(serializers.ModelSerializer):
+    """
+        List of active/pending carts
+    """
+    cart_status = serializers.SerializerMethodField()
+    total_amount = serializers.SerializerMethodField('total_amount_dt')
+    total_discount = serializers.SerializerMethodField()
+    sub_total = serializers.SerializerMethodField('sub_total_dt')
+
+    def get_cart_status(self, obj):
+        if obj.cart_status in ['active', 'pending']:
+            return 'open'
+        return obj.cart_status
+
+    def total_amount_dt(self, obj):
+        """
+            Total Amount For all Products
+        """
+        total_amount = 0
+        for cart_pro in obj.rt_cart_list.all():
+            total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+        return total_amount
+
+    def get_total_discount(self, obj):
+        """
+            Discount on cart
+        """
+        discount = 0
+        offers = obj.offers
+        if offers:
+            array = list(filter(lambda d: d['type'] in ['discount'], offers))
+            for i in array:
+                discount += i['discount_value']
+        return round(discount, 2)
+
+    def sub_total_dt(self, obj):
+        """
+            Final To be paid amount
+        """
+        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
+        return round(sub_total, 2)
+
+    class Meta:
+        model = Cart
+        fields = ('id', 'cart_status', 'total_amount', 'total_discount', 'sub_total')
+
 class OrderedDashBoardSerializer(serializers.Serializer):
     """
         Get Order, User, Product & total_final_amount count
