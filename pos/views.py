@@ -82,6 +82,13 @@ class CatalogueProductCreation(GenericAPIView):
                 product_ean_code = request.data.get('product_ean_code')
                 product_status = request.data.get('status')
                 description = request.data.get('description') if request.data.get('description') else ''
+
+                if RetailerProduct.objects.filter(shop=shop_id_or_error_message, name=product_name, mrp=mrp, selling_price=selling_price).exists():
+                    msg = {"is_success": False, "message": "Product {} with mrp {} & selling_price {} already exist."
+                            .format(product_name, mrp, selling_price),
+                            "response_data": None}
+                    return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
                 # if else condition for checking whether, Product we are creating is linked with existing product or not
                 # with the help of 'linked_product_id'
                 if request.data.get('linked_product_id'):
@@ -146,7 +153,39 @@ class CatalogueProductCreation(GenericAPIView):
                     for key in expected_input_data_list:
                         if key in request.data.keys():
                             actual_input_data_list.append(key)
-                    product = RetailerProduct.objects.get(id=product_id)
+
+                    product = RetailerProduct.objects.get(id=product_id, shop_id=shop_id_or_error_message)
+                    selling_price = request.data.get('selling_price')
+                    if mrp and selling_price:
+                        # if both mrp & selling price are there in edit product request
+                        # checking if product already exist, through error
+                        if RetailerProduct.objects.filter(shop_id=shop_id_or_error_message, name=product.name, mrp=mrp,
+                                                          selling_price=selling_price).exists():
+                            msg = {"is_success": False,
+                                   "message": "Product {} with mrp {} & selling_price {} already exist."
+                                       .format(product.name, mrp, selling_price),
+                                   "response_data": None}
+                            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+                    elif mrp:
+                        # if only mrp is there in edit product request
+                        # checking if product already exist, through error
+                        if RetailerProduct.objects.filter(shop_id=shop_id_or_error_message, name=product.name, mrp=mrp,
+                                                          selling_price=product.selling_price).exists():
+                            msg = {"is_success": False,
+                                   "message": "Product {} with mrp {} & selling_price {} already exist."
+                                       .format(product.name, mrp, product.selling_price),
+                                   "response_data": None}
+                            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+                    elif selling_price:
+                        # if only selling_price is there in edit product request
+                        # checking if product already exist, through error
+                        if RetailerProduct.objects.filter(shop_id=shop_id_or_error_message, name=product.name, mrp=product.mrp,
+                                                          selling_price=selling_price).exists():
+                            msg = {"is_success": False,
+                                   "message": "Product {} with mrp {} & selling_price {} already exist."
+                                       .format(product.name, product.mrp, selling_price),
+                                   "response_data": None}
+                            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                     linked_product_id = product.linked_product_id
                     if linked_product_id:
                         if 'mrp' in actual_input_data_list:
