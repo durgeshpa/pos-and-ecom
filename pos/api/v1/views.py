@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -6,6 +7,7 @@ from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
+from django.core import validators
 
 from .pagination import pagination
 from sp_to_gram.tasks import es_search
@@ -483,7 +485,13 @@ class CartCentral(APIView):
                                     cart_type='BASIC', seller_shop_id=shop_id)
         except:
             return get_response("Cart Not Found")
-        return self.add_customer_to_cart(cart, shop_id)
+        # check phone_number
+        phone_no = self.request.data.get('phone_number')
+        if not phone_no:
+            return get_response("Please enter phone number")
+        if not re.match(r'^[6-9]\d{9}$', phone_no):
+            return get_response("Please enter a valid phone number")
+        return self.add_customer_to_cart(cart, shop_id, phone_no)
 
     def delete(self, request, pk):
         """
@@ -502,26 +510,26 @@ class CartCentral(APIView):
         Cart.objects.filter(id=cart.id).update(cart_status=Cart.DELETED)
         return get_response('Deleted Cart', self.post_serialize_process_basic(cart))
 
-    def add_customer_to_cart(self, cart, shop_id):
+    def add_customer_to_cart(self, cart, shop_id, ph_no):
         """
             Update customer details in basic cart
         """
-        ph_no = self.request.data.get('phone_number')
         name = self.request.data.get('name')
         email = self.request.data.get('email')
-        if not ph_no:
-            return get_response("Please provide customer phone number")
+        is_whatsapp = self.request.data.get('is_whatsapp')
+        if email:
+            try:
+                validators.validate_email(email)
+            except:
+                return get_response("Please enter a valid email")
+
         # Check Customer - Update Or Create
-        try:
-            customer = User.objects.get(phone_number=ph_no)
-        except ObjectDoesNotExist:
-            customer = User.objects.create_user(phone_number=ph_no)
-            if email:
-                customer.email = email
-            if name:
-                customer.first_name = name
-            customer.is_active = False
-            customer.save()
+        customer, created = User.objects.get_or_create(phone_number=ph_no)
+        customer.email = email if email else customer.email
+        customer.first_name = name if name else customer.first_name
+        customer.is_whatsapp = True if is_whatsapp else False
+        customer.save()
+        if created:
             create_user_shop_mapping(user=customer, shop_id=shop_id)
         # Update customer as buyer in cart
         cart.buyer = customer
