@@ -13,7 +13,7 @@ User =  get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('pk','id','first_name', 'last_name', 'phone_number', 'email', 'user_photo')
+        fields = ('pk','id','first_name', 'last_name', 'phone_number', 'email', 'is_whatsapp', 'user_photo')
         extra_kwargs = {
             'first_name': {'required': True},
             'last_name': {'required': True},
