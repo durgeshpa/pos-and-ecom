@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 from decimal import Decimal
+from django.db.models import Q
 
 from django.db import transaction
 from rest_framework.views import APIView
@@ -606,8 +607,19 @@ class CartCentral(APIView):
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
-        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
-        return get_response("Open Orders", BasicCartListSerializer(carts, many=True).data)
+        search_text = self.request.GET.get('search_text')
+        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending']).\
+            order_by('-created_at')
+        if search_text:
+            carts = carts.filter(Q(order_id__icontains=search_text) |
+                                 Q(buyer__phone_number=search_text) |
+                                 Q(id=search_text))
+
+        open_orders = BasicCartListSerializer(carts, many=True)
+        """
+           Pagination on Cart List
+        """
+        return get_response("Open Orders",  pagination(self.request, open_orders))
 
     def get_retail_validate(self):
         """
@@ -1128,7 +1140,7 @@ class OrderListCentral(APIView):
         if cart_type == '1':
             return self.get_retail_order_list()
         elif cart_type == '2':
-            return self.get_basic_order_list(request)
+            return self.get_basic_order_list()
         else:
             return get_response('Provide a valid cart_type')
 
@@ -1193,19 +1205,19 @@ class OrderListCentral(APIView):
         else:
             return get_response('Sorry shop is not associated with any GramFactory or any SP')
 
-    def get_basic_order_list(self, request):
+    def get_basic_order_list(self):
         """
             Get Order
             For Basic Cart
         """
         # basic validation for inputs
-        initial_validation = self.get_basic_list_validate(request)
+        initial_validation = self.get_basic_list_validate()
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         order = initial_validation['order']
         return get_response('Order', self.get_serialize_process_basic(order))
 
-    def get_basic_list_validate(self, request):
+    def get_basic_list_validate(self):
         """
            Get Order
            Input validation for cart type 'basic'
@@ -1217,15 +1229,15 @@ class OrderListCentral(APIView):
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
         # get order list
-        order = self.get_basic_order(request, shop_id)
+        order = self.get_basic_order(shop_id)
         return {'order': order}
 
-    def get_basic_order(self, request, shop_id):
+    def get_basic_order(self, shop_id):
         """
           Get Basic Orders
         """
-        search_text = request.GET.get('search_text')
-        order_status = request.GET.get('order_status')
+        search_text = self.request.GET.get('search_text')
+        order_status = self.request.GET.get('order_status')
         orders = Order.objects.filter(seller_shop_id=shop_id)
         if order_status:
             orders = orders.filter(order_status=order_status)

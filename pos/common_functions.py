@@ -139,7 +139,8 @@ def order_search(orders, search_text):
         Order Listing Based On Search
     """
     order = orders.filter(Q(order_no__icontains=search_text) |
-                          Q(buyer__phone_number__icontains=search_text))
+                          Q(ordered_cart__id=search_text) |
+                          Q(buyer__phone_number=search_text))
     return order
 
 
