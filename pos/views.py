@@ -4,6 +4,7 @@ import decimal
 
 from dal import autocomplete
 from django.db.models import Q
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render
 from rest_framework import status, authentication
@@ -81,6 +82,7 @@ class CatalogueProductCreation(GenericAPIView):
                 linked_product_id = request.data.get('linked_product_id')
                 product_ean_code = request.data.get('product_ean_code')
                 product_status = request.data.get('status')
+                product_image = request.data.get('image')
                 description = request.data.get('description') if request.data.get('description') else ''
 
                 if RetailerProduct.objects.filter(shop=shop_id_or_error_message, name=product_name, mrp=mrp, selling_price=selling_price).exists():
@@ -91,28 +93,30 @@ class CatalogueProductCreation(GenericAPIView):
 
                 # if else condition for checking whether, Product we are creating is linked with existing product or not
                 # with the help of 'linked_product_id'
-                if request.data.get('linked_product_id'):
-                    # If product is linked with existing product
-                    if Product.objects.filter(id=request.data.get('linked_product_id')).exists():
-                        product = Product.objects.filter(id=request.data.get('linked_product_id'))
-                        if str(product.values()[0].get('product_mrp')) == format(
-                                decimal.Decimal(request.data.get('mrp')), ".2f"):
-                            # If Linked_Product_MRP == Input_MRP , create a Product with [SKU TYPE : LINKED]
-                            RetailerProductCls.create_retailer_product(shop_id_or_error_message,
-                                                                       product_name, mrp, selling_price,
-                                                                       linked_product_id, 2, description,
-                                                                       product_ean_code, product_status)
-                        else:
-                            # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
-                            RetailerProductCls.create_retailer_product(shop_id_or_error_message,
-                                                                       product_name, mrp, selling_price,
-                                                                       linked_product_id, 3, description,
-                                                                       product_ean_code, product_status)
-                else:
-                    # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
-                    RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_name, mrp,
-                                                               selling_price, None, 1, description,
-                                                               product_ean_code, product_status)
+                with transaction.atomic():
+                    if request.data.get('linked_product_id'):
+                        # If product is linked with existing product
+                        if Product.objects.filter(id=request.data.get('linked_product_id')).exists():
+                            product = Product.objects.filter(id=request.data.get('linked_product_id'))
+                            if str(product.values()[0].get('product_mrp')) == format(
+                                    decimal.Decimal(request.data.get('mrp')), ".2f"):
+                                # If Linked_Product_MRP == Input_MRP , create a Product with [SKU TYPE : LINKED]
+                                product_obj = RetailerProductCls.create_retailer_product(shop_id_or_error_message,
+                                                                           product_name, mrp, selling_price,
+                                                                           linked_product_id, 2, description,
+                                                                           product_ean_code, product_status)
+                            else:
+                                # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
+                                product_obj = RetailerProductCls.create_retailer_product(shop_id_or_error_message,
+                                                                           product_name, mrp, selling_price,
+                                                                           linked_product_id, 3, description,
+                                                                           product_ean_code, product_status)
+                    else:
+                        # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
+                        product_obj = RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_name, mrp,
+                                                                   selling_price, None, 1, description,
+                                                                   product_ean_code, product_status)
+                    RetailerProductImage.objects.create(product_id=product_obj.id, image=product_image)
                 product = RetailerProduct.objects.all().last()
                 # Fetching the data of created product
                 data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp', 'selling_price',

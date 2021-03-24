@@ -26,7 +26,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return False
-
+    
     def get_readonly_fields(self, request, obj=None):
         if obj.linked_product:
             return self.readonly_fields + ('linked_product',)

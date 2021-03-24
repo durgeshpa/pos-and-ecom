@@ -3,11 +3,17 @@ from django.utils.translation import ugettext_lazy as _
 
 from rest_framework import serializers
 
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, RetailerProductImage
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from shops.models import Shop
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
+
+
+class RetailerProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RetailerProductImage
+        fields = ('image_name', 'image')
 
 
 class RetailerProductCreateSerializer(serializers.Serializer):
@@ -19,10 +25,11 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
     product_ean_code = serializers.CharField(required=True)
+    image = RetailerProductImage
 
     def validate(self, attrs):
         serializer_list = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price",
-                           "product_ean_code", "description", "status"]
+                           "product_ean_code", "description", "status", "image"]
 
         for key in self.initial_data.keys():
             if key not in serializer_list:
