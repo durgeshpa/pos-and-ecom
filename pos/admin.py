@@ -9,6 +9,10 @@ from pos.forms import RetailerProductsAdmin
 
 class RetailerProductAdmin(admin.ModelAdmin):
     form = RetailerProductsAdmin
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
     list_display = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'linked_product', 'description',
                     'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
@@ -16,12 +20,8 @@ class RetailerProductAdmin(admin.ModelAdmin):
     readonly_fields = ('shop', 'created_at', 'modified_at')
 
     def get_readonly_fields(self, request, obj=None):
-        if obj is not None and obj.linked_product:
-            return self.readonly_fields + ('linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-                                           'description', 'sku_type', 'status',)
-        if obj is not None and not obj.linked_product:
-            return self.readonly_fields + ('sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-                                           'description', 'sku_type', 'status',)
+        if obj.linked_product:
+            return self.readonly_fields + ('linked_product',)
 
         return self.readonly_fields
 
