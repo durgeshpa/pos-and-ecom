@@ -612,8 +612,8 @@ class CartCentral(APIView):
             order_by('-created_at')
         if search_text:
             carts = carts.filter(Q(order_id__icontains=search_text) |
-                                 Q(buyer__phone_number=search_text) |
-                                 Q(id=search_text))
+                                 Q(buyer__phone_number__icontains=search_text) |
+                                 Q(id__icontains=search_text))
 
         open_orders = BasicCartListSerializer(carts, many=True)
         """

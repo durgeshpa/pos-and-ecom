@@ -300,26 +300,32 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     """
     ordered_by = UserPhoneSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
+    order_no = serializers.CharField()
     total_final_amount = serializers.ReadOnlyField()
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'total_final_amount', 'ordered_by',)
+        fields = ('id', 'order_status', 'total_final_amount', 'order_no', 'ordered_by',)
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
     """
         List of active/pending carts
     """
+    buyer = UserPhoneSerializer()
     cart_status = serializers.SerializerMethodField()
     total_amount = serializers.SerializerMethodField('total_amount_dt')
     total_discount = serializers.SerializerMethodField()
     sub_total = serializers.SerializerMethodField('sub_total_dt')
+    order_id = serializers.SerializerMethodField()
 
     def get_cart_status(self, obj):
         if obj.cart_status in ['active', 'pending']:
             return 'open'
         return obj.cart_status
+
+    def get_order_id(self, obj):
+        return obj.order_id
 
     def total_amount_dt(self, obj):
         """
@@ -351,7 +357,8 @@ class BasicCartListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_status', 'total_amount', 'total_discount', 'sub_total')
+        fields = ('id', 'cart_status', 'total_amount', 'total_discount', 'sub_total', 'order_id', 'buyer')
+
 
 class OrderedDashBoardSerializer(serializers.Serializer):
     """
