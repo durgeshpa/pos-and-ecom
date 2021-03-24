@@ -7,6 +7,11 @@ from pos.views import upload_retailer_products_list, \
 from pos.forms import RetailerProductsAdmin
 
 
+class RetailerProductImageAdmin(admin.ModelAdmin):
+    search_fields = ['image', 'image_name']
+    list_display = ('product', 'image', 'image_name')
+
+
 class RetailerProductAdmin(admin.ModelAdmin):
     form = RetailerProductsAdmin
 
@@ -66,5 +71,5 @@ class PaymentAdmin(admin.ModelAdmin):
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)
-admin.site.register(RetailerProductImage)
+admin.site.register(RetailerProductImage, RetailerProductImageAdmin)
 admin.site.register(Payment, PaymentAdmin)
