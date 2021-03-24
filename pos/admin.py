@@ -7,11 +7,19 @@ from pos.views import upload_retailer_products_list, \
 
 
 class RetailerProductAdmin(admin.ModelAdmin):
+
     list_display = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'linked_product', 'description',
                     'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'created_at', 'modified_at')
-    readonly_fields = ('shop', 'linked_product', 'sku_type', 'created_at', 'modified_at')
+    readonly_fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
+                       'description', 'sku_type', 'status', 'created_at', 'modified_at')
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj.linked_product:
+            return self.readonly_fields + ('linked_product',)
+        return self.readonly_fields
+
     list_per_page = 50
 
     change_list_template = 'admin/pos/pos_change_list.html'
