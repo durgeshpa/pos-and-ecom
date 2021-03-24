@@ -13,6 +13,14 @@ from products.models import Product
 from shops.models import Shop
 
 
+class RetailerProductsAdmin(forms.ModelForm):
+    linked_product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete', )
+    )
+
+
 class RetailerProductsCSVDownloadForm(forms.Form):
     """
         Select shop for downloading Retailer Products

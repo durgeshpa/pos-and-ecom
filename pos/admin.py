@@ -4,20 +4,25 @@ from django.conf.urls import url
 from pos.models import RetailerProduct, RetailerProductImage, Payment
 from pos.views import upload_retailer_products_list, \
     download_retailer_products_list_form_view, DownloadRetailerCatalogue, RetailerCatalogueSampleFile
+from pos.forms import RetailerProductsAdmin
 
 
 class RetailerProductAdmin(admin.ModelAdmin):
-
+    form = RetailerProductsAdmin
     list_display = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'linked_product', 'description',
                     'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'created_at', 'modified_at')
-    readonly_fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
-                       'description', 'sku_type', 'status', 'created_at', 'modified_at')
+    readonly_fields = ('shop', 'created_at', 'modified_at')
 
     def get_readonly_fields(self, request, obj=None):
-        if obj.linked_product:
-            return self.readonly_fields + ('linked_product',)
+        if obj is not None and obj.linked_product:
+            return self.readonly_fields + ('linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
+                                           'description', 'sku_type', 'status',)
+        if obj is not None and not obj.linked_product:
+            return self.readonly_fields + ('sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
+                                           'description', 'sku_type', 'status',)
+
         return self.readonly_fields
 
     list_per_page = 50
