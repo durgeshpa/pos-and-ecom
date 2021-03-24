@@ -49,8 +49,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(_("Linked Product ID not found! Please enter a valid Product ID"))
 
         product_name = attrs.get('product_name')
-        if RetailerProduct.objects.filter(shop=shop_id, name=product_name, mrp=mrp).exists():
-            raise serializers.ValidationError(_("Product already exist"))
+        if RetailerProduct.objects.filter(shop=shop_id, name=product_name, mrp=mrp, selling_price=selling_price).exists():
+            raise serializers.ValidationError(_("Product '%s' with mrp '%s' already exist."))
 
         return attrs
 
