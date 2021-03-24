@@ -71,6 +71,9 @@ class RetailerProductsCSVUploadForm(forms.Form):
                     if not Product.objects.filter(product_sku=row['linked_product_sku']).exists():
                         raise ValidationError(_(f"Row {row_num} | {row['linked_product_sku']} | 'SKU ID' doesn't exist."))
 
+            if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=row.get('product_name'), mrp=row.get('mrp')):
+                raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  {row['mrp']} | already exist."))
+
     def validate_data_for_update_products(self, uploaded_data_by_user_list):
         """
             Validation for update Products Catalogue
