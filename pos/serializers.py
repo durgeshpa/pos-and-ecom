@@ -150,6 +150,26 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             # If user provide shop_id
             if not Shop.objects.filter(id=shop_id).exists():
                 raise serializers.ValidationError(_("Shop ID not found! Please enter a valid Shop ID!"))
+
+        product = RetailerProduct.objects.get(id=product_id)
+        selling_price = attrs.get('selling_price')
+        mrp = attrs.get('mrp')
+        if mrp and selling_price:
+            if RetailerProduct.objects.filter(name=product.name, mrp=mrp,
+                                              selling_price=selling_price).exists():
+                raise serializers.ValidationError(_("Product {} with mrp {} & selling_price {} already exist.".
+                                                    format(product.name, mrp, selling_price)))
+        elif mrp:
+            if RetailerProduct.objects.filter(name=product.name, mrp=mrp,
+                                              selling_price=product.selling_price).exists():
+                raise serializers.ValidationError(_("Product {} with mrp {} & selling_price {} already exist.".
+                                                    format(product.name, mrp, product.selling_price)))
+        elif selling_price:
+            if RetailerProduct.objects.filter(name=product.name, mrp=product.mrp,
+                                              selling_price=selling_price).exists():
+                raise serializers.ValidationError(_("Product {} with mrp {} & selling_price {} already exist.".
+                                                    format(product.name, product.mrp, selling_price)))
+
         return attrs
 
 
