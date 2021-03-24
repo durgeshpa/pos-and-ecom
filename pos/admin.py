@@ -26,7 +26,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return False
-    
+
     def get_readonly_fields(self, request, obj=None):
         if obj.linked_product:
             return self.readonly_fields + ('linked_product',)
@@ -63,6 +63,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
 class PaymentAdmin(admin.ModelAdmin):
     list_display = ('order', 'payment_mode', 'paid_by', 'processed_by', 'created_at')
+    
     def has_change_permission(self, request, obj=None):
         return False
 
