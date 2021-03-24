@@ -166,7 +166,7 @@ class CatalogueProductCreation(GenericAPIView):
                         # If MRP in actual_input_data_list
                         if 'selling_price' in actual_input_data_list:
                             if RetailerProduct.objects.filter(name=product.name, mrp=mrp, selling_price=request.data.get('selling_price')).exists():
-                                message = {"is_success": True, "message": f"Product failed to Update!",
+                                message = {"is_success": False, "message": f"Product failed to Update!",
                                            "response_data": "Product {} with mrp {} & selling_price {} already exist."
                                                .format(product.name, mrp, request.data.get('selling_price'))
                                            }
@@ -174,7 +174,7 @@ class CatalogueProductCreation(GenericAPIView):
                         else:
                             if RetailerProduct.objects.filter(name=product.name, mrp=mrp,
                                                            selling_price=product.selling_price).exists():
-                                message = {"is_success": True, "message": f"Product failed to Update!",
+                                message = {"is_success": False, "message": f"Product failed to Update!",
                                            "response_data": "Product {} with mrp {} & selling_price {} already exist."
                                                .format(product.name, mrp, product.selling_price)
                                            }
@@ -188,7 +188,7 @@ class CatalogueProductCreation(GenericAPIView):
                         if 'mrp' in actual_input_data_list:
                             if RetailerProduct.objects.filter(name=product.name, mrp=mrp,
                                                               selling_price=request.data.get('selling_price')).exists():
-                                message = {"is_success": True, "message": f"Product failed to Update!",
+                                message = {"is_success": False, "message": f"Product failed to Update!",
                                            "response_data": "Product {} with mrp {} & selling_price {} already exist."
                                                .format(product.name, mrp, request.data.get('selling_price'))
                                            }
@@ -197,15 +197,13 @@ class CatalogueProductCreation(GenericAPIView):
                         else:
                             if RetailerProduct.objects.filter(name=product.name, mrp=product.mrp,
                                                                 selling_price=request.data.get('selling_price')).exists():
-                                message = {"is_success": True, "message": f"Product failed to Update!",
+                                message = {"is_success": False, "message": f"Product failed to Update!",
                                            "response_data": "Product {} with mrp {} & selling_price {} already exist."
                                                .format(product.name, product.mrp, request.data.get('selling_price'))
                                            }
                                 return Response(message, status=status.HTTP_406_NOT_ACCEPTABLE)
                         product.selling_price = request.data.get('selling_price')
-                    if 'product_name' in actual_input_data_list:
-                        # Update Product Name
-                        product.name = request.data.get('product_name')
+
                     if 'description' in actual_input_data_list:
                         # Update Description
                         product.description = request.data.get('description')
