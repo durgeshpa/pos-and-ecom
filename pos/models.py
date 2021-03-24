@@ -87,8 +87,8 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
 
 class RetailerProductImage(models.Model):
     product = models.ForeignKey(RetailerProduct, related_name='retailer_product_image', on_delete=models.CASCADE)
-    image_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    image_alt_text = models.CharField(max_length=255,null=True,blank=True,validators=[NameValidator])
+    image_name = models.CharField(max_length=255, validators=[ProductNameValidator], null=True, blank=False)
+    image_alt_text = models.CharField(max_length=255, null=True, blank=True, validators=[NameValidator])
     image = models.ImageField(upload_to='retailer_product_image')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
