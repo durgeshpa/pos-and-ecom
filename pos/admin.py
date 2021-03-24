@@ -7,9 +7,12 @@ from pos.views import upload_retailer_products_list, \
 from pos.forms import RetailerProductsAdmin
 
 
-class RetailerProductImageAdmin(admin.ModelAdmin):
-    search_fields = ['image', 'image_name']
-    list_display = ('product', 'image', 'image_name')
+class RetailerProductImageAdmin(admin.TabularInline):
+    model = RetailerProductImage
+
+    def has_add_permission(self, request, obj=None):
+        return False
+    readonly_fields = ('image', 'image_name', 'created_at', 'modified_at', 'image_alt_text', 'status')
 
 
 class RetailerProductAdmin(admin.ModelAdmin):
@@ -17,12 +20,12 @@ class RetailerProductAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return False
-
     list_display = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'linked_product', 'description',
                     'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'created_at', 'modified_at')
-    readonly_fields = ('shop', 'created_at', 'modified_at')
+    readonly_fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
+                        'description', 'sku_type', 'status', 'created_at', 'modified_at')
 
     def get_readonly_fields(self, request, obj=None):
         if obj.linked_product:
@@ -31,7 +34,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
         return self.readonly_fields
 
     list_per_page = 50
-
+    inlines = [RetailerProductImageAdmin, ]
     change_list_template = 'admin/pos/pos_change_list.html'
 
     def get_urls(self):
@@ -71,5 +74,4 @@ class PaymentAdmin(admin.ModelAdmin):
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)
-admin.site.register(RetailerProductImage, RetailerProductImageAdmin)
 admin.site.register(Payment, PaymentAdmin)
