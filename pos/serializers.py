@@ -50,8 +50,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
 
         product_name = attrs.get('product_name')
         if RetailerProduct.objects.filter(shop=shop_id, name=product_name, mrp=mrp, selling_price=selling_price).exists():
-            raise serializers.ValidationError(_("Product '%s' with mrp '%s' already exist."))
-
+            raise serializers.ValidationError(_("Product {} with mrp {} & selling_price {} already exist.".
+                                                format(product_name, mrp, selling_price)))
         return attrs
 
 
