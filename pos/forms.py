@@ -83,7 +83,6 @@ class RetailerProductsCSVUploadForm(forms.Form):
         for row in uploaded_data_by_user_list:
             row_num += 1
             self.check_mandatory_data(row, 'product_id', row_num)
-            self.check_mandatory_data(row, 'product_name', row_num)
             self.check_mandatory_data(row, 'mrp', row_num)
             self.check_mandatory_data(row, 'selling_price', row_num)
 
@@ -96,6 +95,30 @@ class RetailerProductsCSVUploadForm(forms.Form):
             if decimal.Decimal(row['selling_price']) > decimal.Decimal(row['mrp']):
                 raise ValidationError(_(f"Row {row_num} | 'Selling Price' cannot be greater than 'Product Mrp'"))
 
+            product = RetailerProduct.objects.get(id=row['product_id'])
+            selling_price = row['selling_price']
+            mrp = row['mrp']
+            if mrp and selling_price:
+                # if both mrp & selling price are there in edit product request
+                # checking if product already exist, through error
+                if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=product.name, mrp=mrp,
+                                                  selling_price=selling_price).exists():
+                    raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  "
+                                            f"{row['mrp']} & selling_price {row['selling_price']} | already exist."))
+            elif mrp:
+                # if only mrp is there in edit product request
+                # checking if product already exist, through error
+                if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=product.name, mrp=mrp,
+                                                  selling_price=product.selling_price).exists():
+                    raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  "
+                                            f"{row['mrp']} & selling_price {row['selling_price']} | already exist."))
+            elif selling_price:
+                # if only selling_price is there in edit product request
+                # checking if product already exist, through error
+                if RetailerProduct.objects.filter(shop=self.cleaned_data.get('shop'), name=product.name, mrp=product.mrp,
+                                                  selling_price=selling_price).exists():
+                    raise ValidationError(_(f"Row {row_num} | Product {row['product_name']} | with mrp  "
+                                            f"{row['mrp']} & selling_price {row['selling_price']} | already exist."))
 
     def validate_data(self, uploaded_data_by_user_list, catalogue_product_status):
         """
