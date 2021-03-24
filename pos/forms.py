@@ -17,7 +17,8 @@ class RetailerProductsAdmin(forms.ModelForm):
     linked_product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(
-            url='admin:product-price-autocomplete', )
+            url='admin:product-price-autocomplete', ),
+        required=False
     )
 
 
@@ -39,7 +40,7 @@ class RetailerProductsCSVUploadForm(forms.Form):
     shop = forms.ModelChoiceField(
         label='Select Shop',
         queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
-        widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete', )
+        widget=autocomplete.ModelSelect2(url='retailer-product-autocomplete', ),
     )
     file = forms.FileField(label='Upload Products')
 
