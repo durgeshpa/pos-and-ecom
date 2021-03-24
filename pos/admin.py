@@ -9,17 +9,14 @@ from pos.forms import RetailerProductsAdmin
 
 class RetailerProductImageAdmin(admin.TabularInline):
     model = RetailerProductImage
+    readonly_fields = ('image', 'image_name', 'created_at', 'modified_at', 'image_alt_text', 'status')
 
     def has_add_permission(self, request, obj=None):
         return False
-    readonly_fields = ('image', 'image_name', 'created_at', 'modified_at', 'image_alt_text', 'status')
 
 
 class RetailerProductAdmin(admin.ModelAdmin):
     form = RetailerProductsAdmin
-
-    def has_add_permission(self, request, obj=None):
-        return False
     list_display = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'linked_product', 'description',
                     'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
@@ -27,6 +24,9 @@ class RetailerProductAdmin(admin.ModelAdmin):
     readonly_fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
                         'description', 'sku_type', 'status', 'created_at', 'modified_at')
 
+    def has_add_permission(self, request, obj=None):
+        return False
+    
     def get_readonly_fields(self, request, obj=None):
         if obj.linked_product:
             return self.readonly_fields + ('linked_product',)
