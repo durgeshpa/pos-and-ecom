@@ -150,7 +150,6 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             # If user provide shop_id
             if not Shop.objects.filter(id=shop_id).exists():
                 raise serializers.ValidationError(_("Shop ID not found! Please enter a valid Shop ID!"))
-
         return attrs
 
 

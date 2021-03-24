@@ -164,12 +164,44 @@ class CatalogueProductCreation(GenericAPIView):
                         product.product_ean_code = request.data.get('product_ean_code')
                     if 'mrp' in actual_input_data_list:
                         # If MRP in actual_input_data_list
+                        if 'selling_price' in actual_input_data_list:
+                            if RetailerProduct.objects.filter(name=product.name, mrp=mrp, selling_price=request.data.get('selling_price')).exists():
+                                message = {"is_success": True, "message": f"Product failed to Update!",
+                                           "response_data": "Product {} with mrp {} & selling_price {} already exist."
+                                               .format(product.name, mrp, request.data.get('selling_price'))
+                                           }
+                                return Response(message, status=status.HTTP_406_NOT_ACCEPTABLE)
+                        else:
+                            if RetailerProduct.objects.filter(name=product.name, mrp=mrp,
+                                                           selling_price=product.selling_price).exists():
+                                message = {"is_success": True, "message": f"Product failed to Update!",
+                                           "response_data": "Product {} with mrp {} & selling_price {} already exist."
+                                               .format(product.name, mrp, product.selling_price)
+                                           }
+                                return Response(message, status=status.HTTP_406_NOT_ACCEPTABLE)
                         product.mrp = mrp
                     if 'status' in actual_input_data_list:
                         # If MRP in actual_input_data_list
                         product.status = request.data.get('status')
                     if 'selling_price' in actual_input_data_list:
                         # If selling price in actual_input_data_list
+                        if 'mrp' in actual_input_data_list:
+                            if RetailerProduct.objects.filter(name=product.name, mrp=mrp,
+                                                              selling_price=request.data.get('selling_price')).exists():
+                                message = {"is_success": True, "message": f"Product failed to Update!",
+                                           "response_data": "Product {} with mrp {} & selling_price {} already exist."
+                                               .format(product.name, mrp, request.data.get('selling_price'))
+                                           }
+                                return Response(message, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+                        else:
+                            if RetailerProduct.objects.filter(name=product.name, mrp=product.mrp,
+                                                                selling_price=request.data.get('selling_price')).exists():
+                                message = {"is_success": True, "message": f"Product failed to Update!",
+                                           "response_data": "Product {} with mrp {} & selling_price {} already exist."
+                                               .format(product.name, product.mrp, request.data.get('selling_price'))
+                                           }
+                                return Response(message, status=status.HTTP_406_NOT_ACCEPTABLE)
                         product.selling_price = request.data.get('selling_price')
                     if 'product_name' in actual_input_data_list:
                         # Update Product Name
