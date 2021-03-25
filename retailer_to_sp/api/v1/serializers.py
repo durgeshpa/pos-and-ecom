@@ -674,7 +674,10 @@ class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
         return (Decimal(obj.no_of_pieces) * Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).selling_price))
 
     def product_inner_case_size_dt(self,obj):
-        return int(int(obj.no_of_pieces) // int(obj.qty))
+        try:
+            return int(int(obj.no_of_pieces) // int(obj.qty))
+        except:
+            return int(obj.no_of_pieces)
 
     class Meta:
         model = CartProductMapping

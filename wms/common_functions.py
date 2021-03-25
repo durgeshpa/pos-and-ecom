@@ -998,7 +998,7 @@ def revert_ordered_inventory(pickup_object):
 
     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
         pickup_object.warehouse, pickup_object.sku, pickup_object.inventory_type,
-        state_ordered, -1*remaining_quantity, tr_type, tr_id)
+        state_ordered, -1 * remaining_quantity, tr_type, tr_id)
 
 
 def cancel_order_with_pick(instance):
