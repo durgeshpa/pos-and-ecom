@@ -53,7 +53,8 @@ def update_shop_retailer_product_es(shop_id, product_id, **kwargs):
                     'images' : product_images,
                     'brand' : brand,
                     'category' : category,
-                    'ean' : product.product_ean_code
+                    'ean' : product.product_ean_code,
+                    'status' : product.status
                 }
                 es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
     except Exception as e:
