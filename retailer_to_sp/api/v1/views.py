@@ -363,14 +363,14 @@ class GramGRNProductsList(APIView):
                                         i['max_qty'] = max_qty
 
                 # product = Product.objects.get(id=p["_source"]["id"])
-                check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
-                if not check_price:
-                    continue
+                # check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
+                # if not check_price:
+                #     continue
                 # # check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
                 check_price_mrp = product.product_mrp
-                p["_source"]["ptr"] = check_price.selling_price
-                p["_source"]["mrp"] = check_price_mrp
-                p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
+                # p["_source"]["ptr"] = check_price.selling_price
+                # p["_source"]["mrp"] = check_price_mrp
+                # p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
                 # loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
                 # cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
@@ -642,7 +642,7 @@ class AddToCart(APIView):
                                                 context={'parent_mapping_id': parent_mapping.parent.id,
                                                          'buyer_shop_id': shop_id})
                     for i in serializer.data['rt_cart_list']:
-                        if i['cart_product']['product_mrp'] == False:
+                        if i['cart_product']['price_details']['mrp'] == False:
                             CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
                             msg = {'is_success': True, 'message': ['Data added to cart'],
                                    'response_data': serializer.data}
@@ -1514,9 +1514,9 @@ def pdf_generation(request, ordered_product):
                 ordered_product.order.ordered_cart.buyer_shop)
 
             if ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
-                product_pro_price_ptr = round(product_price.selling_price, 2)
+                product_pro_price_ptr = round(product_price.get_PTR(m.shipped_qty), 2)
             else:
-                product_pro_price_ptr = cart_product_map.item_effective_prices
+                product_pro_price_ptr = cart_product_map.get_item_effective_prize(m.shipped_qty)
             if m.product.product_mrp:
                 product_pro_price_mrp = m.product.product_mrp
             else:

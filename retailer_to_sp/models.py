@@ -264,7 +264,7 @@ class Cart(models.Model):
                 sku_qty = int(m.qty)
                 sku_no_of_pieces = int(m.cart_product.product_inner_case_size) * int(m.qty)
                 price = m.cart_product.get_current_shop_price(shop, buyer_shop)
-                sku_ptr = float(price.selling_price) if price else False
+                sku_ptr = price.get_PTR(m.qty)
                 coupon_times_used = CusotmerCouponUsage.objects.filter(shop=buyer_shop, product=m.cart_product,
                                                                        created_at__date=date.date()).count() if CusotmerCouponUsage.objects.filter(
                     shop=buyer_shop, product=m.cart_product, created_at__date=date.date()) else 0
@@ -277,15 +277,16 @@ class Cart(models.Model):
                                     free_item = n.free_product.product_name
                                     discount_qty_step_multiple = int((sku_qty) / n.rule.discount_qty_step)
                                     free_item_amount = int((n.rule.discount_qty_amount) * discount_qty_step_multiple)
-                                    sum += (sku_ptr * sku_no_of_pieces)
+                                    # sum += (sku_ptr * sku_no_of_pieces)
+                                    sum += (sku_ptr * int(m.qty))
                                     offers_list.append(
                                         {'type': 'free', 'sub_type': 'discount_on_product', 'coupon_id': o.id,
                                          'coupon': o.coupon_name, 'discount_value': 0, 'coupon_code': o.coupon_code,
                                          'item': m.cart_product.product_name, 'item_sku': m.cart_product.product_sku,
                                          'item_id': m.cart_product.id, 'free_item': free_item,
                                          'free_item_amount': free_item_amount, 'coupon_type': 'catalog',
-                                         'discounted_product_subtotal': (sku_ptr * sku_no_of_pieces),
-                                         'discounted_product_subtotal_after_sku_discount': (sku_ptr * sku_no_of_pieces),
+                                         'discounted_product_subtotal': (sku_ptr * int(m.qty)),
+                                         'discounted_product_subtotal_after_sku_discount': (sku_ptr * int(m.qty)),
                                          'brand_id': m.cart_product.product_brand.id,
                                          'applicable_brand_coupons': b_list, 'applicable_cart_coupons': c_list})
                             elif (n.rule.discount_qty_step >= 1) and (n.rule.discount != None):
@@ -294,16 +295,16 @@ class Cart(models.Model):
                                         discount_value = n.rule.discount.discount_value
                                     elif n.rule.discount.is_percentage == True and (n.rule.discount.max_discount == 0):
                                         discount_value = round(
-                                            ((n.rule.discount.discount_value / 100) * sku_no_of_pieces * sku_ptr), 2)
+                                            ((n.rule.discount.discount_value / 100) * int(m.qty) * sku_ptr), 2)
                                     elif n.rule.discount.is_percentage == True and (n.rule.discount.max_discount > (
-                                            (n.rule.discount.discount_value / 100) * (sku_no_of_pieces * sku_ptr))):
+                                            (n.rule.discount.discount_value / 100) * (int(m.qty) * sku_ptr))):
                                         discount_value = round(
-                                            ((n.rule.discount.discount_value / 100) * sku_no_of_pieces * sku_ptr), 2)
+                                            ((n.rule.discount.discount_value / 100) * int(m.qty) * sku_ptr), 2)
                                     elif n.rule.discount.is_percentage == True and (n.rule.discount.max_discount < (
-                                            (n.rule.discount.discount_value / 100) * (sku_no_of_pieces * sku_ptr))):
+                                            (n.rule.discount.discount_value / 100) * (int(m.qty) * sku_ptr))):
                                         discount_value = n.rule.discount.max_discount
                                     discount_sum_sku += round(discount_value, 2)
-                                    discounted_product_subtotal = round((sku_no_of_pieces * sku_ptr) - discount_value,
+                                    discounted_product_subtotal = round((int(m.qty) * sku_ptr) - discount_value,
                                                                         2)
                                     sum += discounted_product_subtotal
                                     offers_list.append(
@@ -321,9 +322,9 @@ class Cart(models.Model):
                                         'item_sku': m.cart_product.product_sku, 'item_id': m.cart_product.id,
                                         'discount_value': 0, 'discount_total_sku': discount_sum_sku,
                                         'coupon_type': 'catalog',
-                                        'discounted_product_subtotal': round((sku_ptr * sku_no_of_pieces), 2),
+                                        'discounted_product_subtotal': round((sku_ptr * int(m.qty)), 2),
                                         'discounted_product_subtotal_after_sku_discount': round(
-                                            (sku_ptr * sku_no_of_pieces), 2),
+                                            (sku_ptr * int(m.qty)), 2),
                                         'brand_id': product_brand_id, 'cart_or_brand_level_discount': 0,
                                         'applicable_brand_coupons': b_list, 'applicable_cart_coupons': c_list})
             brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True, expiry_date__gte=date).order_by(
@@ -398,9 +399,8 @@ class Cart(models.Model):
             if self.cart_status in ['active', 'pending']:
                 cart_value = 0
                 for product in self.rt_cart_list.all():
-                    cart_value += float(product.cart_product.get_current_shop_price(self.seller_shop,
-                                                                                    self.buyer_shop).selling_price * product.no_of_pieces) if product.cart_product.get_current_shop_price(
-                        self.seller_shop, self.buyer_shop) else 0
+                    shop_price = product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop)
+                    cart_value += float(shop_price.get_PTR(product.qty) * product.qty) if shop_price else 0
                 cart_value -= discount_sum_sku
             if self.cart_status in ['ordered']:
                 cart_value = (self.rt_cart_list.aggregate(
@@ -646,7 +646,7 @@ class BulkOrder(models.Model):
                                               VALIDATION_ERROR_MESSAGES[
                                                   'EMPTY'] % ("discounted_price"))
                 if row[0]:
-                    product = Product.objects.get(product_sku=row[0])
+                    product = Product.objects.filter(product_sku=row[0]).last()
                     if product in duplicate_products:
                         raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                             0] + " | Duplicate entries of this product has been uploaded"))
@@ -656,13 +656,13 @@ class BulkOrder(models.Model):
                         raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                             0] + " | Product Price Not Available"))
                     if row[3] and self.order_type == 'DISCOUNTED':
+                        ordered_qty = int(row[2])
                         discounted_price = float(row[3])
-                        if product_price.selling_price < discounted_price:
+                        if product_price.get_PTR(ordered_qty) < discounted_price:
                             raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                                 0] + " | Discounted Price can't be more than Product Price."))
-                    ordered_qty = int(row[2])
+
                     shop = Shop.objects.filter(id=self.seller_shop.id).last()
-                    product = Product.objects.filter(product_sku=row[0]).last()
                     inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
                     product_qty_dict = get_stock(shop, inventory_type, [product.id])
                     if product_qty_dict.get(product.id) is not None:
@@ -887,26 +887,33 @@ class CartProductMapping(models.Model):
 
     @property
     def item_effective_prices(self):
-        try:
-            item_effective_price = 0
-            if self.retailer_product:
-                if self.cart.offers and self.product_type:
-                    array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
-                    for i in array:
-                        if self.retailer_product.id == i['item_id']:
-                            item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
-                else:
-                    item_effective_price = float(self.selling_price)
-            else:
-                if self.cart.offers:
-                    array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
-                    for i in array:
-                        if self.cart_product.id == i['item_id']:
-                            item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
-                else:
-                    item_effective_price = float(self.cart_product_price.selling_price)
-        except:
-            logger.exception("Cart product price not found")
+        item_effective_price = 0
+        if self.cart_product_price is not None:
+            item_effective_price = self.cart_product_price.get_PTR(self.qty)
+
+        if self.cart.offers:
+            array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+            for i in array:
+                if self.cart_product.id == i['item_id']:
+                    item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.qty
+        return item_effective_price
+
+    def get_item_effective_prize(self, qty):
+
+        """This method is used to get any products effective price based on the price slab and offers applied"""
+
+        item_effective_price = 0
+        if self.cart_product_price is None:
+            return 0
+
+        item_effective_price = self.cart_product_price.get_PTR(qty)
+
+        if self.cart.offers:
+            array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+            for i in array:
+                if self.cart_product.id == i['item_id']:
+                    discount_value = i.get('discount_value', 0)
+                    item_effective_price = item_effective_price - discount_value
         return item_effective_price
 
     def set_cart_product_price(self, seller_shop_id, buyer_shop_id):
@@ -1597,14 +1604,14 @@ class OrderedProduct(models.Model):  # Shipment
 
     @property
     def credit_note_amount(self):
-        credit_note_amount = self.rt_order_product_order_product_mapping.all() \
-            .aggregate(cn_amt=RoundAmount(
-            Sum(F('effective_price') * (F('shipped_qty') - F('delivered_qty')), output_field=FloatField()))).get(
-            'cn_amt')
+        credit_note_amount = self.credit_note.all()\
+                                 .aggregate(cn_amt=RoundAmount(Sum(F('amount')), output_field=FloatField()))\
+                                 .get('cn_amt')
         if credit_note_amount:
             return credit_note_amount
         else:
             return 0
+
 
     @property
     def shipment_weight(self):
@@ -2070,29 +2077,13 @@ class OrderedProductMapping(models.Model):
     def price_to_retailer(self):
         if self.ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
             ptr = self.ordered_product.order.ordered_cart.rt_cart_list \
-                .get(cart_product=self.product).cart_product_price.selling_price
+                .get(cart_product=self.product).cart_product_price.get_PTR(self.shipped_qty)
             return ptr
         else:
             if self.effective_price:
                 return float(self.effective_price)
             return self.ordered_product.order.ordered_cart.rt_cart_list \
-                .get(cart_product=self.product).item_effective_prices
-
-    def set_effective_price(self):
-        try:
-            effective_price = self.ordered_product.order.ordered_cart.rt_cart_list \
-                .get(cart_product=self.product).item_effective_prices
-            OrderedProductMapping.objects.filter(id=self.id).update(effective_price=effective_price)
-        except:
-            pass
-
-    def set_discounted_price(self):
-        try:
-            discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list \
-                .get(cart_product=self.product).discounted_price
-            OrderedProductMapping.objects.filter(id=self.id).update(discounted_price=discounted_price)
-        except:
-            pass
+                .get(cart_product=self.product).get_item_effective_prize(self.shipped_qty)
 
     @property
     def cash_discount(self):
@@ -2122,6 +2113,22 @@ class OrderedProductMapping(models.Model):
         get_tax_val = self.get_product_tax_json() / 100
         basic_rate = (float(self.effective_price) - float(self.product_cess_amount)) / (float(get_tax_val) + 1)
         return round(basic_rate, 2)
+
+    @property
+    def return_rate(self):
+        """This function returns the basic rate at which credit note is to be generated"""
+        get_tax_val = self.get_product_tax_json() / 100
+        return_rate = ((self.product_credit_amount/(self.returned_qty+self.returned_damage_qty))
+                       - float(self.product_cess_amount)) / (float(get_tax_val) + 1)
+        return round(return_rate, 2)
+
+    @property
+    def product_credit_amount(self):
+        return self.shipped_qty * float(self.effective_price) - self.delivered_qty * float(self.payment_rate)
+
+    @property
+    def product_credit_amount_per_unit(self):
+        return self.product_credit_amount/(self.returned_qty+self.returned_damage_qty)
 
     @property
     def basic_rate_discounted(self):
@@ -2157,7 +2164,7 @@ class OrderedProductMapping(models.Model):
         # get_tax_val = self.get_product_tax_json() / 100
         # return round(float(self.basic_rate * (self.returned_qty + self.damaged_qty)) * float(get_tax_val), 2)
         quantity = self.returned_damage_qty + self.returned_qty
-        return round(float(self.effective_price * quantity), 2) - self.basic_rate * quantity
+        return round(self.product_credit_amount - (self.return_rate * quantity))
 
     @property
     def product_tax_discount_amount(self):
@@ -2237,6 +2244,12 @@ class OrderedProductMapping(models.Model):
     def get_discounted_price(self):
         return round(self.discounted_price, 2)
 
+    @property
+    def payment_rate(self):
+        """This function return the rate at which payment is to be collected"""
+        return self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last() \
+                                   .get_item_effective_prize(self.delivered_qty)
+
     def save(self, *args, **kwargs):
         # if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty, self.returned_qty]):
         #     raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
@@ -2248,7 +2261,7 @@ class OrderedProductMapping(models.Model):
                 retailer_product=self.retailer_product, product_type = self.product_type).last().discounted_price
         else:
             self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-                cart_product=self.product).last().item_effective_prices
+                cart_product=self.product).last().get_item_effective_prize(self.shipped_qty)
             self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 cart_product=self.product).last().discounted_price
         super().save(*args, **kwargs)
