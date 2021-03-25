@@ -117,7 +117,14 @@ class CatalogueProductCreation(GenericAPIView):
                         product_obj = RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_name, mrp,
                                                                    selling_price, None, 1, description,
                                                                    product_ean_code, product_status)
+                    count = 0
                     for file in request.FILES.getlist('images'):
+                        count += 1
+                        if count > 3:
+                            msg = {'is_success': False,
+                                   'error_message': "Please upload maximum 3 images",
+                                   'response_data': None}
+                            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                         RetailerProductImage.objects.create(product_id=product_obj.id, image=file)
 
                 product = RetailerProduct.objects.all().last()
@@ -212,8 +219,15 @@ class CatalogueProductCreation(GenericAPIView):
                         if RetailerProductImage.objects.filter(product=product_id).exists():
                             # delete existing product_image
                             RetailerProductImage.objects.filter(product=product_id).delete()
+                        count = 0
                         for file in product_image_data:
                             # create new product_image
+                            count += 1
+                            if count > 3:
+                                msg = {'is_success': False,
+                                       'error_message': "Please upload maximum 3 images",
+                                       'response_data': None}
+                                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                             RetailerProductImage.objects.create(product_id=product_id, image=file)
                     if 'product_ean_code' in actual_input_data_list:
                         # If product_ean_code in actual_input_data_list
