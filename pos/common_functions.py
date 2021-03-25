@@ -17,7 +17,7 @@ class RetailerProductCls(object):
             General Response For API
         """
         if status is None:
-            status = 'pending_approval'
+            status = 'active'
         return RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
                                        mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description,
                                        product_ean_code=product_ean_code, status=status)
