@@ -3,6 +3,8 @@ import csv
 import datetime
 import json
 import re
+
+from django.forms import BaseInlineFormSet
 from django.urls import reverse
 
 from dal import autocomplete
@@ -25,7 +27,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
-                             ParentProductCategory)
+                             ParentProductCategory, PriceSlab)
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -408,14 +410,12 @@ class DestinationRepackagingCostMappingForm(forms.ModelForm):
 
 
 class ParentProductForm(forms.ModelForm):
+
     class Meta:
         model = ParentProduct
-        # fields = ('parent_brand', 'name', 'product_hsn', 'gst', 'cess',
-        #           'surcharge', 'brand_case_size', 'inner_case_size',
-        #           'product_type',)
         fields = ('parent_brand', 'name', 'product_hsn',
                   'brand_case_size', 'inner_case_size',
-                  'product_type',)
+                  'product_type', 'is_ptr_applicable', 'ptr_percent', 'ptr_type')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -2008,3 +2008,99 @@ class BulkProductVendorMapping(forms.Form):
                         'EMPTY_OR_NOT_VALID'] % ("Case_size"))
 
         return self.cleaned_data['file']
+
+
+
+class ProductPriceSlabForm(forms.ModelForm):
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
+    )
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='product-autocomplete',
+            attrs={"onChange": 'getProductDetails()'}
+        )
+    )
+    mrp = forms.DecimalField(required=False)
+
+    class Meta:
+        model = ProductPrice
+        fields = ('product', 'mrp', 'seller_shop', 'approval_status')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['mrp'].disabled = True
+        if 'approval_status' in self.fields:
+            self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        if self.cleaned_data['product'].product_mrp:
+            self.cleaned_data['mrp'] = self.cleaned_data['product'].product_mrp
+        return cleaned_data
+
+
+class PriceSlabForm(forms.ModelForm):
+    """
+    This class is used to create the Price Slabs
+    """
+    class Meta:
+        model = PriceSlab
+        fields = ('start_value', 'end_value', 'selling_price', 'offer_price', 'offer_price_start_date', 'offer_price_end_date')
+
+    def __init__(self, *args, **kwargs):
+        super(PriceSlabForm, self).__init__(*args, **kwargs)
+        if self.instance.pk is not None:
+            return
+        if self.prefix == 'price_slabs-0':
+            self.fields['start_value'].widget.attrs['readonly'] = True
+            self.fields['end_value'].widget.attrs['readonly'] = True
+            self.fields['selling_price'].widget.attrs['readonly'] = True
+        elif self.prefix == 'price_slabs-1':
+            self.fields['end_value'].widget.attrs['readonly'] = True
+
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        return cleaned_data
+
+class SlabInlineFormSet(BaseInlineFormSet):
+    """
+        This class is used to create the Price Slab Forms
+    """
+
+    def clean(self):
+        super(SlabInlineFormSet, self).clean()
+        last_slab_end_value = 0
+        last_slab_selling_price = 0
+        is_first_slab = True
+        for form in self.forms:
+            slab_data = form.cleaned_data
+
+            if slab_data.get('start_value') is None:
+                raise ValidationError("Slab Start Value is Invalid")
+            elif slab_data.get('end_value') is None:
+                raise ValidationError("Slab End Value is Invalid")
+
+            if form.prefix != 'price_slabs-0' and slab_data['start_value'] <= last_slab_end_value:
+                raise ValidationError("Quantity should be greater than earlier slabs quantity")
+
+            if form.prefix != 'price_slabs-0' and slab_data['selling_price'] >= last_slab_selling_price:
+                raise ValidationError("Selling price should be less than earlier slabs selling price.")
+
+            if slab_data.get('selling_price') is None or slab_data.get('selling_price') == 0:
+                raise ValidationError('Invalid Selling Price')
+            elif slab_data.get('offer_price') is not None:
+                if slab_data.get('selling_price') <= slab_data.get('offer_price'):
+                    raise ValidationError('Invalid Offer Price')
+                elif slab_data.get('offer_price_start_date') is None or slab_data.get('offer_price_start_date') < datetime.datetime.today().date():
+                    raise ValidationError('Offer Price Start Date is invalid')
+                elif slab_data.get('offer_price_end_date') is None or slab_data.get('offer_price_end_date') <= slab_data.get('offer_price_start_date'):
+                    raise ValidationError('Offer Price End Date is invalid')
+
+            last_slab_end_value = slab_data['end_value']
+            last_slab_selling_price = slab_data['selling_price']
+
+            is_first_slab = False

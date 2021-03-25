@@ -1,6 +1,7 @@
 from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django_filters import BooleanFilter
+from nested_admin.nested import NestedTabularInline
 from rangefilter.filter import DateTimeRangeFilter
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter
 from django.contrib import admin, messages
@@ -20,7 +21,8 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
-                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet)
+                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
+                    SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -1087,8 +1089,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
     actions = ['export_as_csv_productprice']
-    list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
-                           'pincode')
+    list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city', 'pincode')
     list_display = [
         'product', 'product_sku', 'product_mrp', 'selling_price',
         'seller_shop', 'buyer_shop', 'city', 'pincode',
@@ -1176,6 +1177,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 
     def get_queryset(self, request):
         qs = super(ProductPriceAdmin, self).get_queryset(request)
+        qs = qs.filter(price_slabs__isnull=True)
         if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
             return qs
         return qs.filter(
@@ -1382,6 +1384,87 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
     class Media:
         js = ("admin/js/repackaging.js",)
 
+class PriceSlabAdmin(TabularInline):
+    model = PriceSlab
+    form = PriceSlabForm
+    formset = SlabInlineFormSet
+    min_num = 2
+    extra = 0
+    max_num = 2
+    can_delete = False
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            return self.readonly_fields
+        return self.readonly_fields + ('start_value', 'end_value','selling_price', 'offer_price',
+                                       'offer_price_start_date', 'offer_price_end_date')
+    class Media:
+        pass
+
+class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
+
+    inlines = [PriceSlabAdmin]
+    form = ProductPriceSlabForm
+    list_display = ['product', 'product_mrp','seller_shop', 'approval_status', 'status']
+    autocomplete_fields = ['product']
+    list_filter = [ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch, ProductCategoryFilter, 'approval_status']
+    fields = ('product', 'mrp', 'seller_shop', 'approval_status')
+
+    change_form_template = 'admin/products/product_price_change_form.html'
+
+    class Media:
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+            'admin/js/child_product_form.js',
+            'admin/js/price-slab-form.js',
+        )
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            return self.readonly_fields
+        if not request.user.is_superuser:
+            return self.readonly_fields + (
+                'product', 'mrp', 'seller_shop', 'approval_status')
+        return self.readonly_fields + ( 'product', 'mrp', 'seller_shop')
+
+    def product_mrp(self, obj):
+        if obj.product.product_mrp:
+            return obj.product.product_mrp
+        return ''
+
+    def approve_product_price(self, request, queryset):
+        queryset = queryset.filter(approval_status=ProductPrice.APPROVAL_PENDING).order_by('created_at')
+        for product in queryset:
+            product.approval_status = ProductPrice.APPROVED
+            product.save()
+
+    def disapprove_product_price(self, request, queryset):
+        for product in queryset:
+            product.approval_status = ProductPrice.DEACTIVATED
+            product.save()
+
+    approve_product_price.short_description = "Approve Selected Products Prices"
+    approve_product_price.allowed_permissions = ('change',)
+    disapprove_product_price.short_description = "Disapprove Selected Products Prices"
+    disapprove_product_price.allowed_permissions = ('change',)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_form(self, request, obj=None, **kwargs):
+        kwargs['form'] = ProductPriceSlabForm
+        return super().get_form(request, obj, **kwargs)
+
+    def get_queryset(self, request):
+        qs = super(ProductSlabPriceAdmin, self).get_queryset(request)
+        qs = qs.filter(id__in=qs.filter(price_slabs__isnull=False).values_list('pk', flat=True))
+        if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
+            return qs
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user)
+        ).distinct()
+
 
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
@@ -1402,3 +1485,4 @@ admin.site.register(BulkUploadForGSTChange, BulkUploadForGSTChangeAdmin)
 admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttributesAdmin)
 admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)
+admin.site.register(SlabProductPrice, ProductSlabPriceAdmin)

@@ -49,6 +49,11 @@ function getProductDetails() {
         success: function (data) {
             if(data.found === true){
                 document.getElementById('id_mrp').value = data.product_mrp;
+                if(data.selling_price == null){
+                    document.getElementById('id_price_slabs-0-selling_price').readOnly = false
+                }else{
+                    document.getElementById('id_price_slabs-0-selling_price').value = data.selling_price_per_piece;
+                }
             }
             return true;
         },
@@ -60,3 +65,27 @@ function getProductDetails() {
         cache: false
     });
 }
+
+(function($) {
+    $(function() {
+
+        var ptr_percent = $('.field-ptr_percent'),
+            ptr_type = $('.field-ptr_type');
+
+        var ptr_applicable = $('#id_is_ptr_applicable')
+
+        if($('#id_is_ptr_applicable').checked){
+            ptr_percent.show();
+            ptr_type.show();
+        }else{
+            ptr_percent.hide();
+            ptr_type.hide();
+        }
+
+        $('#id_is_ptr_applicable').click(function() {
+           ptr_percent.toggle(this.checked);
+           ptr_type.toggle(this.checked);
+        });
+
+    });
+})(django.jQuery);

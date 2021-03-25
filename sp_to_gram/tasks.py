@@ -49,12 +49,10 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 	products = Product.objects.filter(pk__in=product_list).order_by('product_name')
 	if shop_id:
 		products_price = ProductPrice.objects.filter(product__id__in=products, seller_shop=shop,
-													 end_date__gte=datetime.datetime.now(),
 													 status=True, approval_status=ProductPrice.APPROVED)\
 											 .order_by('product_id', '-created_at').distinct('product')
 	else:
 		products_price = ProductPrice.objects.filter(product__id__in=products, status=True,
-													 end_date__gte=datetime.datetime.now(),
 													 approval_status=ProductPrice.APPROVED)\
 											 .order_by('product_id', '-created_at').distinct('product')
 
@@ -69,14 +67,26 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		product_price = product_price_dict.get(product.id)
 		margin = 0
 		ptr = 0
+		price_details = []
 		if product_price:
-			ptr = product_price.selling_price
-			if not mrp:
-				mrp = product_price.mrp
-			try:
-				margin = (((mrp - product_price.selling_price) / mrp) * 100)
-			except:
-				margin = 0
+			slabs = product_price.price_slabs.all()
+			if slabs.count() == 0:
+				ptr = product_price.selling_price
+				if not mrp:
+					mrp = product_price.mrp
+				try:
+					margin = (((mrp - product_price.selling_price) / mrp) * 100)
+				except:
+					margin = 0
+			else:
+				for slab in slabs:
+					price_details.append({
+							"start_value": slab.start_value,
+							"end_value": slab.end_value,
+							"ptr": slab.ptr,
+							"margin": round((((float(mrp) - slab.ptr) / float(mrp)) * 100),2)
+						})
+
 		else:
 			status = False
 		product_opt = product.product_opt_product.all()
@@ -154,7 +164,6 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"brand_lower": str(product.product_brand).lower(),
 			"category": product_categories,
 			"mrp": mrp,
-			"ptr": ptr,
 			"status": status,
 			"id": product.id,
 			"weight_value": weight_value,
@@ -166,7 +175,8 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"no_of_pieces": no_of_pieces,
 			"sub_total": sub_total,
 			"available": available_qty,
-			"visible":visible
+			"visible":visible,
+			"price_details" : price_details
 		}
 		yield(product_details)
 

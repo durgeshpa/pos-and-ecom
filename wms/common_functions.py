@@ -380,8 +380,7 @@ def get_visibility_changes(shop, product):
         'exp': None
     }
     for child in child_siblings:
-        product_price_entries = child.product_pro_price.filter(seller_shop=shop, approval_status=2,
-                                                               status=True, end_date__gte=datetime.datetime.now())
+        product_price_entries = child.product_pro_price.filter(seller_shop=shop, approval_status=2, status=True)
         if not product_price_entries:
             visibility_changes[child.id] = False
             continue
@@ -419,7 +418,7 @@ def get_visibility_changes(shop, product):
         )
         for data in bin_data:
             if ProductPrice.objects.filter(product=data.sku, approval_status=2, status=True,
-                                           seller_shop=shop,  end_date__gte=datetime.datetime.now()).exists():
+                                           seller_shop=shop).exists():
                 exp_date_str = get_expiry_date(batch_id=data.batch_id)
                 exp_date = datetime.datetime.strptime(exp_date_str, "%d/%m/%Y")
                 if not min_exp_date_data.get('exp', None):
