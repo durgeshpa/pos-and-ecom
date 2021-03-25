@@ -25,7 +25,6 @@ class RetailerProduct(models.Model):
         (3, 'LINKED_EDITED'),
     )
     STATUS_CHOICES = (
-        ('pending_approval', 'Pending Approval'),
         ('active', 'Active'),
         ('deactivated', 'Deactivated'),
     )
@@ -39,7 +38,7 @@ class RetailerProduct(models.Model):
     linked_product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     description = models.CharField(max_length=255, validators=[ProductNameValidator], null=True, blank=True)
     sku_type = models.IntegerField(choices=PRODUCT_ORIGINS, default=1)
-    status = models.CharField(max_length=20, default='pending_approval', choices=STATUS_CHOICES, blank=False,
+    status = models.CharField(max_length=20, default='active', choices=STATUS_CHOICES, blank=False,
                               verbose_name='Product Status')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
