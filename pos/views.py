@@ -121,6 +121,7 @@ class CatalogueProductCreation(GenericAPIView):
                     for file in request.FILES.getlist('images'):
                         count += 1
                         if count > 3:
+                            # limit count of images
                             msg = {'is_success': False,
                                    'error_message': "Please upload maximum 3 images",
                                    'response_data': None}
@@ -224,6 +225,7 @@ class CatalogueProductCreation(GenericAPIView):
                             # create new product_image
                             count += 1
                             if count > 3:
+                                # limit count of images
                                 msg = {'is_success': False,
                                        'error_message': "Please upload maximum 3 images",
                                        'response_data': None}
