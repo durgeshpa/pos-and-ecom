@@ -10,7 +10,7 @@ from pos.forms import RetailerProductsAdmin
 class RetailerProductImageAdmin(admin.TabularInline):
     model = RetailerProductImage
     fields = ('image', 'image_thumbnail',)
-    readonly_fields = ('image', 'image_thumbnail', )
+    readonly_fields = ('image', 'image_thumbnail',)
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -77,4 +77,3 @@ class PaymentAdmin(admin.ModelAdmin):
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(Payment, PaymentAdmin)
-admin.site.register(RetailerProductImage)
