@@ -219,9 +219,10 @@ class CatalogueProductCreation(GenericAPIView):
                         # If product_ean_code in actual_input_data_list
                         product.product_ean_code = request.data.get('product_ean_code')
                     if 'mrp' in actual_input_data_list:
+                        # If MRP in actual_input_data_list
                         product.mrp = mrp
                     if 'status' in actual_input_data_list:
-                        # If MRP in actual_input_data_list
+                        # If status in actual_input_data_list
                         product.status = request.data.get('status')
                     if 'selling_price' in actual_input_data_list:
                         # If selling price in actual_input_data_list
