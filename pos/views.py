@@ -82,6 +82,7 @@ class CatalogueProductCreation(GenericAPIView):
                 linked_product_id = request.data.get('linked_product_id')
                 product_ean_code = request.data.get('product_ean_code')
                 product_status = request.data.get('status')
+                # request.FILES.getList('images')
                 product_image_data = dict(request.data)['images']
                 description = request.data.get('description') if request.data.get('description') else ''
 
@@ -117,7 +118,7 @@ class CatalogueProductCreation(GenericAPIView):
                                                                    selling_price, None, 1, description,
                                                                    product_ean_code, product_status)
                     for product_image in product_image_data:
-                        RetailerProductImage.objects.create(product_id=product_obj.id, image=product_image['src'])
+                        RetailerProductImage.objects.create(product_id=product_obj.id, image=product_image['image'])
 
                 product = RetailerProduct.objects.all().last()
                 # Fetching the data of created product
@@ -210,7 +211,7 @@ class CatalogueProductCreation(GenericAPIView):
                         if RetailerProductImage.objects.filter(product=product_id).exists():
                             RetailerProductImage.objects.filter(product=product_id).delete()
                         for product_image in product_image_data:
-                            RetailerProductImage.objects.create(product_id=product_id, image=product_image['src'])
+                            RetailerProductImage.objects.create(product_id=product_id, image=product_image['image'])
                     if 'product_ean_code' in actual_input_data_list:
                         # If product_ean_code in actual_input_data_list
                         product.product_ean_code = request.data.get('product_ean_code')
@@ -230,8 +231,7 @@ class CatalogueProductCreation(GenericAPIView):
                     data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp',
                                                           'selling_price', 'description', 'sku_type',
                                                           'product_ean_code', 'linked_product__product_name',
-                                                          'created_at', 'modified_at', 'status',
-                                                          'retailer_product_image__image').\
+                                                          'created_at', 'modified_at', 'status').\
                         filter(id=request.data.get('product_id'))
                     response_serializer = RetailerProductResponseSerializer(instance=data[0])
                     message = {"is_success": True, "message": f"Product has been successfully UPDATED!",

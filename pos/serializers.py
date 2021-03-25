@@ -11,6 +11,9 @@ from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, Discount
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
+    image = serializers.ImageField(
+        max_length=None, use_url=True,
+    )
     class Meta:
         model = RetailerProductImage
         fields = ('image_name', 'image')
@@ -25,7 +28,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
     product_ean_code = serializers.CharField(required=True)
-    images = RetailerProductImage
+    images = RetailerProductImageSerializer(many=True, required=True)
 
     def validate(self, attrs):
         serializer_list = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price",
@@ -72,7 +75,7 @@ class RetailerProductResponseSerializer(serializers.Serializer):
     created_at = serializers.SerializerMethodField()
     modified_at = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
-    image = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
 
     def get_id(self, obj):
         return obj['id']
@@ -111,10 +114,10 @@ class RetailerProductResponseSerializer(serializers.Serializer):
             return obj['linked_product__product_name']
         return ''
 
-    def get_image(self, obj):
-        if obj['retailer_product_image__image']:
-            return obj['retailer_product_image__image']
-        return ''
+    def get_images(self, obj):
+
+        queryset = RetailerProductImage.objects.filter(product_id=obj['id'])
+        return RetailerProductImageSerializer(queryset, many=True).data
 
     def get_created_at(self, obj):
         return obj['created_at']
@@ -135,7 +138,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
     status = serializers.CharField(required=False)
-    images = RetailerProductImage
+    images = serializers.FileField(required=False)
 
     def validate(self, attrs):
         serializer_list = ['shop_id', 'product_id', 'product_ean_code', 'product_name',
