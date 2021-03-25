@@ -1385,6 +1385,9 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
         js = ("admin/js/repackaging.js",)
 
 class PriceSlabAdmin(TabularInline):
+    """
+    This class is used to create Price Slabs from admin panel
+    """
     model = PriceSlab
     form = PriceSlabForm
     formset = SlabInlineFormSet
@@ -1403,6 +1406,9 @@ class PriceSlabAdmin(TabularInline):
 
 class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 
+    """
+    This class is used to create Slabbed Product Price from admin panel
+    """
     inlines = [PriceSlabAdmin]
     form = ProductPriceSlabForm
     list_display = ['product', 'product_mrp','seller_shop', 'approval_status', 'status']

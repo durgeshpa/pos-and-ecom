@@ -2012,6 +2012,9 @@ class BulkProductVendorMapping(forms.Form):
 
 
 class ProductPriceSlabForm(forms.ModelForm):
+    """
+    This class is used to create Slabbe Product Price for a particular product
+    """
     seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='sp'),
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
@@ -2067,15 +2070,15 @@ class PriceSlabForm(forms.ModelForm):
         return cleaned_data
 
 class SlabInlineFormSet(BaseInlineFormSet):
+
     """
-        This class is used to create the Price Slab Forms
+        This class is used to check for PriceSlab form validations
     """
 
     def clean(self):
         super(SlabInlineFormSet, self).clean()
         last_slab_end_value = 0
         last_slab_selling_price = 0
-        is_first_slab = True
         for form in self.forms:
             slab_data = form.cleaned_data
 
@@ -2083,14 +2086,12 @@ class SlabInlineFormSet(BaseInlineFormSet):
                 raise ValidationError("Slab Start Value is Invalid")
             elif slab_data.get('end_value') is None:
                 raise ValidationError("Slab End Value is Invalid")
-
-            if form.prefix != 'price_slabs-0' and slab_data['start_value'] <= last_slab_end_value:
-                raise ValidationError("Quantity should be greater than earlier slabs quantity")
-
-            if form.prefix != 'price_slabs-0' and slab_data['selling_price'] >= last_slab_selling_price:
-                raise ValidationError("Selling price should be less than earlier slabs selling price.")
-
-            if slab_data.get('selling_price') is None or slab_data.get('selling_price') == 0:
+            elif form.prefix != 'price_slabs-0':
+                if slab_data['start_value'] <= last_slab_end_value:
+                    raise ValidationError("Quantity should be greater than earlier slabs quantity")
+                elif  slab_data['selling_price'] >= last_slab_selling_price:
+                    raise ValidationError("Selling price should be less than earlier slabs selling price.")
+            elif slab_data.get('selling_price') is None or slab_data.get('selling_price') == 0:
                 raise ValidationError('Invalid Selling Price')
             elif slab_data.get('offer_price') is not None:
                 if slab_data.get('selling_price') <= slab_data.get('offer_price'):
@@ -2099,8 +2100,6 @@ class SlabInlineFormSet(BaseInlineFormSet):
                     raise ValidationError('Offer Price Start Date is invalid')
                 elif slab_data.get('offer_price_end_date') is None or slab_data.get('offer_price_end_date') <= slab_data.get('offer_price_start_date'):
                     raise ValidationError('Offer Price End Date is invalid')
-
             last_slab_end_value = slab_data['end_value']
             last_slab_selling_price = slab_data['selling_price']
 
-            is_first_slab = False
