@@ -888,14 +888,22 @@ class CartProductMapping(models.Model):
     @property
     def item_effective_prices(self):
         item_effective_price = 0
-        if self.cart_product_price is not None:
-            item_effective_price = self.cart_product_price.get_PTR(self.qty)
-
-        if self.cart.offers:
-            array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
-            for i in array:
-                if self.cart_product.id == i['item_id']:
-                    item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.qty
+        if self.retailer_product:
+            if self.cart.offers and self.product_type:
+                array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+                for i in array:
+                    if self.retailer_product.id == i['item_id']:
+                        item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
+            else:
+                item_effective_price = float(self.selling_price)
+        else:
+            if self.cart_product_price is not None:
+                item_effective_price = self.cart_product_price.get_PTR(self.qty)
+            if self.cart.offers:
+                array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+                for i in array:
+                    if self.cart_product.id == i['item_id']:
+                        item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.qty
         return item_effective_price
 
     def get_item_effective_prize(self, qty):
