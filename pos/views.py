@@ -85,7 +85,13 @@ class CatalogueProductCreation(GenericAPIView):
                 product_ean_code = request.data.get('product_ean_code')
                 product_status = request.data.get('status')
                 description = request.data.get('description') if request.data.get('description') else ''
-
+                product_images = request.FILES.getlist('images')
+                if len(product_images) > 3:
+                    # product_images count is greater then 3 through error
+                    msg = {'is_success': False,
+                           'error_message': "Please upload maximum 3 images",
+                           'response_data': None}
+                    return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                 if RetailerProduct.objects.filter(shop=shop_id_or_error_message, name=product_name, mrp=mrp, selling_price=selling_price).exists():
                     msg = {"is_success": False, "message": "Product {} with mrp {} & selling_price {} already exist."
                             .format(product_name, mrp, selling_price),
@@ -117,15 +123,8 @@ class CatalogueProductCreation(GenericAPIView):
                         product_obj = RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_name, mrp,
                                                                    selling_price, None, 1, description,
                                                                    product_ean_code, product_status)
-                    count = 0
-                    for file in request.FILES.getlist('images'):
-                        count += 1
-                        if count > 3:
-                            # limit count of images
-                            msg = {'is_success': False,
-                                   'error_message': "Please upload maximum 3 images",
-                                   'response_data': None}
-                            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+                    for file in product_images:
                         RetailerProductImage.objects.create(product_id=product_obj.id, image=file)
 
                 product = RetailerProduct.objects.all().last()
@@ -159,8 +158,13 @@ class CatalogueProductCreation(GenericAPIView):
             if serializer.is_valid():
                 product_id = request.data.get('product_id')
                 mrp = request.data.get('mrp')
-                product_image_data = request.FILES.getlist('images')
-
+                product_images = request.FILES.getlist('images')
+                if len(product_images) > 3:
+                    # product_images count is greater then 3 through error
+                    msg = {'is_success': False,
+                           'error_message': "Please upload maximum 3 images",
+                           'response_data': None}
+                    return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                 if RetailerProduct.objects.filter(id=product_id,
                                                   shop_id=shop_id_or_error_message).exists():
                     expected_input_data_list = ['product_name', 'product_id', 'mrp',
@@ -215,21 +219,14 @@ class CatalogueProductCreation(GenericAPIView):
                             else:
                                 # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
                                 product.sku_type = 3
-                    if product_image_data:
+                    if product_images:
                         # If product_image_data in request
                         if RetailerProductImage.objects.filter(product=product_id).exists():
                             # delete existing product_image
                             RetailerProductImage.objects.filter(product=product_id).delete()
                         count = 0
-                        for file in product_image_data:
+                        for file in product_images:
                             # create new product_image
-                            count += 1
-                            if count > 3:
-                                # limit count of images
-                                msg = {'is_success': False,
-                                       'error_message': "Please upload maximum 3 images",
-                                       'response_data': None}
-                                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                             RetailerProductImage.objects.create(product_id=product_id, image=file)
                     if 'product_ean_code' in actual_input_data_list:
                         # If product_ean_code in actual_input_data_list
