@@ -82,8 +82,6 @@ class CatalogueProductCreation(GenericAPIView):
                 linked_product_id = request.data.get('linked_product_id')
                 product_ean_code = request.data.get('product_ean_code')
                 product_status = request.data.get('status')
-                # request.FILES.getList('images')
-                product_image_data = dict(request.data)['images']
                 description = request.data.get('description') if request.data.get('description') else ''
 
                 if RetailerProduct.objects.filter(shop=shop_id_or_error_message, name=product_name, mrp=mrp, selling_price=selling_price).exists():
@@ -117,8 +115,8 @@ class CatalogueProductCreation(GenericAPIView):
                         product_obj = RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_name, mrp,
                                                                    selling_price, None, 1, description,
                                                                    product_ean_code, product_status)
-                    for product_image in product_image_data:
-                        RetailerProductImage.objects.create(product_id=product_obj.id, image=product_image['image'])
+                    for file in request.FILES.getlist('images'):
+                        RetailerProductImage.objects.create(product_id=product_obj.id, image=file)
 
                 product = RetailerProduct.objects.all().last()
                 # Fetching the data of created product
@@ -151,7 +149,7 @@ class CatalogueProductCreation(GenericAPIView):
             if serializer.is_valid():
                 product_id = request.data.get('product_id')
                 mrp = request.data.get('mrp')
-                product_image_data = dict(request.data)['images']
+                product_image_data = request.FILES.getlist('images')
 
                 if RetailerProduct.objects.filter(id=product_id,
                                                   shop_id=shop_id_or_error_message).exists():
@@ -210,8 +208,8 @@ class CatalogueProductCreation(GenericAPIView):
                     if product_image_data:
                         if RetailerProductImage.objects.filter(product=product_id).exists():
                             RetailerProductImage.objects.filter(product=product_id).delete()
-                        for product_image in product_image_data:
-                            RetailerProductImage.objects.create(product_id=product_id, image=product_image['image'])
+                        for file in product_image_data:
+                            RetailerProductImage.objects.create(product_id=product_id, image=file)
                     if 'product_ean_code' in actual_input_data_list:
                         # If product_ean_code in actual_input_data_list
                         product.product_ean_code = request.data.get('product_ean_code')
