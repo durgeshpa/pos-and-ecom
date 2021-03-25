@@ -82,7 +82,7 @@ class CatalogueProductCreation(GenericAPIView):
                 linked_product_id = request.data.get('linked_product_id')
                 product_ean_code = request.data.get('product_ean_code')
                 product_status = request.data.get('status')
-                product_image = request.data.get('image')
+                product_image_data = dict((request.data))['images']
                 description = request.data.get('description') if request.data.get('description') else ''
 
                 if RetailerProduct.objects.filter(shop=shop_id_or_error_message, name=product_name, mrp=mrp, selling_price=selling_price).exists():
@@ -116,7 +116,8 @@ class CatalogueProductCreation(GenericAPIView):
                         product_obj = RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_name, mrp,
                                                                    selling_price, None, 1, description,
                                                                    product_ean_code, product_status)
-                    RetailerProductImage.objects.create(product_id=product_obj.id, image=product_image)
+                    for product_image in product_image_data:
+                        RetailerProductImage.objects.create(product_id=product_obj.id, image=product_image['src'])
                 product = RetailerProduct.objects.all().last()
                 # Fetching the data of created product
                 data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp', 'selling_price',
