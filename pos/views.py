@@ -207,13 +207,10 @@ class CatalogueProductCreation(GenericAPIView):
                                 # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
                                 product.sku_type = 3
                     if product_image_data:
-                        arr = []
-
                         if RetailerProductImage.objects.filter(product=product_id).exists():
                             RetailerProductImage.objects.filter(product=product_id).delete()
                         for product_image in product_image_data:
-                            product_image = RetailerProductImage.objects.create(product_id=product_id, image=product_image['src'])
-                            arr.append(product_image.image)
+                            RetailerProductImage.objects.create(product_id=product_id, image=product_image['src'])
                     if 'product_ean_code' in actual_input_data_list:
                         # If product_ean_code in actual_input_data_list
                         product.product_ean_code = request.data.get('product_ean_code')
@@ -225,7 +222,6 @@ class CatalogueProductCreation(GenericAPIView):
                     if 'selling_price' in actual_input_data_list:
                         # If selling price in actual_input_data_list
                         product.selling_price = request.data.get('selling_price')
-
                     if 'description' in actual_input_data_list:
                         # Update Description
                         product.description = request.data.get('description')
@@ -234,8 +230,9 @@ class CatalogueProductCreation(GenericAPIView):
                     data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp',
                                                           'selling_price', 'description', 'sku_type',
                                                           'product_ean_code', 'linked_product__product_name',
-                                                          'created_at', 'modified_at', 'status').\
-                                                           filter(id=request.data.get('product_id'))
+                                                          'created_at', 'modified_at', 'status',
+                                                          'retailer_product_image__image').\
+                        filter(id=request.data.get('product_id'))
                     response_serializer = RetailerProductResponseSerializer(instance=data[0])
                     message = {"is_success": True, "message": f"Product has been successfully UPDATED!",
                                "response_data": response_serializer.data}

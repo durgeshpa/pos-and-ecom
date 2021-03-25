@@ -72,6 +72,7 @@ class RetailerProductResponseSerializer(serializers.Serializer):
     created_at = serializers.SerializerMethodField()
     modified_at = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
 
     def get_id(self, obj):
         return obj['id']
@@ -108,6 +109,11 @@ class RetailerProductResponseSerializer(serializers.Serializer):
     def get_linked_product(self, obj):
         if obj['linked_product__product_name']:
             return obj['linked_product__product_name']
+        return ''
+
+    def get_image(self, obj):
+        if obj['retailer_product_image__image']:
+            return obj['retailer_product_image__image']
         return ''
 
     def get_created_at(self, obj):
