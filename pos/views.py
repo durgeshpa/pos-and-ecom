@@ -24,7 +24,8 @@ from pos.models import RetailerProduct, RetailerProductImage
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
-
+from .utils import MultipartJsonParser
+from rest_framework.parsers import JSONParser
 
 POS_SERIALIZERS_MAP = {
     '0': RetailerProductCreateSerializer,
@@ -35,6 +36,7 @@ POS_SERIALIZERS_MAP = {
 class CatalogueProductCreation(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
+    parser_classes = [MultipartJsonParser, JSONParser]
 
     def get_shop_id_or_error_message(self, request):
         # If Token and shop_id, check whether Token is valid for shop_id or not
