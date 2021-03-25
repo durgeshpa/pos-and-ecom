@@ -70,7 +70,7 @@ class AutoOrderProcessingAdmin(admin.ModelAdmin):
             # get grn object from auto po source
             for grn_object in query.auto_po.order_cart_mapping.order_grn_order.all():
                 # check condition if grn invoice is same or not from grn object
-                if query.grn.invoice_no == grn_object.invoice_no:
+                if query.order.rt_order_order_product.all()[0].invoice.invoice_no == grn_object.invoice_no:
                     order_products = query.cart.rt_cart_list.all()
                     for product in grn_object.grn_order_grn_order_product.all():
                         for order_product in order_products:
