@@ -7,12 +7,12 @@ from django.db.models import Q
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render
+from rest_framework.parsers import JSONParser
 from rest_framework import status, authentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import transaction
 
 from pos.api.v1.pagination import pagination
 from pos.common_functions import RetailerProductCls, OffersCls, get_shop_id_from_token, serializer_error
@@ -25,7 +25,7 @@ from products.models import Product, ParentProductCategory
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 from .utils import MultipartJsonParser
-from rest_framework.parsers import JSONParser
+
 
 POS_SERIALIZERS_MAP = {
     '0': RetailerProductCreateSerializer,
@@ -208,9 +208,12 @@ class CatalogueProductCreation(GenericAPIView):
                                 # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
                                 product.sku_type = 3
                     if product_image_data:
+                        # If product_image_data in request
                         if RetailerProductImage.objects.filter(product=product_id).exists():
+                            # delete existing product_image
                             RetailerProductImage.objects.filter(product=product_id).delete()
                         for file in product_image_data:
+                            # create new product_image
                             RetailerProductImage.objects.create(product_id=product_id, image=file)
                     if 'product_ean_code' in actual_input_data_list:
                         # If product_ean_code in actual_input_data_list
