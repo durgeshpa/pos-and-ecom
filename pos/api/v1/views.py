@@ -61,6 +61,7 @@ class SearchView(APIView):
                     '1' : Complete GramFactory Catalogue
                     '2' : GramFactory Shop Catalogue
                     '3' : Retailer Shop Catalogue
+                    '4' : Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
             shop_id ('string')
                 description
                     To get products from index '2'
@@ -89,6 +90,9 @@ class SearchView(APIView):
         # Retailer Shop Catalogue
         elif index_type == '3':
             return self.rp_search()
+        # Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
+        elif index_type == '4':
+            return self.rp_gf_search()
         else:
             return get_response("Provide a valid index for search")
 
@@ -104,12 +108,13 @@ class SearchView(APIView):
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
         if search_type == '1':
-            return self.rp_exact_search(shop_id)
+            results = self.rp_exact_search(shop_id)
         # Normal Search
         elif search_type == '2':
-            return self.rp_normal_search(shop_id)
+            results = self.rp_normal_search(shop_id)
         else:
             return get_response("Provide a valid search type")
+        return get_response('Products Found' if results else 'No Products Found', results)
 
     def rp_exact_search(self, shop_id):
         """
@@ -143,6 +148,41 @@ class SearchView(APIView):
                     "query_string": {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}}
         return self.process_rp(output_type, body, shop_id)
 
+    def rp_gf_search(self):
+        """
+            Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
+        """
+        # Validate shop from token
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return get_response("Shop Doesn't Exist!")
+
+        search_type = self.request.GET.get('search_type', '1')
+        # Exact Search
+        if search_type == '1':
+            results = self.rp_gf_exact_search(shop_id)
+        else:
+            return get_response("Provide a valid search type")
+        return get_response('Products Found' if results else 'No Products Found', results)
+
+    def rp_gf_exact_search(self, shop_id):
+        """
+            Exact Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
+        """
+        response = {}
+        # search retailer products first
+        rp_results = self.rp_exact_search(shop_id)
+        if rp_results:
+            response['product_type'] = 'shop_catalogue'
+            response['products'] = rp_results
+        # search GramFactory products if retailer products not found
+        else:
+            gf_results = self.gf_exact_search()
+            if gf_results:
+                response['product_type'] = 'gf_catalogue'
+                response['products'] = gf_results
+        return response
+
     def process_rp(self, output_type, body, shop_id):
         """
             Modify Es results for response based on output_type - Raw OR Processed
@@ -152,7 +192,7 @@ class SearchView(APIView):
         p_list = []
         # Raw Output
         if output_type == '1':
-            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "ean", "images"]}
+            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "ean", "images", "status"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -161,7 +201,7 @@ class SearchView(APIView):
                 pass
         # Processed Output
         else:
-            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "images", "ean"]}
+            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "images", "ean", "status"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -171,19 +211,20 @@ class SearchView(APIView):
                     p_list.append(p["_source"])
             except:
                 pass
-        return get_response('Products Found' if p_list else 'No Products Found', p_list)
+        return p_list
 
     # TODO
     def gf_search(self):
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
         if search_type == '1':
-            return self.gf_exact_search()
+            results = self.gf_exact_search()
         # Normal Search
         elif search_type == '2':
-            return self.gf_normal_search()
+            results = self.gf_normal_search()
         else:
             return get_response("Provide a valid search type")
+        return get_response('Products Found' if results else 'No Products Found', results)
 
     # TODO
     def gf_exact_search(self):
@@ -192,6 +233,18 @@ class SearchView(APIView):
         body = dict()
         if ean_code and ean_code != '':
             body["query"] = {"bool": {"filter": [{"term": {"ean": ean_code}}]}}
+        return self.process_gf(output_type, body)
+
+    # TODO
+    def gf_normal_search(self):
+        keyword = self.request.GET.get('keyword')
+        output_type = self.request.GET.get('output_type', '1')
+        body = dict()
+        query = {"bool": {"filter": [{"term": {"status": True}}]}}
+        if keyword:
+            q = {"multi_match": {"query": keyword, "fields": ["name^5", "category", "brand"], "type": "cross_fields"}}
+            query["bool"]["must"] = [q]
+        body['query'] = query
         return self.process_gf(output_type, body)
 
     # TODO
@@ -218,11 +271,7 @@ class SearchView(APIView):
                     p_list.append(p["_source"])
             except:
                 pass
-        return get_response('Products Found' if p_list else 'No Products Found', p_list)
-
-    # TODO
-    def gf_normal_search(self):
-        pass
+        return p_list
 
     # TODO
     def gf_shop_search(self):
@@ -921,6 +970,10 @@ class CartCentral(APIView):
                 return {'error': "Please provide selling price to change price"}
             if Decimal(selling_price) > product.mrp:
                 return {'error': "Selling Price cannot be greater than MRP"}
+        # activate product in cart
+        if product.status != 'active':
+            product.status = 'active'
+            product.save()
         return {'product': product, 'shop': shop, 'quantity': qty, 'cart': cart}
 
     def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
