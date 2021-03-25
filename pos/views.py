@@ -82,7 +82,7 @@ class CatalogueProductCreation(GenericAPIView):
                 linked_product_id = request.data.get('linked_product_id')
                 product_ean_code = request.data.get('product_ean_code')
                 product_status = request.data.get('status')
-                product_image_data = dict((request.data))['images']
+                product_image_data = dict(request.data)['images']
                 description = request.data.get('description') if request.data.get('description') else ''
 
                 if RetailerProduct.objects.filter(shop=shop_id_or_error_message, name=product_name, mrp=mrp, selling_price=selling_price).exists():
@@ -118,6 +118,7 @@ class CatalogueProductCreation(GenericAPIView):
                                                                    product_ean_code, product_status)
                     for product_image in product_image_data:
                         RetailerProductImage.objects.create(product_id=product_obj.id, image=product_image['src'])
+
                 product = RetailerProduct.objects.all().last()
                 # Fetching the data of created product
                 data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp', 'selling_price',
@@ -149,11 +150,13 @@ class CatalogueProductCreation(GenericAPIView):
             if serializer.is_valid():
                 product_id = request.data.get('product_id')
                 mrp = request.data.get('mrp')
+                product_image_data = dict(request.data)['images']
+
                 if RetailerProduct.objects.filter(id=product_id,
                                                   shop_id=shop_id_or_error_message).exists():
                     expected_input_data_list = ['product_name', 'product_id', 'mrp',
                                                 'product_ean_code', 'selling_price',
-                                                'description', 'status']
+                                                'description', 'status', 'images']
                     actual_input_data_list = []  # List of keys that user wants to update(If user wants to update product_name, this list wil only have product_name)
                     for key in expected_input_data_list:
                         if key in request.data.keys():
@@ -203,6 +206,14 @@ class CatalogueProductCreation(GenericAPIView):
                             else:
                                 # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
                                 product.sku_type = 3
+                    if product_image_data:
+                        arr = []
+
+                        if RetailerProductImage.objects.filter(product=product_id).exists():
+                            RetailerProductImage.objects.filter(product=product_id).delete()
+                        for product_image in product_image_data:
+                            product_image = RetailerProductImage.objects.create(product_id=product_id, image=product_image['src'])
+                            arr.append(product_image.image)
                     if 'product_ean_code' in actual_input_data_list:
                         # If product_ean_code in actual_input_data_list
                         product.product_ean_code = request.data.get('product_ean_code')

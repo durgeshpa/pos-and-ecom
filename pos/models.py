@@ -1,5 +1,6 @@
 import uuid
 
+from django.utils.safestring import mark_safe
 from django.db import models
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
@@ -89,11 +90,16 @@ class RetailerProductImage(models.Model):
     product = models.ForeignKey(RetailerProduct, related_name='retailer_product_image', on_delete=models.CASCADE)
     image_name = models.CharField(max_length=255, validators=[ProductNameValidator], null=True, blank=True)
     image_alt_text = models.CharField(max_length=255, null=True, blank=True, validators=[NameValidator])
-    image = models.ImageField(upload_to='retailer_product_image')
+    image = models.ImageField(upload_to='uploads/retailer_product_image/')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def image_thumbnail(self):
+        return mark_safe(
+            '<a href="{}"><img alt="{}" src="{}" height="200px" width="300px"/></a>'.format(self.image.url,
+                                                                                            self.image_name,
+                                                                                            self.image.url))
     def __str__(self):
         return self.product.sku + " - " + self.product.name
 
