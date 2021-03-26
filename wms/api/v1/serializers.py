@@ -59,18 +59,21 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
         return obj.inventory_type.inventory_type
 
     def grned_quantity_dt(self, obj):
-        return Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('quantity'))['total']
+        return Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id, putaway_type='GRN').aggregate(total=Sum('quantity'))['total']
 
     def putaway_quantity_dt(self, obj):
-        return Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('putaway_quantity'))['total']
+        return Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id, putaway_type='GRN').aggregate(total=Sum('putaway_quantity'))['total']
 
     def product_name_dt(self, obj):
         return obj.sku.product_name
 
     def max_putaway_qty_dt(self, obj):
-        qty = Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('quantity'))['total']
-        updated_qty = qty - Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id).aggregate(total=Sum('putaway_quantity'))['total']
-        return updated_qty
+        qs = Putaway.objects.filter(batch_id=obj.batch_id, warehouse=obj.warehouse_id, putaway_type='GRN')\
+                            .aggregate(total=Sum('quantity'), putaway_qty=Sum('putaway_quantity'))
+        total_qty = qs['total']
+        putaway_qty = qs['putaway_qty']
+        max_putaway_allowed = total_qty - putaway_qty
+        return max_putaway_allowed
 
 
 class OutSerializer(serializers.ModelSerializer):
