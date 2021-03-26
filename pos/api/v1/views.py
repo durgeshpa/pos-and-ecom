@@ -1957,9 +1957,9 @@ class OrderedItemCentralDashBoard(APIView):
         users_count = users.count()
         products_count = products.count()
         shop = Shop.objects.get(id=shop_id)
-        overview = [{"shop_name": shop.shop_name, "order": order_count,
-                     "user": users_count, "product": products_count,
-                     "total_final_amount": total_final_amount}]
+        overview = [{"shop_name": shop.shop_name, "orders": order_count,
+                     "registered_users": users_count, "products": products_count,
+                     "revenue": total_final_amount}]
         return overview
 
     def get_retail_order_overview(self):
@@ -1997,6 +1997,10 @@ class OrderedItemCentralDashBoard(APIView):
            Get Retail Order Overview based on filters
         """
         filters = self.request.GET.get('filters')
+        if filters is None:
+            # check if filter parameter is not provided,
+            # fetch lifetime order details
+            filters = ''
         if filters is not '':
             # check if filter parameter is not none convert it to int
             filters = int(filters)
@@ -2043,8 +2047,8 @@ class OrderedItemCentralDashBoard(APIView):
 
         # counts of order with total_final_amount for buyer_shop
         orders = orders.count()
-        order = [{"shop_name": parent_mapping.retailer.shop_name, "order": orders,
-                  "total_final_amount": total_final_amount}]
+        order = [{"shop_name": parent_mapping.retailer.shop_name, "orders": orders,
+                  "revenue": total_final_amount}]
         return order
 
     def get_serialize_process(self, order):
