@@ -364,6 +364,7 @@ class OrderedDashBoardSerializer(serializers.Serializer):
     """
         Get Order, User, Product & total_final_amount count
     """
+    shop_name = serializers.CharField()
     order = serializers.IntegerField()
     user = serializers.IntegerField(required=False)
     product = serializers.IntegerField(required=False)

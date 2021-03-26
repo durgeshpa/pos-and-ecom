@@ -1852,33 +1852,29 @@ class OrderedItemCentralDashBoard(APIView):
             Get Order, Product & User Counts(Overview)
             Inputs
             cart_type
-            shop_id
-            retail
-                shop_id (Buyer shop id)
-            basic
-                shop_id (Seller shop id)
+            shop_id for retail(Buyer shop id)
         """
         cart_type = request.GET.get('cart_type')
         if cart_type == '1':
             return self.get_retail_order_overview()
         elif cart_type == '2':
-            return self.get_basic_order_overview(request)
+            return self.get_basic_order_overview()
         else:
             return get_response('Provide a valid cart_type')
 
-    def get_basic_order_overview(self, request):
+    def get_basic_order_overview(self):
         """
-            Get Order, Product, & User Counts
+            Get Shop Name, Order, Product, & User Counts
             For Basic Cart
         """
         # basic validation for inputs
-        initial_validation = self.get_basic_list_validate(request)
+        initial_validation = self.get_basic_list_validate()
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         order = initial_validation['order']
         return get_response('Order', self.get_serialize_process(order))
 
-    def get_basic_list_validate(self, request):
+    def get_basic_list_validate(self):
         """
            Input validation for cart type 'basic'
         """
@@ -1887,18 +1883,18 @@ class OrderedItemCentralDashBoard(APIView):
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
         # get a order_overview
-        order = self.get_basic_orders_count(request, shop_id)
+        order = self.get_basic_orders_count(shop_id)
         return {'order': order}
 
-    def get_basic_orders_count(self, request, shop_id):
+    def get_basic_orders_count(self, shop_id):
         """
           Get Basic Order Overview based on filters
         """
-        filters = request.GET.get('filters')
+        filters = self.request.GET.get('filters')
         if filters is not '':
             # check if filter parameter is not none convert it to int
             filters = int(filters)
-        order_status = request.GET.get('order_status')
+        order_status = self.request.GET.get('order_status')
         today = datetime.today()
 
         # get total orders for shop_id
@@ -1956,7 +1952,9 @@ class OrderedItemCentralDashBoard(APIView):
         order_count = orders.count()
         users_count = users.count()
         products_count = products.count()
-        overview = [{"order": order_count, "user": users_count, "product": products_count,
+        shop = Shop.objects.get(id=shop_id)
+        overview = [{"shop_name": shop.shop_name, "order": order_count,
+                     "user": users_count, "product": products_count,
                      "total_final_amount": total_final_amount}]
         return overview
 
@@ -2041,7 +2039,8 @@ class OrderedItemCentralDashBoard(APIView):
 
         # counts of order with total_final_amount for buyer_shop
         orders = orders.count()
-        order = [{"order": orders, "total_final_amount": total_final_amount}]
+        order = [{"shop_name": parent_mapping.retailer.shop_name, "order": orders,
+                  "total_final_amount": total_final_amount}]
         return order
 
     def get_serialize_process(self, order):
