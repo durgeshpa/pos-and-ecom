@@ -1892,7 +1892,8 @@ class OrderedItemCentralDashBoard(APIView):
         """
         filters = self.request.GET.get('filters')
         if filters is None:
-            # check if filter parameter is not provided
+            # check if filter parameter is not provided,
+            # fetch lifetime order details
             filters = ''
         if filters is not '':
             # check if filter parameter is not none convert it to int
