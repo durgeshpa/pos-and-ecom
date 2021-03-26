@@ -8,7 +8,7 @@ from dal import autocomplete
 from django import forms
 import csv
 
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, RetailerProductImage
 from products.models import Product
 from shops.models import Shop
 
@@ -168,3 +168,12 @@ class RetailerProductsCSVUploadForm(forms.Form):
                 headers = next(reader, None)
                 self.read_file(headers, reader, catalogue_product_status)
         return self.cleaned_data['file']
+
+
+class RetailerProductMultiImageForm(forms.ModelForm):
+    """
+       Bulk Retailer Products Image Form
+    """
+    class Meta:
+        model = RetailerProductImage
+        fields = ('image',)

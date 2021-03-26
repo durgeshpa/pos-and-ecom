@@ -1,11 +1,12 @@
 import codecs
 import csv
 import decimal
+import os
 
 from dal import autocomplete
 from django.db.models import Q
 from django.db import transaction
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from rest_framework.parsers import JSONParser
 from rest_framework import status, authentication
@@ -13,13 +14,15 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.core.exceptions import ObjectDoesNotExist
+from django.views import View
+
 
 from pos.api.v1.pagination import pagination
 from pos.common_functions import RetailerProductCls, OffersCls, get_shop_id_from_token, serializer_error
 from pos.serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
     RetailerProductResponseSerializer, CouponCodeSerializer, ComboDealsSerializer,\
     CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponRuleSetSerializers, CouponListSerializers
-from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm
+from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm
 from pos.models import RetailerProduct, RetailerProductImage
 from products.models import Product, ParentProductCategory
 from shops.models import Shop
@@ -962,3 +965,48 @@ def RetailerCatalogueSampleFile(request, *args):
     writer.writerow(['product_name', 'mrp', 'linked_product_sku', 'product_ean_code', 'selling_price', 'description', 'status'])
     writer.writerow(['Noodles', 12, 'PROPROTOY00000019', 'EAEASDF', 10, 'XYZ', 'active'])
     return response
+
+
+class RetailerProductMultiImageUpload(View):
+    """
+    Bulk images upload with RetailerProduct SKU as image name
+    """
+    def get(self, request):
+        images_list = RetailerProductImage.objects.all()
+        return render(
+            self.request,
+            'admin/pos/retailerproductmultiimageupload.html',
+            {'images': images_list}
+        )
+
+    def post(self, request):
+        form = RetailerProductMultiImageForm(self.request.POST, self.request.FILES)
+        if form.is_valid():
+            file_name = (
+                os.path.splitext(form.cleaned_data['image'].name)[0])
+            product_sku = file_name.split("_")[0]
+            try:
+                product = RetailerProduct.objects.get(sku=product_sku)
+            except:
+                data = {
+                    'is_valid': False,
+                    'error': True,
+                    'name': 'No RetailerProduct found with SKU ID <b>{}</b>'.format(product_sku),
+                    'url': '#'
+                }
+            else:
+                form_instance = form.save(commit=False)
+                form_instance.product = product
+                form_instance.image_name = file_name
+                form_instance.save()
+
+                data = {
+                    'is_valid': True,
+                    'name': form_instance.image.name,
+                    'url': form_instance.image.url,
+                    'product_sku': product.sku,
+                    'product_name': product.name
+                }
+        else:
+            data = {'is_valid': False}
+        return JsonResponse(data)

@@ -2,8 +2,8 @@ from django.contrib import admin
 from django.conf.urls import url
 
 from pos.models import RetailerProduct, RetailerProductImage, Payment
-from pos.views import upload_retailer_products_list, \
-    download_retailer_products_list_form_view, DownloadRetailerCatalogue, RetailerCatalogueSampleFile
+from pos.views import upload_retailer_products_list, download_retailer_products_list_form_view, \
+    DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload
 from pos.forms import RetailerProductsAdmin
 
 
@@ -56,6 +56,11 @@ class RetailerProductAdmin(admin.ModelAdmin):
             url(r'download_sample_file',
                 self.admin_site.admin_view(RetailerCatalogueSampleFile),
                 name="download_sample_file"),
+
+            url(
+               r'^retailer_product_multiple_images_upload/$',
+               self.admin_site.admin_view(RetailerProductMultiImageUpload.as_view()),
+               name='retailer_product_multiple_images_upload'),
 
         ] + urls
         return urls
