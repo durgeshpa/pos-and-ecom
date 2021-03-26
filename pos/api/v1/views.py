@@ -1933,7 +1933,7 @@ class OrderedItemCentralDashBoard(APIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         order = initial_validation['order']
-        return get_response('Order', self.get_serialize_process(order))
+        return get_response('Order Details', self.get_serialize_process(order))
 
     def get_basic_list_validate(self):
         """
@@ -2033,7 +2033,7 @@ class OrderedItemCentralDashBoard(APIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         order = initial_validation['order']
-        return get_response('Order', self.get_serialize_process(order))
+        return get_response('Order Details', self.get_serialize_process(order))
 
     def get_retail_list_validate(self):
         """
