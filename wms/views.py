@@ -138,7 +138,7 @@ def update_putaway(id, batch_id, warehouse, put_quantity, user):
             put_quantity = put_quantity - diff_quantity
         else:
             quantity = put_away_quantity
-            put_quantity = 0
+            put_quantity = put_quantity - put_away_new
         pu.update(putaway_quantity=quantity, putaway_user=user)
         info_logger.info(put_quantity, "Put away quantity updated successfully.")
         return put_quantity

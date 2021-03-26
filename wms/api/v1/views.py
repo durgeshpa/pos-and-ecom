@@ -190,18 +190,19 @@ class PutAwayViewSet(APIView):
                              'message': 'The number of batches entered should be equal to number of qty entered.',
                              'data': None}, status=status.HTTP_200_OK)
         diction = {i[0]: i[1] for i in zip(batch_id, put_away_quantity)}
-        for i, value in diction.items():
+        for batch_id, putaway_to_be_done in diction.items():
             key += 1
-            val = value
-            put_away_rep = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse,
+            val = putaway_to_be_done
+            put_away_rep = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
                                                                         putaway_type='REPACKAGING',
                                                                         inventory_type=type_normal)
             if put_away_rep.count() > 0:
-                msg = {'is_success': False, "message": "Putaway for batch_id {} is for repackaging.".format(i),
-                       'batch_id': i}
+                msg = {'is_success': False, "message": "Putaway for batch_id {} is for repackaging.".format(batch_id),
+                       'batch_id': batch_id}
                 lis_data.append(msg)
                 continue
-            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse,
+            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
+                                                                    putaway_type='GRN',
                                                                     inventory_type=type_normal).order_by('created_at')
             ids = [i.id for i in put_away]
             updated_putaway_value = put_away.aggregate(total=Sum('putaway_quantity'))['total'] if \
@@ -212,18 +213,18 @@ class PutAwayViewSet(APIView):
                                                                                                   total=Sum(
                                                                                                       'quantity'))[
                                                                                                   'total'] else updated_putaway_value
-                if updated_putaway_value + int(value) > put_away.aggregate(total=Sum('quantity'))['total']:
+                if updated_putaway_value + int(putaway_to_be_done) > put_away.aggregate(total=Sum('quantity'))['total']:
                     msg = {'is_success': False, "message": "Put away quantity is exceeded for batch_id {} Can't "
-                                                           "add more items".format(i),
-                           'batch_id': i}
+                                                           "add more items".format(batch_id),
+                           'batch_id': batch_id}
                     lis_data.append(msg)
                     continue
-                if updated_putaway_value + int(value) <= put_away.aggregate(total=Sum('quantity'))['total']:
-                    value = val
+                if updated_putaway_value + int(putaway_to_be_done) <= put_away.aggregate(total=Sum('quantity'))['total']:
+                    putaway_to_be_done = val
                 if updated_putaway_value == put_away.aggregate(total=Sum('quantity'))['total']:
-                    value = 0
-                    msg = {'is_success': False, "message": "Complete, for batch_id {} Can't add more items".format(i),
-                           'batch_id': i}
+                    putaway_to_be_done = 0
+                    msg = {'is_success': False, "message": "Complete, for batch_id {} Can't add more items".format(batch_id),
+                           'batch_id': batch_id}
                     lis_data.append(msg)
                     continue
             except Exception as e:
@@ -231,10 +232,10 @@ class PutAwayViewSet(APIView):
                 return Response({'is_success': False,
                                  'message': 'Batch id does not exist.',
                                  'data': None}, status=status.HTTP_200_OK)
-            if put_away.aggregate(total=Sum('quantity'))['total'] < int(value):
+            if put_away.aggregate(total=Sum('quantity'))['total'] < int(putaway_to_be_done):
                 msg = {'is_success': False,
                        'message': 'Put_away_quantity for batch_id {} should be equal to or less than quantity.'.format(
-                           i), 'batch_id': i}
+                           batch_id), 'batch_id': batch_id}
                 lis_data.append(msg)
                 continue
 
@@ -245,8 +246,8 @@ class PutAwayViewSet(APIView):
                 # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
                 # if BinInventory exists, check if total inventory is zero, this includes items yet to be picked
                 # if inventory is more than zero, putaway won't be allowed, else putaway will be done
-                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=i[:17], bin__bin_id=bin_id)\
-                                                           .exclude(batch_id=i)
+                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id)\
+                                                           .exclude(batch_id=batch_id)
                 with transaction.atomic():
                     if bin_inventory.exists():
                         qs = bin_inventory.filter(inventory_type=type_normal)\
@@ -255,22 +256,22 @@ class PutAwayViewSet(APIView):
                         if total > 0:
                             msg = {'is_success': False,
                                    'message': 'This product with sku {} and batch_id {} can not be placed in the bin'
-                                              .format(i[:17], i), 'batch_id': i}
+                                              .format(batch_id[:17], batch_id), 'batch_id': batch_id}
                             lis_data.append(msg)
                             continue
 
-                    pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i, warehouse=warehouse)
+                    pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=batch_id, warehouse=warehouse)
                     put_away_status = False
                     while len(ids):
-                        put_away_done = update_putaway(ids[0], i, warehouse, int(value), request.user)
-                        value = put_away_done
+                        put_away_done = update_putaway(ids[0], batch_id, warehouse, int(putaway_to_be_done), request.user)
+                        putaway_to_be_done = put_away_done
                         put_away_status = True
                         ids.remove(ids[0])
 
-                    updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't', val,
+                    updating_tables_on_putaway(sh, bin_id, put_away, batch_id, type_normal, state_total_available, 't', val,
                                                put_away_status, pu)
 
-            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(),
+            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=batch_id, warehouse=warehouse).last(),
                                             fields=('is_success', 'product_sku', 'inventory_type', 'batch_id',
                                                     'max_putaway_qty', 'putaway_quantity', 'product_name')))
             msg = serializer.data
