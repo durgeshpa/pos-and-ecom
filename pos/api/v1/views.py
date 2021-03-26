@@ -608,7 +608,7 @@ class CartCentral(APIView):
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
         search_text = self.request.GET.get('search_text')
-        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending']).\
+        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending']). \
             order_by('-created_at')
         if search_text:
             carts = carts.filter(Q(order_id__icontains=search_text) |
@@ -619,7 +619,7 @@ class CartCentral(APIView):
         """
            Pagination on Cart List
         """
-        return get_response("Open Orders",  pagination(self.request, open_orders))
+        return get_response("Open Orders", pagination(self.request, open_orders))
 
     def get_retail_validate(self):
         """
@@ -1891,6 +1891,9 @@ class OrderedItemCentralDashBoard(APIView):
           Get Basic Order Overview based on filters
         """
         filters = self.request.GET.get('filters')
+        if filters is None:
+            # check if filter parameter is not provided
+            filters = ''
         if filters is not '':
             # check if filter parameter is not none convert it to int
             filters = int(filters)
