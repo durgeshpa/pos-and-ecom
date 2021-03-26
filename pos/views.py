@@ -18,10 +18,11 @@ from django.views import View
 
 
 from pos.api.v1.pagination import pagination
-from pos.common_functions import RetailerProductCls, OffersCls, get_shop_id_from_token, serializer_error
+from pos.common_functions import RetailerProductCls, OffersCls, get_shop_id_from_token, serializer_error, get_response
 from pos.serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
     RetailerProductResponseSerializer, CouponCodeSerializer, ComboDealsSerializer,\
-    CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponRuleSetSerializers, CouponListSerializers
+    CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponRuleSetSerializers, CouponListSerializers,\
+    RetailerProductImageDeleteializer
 from pos.forms import RetailerProductsCSVDownloadForm, RetailerProductsCSVUploadForm, RetailerProductMultiImageForm
 from pos.models import RetailerProduct, RetailerProductImage
 from products.models import Product, ParentProductCategory
@@ -32,7 +33,8 @@ from .utils import MultipartJsonParser
 
 POS_SERIALIZERS_MAP = {
     '0': RetailerProductCreateSerializer,
-    '1': RetailerProductUpdateSerializer
+    '1': RetailerProductUpdateSerializer,
+    '2': RetailerProductImageDeleteializer
 }
 
 
@@ -71,6 +73,8 @@ class CatalogueProductCreation(GenericAPIView):
             return POS_SERIALIZERS_MAP['0']
         if data == 1:
             return POS_SERIALIZERS_MAP['1']
+        if data == 2:
+            return POS_SERIALIZERS_MAP['2']
 
     def post(self, request, *args, **kwargs):
         """
@@ -271,6 +275,34 @@ class CatalogueProductCreation(GenericAPIView):
                    'error_message': shop_id_or_error_message,
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+    def delete(self, request):
+        """
+            Delete Image from product
+        """
+        shop_id_or_error_message = self.get_shop_id_or_error_message(request)
+        if type(shop_id_or_error_message) == int:
+            serializer = self.get_serializer_class(2)(data=request.data)
+            if serializer.is_valid():
+                product_id = request.data.get('product_id')
+                image_id = request.data.get('image_id')
+                try:
+                    product_image_id = RetailerProductImage.objects.get(id=image_id, product=product_id)
+                except ObjectDoesNotExist:
+                    return get_response("Image Does Not Exist with this Product ID")
+                product_image_id.delete()
+                data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp',
+                                                      'selling_price', 'description', 'sku_type',
+                                                      'product_ean_code', 'linked_product__product_name',
+                                                      'created_at', 'modified_at', 'status'). \
+                filter(id=request.data.get('product_id'))
+                response_serializer = RetailerProductResponseSerializer(instance=data[0])
+                message = {"is_success": True, "message": f"Product Image has been Deleted successfully!",
+                           "response_data": response_serializer.data}
+                return Response(message, status=status.HTTP_202_ACCEPTED)
+            else:
+                msg = serializer_error(serializer)
+                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
 
 class CouponOfferCreation(GenericAPIView):

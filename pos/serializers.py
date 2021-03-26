@@ -129,6 +129,32 @@ class RetailerProductResponseSerializer(serializers.Serializer):
         return obj['modified_at']
 
 
+class RetailerProductImageDeleteializer(serializers.Serializer):
+    product_id = serializers.IntegerField(required=True)
+    image_id = serializers.IntegerField(required=True)
+
+    def validate(self, attrs):
+        serializer_list = ['product_id', "image_id"]
+
+        for key in self.initial_data.keys():
+            if key not in serializer_list:
+                raise serializers.ValidationError(_(f"{key} is not allowed"))
+
+        product_id = attrs.get('product_id')
+        if product_id:
+            # If user provides product_id
+            if not RetailerProduct.objects.filter(id=product_id).exists():
+                raise serializers.ValidationError(_("Product ID not found! Please enter a valid Product ID"))
+
+        image_id = attrs.get('image_id')
+        if image_id:
+            # If user provides product_id
+            if not RetailerProductImage.objects.filter(id=image_id).exists():
+                raise serializers.ValidationError(_("Image ID not found! Please enter a valid Product ID"))
+
+        return attrs
+
+
 class RetailerProductUpdateSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(required=True)
     shop_id = serializers.IntegerField(required=False)
