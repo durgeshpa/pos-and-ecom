@@ -57,10 +57,9 @@ class RetailerProductAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(RetailerCatalogueSampleFile),
                 name="download_sample_file"),
 
-            url(
-               r'^retailer_product_multiple_images_upload/$',
-               self.admin_site.admin_view(RetailerProductMultiImageUpload.as_view()),
-               name='retailer_product_multiple_images_upload'),
+            url(r'^retailer_product_multiple_images_upload/$',
+                self.admin_site.admin_view(RetailerProductMultiImageUpload.as_view()),
+                name='retailer_product_multiple_images_upload'),
 
         ] + urls
         return urls
