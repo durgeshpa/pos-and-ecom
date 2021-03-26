@@ -294,8 +294,8 @@ class CatalogueProductCreation(GenericAPIView):
                 data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp',
                                                       'selling_price', 'description', 'sku_type',
                                                       'product_ean_code', 'linked_product__product_name',
-                                                      'created_at', 'modified_at', 'status'). \
-                filter(id=request.data.get('product_id'))
+                                                      'created_at', 'modified_at', 'status').\
+                    filter(id=request.data.get('product_id'))
                 response_serializer = RetailerProductResponseSerializer(instance=data[0])
                 message = {"is_success": True, "message": f"Product Image has been Deleted successfully!",
                            "response_data": response_serializer.data}
