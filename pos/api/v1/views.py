@@ -1967,7 +1967,7 @@ class OrderedItemCentralDashBoard(APIView):
         # get total products for shop_id
         products = RetailerProduct.objects.filter(shop=shop_id)
         # get total users registered with shop_id
-        users = UserMappedShop.objects.filter(shop_id=shop_id)
+        users = UserMappedShop.objects.filter(shop=shop_id)
 
         if order_status:
             # get total orders for given shop_id & order_status
