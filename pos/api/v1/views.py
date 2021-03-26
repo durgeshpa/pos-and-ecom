@@ -1905,7 +1905,7 @@ class OrderedItemCentralDashBoard(APIView):
         orders = Order.objects.filter(seller_shop=shop_id)
         # get total products for shop_id
         products = RetailerProduct.objects.filter(shop=shop_id)
-        # get total users for shop_id
+        # get total users registered with shop_id
         users = UserMappedShop.objects.filter(shop_id=shop_id)
 
         if order_status:
@@ -1952,7 +1952,7 @@ class OrderedItemCentralDashBoard(APIView):
             # total final amount calculation
             total_final_amount += order.total_final_amount
 
-        # counts of order with total_final_amount, users, & products
+        # counts of order for shop_id with total_final_amount, users, & products
         order_count = orders.count()
         users_count = users.count()
         products_count = products.count()
