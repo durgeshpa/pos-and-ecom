@@ -709,6 +709,18 @@ class CouponOfferCreation(GenericAPIView):
                        },
                 status_code = {"status_code": 404}
                 return msg, status_code
+            # checking if reverse offer exist,
+            reverse_ruleset = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
+                                                                   retailer_primary_product=rule_set_product_mapping.
+                                                                   retailer_free_product.id,
+                                                                   retailer_free_product=retailer_primary_product_obj,
+                                                                   rule__coupon_ruleset__is_active=True)
+            if reverse_ruleset:
+                msg = {"is_success": False,
+                       "message": f"reverse offer cannot be updated {reverse_ruleset[0].rule.rulename} already exist)",
+                       "response_data": serializer.data}
+                status_code = {"status_code": 404}
+                return msg, status_code
 
             rule_set_product_mapping.retailer_primary_product = retailer_primary_product_obj
             # update ruleset_name & combo_code with existing ruleset_name , retailer_free_product name,
@@ -729,6 +741,20 @@ class CouponOfferCreation(GenericAPIView):
                        "response_data": serializer.data}
                 status_code = {"status_code": 404}
                 return msg, status_code
+
+            # checking if reverse offer exist,
+            reverse_ruleset = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
+                                                                   retailer_primary_product=retailer_free_product_obj,
+                                                                   retailer_free_product=rule_set_product_mapping.
+                                                                   retailer_primary_product.id,
+                                                                   rule__coupon_ruleset__is_active=True)
+            if reverse_ruleset:
+                msg = {"is_success": False,
+                       "message": f"reverse offer cannot be updated {reverse_ruleset[0].rule.rulename} already exist)",
+                       "response_data": serializer.data}
+                status_code = {"status_code": 404}
+                return msg, status_code
+
             rule_set_product_mapping.retailer_free_product = retailer_free_product_obj
             # update ruleset_name & combo_code with existing ruleset_name , retailer_primary_product name,
             # purchased_product_qty & free_product_qty
