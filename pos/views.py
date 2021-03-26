@@ -170,7 +170,7 @@ class CatalogueProductCreation(GenericAPIView):
                     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                 if RetailerProduct.objects.filter(id=product_id,
                                                   shop_id=shop_id_or_error_message).exists():
-                    expected_input_data_list = ['product_name', 'product_id', 'mrp',
+                    expected_input_data_list = ['product_id', 'mrp',
                                                 'product_ean_code', 'selling_price',
                                                 'description', 'status', 'images']
                     actual_input_data_list = []  # List of keys that user wants to update(If user wants to update product_name, this list wil only have product_name)

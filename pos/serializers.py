@@ -139,10 +139,11 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
     status = serializers.CharField(required=False)
     images = serializers.FileField(required=False)
+    linked_product_id = serializers.IntegerField(required=False)
 
     def validate(self, attrs):
         serializer_list = ['shop_id', 'product_id', 'product_ean_code', 'product_name',
-                           'mrp', 'selling_price', 'description', 'status', 'images']
+                           'mrp', 'selling_price', 'description', 'status', 'images', 'linked_product_id']
 
         for key in self.initial_data.keys():
             if key not in serializer_list:
