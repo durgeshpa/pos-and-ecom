@@ -544,8 +544,19 @@ class CouponOfferCreation(GenericAPIView):
         expiry_date = request.data.get('expiry_date')
         purchased_product_qty = request.data.get('purchased_product_qty')
         free_product_qty = request.data.get('free_product_qty')
-        # checking if offer already exist with retailer_primary_product,
 
+        # checking if reverse offer exist,
+        reverse_ruleset = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
+                                                               retailer_primary_product=retailer_free_product_obj,
+                                                               retailer_free_product=retailer_primary_product_obj,
+                                                               rule__coupon_ruleset__is_active=True)
+        if reverse_ruleset:
+            msg = {"is_success": False, "message": f"reverse offer cannot be created {reverse_ruleset[0].rule.rulename} already exist)",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
+
+        # checking if offer already exist with retailer_primary_product,
         ruleset = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
                                                        retailer_primary_product=retailer_primary_product_obj,
                                                        rule__coupon_ruleset__is_active=True)
@@ -556,9 +567,9 @@ class CouponOfferCreation(GenericAPIView):
             return msg, status_code
 
         ruleset = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
-                                                        retailer_free_product=retailer_primary_product_obj,
-                                                        retailer_primary_product=retailer_free_product_obj,
-                                                        rule__coupon_ruleset__is_active=True)
+                                                       retailer_free_product=retailer_primary_product_obj,
+                                                       retailer_primary_product=retailer_free_product_obj,
+                                                       rule__coupon_ruleset__is_active=True)
 
         if ruleset:
             msg = {"is_success": False, "message": "Offer exists for given primary product as free product of given free product!",
