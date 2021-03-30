@@ -202,6 +202,7 @@ class PutAwayViewSet(APIView):
                 lis_data.append(msg)
                 continue
             put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse,
+                                                                    putaway_type='GRN',
                                                                     inventory_type=type_normal).order_by('created_at')
             ids = [i.id for i in put_away]
             updated_putaway_value = put_away.aggregate(total=Sum('putaway_quantity'))['total'] if \
