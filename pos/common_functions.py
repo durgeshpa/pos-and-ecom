@@ -78,10 +78,11 @@ def get_response(msg, data=None, success=False):
     """
     if success:
         ret = {"is_success": True, "message": msg, "response_data": data}
-    if data:
-        ret = {"is_success": True, "message": msg, "response_data": data}
     else:
-        ret = {"is_success": False, "message": msg, "response_data": None}
+        if data:
+            ret = {"is_success": True, "message": msg, "response_data": data}
+        else:
+            ret = {"is_success": False, "message": msg, "response_data": None}
     return Response(ret, status=status.HTTP_200_OK)
 
 
