@@ -1,4 +1,6 @@
 # python imports
+import requests
+import json
 import datetime
 import hmac
 import hashlib
@@ -14,11 +16,16 @@ from django.http import HttpResponse
 
 # app imports
 from retailer_backend import common_function as CommonFunction
+from retailer_backend.settings import WHATSAPP_API_ENDPOINT, WHATSAPP_API_USERID, WHATSAPP_API_PASSWORD
 
 # third party imports
 from api2pdf import Api2Pdf
 
-logger = logging.getLogger(__name__)
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron_log')
 
 
 def convert_date_format_ddmmmyyyy(scheduled_date):
@@ -60,7 +67,7 @@ def merge_pdf_files(file_path_list, merge_pdf_name):
         merge_result = a2p_client.merge(file_path_list, file_name=merge_pdf_name)
         return merge_result.result['pdf']
     except Exception as e:
-        logger.exception(e)
+        error_logger.exception(e)
 
 
 def create_file_name(file_prefix, unique_id):
@@ -105,7 +112,7 @@ def single_pdf_file(obj, result, file_prefix):
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
         return response
     except Exception as e:
-        logger.exception(e)
+        error_logger.exception(e)
 
 
 def create_invoice_data(ordered_product):
@@ -153,7 +160,7 @@ def create_invoice_data(ordered_product):
         if ordered_product.no_of_sacks is None:
             ordered_product.no_of_sacks = 0
     except Exception as e:
-        logger.exception(e)
+        error_logger.exception(e)
 
 
 def barcode_gen(value):
@@ -166,9 +173,23 @@ def barcode_gen(value):
     output_stream.seek(0)
     return output_stream
 
-#
-# def barcode_decoder(value):
-# 	image = Image.open(value)
-# 	image = image.convert('L')
-# 	data = decode(image)
-# 	return str(data[0][0])
+
+def whatsapp_opt_in(phone_number):
+    """
+    request param:- phone number
+    return :- Ture if success else False
+    """
+    try:
+        api_end_point = WHATSAPP_API_ENDPOINT
+        whatsapp_user_id = WHATSAPP_API_USERID
+        whatsapp_user_password = WHATSAPP_API_PASSWORD
+        data_string = "method=OPT_IN&format=json&password=" + whatsapp_user_password + "&phone_number=" + phone_number +" +&v=1.1&auth_scheme=plain&channel=whatsapp"
+        opt_in_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
+        response = requests.get(opt_in_api)
+        if json.loads(response.text)['response']['status'] == 'success':
+            return True
+        else:
+            return False
+    except Exception as e:
+        error_logger.error(e)
+        return False

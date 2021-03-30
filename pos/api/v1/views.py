@@ -36,6 +36,7 @@ from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrde
     BasicOrderListSerializer, OrderedDashBoardSerializer, BasicCartListSerializer
 from pos.offers import BasicCartOffers
 from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
+from common.common_utils import whatsapp_opt_in
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -524,6 +525,8 @@ class CartCentral(APIView):
         name = self.request.data.get('name')
         email = self.request.data.get('email')
         is_whatsapp = self.request.data.get('is_whatsapp')
+        if is_whatsapp:
+            whatsapp_opt_in(ph_no)
         if email:
             try:
                 validators.validate_email(email)
