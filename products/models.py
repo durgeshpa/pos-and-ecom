@@ -119,7 +119,7 @@ class PackageSize(models.Model):
 
 class ProductHSN(models.Model):
     #product_hsn_name= models.CharField(max_length=255, null=True, blank=True)
-    product_hsn_code = models.CharField(max_length=8)
+    product_hsn_code = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
