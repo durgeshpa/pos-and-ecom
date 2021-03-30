@@ -675,7 +675,7 @@ class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
     def product_sub_total_dt(self,obj):
         seller_shop_id = self.context.get('parent_mapping_id', None)
         buyer_shop_id = self.context.get('buyer_shop_id', None)
-        return (Decimal(obj.no_of_pieces) * Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).selling_price))
+        return (Decimal(obj.qty) * Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).get_PTR(obj.qty)))
 
     def product_inner_case_size_dt(self,obj):
         try:
