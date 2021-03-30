@@ -465,8 +465,14 @@ class UploadParentProductAdminForm(forms.Form):
                         if not Category.objects.filter(category_name=cat).exists():
                             raise ValidationError(
                                 _(f"Row {row_id + 2} | 'Category' {cat.strip()} doesn't exist in the system."))
+
             if not row[3]:
                 raise ValidationError(_(f"Row {row_id + 2} | 'HSN' can not be empty."))
+
+            elif not re.match("^[\d]*$", row[3]):
+                raise ValidationError(_(f"Row {row_id + 2} | 'HSN' can only be a numeric value."))
+            elif not len(row[3])>=6 and len(row[3])<=8:
+                raise ValidationError(_(f"Row {row_id + 2} | 'HSN' code minimum limit is 6 and maximum limit is 8."))
             elif not ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).exists():
                 raise ValidationError(_(f"Row {row_id + 2} | 'HSN' doesn't exist in the system."))
             if not row[4]:

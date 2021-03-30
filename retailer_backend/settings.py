@@ -135,6 +135,7 @@ INSTALLED_APPS = [
     'tablib',
     'marketing',
     'global_config',
+    'pos.apps.PosConfig',
     'whc',
     'redash_report',
     'retailer_incentive'
@@ -372,6 +373,7 @@ BLOCKING_TIME_IN_MINUTS = config('BLOCKING_TIME_IN_MINUTS')
 WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
 WKHTMLTOPDF_CMD_OPTIONS = {
     'quiet': True,
+    'enable_local_file_access': True
 }
 
 TEMPUS_DOMINUS_INCLUDE_ASSETS = False
@@ -396,9 +398,9 @@ CRONJOBS = [
     ('*/5 * * * *', 'products.cron.deactivate_capping'),
     #('30 19 * * *', 'marketing.crons.hdpos_users.fetch_hdpos_users_cron'),
     ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
+    ('*/5 * * * *', 'pos.cron.deactivate_coupon_combo_offer'),
     ('*/5 * * * *', 'whc.cron.initiate_auto_order_processing'),
     ('0 1 * * *', 'redash_report.views.redash_scheduled_report'),
-
 
 ]
 
@@ -582,3 +584,8 @@ EMAIL_PORT = config('EMAIL_PORT')
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 EMAIL_USE_TLS = config('EMAIL_USE_TLS')
+
+# WhatsAPP API Configuration
+WHATSAPP_API_ENDPOINT = config('WHATSAPP_API_ENDPOINT')
+WHATSAPP_API_USERID = config('WHATSAPP_API_USERID')
+WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
