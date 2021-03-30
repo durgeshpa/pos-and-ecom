@@ -200,26 +200,30 @@ class ProductOptionSerializer(serializers.ModelSerializer):
 
 class PriceSlabSerializer(serializers.ModelSerializer):
 
-    offer_price = serializers.SerializerMethodField('m_offer_price')
+    ptr = serializers.SerializerMethodField('m_ptr')
     margin = serializers.SerializerMethodField('m_margin')
 
-    def m_offer_price(self, obj):
+    def m_ptr(self, obj):
         return obj.ptr
 
     def m_margin(self, obj):
-        return 100 * ((float(obj.product_price.mrp) - obj.ptr)/float(obj.product_price.mrp))
+        return round(100 * ((float(obj.product_price.mrp) - obj.ptr)/float(obj.product_price.mrp)), 2)
 
     class Meta:
         model = PriceSlab
-        fields = ('start_value', 'end_value', 'offer_price', 'margin')
+        fields = ('start_value', 'end_value', 'ptr', 'margin')
 
 class SlabProductPriceSerializer(serializers.ModelSerializer):
 
     price_slabs = PriceSlabSerializer(many=True)
+    ptr = serializers.SerializerMethodField('m_ptr')
+
+    def m_ptr(self, obj):
+        return obj.selling_price
 
     class Meta:
         model = ProductPrice
-        fields = ('mrp', 'price_slabs',)
+        fields = ('mrp', 'ptr', 'price_slabs',)
 
 
 class ProductsSearchSerializer(serializers.ModelSerializer):
@@ -382,7 +386,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
             margin = (((float(product_mrp) - product_price.get_PTR(obj.qty)) / float(product_mrp)) * 100)
             if obj.cart.offers:
                 margin = (((float(product_mrp) - obj.get_item_effective_prize(obj.qty)) / float(product_mrp)) * 100)
-            return margin
+            return round(margin, 2)
         return False
 
     class Meta:
