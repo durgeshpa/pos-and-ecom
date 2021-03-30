@@ -471,7 +471,7 @@ class UploadParentProductAdminForm(forms.Form):
 
             elif not re.match("^[\d]*$", row[3]):
                 raise ValidationError(_(f"Row {row_id + 2} | 'HSN' can only be a numeric value."))
-            elif not len(row[3])>=6 and len(row[3])<=8:
+            elif len(row[3])<6 or len(row[3])>8:
                 raise ValidationError(_(f"Row {row_id + 2} | 'HSN' code minimum limit is 6 and maximum limit is 8."))
             elif not ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).exists():
                 raise ValidationError(_(f"Row {row_id + 2} | 'HSN' doesn't exist in the system."))
@@ -2014,3 +2014,25 @@ class BulkProductVendorMapping(forms.Form):
                         'EMPTY_OR_NOT_VALID'] % ("Case_size"))
 
         return self.cleaned_data['file']
+
+
+def only_int(value):
+    if value.isdigit() is False:
+        raise ValidationError('HSN can only be a numeric value..')
+    elif len(value)<6 or len(value)>8:
+        raise ValidationError('HSN code minimum limit is 6 and maximum limit is 8.')
+
+
+class ProductHSNForm(forms.ModelForm):
+    product_hsn_code = forms.CharField(max_length=8, validators=[only_int])
+
+
+    class Meta:
+        model = ProductHSN
+        fields = ['product_hsn_code']
+
+    # this function will be used for the validation
+    def clean(self):
+
+        # data from the form is fetched using super function
+        super(ProductHSNForm, self).clean()
