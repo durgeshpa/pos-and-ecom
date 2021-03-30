@@ -587,7 +587,6 @@ class ProductPrice(models.Model):
     #     return self.product.product_mrp
 
 class SlabProductPrice(ProductPrice):
-
     class Meta:
         proxy = True
 
