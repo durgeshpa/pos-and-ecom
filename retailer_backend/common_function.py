@@ -100,7 +100,7 @@ def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=
             last_number = get_last_model_invoice(starts_with, field)
         else:
             last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
-            last_number += 1
+        last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)
     ends_with = str(format(last_number, '07d'))
@@ -120,7 +120,7 @@ def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_inv
             last_number = get_last_model_invoice(starts_with, field)
         else:
             last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
-            last_number += 1
+        last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)
     ends_with = str(format(last_number, '07d'))
@@ -140,7 +140,7 @@ def common_pattern_discounted(model, field, instance_id, address, invoice_type, 
             last_number = get_last_model_invoice(starts_with, field)
         else:
             last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
-            last_number += 1
+        last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)
     ends_with = str(format(last_number, '07d'))
