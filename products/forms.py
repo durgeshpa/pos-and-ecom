@@ -465,7 +465,6 @@ class UploadParentProductAdminForm(forms.Form):
                         if not Category.objects.filter(category_name=cat).exists():
                             raise ValidationError(
                                 _(f"Row {row_id + 2} | 'Category' {cat.strip()} doesn't exist in the system."))
-
             if not row[3]:
                 raise ValidationError(_(f"Row {row_id + 2} | 'HSN' can not be empty."))
             elif not ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).exists():
