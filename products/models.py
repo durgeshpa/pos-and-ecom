@@ -578,7 +578,7 @@ class ProductPrice(models.Model):
     def get_PTR(self, qty):
         slabs = self.price_slabs.all()
         if slabs.count() == 0:
-            return self.selling_price
+            return float(self.selling_price)
         for slab in slabs:
             if qty >= slab.start_value and (qty <= slab.end_value or slab.end_value == 0):
                 return slab.ptr

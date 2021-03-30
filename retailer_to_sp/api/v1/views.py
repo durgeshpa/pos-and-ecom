@@ -361,18 +361,7 @@ class GramGRNProductsList(APIView):
                                 for i in coupons:
                                     if i['coupon_type'] == 'catalog':
                                         i['max_qty'] = max_qty
-
-                # product = Product.objects.get(id=p["_source"]["id"])
-                # check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
-                # if not check_price:
-                #     continue
-                # # check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
                 check_price_mrp = product.product_mrp
-                # p["_source"]["ptr"] = check_price.selling_price
-                # p["_source"]["mrp"] = check_price_mrp
-                # p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
-                # loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
-                # cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
@@ -789,7 +778,7 @@ class CartDetail(APIView):
                                     parent_image_serializer = ParentProductImageSerializer(im)
                                     i['cart_product']['product_pro_image'].append(parent_image_serializer.data)
 
-                        if i['cart_product']['product_mrp'] == False:
+                        if i['cart_product']['price_details']['mrp'] == False:
                             i['qty'] = 0
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'],
                                                               cart_product__id=i['cart_product']['id']).delete()
@@ -1000,7 +989,7 @@ class ReservedOrder(generics.ListAPIView):
                 'buyer_shop_id': shop_id})
 
             for i in serializer.data['rt_cart_list']:
-                if i['cart_product']['product_mrp'] == False:
+                if i['cart_product']['price_details']['mrp'] == False:
                     i['qty'] = 0
                     i['cart_product']['product_mrp'] = 0
                     CartProductMapping.objects.filter(cart__id=i['cart']['id'],

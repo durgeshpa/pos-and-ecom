@@ -202,26 +202,30 @@ class ProductOptionSerializer(serializers.ModelSerializer):
 
 class PriceSlabSerializer(serializers.ModelSerializer):
 
-    offer_price = serializers.SerializerMethodField('m_offer_price')
+    ptr = serializers.SerializerMethodField('m_ptr')
     margin = serializers.SerializerMethodField('m_margin')
 
-    def m_offer_price(self, obj):
+    def m_ptr(self, obj):
         return obj.ptr
 
     def m_margin(self, obj):
-        return 100 * ((float(obj.product_price.mrp) - obj.ptr)/float(obj.product_price.mrp))
+        return round(100 * ((float(obj.product_price.mrp) - obj.ptr)/float(obj.product_price.mrp)), 2)
 
     class Meta:
         model = PriceSlab
-        fields = ('start_value', 'end_value', 'offer_price', 'margin')
+        fields = ('start_value', 'end_value', 'ptr', 'margin')
 
 class SlabProductPriceSerializer(serializers.ModelSerializer):
 
     price_slabs = PriceSlabSerializer(many=True)
+    ptr = serializers.SerializerMethodField('m_ptr')
+
+    def m_ptr(self, obj):
+        return obj.selling_price
 
     class Meta:
         model = ProductPrice
-        fields = ('mrp', 'price_slabs',)
+        fields = ('mrp', 'ptr', 'price_slabs',)
 
 
 class ProductsSearchSerializer(serializers.ModelSerializer):
@@ -388,7 +392,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
             margin = (((float(product_mrp) - product_price.get_PTR(obj.qty)) / float(product_mrp)) * 100)
             if obj.cart.offers:
                 margin = (((float(product_mrp) - obj.get_item_effective_prize(obj.qty)) / float(product_mrp)) * 100)
-            return margin
+            return round(margin, 2)
         return False
 
     class Meta:
@@ -573,7 +577,7 @@ class ProductsSerializer(serializers.ModelSerializer):
 class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     cart_product = ProductsSerializer()
     #cart = CartDataSerializer()
-    cart_product_price = CartProductPrice()
+    cart_product_price = SlabProductPriceSerializer()
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_inner_case_size = serializers.SerializerMethodField('product_inner_case_size_dt')
@@ -584,7 +588,7 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     def product_sub_total_dt(self,obj):
         seller_shop_id = self.context.get('parent_mapping_id', None)
         buyer_shop_id = self.context.get('buyer_shop_id', None)
-        return (Decimal(obj.no_of_pieces) *
+        return (Decimal(obj.qty) *
                 Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).get_PTR(obj.qty)))
 
     def product_inner_case_size_dt(self,obj):
@@ -593,7 +597,8 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','no_of_pieces','product_sub_total','cart_product_price','product_inner_case_size')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','no_of_pieces','product_sub_total',
+                  'cart_product_price','product_inner_case_size')
 
 
 class OrderedCartSerializer(serializers.ModelSerializer):
@@ -620,9 +625,8 @@ class OrderedCartSerializer(serializers.ModelSerializer):
             total_discount = self.get_total_discount(obj)
             for cart_pro in obj.rt_cart_list.all():
                 self.items_count = self.items_count + int(cart_pro.qty)
-                pro_price = cart_pro.cart_product.get_current_shop_price(
-                self.context.get('parent_mapping_id'),
-                self.context.get('buyer_shop_id'))
+                pro_price = cart_pro.get_cart_product_price(self.context.get('parent_mapping_id'),
+                                                            self.context.get('buyer_shop_id'))
                 self.total_amount += (Decimal(pro_price.get_PTR(cart_pro.qty)) * cart_pro.qty)
             return self.total_amount
         except:
