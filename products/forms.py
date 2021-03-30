@@ -2012,13 +2012,11 @@ class BulkProductVendorMapping(forms.Form):
 
 def only_int(value):
     if value.isdigit() is False:
-        raise ValidationError('HSN can only be a numeric value..')
-    elif len(value)<6 or len(value)>8:
-        raise ValidationError('HSN code minimum limit is 6 and maximum limit is 8.')
+        raise ValidationError('HSN can only be a numeric value.')
 
 
 class ProductHSNForm(forms.ModelForm):
-    product_hsn_code = forms.CharField(max_length=8, validators=[only_int])
+    product_hsn_code = forms.CharField(max_length=8, min_length=6, validators=[only_int])
 
 
     class Meta:
