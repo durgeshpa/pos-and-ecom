@@ -493,4 +493,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'received_amount',  'current_amount', 'refund_amount', 'buyer', 'order_status')
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5af8fd851de295f1d121d940c2740701221f7f1e

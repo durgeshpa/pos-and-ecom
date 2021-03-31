@@ -1976,7 +1976,6 @@ class OrderedItemCentralDashBoard(APIView):
         order_count = orders.count()
         users_count = users.count()
         products_count = products.count()
-
         shop = Shop.objects.get(id=shop_id)
         overview = [{"shop_name": shop.shop_name, "orders": order_count,
                      "registered_users": users_count, "products": products_count,
