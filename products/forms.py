@@ -2008,3 +2008,23 @@ class BulkProductVendorMapping(forms.Form):
                         'EMPTY_OR_NOT_VALID'] % ("Case_size"))
 
         return self.cleaned_data['file']
+
+
+def only_int(value):
+    if value.isdigit() is False:
+        raise ValidationError('HSN can only be a numeric value.')
+
+
+class ProductHSNForm(forms.ModelForm):
+    product_hsn_code = forms.CharField(max_length=8, min_length=6, validators=[only_int])
+
+
+    class Meta:
+        model = ProductHSN
+        fields = ['product_hsn_code']
+
+    # this function will be used for the validation
+    def clean(self):
+
+        # data from the form is fetched using super function
+        super(ProductHSNForm, self).clean()
