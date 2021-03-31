@@ -93,7 +93,7 @@ class RegisterView(CreateAPIView):
 
         response_serializer_class = self.get_response_serializer()
         response_serializer = response_serializer_class(
-            instance={'user': user, 'token': serializer.data['key'], 'action': 'register',
+            instance={'user': user, 'token': serializer.data['key'], 'action': 0,
                       'referral_code': self.request.data.get('referral_code', '')})
         return Response({'is_success': True, 'message': ['Successfully signed up!'],
                          'response_data': [response_serializer.data]}, status=status.HTTP_201_CREATED,
