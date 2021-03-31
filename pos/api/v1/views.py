@@ -2074,7 +2074,8 @@ class OrderReturns(APIView):
             Returns for any order
             Inputs
             order_id
-            return_items - dict - product_id, qty, refund_amount
+            return_items - dict - product_id, qty
+            refund_amount
         """
         # Input validation
         initial_validation = self.post_validate()
@@ -2091,7 +2092,10 @@ class OrderReturns(APIView):
             # To map free products to their return quantity
             free_returns = {}
             free_qty_product_map = []
+            new_cart_value = 0
             ordered_product = OrderedProduct.objects.get(order=order)
+            all_products = ordered_product.rt_order_product_order_product_mapping.filter(product_type=1).values_list('retailer_product_id', flat=True)
+            given_products = []
             # for each purchased product add/remove returns according to quantity provided
             for return_product in return_items:
                 product_validate = self.validate_product(ordered_product, return_product)
@@ -2100,9 +2104,10 @@ class OrderReturns(APIView):
                 product_id = product_validate['product_id']
                 ordered_product_map = product_validate['ordered_product_map']
                 return_qty = product_validate['return_qty']
+                given_products += [product_id]
                 # if return quantity of product is greater than zero
                 if return_qty > 0:
-                    self.return_item(order_return, ordered_product_map, return_qty, product_validate['refund_amount'])
+                    self.return_item(order_return, ordered_product_map, return_qty)
                     if product_id in product_combo_map:
                         new_prod_qty = ordered_product_map.shipped_qty - return_qty
                         for offer in product_combo_map[product_id]:
@@ -2118,6 +2123,17 @@ class OrderReturns(APIView):
                     if product_id in product_combo_map:
                         for offer in product_combo_map[product_id]:
                             free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'], 0)
+                new_cart_value += (ordered_product_map.shipped_qty - return_qty) * ordered_product_map.selling_price
+            for id in all_products:
+                if id not in given_products:
+                    return get_response("Please provide product {}".format(id) + " in return items")
+            # check and update refund amount
+            refund_amount = float(order.total_final_amount) - float(new_cart_value)
+            refund_amount_given = self.request.data.get('refund_amount')
+            if refund_amount_given and refund_amount_given <= refund_amount:
+                refund_amount = refund_amount_given
+            order_return.refund_amount = refund_amount
+            order_return.save()
             self.process_free_products(ordered_product, order_return, free_returns)
             order_return.free_qty_map = free_qty_product_map
             order_return.save()
@@ -2176,14 +2192,13 @@ class OrderReturns(APIView):
         free_returns[free_item_id] = qty + free_returns[free_item_id] if free_item_id in free_returns else qty
         return free_returns
 
-    def return_item(self, order_return, ordered_product_map, return_qty, refund_amount):
+    def return_item(self, order_return, ordered_product_map, return_qty):
         """
             Update return for a product
         """
         return_item, _ = ReturnItems.objects.get_or_create(return_id=order_return,
                                                            ordered_product=ordered_product_map)
         return_item.return_qty = return_qty
-        return_item.refund_amount = refund_amount
         return_item.save()
 
     def update_return(self, order, return_reason):
@@ -2208,10 +2223,6 @@ class OrderReturns(APIView):
         if 'qty' not in return_product or return_product['qty'] < 0:
             return {'error': "Return qty not provided / invalid for product {}".format(product_id)}
         return_qty = return_product['qty']
-        # refund amt
-        if return_qty > 0 and ('amt' not in return_product or return_product['amt'] <= 0):
-            return {'error': "Return amount not provided / invalid for product {}".format(product_id)}
-        refund_amount = return_product['amt']
         # ordered product
         try:
             ordered_product_map = OrderedProductMapping.objects.get(ordered_product=ordered_product, product_type=1,
@@ -2221,12 +2232,7 @@ class OrderReturns(APIView):
         # check return qty
         if return_qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - return qty cannot be greater than sold quantity".format(product_id)}
-        # check refund amount
-        calculated_refund_amt = ordered_product_map.effective_price * return_qty
-        if refund_amount > calculated_refund_amt:
-            return {'error': "Return amount greater than received amount for product {}".format(product_id)}
-        return {'ordered_product_map': ordered_product_map, 'return_qty': return_qty, 'refund_amount': refund_amount,
-                'product_id': product_id}
+        return {'ordered_product_map': ordered_product_map, 'return_qty': return_qty, 'product_id': product_id}
 
     def process_free_products(self, ordered_product, order_return, free_returns):
         """

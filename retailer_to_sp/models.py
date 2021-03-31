@@ -2686,6 +2686,7 @@ class OrderReturn(models.Model):
         max_length=50, choices=RETURN_REASON,
         null=True, blank=True, verbose_name='Reason for Return',
     )
+    refund_amount = models.FloatField(default=0)
     status = models.CharField(max_length=200, choices=RETURN_STATUS, default='created')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -2696,7 +2697,6 @@ class ReturnItems(models.Model):
     ordered_product = models.OneToOneField(OrderedProductMapping, related_name='rt_return_ordered_product',
                                         on_delete=models.DO_NOTHING)
     return_qty = models.PositiveIntegerField(default=0)
-    refund_amount = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
