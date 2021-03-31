@@ -4,10 +4,11 @@ from rest_framework import serializers
 from django.db.models import Q
 from django.urls import reverse
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from django.db.models import Sum
 
 from products.models import Product, ProductImage
 from pos.models import RetailerProduct, RetailerProductImage
-from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct
+from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, OrderedProductMapping
 from accounts.api.v1.serializers import UserSerializer, UserPhoneSerializer
 
 
@@ -226,32 +227,6 @@ class BasicOrderedProductSerializer(serializers.ModelSerializer):
         fields = ('order', 'invoice_no', 'invoice_link')
 
 
-class BasicOrderSerializer(serializers.ModelSerializer):
-    """
-        Order Placed Data For Basic Cart
-    """
-    ordered_cart = BasicCartSerializer()
-    ordered_by = UserSerializer()
-    order_status = serializers.CharField(source='get_order_status_display')
-    total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
-    rt_order_order_product = BasicOrderedProductSerializer(many=True)
-
-    def total_discount_amount_dt(self, obj):
-        discount = 0
-        offers = obj.ordered_cart.offers
-        if offers:
-            array = list(filter(lambda d: d['type'] in ['discount'], offers))
-            for i in array:
-                discount += i['discount_value']
-        return round(discount, 2)
-
-    class Meta:
-        model = Order
-        fields = ('id', 'ordered_cart', 'order_status', 'total_final_amount', 'total_discount_amount',
-                  'total_tax_amount', 'total_mrp_amount', 'rt_order_order_product', 'ordered_by', 'created_at',
-                  'modified_at')
-
-
 class CheckoutSerializer(serializers.ModelSerializer):
     """
         Checkout Serializer - After products are added
@@ -369,3 +344,148 @@ class OrderedDashBoardSerializer(serializers.Serializer):
     registered_users = serializers.IntegerField(required=False)
     products = serializers.IntegerField(required=False)
     revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
+
+
+class ReturnItemsSerializer(serializers.ModelSerializer):
+    """
+        Single return item detail
+    """
+
+    class Meta:
+        model = ReturnItems
+        fields = ('return_qty', 'refund_amount')
+
+
+class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
+    """
+        Get single ordered product detail
+    """
+    retailer_product = RetailerProductsSearchSerializer()
+    product_subtotal = serializers.SerializerMethodField()
+    received_effective_price = serializers.SerializerMethodField()
+    qty = serializers.SerializerMethodField()
+    rt_return_ordered_product = ReturnItemsSerializer()
+
+    def get_qty(self, obj):
+        """
+            qty purchased
+        """
+        return obj.shipped_qty
+
+    def get_product_subtotal(self, obj):
+        """
+            Received amount for product
+        """
+        return obj.selling_price * obj.shipped_qty
+
+    def get_received_effective_price(self, obj):
+        """
+            Effective price for product after cart discount
+        """
+        return obj.effective_price * obj.shipped_qty
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = ('retailer_product', 'effective_price', 'selling_price', 'qty', 'product_subtotal', 'received_effective_price',
+                  'rt_return_ordered_product')
+
+
+class BasicOrderSerializer(serializers.ModelSerializer):
+    """
+        Pos Order detail
+    """
+    ordered_by = UserSerializer()
+    total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
+    products = serializers.SerializerMethodField()
+    rt_order_order_product = BasicOrderedProductSerializer(many=True)
+
+    def get_products(self, obj):
+        """
+            Get ordered products details
+        """
+        qs = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1)
+        products = BasicOrderProductDetailSerializer(qs, many=True).data
+        # car offers - map free product to purchased
+        product_offer_map = {}
+        for offer in obj.ordered_cart.offers:
+            if offer['coupon_type'] == 'catalog' and offer['type'] == 'combo':
+                product_offer_map[offer['item_id']] = offer
+        # check if any returns
+        return_item_map = {}
+        return_obj = OrderReturn.objects.filter(order=obj).last()
+        if return_obj:
+            return_item_detail = return_obj.free_qty_map
+            if return_item_detail:
+                for combo in return_item_detail:
+                    return_item_map[combo['item_id']] = combo['free_item_return_qty']
+
+        for product in products:
+            rt_return_ordered_product = product.pop('rt_return_ordered_product', None)
+            if rt_return_ordered_product:
+                product['return_qty'] = rt_return_ordered_product['return_qty']
+                product['refund_amount'] = rt_return_ordered_product['refund_amount']
+            # map purchased product with free product
+            if product['retailer_product']['id'] in product_offer_map:
+                offer = product_offer_map[product['retailer_product']['id']]
+                free_product = {
+                    'id': offer['free_item_id'],
+                    'mrp': offer['free_item_mrp'],
+                    'name': offer['free_item_name'],
+                    'qty': offer['free_item_qty_added'],
+                    'return_qty': return_item_map[offer['item_id']] if offer['item_id'] in return_item_map else 0,
+                    'coupon_code': offer['coupon_code']
+                }
+                product['free_product'] = free_product
+        return products
+
+    def total_discount_amount_dt(self, obj):
+        """
+            Discount on cart
+        """
+        discount = 0
+        offers = obj.ordered_cart.offers
+        if offers:
+            array = list(filter(lambda d: d['type'] in ['discount'], offers))
+            for i in array:
+                discount += i['discount_value']
+        return round(discount, 2)
+
+    class Meta:
+        model = Order
+        fields = ('id', 'order_no', 'order_status', 'total_final_amount', 'total_discount_amount',
+                  'total_tax_amount', 'total_mrp_amount', 'products', 'rt_order_order_product', 'ordered_by', 'created_at',
+                  'modified_at')
+
+
+class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
+    """
+        Get refund amount on checkout
+    """
+    received_amount = serializers.SerializerMethodField()
+    current_amount = serializers.SerializerMethodField()
+    refund_amount = serializers.SerializerMethodField()
+    buyer = UserSerializer()
+
+    def get_received_amount(self, obj):
+        """
+            order amount
+        """
+        return obj.total_final_amount
+
+    def get_current_amount(self, obj):
+        """
+            net pay
+        """
+        return self.get_received_amount(obj) - self.get_refund_amount(obj)
+
+    def get_refund_amount(self, obj):
+        """
+            refund amount on a return
+        """
+        return_obj = OrderReturn.objects.filter(order=obj).last()
+        return round(return_obj.rt_return_list \
+        .aggregate(refund_amount=Sum('refund_amount'))['refund_amount'], 2)
+
+    class Meta:
+        model = Order
+        fields = ('id', 'received_amount',  'current_amount', 'refund_amount', 'buyer', 'order_status')

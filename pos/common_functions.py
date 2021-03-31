@@ -78,10 +78,11 @@ def get_response(msg, data=None, success=False):
     """
     if success:
         ret = {"is_success": True, "message": msg, "response_data": data}
-    if data:
-        ret = {"is_success": True, "message": msg, "response_data": data}
     else:
-        ret = {"is_success": False, "message": msg, "response_data": None}
+        if data:
+            ret = {"is_success": True, "message": msg, "response_data": data}
+        else:
+            ret = {"is_success": False, "message": msg, "response_data": None}
     return Response(ret, status=status.HTTP_200_OK)
 
 
@@ -105,11 +106,11 @@ def get_shop_id_from_token(request):
         If Token is valid get shop_id from token
     """
     if request.user.id:
-        if Shop.objects.filter(shop_owner_id=request.user.id).exists():
-            shop = Shop.objects.filter(shop_owner_id=request.user.id)
+        if Shop.objects.filter(shop_owner_id=request.user.id, shop_type__shop_type='f').exists():
+            shop = Shop.objects.filter(shop_owner_id=request.user.id, shop_type__shop_type='f')
         else:
-            if Shop.objects.filter(related_users=request.user.id).exists():
-                shop = Shop.objects.filter(related_users=request.user.id)
+            if Shop.objects.filter(related_users=request.user.id, shop_type__shop_type='f').exists():
+                shop = Shop.objects.filter(related_users=request.user.id, shop_type__shop_type='f')
             else:
                 return "Please Provide a Valid TOKEN"
         return int(shop.values()[0].get('id'))
