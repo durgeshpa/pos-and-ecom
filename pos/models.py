@@ -4,6 +4,7 @@ from django.db import models
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.utils.text import slugify
+from django.contrib.postgres.fields import JSONField
 
 from shops.models import Shop
 from products.models import Product
@@ -108,7 +109,7 @@ class UserMappedShop(models.Model):
 class Payment(models.Model):
     order = models.ForeignKey('retailer_to_sp.Order', related_name='rt_payment_retailer_order', on_delete=models.DO_NOTHING)
     payment_mode = models.CharField(max_length=50, choices=PAYMENT_MODE, default="cash")
-    paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True, on_delete=models.SET_NULL)
-    processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True, on_delete=models.SET_NULL)
+    paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True, on_delete=models.DO_NOTHING)
+    processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

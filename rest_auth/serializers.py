@@ -236,10 +236,10 @@ class PosLoginResponseSerializer(serializers.Serializer):
         return obj['token']
 
     def get_shop_id(self, obj):
-        return obj['shop_object'].id
+        return obj['shop_object'].id if obj['shop_object'] else ''
 
     def get_shop_name(self, obj):
-        return obj['shop_object'].shop_name
+        return obj['shop_object'].shop_name if obj['shop_object'] else ''
 
 
 class TokenSerializer(serializers.ModelSerializer):
