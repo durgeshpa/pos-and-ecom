@@ -9,7 +9,7 @@ from retailer_backend.messages import SUCCESS_MESSAGES
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer
 from retailer_incentive.models import SchemeSlab
 from retailer_incentive.utils import get_shop_scheme_mapping
-from retailer_to_sp.models import OrderedProductMapping, Trip
+from retailer_to_sp.models import OrderedProductMapping
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
 
 
