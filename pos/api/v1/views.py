@@ -10,6 +10,7 @@ from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Sum
 from django.core import validators
+from django.db.models import Q
 
 from .pagination import pagination
 from sp_to_gram.tasks import es_search
@@ -593,8 +594,14 @@ class CartCentral(APIView):
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
-        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
-        return get_response("Open Orders", BasicCartListSerializer(carts, many=True).data)
+        search_text = self.request.GET.get('search_text')
+        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending']).order_by(
+            'modified_at')
+        if search_text:
+            carts = carts.filter(Q(buyer__phone_number__icontains=search_text) |
+                                 Q(id__icontains=search_text))
+        open_orders = BasicCartListSerializer(carts, many=True)
+        return get_response("Open Orders", pagination(self.request, open_orders))
 
     def get_retail_validate(self):
         """
@@ -626,7 +633,7 @@ class CartCentral(APIView):
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
         try:
-            cart = Cart.objects.get(last_modified_by=self.request.user, seller_shop=shop, cart_type='BASIC',
+            cart = Cart.objects.get(seller_shop=shop, cart_type='BASIC',
                                     id=self.request.GET.get('cart_id'), cart_status__in=['active', 'pending'])
         except ObjectDoesNotExist:
             return {'error': "Cart Not Found!"}

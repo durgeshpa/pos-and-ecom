@@ -302,7 +302,8 @@ class BasicCartListSerializer(serializers.ModelSerializer):
         """
         total_amount = 0
         for cart_pro in obj.rt_cart_list.all():
-            total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
+            selling_price = cart_pro.selling_price if cart_pro.selling_price else cart_pro.retailer_product.selling_price
+            total_amount += Decimal(selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
     def get_total_discount(self, obj):
@@ -314,7 +315,7 @@ class BasicCartListSerializer(serializers.ModelSerializer):
         if offers:
             array = list(filter(lambda d: d['type'] in ['discount'], offers))
             for i in array:
-                discount += i['discount_value']
+                discount += i['discount_value'] if 'discount_value' in i else 0
         return round(discount, 2)
 
     def sub_total_dt(self, obj):
@@ -326,7 +327,7 @@ class BasicCartListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_status', 'total_amount', 'total_discount', 'sub_total')
+        fields = ('id', 'cart_status', 'total_amount', 'total_discount', 'sub_total', 'created_at', 'modified_at')
 
 class OrderedDashBoardSerializer(serializers.Serializer):
     """
