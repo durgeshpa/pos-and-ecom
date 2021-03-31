@@ -45,6 +45,12 @@ error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 cron_logger = logging.getLogger('cron_log')
 
+ORDER_STATUS_MAP = {
+    1: Order.ORDERED,
+    2: Order.CANCELLED,
+    3: Order.PARTIALLY_REFUNDED,
+    4: Order.FULLY_REFUNDED
+}
 
 class SearchView(APIView):
     """
@@ -1846,7 +1852,7 @@ class OrderedItemCentralDashBoard(APIView):
         """
             Get Order, Product & User Counts(Overview)
             Inputs
-            cart_type
+            app_type
             shop_id
             retail
                 shop_id (Buyer shop id)
@@ -1859,7 +1865,7 @@ class OrderedItemCentralDashBoard(APIView):
         elif cart_type == '2':
             return self.get_basic_order_overview(request)
         else:
-            return get_response('Provide a valid cart_type')
+            return get_response('Provide a valid app_type')
 
     def get_basic_order_overview(self, request):
         """
@@ -1904,8 +1910,9 @@ class OrderedItemCentralDashBoard(APIView):
         users = UserMappedShop.objects.filter(shop_id=shop_id)
 
         if order_status:
+            order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
             # get total orders for given shop_id & order_status
-            orders = orders.filter(order_status=order_status)
+            orders = orders.filter(order_status=order_status_actual) if order_status_actual else orders
 
         # filter order, product & user by get modified date
         if filters == 1:  # today
