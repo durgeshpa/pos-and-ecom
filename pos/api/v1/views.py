@@ -596,9 +596,7 @@ class CartCentral(APIView):
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
         search_text = self.request.GET.get('search_text')
-
-        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending']). \
-            order_by('-created_at')
+        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending']).order_by('-modified_at')
         if search_text:
             carts = carts.filter(Q(order_id__icontains=search_text) |
                                  Q(buyer__phone_number__icontains=search_text) |
