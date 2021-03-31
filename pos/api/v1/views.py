@@ -10,6 +10,7 @@ from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Sum
 from django.core import validators
+from django.db.models import Q
 
 from .pagination import pagination
 from sp_to_gram.tasks import es_search
@@ -45,6 +46,12 @@ error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 cron_logger = logging.getLogger('cron_log')
 
+ORDER_STATUS_MAP = {
+    1: Order.ORDERED,
+    2: Order.CANCELLED,
+    3: Order.PARTIALLY_REFUNDED,
+    4: Order.FULLY_REFUNDED
+}
 
 class SearchView(APIView):
     """
@@ -116,6 +123,7 @@ class SearchView(APIView):
             results = self.rp_normal_search(shop_id)
         else:
             return get_response("Please Provide A Valid Search Type")
+        return get_response('Products Found' if results else 'No Products Found', results)
 
     def rp_exact_search(self, shop_id):
         """
@@ -225,6 +233,7 @@ class SearchView(APIView):
             results = self.gf_normal_search()
         else:
             return get_response("Please Provide A Valid Search Type")
+        return get_response('Products Found' if results else 'No Products Found', results)
 
     # TODO
     def gf_exact_search(self):
@@ -585,8 +594,13 @@ class CartCentral(APIView):
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
-        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
-        return get_response("Open Orders", BasicCartListSerializer(carts, many=True).data)
+        search_text = self.request.GET.get('search_text')
+        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending']).order_by('-modified_at')
+        if search_text:
+            carts = carts.filter(Q(buyer__phone_number__icontains=search_text) |
+                                 Q(id__icontains=search_text))
+        open_orders = BasicCartListSerializer(carts, many=True)
+        return get_response("Open Orders", pagination(self.request, open_orders))
 
     def get_retail_validate(self):
         """
@@ -618,7 +632,7 @@ class CartCentral(APIView):
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
         try:
-            cart = Cart.objects.get(last_modified_by=self.request.user, seller_shop=shop, cart_type='BASIC',
+            cart = Cart.objects.get(seller_shop=shop, cart_type='BASIC',
                                     id=self.request.GET.get('cart_id'), cart_status__in=['active', 'pending'])
         except ObjectDoesNotExist:
             return {'error': "Cart Not Found!"}
@@ -1211,7 +1225,8 @@ class OrderListCentral(APIView):
         order_status = request.GET.get('order_status')
         orders = Order.objects.filter(seller_shop_id=shop_id)
         if order_status:
-            orders = orders.filter(order_status=order_status)
+            order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
+            orders = orders.filter(order_status=order_status_actual) if order_status_actual else orders
         if search_text:
             order = order_search(orders, search_text)
         else:
@@ -1846,7 +1861,7 @@ class OrderedItemCentralDashBoard(APIView):
         """
             Get Order, Product & User Counts(Overview)
             Inputs
-            cart_type
+            app_type
             shop_id
             retail
                 shop_id (Buyer shop id)
@@ -1859,7 +1874,7 @@ class OrderedItemCentralDashBoard(APIView):
         elif cart_type == '2':
             return self.get_basic_order_overview(request)
         else:
-            return get_response('Provide a valid cart_type')
+            return get_response('Provide a valid app_type')
 
     def get_basic_order_overview(self, request):
         """
@@ -1904,8 +1919,9 @@ class OrderedItemCentralDashBoard(APIView):
         users = UserMappedShop.objects.filter(shop_id=shop_id)
 
         if order_status:
+            order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
             # get total orders for given shop_id & order_status
-            orders = orders.filter(order_status=order_status)
+            orders = orders.filter(order_status=order_status_actual) if order_status_actual else orders
 
         # filter order, product & user by get modified date
         if filters == 1:  # today
@@ -2058,7 +2074,8 @@ class OrderReturns(APIView):
             Returns for any order
             Inputs
             order_id
-            return_items - dict - product_id, qty, refund_amount
+            return_items - dict - product_id, qty
+            refund_amount
         """
         # Input validation
         initial_validation = self.post_validate()
@@ -2075,7 +2092,10 @@ class OrderReturns(APIView):
             # To map free products to their return quantity
             free_returns = {}
             free_qty_product_map = []
+            new_cart_value = 0
             ordered_product = OrderedProduct.objects.get(order=order)
+            all_products = ordered_product.rt_order_product_order_product_mapping.filter(product_type=1).values_list('retailer_product_id', flat=True)
+            given_products = []
             # for each purchased product add/remove returns according to quantity provided
             for return_product in return_items:
                 product_validate = self.validate_product(ordered_product, return_product)
@@ -2084,9 +2104,10 @@ class OrderReturns(APIView):
                 product_id = product_validate['product_id']
                 ordered_product_map = product_validate['ordered_product_map']
                 return_qty = product_validate['return_qty']
+                given_products += [product_id]
                 # if return quantity of product is greater than zero
                 if return_qty > 0:
-                    self.return_item(order_return, ordered_product_map, return_qty, product_validate['refund_amount'])
+                    self.return_item(order_return, ordered_product_map, return_qty)
                     if product_id in product_combo_map:
                         new_prod_qty = ordered_product_map.shipped_qty - return_qty
                         for offer in product_combo_map[product_id]:
@@ -2102,6 +2123,17 @@ class OrderReturns(APIView):
                     if product_id in product_combo_map:
                         for offer in product_combo_map[product_id]:
                             free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'], 0)
+                new_cart_value += (ordered_product_map.shipped_qty - return_qty) * ordered_product_map.selling_price
+            for id in all_products:
+                if id not in given_products:
+                    return get_response("Please provide product {}".format(id) + " in return items")
+            # check and update refund amount
+            refund_amount = float(order.total_final_amount) - float(new_cart_value)
+            refund_amount_given = self.request.data.get('refund_amount')
+            if refund_amount_given and refund_amount_given <= refund_amount:
+                refund_amount = refund_amount_given
+            order_return.refund_amount = refund_amount
+            order_return.save()
             self.process_free_products(ordered_product, order_return, free_returns)
             order_return.free_qty_map = free_qty_product_map
             order_return.save()
@@ -2160,14 +2192,13 @@ class OrderReturns(APIView):
         free_returns[free_item_id] = qty + free_returns[free_item_id] if free_item_id in free_returns else qty
         return free_returns
 
-    def return_item(self, order_return, ordered_product_map, return_qty, refund_amount):
+    def return_item(self, order_return, ordered_product_map, return_qty):
         """
             Update return for a product
         """
         return_item, _ = ReturnItems.objects.get_or_create(return_id=order_return,
                                                            ordered_product=ordered_product_map)
         return_item.return_qty = return_qty
-        return_item.refund_amount = refund_amount
         return_item.save()
 
     def update_return(self, order, return_reason):
@@ -2201,14 +2232,7 @@ class OrderReturns(APIView):
         # check return qty
         if return_qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - return qty cannot be greater than sold quantity".format(product_id)}
-        # check refund amount
-        calculated_refund_amt = ordered_product_map.effective_price * return_qty
-        refund_amount = return_product['amt'] if 'amt' in return_product and return_product[
-            'amt'] else calculated_refund_amt
-        if refund_amount > calculated_refund_amt:
-            return {'error': "Return amount greater than received amount for product {}".format(product_id)}
-        return {'ordered_product_map': ordered_product_map, 'return_qty': return_qty, 'refund_amount': refund_amount,
-                'product_id': product_id}
+        return {'ordered_product_map': ordered_product_map, 'return_qty': return_qty, 'product_id': product_id}
 
     def process_free_products(self, ordered_product, order_return, free_returns):
         """

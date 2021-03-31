@@ -196,7 +196,7 @@ class MlmResponseSerializer(serializers.Serializer):
     def get_referral_code(self, obj):
         user_referral_code = generate_user_referral_code(obj['user'])
         Profile.objects.get_or_create(user=obj['user'])
-        if obj['action'] == 'register':
+        if obj['action'] == 0:
             # welcome reward for new user
             referral_code = obj['referral_code']
             referred = 1 if obj['referral_code'] != '' else 0
