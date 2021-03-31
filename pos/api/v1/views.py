@@ -122,6 +122,7 @@ class SearchView(APIView):
             results = self.rp_normal_search(shop_id)
         else:
             return get_response("Please Provide A Valid Search Type")
+        return get_response('Products Found' if results else 'No Products Found', results)
 
     def rp_exact_search(self, shop_id):
         """
@@ -231,6 +232,7 @@ class SearchView(APIView):
             results = self.gf_normal_search()
         else:
             return get_response("Please Provide A Valid Search Type")
+        return get_response('Products Found' if results else 'No Products Found', results)
 
     # TODO
     def gf_exact_search(self):
@@ -1217,7 +1219,8 @@ class OrderListCentral(APIView):
         order_status = request.GET.get('order_status')
         orders = Order.objects.filter(seller_shop_id=shop_id)
         if order_status:
-            orders = orders.filter(order_status=order_status)
+            order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
+            orders = orders.filter(order_status=order_status_actual) if order_status_actual else orders
         if search_text:
             order = order_search(orders, search_text)
         else:
@@ -2199,6 +2202,10 @@ class OrderReturns(APIView):
         if 'qty' not in return_product or return_product['qty'] < 0:
             return {'error': "Return qty not provided / invalid for product {}".format(product_id)}
         return_qty = return_product['qty']
+        # refund amt
+        if return_qty > 0 and ('amt' not in return_product or return_product['amt'] <= 0):
+            return {'error': "Return amount not provided / invalid for product {}".format(product_id)}
+        refund_amount = return_product['amt']
         # ordered product
         try:
             ordered_product_map = OrderedProductMapping.objects.get(ordered_product=ordered_product, product_type=1,
@@ -2210,8 +2217,6 @@ class OrderReturns(APIView):
             return {'error': "Product {} - return qty cannot be greater than sold quantity".format(product_id)}
         # check refund amount
         calculated_refund_amt = ordered_product_map.effective_price * return_qty
-        refund_amount = return_product['amt'] if 'amt' in return_product and return_product[
-            'amt'] else calculated_refund_amt
         if refund_amount > calculated_refund_amt:
             return {'error': "Return amount greater than received amount for product {}".format(product_id)}
         return {'ordered_product_map': ordered_product_map, 'return_qty': return_qty, 'refund_amount': refund_amount,
