@@ -229,15 +229,17 @@ class LoginResponseSerializer(serializers.Serializer):
 
 class PosLoginResponseSerializer(serializers.Serializer):
     access_token = serializers.SerializerMethodField()
+    shop_id = serializers.SerializerMethodField()
     shop_name = serializers.SerializerMethodField()
 
     def get_access_token(self, obj):
         return obj['token']
 
+    def get_shop_id(self, obj):
+        return obj['shop_object'].id if obj['shop_object'] else ''
+
     def get_shop_name(self, obj):
-        user = obj['user']
-        shop = Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f').last()
-        return shop.shop_name
+        return obj['shop_object'].shop_name if obj['shop_object'] else ''
 
 
 class TokenSerializer(serializers.ModelSerializer):

@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+import logging
 from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
@@ -37,6 +38,12 @@ from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrde
     BasicOrderListSerializer, OrderedDashBoardSerializer, BasicCartListSerializer, OrderReturnCheckoutSerializer
 from pos.offers import BasicCartOffers
 from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
+
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron_log')
 
 
 class SearchView(APIView):
@@ -186,13 +193,13 @@ class SearchView(APIView):
         p_list = []
         # Raw Output
         if output_type == '1':
-            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "ean", "status"]}
+            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "ean", "status", "images"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
                     p_list.append(p["_source"])
-            except:
-                pass
+            except Exception as e:
+                error_logger.error(e)
         # Processed Output
         else:
             body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "images", "ean", "status"]}
@@ -203,8 +210,8 @@ class SearchView(APIView):
                     p["_source"]['coupons'] = BasicCartOffers.get_basic_combo_coupons([p["_source"]["id"]], shop_id, 10,
                                                                                       ["coupon_code", "coupon_type"])
                     p_list.append(p["_source"])
-            except:
-                pass
+            except Exception as e:
+                error_logger.error(e)
         return p_list
 
     # TODO
@@ -252,8 +259,8 @@ class SearchView(APIView):
                 products_list = es_search(index='all_products', body=body)
                 for p in products_list['hits']['hits']:
                     p_list.append(p["_source"])
-            except:
-                pass
+            except Exception as e:
+                error_logger.error(e)
         # Processed Output
         else:
             body["_source"] = {"includes": ["id", "name", "product_images", "mrp", "ptr", "ean"]}
@@ -261,8 +268,8 @@ class SearchView(APIView):
                 products_list = es_search(index='all_products', body=body)
                 for p in products_list['hits']['hits']:
                     p_list.append(p["_source"])
-            except:
-                pass
+            except Exception as e:
+                error_logger.error(e)
         return p_list
 
     # TODO
@@ -1846,7 +1853,7 @@ class OrderedItemCentralDashBoard(APIView):
             basic
                 shop_id (Seller shop id)
         """
-        cart_type = request.GET.get('cart_type')
+        cart_type = request.GET.get('app_type')
         if cart_type == '1':
             return self.get_retail_order_overview()
         elif cart_type == '2':
@@ -1944,8 +1951,8 @@ class OrderedItemCentralDashBoard(APIView):
         order_count = orders.count()
         users_count = users.count()
         products_count = products.count()
-        overview = [{"order": order_count, "user": users_count, "product": products_count,
-                     "total_final_amount": total_final_amount}]
+        overview = [{"orders": order_count, "register_users": users_count, "products": products_count,
+                     "revenue": total_final_amount}]
         return overview
 
     def get_retail_order_overview(self):
