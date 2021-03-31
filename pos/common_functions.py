@@ -151,4 +151,4 @@ def create_user_shop_mapping(user, shop_id):
        shop_id of seller shop with user in UserMappedShop
     """
     if not UserMappedShop.objects.filter(user=user).exists():
-        UserMappedShop.objects.create(user=user, shop=shop_id)
+        UserMappedShop.objects.create(user=user, shop_id=shop_id)

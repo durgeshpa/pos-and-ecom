@@ -4,7 +4,7 @@ from django.conf.urls import url
 from pos.models import RetailerProduct, RetailerProductImage, Payment
 from pos.views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload
-from pos.forms import RetailerProductsAdmin
+from pos.forms import RetailerProductsForm
 
 
 class RetailerProductImageAdmin(admin.TabularInline):
@@ -17,7 +17,7 @@ class RetailerProductImageAdmin(admin.TabularInline):
 
 
 class RetailerProductAdmin(admin.ModelAdmin):
-    form = RetailerProductsAdmin
+    form = RetailerProductsForm
     list_display = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'linked_product', 'description',
                     'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
