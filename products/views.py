@@ -1817,10 +1817,24 @@ def FetchProductDdetails(request):
     if not product_id:
         return JsonResponse(data)
     def_product = Product.objects.filter(pk=product_id).last()
+    selling_price = None
+    selling_price_per_saleable_unit = None
     if def_product:
+        is_ptr_applicable = def_product.parent_product.is_ptr_applicable
+        case_size = def_product.parent_product.inner_case_size
+        if is_ptr_applicable:
+            ptr_percent = def_product.parent_product.ptr_percent
+            ptr_type = def_product.parent_product.ptr_type
+            if ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_UP:
+                selling_price = def_product.product_mrp/(1+(ptr_percent/100))
+            elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
+                selling_price = def_product.product_mrp(1-(ptr_percent/100))
+            selling_price_per_saleable_unit = round(selling_price*case_size)
         data = {
             'found': True,
-            'product_mrp': def_product.product_mrp
+            'product_mrp': def_product.product_mrp,
+            'selling_price_per_piece' : selling_price,
+            'selling_price_per_saleable_unit' : selling_price_per_saleable_unit
         }
 
     return JsonResponse(data)

@@ -534,14 +534,20 @@ LOGGING = {
        # },
        'file-info': {
            'level': 'INFO',
-           'class': 'logging.FileHandler',
+           'class': 'logging.handlers.TimedRotatingFileHandler',
            'filename': '/var/log/retailer-backend/info.log',
+           'when': 'D',  # this specifies the interval
+           'interval': 1,  # defaults to 1, only necessary for other values
+           'backupCount': 10, # how many backup file to keep, 10 days
            'formatter': 'verbose',
        },
        'file-error': {
            'level': 'ERROR',
-           'class': 'logging.FileHandler',
+           'class': 'logging.handlers.TimedRotatingFileHandler',
            'filename': '/var/log/retailer-backend/error.log',
+           'when': 'D',  # this specifies the interval
+           'interval': 1,  # defaults to 1, only necessary for other values
+           'backupCount': 10, # how many backup file to keep, 10 days
            'formatter': 'verbose',
        },
        # 'console': {
@@ -550,8 +556,11 @@ LOGGING = {
        # },
         'cron_log_file': {
              'level': 'INFO',
-             'class': 'logging.FileHandler',
+             'class': 'logging.handlers.TimedRotatingFileHandler',
              'filename': '/var/log/retailer-backend/scheduled_jobs.log',
+             'when': 'D',  # this specifies the interval
+             'interval': 1,  # defaults to 1, only necessary for other values
+             'backupCount': 10, # how many backup file to keep, 10 days
              'formatter': 'verbose'
          },
 
