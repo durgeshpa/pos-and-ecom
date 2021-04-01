@@ -25,7 +25,7 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         fields = (
             'phone_number', 'action', 'app_type'
         )
-    action = serializers.CharField(required=False)
+    action = serializers.IntegerField(required=False)
     app_type = serializers.IntegerField(required=False)
 
     def validate(self, attrs):
@@ -36,7 +36,7 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         action = attrs.get('action')
         app_type = attrs.get('app_type')
         user = UserModel.objects.filter(phone_number=number)
-        if action != 'login':
+        if action != 1:
             if user.exists():
                 raise serializers.ValidationError("User already exists! Please login")
         elif not user.exists():

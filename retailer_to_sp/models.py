@@ -970,6 +970,8 @@ class Order(models.Model):
     PICKING_COMPLETE = 'picking_complete'
     PICKING_ASSIGNED = 'PICKING_ASSIGNED'
     PICKUP_CREATED = 'PICKUP_CREATED'
+    PARTIALLY_REFUNDED = 'partially_refunded'
+    FULLY_REFUNDED = 'fully_refunded'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),  # 1
@@ -998,6 +1000,8 @@ class Order(models.Model):
         (PICKING_COMPLETE, 'Picking Complete'),
         (PICKING_ASSIGNED, 'Picking Assigned'),
         (PICKUP_CREATED, 'Pickup Created'),
+        (PARTIALLY_REFUNDED, 'Partially Refunded'),
+        (FULLY_REFUNDED, 'Fully Refunded')
     )
 
     CASH_NOT_AVAILABLE = 'cna'
@@ -1941,6 +1945,7 @@ class OrderedProductMapping(models.Model):
         null=True, on_delete=models.DO_NOTHING
     )
     product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     shipped_qty = models.PositiveIntegerField(default=0, verbose_name="Shipped Pieces")
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
@@ -2693,6 +2698,46 @@ class Feedback(models.Model):
     comment = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.BooleanField(default=False)
+
+
+class OrderReturn(models.Model):
+    RETURN_STATUS = (
+        ('created', "Created"),
+        ('completed', "Completed")
+    )
+    WRONG_ORDER = 'wo'
+    ITEM_MISS_MATCH = 'imm'
+    DAMAGED_ITEM = 'di'
+    NEAR_EXPIRY = 'ne'
+    MANUFACTURING_DEFECT = 'md'
+    RETURN_REASON = (
+        (WRONG_ORDER, 'Wrong Order'),
+        (ITEM_MISS_MATCH, 'Item miss match'),
+        (DAMAGED_ITEM, 'Damaged item'),
+        (NEAR_EXPIRY, 'Near Expiry'),
+        (MANUFACTURING_DEFECT, 'Manufacturing Defect'),
+    )
+    order = models.ForeignKey(Order, related_name='rt_return_order', on_delete=models.DO_NOTHING)
+    processed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING)
+    order_offers = JSONField(null=True, blank=True)
+    free_qty_map = JSONField(null=True, blank=True)
+    return_reason = models.CharField(
+        max_length=50, choices=RETURN_REASON,
+        null=True, blank=True, verbose_name='Reason for Return',
+    )
+    refund_amount = models.FloatField(default=0)
+    status = models.CharField(max_length=200, choices=RETURN_STATUS, default='created')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
+class ReturnItems(models.Model):
+    return_id = models.ForeignKey(OrderReturn, related_name='rt_return_list', on_delete=models.DO_NOTHING)
+    ordered_product = models.OneToOneField(OrderedProductMapping, related_name='rt_return_ordered_product',
+                                        on_delete=models.DO_NOTHING)
+    return_qty = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
 
 def update_full_part_order_status(shipment):

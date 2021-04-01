@@ -419,7 +419,7 @@ class BasicCartOffers(object):
                 Cart.objects.filter(pk=cart.id).update(offers=offers)
                 return {'applied': True, 'offers_list': offers}
             else:
-                return {'error': 'Please provide spot discount less than cart value'}
+                return {'error': 'Please Provide Spot Discount Less Than Cart Value'}
         else:
             return {'error': 'No Products In Cart Yet!'}
 
