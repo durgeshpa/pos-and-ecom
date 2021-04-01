@@ -264,13 +264,7 @@ class BasicCartOffers(object):
             offer = BasicCartOffers.get_offer_cart_coupon(coupon)
             # When cart qualifies for coupon
             if cart_value >= coupon['cart_minimum_value']:
-                if not coupon['is_percentage']:
-                    discount = coupon['discount']
-                else:
-                    if float(coupon['max_discount']) == 0 or float(coupon['max_discount']) > (float(coupon['discount']) / 100) * cart_value:
-                        discount = round((float(coupon['discount']) / 100) * cart_value, 2)
-                    else:
-                        discount = coupon['max_discount']
+                discount = BasicCartOffers.discount_value(offer, cart_value)
                 offer['discount_value'] = discount
                 offer['applicable'] = 1
                 if coupon_id == coupon['id']:
@@ -434,7 +428,6 @@ class BasicCartOffers(object):
         """
         discount_value = round((spot_discount / 100) * float(current_amount), 2) if is_percentage else spot_discount
         if current_amount >= discount_value:
-            print("herree")
             offer = BasicCartOffers.get_offer_spot_discount(is_percentage, spot_discount, discount_value)
             order_return.refund_amount = refund_amount_raw + spot_discount
             order_return.offers = [offer]
@@ -462,6 +455,18 @@ class BasicCartOffers(object):
                 order_return.save()
                 break
         return offers_list
+
+    @classmethod
+    def discount_value(cls, offer, cart_value):
+        if not offer['is_percentage']:
+            discount = offer['discount']
+        else:
+            if float(offer['max_discount']) == 0 or float(offer['max_discount']) > (
+                    float(offer['discount']) / 100) * float(cart_value):
+                discount = round((float(offer['discount']) / 100) * float(cart_value), 2)
+            else:
+                discount = offer['max_discount']
+        return discount
 
 
 def create_es_index(index):

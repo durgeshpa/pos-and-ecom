@@ -2171,26 +2171,11 @@ class OrderReturns(APIView):
         # previous offer on order
         order_offer = {}
         applied_offers = order.ordered_cart.offers
-        discount = 0
         if applied_offers:
             for offer in applied_offers:
                 if offer['coupon_type'] == 'cart' and offer['applied']:
-                    if offer['sub_type'] == 'set_discount':
-                        if offer['cart_minimum_value'] <= new_cart_value:
-                            if not offer['is_percentage']:
-                                discount = offer['discount']
-                            else:
-                                if float(offer['max_discount']) == 0 or float(offer['max_discount']) > (
-                                        float(offer['discount']) / 100) * float(new_cart_value):
-                                    discount = round((float(offer['discount']) / 100) * float(new_cart_value), 2)
-                                else:
-                                    discount = offer['max_discount']
-                            offer['discount_value'] = discount
-                            order_offer = offer
-                    if offer['sub_type'] == 'spot_discount':
-                        if offer['discount_value'] <= new_cart_value:
-                            discount = offer['discount_value']
-                            order_offer = offer
+                    order_offer = self.modify_applied_cart_offer(offer, new_cart_value)
+        discount = order_offer['discount_value'] if order_offer else 0
         refund_amount = round(float(order.total_final_amount) - float(new_cart_value) + discount, 2)
         refund_amount_provided = self.request.data.get('refund_amount')
         if refund_amount_provided and refund_amount_provided <= refund_amount:
@@ -2198,6 +2183,19 @@ class OrderReturns(APIView):
         order_return.refund_amount = refund_amount
         order_return.offers = [order_offer] if order_offer else []
         order_return.save()
+
+    def modify_applied_cart_offer(self, offer, new_cart_value):
+        """
+            Modify cart discount according to new cart value on returns
+        """
+        order_offer = {}
+        if offer['sub_type'] == 'set_discount' and offer['cart_minimum_value'] <= new_cart_value:
+            discount = BasicCartOffers.discount_value(offer, new_cart_value)
+            offer['discount_value'] = discount
+            order_offer = offer
+        if offer['sub_type'] == 'spot_discount' and offer['discount_value'] <= new_cart_value:
+            order_offer = offer
+        return order_offer
 
     def get_combo_offers(self, order):
         """
