@@ -917,6 +917,7 @@ class CouponRuleSetSerializers(serializers.ModelSerializer):
     class Meta:
         model = CouponRuleSet
         fields = ('is_active', 'cart_qualifying_min_sku_value', 'discount',
+                  'free_product', 'free_product_qty',
                   'product_ruleset', 'coupon_ruleset',)
 
 
