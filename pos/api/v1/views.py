@@ -56,7 +56,6 @@ from pos.utils import MultipartJsonParser
 from pos.offers import BasicCartOffers
 
 
-
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -2909,6 +2908,9 @@ class CouponOfferCreation(GenericAPIView):
                 else:
                     msg = serializer_error(serializer)
                     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+            elif int(rule_type) == 3:
+                pass
         else:
             msg = {'is_success': False, 'error_message': f"There is no shop available with (shop id : {shop_id}) ",
                    'response_data': None}
@@ -2973,6 +2975,10 @@ class CouponOfferCreation(GenericAPIView):
                 else:
                     msg = serializer_error(serializer)
                     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+            if int(rule_type) == 3:
+                pass
+
         else:
             msg = {'is_success': False, 'error_message': f"There is no shop available with (shop id : {shop_id})",
                    'response_data': None}
