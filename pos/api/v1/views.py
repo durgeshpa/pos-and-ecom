@@ -3199,7 +3199,7 @@ class CouponOfferCreation(GenericAPIView):
             return msg, status_code
 
         # creating Coupon with coupon_type(cart)
-        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', ruleset_name, ruleset_name,
+        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', ruleset_name, ruleset_name,
                                         shop, start_date, expiry_date)
         msg = {"is_success": True, "message": "Free Product Offer has been successfully created!",
                "response_data": serializer.data}
