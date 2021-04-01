@@ -272,7 +272,7 @@ class CatalogueProductCreation(GenericAPIView):
                                 # delete image from product
                                 product_image_id.delete()
                             except ObjectDoesNotExist:
-                                return get_response(f"Image Does Not Exist with this image id {product_image_id}")
+                                return get_response(f"Image Does Not Exist with this image id {id}")
 
                     if product_images:
                         # If product_image_data in request
