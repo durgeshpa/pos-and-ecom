@@ -12,7 +12,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
-from django.db.models import Value, Case, When, F
+from django.db.models import Value, Case, When, F, Q
 from django.db import transaction
 from model_utils import Choices
 
@@ -27,8 +27,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
-                             ParentProductCategory, PriceSlab)
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+                             ParentProductCategory, PriceSlab, SlabProductPrice)
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
 from wms.models import InventoryType, WarehouseInventory, InventoryState
@@ -2082,9 +2081,9 @@ class SlabInlineFormSet(BaseInlineFormSet):
         for form in self.forms:
             slab_data = form.cleaned_data
 
-            if slab_data.get('start_value') is None:
+            if slab_data.get('start_value') is None or slab_data.get('start_value') <= 0:
                 raise ValidationError("Slab Start Value is Invalid")
-            elif slab_data.get('end_value') is None:
+            elif slab_data.get('end_value') is None or slab_data.get('end_value') < 0:
                 raise ValidationError("Slab End Value is Invalid")
             elif form.prefix != 'price_slabs-0':
                 if slab_data['start_value'] <= last_slab_end_value:
@@ -2103,3 +2102,62 @@ class SlabInlineFormSet(BaseInlineFormSet):
             last_slab_end_value = slab_data['end_value']
             last_slab_selling_price = slab_data['selling_price']
 
+
+class UploadSlabProductPriceForm(forms.Form):
+    """
+    Upload SLab Product Prices Form
+    """
+    file = forms.FileField(label='Upload Slab Product Prices')
+
+    class Meta:
+        model = SlabProductPrice
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        for row_id, row in enumerate(reader):
+            if len(row) == 0:
+                continue
+            if row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' \
+                    and row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == '':
+                continue
+            product = Product.objects.filter(product_sku=row[0], status='active').last()
+            if not row[0] or product is None:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
+            is_ptr_applicable = product.parent_product.is_ptr_applicable
+            if is_ptr_applicable:
+                ptr_percent = product.parent_product.ptr_percent
+                ptr_type = product.parent_product.ptr_type
+                if ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_UP:
+                    selling_price = product.product_mrp / (1 + (ptr_percent / 100))
+                elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
+                    selling_price = product.product_mrp(1 - (ptr_percent / 100))
+                case_size = product.parent_product.inner_case_size
+                selling_price_per_saleable_unit = round(selling_price * case_size, 2)
+            else:
+                selling_price_per_saleable_unit = float(row[6])
+
+            if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))
+            elif not row[5] or row[5] == 0:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Quantity'"))
+
+            if not selling_price_per_saleable_unit or selling_price_per_saleable_unit == 0 \
+                    or selling_price_per_saleable_unit > float(product.product_mrp):
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price'"))
+            elif row[7] and float(row[7]) >= selling_price_per_saleable_unit:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
+            elif row[7] and row[8] > datetime.datetime.today().date() or row[9] < datetime.datetime.today().date():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
+            elif not row[10] or row[10] <= row[5]:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
+            elif not row[11] or row[11] >= selling_price_per_saleable_unit:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
+            elif row[12] and row[12] >= row[11]:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
+            elif row[12] and row[13] > datetime.datetime.today().date() or row[14] < datetime.datetime.today().date():
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
+        return self.cleaned_data['file']
