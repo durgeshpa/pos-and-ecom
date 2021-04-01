@@ -13,7 +13,7 @@ from products.models import Product
 from shops.models import Shop
 
 
-class RetailerProductsAdmin(forms.ModelForm):
+class RetailerProductsForm(forms.ModelForm):
     linked_product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(

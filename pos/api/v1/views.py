@@ -894,11 +894,10 @@ class CartCentral(APIView):
         search_text = self.request.GET.get('search_text')
         carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending']).\
             order_by('-modified_at')
-
         if search_text:
-            carts = carts.filter(Q(order_id__icontains=search_text) |
-                                 Q(buyer__phone_number__icontains=search_text) |
+            carts = carts.filter(Q(buyer__phone_number__icontains=search_text) |
                                  Q(id__icontains=search_text))
+
         """
             Pagination on Cart List
         """
@@ -2164,7 +2163,7 @@ class OrderedItemCentralDashBoard(APIView):
         """
             Get Order, Product & User Counts(Overview)
             Inputs
-            cart_type
+            app_type
             shop_id for retail(Buyer shop id)
 
         """
@@ -2220,7 +2219,7 @@ class OrderedItemCentralDashBoard(APIView):
         # get total products for shop_id
         products = RetailerProduct.objects.filter(shop=shop_id)
         # get total users registered with shop_id
-        users = UserMappedShop.objects.filter(shop=shop_id)
+        users = UserMappedShop.objects.filter(shop_id=shop_id)
 
         if order_status:
             order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
