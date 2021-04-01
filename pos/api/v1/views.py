@@ -2883,7 +2883,7 @@ class CouponOfferCreation(GenericAPIView):
                         with transaction.atomic():
                             msg, status_code = self.create_coupon(request, serializer, shop_id)
                             return Response(msg, status=status_code.get("status_code"))
-                    except:
+                    except Exception as e:
                         msg = {"is_success": False, "message": "Something went wrong",
                                "response_data": serializer.data}
                         return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
@@ -3080,11 +3080,18 @@ class CouponOfferCreation(GenericAPIView):
         else:
             discount_obj = DiscountValue.objects.create(discount_value=discount_value)
         # creating CouponRuleSet
-        coupon_obj = OffersCls.rule_set_creation(coupon_name, start_date, expiry_date, discount_amount,
+        coupon_name_with_shop_id = f"{shop_id}_on Spending {discount_amount} get {discount_value} Off"
+        coupon_obj = OffersCls.rule_set_creation(coupon_name_with_shop_id, start_date, expiry_date, discount_amount,
                                                  discount_obj)
+        if type(coupon_obj) == str:
+            msg = {"is_success": False, "message": coupon_obj,
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
 
+        coupon_code = f"Get {discount_value} OFF on Spending {discount_amount} Rs"
         # creating Coupon with coupon_type(cart)
-        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_name,
+        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_code,
                                         shop, start_date, expiry_date)
         msg = {"is_success": True, "message": "Coupon has been successfully created!",
                "response_data": serializer.data}
@@ -3252,7 +3259,7 @@ class CouponOfferCreation(GenericAPIView):
             status_code = {"status_code": 404}
             return msg, status_code
 
-        coupon_ruleset = CouponRuleSet.objects.get(rulename=coupon.coupon_name)
+        coupon_ruleset = CouponRuleSet.objects.get(id=coupon.rule.id)
         discount = DiscountValue.objects.get(id=coupon_ruleset.discount.id)
         expected_input_data_list = ['id', 'coupon_name', 'discount_qty_amount', 'discount_value', 'start_date',
                                     'expiry_date', 'is_active', 'is_percentage', 'max_discount']
@@ -3263,15 +3270,23 @@ class CouponOfferCreation(GenericAPIView):
 
         if 'coupon_name' in actual_input_data_list:
             # If coupon_name in actual_input_data_list
-            coupon_ruleset.rulename = request.data.get('coupon_name')
-            coupon.coupon_name = request.data.get('coupon_name')
-            coupon.coupon_code = request.data.get('coupon_name')
+            coupon_name = request.data.get('coupon_name')
+            coupon.coupon_name = coupon_name
+
         if 'discount_qty_amount' in actual_input_data_list:
             # If discount_qty_amount in actual_input_data_list
-            coupon_ruleset.cart_qualifying_min_sku_value = request.data.get('discount_qty_amount')
+            discount_amount = request.data.get('discount_qty_amount')
+            coupon_ruleset.cart_qualifying_min_sku_value = discount_amount
+            coupon_ruleset.rulename = f"{shop_id}_on Spending {discount_amount} get {discount.discount_value} Off"
+            coupon.coupon_code = f"Get {discount.discount_value} OFF on Spending {discount_amount} Rs"
+
         if 'discount_value' in actual_input_data_list:
             # If discount_qty_amount in actual_input_data_list
-            discount.discount_value = request.data.get('discount_value')
+            discount_value = request.data.get('discount_value')
+            discount.discount_value = discount_value
+            coupon_ruleset.rulename = f"{shop_id}_on Spending {coupon_ruleset.cart_qualifying_min_sku_value} get {discount_value} Off"
+            coupon.coupon_code = f"Get {discount_value} OFF on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
+
         if 'is_percentage' in actual_input_data_list:
             # If discount_qty_amount in actual_input_data_list
             discount.is_percentage = request.data.get('is_percentage')
