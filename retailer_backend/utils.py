@@ -1,3 +1,4 @@
+from datetime import datetime
 
 from rest_framework.pagination import LimitOffsetPagination
 
@@ -55,3 +56,36 @@ def dhms_from_seconds(seconds):
     hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)
     return (days, hours, minutes, seconds)
+
+def isDateValid(date, pattern="%Y-%m-%d"):
+    """
+    Validates if given string is of date format provided
+    """
+    try:
+        datetime.strptime(date, pattern)
+        return True
+    except ValueError:
+        return False
+
+
+def getStrToDate(date, pattern="%Y-%m-%d"):
+    """
+    Converts string to date instance in the format provided
+    Returns false if string is not a valid date
+    """
+    try:
+        return datetime.strptime(date, pattern).date()
+    except ValueError:
+        return False
+
+
+def isBlankRow(row, row_length):
+    """
+    Validates if a given CSV row of given length is blank
+    """
+    column_no = 0
+    while column_no < row_length:
+        if row[column_no].strip() != '':
+            return False
+        column_no = column_no+1
+    return True
