@@ -356,7 +356,7 @@ class OrderReturnSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderReturn
-        fields = ('id', 'return_reason', 'refund_amount', 'status')
+        fields = ('id', 'return_reason', 'refund_amount', 'status', 'offers')
 
 
 class BasicOrderProductDetailSerializer(serializers.ModelSerializer):

@@ -296,10 +296,12 @@ class CartCheckout(APIView):
     def post(self, request):
         """
             Checkout
-            Apply Any Available Cart Offer
+            Apply Any Available Cart Offer - Either coupon or spot discount
             Inputs
             cart_id
             coupon_id
+            spot_discount
+            is_percentage (spot discount type)
         """
         # Input validation
         initial_validation = self.post_validate()
@@ -332,7 +334,7 @@ class CartCheckout(APIView):
         offers = BasicCartOffers.refresh_offers(cart, auto_apply)
         if 'error' in offers:
             return get_response(offers['error'])
-        return get_response("Cart Checkout", self.serialize(cart, offers['total_offers']))
+        return get_response("Cart Checkout", self.serialize(cart, offers['total_offers'], offers['spot_discount']))
 
     def delete(self, request):
         """
@@ -392,7 +394,7 @@ class CartCheckout(APIView):
             return {'error': "Cart Does Not Exist / Already Closed"}
         return {'cart': cart}
 
-    def serialize(self, cart, offers=None):
+    def serialize(self, cart, offers=None, spot_discount=None):
         """
             Checkout serializer
             Payment Info plus Offers
@@ -401,6 +403,8 @@ class CartCheckout(APIView):
         response = serializer.data
         if offers:
             response['available_offers'] = offers
+        if spot_discount:
+            response['spot_discount'] = spot_discount
         return response
 
 
@@ -633,7 +637,7 @@ class CartCentral(APIView):
             return {'error': "Shop Doesn't Exist!"}
         try:
             cart = Cart.objects.get(seller_shop=shop, cart_type='BASIC',
-                                    id=self.request.GET.get('cart_id'), cart_status__in=['active', 'pending'])
+                                    id=self.request.GET.get('cart_id'), )
         except ObjectDoesNotExist:
             return {'error': "Cart Not Found!"}
         return {'shop': shop, 'cart': cart}
@@ -2086,7 +2090,7 @@ class OrderReturns(APIView):
         return_reason = initial_validation['return_reason']
         with transaction.atomic():
             # map all products to combo offers in cart
-            product_combo_map = self.get_offers(order)
+            product_combo_map = self.get_combo_offers(order)
             # initiate / update return for order
             order_return = self.update_return(order, return_reason)
             # To map free products to their return quantity
@@ -2128,12 +2132,7 @@ class OrderReturns(APIView):
                 if id not in given_products:
                     return get_response("Please provide product {}".format(id) + " in return items")
             # check and update refund amount
-            refund_amount = float(order.total_final_amount) - float(new_cart_value)
-            refund_amount_given = self.request.data.get('refund_amount')
-            if refund_amount_given and refund_amount_given <= refund_amount:
-                refund_amount = refund_amount_given
-            order_return.refund_amount = refund_amount
-            order_return.save()
+            self.update_refund_amount(order, new_cart_value, order_return)
             self.process_free_products(ordered_product, order_return, free_returns)
             order_return.free_qty_map = free_qty_product_map
             order_return.save()
@@ -2162,7 +2161,45 @@ class OrderReturns(APIView):
             return {'error': 'Provide a valid return reason'}
         return {'order': order, 'return_reason': return_reason, 'return_items': return_items}
 
-    def get_offers(self, order):
+    def update_refund_amount(self, order, new_cart_value, order_return):
+        """
+            Calculate refund amount
+            Check offers applied on order
+            Remove coupon if new cart value does not qualify for offer
+            Remove spot discount if discount exceeds new cart value
+        """
+        # previous offer on order
+        order_offer = {}
+        applied_offers = order.ordered_cart.offers
+        discount = 0
+        if applied_offers:
+            for offer in applied_offers:
+                if offer['coupon_type'] == 'cart' and offer['applied']:
+                    if offer['sub_type'] == 'set_discount':
+                        if offer['cart_minimum_value'] <= new_cart_value:
+                            if not offer['is_percentage']:
+                                discount = offer['discount']
+                            else:
+                                if float(offer['max_discount']) == 0 or float(offer['max_discount']) > (
+                                        float(offer['discount']) / 100) * float(new_cart_value):
+                                    discount = round((float(offer['discount']) / 100) * float(new_cart_value), 2)
+                                else:
+                                    discount = offer['max_discount']
+                            offer['discount_value'] = discount
+                            order_offer = offer
+                    if offer['sub_type'] == 'spot_discount':
+                        if offer['discount_value'] <= new_cart_value:
+                            discount = offer['discount_value']
+                            order_offer = offer
+        refund_amount = round(float(order.total_final_amount) - float(new_cart_value) + discount, 2)
+        refund_amount_provided = self.request.data.get('refund_amount')
+        if refund_amount_provided and refund_amount_provided <= refund_amount:
+            refund_amount = refund_amount_provided
+        order_return.refund_amount = refund_amount
+        order_return.offers = [order_offer] if order_offer else []
+        order_return.save()
+
+    def get_combo_offers(self, order):
         """
             Get combo offers mapping with product purchased
         """
@@ -2264,8 +2301,73 @@ class OrderReturnsCheckout(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
-        # offers apply etc
-        pass
+        """
+            Apply Any Available Applicable Offer - Either coupon or spot discount
+            Inputs
+            cart_id
+            coupon_id
+            spot_discount
+            is_percentage (spot discount type)
+        """
+        initial_validation = self.post_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        order_return = initial_validation['order_return']
+        # initial order amount
+        received_amount = order.total_final_amount
+        # refund amount according to any previous offer applied
+        refund_amount = order_return.refund_amount
+        applied_offers = order_return.offers
+        discount_given = 0
+        if applied_offers:
+            for offer in applied_offers:
+                if offer['coupon_type'] == 'cart' and offer['applied']:
+                    discount_given += offer['discount_value']
+        # refund amount without any offer
+        refund_amount_raw = refund_amount - discount_given
+        # new order amount when no discount is applied
+        current_amount = received_amount - refund_amount_raw
+        # Check spot discount or cart offer
+        spot_discount = self.request.data.get('spot_discount')
+        offers_list = dict()
+        offers_list['applied'] = False
+        if spot_discount:
+            offers = BasicCartOffers.apply_spot_discount_returns(spot_discount, self.request.data.get('is_percentage'),
+                                                                 current_amount, order_return, refund_amount_raw)
+        else:
+            offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw,
+                                                            self.request.data.get('coupon_id'))
+        if 'error' in offers:
+            return get_response(offers['error'])
+        return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(order))
+
+    def post_validate(self):
+        """
+            Validate returns checkout offers apply
+        """
+        # check shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {"error": "Shop Doesn't Exist!"}
+        # check order
+        order_id = self.request.data.get('order_id')
+        try:
+            order = Order.objects.get(pk=order_id, seller_shop_id=shop_id)
+        except ObjectDoesNotExist:
+            return {'error': "Order Does Not Exist"}
+        # check if return created
+        try:
+            order_return = OrderReturn.objects.get(order=order, status='created')
+        except ObjectDoesNotExist:
+            return {'error': "Order Return Created Does Not Exist"}
+        if not self.request.data.get('coupon_id') and not self.request.data.get('spot_discount'):
+            return {'error': "Provide Coupon Id/Spot Discount"}
+        if self.request.data.get('coupon_id') and self.request.data.get('spot_discount'):
+            return {'error': "Provide either of coupon_id or spot_discount"}
+        if self.request.data.get('spot_discount') and self.request.data.get('is_percentage') not in [0, 1]:
+            return {'error': "Provide a valid spot discount type"}
+        return {'order': order, 'order_return': order_return}
 
     def get(self, request):
         """
@@ -2276,8 +2378,27 @@ class OrderReturnsCheckout(APIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         order = initial_validation['order']
-        # get available offers etc
-        return get_response("Return Checkout", self.serialize(order))
+        order_return = initial_validation['order_return']
+        # get available offers
+        # Get coupons available on cart from es
+        # initial order amount
+        received_amount = order.total_final_amount
+        # refund amount according to any previous offer applied
+        refund_amount = order_return.refund_amount
+        applied_offers = order_return.offers
+        discount_given = 0
+        if applied_offers:
+            for offer in applied_offers:
+                if offer['coupon_type'] == 'cart' and offer['applied']:
+                    discount_given += offer['discount_value']
+        # refund amount without any offer
+        refund_amount_raw = refund_amount - discount_given
+        # new order amount when no discount is applied
+        current_amount = received_amount - refund_amount_raw
+        offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw)
+        if 'error' in offers:
+            return get_response(offers['error'])
+        return get_response("Return Checkout", self.serialize(order, offers['total_offers'], offers['spot_discount']))
 
     def get_validate(self):
         """
@@ -2301,12 +2422,50 @@ class OrderReturnsCheckout(APIView):
             return {'error': "Order Return Created Does Not Exist / Already Closed"}
         return {'order': order, 'order_return': order_return}
 
-    def serialize(self, order):
+    def delete(self, request):
+        """
+            Order return checkout
+            Delete any applied offers
+        """
+        # Check shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return get_response("Shop Doesn't Exist!")
+        # check order
+        order_id = self.request.GET.get('order_id')
+        try:
+            order = Order.objects.get(pk=order_id, seller_shop_id=shop_id)
+        except ObjectDoesNotExist:
+            return get_response("Order Does Not Exist")
+        # check if return created
+        try:
+            order_return = OrderReturn.objects.get(order=order)
+        except ObjectDoesNotExist:
+            return {'error': "Order Return Does Not Exist"}
+        refund_amount = order_return.refund_amount
+        applied_offers = order_return.offers
+        discount_given = 0
+        if applied_offers:
+            for offer in applied_offers:
+                if offer['coupon_type'] == 'cart' and offer['applied']:
+                    discount_given += offer['discount_value']
+        refund_amount = refund_amount - discount_given
+        order_return.offers = []
+        order_return.refund_amount = refund_amount
+        order_return.save()
+        return get_response("Deleted Successfully", [], True)
+
+    def serialize(self, order, offers=None, spot_discount=None):
         """
             Checkout serializer
         """
         serializer = OrderReturnCheckoutSerializer(order)
-        return serializer.data
+        response = serializer.data
+        if offers:
+            response['available_offers'] = offers
+        if spot_discount:
+            response['spot_discount'] = spot_discount
+        return response
 
 
 class OrderReturnComplete(APIView):
