@@ -3090,7 +3090,7 @@ class CouponOfferCreation(GenericAPIView):
                                                        retailer_primary_product=retailer_primary_product_obj,
                                                        rule__coupon_ruleset__is_active=True)
         if ruleset:
-            msg = {"is_success": False, "message": f"Offer already exist for {retailer_primary_product_obj.sku} ",
+            msg = {"is_success": False, "message": f"Offer already exist for SKU {retailer_primary_product_obj.sku} ",
                    "response_data": serializer.data}
             status_code = {"status_code": 404}
             return msg, status_code
