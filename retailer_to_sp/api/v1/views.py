@@ -764,6 +764,7 @@ class CartDetail(APIView):
                             CartProductMapping.objects.filter(cart__id=cart.id,
                                                               cart_product__id=i.cart_product.id).delete()
 
+
                     serializer = CartSerializer(
                         Cart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,

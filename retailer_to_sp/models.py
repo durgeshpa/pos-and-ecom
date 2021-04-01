@@ -914,7 +914,7 @@ class CartProductMapping(models.Model):
 
         item_effective_price = 0
         if self.cart_product_price is None:
-            return 0
+            self.get_cart_product_price(self.cart.seller_shop_id, self.cart.buyer_shop_id)
 
         item_effective_price = self.cart_product_price.get_PTR(qty)
 
