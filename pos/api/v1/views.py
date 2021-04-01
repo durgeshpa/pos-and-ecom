@@ -51,7 +51,6 @@ from .serializers import BasicCartSerializer, BasicOrderSerializer, CheckoutSeri
     RetailerProductImageDeleteSerializers
 
 from pos.offers import BasicCartOffers
-
 from pos.utils import MultipartJsonParser
 from pos.models import RetailerProduct, UserMappedShop, Payment, PAYMENT_MODE
 from pos.common_functions import get_response, delete_cart_mapping, order_search, create_user_shop_mapping, get_shop_id_from_token
@@ -184,7 +183,7 @@ class CatalogueProductCreation(GenericAPIView):
                 data = RetailerProduct.objects.values('id', 'shop__shop_name', 'name', 'sku', 'mrp', 'selling_price',
                                                       'description', 'sku_type', 'product_ean_code',
                                                       'linked_product__product_name', 'created_at',
-                                                      'modified_at', 'status').filter(id=product.id)
+                                                      'modified_at', 'status', 'retailer_product_image').filter(id=product.id)
                 response_serializer = RetailerProductResponseSerializer(instance=data[0])
                 message = {"is_success": True, "message": "Product has been successfully created!",
                            "response_data": response_serializer.data}
