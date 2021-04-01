@@ -49,10 +49,10 @@ function getProductDetails() {
         success: function (data) {
             if(data.found === true){
                 document.getElementById('id_mrp').value = data.product_mrp;
-                if(data.selling_price == null){
+                if(data.selling_price_per_saleable_unit == null){
                     document.getElementById('id_price_slabs-0-selling_price').readOnly = false
                 }else{
-                    document.getElementById('id_price_slabs-0-selling_price').value = data.selling_price_per_piece;
+                    document.getElementById('id_price_slabs-0-selling_price').value = data.selling_price_per_saleable_unit;
                 }
             }
             return true;
@@ -67,8 +67,7 @@ function getProductDetails() {
 }
 
 (function($) {
-    $(function() {
-
+    $(document).ready(function() {
         var ptr_percent = $('.field-ptr_percent'),
             ptr_type = $('.field-ptr_type');
 

@@ -2,14 +2,13 @@ from decimal import Decimal
 
 from rest_framework import serializers
 from django.db.models import Q
-from django.urls import reverse
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
-from django.db.models import Sum
 
 from products.models import Product, ProductImage
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, OrderedProductMapping
 from accounts.api.v1.serializers import UserSerializer, UserPhoneSerializer
+from pos.common_functions import get_invoice_and_link
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -215,18 +214,6 @@ class BasicCartSerializer(serializers.ModelSerializer):
         return round(sub_total, 2)
 
 
-class BasicOrderedProductSerializer(serializers.ModelSerializer):
-    invoice_link = serializers.SerializerMethodField('invoice_link_id')
-
-    def invoice_link_id(self, obj):
-        current_url = self.context.get("current_url", None)
-        return "{0}{1}".format(current_url, reverse('download_invoice_sp', args=[obj.pk]))
-
-    class Meta:
-        model = OrderedProduct
-        fields = ('order', 'invoice_no', 'invoice_link')
-
-
 class CheckoutSerializer(serializers.ModelSerializer):
     """
         Checkout Serializer - After products are added
@@ -356,7 +343,7 @@ class OrderReturnSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderReturn
-        fields = ('id', 'return_reason', 'refund_amount', 'status')
+        fields = ('id', 'return_reason', 'refund_amount', 'status', 'offers')
 
 
 class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
@@ -400,7 +387,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     ordered_by = UserSerializer()
     total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
     products = serializers.SerializerMethodField()
-    rt_order_order_product = BasicOrderedProductSerializer(many=True)
+    invoice = serializers.SerializerMethodField('invoice_dt')
     rt_return_order = OrderReturnSerializer(many=True)
 
     def get_products(self, obj):
@@ -453,10 +440,15 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                 discount += i['discount_value']
         return round(discount, 2)
 
+    def invoice_dt(self, obj):
+        if self.context.get("invoice", None):
+            return get_invoice_and_link(OrderedProduct.objects.get(order=obj), self.context.get("current_url", None))
+        return False
+
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'order_status', 'total_final_amount', 'total_discount_amount',
-                  'total_tax_amount', 'total_mrp_amount', 'products', 'rt_order_order_product', 'ordered_by', 'created_at',
+                  'total_tax_amount', 'total_mrp_amount', 'products', 'invoice', 'ordered_by', 'created_at',
                   'modified_at', 'rt_return_order')
 
 

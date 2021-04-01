@@ -234,11 +234,11 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     #product_pro_tax = ProductTaxMappingSerializer(many=True)
     product_opt_product = ProductOptionSerializer(many=True)
     #product_brand = BrandSerializer(read_only=True)
-    # product_price = serializers.SerializerMethodField('product_price_dt')
+    product_price = serializers.SerializerMethodField('product_price_dt')
     price_details = serializers.SerializerMethodField('m_slab_price')
-    # product_mrp = serializers.SerializerMethodField('product_mrp_dt')
+    product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
-    # margin = serializers.SerializerMethodField('margin_dt')
+    margin = serializers.SerializerMethodField('margin_dt')
     loyalty_discount = serializers.SerializerMethodField('loyalty_discount_dt')
     cash_discount = serializers.SerializerMethodField('cash_discount_dt')
 
@@ -248,17 +248,17 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
         serializer = SlabProductPriceSerializer(product_price)
         return serializer.data
 
-    # def product_price_dt(self, obj):
-    #     self.product_price = obj.get_current_shop_price(
-    #         self.context.get('parent_mapping_id'),
-    #         self.context.get('buyer_shop_id')).get_PTR(1)
-    #     return self.product_price
+    def product_price_dt(self, obj):
+        self.product_price = obj.get_current_shop_price(
+            self.context.get('parent_mapping_id'),
+            self.context.get('buyer_shop_id')).get_PTR(1)
+        return self.product_price
 
-    # def product_mrp_dt(self, obj):
-    #     self.product_mrp = obj.getMRP(
-    #         self.context.get('parent_mapping_id'),
-    #         self.context.get('buyer_shop_id'))
-    #     return self.product_mrp
+    def product_mrp_dt(self, obj):
+        self.product_mrp = obj.getMRP(
+            self.context.get('parent_mapping_id'),
+            self.context.get('buyer_shop_id'))
+        return self.product_mrp
 
     def product_case_size_picies_dt(self, obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
@@ -275,19 +275,20 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
             self.context.get('buyer_shop_id'))
         return self.cash_discount
 
-    # def margin_dt(self, obj):
-    #     if self.product_mrp:
-    #         return (((float(self.product_mrp) - self.product_price) / float(self.product_mrp)) * 100)
-    #     return False
+    def margin_dt(self, obj):
+        if self.product_mrp:
+            return (((float(self.product_mrp) - self.product_price) / float(self.product_mrp)) * 100)
+        return False
 
 
 
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description',
-                  'product_sku', 'product_ean_code','created_at','modified_at','status','product_pro_image',
-                  'product_opt_product', 'price_details', 'product_inner_case_size',
-                  'product_case_size','product_case_size_picies', 'loyalty_discount', 'cash_discount')
+                  'product_sku','product_mrp', 'price_details',
+                  'product_ean_code','created_at','modified_at','status','product_pro_image',
+                  'product_opt_product','product_price','product_inner_case_size','product_case_size','product_case_size_picies',
+                  'margin', 'loyalty_discount', 'cash_discount')
 
 class ProductDetailSerializer(serializers.ModelSerializer):
 
