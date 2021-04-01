@@ -23,22 +23,20 @@ from wms.common_functions import get_stock, OrderManagement
 from accounts.models import User
 from wms.models import InventoryType, OrderReserveRelease
 from products.models import Product
-from categories import models as categorymodel
 from retailer_to_sp.models import Cart, CartProductMapping, Order, check_date_range, capping_check, OrderedProduct, \
     OrderedProductMapping, OrderedProductBatch, OrderReturn, ReturnItems
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder)
 from shops.models import Shop
-from brand.models import Brand
 from gram_to_brand.models import (OrderedProductReserved as GramOrderedProductReserved, PickList)
 from sp_to_gram.models import OrderedProductReserved
 from addresses.models import Address
 from pos.models import RetailerProduct, UserMappedShop, Payment, PAYMENT_MODE
 from pos.common_functions import get_response, delete_cart_mapping, order_search
-from .serializers import ProductDetailSerializer, BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer, \
+from .serializers import BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer, \
     BasicOrderListSerializer, OrderedDashBoardSerializer, BasicCartListSerializer, OrderReturnCheckoutSerializer
 from pos.offers import BasicCartOffers
-from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
+from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token, get_invoice_and_link
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -1316,7 +1314,10 @@ class OrderCentral(APIView):
             return get_response("Please Provide A Valid Status To Update Order")
         # cancel order
         order.order_status = status
+        order.last_modified_by = self.request.user
         order.save()
+        # cancel shipment
+        OrderedProduct.objects.filter(order=order).update(shipment_status='CANCELLED', last_modified_by=self.request.user)
         return get_response("Order cancelled successfully!", [], True)
 
     def post(self, request):
@@ -1462,8 +1463,8 @@ class OrderCentral(APIView):
             # Update Cart To Ordered
             self.update_cart_basic(cart)
             order = self.create_basic_order(cart, shop)
-            self.auto_process_order(order, payment_method)
-            return get_response('Ordered Successfully!', self.post_serialize_process_basic(order))
+            invoice = self.auto_process_order(order, payment_method)
+            return get_response('Ordered Successfully!', self.post_serialize_process_basic(order, invoice))
 
     def get_retail_validate(self):
         """
@@ -1763,7 +1764,8 @@ class OrderCentral(APIView):
            Get Order
            Cart type basic
         """
-        serializer = BasicOrderSerializer(order, context={'current_url': self.request.get_host()})
+        serializer = BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
+                                                          'invoice': 1})
         return serializer.data
 
     def post_serialize_process_sp(self, order, parent_mapping):
@@ -1786,14 +1788,16 @@ class OrderCentral(APIView):
                                                                'current_url': self.request.get_host()})
         return serializer.data
 
-    def post_serialize_process_basic(self, order):
+    def post_serialize_process_basic(self, order, invoice=False):
         """
             Place Order
             Serialize retail order for sp shop
         """
         serializer = BasicOrderSerializer(Order.objects.get(pk=order.id),
                                           context={'current_url': self.request.get_host()})
-        return serializer.data
+        response = serializer.data
+        response['invoice'] = invoice
+        return response
 
     def auto_process_order(self, order, payment_method):
         """
@@ -1852,9 +1856,11 @@ class OrderCentral(APIView):
         # Invoice Number Generate
         shipment.shipment_status = OrderedProduct.READY_TO_SHIP
         shipment.save()
-        # TODO with returns
+        # Complete Shipment
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
+        invoice_data = get_invoice_and_link(shipment, self.request.get_host())
+        return invoice_data
 
 
 class OrderedItemCentralDashBoard(APIView):
@@ -2136,7 +2142,8 @@ class OrderReturns(APIView):
             self.process_free_products(ordered_product, order_return, free_returns)
             order_return.free_qty_map = free_qty_product_map
             order_return.save()
-        return get_response("Order Return", BasicOrderSerializer(order).data)
+        return get_response("Order Return", BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
+                                                                                 'invoice': 1}).data)
 
     def post_validate(self):
         """
@@ -2503,8 +2510,12 @@ class OrderReturnComplete(APIView):
 
             if initial_qty == return_qty:
                 order.order_status = Order.FULLY_REFUNDED
+                ordered_product.shipment_status = 'FULLY_RETURNED_AND_VERIFIED'
             else:
                 order.order_status = Order.PARTIALLY_REFUNDED
+                ordered_product.shipment_status = 'PARTIALLY_DELIVERED_AND_VERIFIED'
+            ordered_product.last_modified_by = self.request.user
+            ordered_product.save()
             order.last_modified_by = self.request.user
             order.save()
             # complete return
