@@ -1,6 +1,7 @@
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
+from django.urls import reverse
 
 from pos.models import RetailerProduct, UserMappedShop
 from retailer_to_sp.models import CartProductMapping
@@ -152,3 +153,12 @@ def create_user_shop_mapping(user, shop_id):
     """
     if not UserMappedShop.objects.filter(user=user).exists():
         UserMappedShop.objects.create(user=user, shop_id=shop_id)
+
+
+def get_invoice_and_link(shipment, host):
+    """
+        Return invoice no and link for shipment
+    """
+    invoice_no = shipment.invoice_no
+    invoice_link = "{0}{1}".format(host, reverse('download_invoice_sp', args=[shipment.id]))
+    return {'invoice_no': invoice_no, 'invoice_link': invoice_link}
