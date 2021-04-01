@@ -28,6 +28,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
                              ParentProductCategory, PriceSlab, SlabProductPrice)
+from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
 from wms.models import InventoryType, WarehouseInventory, InventoryState
@@ -2121,8 +2122,7 @@ class UploadSlabProductPriceForm(forms.Form):
         for row_id, row in enumerate(reader):
             if len(row) == 0:
                 continue
-            if row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' \
-                    and row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == '':
+            if isBlankRow(row, len(first_row)):
                 continue
             product = Product.objects.filter(product_sku=row[0], status='active').last()
             if not row[0] or product is None:
@@ -2150,14 +2150,20 @@ class UploadSlabProductPriceForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price'"))
             elif row[7] and float(row[7]) >= selling_price_per_saleable_unit:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
-            elif row[7] and row[8] > datetime.datetime.today().date() or row[9] < datetime.datetime.today().date():
+            elif row[7] and (not isDateValid(row[8]) or not isDateValid(row[9])
+                             or getStrToDate(row[8]) > datetime.datetime.today().date()
+                             or getStrToDate(row[9]) < datetime.datetime.today().date()
+                             or getStrToDate(row[8]) >= getStrToDate(row[9])):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
-            elif not row[10] or row[10] <= row[5]:
+            elif not row[10] or int(row[10]) <= int(row[5]):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
-            elif not row[11] or row[11] >= selling_price_per_saleable_unit:
+            elif not row[11] or float(row[11]) >= selling_price_per_saleable_unit:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
-            elif row[12] and row[12] >= row[11]:
+            elif row[12] and float(row[12]) >= float(row[11]):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
-            elif row[12] and row[13] > datetime.datetime.today().date() or row[14] < datetime.datetime.today().date():
+            elif row[12] and (not isDateValid(row[13]) or not isDateValid(row[14])
+                              or getStrToDate(row[13]) > datetime.datetime.today().date()
+                              or getStrToDate(row[14]) < datetime.datetime.today().date()
+                              or getStrToDate(row[13]) >= getStrToDate(row[14])):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
         return self.cleaned_data['file']
