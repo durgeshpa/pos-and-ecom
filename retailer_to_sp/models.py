@@ -878,7 +878,7 @@ class CartProductMapping(models.Model):
                         if self.retailer_product.id == i['item_id']:
                             item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
                 else:
-                    item_effective_price = float(self.selling_price)
+                    item_effective_price = float(self.selling_price) if self.selling_price else 0
             else:
                 if self.cart.offers:
                     array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
