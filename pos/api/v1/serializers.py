@@ -801,6 +801,33 @@ class FreeProductOfferSerializer(serializers.ModelSerializer):
                   'free_product_qty', 'start_date', 'expiry_date', )
 
 
+class FreeProductUpdateSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=True)
+    rulename = serializers.CharField(required=False)
+    cart_qualifying_min_sku_value = serializers.DecimalField(required=False, max_digits=12, decimal_places=4)
+    free_product = serializers.IntegerField(required=False)
+    free_product_qty = serializers.IntegerField(required=False)
+    start_date = serializers.DateField(required=False)
+    expiry_date = serializers.DateField(required=False)
+    is_active = serializers.BooleanField(required=False)
+
+    def validate(self, data):
+        """
+            Check start & expiry date validation,
+            rulename name should be unique,
+        """
+        if data.get('start_date') and data.get('expiry_date'):
+            date_validation(data)
+        if data.get('rulename'):
+            coupon_name_validation(data.get('rulename'))
+        return data
+
+    class Meta:
+        model = CouponRuleSet
+        fields = ('id', 'rulename', 'start_date', 'expiry_date', 'cart_qualifying_min_sku_value',
+                  'free_product', 'free_product_qty', 'is_active')
+
+
 class CouponCodeUpdateSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=True)
     coupon_name = serializers.CharField(required=False)
