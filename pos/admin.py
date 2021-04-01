@@ -80,3 +80,4 @@ class PaymentAdmin(admin.ModelAdmin):
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(Payment, PaymentAdmin)
+admin.site.register(RetailerProductImage)

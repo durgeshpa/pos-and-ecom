@@ -203,7 +203,8 @@ class CatalogueProductCreation(GenericAPIView):
                 product_id = request.data.get('product_id')
                 mrp = request.data.get('mrp')
                 product_images = request.FILES.getlist('images')
-                image_id = request.data.getlist('image_id')
+                image_id = request.data.get('image_id')
+
                 if len(product_images) > 3:
                     # product_images count is greater then 3 through error
                     msg = {'is_success': False,
@@ -267,11 +268,12 @@ class CatalogueProductCreation(GenericAPIView):
                     if image_id:
                         for id in image_id:
                             try:
-                                product_image_id = RetailerProductImage.objects.get(id=id, product=product_id)
+                                product_image_id = RetailerProductImage.objects.get(id=int(id), product=product_id)
+                                # delete image from product
+                                product_image_id.delete()
                             except ObjectDoesNotExist:
-                                return get_response("Image Does Not Exist with this Product ID")
-                            # delete image from product
-                            product_image_id.delete()
+                                return get_response(f"Image Does Not Exist with this image id {product_image_id}")
+
                     if product_images:
                         # If product_image_data in request
                         if RetailerProductImage.objects.filter(product=product_id).exists():
