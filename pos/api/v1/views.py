@@ -40,7 +40,8 @@ from sp_to_gram.models import OrderedProductReserved
 from addresses.models import Address
 
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
-from pos.models import RetailerProduct, UserMappedShop, Payment, PAYMENT_MODE, RetailerProductImage
+from pos.models import RetailerProduct, Payment, PAYMENT_MODE, UserMappedShop, RetailerProductImage
+
 from pos.common_functions import RetailerProductCls, OffersCls, get_shop_id_from_token, serializer_error, \
     get_response, delete_cart_mapping, order_search
 from .serializers import BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer, \
@@ -51,7 +52,6 @@ from .serializers import BasicCartSerializer, BasicOrderSerializer, CheckoutSeri
     RetailerProductImageDeleteSerializers
 
 from pos.utils import MultipartJsonParser
-from pos.models import RetailerProduct, UserMappedShop, Payment, PAYMENT_MODE
 from pos.common_functions import get_response,get_invoice_and_link, delete_cart_mapping, \
     order_search, create_user_shop_mapping, get_shop_id_from_token, create_user_shop_mapping
 
