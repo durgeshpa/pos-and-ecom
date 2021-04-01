@@ -236,7 +236,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     price_details = serializers.SerializerMethodField('m_slab_price')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
-    # margin = serializers.SerializerMethodField('margin_dt')
+    margin = serializers.SerializerMethodField('margin_dt')
     loyalty_discount = serializers.SerializerMethodField('loyalty_discount_dt')
     cash_discount = serializers.SerializerMethodField('cash_discount_dt')
 
