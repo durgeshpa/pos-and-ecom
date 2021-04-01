@@ -621,8 +621,9 @@ class PriceSlab(models.Model):
         return True
 
     def clean(self):
+        super(PriceSlab, self).clean()
         case_size = self.product_price.product.parent_product.inner_case_size
-        if self.selling_price > self.product_price.product.product_mrp*case_size:
+        if not self.selling_price or self.selling_price > self.product_price.product.product_mrp*case_size:
             raise ValidationError(_('Invalid Selling price.'))
 
 

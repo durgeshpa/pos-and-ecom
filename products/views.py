@@ -1842,7 +1842,7 @@ def get_selling_price(def_product):
     if ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_UP:
         selling_price = def_product.product_mrp / (1 + (ptr_percent / 100))
     elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
-        selling_price = def_product.product_mrp(1 - (ptr_percent / 100))
+        selling_price = def_product.product_mrp*(1 - (ptr_percent / 100))
     return selling_price
 
 
