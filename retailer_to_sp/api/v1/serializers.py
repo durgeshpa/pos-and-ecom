@@ -275,10 +275,10 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
             self.context.get('buyer_shop_id'))
         return self.cash_discount
 
-    # def margin_dt(self, obj):
-    #     if self.product_mrp:
-    #         return (((float(self.product_mrp) - self.product_price) / float(self.product_mrp)) * 100)
-    #     return False
+    def margin_dt(self, obj):
+        if self.product_mrp:
+            return (((float(self.product_mrp) - self.product_price) / float(self.product_mrp)) * 100)
+        return False
 
 
 
