@@ -780,6 +780,27 @@ class ComboDealsSerializer(serializers.ModelSerializer):
                   'purchased_product_qty', 'free_product_qty', 'start_date', 'expiry_date')
 
 
+class FreeProductOfferSerializer(serializers.ModelSerializer):
+    rulename = serializers.CharField(required=True)
+    cart_qualifying_min_sku_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=4)
+    is_free_product = serializers.IntegerField(required=True)
+    free_product_qty = serializers.IntegerField(required=True)
+
+    def validate(self, data):
+        """
+            start & expiry date, combo_offer_name & product validation.
+        """
+        date_validation(data)
+        validate_retailer_product(data.get('is_free_product'))
+        combo_offer_name_validation(data.get('rulename'))
+        return data
+
+    class Meta:
+        model = CouponRuleSet
+        fields = ('rulename', 'cart_qualifying_min_sku_value', 'is_free_product',
+                  'free_product_qty', 'start_date', 'expiry_date', )
+
+
 class CouponCodeUpdateSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=True)
     coupon_name = serializers.CharField(required=False)

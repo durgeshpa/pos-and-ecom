@@ -38,7 +38,8 @@ class RetailerProductCls(object):
 
 class OffersCls(object):
     @classmethod
-    def rule_set_creation(cls, rulename, start_date, expiry_date, discount_qty_amount=None, discount_obj=None):
+    def rule_set_creation(cls, rulename, start_date, expiry_date, discount_qty_amount=None, discount_obj=None,
+                          retailer_free_product_obj=None, free_product_qty=None):
         """
            rule_set Creation for Offer/Coupon
         """
@@ -48,7 +49,10 @@ class OffersCls(object):
             ruleset = CouponRuleSet.objects.create(rulename=rulename, start_date=start_date,
                                                    expiry_date=expiry_date, is_active=True,
                                                    cart_qualifying_min_sku_value=discount_qty_amount,
-                                                   discount=discount_obj)
+                                                   discount=discount_obj,
+                                                   is_free_product=retailer_free_product_obj,
+                                                   free_product_qty=free_product_qty
+                                                   )
         return ruleset
 
     @classmethod

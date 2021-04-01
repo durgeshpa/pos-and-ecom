@@ -31,15 +31,16 @@ class CouponRuleSet(models.Model):
     discount = models.ForeignKey(DiscountValue, related_name='discount_value_id', on_delete=models.CASCADE, null=True,
                                  blank=True)
     is_free_shipment = models.BooleanField(default=False, null=True, blank=True)
-    is_free_product = models.ForeignKey("products.Product", related_name='free_product', on_delete=models.CASCADE,
+    is_free_product = models.ForeignKey("pos.RetailerProduct", related_name='free_product', on_delete=models.CASCADE,
                                         null=True, blank=True)
+    free_product_qty = models.PositiveIntegerField(blank=True, null=True)
     cart_qualifying_min_sku_value = models.FloatField(default=0, blank=True, null=True)
     cart_qualifying_min_sku_item = models.PositiveIntegerField(default=0, blank=True, null=True)
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)
     start_date = models.DateField()
-    expiry_date = models.DateTimeField()
+    expiry_date = models.DateField()
 
     def __str__(self):
         return self.rulename

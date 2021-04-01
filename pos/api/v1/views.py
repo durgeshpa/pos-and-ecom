@@ -48,7 +48,7 @@ from pos.common_functions import RetailerProductCls, OffersCls, get_shop_id_from
 from .serializers import BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer, \
     BasicOrderListSerializer, OrderedDashBoardSerializer, BasicCartListSerializer, OrderReturnCheckoutSerializer,\
     RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
-    RetailerProductResponseSerializer, CouponCodeSerializer, ComboDealsSerializer,\
+    RetailerProductResponseSerializer, CouponCodeSerializer, FreeProductOfferSerializer, ComboDealsSerializer,\
     CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponRuleSetSerializers, CouponListSerializers,\
     RetailerProductImageDeleteSerializers
 
@@ -2852,7 +2852,7 @@ class CouponOfferCreation(GenericAPIView):
         """
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
-            combo_coupon_id = request.data.get('id')
+            combo_coupon_id = request.GET.get('id')
             if combo_coupon_id:
                 coupon_offers = self.get_coupons_combo_offers_by_id(shop_id, combo_coupon_id)
             else:
@@ -2910,7 +2910,23 @@ class CouponOfferCreation(GenericAPIView):
                     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
             elif int(rule_type) == 3:
-                pass
+                serializer = FreeProductOfferSerializer(data=request.data)
+                if serializer.is_valid():
+                    """
+                       rule_type is Free Product Offer Creating FreeProductOffer
+                    """
+                    try:
+                        with transaction.atomic():
+                            msg, status_code = self.create_free_product_offer(serializer, shop_id)
+                            return Response(msg, status=status_code.get("status_code"))
+                    except Exception as e:
+                        msg = {"is_success": False, "message": "Something went wrong",
+                               "response_data": serializer.data}
+                        return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+                else:
+                    msg = serializer_error(serializer)
+                    return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
         else:
             msg = {'is_success': False, 'error_message': f"There is no shop available with (shop id : {shop_id}) ",
                    'response_data': None}
@@ -3132,6 +3148,60 @@ class CouponOfferCreation(GenericAPIView):
         OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name, combo_code,
                                         shop, start_date, expiry_date)
         msg = {"is_success": True, "message": "Combo Offer has been successfully created!",
+               "response_data": serializer.data}
+        status_code = {"status_code": 201}
+        return msg, status_code
+
+    def create_free_product_offer(self, serializer, shop_id):
+        """
+            Creating Ruleset & Coupon
+        """
+        try:
+            shop = Shop.objects.get(id=shop_id)
+        except ObjectDoesNotExist:
+            msg = {"is_success": False, "error": "shop Not Found",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
+
+        is_free_product = self.request.data.get('is_free_product')
+        try:
+            retailer_free_product_obj = RetailerProduct.objects.get(id=is_free_product, shop=shop_id)
+        except ObjectDoesNotExist:
+            msg = {"is_success": False, "error": f"retailer_free_product {is_free_product} Not Found",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
+
+        rulename = self.request.data.get('rulename')
+        discount_qty_amount = self.request.data.get('cart_qualifying_min_sku_value')
+        start_date = self.request.data.get('start_date')
+        expiry_date = self.request.data.get('expiry_date')
+        free_product_qty = self.request.data.get('free_product_qty')
+        # checking if offer already exist with retailer_free_product,
+        couponruleset = Coupon.objects.filter(rule__is_free_product=retailer_free_product_obj,
+                                              shop=shop_id, rule__coupon_ruleset__is_active=True)
+        if couponruleset:
+            msg = {"is_success": False, "message": f"Offer already exist for SKU {retailer_free_product_obj.sku} ",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
+
+        # ruleset_name will be uniq.
+        ruleset_name = f"{shop_id}_{rulename}"
+        # creating CouponRuleSet
+        coupon_obj = OffersCls.rule_set_creation(ruleset_name, start_date, expiry_date, discount_qty_amount, None,
+                                                 retailer_free_product_obj, free_product_qty)
+        if type(coupon_obj) == str:
+            msg = {"is_success": False, "message": coupon_obj,
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
+
+        # creating Coupon with coupon_type(cart)
+        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', ruleset_name, ruleset_name,
+                                        shop, start_date, expiry_date)
+        msg = {"is_success": True, "message": "Free Product Offer has been successfully created!",
                "response_data": serializer.data}
         status_code = {"status_code": 201}
         return msg, status_code
