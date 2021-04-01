@@ -3180,6 +3180,7 @@ class CouponOfferCreation(GenericAPIView):
         free_product_qty = self.request.data.get('free_product_qty')
         # checking if offer already exist with retailer_free_product,
         couponruleset = Coupon.objects.filter(rule__free_product=retailer_free_product_obj,
+                                              free_product_qty=free_product_qty,
                                               shop=shop_id, rule__coupon_ruleset__is_active=True)
         if couponruleset:
             msg = {"is_success": False, "message": f"Offer already exist for SKU {retailer_free_product_obj.sku} ",
