@@ -47,7 +47,7 @@ from .serializers import BasicCartSerializer, BasicOrderSerializer, CheckoutSeri
     RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
     RetailerProductResponseSerializer, CouponCodeSerializer, ComboDealsSerializer,\
     CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponRuleSetSerializers, CouponListSerializers,\
-    RetailerProductImageDeleteializer
+    RetailerProductImageDeleteSerializers
 
 from pos.offers import BasicCartOffers
 from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
@@ -59,17 +59,17 @@ error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 cron_logger = logging.getLogger('cron_log')
 
+POS_SERIALIZERS_MAP = {
+    0: RetailerProductCreateSerializer,
+    1: RetailerProductUpdateSerializer,
+    2: RetailerProductImageDeleteSerializers
+}
+
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
     2: Order.CANCELLED,
     3: Order.PARTIALLY_REFUNDED,
     4: Order.FULLY_REFUNDED
-}
-
-POS_SERIALIZERS_MAP = {
-    '0': RetailerProductCreateSerializer,
-    '1': RetailerProductUpdateSerializer,
-    '2': RetailerProductImageDeleteializer
 }
 
 
@@ -105,11 +105,11 @@ class CatalogueProductCreation(GenericAPIView):
         0 refers to POST and 1 refers to PUT .
         """
         if data == 0:
-            return POS_SERIALIZERS_MAP['0']
+            return POS_SERIALIZERS_MAP[0]
         if data == 1:
-            return POS_SERIALIZERS_MAP['1']
+            return POS_SERIALIZERS_MAP[1]
         if data == 2:
-            return POS_SERIALIZERS_MAP['2']
+            return POS_SERIALIZERS_MAP[2]
 
     def post(self, request, *args, **kwargs):
         """
@@ -155,13 +155,15 @@ class CatalogueProductCreation(GenericAPIView):
                                                                            linked_product_id, 2, description,
                                                                            product_ean_code, product_status)
                             else:
-                                # If Linked_Product_MRP != Input_MRP, Create a new Product with SKU_TYPE == "LINKED_EDITED"
+                                # If Linked_Product_MRP != Input_MRP, Create a new Product with
+                                # SKU_TYPE == "LINKED_EDITED"
                                 product_obj = RetailerProductCls.create_retailer_product(shop_id_or_error_message,
                                                                            product_name, mrp, selling_price,
                                                                            linked_product_id, 3, description,
                                                                            product_ean_code, product_status)
                     else:
-                        # If product is not linked with existing product, Create a new Product with SKU_TYPE == "Created"
+                        # If product is not linked with existing product, Create a new Product
+                        # with SKU_TYPE == "Created"
                         product_obj = RetailerProductCls.create_retailer_product(shop_id_or_error_message, product_name, mrp,
                                                                    selling_price, None, 1, description,
                                                                    product_ean_code, product_status)
@@ -201,6 +203,7 @@ class CatalogueProductCreation(GenericAPIView):
                 product_id = request.data.get('product_id')
                 mrp = request.data.get('mrp')
                 product_images = request.FILES.getlist('images')
+                image_id = request.data.getlist('image_id')
                 if len(product_images) > 3:
                     # product_images count is greater then 3 through error
                     msg = {'is_success': False,
@@ -261,12 +264,19 @@ class CatalogueProductCreation(GenericAPIView):
                             else:
                                 # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
                                 product.sku_type = 3
+                    if image_id:
+                        for id in image_id:
+                            try:
+                                product_image_id = RetailerProductImage.objects.get(id=id, product=product_id)
+                            except ObjectDoesNotExist:
+                                return get_response("Image Does Not Exist with this Product ID")
+                            # delete image from product
+                            product_image_id.delete()
                     if product_images:
                         # If product_image_data in request
                         if RetailerProductImage.objects.filter(product=product_id).exists():
                             # delete existing product_image
                             RetailerProductImage.objects.filter(product=product_id).delete()
-                        count = 0
                         for file in product_images:
                             # create new product_image
                             RetailerProductImage.objects.create(product_id=product_id, image=file)

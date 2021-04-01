@@ -137,7 +137,7 @@ class RetailerProductResponseSerializer(serializers.Serializer):
         return obj['modified_at']
 
 
-class RetailerProductImageDeleteializer(serializers.Serializer):
+class RetailerProductImageDeleteSerializers(serializers.Serializer):
     product_id = serializers.IntegerField(required=True)
     image_id = serializers.IntegerField(required=True)
 
@@ -156,7 +156,7 @@ class RetailerProductImageDeleteializer(serializers.Serializer):
 
         image_id = attrs.get('image_id')
         if image_id:
-            # If user provides product_id
+            # If user provides image_id
             if not RetailerProductImage.objects.filter(id=image_id).exists():
                 raise serializers.ValidationError(_("Image ID not found! Please enter a valid Product ID"))
 
@@ -174,10 +174,12 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     status = serializers.CharField(required=False)
     images = serializers.FileField(required=False)
     linked_product_id = serializers.IntegerField(required=False)
+    image_id = serializers.ListField(child=serializers.IntegerField(min_value=0, max_value=3))
 
     def validate(self, attrs):
         serializer_list = ['shop_id', 'product_id', 'product_ean_code', 'product_name',
-                           'mrp', 'selling_price', 'description', 'status', 'images', 'linked_product_id']
+                           'mrp', 'selling_price', 'description', 'status', 'images',
+                           'linked_product_id', 'image_id']
 
         for key in self.initial_data.keys():
             if key not in serializer_list:
@@ -193,6 +195,12 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             if selling_price and mrp:
                 if selling_price > mrp:
                     raise serializers.ValidationError(_("Selling Price cannot be greater than MRP"))
+
+        image_id = attrs.get('image_id')
+        if image_id:
+            # If user provides image_id
+            if not RetailerProductImage.objects.filter(id=image_id).exists():
+                raise serializers.ValidationError(_("Image ID not found! Please enter a valid Product ID"))
 
         shop_id = attrs.get('shop_id')
         if shop_id:
