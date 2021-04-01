@@ -1,5 +1,4 @@
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
-from global_config.models import GlobalConfig
 
 
 def pagination(request, serializer):
