@@ -53,6 +53,7 @@ function getProductDetails() {
                     document.getElementById('id_price_slabs-0-selling_price').readOnly = false
                 }else{
                     document.getElementById('id_price_slabs-0-selling_price').value = data.selling_price_per_saleable_unit;
+                    document.getElementById('id_price_slabs-0-selling_price').readOnly = True
                 }
             }
             return true;
@@ -65,26 +66,3 @@ function getProductDetails() {
         cache: false
     });
 }
-
-(function($) {
-    $(document).ready(function() {
-        var ptr_percent = $('.field-ptr_percent'),
-            ptr_type = $('.field-ptr_type');
-
-        var ptr_applicable = $('#id_is_ptr_applicable')
-
-        if($('#id_is_ptr_applicable').checked){
-            ptr_percent.show();
-            ptr_type.show();
-        }else{
-            ptr_percent.hide();
-            ptr_type.hide();
-        }
-
-        $('#id_is_ptr_applicable').click(function() {
-           ptr_percent.toggle(this.checked);
-           ptr_type.toggle(this.checked);
-        });
-
-    });
-})(django.jQuery);
