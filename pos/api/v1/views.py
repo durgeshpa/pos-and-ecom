@@ -3178,9 +3178,9 @@ class CouponOfferCreation(GenericAPIView):
         start_date = self.request.data.get('start_date')
         expiry_date = self.request.data.get('expiry_date')
         free_product_qty = self.request.data.get('free_product_qty')
-        # checking if offer already exist with retailer_free_product,
+        # checking if offer already exist with retailer_free_product, discount_qty_amount
         couponruleset = Coupon.objects.filter(rule__free_product=retailer_free_product_obj,
-                                              free_product_qty=free_product_qty,
+                                              rule__cart_qualifying_min_sku_value=discount_qty_amount,
                                               shop=shop_id, rule__coupon_ruleset__is_active=True)
         if couponruleset:
             msg = {"is_success": False, "message": f"Offer already exist for SKU {retailer_free_product_obj.sku} ",
@@ -3189,7 +3189,8 @@ class CouponOfferCreation(GenericAPIView):
             return msg, status_code
 
         # ruleset_name will be uniq.
-        ruleset_name = f"{shop_id}_{rulename}"
+        ruleset_name = f"{shop_id}_{retailer_free_product_obj.name}_{free_product_qty}"
+        coupon_code = f"{shop_id} get {free_product_qty} {retailer_free_product_obj.name} Free on Spending {discount_qty_amount} Rs"
         # creating CouponRuleSet
         coupon_obj = OffersCls.rule_set_creation(ruleset_name, start_date, expiry_date, discount_qty_amount, None,
                                                  retailer_free_product_obj, free_product_qty)
@@ -3200,7 +3201,7 @@ class CouponOfferCreation(GenericAPIView):
             return msg, status_code
 
         # creating Coupon with coupon_type(cart)
-        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', ruleset_name, ruleset_name,
+        OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', rulename, coupon_code,
                                         shop, start_date, expiry_date)
         msg = {"is_success": True, "message": "Free Product Offer has been successfully created!",
                "response_data": serializer.data}

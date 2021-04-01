@@ -44,7 +44,7 @@ class OffersCls(object):
            rule_set Creation for Offer/Coupon
         """
         if CouponRuleSet.objects.filter(rulename=rulename):
-            ruleset = "cannot create a Offer that already exists"
+            ruleset = f"cannot create a Offer with {rulename}, already exists"
         else:
             ruleset = CouponRuleSet.objects.create(rulename=rulename, start_date=start_date,
                                                    expiry_date=expiry_date, is_active=True,
