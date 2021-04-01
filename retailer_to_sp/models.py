@@ -895,7 +895,7 @@ class CartProductMapping(models.Model):
                     if self.retailer_product.id == i['item_id']:
                         item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
             else:
-                item_effective_price = float(self.selling_price)
+                item_effective_price = float(self.selling_price) if self.selling_price else 0
         else:
             if self.cart_product_price is not None:
                 item_effective_price = self.cart_product_price.get_PTR(self.qty)
