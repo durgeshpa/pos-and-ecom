@@ -218,14 +218,10 @@ class PriceSlabSerializer(serializers.ModelSerializer):
 class SlabProductPriceSerializer(serializers.ModelSerializer):
 
     price_slabs = PriceSlabSerializer(many=True)
-    ptr = serializers.SerializerMethodField('m_ptr')
-
-    def m_ptr(self, obj):
-        return obj.selling_price
 
     class Meta:
         model = ProductPrice
-        fields = ('mrp', 'ptr', 'price_slabs',)
+        fields = ('mrp', 'price_slabs',)
 
 
 class ProductsSearchSerializer(serializers.ModelSerializer):
@@ -235,6 +231,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     product_opt_product = ProductOptionSerializer(many=True)
     #product_brand = BrandSerializer(read_only=True)
     product_price = serializers.SerializerMethodField('product_price_dt')
+    per_piece_price = serializers.SerializerMethodField('m_per_piece_price')
     price_details = serializers.SerializerMethodField('m_slab_price')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
@@ -249,10 +246,13 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
         return serializer.data
 
     def product_price_dt(self, obj):
-        self.product_price = obj.get_current_shop_price(
-            self.context.get('parent_mapping_id'),
-            self.context.get('buyer_shop_id')).get_PTR(1)
+        self.product_price = obj.get_current_shop_price(self.context.get('parent_mapping_id'),
+                                                        self.context.get('buyer_shop_id'))\
+                                .get_PTR(self.context.get('qty', 1))
         return self.product_price
+
+    def m_per_piece_price(self, obj):
+        return round(self.product_price/obj.parent_product.inner_case_size, 2)
 
     def product_mrp_dt(self, obj):
         self.product_mrp = obj.getMRP(
@@ -277,7 +277,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def margin_dt(self, obj):
         if self.product_mrp:
-            return (((float(self.product_mrp) - self.product_price) / float(self.product_mrp)) * 100)
+            return round((((float(self.product_mrp) - self.product_price) / float(self.product_mrp)) * 100), 2)
         return False
 
 
@@ -285,10 +285,10 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description',
-                  'product_sku','product_mrp', 'price_details',
-                  'product_ean_code','created_at','modified_at','status','product_pro_image',
-                  'product_opt_product','product_price','product_inner_case_size','product_case_size','product_case_size_picies',
-                  'margin', 'loyalty_discount', 'cash_discount')
+                  'product_sku','product_mrp', 'price_details', 'product_price', 'per_piece_price',
+                  'product_ean_code','created_at','modified_at','status','product_pro_image', 'product_opt_product',
+                  'product_inner_case_size', 'product_case_size','product_case_size_picies', 'margin',
+                  'loyalty_discount', 'cash_discount')
 
 class ProductDetailSerializer(serializers.ModelSerializer):
 
@@ -314,14 +314,19 @@ class CartDataSerializer(serializers.ModelSerializer):
         fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at',)
 
 class CartProductMappingSerializer(serializers.ModelSerializer):
-    cart_product = ProductsSearchSerializer()
+    # cart_product = ProductsSearchSerializer()
+    cart_product = serializers.SerializerMethodField('m_cart_product')
     cart = CartDataSerializer()
     is_available = serializers.SerializerMethodField('is_available_dt')
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_coupons = serializers.SerializerMethodField('product_coupons_dt')
-    cart_product_price = SlabProductPriceSerializer()
     margin = serializers.SerializerMethodField('margin_dt')
+
+    def m_cart_product(self, obj):
+        self.context['qty'] = obj.qty
+        serializer = ProductsSearchSerializer(obj.cart_product, context=self.context)
+        return serializer.data
 
     def is_available_dt(self,obj):
         """
@@ -399,7 +404,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartProductMapping
         fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'capping_error_msg', 'is_available',
-                  'no_of_pieces','product_sub_total', 'product_coupons', 'cart_product_price', 'margin')
+                  'no_of_pieces','product_sub_total', 'product_coupons', 'margin')
 
 
 class CartSerializer(serializers.ModelSerializer):
