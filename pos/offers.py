@@ -26,7 +26,7 @@ class BasicCartOffers(object):
             # Add/Remove/Update combo offers on all products
             offers_list = BasicCartOffers.refresh_combo(cart, cart_products)
             # Check already applied cart offer
-            offers_list = BasicCartOffers.refresh_basic_cart_offers(Cart.objects.get(pk=cart.id), cart_value,
+            offers_list = BasicCartOffers.refresh_basic_cart_offers(Cart.objects.get(pk=cart.id), float(cart_value),
                                                                     offers_list, auto_apply, coupon_id)
             Cart.objects.filter(pk=cart.id).update(offers=offers_list['offers_list'])
             return offers_list
@@ -207,7 +207,7 @@ class BasicCartOffers(object):
         # Get coupons available on cart from es
         c_list = BasicCartOffers.get_basic_cart_coupons(cart.seller_shop.id)
         # Check already applied coupon, Auto apply if required
-        offers_list = BasicCartOffers.basic_cart_offers(c_list, cart_value, cart, offers_list, auto_apply, coupon_id)
+        offers_list = BasicCartOffers.basic_cart_offers(c_list, cart_value, offers_list, auto_apply, coupon_id)
         return offers_list
 
     @classmethod
@@ -236,7 +236,7 @@ class BasicCartOffers(object):
         return c_list
 
     @classmethod
-    def basic_cart_offers(cls, c_list, cart_value, cart, offers_list, auto_apply=False, coupon_id=None):
+    def basic_cart_offers(cls, c_list, cart_value, offers_list, auto_apply=False, coupon_id=None):
         """
             Check if cart applicable offers can be applied
             Remove already applied offer if not valid
@@ -249,28 +249,22 @@ class BasicCartOffers(object):
         # All available and currently not applicable coupons on cart
         other_offers = []
         # Check if any coupon is already applied on cart
-        cart_offers = cart.offers
         applied_offer = {}
-        if cart_offers:
-            for offer in cart_offers:
+        if offers_list:
+            for offer in offers_list:
                 if offer['coupon_type'] == 'cart':
                     applied_offer = offer
         # Final coupon - 1. Either no auto_apply and refresh coupon already applied OR 2. Auto apply max discount coupon
         final_offer_coupon_id = {}
         final_offer_applied = {}
         final_offer = {}
+        spot_discount_offer = {}
         # Check all available coupons for cart minimum value
         for coupon in c_list:
             offer = BasicCartOffers.get_offer_cart_coupon(coupon)
             # When cart qualifies for coupon
             if cart_value >= coupon['cart_minimum_value']:
-                if not coupon['is_percentage']:
-                    discount = coupon['discount']
-                else:
-                    if coupon['max_discount'] == 0 or coupon['max_discount'] > (coupon['discount'] / 100) * cart_value:
-                        discount = round((coupon['discount'] / 100) * cart_value, 2)
-                    else:
-                        discount = coupon['max_discount']
+                discount = BasicCartOffers.discount_value(offer, cart_value)
                 offer['discount_value'] = discount
                 offer['applicable'] = 1
                 if coupon_id == coupon['id']:
@@ -305,6 +299,7 @@ class BasicCartOffers(object):
                 and not auto_apply:
             applied = True
             final_offer = applied_offer
+            spot_discount_offer = final_offer
 
         if applicable_offers:
             applicable_offers = sorted(applicable_offers, key=itemgetter('discount_value'), reverse=True)
@@ -321,7 +316,8 @@ class BasicCartOffers(object):
         else:
             # Cart does not qualify for any offer
             offers_list = BasicCartOffers.update_cart_offer(offers_list, cart_value)
-        return {'offers_list': offers_list, 'total_offers': applicable_offers + other_offers, 'applied': applied}
+        return {'offers_list': offers_list, 'total_offers': applicable_offers + other_offers, 'applied': applied,
+                'spot_discount': spot_discount_offer}
 
     @classmethod
     def get_offer_cart_coupon(cls, coupon):
@@ -331,6 +327,7 @@ class BasicCartOffers(object):
         return {
             'coupon_type': 'cart',
             'type': 'discount',
+            'sub_type': 'set_discount',
             'coupon_id': coupon['id'],
             'coupon_code': coupon['coupon_code'],
             'cart_minimum_value': coupon['cart_minimum_value'],
@@ -422,6 +419,54 @@ class BasicCartOffers(object):
                 return {'error': 'Please Provide Spot Discount Less Than Cart Value'}
         else:
             return {'error': 'No Products In Cart Yet!'}
+
+    @classmethod
+    def apply_spot_discount_returns(cls, spot_discount, is_percentage, current_amount, order_return,
+                                    refund_amount_raw):
+        """
+            Check and apply provided spot discount on returns cart
+        """
+        discount_value = round((spot_discount / 100) * float(current_amount), 2) if is_percentage else spot_discount
+        if current_amount >= discount_value:
+            offer = BasicCartOffers.get_offer_spot_discount(is_percentage, spot_discount, discount_value)
+            order_return.refund_amount = refund_amount_raw + spot_discount
+            order_return.offers = [offer]
+            order_return.save()
+            return {'applied': True}
+        else:
+            return {'error' : "Please provide spot discount less than current amount"}
+
+    @classmethod
+    def refresh_returns_offers(cls, order, current_amount, order_return, refund_amount_raw, coupon_id=None):
+        """
+            Get applied and applicable offers on new cart value after returns
+        """
+        # Get coupons available on cart from es
+        c_list = BasicCartOffers.get_basic_cart_coupons(order.seller_shop.id)
+        # Check already applied coupon, Auto apply if required
+        offers_list = BasicCartOffers.basic_cart_offers(c_list, current_amount, order_return.offers, False,
+                                                        coupon_id)
+        offers = offers_list['offers_list']
+        if offers:
+            for offer in offers:
+                refund_amount = refund_amount_raw + offer['discount_value']
+                order_return.offers = [offer]
+                order_return.refund_amount = refund_amount
+                order_return.save()
+                break
+        return offers_list
+
+    @classmethod
+    def discount_value(cls, offer, cart_value):
+        if not offer['is_percentage']:
+            discount = offer['discount']
+        else:
+            if float(offer['max_discount']) == 0 or float(offer['max_discount']) > (
+                    float(offer['discount']) / 100) * float(cart_value):
+                discount = round((float(offer['discount']) / 100) * float(cart_value), 2)
+            else:
+                discount = offer['max_discount']
+        return discount
 
 
 def create_es_index(index):

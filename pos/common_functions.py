@@ -1,6 +1,7 @@
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
+from django.urls import reverse
 
 from pos.models import RetailerProduct, UserMappedShop
 from retailer_to_sp.models import CartProductMapping
@@ -17,8 +18,8 @@ class RetailerProductCls(object):
             General Response For API
         """
         if status is None:
-            status = 'pending_approval'
-        RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
+            status = 'active'
+        return RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
                                        mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description,
                                        product_ean_code=product_ean_code, status=status)
 
@@ -140,6 +141,7 @@ def order_search(orders, search_text):
         Order Listing Based On Search
     """
     order = orders.filter(Q(order_no__icontains=search_text) |
+                          Q(ordered_cart__id__icontains=search_text) |
                           Q(buyer__phone_number__icontains=search_text))
     return order
 
@@ -151,3 +153,12 @@ def create_user_shop_mapping(user, shop_id):
     """
     if not UserMappedShop.objects.filter(user=user).exists():
         UserMappedShop.objects.create(user=user, shop_id=shop_id)
+
+
+def get_invoice_and_link(shipment, host):
+    """
+        Return invoice no and link for shipment
+    """
+    invoice_no = shipment.invoice_no
+    invoice_link = "{0}{1}".format(host, reverse('download_invoice_sp', args=[shipment.id]))
+    return {'invoice_no': invoice_no, 'invoice_link': invoice_link}

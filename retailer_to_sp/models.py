@@ -2719,7 +2719,7 @@ class OrderReturn(models.Model):
     )
     order = models.ForeignKey(Order, related_name='rt_return_order', on_delete=models.DO_NOTHING)
     processed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING)
-    order_offers = JSONField(null=True, blank=True)
+    offers = JSONField(null=True, blank=True)
     free_qty_map = JSONField(null=True, blank=True)
     return_reason = models.CharField(
         max_length=50, choices=RETURN_REASON,
