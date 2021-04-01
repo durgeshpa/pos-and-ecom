@@ -555,7 +555,17 @@ class ReturnItemsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnItems
-        fields = ('return_qty', 'refund_amount')
+        fields = ('return_qty', )
+
+
+class OrderReturnSerializer(serializers.ModelSerializer):
+    """
+        Return for an order
+    """
+
+    class Meta:
+        model = OrderReturn
+        fields = ('id', 'return_reason', 'refund_amount', 'status')
 
 
 class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
@@ -600,6 +610,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
     products = serializers.SerializerMethodField()
     rt_order_order_product = BasicOrderedProductSerializer(many=True)
+    rt_return_order = OrderReturnSerializer(many=True)
 
     def get_products(self, obj):
         """
@@ -625,7 +636,6 @@ class BasicOrderSerializer(serializers.ModelSerializer):
             rt_return_ordered_product = product.pop('rt_return_ordered_product', None)
             if rt_return_ordered_product:
                 product['return_qty'] = rt_return_ordered_product['return_qty']
-                product['refund_amount'] = rt_return_ordered_product['refund_amount']
             # map purchased product with free product
             if product['retailer_product']['id'] in product_offer_map:
                 offer = product_offer_map[product['retailer_product']['id']]
@@ -656,7 +666,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = ('id', 'order_no', 'order_status', 'total_final_amount', 'total_discount_amount',
                   'total_tax_amount', 'total_mrp_amount', 'products', 'rt_order_order_product', 'ordered_by', 'created_at',
-                  'modified_at')
+                  'modified_at', 'rt_return_order')
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
@@ -682,11 +692,10 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
 
     def get_refund_amount(self, obj):
         """
-            refund amount on a return
+            refund amount
         """
-        return_obj = OrderReturn.objects.filter(order=obj).last()
-        return round(return_obj.rt_return_list \
-        .aggregate(refund_amount=Sum('refund_amount'))['refund_amount'], 2)
+        order_return = OrderReturn.objects.get(order=obj)
+        return order_return.refund_amount
 
     class Meta:
         model = Order
