@@ -48,10 +48,12 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
                     ParentProductMultiPhotoUploadView, cart_product_list_status, upload_master_data_view,
                     UploadMasterDataSampleExcelFile, set_child_with_parent_sample_excel_file,
-                    set_inactive_status_sample_excel_file, set_child_data_sample_excel_file, set_parent_data_sample_excel_file,
+                    set_inactive_status_sample_excel_file, set_child_data_sample_excel_file,
+                    set_parent_data_sample_excel_file,
                     category_sub_category_mapping_sample_excel_file, brand_sub_brand_mapping_sample_excel_file,
                     ParentProductMultiPhotoUploadView, cart_product_list_status,
-                    bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor)
+                    bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
+                    get_slab_product_price_sample_csv, slab_product_price_csv_upload)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
@@ -1471,6 +1473,28 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             Q(seller_shop__shop_owner=request.user)
         ).distinct()
 
+    def get_urls(self):
+        """
+        returns the added action urls for Slab Product Pricing
+        """
+        from django.conf.urls import url
+        urls = super(ProductSlabPriceAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^slab_product_price_sample_csv/$',
+                       self.admin_site.admin_view(get_slab_product_price_sample_csv),
+                       name="slab_product_price_sample_csv"
+                   ),
+                   url(
+                       r'^slab_product_price_csv_upload/$',
+                       self.admin_site.admin_view(slab_product_price_csv_upload),
+                       name="slab_product_price_csv_upload"
+                   ),
+
+               ] + urls
+        return urls
+
+    change_list_template = 'admin/products/products-slab-price-change-list.html'
 
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)

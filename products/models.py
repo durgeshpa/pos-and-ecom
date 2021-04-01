@@ -592,10 +592,12 @@ class SlabProductPrice(ProductPrice):
 
 class PriceSlab(models.Model):
     product_price = models.ForeignKey(ProductPrice, related_name='price_slabs', on_delete=models.CASCADE)
-    start_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    end_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
-    offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    start_value = models.PositiveIntegerField()
+    end_value = models.PositiveIntegerField()
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False,
+                                        verbose_name='Selling Price(Per saleable unit)')
+    offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,
+                                      verbose_name='Offer Price(Per saleable unit)')
     offer_price_start_date = models.DateField(null=True, blank=True)
     offer_price_end_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -619,7 +621,8 @@ class PriceSlab(models.Model):
         return True
 
     def clean(self):
-        if self.selling_price > self.product_price.product.product_mrp:
+        case_size = self.product_price.product.parent_product.inner_case_size
+        if self.selling_price > self.product_price.product.product_mrp*case_size:
             raise ValidationError(_('Invalid Selling price.'))
 
 
