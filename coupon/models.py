@@ -31,7 +31,7 @@ class CouponRuleSet(models.Model):
     discount = models.ForeignKey(DiscountValue, related_name='discount_value_id', on_delete=models.CASCADE, null=True,
                                  blank=True)
     is_free_shipment = models.BooleanField(default=False, null=True, blank=True)
-    is_free_product = models.ForeignKey("pos.RetailerProduct", related_name='free_product', on_delete=models.CASCADE,
+    free_product = models.ForeignKey("pos.RetailerProduct", related_name='free_product', on_delete=models.CASCADE,
                                         null=True, blank=True)
     free_product_qty = models.PositiveIntegerField(blank=True, null=True)
     cart_qualifying_min_sku_value = models.FloatField(default=0, blank=True, null=True)
@@ -243,4 +243,10 @@ def get_cart_coupon_params(coupon):
         params['is_percentage'] = coupon.rule.discount.is_percentage
         params['max_discount'] = coupon.rule.discount.max_discount
         params['coupon_type'] = 'cart'
+
+    elif coupon.rule.free_product:
+        params = dict()
+        params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
+        params['free_product'] = coupon.rule.free_product.id
+        params['coupon_type'] = 'cart_free_product'
     return params

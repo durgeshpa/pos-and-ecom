@@ -2915,14 +2915,14 @@ class CouponOfferCreation(GenericAPIView):
                     """
                        rule_type is Free Product Offer Creating FreeProductOffer
                     """
-                    try:
-                        with transaction.atomic():
-                            msg, status_code = self.create_free_product_offer(serializer, shop_id)
-                            return Response(msg, status=status_code.get("status_code"))
-                    except Exception as e:
-                        msg = {"is_success": False, "message": "Something went wrong",
-                               "response_data": serializer.data}
-                        return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+                    # try:
+                    with transaction.atomic():
+                        msg, status_code = self.create_free_product_offer(serializer, shop_id)
+                        return Response(msg, status=status_code.get("status_code"))
+                    # except Exception as e:
+                    #     msg = {"is_success": False, "message": "Something went wrong",
+                    #            "response_data": serializer.data}
+                    #     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                 else:
                     msg = serializer_error(serializer)
                     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
@@ -3164,11 +3164,11 @@ class CouponOfferCreation(GenericAPIView):
             status_code = {"status_code": 404}
             return msg, status_code
 
-        is_free_product = self.request.data.get('is_free_product')
+        free_product = self.request.data.get('free_product')
         try:
-            retailer_free_product_obj = RetailerProduct.objects.get(id=is_free_product, shop=shop_id)
+            retailer_free_product_obj = RetailerProduct.objects.get(id=free_product, shop=shop_id)
         except ObjectDoesNotExist:
-            msg = {"is_success": False, "error": f"retailer_free_product {is_free_product} Not Found",
+            msg = {"is_success": False, "error": f"retailer_free_product {free_product} Not Found",
                    "response_data": serializer.data}
             status_code = {"status_code": 404}
             return msg, status_code
@@ -3179,7 +3179,7 @@ class CouponOfferCreation(GenericAPIView):
         expiry_date = self.request.data.get('expiry_date')
         free_product_qty = self.request.data.get('free_product_qty')
         # checking if offer already exist with retailer_free_product,
-        couponruleset = Coupon.objects.filter(rule__is_free_product=retailer_free_product_obj,
+        couponruleset = Coupon.objects.filter(rule__free_product=retailer_free_product_obj,
                                               shop=shop_id, rule__coupon_ruleset__is_active=True)
         if couponruleset:
             msg = {"is_success": False, "message": f"Offer already exist for SKU {retailer_free_product_obj.sku} ",
