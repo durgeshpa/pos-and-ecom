@@ -758,7 +758,8 @@ class UploadMasterDataAdminForm(forms.Form):
                 if 'hsn' in header_list and 'hsn' in row.keys():
                     if row['hsn'] != '':
                         if not ProductHSN.objects.filter(
-                                product_hsn_code=row['hsn']).exists():
+                                product_hsn_code=row['hsn']).exists() and not ProductHSN.objects.filter(
+                                product_hsn_code='0' + str(row['hsn'])).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['hsn']} |'HSN' doesn't exist in the system."))
                 if 'tax_1(gst)' in header_list and 'tax_1(gst)' in row.keys():
                     if row['tax_1(gst)'] != '':
