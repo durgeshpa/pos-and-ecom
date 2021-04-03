@@ -1165,7 +1165,7 @@ class UploadMasterDataAdminForm(forms.Form):
             if self.cleaned_data.get('file'):
                 if not self.cleaned_data['file'].name[-5:] in ('.xlsx'):
                     raise forms.ValidationError("Sorry! Only excel(xlsx) file accepted.")
-                excel_file_data = self.auto_id
+                excel_file_data = self.auto_id['Users']
 
                 # Checking, whether excel file is empty or not!
                 if excel_file_data:
