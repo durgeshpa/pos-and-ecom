@@ -4,11 +4,17 @@ from django.db.models import Q
 from django.urls import reverse
 
 from pos.models import RetailerProduct, UserMappedShop
-from retailer_to_sp.models import CartProductMapping
+from retailer_to_sp.models import CartProductMapping, Order
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
 from shops.models import Shop
 
+ORDER_STATUS_MAP = {
+    1: Order.ORDERED,
+    2: Order.CANCELLED,
+    3: Order.PARTIALLY_REFUNDED,
+    4: Order.FULLY_REFUNDED
+}
 
 class RetailerProductCls(object):
 

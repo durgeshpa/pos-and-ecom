@@ -1,12 +1,11 @@
 from django.conf.urls import include, url
 from rest_framework import routers
 
-from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, OrderCentral,
-                    ReservedOrder, CreateOrder, OrderList, OrderDetail, DownloadInvoiceSP,
-                    DownloadNote, CustomerCareApi, CustomerOrdersList, PaymentApi,
-                    ProductDetail, ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
-                    CancelOrder, DeliveryBoyTrips, RetailerShopsList, FeedbackData, SellerOrderList,
-                    DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
+from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, OrderCentral, OrderedItemCentralDashBoard,
+                    ReservedOrder, OrderListCentral, OrderReturns, OrderReturnsCheckout, OrderReturnComplete,
+                    CustomerCareApi, CustomerOrdersList, PaymentApi, DownloadInvoiceSP, ProductDetail, ReleaseBlocking,
+                    OrderedProductViewSet, OrderedProductMappingView, DeliveryBoyTrips, RetailerShopsList, FeedbackData,
+                    SellerOrderList, DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
                     AutoSuggest, RefreshEs
                     )
@@ -30,7 +29,12 @@ urlpatterns = [
     url('^reserved-order/$', ReservedOrder.as_view(), name='reserved_order'),
     url('^order/$', OrderCentral.as_view()),
     url('^order/(?P<pk>\d+)/$', OrderCentral.as_view()),
-    url('^order-list/$', OrderList.as_view(), name='order_list'),
+    url('^order-list/$', OrderListCentral.as_view(), name='order_list'),
+    url('^order-dashboard/$', OrderedItemCentralDashBoard.as_view()),
+    # RETURNS
+    url('^return/$', OrderReturns.as_view()),
+    url('^return/checkout/$', OrderReturnsCheckout.as_view()),
+    url('^return/complete/$', OrderReturnComplete.as_view()),
     # OTHERS
     url('^download-invoice/(?P<pk>\d+)/invoice/$', DownloadInvoiceSP.as_view(), name='download_invoice_sp'),
     url('^customer-care-form/$', CustomerCareApi.as_view(), name='customer_care_form'),

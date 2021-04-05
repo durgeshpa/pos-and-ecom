@@ -427,9 +427,9 @@ class BasicCartOffers(object):
             Check and apply provided spot discount on returns cart
         """
         discount_value = round((spot_discount / 100) * float(current_amount), 2) if is_percentage else spot_discount
-        if current_amount >= discount_value:
+        if float(current_amount) >= float(discount_value):
             offer = BasicCartOffers.get_offer_spot_discount(is_percentage, spot_discount, discount_value)
-            order_return.refund_amount = refund_amount_raw + spot_discount
+            order_return.refund_amount = float(refund_amount_raw) + float(spot_discount)
             order_return.offers = [offer]
             order_return.save()
             return {'applied': True}

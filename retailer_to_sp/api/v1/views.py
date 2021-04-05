@@ -46,7 +46,8 @@ from gram_to_brand.models import (GRNOrderProductMapping, OrderedProductReserved
                                   )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order, OrderedProduct, Payment, CustomerCare,
                                    Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch, check_date_range, capping_check
+                                   ShipmentRescheduling, Note, OrderedProductBatch, check_date_range, capping_check,
+                                    OrderReturn, ReturnItems
                                    )
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder
@@ -66,11 +67,12 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  create_invoice_data)
 from wms.models import OrderReserveRelease, InventoryType
 from pos.common_functions import get_shop_id_from_token, get_response, create_user_shop_mapping,\
-    delete_cart_mapping, get_invoice_and_link
+    delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP
 from pos.offers import BasicCartOffers
-from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, BasicOrderSerializer
+from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,\
+    BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer
 from pos.api.v1.pagination import pagination
-from pos.models import RetailerProduct, PAYMENT_MODE, Payment as PosPayment
+from pos.models import RetailerProduct, PAYMENT_MODE, Payment as PosPayment, UserMappedShop
 
 User = get_user_model()
 
@@ -2789,6 +2791,838 @@ class CreateOrder(APIView):
 
 
 # OrderedProductMapping.objects.filter()
+
+class OrderListCentral(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        """
+            Get Order List
+            Inputs
+            cart_type
+            shop_id
+        """
+        cart_type = request.GET.get('cart_type', '1')
+        if cart_type == '1':
+            return self.get_retail_order_list()
+        elif cart_type == '2':
+            return self.get_basic_order_list()
+        else:
+            return get_response('Provide a valid cart_type')
+
+    def get_retail_validate(self):
+        """
+            Get Order
+            Input validation for cart type 'retail'
+        """
+        shop_id = self.request.GET.get('shop_id')
+        # Check if buyer shop exists
+        if not Shop.objects.filter(id=shop_id).exists():
+            return {'error': "Shop Doesn't Exist!"}
+        # Check if buyer shop is mapped to parent/seller shop
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
+            return {'error': "Shop Mapping Doesn't Exist!"}
+        shop_type = parent_mapping.parent.shop_type.shop_type
+        # Check if order exists
+        order = self.get_retail_order(shop_type, parent_mapping)
+        return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
+
+    def get_retail_order(self, shop_type, parent_mapping):
+        """
+           Get Retail Orders
+        """
+        search_text = self.request.GET.get('search_text')
+        order_status = self.request.GET.get('order_status')
+        if shop_type == 'sp':
+            orders = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
+            if order_status:
+                orders = orders.filter(order_status=order_status)
+            if search_text:
+                order = order_search(orders, search_text)
+            else:
+                order = orders
+        elif shop_type == 'gf':
+            orders = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
+            if order_status:
+                orders = orders.filter(order_status=order_status)
+            if search_text:
+                order = order_search(orders, search_text)
+            else:
+                order = orders
+        return order
+
+    def get_retail_order_list(self):
+        """
+            Get Order
+            For retail cart
+        """
+        # basic validations for inputs
+        initial_validation = self.get_retail_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        parent_mapping = initial_validation['parent_mapping']
+        shop_type = initial_validation['shop_type']
+        order = initial_validation['order']
+        if shop_type == 'sp':
+            return get_response('Order', self.get_serialize_process_sp(order, parent_mapping))
+        elif shop_type == 'gf':
+            return get_response('Order', self.get_serialize_process_gf(order, parent_mapping))
+        else:
+            return get_response('Sorry shop is not associated with any GramFactory or any SP')
+
+    def get_basic_order_list(self):
+        """
+            Get Order
+            For Basic Cart
+        """
+        # basic validation for inputs
+        initial_validation = self.get_basic_list_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        return get_response('Order', self.get_serialize_process_basic(order))
+
+    def get_basic_list_validate(self):
+        """
+           Get Order
+           Input validation for cart type 'basic'
+        """
+        # Check if seller shop exist
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {'error': "Shop Doesn't Exist!"}
+        if not Shop.objects.filter(id=shop_id).exists():
+            return {'error': "Shop Doesn't Exist!"}
+        # get order list
+        order = self.get_basic_order(shop_id)
+        return {'order': order}
+
+    def get_basic_order(self, shop_id):
+        """
+          Get Basic Orders
+        """
+        search_text = self.request.GET.get('search_text')
+        order_status = self.request.GET.get('order_status')
+        orders = Order.objects.filter(seller_shop_id=shop_id)
+        if order_status:
+            order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
+            orders = orders.filter(order_status=order_status_actual) if order_status_actual else orders
+        if search_text:
+            order = order_search(orders, search_text)
+        else:
+            order = orders
+        return order
+
+    def get_serialize_process_sp(self, order, parent_mapping):
+        """
+           Get Order
+           Cart type retail - sp
+        """
+        serializer = OrderListSerializer(order, many=True,
+                                         context={'parent_mapping_id': parent_mapping.parent.id,
+                                                  'current_url': self.request.get_host(),
+                                                  'buyer_shop_id': parent_mapping.retailer.id})
+        """
+            Pagination on Order List
+        """
+        return pagination(self.request, serializer)
+
+    def get_serialize_process_gf(self, order, parent_mapping):
+        """
+           Get Order
+           Cart type retail - gf
+        """
+        serializer = GramMappedOrderSerializer(order, many=True,
+                                               context={'parent_mapping_id': parent_mapping.parent.id,
+                                                        'current_url': self.request.get_host(),
+                                                        'buyer_shop_id': parent_mapping.retailer.id})
+        """
+            Pagination on Order List
+        """
+        return pagination(self.request, serializer)
+
+    def get_serialize_process_basic(self, order):
+        """
+           Get Order
+           Cart type basic
+        """
+        serializer = BasicOrderListSerializer(order, many=True)
+        """
+            Pagination on Order List
+        """
+        return pagination(self.request, serializer)
+
+
+class OrderedItemCentralDashBoard(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        """
+            Get Order, Product & User Counts(Overview)
+            Inputs
+            app_type
+            shop_id for retail(Buyer shop id)
+
+        """
+        cart_type = request.GET.get('app_type')
+        if cart_type == '1':
+            return self.get_retail_order_overview()
+        elif cart_type == '2':
+            return self.get_basic_order_overview()
+        else:
+            return get_response('Provide a valid app_type')
+
+    def get_basic_order_overview(self):
+        """
+            Get Shop Name, Order, Product, & User Counts
+            For Basic Cart
+        """
+        # basic validation for inputs
+        initial_validation = self.get_basic_list_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        return get_response('Order Details', self.get_serialize_process(order))
+
+    def get_basic_list_validate(self):
+        """
+           Input validation for cart type 'basic'
+        """
+        # Check if seller shop exist
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {'error': "Shop Doesn't Exist!"}
+        # get a order_overview
+        order = self.get_basic_orders_count(shop_id)
+        return {'order': order}
+
+    def get_basic_orders_count(self, shop_id):
+        """
+          Get Basic Order Overview based on filters
+        """
+        filters = self.request.GET.get('filters')
+        if filters is None:
+            # check if filter parameter is not provided,
+            # fetch lifetime order details
+            filters = ''
+        if filters is not '':
+            # check if filter parameter is not none convert it to int
+            filters = int(filters)
+        order_status = self.request.GET.get('order_status')
+        today = datetime.today()
+
+        # get total orders for shop_id
+        orders = Order.objects.filter(seller_shop=shop_id)
+        # get total products for shop_id
+        products = RetailerProduct.objects.filter(shop=shop_id)
+        # get total users registered with shop_id
+        users = UserMappedShop.objects.filter(shop_id=shop_id)
+
+        if order_status:
+            order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
+            # get total orders for given shop_id & order_status
+            orders = orders.filter(order_status=order_status_actual) if order_status_actual else orders
+
+        # filter order, product & user by get modified date
+        if filters == 1:  # today
+            # filter order, product & user on modified date today
+            orders = orders.filter(modified_at__date=today)
+            products = products.filter(modified_at__date=today)
+            users = users.filter(modified_at__date=today)
+
+        elif filters == 2:  # yesterday
+            # filter order, product & user on modified date yesterday
+            yesterday = today - timedelta(days=1)
+            orders = orders.filter(modified_at__date=yesterday)
+            products = products.filter(modified_at__date=yesterday)
+            users = users.filter(modified_at__date=yesterday)
+
+        elif filters == 3:  # lastweek
+            # filter order, product & user on modified date lastweek
+            lastweek = today - timedelta(weeks=1)
+            orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
+            products = products.filter(modified_at__week=lastweek.isocalendar()[1])
+            users = users.filter(modified_at__week=lastweek.isocalendar()[1])
+
+        elif filters == 4:  # lastmonth
+            # filter order, product & user on modified date lastmonth
+            lastmonth = today - timedelta(days=30)
+            orders = orders.filter(modified_at__month=lastmonth.month)
+            products = products.filter(modified_at__month=lastmonth.month)
+            users = users.filter(modified_at__month=lastmonth.month)
+
+        elif filters == 5:  # lastyear
+            # filter order, product & user on modified date lastyear
+            lastyear = today - timedelta(days=365)
+            orders = orders.filter(modified_at__year=lastyear.year)
+            products = products.filter(modified_at__year=lastyear.year)
+            users = users.filter(modified_at__year=lastyear.year)
+
+        total_final_amount = 0
+        for order in orders:
+            # total final amount calculation
+            total_final_amount += order.total_final_amount
+
+        # counts of order for shop_id with total_final_amount, users, & products
+        order_count = orders.count()
+        users_count = users.count()
+        products_count = products.count()
+        shop = Shop.objects.get(id=shop_id)
+        overview = [{"shop_name": shop.shop_name, "orders": order_count,
+                     "registered_users": users_count, "products": products_count,
+                     "revenue": total_final_amount}]
+        return overview
+
+    def get_retail_order_overview(self):
+        """
+            Get Orders, Users & Products Counts
+            For retail cart
+        """
+        # basic validations for inputs
+        initial_validation = self.get_retail_list_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        return get_response('Order Details', self.get_serialize_process(order))
+
+    def get_retail_list_validate(self):
+        """
+            Get Order
+            Input validation for cart type 'retail'
+        """
+        shop_id = self.request.GET.get('shop_id')
+        # Check if buyer shop exists
+        if not Shop.objects.filter(id=shop_id).exists():
+            return {'error': "Shop Doesn't Exist!"}
+        # Check if buyer shop is mapped to parent/seller shop
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
+            return {'error': "Shop Mapping Doesn't Exist!"}
+        shop_type = parent_mapping.parent.shop_type.shop_type
+        # Check if order exists get a count of orders
+        order = self.get_retail_orders_count(shop_type, parent_mapping)
+        return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
+
+    def get_retail_orders_count(self, shop_type, parent_mapping):
+        """
+           Get Retail Order Overview based on filters
+        """
+        filters = self.request.GET.get('filters')
+        if filters is None:
+            # check if filter parameter is not provided,
+            # fetch lifetime order details
+            filters = ''
+        if filters is not '':
+            # check if filter parameter is not none convert it to int
+            filters = int(filters)
+        order_status = self.request.GET.get('order_status')
+        today = datetime.today()
+
+        if shop_type == 'sp':
+            orders = Order.objects.filter(buyer_shop=parent_mapping.retailer)
+        elif shop_type == 'gf':
+            orders = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer)
+
+        if order_status:
+            orders = orders.filter(order_status=order_status)
+
+        # filter by order on modified date
+        if filters == 1:  # today
+            # filter order, total_final_amount on modified date today
+            orders = orders.filter(modified_at__date=today)
+
+        elif filters == 2:  # yesterday
+            # filter order, total_final_amount on modified date yesterday
+            yesterday = today - timedelta(days=1)
+            orders = orders.filter(modified_at__date=yesterday)
+
+        elif filters == 3:  # lastweek
+            # filter order, total_final_amount on modified date lastweek
+            lastweek = today - timedelta(weeks=1)
+            orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
+
+        elif filters == 4:  # lastmonth
+            # filter order, total_final_amount on modified date lastmonth
+            lastmonth = today - timedelta(days=30)
+            orders = orders.filter(modified_at__month=lastmonth.month)
+
+        elif filters == 5:  # lastyear
+            # filter order, total_final_amount on modified date lastyear
+            lastyear = today - timedelta(days=365)
+            orders = orders.filter(modified_at__year=lastyear.year)
+
+        total_final_amount = 0
+        for order in orders:
+            # total final amount calculation
+            total_final_amount += order.total_final_amount
+
+        # counts of order with total_final_amount for buyer_shop
+        orders = orders.count()
+        order = [{"shop_name": parent_mapping.retailer.shop_name, "orders": orders,
+                  "revenue": total_final_amount}]
+        return order
+
+    def get_serialize_process(self, order):
+        """
+           Get Overview of Orders, Users & Products
+           Cart type basic & Retail
+        """
+        serializer = OrderedDashBoardSerializer(order, many=True).data
+        return serializer
+
+
+class OrderReturns(APIView):
+    """
+        Place return for an order
+    """
+
+    def post(self, request):
+        """
+            Returns for any order
+            Inputs
+            order_id
+            return_items - dict - product_id, qty
+            refund_amount
+        """
+        # Input validation
+        initial_validation = self.post_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        return_items = initial_validation['return_items']
+        return_reason = initial_validation['return_reason']
+        with transaction.atomic():
+            # map all products to combo offers in cart
+            product_combo_map = self.get_combo_offers(order)
+            # initiate / update return for order
+            order_return = self.update_return(order, return_reason)
+            # To map free products to their return quantity
+            free_returns = {}
+            free_qty_product_map = []
+            new_cart_value = 0
+            ordered_product = OrderedProduct.objects.get(order=order)
+            all_products = ordered_product.rt_order_product_order_product_mapping.filter(product_type=1).values_list('retailer_product_id', flat=True)
+            given_products = []
+            # for each purchased product add/remove returns according to quantity provided
+            for return_product in return_items:
+                product_validate = self.validate_product(ordered_product, return_product)
+                if 'error' in product_validate:
+                    return get_response(product_validate['error'])
+                product_id = product_validate['product_id']
+                ordered_product_map = product_validate['ordered_product_map']
+                return_qty = product_validate['return_qty']
+                given_products += [product_id]
+                # if return quantity of product is greater than zero
+                if return_qty > 0:
+                    self.return_item(order_return, ordered_product_map, return_qty)
+                    if product_id in product_combo_map:
+                        new_prod_qty = ordered_product_map.shipped_qty - return_qty
+                        for offer in product_combo_map[product_id]:
+                            purchased_product_multiple = int(int(new_prod_qty) / int(offer['item_qty']))
+                            new_free_item_qty = int(purchased_product_multiple * int(offer['free_item_qty']))
+                            return_free_qty = offer['free_item_qty_added'] - new_free_item_qty
+                            free_qty_product_map.append(
+                                self.get_free_item_map(product_id, offer['free_item_id'], return_free_qty))
+                            free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'],
+                                                                         return_free_qty)
+                else:
+                    ReturnItems.objects.filter(return_id=order_return, ordered_product=ordered_product_map).delete()
+                    if product_id in product_combo_map:
+                        for offer in product_combo_map[product_id]:
+                            free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'], 0)
+                new_cart_value += (ordered_product_map.shipped_qty - return_qty) * ordered_product_map.selling_price
+            for id in all_products:
+                if id not in given_products:
+                    return get_response("Please provide product {}".format(id) + " in return items")
+            # check and update refund amount
+            self.update_refund_amount(order, new_cart_value, order_return)
+            self.process_free_products(ordered_product, order_return, free_returns)
+            order_return.free_qty_map = free_qty_product_map
+            order_return.save()
+        return get_response("Order Return", BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
+                                                                                 'invoice': 1}).data)
+
+    def post_validate(self):
+        """
+            Validate order return creation
+        """
+        # check shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {"error": "Shop Doesn't Exist!"}
+        return_items = self.request.data.get('return_items')
+        if not return_items:
+            return {'error': "Provide return item details"}
+        # check if order exists
+        order_id = self.request.data.get('order_id')
+        try:
+            order = Order.objects.get(pk=order_id, seller_shop_id=shop_id, order_status='ordered')
+        except ObjectDoesNotExist:
+            return {'error': "Order Does Not Exist"}
+        # check return reason is valid
+        return_reason = self.request.data.get('return_reason', '')
+        if return_reason and return_reason not in dict(OrderReturn.RETURN_REASON):
+            return {'error': 'Provide a valid return reason'}
+        return {'order': order, 'return_reason': return_reason, 'return_items': return_items}
+
+    def update_refund_amount(self, order, new_cart_value, order_return):
+        """
+            Calculate refund amount
+            Check offers applied on order
+            Remove coupon if new cart value does not qualify for offer
+            Remove spot discount if discount exceeds new cart value
+        """
+        # previous offer on order
+        order_offer = {}
+        applied_offers = order.ordered_cart.offers
+        if applied_offers:
+            for offer in applied_offers:
+                if offer['coupon_type'] == 'cart' and offer['applied']:
+                    order_offer = self.modify_applied_cart_offer(offer, new_cart_value)
+        discount = order_offer['discount_value'] if order_offer else 0
+        refund_amount = round(float(order.total_final_amount) - float(new_cart_value) + discount, 2)
+        refund_amount_provided = self.request.data.get('refund_amount')
+        if refund_amount_provided and refund_amount_provided <= refund_amount:
+            refund_amount = refund_amount_provided
+        order_return.refund_amount = refund_amount
+        order_return.offers = [order_offer] if order_offer else []
+        order_return.save()
+
+    def modify_applied_cart_offer(self, offer, new_cart_value):
+        """
+            Modify cart discount according to new cart value on returns
+        """
+        order_offer = {}
+        if offer['sub_type'] == 'set_discount' and offer['cart_minimum_value'] <= new_cart_value:
+            discount = BasicCartOffers.discount_value(offer, new_cart_value)
+            offer['discount_value'] = discount
+            order_offer = offer
+        if offer['sub_type'] == 'spot_discount' and offer['discount_value'] <= new_cart_value:
+            order_offer = offer
+        return order_offer
+
+    def get_combo_offers(self, order):
+        """
+            Get combo offers mapping with product purchased
+        """
+        offers = order.ordered_cart.offers
+        product_combo_map = {}
+        if offers:
+            for offer in offers:
+                if offer['type'] == 'combo':
+                    product_combo_map[offer['item_id']] = product_combo_map[offer['item_id']] + [offer] \
+                        if offer['item_id'] in product_combo_map else [offer]
+        return product_combo_map
+
+    def get_free_item_map(self, product_id, free_item_id, qty):
+        """
+            Get purchased product map with free product return
+        """
+        return {
+            'item_id': product_id,
+            'free_item_id': free_item_id,
+            'free_item_return_qty': qty
+        }
+
+    def get_updated_free_returns(self, free_returns, free_item_id, qty):
+        """
+            update free returns quantity for a free item
+        """
+        free_returns[free_item_id] = qty + free_returns[free_item_id] if free_item_id in free_returns else qty
+        return free_returns
+
+    def return_item(self, order_return, ordered_product_map, return_qty):
+        """
+            Update return for a product
+        """
+        return_item, _ = ReturnItems.objects.get_or_create(return_id=order_return,
+                                                           ordered_product=ordered_product_map)
+        return_item.return_qty = return_qty
+        return_item.save()
+
+    def update_return(self, order, return_reason):
+        """
+            Create/update retun for an order
+        """
+        order_return, _ = OrderReturn.objects.get_or_create(order=order)
+        order_return.processed_by = self.request.user
+        order_return.return_reason = return_reason
+        order_return.save()
+        return order_return
+
+    def validate_product(self, ordered_product, return_product):
+        """
+            Validate return detail - product_id, qty, amt (refund amount) - provided for a product
+        """
+        # product id
+        if 'product_id' not in return_product:
+            return {'error': "Provide product ids"}
+        product_id = return_product['product_id']
+        # return qty
+        if 'qty' not in return_product or return_product['qty'] < 0:
+            return {'error': "Return qty not provided / invalid for product {}".format(product_id)}
+        return_qty = return_product['qty']
+        # ordered product
+        try:
+            ordered_product_map = ShipmentProducts.objects.get(ordered_product=ordered_product, product_type=1,
+                                                                    retailer_product_id=product_id)
+        except:
+            return {'error': "{} is not a purchased product in this order".format(product_id)}
+        # check return qty
+        if return_qty > ordered_product_map.shipped_qty:
+            return {'error': "Product {} - return qty cannot be greater than sold quantity".format(product_id)}
+        return {'ordered_product_map': ordered_product_map, 'return_qty': return_qty, 'product_id': product_id}
+
+    def process_free_products(self, ordered_product, order_return, free_returns):
+        """
+            Process return for free products
+            ordered_product
+            order_return - return created on order
+            free_returns - dict containing return free item qty
+        """
+        for free_product in free_returns:
+            ordered_product_map_free = ShipmentProducts.objects.get(
+                ordered_product=ordered_product,
+                product_type=0,
+                retailer_product_id=free_product)
+            return_qty = free_returns[free_product]
+            if not return_qty:
+                ReturnItems.objects.filter(return_id=order_return, ordered_product=ordered_product_map_free).delete()
+                continue
+            free_return, _ = ReturnItems.objects.get_or_create(return_id=order_return,
+                                                               ordered_product=ordered_product_map_free)
+            free_return.return_qty = return_qty
+            free_return.save()
+
+
+class OrderReturnsCheckout(APIView):
+    """
+        Checkout after items return
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        """
+            Apply Any Available Applicable Offer - Either coupon or spot discount
+            Inputs
+            cart_id
+            coupon_id
+            spot_discount
+            is_percentage (spot discount type)
+        """
+        initial_validation = self.post_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        order_return = initial_validation['order_return']
+        # initial order amount
+        received_amount = order.total_final_amount
+        # refund amount according to any previous offer applied
+        refund_amount = order_return.refund_amount
+        applied_offers = order_return.offers
+        discount_given = 0
+        if applied_offers:
+            for offer in applied_offers:
+                if offer['coupon_type'] == 'cart' and offer['applied']:
+                    discount_given += offer['discount_value']
+        # refund amount without any offer
+        refund_amount_raw = refund_amount - discount_given
+        # new order amount when no discount is applied
+        current_amount = received_amount - refund_amount_raw
+        # Check spot discount or cart offer
+        spot_discount = self.request.data.get('spot_discount')
+        offers_list = dict()
+        offers_list['applied'] = False
+        if spot_discount:
+            offers = BasicCartOffers.apply_spot_discount_returns(spot_discount, self.request.data.get('is_percentage'),
+                                                                 current_amount, order_return, refund_amount_raw)
+        else:
+            offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw,
+                                                            self.request.data.get('coupon_id'))
+        if 'error' in offers:
+            return get_response(offers['error'])
+        return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(order))
+
+    def post_validate(self):
+        """
+            Validate returns checkout offers apply
+        """
+        # check shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {"error": "Shop Doesn't Exist!"}
+        # check order
+        order_id = self.request.data.get('order_id')
+        try:
+            order = Order.objects.get(pk=order_id, seller_shop_id=shop_id)
+        except ObjectDoesNotExist:
+            return {'error': "Order Does Not Exist"}
+        # check if return created
+        try:
+            order_return = OrderReturn.objects.get(order=order, status='created')
+        except ObjectDoesNotExist:
+            return {'error': "Order Return Created Does Not Exist"}
+        if not self.request.data.get('coupon_id') and not self.request.data.get('spot_discount'):
+            return {'error': "Provide Coupon Id/Spot Discount"}
+        if self.request.data.get('coupon_id') and self.request.data.get('spot_discount'):
+            return {'error': "Provide either of coupon_id or spot_discount"}
+        if self.request.data.get('spot_discount') and self.request.data.get('is_percentage') not in [0, 1]:
+            return {'error': "Provide a valid spot discount type"}
+        return {'order': order, 'order_return': order_return}
+
+    def get(self, request):
+        """
+            Get Return Checkout Amount Info, Offers Applied-Applicable
+        """
+        # Input validation
+        initial_validation = self.get_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        order_return = initial_validation['order_return']
+        # get available offers
+        # Get coupons available on cart from es
+        # initial order amount
+        received_amount = order.total_final_amount
+        # refund amount according to any previous offer applied
+        refund_amount = order_return.refund_amount
+        applied_offers = order_return.offers
+        discount_given = 0
+        if applied_offers:
+            for offer in applied_offers:
+                if offer['coupon_type'] == 'cart' and offer['applied']:
+                    discount_given += offer['discount_value']
+        # refund amount without any offer
+        refund_amount_raw = refund_amount - discount_given
+        # new order amount when no discount is applied
+        current_amount = received_amount - refund_amount_raw
+        offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw)
+        if 'error' in offers:
+            return get_response(offers['error'])
+        return get_response("Return Checkout", self.serialize(order, offers['total_offers'], offers['spot_discount']))
+
+    def get_validate(self):
+        """
+            Get Return Checkout
+            Input validation
+        """
+        # check shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {"error": "Shop Doesn't Exist!"}
+        # check order
+        order_id = self.request.GET.get('order_id')
+        try:
+            order = Order.objects.get(pk=order_id, seller_shop_id=shop_id, order_status='ordered')
+        except ObjectDoesNotExist:
+            return {'error': "Order Does Not Exist / Still Open / Already Returned"}
+        # check if return created
+        try:
+            order_return = OrderReturn.objects.get(order=order, status='created')
+        except ObjectDoesNotExist:
+            return {'error': "Order Return Created Does Not Exist / Already Closed"}
+        return {'order': order, 'order_return': order_return}
+
+    def delete(self, request):
+        """
+            Order return checkout
+            Delete any applied offers
+        """
+        # Check shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return get_response("Shop Doesn't Exist!")
+        # check order
+        order_id = self.request.GET.get('order_id')
+        try:
+            order = Order.objects.get(pk=order_id, seller_shop_id=shop_id)
+        except ObjectDoesNotExist:
+            return get_response("Order Does Not Exist")
+        # check if return created
+        try:
+            order_return = OrderReturn.objects.get(order=order)
+        except ObjectDoesNotExist:
+            return {'error': "Order Return Does Not Exist"}
+        refund_amount = order_return.refund_amount
+        applied_offers = order_return.offers
+        discount_given = 0
+        if applied_offers:
+            for offer in applied_offers:
+                if offer['coupon_type'] == 'cart' and offer['applied']:
+                    discount_given += float(offer['discount_value'])
+        refund_amount = refund_amount - discount_given
+        order_return.offers = []
+        order_return.refund_amount = refund_amount
+        order_return.save()
+        return get_response("Deleted Successfully", [], True)
+
+    def serialize(self, order, offers=None, spot_discount=None):
+        """
+            Checkout serializer
+        """
+        serializer = OrderReturnCheckoutSerializer(order)
+        response = serializer.data
+        if offers:
+            response['available_offers'] = offers
+        if spot_discount:
+            response['spot_discount'] = spot_discount
+        return response
+
+
+class OrderReturnComplete(APIView):
+    """
+        Complete created return on an order
+    """
+
+    def post(self, request):
+        """
+            Complete return on order
+        """
+        # check shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {"error": "Shop Doesn't Exist!"}
+        # check order
+        order_id = self.request.data.get('order_id')
+        try:
+            order = Order.objects.get(pk=order_id, seller_shop_id=shop_id, order_status='ordered')
+        except ObjectDoesNotExist:
+            return {'error': "Order Does Not Exist / Still Open / Already Returned"}
+        # check if return created
+        try:
+            order_return = OrderReturn.objects.get(order=order, status='created')
+        except ObjectDoesNotExist:
+            return {'error': "Order Return Does Not Exist / Already Closed"}
+
+        with transaction.atomic():
+            # check partial or fully refunded order
+            return_qty = order_return.rt_return_list \
+            .aggregate(return_qty=Sum('return_qty'))['return_qty']
+
+            ordered_product = OrderedProduct.objects.get(order=order)
+
+            initial_qty = ordered_product.rt_order_product_order_product_mapping \
+            .aggregate(shipped_qty=Sum('shipped_qty'))['shipped_qty']
+
+            if initial_qty == return_qty:
+                order.order_status = Order.FULLY_REFUNDED
+                ordered_product.shipment_status = 'FULLY_RETURNED_AND_VERIFIED'
+            else:
+                order.order_status = Order.PARTIALLY_REFUNDED
+                ordered_product.shipment_status = 'PARTIALLY_DELIVERED_AND_VERIFIED'
+            ordered_product.last_modified_by = self.request.user
+            ordered_product.save()
+            order.last_modified_by = self.request.user
+            order.save()
+            # complete return
+            order_return.status = 'completed'
+            order_return.save()
+        return get_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data)
+
 
 class OrderList(generics.ListAPIView):
     serializer_class = OrderListSerializer
