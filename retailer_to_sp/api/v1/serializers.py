@@ -93,12 +93,12 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
     def get_product_price(self, obj):
         # fetch product , order_id
         cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
-        self.product_price = round(cart_product_mapping.get_item_effective_prize(obj.delivered_qty),2)
+        self.product_price = round(cart_product_mapping.get_item_effective_price(obj.delivered_qty), 2)
         return self.product_price
 
     def get_product_total_price(self, obj):
         cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
-        product_price = cart_product_mapping.get_item_effective_prize(obj.delivered_qty)
+        product_price = cart_product_mapping.get_item_effective_price(obj.delivered_qty)
         self.product_total_price = product_price * obj.shipped_qty
         return round(self.product_total_price,2)
 
@@ -397,7 +397,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
             product_mrp = product_price.mrp if product_price.mrp else obj.cart_product.product_mrp
             margin = (((float(product_mrp) - product_price.get_PTR(obj.qty)) / float(product_mrp)) * 100)
             if obj.cart.offers:
-                margin = (((float(product_mrp) - obj.get_item_effective_prize(obj.qty)) / float(product_mrp)) * 100)
+                margin = (((float(product_mrp) - obj.get_item_effective_price(obj.qty)) / float(product_mrp)) * 100)
             return round(margin, 2)
         return False
 
@@ -1165,7 +1165,7 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
             if obj.effective_price:
                 return obj.effective_price
             return obj.ordered_product.order.ordered_cart.rt_cart_list\
-                .get(cart_product=obj.product).get_item_effective_prize(obj.delivered_qty)
+                .get(cart_product=obj.product).get_item_effective_price(obj.delivered_qty)
 
 
     class Meta:
