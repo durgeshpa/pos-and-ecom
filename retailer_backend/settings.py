@@ -412,7 +412,7 @@ DEBUG_TOOLBAR_CONFIG = {
 DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
-if ENVIRONMENT.lower() in ["production", "stage", "qa", "qa1", "qa3"]:
+if ENVIRONMENT.lower() in ["production", "stage", "qa", "qa1", "qa3", "qa4"]:
     from sentry_sdk.integrations.celery import CeleryIntegration
     sentry_sdk.init(
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
@@ -431,6 +431,7 @@ REDIS_DB_CHOICE = {
     'qa3':'6',
     'qa2':'8',
     'local':'10',
+    'qa4':'11'
 }
 
 # JET_THEMES = [
@@ -584,7 +585,9 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 EMAIL_USE_TLS = config('EMAIL_USE_TLS')
 
+
 # WhatsAPP API Configuration
 WHATSAPP_API_ENDPOINT = config('WHATSAPP_API_ENDPOINT')
 WHATSAPP_API_USERID = config('WHATSAPP_API_USERID')
 WHATSAPP_API_PASSWORD = config('WHATSAPP_API_PASSWORD')
+
