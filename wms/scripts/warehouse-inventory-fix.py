@@ -91,18 +91,6 @@ def fix_ordered_data(warehouse):
 
             inventory_calculated[item['cart_product__product_sku']] += item['qty']
 
-    orders_picklist_pending = Order.objects.filter(~Q(order_status='CANCELLED'), order_no__in=
-                                                   AuditCancelledPicklist.objects.filter(audit__warehouse=warehouse,
-                                                                                         is_picklist_refreshed=False,)
-                                                                                 .values_list('order_no', flat=True))
-    for o in orders_picklist_pending:
-        ordered_sku = o.ordered_cart.rt_cart_list.values('cart_product__product_sku')\
-                                                  .annotate(qty=Sum('no_of_pieces'))
-        for item in ordered_sku:
-            if inventory_calculated.get(item['cart_product__product_sku']) is None:
-                inventory_calculated[item['cart_product__product_sku']] = 0
-
-            inventory_calculated[item['cart_product__product_sku']] += item['qty']
 
     for item in warehouse_inventory:
         if inventory_calculated.get(item['sku_id']) is None:
