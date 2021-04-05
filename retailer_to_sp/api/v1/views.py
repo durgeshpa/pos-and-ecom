@@ -1570,7 +1570,7 @@ def pdf_generation(request, ordered_product):
                 tcs_rate = 1
                 tcs_tax = total_amount * float(tcs_rate / 100)
             else:
-                tcs_rate = 0.075
+                tcs_rate = 0.1
                 tcs_tax = total_amount * float(tcs_rate / 100)
 
         tcs_tax = round(tcs_tax, 2)

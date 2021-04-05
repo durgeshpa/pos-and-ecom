@@ -758,7 +758,8 @@ class UploadMasterDataAdminForm(forms.Form):
                 if 'hsn' in header_list and 'hsn' in row.keys():
                     if row['hsn'] != '':
                         if not ProductHSN.objects.filter(
-                                product_hsn_code=row['hsn']).exists():
+                                product_hsn_code=row['hsn']).exists() and not ProductHSN.objects.filter(
+                                product_hsn_code='0' + str(row['hsn'])).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['hsn']} |'HSN' doesn't exist in the system."))
                 if 'tax_1(gst)' in header_list and 'tax_1(gst)' in row.keys():
                     if row['tax_1(gst)'] != '':
@@ -2009,8 +2010,6 @@ class BulkProductVendorMapping(forms.Form):
 
         return self.cleaned_data['file']
 
-
-
 class ProductPriceSlabForm(forms.ModelForm):
     """
     This class is used to create Slab Product Price for a particular product
@@ -2177,3 +2176,22 @@ class UploadSlabProductPriceForm(forms.Form):
                               or getStrToDate(row[13]) >= getStrToDate(row[14])):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
         return self.cleaned_data['file']
+    
+def only_int(value):
+    if value.isdigit() is False:
+        raise ValidationError('HSN can only be a numeric value.')
+
+
+class ProductHSNForm(forms.ModelForm):
+    product_hsn_code = forms.CharField(max_length=8, min_length=6, validators=[only_int])
+
+
+    class Meta:
+        model = ProductHSN
+        fields = ['product_hsn_code']
+
+    # this function will be used for the validation
+    def clean(self):
+
+        # data from the form is fetched using super function
+        super(ProductHSNForm, self).clean()

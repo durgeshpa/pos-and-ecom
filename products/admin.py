@@ -18,7 +18,7 @@ from retailer_backend.admin import InputFilter, SelectInputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
-                    ProductPriceChangePerm, ProductPriceNewForm,
+                    ProductPriceChangePerm, ProductPriceNewForm, ProductHSNForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
                     ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
@@ -1193,6 +1193,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 
 
 class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
+    form = ProductHSNForm
     fields = ['product_hsn_code']
     list_display = ['product_hsn_code']
     actions = ['export_as_csv']

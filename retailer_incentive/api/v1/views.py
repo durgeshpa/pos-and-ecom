@@ -85,8 +85,8 @@ class ShopPurchaseMatrix(APIView):
         """
         total_sales = 0
         shipment_products = OrderedProductMapping.objects.filter(ordered_product__order__buyer_shop_id=shop_id,
-                                                                 ordered_product__created_at__gte=start_date,
-                                                                 ordered_product__created_at__lte=end_date,
+                                                                 ordered_product__order__created_at__gte=start_date,
+                                                                 ordered_product__order__created_at__lte=end_date,
                                                                  ordered_product__shipment_status__in=
                                                                      ['PARTIALLY_DELIVERED_AND_COMPLETED',
                                                                       'FULLY_DELIVERED_AND_COMPLETED',
