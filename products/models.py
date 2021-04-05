@@ -595,9 +595,9 @@ class PriceSlab(models.Model):
     product_price = models.ForeignKey(ProductPrice, related_name='price_slabs', on_delete=models.CASCADE)
     start_value = models.PositiveIntegerField()
     end_value = models.PositiveIntegerField()
-    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False,
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False, validators=[PriceValidator],
                                         verbose_name='Selling Price(Per saleable unit)')
-    offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,
+    offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, validators=[PriceValidator],
                                       verbose_name='Offer Price(Per saleable unit)')
     offer_price_start_date = models.DateField(null=True, blank=True)
     offer_price_end_date = models.DateField(null=True, blank=True)
