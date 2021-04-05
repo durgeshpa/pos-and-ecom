@@ -36,10 +36,9 @@ from pos.common_functions import get_response, delete_cart_mapping, order_search
 from .serializers import BasicCartSerializer, BasicOrderSerializer, CheckoutSerializer, \
     BasicOrderListSerializer, OrderedDashBoardSerializer, BasicCartListSerializer, OrderReturnCheckoutSerializer
 from pos.offers import BasicCartOffers
-from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token, get_invoice_and_link
 from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
-from common.common_utils import whatsapp_opt_in
-
+from common.common_utils import whatsapp_opt_in, whatsapp_invoice_send
+from retailer_to_sp.api.v1.views import pdf_generation_retailer
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -501,8 +500,6 @@ class CartCentral(APIView):
         name = self.request.data.get('name')
         email = self.request.data.get('email')
         is_whatsapp = self.request.data.get('is_whatsapp')
-        if is_whatsapp:
-            whatsapp_opt_in(ph_no)
         if email:
             try:
                 validators.validate_email(email)
@@ -520,6 +517,8 @@ class CartCentral(APIView):
         # Update customer as buyer in cart
         cart.buyer = customer
         cart.save()
+        if customer.is_whatsapp is True:
+            whatsapp_opt_in.delay(ph_no)
         serializer = BasicCartSerializer(cart)
         return get_response("Cart Updated Successfully!", serializer.data)
 
@@ -1467,8 +1466,8 @@ class OrderCentral(APIView):
             # Update Cart To Ordered
             self.update_cart_basic(cart)
             order = self.create_basic_order(cart, shop)
-            invoice = self.auto_process_order(order, payment_method)
-            return get_response('Ordered Successfully!', self.post_serialize_process_basic(order, invoice))
+            self.auto_process_order(order, payment_method)
+            return get_response('Ordered Successfully!', self.post_serialize_process_basic(order))
 
     def get_retail_validate(self):
         """
@@ -1768,8 +1767,7 @@ class OrderCentral(APIView):
            Get Order
            Cart type basic
         """
-        serializer = BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
-                                                          'invoice': 1})
+        serializer = BasicOrderSerializer(order, context={'current_url': self.request.get_host()})
         return serializer.data
 
     def post_serialize_process_sp(self, order, parent_mapping):
@@ -1792,16 +1790,14 @@ class OrderCentral(APIView):
                                                                'current_url': self.request.get_host()})
         return serializer.data
 
-    def post_serialize_process_basic(self, order, invoice=False):
+    def post_serialize_process_basic(self, order):
         """
             Place Order
             Serialize retail order for sp shop
         """
         serializer = BasicOrderSerializer(Order.objects.get(pk=order.id),
                                           context={'current_url': self.request.get_host()})
-        response = serializer.data
-        response['invoice'] = invoice
-        return response
+        return serializer.data
 
     def auto_process_order(self, order, payment_method):
         """
@@ -1863,8 +1859,7 @@ class OrderCentral(APIView):
         # Complete Shipment
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
-        invoice_data = get_invoice_and_link(shipment, self.request.get_host())
-        return invoice_data
+        pdf_generation_retailer(self.request, order.id)
 
 
 class OrderedItemCentralDashBoard(APIView):
@@ -2146,8 +2141,7 @@ class OrderReturns(APIView):
             self.process_free_products(ordered_product, order_return, free_returns)
             order_return.free_qty_map = free_qty_product_map
             order_return.save()
-        return get_response("Order Return", BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
-                                                                                 'invoice': 1}).data)
+        return get_response("Order Return", BasicOrderSerializer(order, context={'current_url': self.request.get_host()}).data)
 
     def post_validate(self):
         """

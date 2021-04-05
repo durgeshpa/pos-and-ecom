@@ -13,6 +13,7 @@ from decouple import config
 
 # django imports
 from django.http import HttpResponse
+from celery.task import task
 
 # app imports
 from retailer_backend import common_function as CommonFunction
@@ -129,7 +130,7 @@ def create_invoice_data(ordered_product):
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     ordered_product.invoice_amount)
         elif ordered_product.order.ordered_cart.cart_type == 'BASIC':
-            if ordered_product.shipment_status == "READY_TO_SHIP":
+            if ordered_product.shipment_status == "FULLY_DELIVERED_AND_VERIFIED":
                 CommonFunction.generate_invoice_number(
                     'invoice_no', ordered_product.pk,
                     ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
@@ -173,7 +174,7 @@ def barcode_gen(value):
     output_stream.seek(0)
     return output_stream
 
-
+@task()
 def whatsapp_opt_in(phone_number):
     """
     request param:- phone number
@@ -186,6 +187,29 @@ def whatsapp_opt_in(phone_number):
         data_string = "method=OPT_IN&format=json&password=" + whatsapp_user_password + "&phone_number=" + phone_number +" +&v=1.1&auth_scheme=plain&channel=whatsapp"
         opt_in_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
         response = requests.get(opt_in_api)
+        if json.loads(response.text)['response']['status'] == 'success':
+            return True
+        else:
+            return False
+    except Exception as e:
+        error_logger.error(e)
+        return False
+
+
+@task()
+def whatsapp_invoice_send(phone_number, shop_name, media_url, file_name):
+    """
+    request param:- order number
+    return :- Ture if success else False
+    """
+    try:
+        api_end_point = WHATSAPP_API_ENDPOINT
+        whatsapp_user_id = WHATSAPP_API_USERID
+        whatsapp_user_password = WHATSAPP_API_PASSWORD
+        caption = "Thank you for shopping at " +shop_name+"! Please find your invoice."
+        data_string = "method=SendMediaMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&isHSM=true&msg_type=Document&media_url="+media_url + "&filename=" + file_name + "&caption=" + caption
+        invoice_send_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
+        response = requests.get(invoice_send_api)
         if json.loads(response.text)['response']['status'] == 'success':
             return True
         else:

@@ -95,7 +95,7 @@ from coupon.models import Coupon, CusotmerCouponUsage
 from products.models import Product
 from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data)
+                                 create_invoice_data, whatsapp_invoice_send)
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
@@ -1307,10 +1307,7 @@ class DownloadInvoiceSP(APIView):
             # check pk is exist or not for Order product model
             ordered_product = get_object_or_404(OrderedProduct, pk=pk)
             # call pdf generation method to generate pdf and download the pdf
-            if ordered_product.order.ordered_cart.cart_type == 'BASIC':
-                pdf_generation_retailer(request, ordered_product)
-            else:
-                pdf_generation(request, ordered_product)
+            pdf_generation(request, ordered_product)
             result = requests.get(ordered_product.invoice.invoice_pdf.url)
             file_prefix = PREFIX_INVOICE_FILE_NAME
             # generate pdf file
@@ -1615,21 +1612,18 @@ def pdf_generation(request, ordered_product):
             logger.exception(e)
 
 
-def pdf_generation_retailer(request, ordered_product):
+
+def pdf_generation_retailer(request, order_id):
     """
     :param request: request object
-    :param ordered_product: Order product object
+    :param order_id: Order id
     :return: pdf instance
     """
     file_prefix = PREFIX_INVOICE_FILE_NAME
+    order = Order.objects.filter(id=order_id).last()
+    ordered_product = order.rt_order_order_product.all()[0]
     filename = create_file_name(file_prefix, ordered_product)
     template_name = 'admin/invoice/invoice_retailer.html'
-    if type(request) is str:
-        request = None
-        ordered_product = get_object_or_404(OrderedProduct, pk=ordered_product)
-    else:
-        request = request
-        ordered_product = ordered_product
 
     try:
         # Don't create pdf if already created
@@ -1694,9 +1688,14 @@ def pdf_generation_retailer(request, ordered_product):
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         try:
-            create_invoice_data(ordered_product)
-            ordered_product.invoice.invoice_pdf.save("{}".format(filename),
-                                                     ContentFile(response.rendered_content), save=True)
+            # create_invoice_data(ordered_product)
+            ordered_product.invoice.invoice_pdf.save("{}".format(filename),ContentFile(response.rendered_content),
+                                                     save=True)
+            phone_number = order.buyer.phone_number
+            shop_name = order.seller_shop.shop_name
+            media_url = ordered_product.invoice.invoice_pdf.url
+            file_name = ordered_product.invoice.invoice_no
+            whatsapp_invoice_send.delay(phone_number, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception(e)
 
