@@ -1,14 +1,14 @@
 from django.conf.urls import include, url
 from rest_framework import routers
 
-from .views import (ProductsList, SearchProducts, AddToCart, CartDetail,
+from .views import (ProductsList, SearchProducts,
                     ReservedOrder, CreateOrder, OrderList, OrderDetail, DownloadInvoiceSP,
                     DownloadNote, CustomerCareApi, CustomerOrdersList, PaymentApi,
                     ProductDetail, ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
                     CancelOrder, DeliveryBoyTrips, RetailerShopsList, FeedbackData, SellerOrderList,
                     DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
-                    AutoSuggest, RefreshEs
+                    AutoSuggest, RefreshEs, CartCentral
                     )
 
 router = routers.DefaultRouter()
@@ -21,8 +21,9 @@ urlpatterns = [
     url('^search/(?P<product_name>.+)/$', ProductsList.as_view()),
     url('^GRN/search/$', SearchProducts.as_view()),
     #order Api
-    url('^add-to-cart/$', AddToCart.as_view(), name='add_to_cart'),
-    url('^cart-detail/$', CartDetail.as_view(), name='cart_detail'),
+    url('^cart/$', CartCentral.as_view(), name='add_to_cart'),
+    url('^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
+    #url('^cart-detail/$', CartDetail.as_view(), name='cart_detail'),
     url('^reserved-order/$', ReservedOrder.as_view(), name='reserved_order'),
     url('^create-order/$', CreateOrder.as_view(), name='reserved_order'),
     url('^order-list/$', OrderList.as_view(), name='order_list'),
