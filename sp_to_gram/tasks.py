@@ -67,6 +67,12 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		product_price = product_price_dict.get(product.id)
 		margin = 0
 		ptr = 0
+		pack_size = None
+		try:
+			pack_size = product.product_inner_case_size if product.product_inner_case_size else None
+		except Exception as e:
+			info_logger.exception("pack size is not defined for {}".format(product.product_name))
+			continue
 		price_details = []
 		if product_price:
 			slabs = product_price.price_slabs.all()
@@ -84,7 +90,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 							"start_value": slab.start_value,
 							"end_value": slab.end_value,
 							"ptr": slab.ptr,
-							"margin": round((((float(mrp) - slab.ptr) / float(mrp)) * 100),2)
+							"margin": round((((float(mrp) - slab.ptr/pack_size) / float(mrp)) * 100),2)
 						})
 
 		else:
@@ -92,12 +98,6 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 		product_opt = product.product_opt_product.all()
 		weight_value = None
 		weight_unit = None
-		pack_size = None
-		try:
-			pack_size = product.product_inner_case_size if product.product_inner_case_size else None
-		except Exception as e:
-			info_logger.exception("pack size is not defined for {}".format(product.product_name))
-			continue
 		if product_dict:
 			if int(pack_size) > int(product_dict[product.id]):
 				status = False

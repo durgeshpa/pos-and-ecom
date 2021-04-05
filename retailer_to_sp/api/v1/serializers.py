@@ -277,7 +277,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def margin_dt(self, obj):
         if self.product_mrp:
-            return round((((float(self.product_mrp) - self.product_price) / float(self.product_mrp)) * 100), 2)
+            return round((((float(self.product_mrp) - self.product_price/int(obj.product_inner_case_size)) / float(self.product_mrp)) * 100), 2)
         return False
 
 
@@ -395,7 +395,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                              self.context.get('buyer_shop_id'))
         if product_price:
             product_mrp = product_price.mrp if product_price.mrp else obj.cart_product.product_mrp
-            margin = (((float(product_mrp) - product_price.get_PTR(obj.qty)) / float(product_mrp)) * 100)
+            margin = (((float(product_mrp) - product_price.get_PTR(obj.qty)/int(obj.cart_product.product_inner_case_size)) / float(product_mrp)) * 100)
             if obj.cart.offers:
                 margin = (((float(product_mrp) - obj.get_item_effective_price(obj.qty)) / float(product_mrp)) * 100)
             return round(margin, 2)
