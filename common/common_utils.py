@@ -199,7 +199,10 @@ def whatsapp_opt_in(phone_number):
 @task()
 def whatsapp_invoice_send(phone_number, shop_name, media_url, file_name):
     """
-    request param:- order number
+    request param:- phone_number
+    request param:- shop_name
+    request param:- media_url
+    request param:- file_name
     return :- Ture if success else False
     """
     try:
@@ -210,6 +213,31 @@ def whatsapp_invoice_send(phone_number, shop_name, media_url, file_name):
         data_string = "method=SendMediaMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&isHSM=true&msg_type=Document&media_url="+media_url + "&filename=" + file_name + "&caption=" + caption
         invoice_send_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
         response = requests.get(invoice_send_api)
+        if json.loads(response.text)['response']['status'] == 'success':
+            return True
+        else:
+            return False
+    except Exception as e:
+        error_logger.error(e)
+        return False
+
+
+@task()
+def whatsapp_order_cancel(order_number, shop_name, phone_number):
+    """
+    request param:- order number
+    request param:- shop_name
+    request param:- phone_number
+    return :- Ture if success else False
+    """
+    try:
+        api_end_point = WHATSAPP_API_ENDPOINT
+        whatsapp_user_id = WHATSAPP_API_USERID
+        whatsapp_user_password = WHATSAPP_API_PASSWORD
+        caption = "Hi! Your Order " +order_number+" has been cancelled. Please shop again at "+shop_name+"."
+        data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&msg=" + caption
+        cancel_order_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
+        response = requests.get(cancel_order_api)
         if json.loads(response.text)['response']['status'] == 'success':
             return True
         else:
