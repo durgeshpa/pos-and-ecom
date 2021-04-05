@@ -158,7 +158,8 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 														 instance.retailer_product.id, offer[0] if offer else {},
 														 instance.cart.offers)
 		# Recheck cart discount according to updated cart value
-		offers_list = BasicCartOffers.basic_cart_offers_check(Cart.objects.get(pk=instance.cart.id), offers_list)
+		offers_list = BasicCartOffers.basic_cart_offers_check(Cart.objects.get(pk=instance.cart.id), offers_list,
+															  instance.cart.seller_shop.id)
 		Cart.objects.filter(pk=instance.cart.id).update(offers=offers_list)
 
 
@@ -174,5 +175,5 @@ def remove_offers(sender, instance=None, created=False, **kwargs):
 		# Remove if any combo products added
 		offers_list = BasicCartOffers.update_combo(instance.retailer_product.id, instance.cart.offers, [])
 		# Recheck cart discount according to updated cart value
-		offers_list = BasicCartOffers.basic_cart_offers_check(instance.cart, offers_list)
+		offers_list = BasicCartOffers.basic_cart_offers_check(instance.cart, offers_list, instance.cart.seller_shop.id)
 		Cart.objects.filter(pk=instance.cart.id).update(offers=offers_list)

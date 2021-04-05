@@ -6,10 +6,17 @@ from django.db.models import Q
 from django.urls import reverse
 
 from pos.models import RetailerProduct, UserMappedShop
-from retailer_to_sp.models import CartProductMapping
+from retailer_to_sp.models import CartProductMapping, Order
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
 from shops.models import Shop
+
+ORDER_STATUS_MAP = {
+    1: Order.ORDERED,
+    2: Order.CANCELLED,
+    3: Order.PARTIALLY_REFUNDED,
+    4: Order.FULLY_REFUNDED
+}
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -84,7 +91,7 @@ class OffersCls(object):
                               is_active=True)
 
 
-def get_response(msg, data=None, success=False):
+def get_response(msg, data=None, success=False, extra_params=None):
     """
         General Response For API
     """
@@ -95,6 +102,8 @@ def get_response(msg, data=None, success=False):
             ret = {"is_success": True, "message": msg, "response_data": data}
         else:
             ret = {"is_success": False, "message": msg, "response_data": None}
+    if extra_params:
+        ret.update(extra_params)
     return Response(ret, status=status.HTTP_200_OK)
 
 
