@@ -26,6 +26,7 @@ def set_warehouse_code():
         shop_franchise = Shop.objects.filter(shop_type=5)   # shop_type = Franchise
         if shop_franchise:
             for franchise in shop_franchise:
+                print (franchise)
                 franchise.warehouse_code = '0'+franchise.warehouse_code
                 franchise.save()
             info_logger.info('warehouse_code is successfully updated')
