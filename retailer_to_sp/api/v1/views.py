@@ -1697,6 +1697,7 @@ def pdf_generation_retailer(request, order_id):
             shop_name = order.seller_shop.shop_name
             media_url = ordered_product.invoice.invoice_pdf.url
             file_name = ordered_product.invoice.invoice_no
+            # whatsapp api call for sending an invoice
             whatsapp_invoice_send.delay(phone_number, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception(e)
