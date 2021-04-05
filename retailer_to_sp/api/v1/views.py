@@ -383,6 +383,7 @@ class GramGRNProductsList(APIView):
                         user_selected_qty = c_p.qty or 0
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
+                        p["_source"]["ptr"] = c_p.cart_product_price.get_PTR(c_p.qty)
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
             p_list.append(p["_source"])
