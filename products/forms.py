@@ -2147,7 +2147,7 @@ class UploadSlabProductPriceForm(forms.Form):
                 if ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_UP:
                     selling_price = product.product_mrp / (1 + (ptr_percent / 100))
                 elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
-                    selling_price = product.product_mrp(1 - (ptr_percent / 100))
+                    selling_price = product.product_mrp*(1 - (ptr_percent / 100))
                 case_size = product.parent_product.inner_case_size
                 selling_price_per_saleable_unit = round(selling_price * case_size, 2)
             else:
