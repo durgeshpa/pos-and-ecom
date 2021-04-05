@@ -39,8 +39,8 @@ from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
     ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
-    UploadChildProductAdminForm, ParentProductImageForm,BulkProductVendorMapping,
-    UploadMasterDataAdminForm
+    UploadChildProductAdminForm, ParentProductImageForm, BulkProductVendorMapping,
+    UploadMasterDataAdminForm, UploadSlabProductPriceForm
 )
 from .master_data import UploadMasterData, SetMasterData
 from products.models import (
@@ -50,7 +50,7 @@ from products.models import (
     ParentProduct, ParentProductCategory,
     ProductSourceMapping,
     ParentProductTaxMapping, Tax, ParentProductImage,
-    DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging
+    DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab
 )
 
 logger = logging.getLogger(__name__)
@@ -1817,13 +1817,33 @@ def FetchProductDdetails(request):
     if not product_id:
         return JsonResponse(data)
     def_product = Product.objects.filter(pk=product_id).last()
+    selling_price = None
+    selling_price_per_saleable_unit = None
     if def_product:
+        is_ptr_applicable = def_product.parent_product.is_ptr_applicable
+        case_size = def_product.parent_product.inner_case_size
+        if is_ptr_applicable:
+            selling_price = get_selling_price(def_product)
+            selling_price_per_saleable_unit = round(selling_price*case_size, 2)
         data = {
             'found': True,
-            'product_mrp': def_product.product_mrp
+            'product_mrp': def_product.product_mrp,
+            'selling_price_per_piece' : selling_price,
+            'selling_price_per_saleable_unit' : selling_price_per_saleable_unit
         }
 
     return JsonResponse(data)
+
+
+def get_selling_price(def_product):
+    selling_price = 0
+    ptr_percent = def_product.parent_product.ptr_percent
+    ptr_type = def_product.parent_product.ptr_type
+    if ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_UP:
+        selling_price = def_product.product_mrp / (1 + (ptr_percent / 100))
+    elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
+        selling_price = def_product.product_mrp*(1 - (ptr_percent / 100))
+    return selling_price
 
 
 class ProductCategoryMapping(View):
@@ -2234,3 +2254,85 @@ def bulk_product_vendor_csv_upload_view(request):
     else:
         form = BulkProductVendorMapping()
     return render(request, 'admin/products/bulk-upload-vendor-details.html', {'all_vendor': all_vendors.values(),'form': form})
+
+
+
+def get_slab_product_price_sample_csv(request):
+    """
+    returns sample CSV for bulk creation of Slab Product Prices
+    """
+    filename = "slab_product_price_sample_csv.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "Slab 1 Qty", "Selling Price 1",
+                     "Offer Price 1", "Offer Price 1 Start Date", "Offer Price 1 End Date",
+                     "Slab 2 Qty", "Selling Price 2", "Offer Price 2", "Offer Price 2 Start Date", "Offer Price 2 End Date"])
+    writer.writerow(["BDCHNKDOV00000001", "Dove CREAM BAR 100G shop", "600",
+                     "GFDN SERVICES PVT LTD (NOIDA) - 9319404555 - Rakesh Kumar - Service Partner", "47", "9", "46", "45.5",
+                     "2021-03-01", "2021-04-30", "10", "45", "44.5", "2021-03-01", "2021-04-30" ])
+    return response
+
+def slab_product_price_csv_upload(request):
+    """
+    Creates Slab Product Prices in bulk through CSV upload
+    """
+    if request.method == 'POST':
+        form = UploadSlabProductPriceForm(request.POST, request.FILES)
+
+        if form.errors:
+            return render(request, 'admin/products/bulk-slab-product-price.html', {'form': form})
+
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
+            first_row = next(reader)
+
+            try:
+                for row_id, row in enumerate(reader):
+                    product = Product.objects.filter(product_sku=row[0]).last()
+                    seller_shop_id = row[2]
+
+                    # Create ProductPrice
+                    product_price = SlabProductPrice(product=product, mrp=product.product_mrp,
+                                                     seller_shop_id=seller_shop_id)
+                    product_price.save()
+
+                    # Get selling price applicable for first price slab
+                    is_ptr_applicable = product.parent_product.is_ptr_applicable
+                    if is_ptr_applicable:
+                        selling_price = get_selling_price(product)
+                        case_size = product.parent_product.inner_case_size
+                        selling_price_per_saleable_unit = round(selling_price * case_size, 2)
+                    else:
+                        selling_price_per_saleable_unit = row[6]
+
+                    # Create Price Slabs
+
+                    # Create Price Slab 1
+                    price_slab_1 = PriceSlab(product_price=product_price, start_value=0, end_value=row[5],
+                                             selling_price=selling_price_per_saleable_unit)
+                    if row[7]:
+                        price_slab_1.offer_price = row[7]
+                        price_slab_1.offer_price_start_date = row[8]
+                        price_slab_1.offer_price_end_date = row[9]
+                    price_slab_1.save()
+
+                    # Create Price Slab 2
+                    price_slab_2 = PriceSlab(product_price=product_price, start_value=row[10], end_value=0,
+                                             selling_price=row[11])
+                    if row[12]:
+                        price_slab_2.offer_price = row[12]
+                        price_slab_2.offer_price_start_date = row[13]
+                        price_slab_2.offer_price_end_date = row[14]
+                    price_slab_2.save()
+
+            except Exception as e:
+                print(e)
+            return render(request, 'admin/products/bulk-slab-product-price.html', {
+                'form': form,
+                'success': 'Slab Product Prices uploaded successfully !',
+            })
+    else:
+        form = UploadSlabProductPriceForm()
+    return render(request, 'admin/products/bulk-slab-product-price.html', {'form': form})
