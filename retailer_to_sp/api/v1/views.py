@@ -65,11 +65,12 @@ from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZI
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data)
 from wms.models import OrderReserveRelease, InventoryType
-from pos.common_functions import get_shop_id_from_token, get_response, create_user_shop_mapping, delete_cart_mapping
+from pos.common_functions import get_shop_id_from_token, get_response, create_user_shop_mapping,\
+    delete_cart_mapping, get_invoice_and_link
 from pos.offers import BasicCartOffers
-from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer
+from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, BasicOrderSerializer
 from pos.api.v1.pagination import pagination
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, PAYMENT_MODE, Payment as PosPayment
 
 User = get_user_model()
 
@@ -1980,6 +1981,623 @@ class ReservedOrder(generics.ListAPIView):
     #     pass
     # def gf_mapping_order_reserve(self):
     #     pass
+
+
+class OrderCentral(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        """
+            Get Order Details
+            Inputs
+            cart_type
+            order_id
+        """
+        cart_type = request.GET.get('cart_type', '1')
+        if cart_type == '1':
+            return self.get_retail_order()
+        elif cart_type == '2':
+            return self.get_basic_order()
+        else:
+            return get_response('Provide a valid cart_type')
+
+    def put(self, request, pk):
+        """
+            allowed updates to order status
+        """
+        cart_type = request.GET.get('cart_type', '1')
+        if cart_type == '1':
+            return self.put_retail_order(pk)
+        elif cart_type == '2':
+            return self.put_basic_order(pk)
+        else:
+            return get_response('Provide a valid cart_type')
+
+    def put_basic_order(self, pk):
+        """
+            Cancel POS order
+        """
+        # Check shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return get_response("Shop Doesn't Exist!")
+        # Check if order exists
+        try:
+            order = Order.objects.get(pk=pk, seller_shop_id=shop_id, order_status='ordered')
+        except ObjectDoesNotExist:
+            return get_response('Order Not Found To Cancel!')
+        # check input status validity
+        allowed_updates = [Order.CANCELLED]
+        status = self.request.data.get('status')
+        if status not in allowed_updates:
+            return get_response("Please Provide A Valid Status To Update Order")
+        # cancel order
+        order.order_status = status
+        order.last_modified_by = self.request.user
+        order.save()
+        # cancel shipment
+        OrderedProduct.objects.filter(order=order).update(shipment_status='CANCELLED',
+                                                          last_modified_by=self.request.user)
+        return get_response("Order cancelled successfully!", [], True)
+
+    def put_retail_order(self, pk):
+        """
+            Cancel retailer order
+        """
+        try:
+            order = Order.objects.get(buyer_shop__shop_owner=self.request.user, pk=pk)
+        except ObjectDoesNotExist:
+            return get_response('Order is not associated with the current user')
+        serializer = CancelOrderSerializer(order, data={'order_id':pk}, context={'order': order})
+        if serializer.is_valid():
+            serializer.save()
+            return get_response("Order Cancelled Successfully!", serializer.data)
+        else:
+            return format_serializer_errors(serializer.errors)
+
+    def post(self, request):
+        """
+            Place Order
+            Inputs
+            cart_id
+            cart_type (retail-1 or basic-2)
+                retail
+                    shop_id (Buyer shop id)
+                    billing_address_id
+                    shipping_address_id
+                    total_tax_amount
+                basic
+                    shop_id (Seller shop id)
+        """
+        cart_type = self.request.data.get('cart_type', '1')
+        if cart_type == '1':
+            return self.post_retail_order()
+        elif cart_type == '2':
+            return self.post_basic_order()
+        else:
+            return get_response('Provide a valid cart_type')
+
+    def get_retail_order(self):
+        """
+            Get Order
+            For retail cart
+        """
+        # basic validations for inputs
+        initial_validation = self.get_retail_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        parent_mapping = initial_validation['parent_mapping']
+        shop_type = initial_validation['shop_type']
+        order = initial_validation['order']
+        if shop_type == 'sp':
+            return get_response('Order', self.get_serialize_process_sp(order, parent_mapping))
+        elif shop_type == 'gf':
+            return get_response('Order', self.get_serialize_process_gf(order, parent_mapping))
+        else:
+            return get_response('Sorry shop is not associated with any GramFactory or any SP')
+
+    def get_basic_order(self):
+        """
+            Get Order
+            For Basic Cart
+        """
+        # basic validation for inputs
+        initial_validation = self.get_basic_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        order = initial_validation['order']
+        return get_response('Order', self.get_serialize_process_basic(order))
+
+    def post_retail_order(self):
+        """
+            Place Order
+            For retail cart
+        """
+        # basic validations for inputs
+        initial_validation = self.post_retail_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        parent_mapping = initial_validation['parent_mapping']
+        shop_type = initial_validation['shop_type']
+        billing_address = initial_validation['billing_add']
+        shipping_address = initial_validation['shipping_add']
+
+        user = self.request.user
+        cart_id = self.request.data.get('cart_id')
+
+        # If Seller Shop is sp Type
+        if shop_type == 'sp':
+            with transaction.atomic():
+                # Check If Cart Exists
+                if Cart.objects.filter(last_modified_by=user, buyer_shop=parent_mapping.retailer,
+                                       id=cart_id).exists():
+                    cart = Cart.objects.get(last_modified_by=user, buyer_shop=parent_mapping.retailer,
+                                            id=cart_id)
+                    # Check and Remove if any product is blocked for audit
+                    self.remove_audit_products(cart, parent_mapping)
+                    # Check products mrp and update cart mapping accordingly to ordered
+                    cart_resp = self.update_cart_retail_sp(cart, parent_mapping)
+                    if not cart_resp['is_success']:
+                        return get_response(cart_resp['message'])
+                    # Check capping
+                    order_capping_check = self.retail_capping_check(cart, parent_mapping)
+                    if not order_capping_check['is_success']:
+                        return get_response(order_capping_check['message'])
+                    # Get Order Reserved data and process order
+                    order_reserve_obj = self.get_reserve_retail_sp(cart, parent_mapping)
+                    if order_reserve_obj:
+                        # Create Order
+                        order = self.create_retail_order_sp(cart, parent_mapping, billing_address, shipping_address)
+                        # Release blocking
+                        if self.update_ordered_reserve_sp(cart, parent_mapping, order) is False:
+                            order.delete()
+                            return get_response('No item in this cart.')
+                        # Serialize and return response
+                        return get_response('Ordered Successfully!',
+                                            self.post_serialize_process_sp(order, parent_mapping))
+                    # Order reserve not found
+                    else:
+                        return get_response('Sorry! your session has timed out.')
+        # If Seller Shop is sp Type
+        elif parent_mapping.parent.shop_type.shop_type == 'gf':
+            # Check If Cart Exists
+            if GramMappedCart.objects.filter(last_modified_by=user, id=cart_id).exists():
+                cart = GramMappedCart.objects.get(last_modified_by=user, id=cart_id)
+                # Update cart to ordered
+                self.update_cart_retail_gf(cart)
+                if GramOrderedProductReserved.objects.filter(cart=cart).exists():
+                    # Create order
+                    order = self.create_retail_order_gf(cart, parent_mapping, billing_address, shipping_address)
+                    # Update picklist with order
+                    self.picklist_update_gf(cart, order)
+                    # Update reserve to ordered
+                    self.update_ordered_reserve_gf(cart)
+                    # Serialize and return response
+                    return get_response('Ordered Successfully!', self.post_serialize_process_gf(order, parent_mapping))
+                else:
+                    return get_response('Available Quantity Is None')
+        # Shop type neither sp nor gf
+        else:
+            return get_response('Sorry shop is not associated with any GramFactory or any SP')
+        return get_response('Some error occurred')
+
+    def post_basic_order(self):
+        """
+            Place Order
+            For basic cart
+        """
+        # basic validations for inputs
+        initial_validation = self.post_basic_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        shop = initial_validation['shop']
+        cart = initial_validation['cart']
+        payment_method = initial_validation['payment_method']
+
+        with transaction.atomic():
+            # Update Cart To Ordered
+            self.update_cart_basic(cart)
+            order = self.create_basic_order(cart, shop)
+            invoice = self.auto_process_order(order, payment_method)
+            return get_response('Ordered Successfully!', self.post_serialize_process_basic(order, invoice))
+
+    def get_retail_validate(self):
+        """
+            Get Order
+            Input validation for cart type 'retail'
+        """
+        shop_id = self.request.GET.get('shop_id')
+        # Check if buyer shop exists
+        if not Shop.objects.filter(id=shop_id).exists():
+            return {'error': "Shop Doesn't Exist!"}
+        # Check if buyer shop is mapped to parent/seller shop
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
+            return {'error': "Shop Mapping Doesn't Exist!"}
+        shop_type = parent_mapping.parent.shop_type.shop_type
+        # Check if order exists
+        order = None
+        try:
+            if shop_type == 'sp':
+                order = Order.objects.get(pk=self.request.GET.get('order_id'))
+            elif shop_type == 'gf':
+                order = GramMappedOrder.objects.get(pk=self.request.GET.get('order_id'))
+        except ObjectDoesNotExist:
+            return {'error': 'Order Not Found!'}
+        return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
+
+    def get_basic_validate(self):
+        """
+            Get order validate
+        """
+        # Check shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {'error': "Shop Doesn't Exist!"}
+        # Check if order exists
+        try:
+            order = Order.objects.get(pk=self.request.GET.get('order_id'), seller_shop_id=shop_id)
+        except ObjectDoesNotExist:
+            return {'error': 'Order Not Found!'}
+        return {'order': order}
+
+    def post_retail_validate(self):
+        """
+            Place Order
+            Input validation for cart type 'retail'
+        """
+        shop_id = self.request.data.get('shop_id')
+        # Check if buyer shop exists
+        if not Shop.objects.filter(id=shop_id).exists():
+            return {'error': "Shop Doesn't Exist!"}
+        # Check if buyer shop is mapped to parent/seller shop
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
+            return {'error': "Shop Mapping Doesn't Exist!"}
+        # Get billing address
+        billing_address_id = self.request.data.get('billing_address_id')
+        try:
+            billing_address = Address.objects.get(id=billing_address_id)
+        except ObjectDoesNotExist:
+            return {'error': "Billing address not found"}
+        # Get shipping address
+        shipping_address_id = self.request.data.get('shipping_address_id')
+        try:
+            shipping_address = Address.objects.get(id=shipping_address_id)
+        except ObjectDoesNotExist:
+            return {'error': "Shipping address not found"}
+        return {'parent_mapping': parent_mapping, 'shop_type': parent_mapping.parent.shop_type.shop_type,
+                'billing_add': billing_address, 'shipping_add': shipping_address}
+
+    def post_basic_validate(self):
+        """
+            Place Order
+            Input validation for cart type 'basic'
+        """
+        # Check if seller shop exists
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {'error': "Shop Doesn't Exist!"}
+        try:
+            shop = Shop.objects.get(id=shop_id)
+        except ObjectDoesNotExist:
+            return {'error': "Shop Doesn't Exist!"}
+        # Check if cart exists
+        cart_id = self.request.data.get('cart_id')
+        try:
+            cart = Cart.objects.get(id=cart_id, last_modified_by=self.request.user, seller_shop=shop,
+                                    cart_status__in=['active', 'pending'])
+        except ObjectDoesNotExist:
+            return {'error': "Cart Doesn't Exist!"}
+        if not cart.buyer:
+            return {'error': "Cart customer not found!"}
+        # Check if products available in cart
+        cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
+        if cart_products.count() <= 0:
+            return {'error': 'No product is available in cart'}
+        # Check payment method
+        payment_method = self.request.data.get('payment_method')
+        if not payment_method or payment_method not in dict(PAYMENT_MODE):
+            return {'error': 'Please provide a valid payment method'}
+        return {'shop': shop, 'cart': cart, 'payment_method': payment_method}
+
+    def retail_capping_check(self, cart, parent_mapping):
+        """
+            Place Order
+            For retail cart
+            Check capping before placing order
+        """
+        ordered_qty = 0
+        for cart_product in cart.rt_cart_list.all():
+            # to check if capping exists for warehouse and product with status active
+            capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
+            product_qty = int(cart_product.qty)
+            if capping:
+                cart_products = cart_product.cart_product
+                msg = capping_check(capping, parent_mapping, cart_products, product_qty, ordered_qty)
+                if msg[0] is False:
+                    return {'is_success': False, 'message': msg[1]}
+            else:
+                pass
+        return {'is_success': True}
+
+    def update_cart_retail_sp(self, cart, parent_mapping):
+        """
+            Place Order
+            For retail cart
+            Check product price and change cart status to ordered
+        """
+        order_items = []
+        # check selling price
+        for i in cart.rt_cart_list.all():
+            order_items.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
+        if len(order_items) == 0:
+            CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
+            for cart_price in cart.rt_cart_list.all():
+                cart_price.cart_product_price = None
+                cart_price.save()
+            return {'is_success': False, 'message': "Some products in cart aren’t available anymore, please update cart"
+                                                    " and remove product from cart upon revisiting it"}
+        else:
+            cart.cart_status = 'ordered'
+            cart.buyer_shop = parent_mapping.retailer
+            cart.seller_shop = parent_mapping.parent
+            cart.save()
+            return {'is_success': True}
+
+    def update_cart_retail_gf(self, cart):
+        """
+            Place order
+            Update cart to ordered
+            For retail cart gf type shop
+        """
+        cart.cart_status = 'ordered'
+        cart.save()
+
+    def update_cart_basic(self, cart):
+        """
+            Place order
+            Update cart to ordered
+            For basic cart
+        """
+        cart.cart_status = 'ordered'
+        cart.save()
+
+    def create_retail_order_sp(self, cart, parent_mapping, billing_address, shipping_address):
+        """
+            Place Order
+            Create Order for retail sp type seller shop
+        """
+        user = self.request.user
+        order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
+
+        order.billing_address = billing_address
+        order.shipping_address = shipping_address
+        order.buyer_shop = parent_mapping.retailer
+        order.seller_shop = parent_mapping.parent
+        order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
+        order.order_status = Order.ORDERED
+        order.save()
+        return order
+
+    def create_retail_order_gf(self, cart, parent_mapping, billing_address, shipping_address):
+        """
+            Place Order
+            Create Order for retail gf type seller shop
+        """
+        user = self.request.user
+        order, _ = GramMappedOrder.objects.get_or_create(last_modified_by=user,
+                                                         ordered_by=user, ordered_cart=cart)
+
+        order.billing_address = billing_address
+        order.shipping_address = shipping_address
+        order.buyer_shop = parent_mapping.retailer
+        order.seller_shop = parent_mapping.parent
+        order.order_status = 'ordered'
+        order.save()
+        return order
+
+    def create_basic_order(self, cart, shop):
+        user = self.request.user
+        order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
+        order.buyer = cart.buyer
+        order.seller_shop = shop
+        order.received_by = cart.buyer
+        order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
+        order.order_status = Order.ORDERED
+        order.save()
+        return order
+
+    def update_ordered_reserve_sp(self, cart, parent_mapping, order):
+        """
+            Place Order
+            For retail cart
+            Release blocking once order is created
+        """
+        for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart,
+                                                                     reserve_status=OrderedProductReserved.RESERVED):
+            ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
+            ordered_reserve.order_product_reserved.save()
+            ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
+            ordered_reserve.save()
+        sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
+        reserved_args = json.dumps({
+            'shop_id': parent_mapping.parent.id,
+            'transaction_id': cart.id,
+            'transaction_type': 'ordered',
+            'order_status': order.order_status
+        })
+        order_result = OrderManagement.release_blocking_from_order(reserved_args, sku_id)
+        return False if order_result is False else True
+
+    @staticmethod
+    def remove_audit_products(cart, parent_mapping):
+        """
+            Place Order
+            Remove products with ongoing audit in shop
+            For retail cart
+        """
+        for p in cart.rt_cart_list.all():
+            is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+                                                                                    parent_mapping.parent)
+            if is_blocked_for_audit:
+                p.delete()
+
+    @staticmethod
+    def get_reserve_retail_sp(cart, parent_mapping):
+        """
+            Get Order Reserve For retail sp cart
+        """
+        return OrderReserveRelease.objects.filter(warehouse=parent_mapping.retailer.get_shop_parent.id,
+                                                  transaction_id=cart.id,
+                                                  warehouse_internal_inventory_release=None).last()
+
+    @staticmethod
+    def picklist_update_gf(cart, order):
+        """
+            Place Order
+            Update picklist with order after order creation for retail gf
+        """
+        pick_list = PickList.objects.get(cart=cart)
+        pick_list.order = order
+        pick_list.status = True
+        pick_list.save()
+
+    @staticmethod
+    def update_ordered_reserve_gf(cart):
+        """
+            Place Order
+            Update order reserve for retail gf type shop as order is created
+        """
+        for ordered_reserve in GramOrderedProductReserved.objects.filter(cart=cart):
+            ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
+            ordered_reserve.order_product_reserved.save()
+            ordered_reserve.reserve_status = 'ordered'
+            ordered_reserve.save()
+
+    def get_serialize_process_sp(self, order, parent_mapping):
+        """
+           Get Order
+           Cart type retail - sp
+        """
+        serializer = OrderDetailSerializer(order, context={'parent_mapping_id': parent_mapping.parent.id,
+                                                           'current_url': self.request.get_host(),
+                                                           'buyer_shop_id': parent_mapping.retailer.id})
+        return serializer.data
+
+    def get_serialize_process_gf(self, order, parent_mapping):
+        """
+           Get Order
+           Cart type retail - gf
+        """
+        serializer = GramMappedOrderSerializer(order, context={'parent_mapping_id': parent_mapping.parent.id,
+                                                               'current_url': self.request.get_host()})
+        return serializer.data
+
+    def get_serialize_process_basic(self, order):
+        """
+           Get Order
+           Cart type basic
+        """
+        serializer = BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
+                                                          'invoice': 1})
+        return serializer.data
+
+    def post_serialize_process_sp(self, order, parent_mapping):
+        """
+            Place Order
+            Serialize retail order for sp shop
+        """
+        serializer = OrderSerializer(Order.objects.get(pk=order.id),
+                                     context={'parent_mapping_id': parent_mapping.parent.id,
+                                              'buyer_shop_id': parent_mapping.retailer.id,
+                                              'current_url': self.request.get_host()})
+        return serializer.data
+
+    def post_serialize_process_gf(self, order, parent_mapping):
+        """
+            Place Order
+            Serialize retail order for gf shop
+        """
+        serializer = GramMappedOrderSerializer(order, context={'parent_mapping_id': parent_mapping.parent.id,
+                                                               'current_url': self.request.get_host()})
+        return serializer.data
+
+    def post_serialize_process_basic(self, order, invoice=False):
+        """
+            Place Order
+            Serialize retail order for sp shop
+        """
+        serializer = BasicOrderSerializer(Order.objects.get(pk=order.id),
+                                          context={'current_url': self.request.get_host()})
+        response = serializer.data
+        response['invoice'] = invoice
+        return response
+
+    def auto_process_order(self, order, payment_method):
+        """
+            Auto process add payment, shipment, invoice for retailer and customer
+        """
+        # Add free products
+        offers = order.ordered_cart.offers
+        product_qty_map = {}
+        if offers:
+            for offer in offers:
+                if offer['type'] == 'combo':
+                    qty = offer['free_item_qty_added']
+                    product_qty_map[offer['free_item_id']] = product_qty_map[offer['free_item_id']] + qty if \
+                        offer['free_item_id'] in product_qty_map else qty
+
+            for product_id in product_qty_map:
+                cart_map, _ = CartProductMapping.objects.get_or_create(cart=order.ordered_cart,
+                                                                       retailer_product_id=product_id,
+                                                                       product_type=0)
+                cart_map.selling_price = 0
+                cart_map.qty = product_qty_map[product_id]
+                cart_map.no_of_pieces = product_qty_map[product_id]
+                cart_map.save()
+        # Create payment
+        PosPayment.objects.create(
+            order=order,
+            payment_mode=payment_method,
+            paid_by=order.buyer,
+            processed_by=self.request.user
+        )
+        # Create shipment
+        shipment = OrderedProduct(order=order)
+        shipment.save()
+        # Create Order Items
+        cart_products = CartProductMapping.objects.filter(cart_id=order.ordered_cart.id
+                                                          ).values('retailer_product', 'qty', 'product_type',
+                                                                   'selling_price')
+        for product_map in cart_products:
+            # Order Item
+            ordered_product_mapping = ShipmentProducts.objects.create(ordered_product=shipment,
+                                                                      retailer_product_id=product_map[
+                                                                          'retailer_product'],
+                                                                      product_type=product_map[
+                                                                          'product_type'],
+                                                                      selling_price=product_map['selling_price'],
+                                                                      shipped_qty=product_map['qty'],
+                                                                      picked_pieces=product_map['qty'],
+                                                                      delivered_qty=product_map['qty'])
+            # Order Item Batch
+            OrderedProductBatch.objects.create(
+                ordered_product_mapping=ordered_product_mapping,
+                quantity=product_map['qty'],
+                pickup_quantity=product_map['qty'],
+                delivered_qty=product_map['qty'],
+                ordered_pieces=product_map['qty']
+            )
+        # Invoice Number Generate
+        shipment.shipment_status = OrderedProduct.READY_TO_SHIP
+        shipment.save()
+        # Complete Shipment
+        shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
+        shipment.save()
+        invoice_data = get_invoice_and_link(shipment, self.request.get_host())
+        return invoice_data
 
 
 class CreateOrder(APIView):

@@ -1,7 +1,7 @@
 from django.conf.urls import include, url
 from rest_framework import routers
 
-from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout,
+from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, OrderCentral,
                     ReservedOrder, CreateOrder, OrderList, OrderDetail, DownloadInvoiceSP,
                     DownloadNote, CustomerCareApi, CustomerOrdersList, PaymentApi,
                     ProductDetail, ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
@@ -18,17 +18,20 @@ router.register(r'ordered-product-mapping', OrderedProductMappingView)
 
 
 urlpatterns = [
+    # SEARCH
     url('^search/(?P<product_name>.+)/$', ProductsList.as_view()),
     url('^GRN/search/$', SearchProducts.as_view()),
-    #order Api
+    # CART
     url('^cart/$', CartCentral.as_view(), name='add_to_cart'),
     url('^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
+    # CART CHECKOUT
     url('^cart/checkout/$', CartCheckout.as_view()),
-    #url('^cart-detail/$', CartDetail.as_view(), name='cart_detail'),
+    # ORDER
     url('^reserved-order/$', ReservedOrder.as_view(), name='reserved_order'),
-    url('^create-order/$', CreateOrder.as_view(), name='reserved_order'),
+    url('^order/$', OrderCentral.as_view()),
+    url('^order/(?P<pk>\d+)/$', OrderCentral.as_view()),
     url('^order-list/$', OrderList.as_view(), name='order_list'),
-    url('^order-detail/(?P<pk>\d+)/$', OrderDetail.as_view(), name='order_detail'),
+    # OTHERS
     url('^download-invoice/(?P<pk>\d+)/invoice/$', DownloadInvoiceSP.as_view(), name='download_invoice_sp'),
     url('^customer-care-form/$', CustomerCareApi.as_view(), name='customer_care_form'),
     url('^user-orders/$', CustomerOrdersList.as_view(), name='user_orders'),
@@ -47,7 +50,6 @@ urlpatterns = [
     #url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
     url('^feedback/$', FeedbackData.as_view(), name='feed_back'),
     url('^feedback/(?P<ship_id>\d+)/list/$', FeedbackData.as_view(), name='feed_back_list'),
-    url('^cancel-order/$', CancelOrder.as_view(), name='cancel_order', ),
     url('^retailer-shops/$', RetailerShopsList.as_view(), name='retailer_shops'),
 
     url('^seller-order-list/$', SellerOrderList.as_view(), name='seller-order-list'),
