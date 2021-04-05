@@ -78,7 +78,7 @@ class Shop(models.Model):
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     shop_code_bulk = models.CharField(max_length=1, blank=True, null=True)
     shop_code_discounted = models.CharField(max_length=1, blank=True, null=True)
-    warehouse_code = models.CharField(max_length=2, blank=True, null=True)
+    warehouse_code = models.CharField(max_length=3, blank=True, null=True)
     imei_no = models.CharField(max_length=20, null=True, blank=True)
     favourite_products = models.ManyToManyField(Product, through='shops.FavouriteProduct')
     created_at = models.DateTimeField(auto_now_add=True)

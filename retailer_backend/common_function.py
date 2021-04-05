@@ -78,6 +78,7 @@ def get_last_no_to_increment(model, field, instance_id, starts_with):
     else:
         return 0
 
+
 def get_last_model_invoice(starts_with, field):
     shipment_instance = RetailerToSPModels.Invoice.objects.filter(invoice_no__icontains=starts_with)
     if shipment_instance.exists():
@@ -85,6 +86,7 @@ def get_last_model_invoice(starts_with, field):
         return int(getattr(last_instance_no, 'invoice_no')[-7:])
     else:
         return 0
+
 
 def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=False):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
@@ -106,6 +108,7 @@ def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=
     ends_with = str(format(last_number, '07d'))
     return "%s%s" % (starts_with, ends_with)
 
+
 def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_invoice=False):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
                                             address)
@@ -125,6 +128,7 @@ def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_inv
         cache.persist(starts_with)
     ends_with = str(format(last_number, '07d'))
     return "%s%s" % (starts_with, ends_with)
+
 
 def common_pattern_discounted(model, field, instance_id, address, invoice_type, is_invoice=False):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
@@ -155,8 +159,10 @@ def po_pattern(model, field, instance_id, address):
 def order_id_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "OR")
 
+
 def order_id_pattern_discounted(model, field, instance_id, address):
     return common_pattern_discounted(model, field, instance_id, address, "OR")
+
 
 def order_id_pattern_bulk(model, field, instance_id, address):
     return common_pattern_bulk(model, field, instance_id, address, "OR")
