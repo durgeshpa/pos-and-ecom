@@ -1,12 +1,11 @@
 from django.conf.urls import url
 
-from .views import OrderCentral, CartCheckout, OrderListCentral, \
+from .views import OrderCentral, OrderListCentral, \
     OrderedItemCentralDashBoard, OrderReturns, OrderReturnsCheckout, OrderReturnComplete,\
     CatalogueProductCreation, CouponOfferCreation
 
 urlpatterns = [
     url(r'^catalogue-product/', CatalogueProductCreation.as_view(), name='catalogue-product'),
-    url('^cart/checkout/$', CartCheckout.as_view()),
     url('^order/$', OrderCentral.as_view()),
     url('^order/(?P<pk>\d+)/$', OrderCentral.as_view()),
     url('^order-list/$', OrderListCentral.as_view()),

@@ -1,14 +1,14 @@
 from django.conf.urls import include, url
 from rest_framework import routers
 
-from .views import (ProductsList, SearchProducts,
+from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout,
                     ReservedOrder, CreateOrder, OrderList, OrderDetail, DownloadInvoiceSP,
                     DownloadNote, CustomerCareApi, CustomerOrdersList, PaymentApi,
                     ProductDetail, ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
                     CancelOrder, DeliveryBoyTrips, RetailerShopsList, FeedbackData, SellerOrderList,
                     DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
-                    AutoSuggest, RefreshEs, CartCentral
+                    AutoSuggest, RefreshEs
                     )
 
 router = routers.DefaultRouter()
@@ -23,6 +23,7 @@ urlpatterns = [
     #order Api
     url('^cart/$', CartCentral.as_view(), name='add_to_cart'),
     url('^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
+    url('^cart/checkout/$', CartCheckout.as_view()),
     #url('^cart-detail/$', CartDetail.as_view(), name='cart_detail'),
     url('^reserved-order/$', ReservedOrder.as_view(), name='reserved_order'),
     url('^create-order/$', CreateOrder.as_view(), name='reserved_order'),

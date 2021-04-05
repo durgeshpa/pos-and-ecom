@@ -67,7 +67,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
 from wms.models import OrderReserveRelease, InventoryType
 from pos.common_functions import get_shop_id_from_token, get_response, create_user_shop_mapping, delete_cart_mapping
 from pos.offers import BasicCartOffers
-from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer
+from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer
 from pos.api.v1.pagination import pagination
 from pos.models import RetailerProduct
 
@@ -1291,6 +1291,128 @@ class CartCentral(APIView):
         """
         serializer = BasicCartSerializer(Cart.objects.get(id=cart.id))
         return serializer.data
+
+
+class CartCheckout(APIView):
+    """
+        Checkout after items added
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        """
+            Checkout
+            Apply Any Available Cart Offer - Either coupon or spot discount
+            Inputs
+            cart_id
+            coupon_id
+            spot_discount
+            is_percentage (spot discount type)
+        """
+        # Input validation
+        initial_validation = self.post_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        cart = initial_validation['cart']
+        # Check spot discount
+        spot_discount = self.request.data.get('spot_discount')
+        if spot_discount:
+            offers = BasicCartOffers.apply_spot_discount(cart, spot_discount, self.request.data.get('is_percentage'))
+        else:
+            # Get offers available now and apply coupon if applicable
+            offers = BasicCartOffers.refresh_offers(cart, False, self.request.data.get('coupon_id'))
+        if 'error' in offers:
+            return get_response(offers['error'])
+        return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(cart))
+
+    def get(self, request):
+        """
+            Get Checkout Amount Info, Offers Applied-Applicable
+        """
+        # Input validation
+        initial_validation = self.get_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        cart = initial_validation['cart']
+        # Auto apply highest applicable discount
+        auto_apply = self.request.GET.get('auto_apply')
+        # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
+        offers = BasicCartOffers.refresh_offers(cart, auto_apply)
+        if 'error' in offers:
+            return get_response(offers['error'])
+        return get_response("Cart Checkout", self.serialize(cart, offers['total_offers'], offers['spot_discount']))
+
+    def delete(self, request):
+        """
+            Checkout
+            Delete any applied cart offers
+        """
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return get_response("Shop Doesn't Exist!")
+
+        cart_id = self.request.GET.get('cart_id')
+        try:
+            cart = Cart.objects.get(pk=cart_id, seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
+        except ObjectDoesNotExist:
+            return get_response("Cart Does Not Exist / Already Closed")
+        cart_products = cart.rt_cart_list.all()
+        cart_value = 0
+        for product_map in cart_products:
+            cart_value += product_map.selling_price * product_map.qty
+        offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
+        Cart.objects.filter(pk=cart.id).update(offers=offers_list)
+        return get_response("Removed Offer From Cart Successfully", [], True)
+
+    def post_validate(self):
+        """
+            Add cart offer in checkout
+            Input validation
+        """
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {"error": "Shop Doesn't Exist!"}
+        cart_id = self.request.data.get('cart_id')
+        try:
+            cart = Cart.objects.get(pk=cart_id, seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
+        except ObjectDoesNotExist:
+            return {'error': "Cart Does Not Exist / Already Closed"}
+        if not self.request.data.get('coupon_id') and not self.request.data.get('spot_discount'):
+            return {'error': "Please Provide Coupon Id/Spot Discount"}
+        if self.request.data.get('coupon_id') and self.request.data.get('spot_discount'):
+            return {'error': "Please Provide Only One Of Coupon Id, Spot Discount"}
+        if self.request.data.get('spot_discount') and self.request.data.get('is_percentage') not in [0, 1]:
+            return {'error': "Please Provide A Valid Spot Discount Type"}
+        return {'cart': cart}
+
+    def get_validate(self):
+        """
+            Get Checkout
+            Input validation
+        """
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {'error': "Shop Doesn't Exist!"}
+        cart_id = self.request.GET.get('cart_id')
+        try:
+            cart = Cart.objects.get(pk=cart_id, seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
+        except ObjectDoesNotExist:
+            return {'error': "Cart Does Not Exist / Already Closed"}
+        return {'cart': cart}
+
+    def serialize(self, cart, offers=None, spot_discount=None):
+        """
+            Checkout serializer
+            Payment Info plus Offers
+        """
+        serializer = CheckoutSerializer(Cart.objects.get(pk=cart.id))
+        response = serializer.data
+        if offers:
+            response['available_offers'] = offers
+        if spot_discount:
+            response['spot_discount'] = spot_discount
+        return response
 
 
 class AddToCart(APIView):
