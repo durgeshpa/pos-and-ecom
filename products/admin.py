@@ -1163,6 +1163,9 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     disapprove_product_price.short_description = "Disapprove Selected Products Prices"
     disapprove_product_price.allowed_permissions = ('change',)
 
+    def has_add_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         # if request.user.is_superuser:
         #     return True

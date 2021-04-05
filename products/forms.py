@@ -2141,6 +2141,7 @@ class UploadSlabProductPriceForm(forms.Form):
             if not row[0] or product is None:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
             is_ptr_applicable = product.parent_product.is_ptr_applicable
+            case_size = product.parent_product.inner_case_size
             if is_ptr_applicable:
                 ptr_percent = product.parent_product.ptr_percent
                 ptr_type = product.parent_product.ptr_type
@@ -2148,7 +2149,6 @@ class UploadSlabProductPriceForm(forms.Form):
                     selling_price = product.product_mrp / (1 + (ptr_percent / 100))
                 elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
                     selling_price = product.product_mrp*(1 - (ptr_percent / 100))
-                case_size = product.parent_product.inner_case_size
                 selling_price_per_saleable_unit = round(selling_price * case_size, 2)
             else:
                 selling_price_per_saleable_unit = float(row[6])
@@ -2159,7 +2159,7 @@ class UploadSlabProductPriceForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Quantity'"))
 
             if not selling_price_per_saleable_unit or selling_price_per_saleable_unit == 0 \
-                    or selling_price_per_saleable_unit > float(product.product_mrp):
+                    or selling_price_per_saleable_unit > float(product.product_mrp*case_size):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price'"))
             elif row[7] and float(row[7]) >= selling_price_per_saleable_unit:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
