@@ -54,7 +54,7 @@ from .serializers import BasicCartSerializer, BasicOrderSerializer, CheckoutSeri
 from pos.utils import MultipartJsonParser
 from pos.offers import BasicCartOffers
 from pos.common_functions import create_user_shop_mapping, get_shop_id_from_token
-from common.common_utils import whatsapp_opt_in, whatsapp_invoice_send
+from common.common_utils import whatsapp_opt_in, whatsapp_order_cancel
 from retailer_to_sp.api.v1.views import pdf_generation_retailer
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -821,6 +821,7 @@ class CartCentral(APIView):
         cart.buyer = customer
         cart.save()
         if customer.is_whatsapp is True:
+            # whatsapp api call for user opt in
             whatsapp_opt_in.delay(ph_no)
         serializer = BasicCartSerializer(cart)
         return get_response("Cart Updated Successfully!", serializer.data)
@@ -1610,26 +1611,32 @@ class OrderCentral(APIView):
             allowed updates to order status
         """
         # Check shop
-        shop_id = get_shop_id_from_token(self.request)
-        if not type(shop_id) == int:
-            return get_response("Shop Doesn't Exist!")
-        # Check if order exists
-        try:
-            order = Order.objects.get(pk=pk, seller_shop_id=shop_id, order_status='ordered')
-        except ObjectDoesNotExist:
-            return get_response('Order Not Found To Cancel!')
-        # check input status validity
-        allowed_updates = [Order.CANCELLED]
-        status = self.request.data.get('status')
-        if status not in allowed_updates:
-            return get_response("Please Provide A Valid Status To Update Order")
-        # cancel order
-        order.order_status = status
-        order.last_modified_by = self.request.user
-        order.save()
-        # cancel shipment
-        OrderedProduct.objects.filter(order=order).update(shipment_status='CANCELLED', last_modified_by=self.request.user)
-        return get_response("Order cancelled successfully!", [], True)
+        with transaction.atomic():
+            shop_id = get_shop_id_from_token(self.request)
+            if not type(shop_id) == int:
+                return get_response("Shop Doesn't Exist!")
+            # Check if order exists
+            try:
+                order = Order.objects.get(pk=pk, seller_shop_id=shop_id, order_status='ordered')
+            except ObjectDoesNotExist:
+                return get_response('Order Not Found To Cancel!')
+            # check input status validity
+            allowed_updates = [Order.CANCELLED]
+            status = self.request.data.get('status')
+            if status not in allowed_updates:
+                return get_response("Please Provide A Valid Status To Update Order")
+            # cancel order
+            order.order_status = status
+            order.last_modified_by = self.request.user
+            order.save()
+            # cancel shipment
+            OrderedProduct.objects.filter(order=order).update(shipment_status='CANCELLED', last_modified_by=self.request.user)
+            order_number = order.order_no
+            shop_name = order.seller_shop.shop_name
+            phone_number = order.buyer.phone_number
+            # whatsapp api call for order cancellation
+            whatsapp_order_cancel.delay(order_number, shop_name, phone_number)
+            return get_response("Order cancelled successfully!", [], True)
 
     def post(self, request):
         """
