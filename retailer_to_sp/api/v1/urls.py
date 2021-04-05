@@ -1,7 +1,7 @@
 from django.conf.urls import include, url
 from rest_framework import routers
 
-from .views import (ProductsList, GramGRNProductsList, AddToCart, CartDetail,
+from .views import (ProductsList, SearchProducts, AddToCart, CartDetail,
                     ReservedOrder, CreateOrder, OrderList, OrderDetail, DownloadInvoiceSP,
                     DownloadNote, CustomerCareApi, CustomerOrdersList, PaymentApi,
                     ProductDetail, ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
@@ -19,7 +19,7 @@ router.register(r'ordered-product-mapping', OrderedProductMappingView)
 
 urlpatterns = [
     url('^search/(?P<product_name>.+)/$', ProductsList.as_view()),
-    url('^GRN/search/$', GramGRNProductsList.as_view()),
+    url('^GRN/search/$', SearchProducts.as_view()),
     #order Api
     url('^add-to-cart/$', AddToCart.as_view(), name='add_to_cart'),
     url('^cart-detail/$', CartDetail.as_view(), name='cart_detail'),

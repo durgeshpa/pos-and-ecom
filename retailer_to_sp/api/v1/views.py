@@ -241,7 +241,7 @@ class ProductsList(generics.ListCreateAPIView):
             return name, mrp, ptr, status, pack_size, weight
 
 
-class GramGRNProductsList(APIView):
+class SearchProducts(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
@@ -407,6 +407,7 @@ class GramGRNProductsList(APIView):
             Search GramFactory Catalogue
         """
         search_type = self.request.GET.get('search_type', '2')
+        is_store_active = False
         # Exact Search
         if search_type == '1':
             results = self.gf_exact_search()
@@ -415,7 +416,7 @@ class GramGRNProductsList(APIView):
             results, is_store_active = self.gf_normal_search()
         else:
             return get_response("Please Provide A Valid Search Type")
-        return get_response('Products Found' if results else 'No Products Found', results, {'is_store_active', is_store_active})
+        return get_response('Products Found' if results else 'No Products Found', results, False, {'is_store_active': is_store_active})
 
     def gf_exact_search(self):
         """
@@ -528,10 +529,10 @@ class GramGRNProductsList(APIView):
         """
             Search query for gf normal search
         """
-        product_ids = self.request.data.get('product_ids')
-        brand = self.request.data.get('brands')
-        category = self.request.data.get('categories')
-        keyword = self.request.data.get('product_name', None)
+        product_ids = self.request.GET.get('product_ids')
+        brand = self.request.GET.get('brands')
+        category = self.request.GET.get('categories')
+        keyword = self.request.GET.get('keyword', None)
         filter_list = [
             {"term": {"status": True}},
             {"term": {"visible": True}},

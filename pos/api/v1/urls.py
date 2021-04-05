@@ -1,6 +1,6 @@
 from django.conf.urls import url
 
-from .views import SearchView, CartCentral, OrderCentral, CartCheckout, OrderListCentral, \
+from .views import CartCentral, OrderCentral, CartCheckout, OrderListCentral, \
     OrderedItemCentralDashBoard, OrderReturns, OrderReturnsCheckout, OrderReturnComplete,\
     CatalogueProductCreation, CouponOfferCreation
 
