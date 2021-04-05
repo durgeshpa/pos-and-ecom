@@ -23,6 +23,7 @@ def set_product_hsn():
     first_row = next(reader)
     print("Script Start to set the product HSN from csv file")
     count = 0
+    parent_hsn = []
     for row_id, row in enumerate(reader):
         count += 1
         try:
@@ -39,5 +40,9 @@ def set_product_hsn():
 
         except Exception as e:
             error_logger.error(e)
+            print("Parent product is not exist :" + str(row[0]))
+            parent_hsn.append(str(row_id+2))
 
+    print("Total row executed :" + str(count))
+    print("Product HSN is not updated in these rows :" + str(parent_hsn))
     print("Script Complete to set the product HSN from csv file")
