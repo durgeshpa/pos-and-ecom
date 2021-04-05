@@ -28,6 +28,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
                              ParentProductCategory, PriceSlab, SlabProductPrice)
+from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
 from wms.models import InventoryType, WarehouseInventory, InventoryState
@@ -2012,7 +2013,7 @@ class BulkProductVendorMapping(forms.Form):
 
 class ProductPriceSlabForm(forms.ModelForm):
     """
-    This class is used to create Slabbe Product Price for a particular product
+    This class is used to create Slab Product Price for a particular product
     """
     seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='sp'),
@@ -2040,7 +2041,9 @@ class ProductPriceSlabForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        if self.cleaned_data['product'].product_mrp:
+        if not self.cleaned_data.get('product'):
+            raise ValidationError(_('Invalid Product.'))
+        if self.cleaned_data.get('product') and self.cleaned_data['product'].product_mrp:
             self.cleaned_data['mrp'] = self.cleaned_data['product'].product_mrp
         return cleaned_data
 
@@ -2049,6 +2052,10 @@ class PriceSlabForm(forms.ModelForm):
     """
     This class is used to create the Price Slabs
     """
+
+    selling_price = forms.DecimalField(decimal_places=2, required=True)
+    offer_price = forms.DecimalField(decimal_places=2, required=False)
+
     class Meta:
         model = PriceSlab
         fields = ('start_value', 'end_value', 'selling_price', 'offer_price', 'offer_price_start_date', 'offer_price_end_date')
@@ -2060,13 +2067,19 @@ class PriceSlabForm(forms.ModelForm):
         if self.prefix == 'price_slabs-0':
             self.fields['start_value'].widget.attrs['readonly'] = True
             self.fields['end_value'].widget.attrs['readonly'] = True
-            self.fields['selling_price'].widget.attrs['readonly'] = True
         elif self.prefix == 'price_slabs-1':
             self.fields['end_value'].widget.attrs['readonly'] = True
 
-    def clean(self):
-        cleaned_data = self.cleaned_data
-        return cleaned_data
+    # def clean(self):
+    #     super(PriceSlabForm, self).clean()
+    #     cleaned_data = self.cleaned_data
+    #     if not self.cleaned_data.get('product_price'):
+    #         raise ValidationError(_('Invalid Product.'))
+    #     if not self.cleaned_data['product_price'].product:
+    #         raise ValidationError(_('Invalid Product.'))
+    #     case_size = self.product_price.product.parent_product.inner_case_size
+    #     if not self.selling_price or self.selling_price > self.product_price.product.product_mrp*case_size:
+    #         raise ValidationError(_())
 
 class SlabInlineFormSet(BaseInlineFormSet):
 
@@ -2085,11 +2098,10 @@ class SlabInlineFormSet(BaseInlineFormSet):
                 raise ValidationError("Slab Start Value is Invalid")
             elif slab_data.get('end_value') is None or slab_data.get('end_value') < 0:
                 raise ValidationError("Slab End Value is Invalid")
-            elif form.prefix != 'price_slabs-0':
-                if slab_data['start_value'] <= last_slab_end_value:
-                    raise ValidationError("Quantity should be greater than earlier slabs quantity")
-                elif  slab_data['selling_price'] >= last_slab_selling_price:
-                    raise ValidationError("Selling price should be less than earlier slabs selling price.")
+            elif form.prefix != 'price_slabs-0' and slab_data['start_value'] <= last_slab_end_value:
+                raise ValidationError("Quantity should be greater than earlier slabs quantity")
+            elif form.prefix != 'price_slabs-0' and slab_data['selling_price'] >= last_slab_selling_price:
+                raise ValidationError("Selling price should be less than earlier slabs selling price.")
             elif slab_data.get('selling_price') is None or slab_data.get('selling_price') == 0:
                 raise ValidationError('Invalid Selling Price')
             elif slab_data.get('offer_price') is not None:
@@ -2097,7 +2109,7 @@ class SlabInlineFormSet(BaseInlineFormSet):
                     raise ValidationError('Invalid Offer Price')
                 elif slab_data.get('offer_price_start_date') is None or slab_data.get('offer_price_start_date') < datetime.datetime.today().date():
                     raise ValidationError('Offer Price Start Date is invalid')
-                elif slab_data.get('offer_price_end_date') is None or slab_data.get('offer_price_end_date') <= slab_data.get('offer_price_start_date'):
+                elif slab_data.get('offer_price_end_date') is None or slab_data.get('offer_price_end_date') < slab_data.get('offer_price_start_date'):
                     raise ValidationError('Offer Price End Date is invalid')
             last_slab_end_value = slab_data['end_value']
             last_slab_selling_price = slab_data['selling_price']
@@ -2121,8 +2133,7 @@ class UploadSlabProductPriceForm(forms.Form):
         for row_id, row in enumerate(reader):
             if len(row) == 0:
                 continue
-            if row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' \
-                    and row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == '':
+            if isBlankRow(row, len(first_row)):
                 continue
             product = Product.objects.filter(product_sku=row[0], status='active').last()
             if not row[0] or product is None:
@@ -2150,14 +2161,20 @@ class UploadSlabProductPriceForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price'"))
             elif row[7] and float(row[7]) >= selling_price_per_saleable_unit:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
-            elif row[7] and row[8] > datetime.datetime.today().date() or row[9] < datetime.datetime.today().date():
+            elif row[7] and (not isDateValid(row[8]) or not isDateValid(row[9])
+                             or getStrToDate(row[8]) > datetime.datetime.today().date()
+                             or getStrToDate(row[9]) < datetime.datetime.today().date()
+                             or getStrToDate(row[8]) >= getStrToDate(row[9])):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
-            elif not row[10] or row[10] <= row[5]:
+            elif not row[10] or int(row[10]) <= int(row[5]):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
-            elif not row[11] or row[11] >= selling_price_per_saleable_unit:
+            elif not row[11] or float(row[11]) >= selling_price_per_saleable_unit:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
-            elif row[12] and row[12] >= row[11]:
+            elif row[12] and float(row[12]) >= float(row[11]):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
-            elif row[12] and row[13] > datetime.datetime.today().date() or row[14] < datetime.datetime.today().date():
+            elif row[12] and (not isDateValid(row[13]) or not isDateValid(row[14])
+                              or getStrToDate(row[13]) > datetime.datetime.today().date()
+                              or getStrToDate(row[14]) < datetime.datetime.today().date()
+                              or getStrToDate(row[13]) >= getStrToDate(row[14])):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
         return self.cleaned_data['file']

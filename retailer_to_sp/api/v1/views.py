@@ -384,6 +384,7 @@ class GramGRNProductsList(APIView):
                         user_selected_qty = c_p.qty or 0
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
+                        p["_source"]["ptr"] = c_p.get_item_effective_price(c_p.qty)
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
             p_list.append(p["_source"])
@@ -763,6 +764,7 @@ class CartDetail(APIView):
                         if i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id) == False:
                             CartProductMapping.objects.filter(cart__id=cart.id,
                                                               cart_product__id=i.cart_product.id).delete()
+
 
                     serializer = CartSerializer(
                         Cart.objects.get(id=cart.id),
@@ -1502,7 +1504,7 @@ def pdf_generation(request, ordered_product):
             if ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
                 product_pro_price_ptr = round(product_price.get_PTR(m.shipped_qty), 2)
             else:
-                product_pro_price_ptr = cart_product_map.get_item_effective_prize(m.shipped_qty)
+                product_pro_price_ptr = cart_product_map.get_item_effective_price(m.shipped_qty)
             if m.product.product_mrp:
                 product_pro_price_mrp = m.product.product_mrp
             else:

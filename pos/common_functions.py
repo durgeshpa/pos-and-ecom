@@ -25,8 +25,8 @@ class RetailerProductCls(object):
             General Response For API
         """
         if status is None:
-            status = 'pending_approval'
-        RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
+            status = 'active'
+        return RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
                                        mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description,
                                        product_ean_code=product_ean_code, status=status)
 
@@ -45,17 +45,21 @@ class RetailerProductCls(object):
 
 class OffersCls(object):
     @classmethod
-    def rule_set_creation(cls, rulename, start_date, expiry_date, discount_qty_amount=None, discount_obj=None):
+    def rule_set_creation(cls, rulename, start_date, expiry_date, discount_qty_amount=None, discount_obj=None,
+                          free_product_obj=None, free_product_qty=None):
         """
            rule_set Creation for Offer/Coupon
         """
         if CouponRuleSet.objects.filter(rulename=rulename):
-            ruleset = "cannot create a Offer that already exists"
+            ruleset = f"cannot create a Offer with {rulename}, already exists"
         else:
             ruleset = CouponRuleSet.objects.create(rulename=rulename, start_date=start_date,
                                                    expiry_date=expiry_date, is_active=True,
                                                    cart_qualifying_min_sku_value=discount_qty_amount,
-                                                   discount=discount_obj)
+                                                   discount=discount_obj,
+                                                   free_product=free_product_obj,
+                                                   free_product_qty=free_product_qty
+                                                   )
         return ruleset
 
     @classmethod
@@ -148,6 +152,7 @@ def order_search(orders, search_text):
         Order Listing Based On Search
     """
     order = orders.filter(Q(order_no__icontains=search_text) |
+                          Q(ordered_cart__id__icontains=search_text) |
                           Q(buyer__phone_number__icontains=search_text))
     return order
 

@@ -517,7 +517,8 @@ class ParentProductAdmin(admin.ModelAdmin):
     class Media:
         js = (
             '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
-            'admin/js/child_product_form.js'
+            'admin/js/child_product_form.js',
+            'admin/js/parent_product_form.js',
         )
 
     change_list_template = 'admin/products/parent_product_change_list.html'
@@ -1424,7 +1425,7 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         js = (
             '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
             'admin/js/child_product_form.js',
-            'admin/js/price-slab-form.js',
+            'admin/js/price-slab-form.js'
         )
 
     def get_readonly_fields(self, request, obj=None):

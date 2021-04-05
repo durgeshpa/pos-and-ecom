@@ -895,7 +895,7 @@ class CartProductMapping(models.Model):
                     if self.retailer_product.id == i['item_id']:
                         item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
             else:
-                item_effective_price = float(self.selling_price)
+                item_effective_price = float(self.selling_price) if self.selling_price else 0
         else:
             if self.cart_product_price is not None:
                 item_effective_price = self.cart_product_price.get_PTR(self.qty)
@@ -906,13 +906,13 @@ class CartProductMapping(models.Model):
                         item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.qty
         return item_effective_price
 
-    def get_item_effective_prize(self, qty):
+    def get_item_effective_price(self, qty):
 
         """This method is used to get any products effective price based on the price slab and offers applied"""
 
         item_effective_price = 0
         if self.cart_product_price is None:
-            return 0
+            self.get_cart_product_price(self.cart.seller_shop_id, self.cart.buyer_shop_id)
 
         item_effective_price = self.cart_product_price.get_PTR(qty)
 
@@ -2096,7 +2096,7 @@ class OrderedProductMapping(models.Model):
             if self.effective_price:
                 return float(self.effective_price)
             return self.ordered_product.order.ordered_cart.rt_cart_list \
-                .get(cart_product=self.product).get_item_effective_prize(self.shipped_qty)
+                .get(cart_product=self.product).get_item_effective_price(self.shipped_qty)
 
     @property
     def cash_discount(self):
@@ -2261,7 +2261,7 @@ class OrderedProductMapping(models.Model):
     def payment_rate(self):
         """This function return the rate at which payment is to be collected"""
         return self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last() \
-                                   .get_item_effective_prize(self.delivered_qty)
+                                   .get_item_effective_price(self.delivered_qty)
 
     def save(self, *args, **kwargs):
         # if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty, self.returned_qty]):
@@ -2274,7 +2274,7 @@ class OrderedProductMapping(models.Model):
                 retailer_product=self.retailer_product, product_type = self.product_type).last().discounted_price
         else:
             self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-                cart_product=self.product).last().get_item_effective_prize(self.shipped_qty)
+                cart_product=self.product).last().get_item_effective_price(self.shipped_qty)
             self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 cart_product=self.product).last().discounted_price
         super().save(*args, **kwargs)
