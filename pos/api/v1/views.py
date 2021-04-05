@@ -24,7 +24,6 @@ from .serializers import RetailerProductCreateSerializer, RetailerProductUpdateS
     CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponRuleSetSerializers, CouponListSerializers,\
     RetailerProductImageDeleteSerializers, FreeProductUpdateSerializer
 
-
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')

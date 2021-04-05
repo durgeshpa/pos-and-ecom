@@ -1,3 +1,5 @@
+import requests
+import logging
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
@@ -15,6 +17,12 @@ ORDER_STATUS_MAP = {
     3: Order.PARTIALLY_REFUNDED,
     4: Order.FULLY_REFUNDED
 }
+
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron_log')
 
 class RetailerProductCls(object):
 
