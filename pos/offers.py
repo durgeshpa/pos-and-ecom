@@ -78,10 +78,7 @@ class BasicCartOffers(object):
                                           {"range": {"start_date": {"lte": date}}},
                                           {"range": {"end_date": {"gte": date}}}]
                                }
-                      },
-            "sort": [
-                {"purchased_product_qty": "desc"},
-            ]
+                      }
         }
         if source:
             body["_source"] = {"includes": source}
@@ -252,7 +249,7 @@ class BasicCartOffers(object):
         applied_offer = {}
         if offers_list:
             for offer in offers_list:
-                if offer['coupon_type'] == 'cart':
+                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
                     applied_offer = offer
         # Final coupon - 1. Either no auto_apply and refresh coupon already applied OR 2. Auto apply max discount coupon
         final_offer_coupon_id = {}
@@ -361,7 +358,7 @@ class BasicCartOffers(object):
         new_offers = []
         if offers_list:
             for offer in offers_list:
-                if offer['coupon_type'] == 'cart':
+                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
                     continue
                 if offer['coupon_type'] == 'catalog':
                     discounted_price_subtotal = round(
@@ -377,7 +374,7 @@ class BasicCartOffers(object):
         return new_offers
 
     @classmethod
-    def basic_cart_offers_check(cls, cart, offers_list):
+    def basic_cart_offers_check(cls, cart, offers_list, shop_id):
         """
             Check Cart amount for applied discounts on updating quantity for any product
         """
@@ -389,12 +386,21 @@ class BasicCartOffers(object):
             for product in cart_products:
                 cart_total += product.selling_price * product.qty
             for offer in offers_list:
-                if offer['coupon_type'] == 'cart':
+                if offer['coupon_type'] == 'cart' and offer['type'] == 'free_product':
+                    continue
+                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
                     if offer['cart_minimum_value'] > cart_total:
                         continue
                     cart_offer = offer
                 new_offers_list.append(offer)
         new_offers_list = BasicCartOffers.update_cart_offer(new_offers_list, cart_total, cart_offer)
+        # check for free product offer on cart
+        free_product_coupons = BasicCartOffers.get_basic_cart_product_coupon(shop_id, cart_total)
+        if free_product_coupons:
+            free_product_coupon = free_product_coupons[0]
+            free_product = RetailerProduct.objects.filter(id=free_product_coupon['free_product']).last()
+            if free_product:
+                new_offers_list.append(BasicCartOffers.get_free_product_cart_coupon(free_product_coupon, free_product))
         return new_offers_list
 
     @classmethod
@@ -467,6 +473,54 @@ class BasicCartOffers(object):
             else:
                 discount = offer['max_discount']
         return discount
+
+    @classmethod
+    def get_basic_cart_product_coupon(cls, shop_id, cart_value):
+        """
+            Get Cart Free Product coupon from elasticsearch
+        """
+        date = datetime.now()
+        body = {
+            "from":0,
+            "size":1,
+            "query": {"bool": {"filter": [{"term": {"active": True}},
+                                          {"term": {"coupon_type": 'cart_free_product'}},
+                                          {"range": {"start_date": {"lte": date}}},
+                                          {"range": {"end_date": {"gte": date}}},
+                                          {"range": {"cart_minimum_value": {"lte": cart_value}}}]
+                               }
+                      },
+            "sort": [
+                {"cart_minimum_value": "desc"},
+            ]
+        }
+        c_list = []
+        try:
+            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
+        except Exception as e:
+            print(e)
+            pass
+        return c_list
+
+    @classmethod
+    def get_free_product_cart_coupon(cls, coupon, free_product):
+        """
+            Cart available offer free product
+        """
+        return {
+            'coupon_type': 'cart',
+            'type': 'free_product',
+            'sub_type': '',
+            'coupon_id': coupon['id'],
+            'coupon_code': coupon['coupon_code'],
+            'cart_minimum_value': coupon['cart_minimum_value'],
+            'free_item_id': coupon['free_product'],
+            'free_item_qty': coupon['free_product_qty'],
+            'free_item_name': free_product.name,
+            'free_item_mrp': float(free_product.mrp)
+        }
 
 
 def create_es_index(index):

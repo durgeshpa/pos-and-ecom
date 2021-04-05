@@ -134,8 +134,6 @@ def get_shop_id_from_token(request):
                 shop = Shop.objects.filter(related_users=request.user.id, shop_type__shop_type='f')
             else:
                 return "Please Provide a Valid TOKEN"
-        print(request.user.id)
-        print(shop)
         return int(shop.values()[0].get('id'))
     return "Please provide Token"
 

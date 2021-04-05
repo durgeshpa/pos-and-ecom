@@ -248,5 +248,6 @@ def get_cart_coupon_params(coupon):
         params = dict()
         params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
         params['free_product'] = coupon.rule.free_product.id
+        params['free_product_qty'] = coupon.rule.free_product_qty
         params['coupon_type'] = 'cart_free_product'
     return params

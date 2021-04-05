@@ -2550,6 +2550,10 @@ class OrderCentral(APIView):
                     qty = offer['free_item_qty_added']
                     product_qty_map[offer['free_item_id']] = product_qty_map[offer['free_item_id']] + qty if \
                         offer['free_item_id'] in product_qty_map else qty
+                if offer['type'] == 'free_product':
+                    qty = offer['free_item_qty']
+                    product_qty_map[offer['free_item_id']] = product_qty_map[offer['free_item_id']] + qty if \
+                        offer['free_item_id'] in product_qty_map else qty
 
             for product_id in product_qty_map:
                 cart_map, _ = CartProductMapping.objects.get_or_create(cart=order.ordered_cart,
@@ -3196,7 +3200,7 @@ class OrderReturns(APIView):
         return_reason = initial_validation['return_reason']
         with transaction.atomic():
             # map all products to combo offers in cart
-            product_combo_map = self.get_combo_offers(order)
+            product_combo_map, cart_free_product = self.get_combo_offers(order)
             # initiate / update return for order
             order_return = self.update_return(order, return_reason)
             # To map free products to their return quantity
@@ -3239,6 +3243,8 @@ class OrderReturns(APIView):
                     return get_response("Please provide product {}".format(id) + " in return items")
             # check and update refund amount
             self.update_refund_amount(order, new_cart_value, order_return)
+            # check if free product offered on order value is still valid
+            free_returns, free_qty_product_map = self.check_cart_free_product(cart_free_product, free_returns, new_cart_value, free_qty_product_map)
             self.process_free_products(ordered_product, order_return, free_returns)
             order_return.free_qty_map = free_qty_product_map
             order_return.save()
@@ -3280,7 +3286,7 @@ class OrderReturns(APIView):
         applied_offers = order.ordered_cart.offers
         if applied_offers:
             for offer in applied_offers:
-                if offer['coupon_type'] == 'cart' and offer['applied']:
+                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['applied']:
                     order_offer = self.modify_applied_cart_offer(offer, new_cart_value)
         discount = order_offer['discount_value'] if order_offer else 0
         refund_amount = round(float(order.total_final_amount) - float(new_cart_value) + discount, 2)
@@ -3304,18 +3310,33 @@ class OrderReturns(APIView):
             order_offer = offer
         return order_offer
 
+    def check_cart_free_product(self, cart_free_product, free_returns, new_cart_value, free_qty_product_map):
+        if cart_free_product:
+            return_qty_cart_free_product = 0
+            if cart_free_product['cart_minimum_value'] > new_cart_value:
+                return_qty_cart_free_product = cart_free_product['free_item_qty']
+            free_qty_product_map.append(
+                self.get_free_item_map('free_product', cart_free_product['free_item_id'],
+                                       return_qty_cart_free_product))
+            free_returns = self.get_updated_free_returns(free_returns, cart_free_product['free_item_id'],
+                                                         return_qty_cart_free_product)
+        return free_returns, free_qty_product_map
+
     def get_combo_offers(self, order):
         """
             Get combo offers mapping with product purchased
         """
         offers = order.ordered_cart.offers
         product_combo_map = {}
+        cart_free_product = {}
         if offers:
             for offer in offers:
                 if offer['type'] == 'combo':
                     product_combo_map[offer['item_id']] = product_combo_map[offer['item_id']] + [offer] \
                         if offer['item_id'] in product_combo_map else [offer]
-        return product_combo_map
+                if offer['type'] == 'free_product':
+                    cart_free_product = offer
+        return product_combo_map, cart_free_product
 
     def get_free_item_map(self, product_id, free_item_id, qty):
         """
@@ -3427,7 +3448,7 @@ class OrderReturnsCheckout(APIView):
         discount_given = 0
         if applied_offers:
             for offer in applied_offers:
-                if offer['coupon_type'] == 'cart' and offer['applied']:
+                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['applied']:
                     discount_given += offer['discount_value']
         # refund amount without any offer
         refund_amount_raw = refund_amount - discount_given
@@ -3494,7 +3515,7 @@ class OrderReturnsCheckout(APIView):
         discount_given = 0
         if applied_offers:
             for offer in applied_offers:
-                if offer['coupon_type'] == 'cart' and offer['applied']:
+                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['applied']:
                     discount_given += offer['discount_value']
         # refund amount without any offer
         refund_amount_raw = refund_amount - discount_given
