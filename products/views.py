@@ -2290,7 +2290,7 @@ def slab_product_price_csv_upload(request):
 
             try:
                 for row_id, row in enumerate(reader):
-                    product = Product.objects.filter(product_sku=row[0], status='active').last()
+                    product = Product.objects.filter(product_sku=row[0]).last()
                     seller_shop_id = row[2]
 
                     # Create ProductPrice
