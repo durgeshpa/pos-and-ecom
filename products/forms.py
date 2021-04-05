@@ -2137,7 +2137,7 @@ class UploadSlabProductPriceForm(forms.Form):
                 continue
             if isBlankRow(row, len(first_row)):
                 continue
-            product = Product.objects.filter(product_sku=row[0], status='active').last()
+            product = Product.objects.filter(product_sku=row[0]).last()
             if not row[0] or product is None:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
             is_ptr_applicable = product.parent_product.is_ptr_applicable
