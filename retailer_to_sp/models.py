@@ -908,7 +908,7 @@ class CartProductMapping(models.Model):
                     item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.qty
         return item_effective_price
 
-    def get_item_effective_prize(self, qty):
+    def get_item_effective_price(self, qty):
 
         """This method is used to get any products effective price based on the price slab and offers applied"""
 
@@ -2070,7 +2070,7 @@ class OrderedProductMapping(models.Model):
             if self.effective_price:
                 return float(self.effective_price)
             return self.ordered_product.order.ordered_cart.rt_cart_list \
-                .get(cart_product=self.product).get_item_effective_prize(self.shipped_qty)
+                .get(cart_product=self.product).get_item_effective_price(self.shipped_qty)
 
     # def set_effective_price(self):
     #     try:
@@ -2251,16 +2251,22 @@ class OrderedProductMapping(models.Model):
     def payment_rate(self):
         """This function return the rate at which payment is to be collected"""
         return self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last() \
-                                   .get_item_effective_prize(self.delivered_qty)
+                                   .get_item_effective_price(self.delivered_qty)
 
     def save(self, *args, **kwargs):
         # if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty, self.returned_qty]):
         #     raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
         # else:
-        self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-            cart_product=self.product).last().get_item_effective_prize(self.shipped_qty)
-        self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-            cart_product=self.product).last().discounted_price
+        if self.retailer_product:
+            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                retailer_product=self.retailer_product, product_type = self.product_type).last().item_effective_prices
+            self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                retailer_product=self.retailer_product, product_type = self.product_type).last().discounted_price
+        else:
+            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                cart_product=self.product).last().get_item_effective_price(self.shipped_qty)
+            self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                cart_product=self.product).last().discounted_price
         super().save(*args, **kwargs)
 
 
