@@ -2053,9 +2053,6 @@ class PriceSlabForm(forms.ModelForm):
     This class is used to create the Price Slabs
     """
 
-    selling_price = forms.DecimalField(decimal_places=2, required=True)
-    offer_price = forms.DecimalField(decimal_places=2, required=False)
-
     class Meta:
         model = PriceSlab
         fields = ('start_value', 'end_value', 'selling_price', 'offer_price', 'offer_price_start_date', 'offer_price_end_date')
@@ -2168,9 +2165,9 @@ class UploadSlabProductPriceForm(forms.Form):
                              or getStrToDate(row[9]) < datetime.datetime.today().date()
                              or getStrToDate(row[8]) >= getStrToDate(row[9])):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
-            elif not row[10] or int(row[10]) <= int(row[5]):
+            elif not row[10] or int(row[10]) != int(row[5])+1:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
-            elif not row[11] or float(row[11]) >= selling_price_per_saleable_unit:
+            elif not row[11] or float(row[11]) >= selling_price_per_saleable_unit or float(row[11]) >= float(row[7]) :
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
             elif row[12] and float(row[12]) >= float(row[11]):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
