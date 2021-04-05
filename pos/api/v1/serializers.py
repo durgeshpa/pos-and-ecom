@@ -334,10 +334,20 @@ class BasicCartSerializer(serializers.ModelSerializer):
         # Order Cart In Purchased And Free Products
         cart_products = BasicCartProductMappingSerializer(qs, many=True, context=self.context).data
         product_offer_map = {}
+        cart_free_product = {}
 
         for offer in obj.offers:
             if offer['coupon_type'] == 'catalog' and offer['type'] == 'combo':
                 product_offer_map[offer['item_id']] = offer
+            if offer['coupon_type'] == 'cart' and offer['type'] == 'free_product':
+                cart_free_product = {
+                    'cart_free_product': 1,
+                    'id': offer['free_item_id'],
+                    'mrp': offer['free_item_mrp'],
+                    'name': offer['free_item_name'],
+                    'qty': offer['free_item_qty'],
+                    'coupon_code': offer['coupon_code']
+                }
 
         for cart_product in cart_products:
             if cart_product['retailer_product']['id'] in product_offer_map:
@@ -351,6 +361,9 @@ class BasicCartSerializer(serializers.ModelSerializer):
                 }
                 cart_product['free_product'] = free_product
 
+        if cart_free_product:
+            cart_products.append(cart_free_product)
+
         return cart_products
 
     def items_count_dt(self, obj):
@@ -363,6 +376,8 @@ class BasicCartSerializer(serializers.ModelSerializer):
             if offer['type'] == 'combo' and offer['free_item_id'] not in product_added:
                 free_items += 1
                 product_added += [offer['free_item_id']]
+            if offer['type'] == 'free_product':
+                free_items += 1
         return obj.rt_cart_list.filter(product_type=1).count() + free_items
 
     def total_quantity_dt(self, obj):
@@ -376,6 +391,8 @@ class BasicCartSerializer(serializers.ModelSerializer):
         for offer in obj.offers:
             if offer['type'] == 'combo':
                 free_item_qty += int(offer['free_item_qty_added'])
+            if offer['type'] == 'free_product':
+                free_item_qty += int(offer['free_item_qty'])
         return qty + free_item_qty
 
     def total_amount_dt(self, obj):
@@ -602,9 +619,19 @@ class BasicOrderSerializer(serializers.ModelSerializer):
         products = BasicOrderProductDetailSerializer(qs, many=True).data
         # car offers - map free product to purchased
         product_offer_map = {}
+        cart_free_product = {}
         for offer in obj.ordered_cart.offers:
             if offer['coupon_type'] == 'catalog' and offer['type'] == 'combo':
                 product_offer_map[offer['item_id']] = offer
+            if offer['coupon_type'] == 'cart' and offer['type'] == 'free_product':
+                cart_free_product = {
+                    'cart_free_product': 1,
+                    'id': offer['free_item_id'],
+                    'mrp': offer['free_item_mrp'],
+                    'name': offer['free_item_name'],
+                    'qty': offer['free_item_qty'],
+                    'coupon_code': offer['coupon_code']
+                }
         # check if any returns
         return_item_map = {}
         return_obj = OrderReturn.objects.filter(order=obj).last()
@@ -630,6 +657,10 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                     'coupon_code': offer['coupon_code']
                 }
                 product['free_product'] = free_product
+        if 'free_product' in return_item_map:
+            cart_free_product['return_qty'] = return_item_map['free_product']
+        if cart_free_product:
+            products.append(cart_free_product)
         return products
 
     def total_discount_amount_dt(self, obj):
