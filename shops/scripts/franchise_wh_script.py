@@ -10,7 +10,7 @@ info_logger = logging.getLogger('file-info')
 cron_logger = logging.getLogger('cron_log')
 
 
-def warehouse_code_refactor():
+def run():
     """
         Cron job for refactor warehouse_code when shop_type is Franchise
         :return:
