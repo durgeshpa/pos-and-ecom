@@ -202,6 +202,7 @@ class PutAwayViewSet(APIView):
                 lis_data.append(msg)
                 continue
             put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse,
+                                                                    putaway_type='GRN',
                                                                     inventory_type=type_normal).order_by('created_at')
             ids = [i.id for i in put_away]
             updated_putaway_value = put_away.aggregate(total=Sum('putaway_quantity'))['total'] if \
@@ -518,6 +519,9 @@ class PickupDetail(APIView):
             return Response({'is_success': False,
                              'message': 'Pickup quantity can not be negative.',
                              'data': None}, status=status.HTTP_200_OK)
+        total_to_be_picked_qty = request.data.get('total_to_be_picked_qty')
+        if not total_to_be_picked_qty:
+            return Response(msg, status=status.HTTP_200_OK)
 
         sku_id = request.data.get('sku_id')
         if not sku_id:
@@ -526,7 +530,8 @@ class PickupDetail(APIView):
             return Response({'is_success': False,
                              'message': 'The number of sku ids entered should be equal to number of pickup qty entered.',
                              'data': None}, status=status.HTTP_200_OK)
-        diction = {i[1]: i[0] for i in zip(pickup_quantity, sku_id)}
+        diction = {i[1]: {'pickup_quantity': i[0], 'total_to_be_picked_qty' : i[2]}
+                   for i in zip(pickup_quantity, sku_id, total_to_be_picked_qty)}
         remarks = request.data.get('remarks')
         remarks_dict = {}
         if remarks is not None:
@@ -557,8 +562,15 @@ class PickupDetail(APIView):
                                      'data': None}, status=status.HTTP_200_OK)
 
                 if picking_details.exists():
+                    pickup_quantity = i['pickup_quantity']
+                    total_to_be_picked = i['total_to_be_picked_qty']
                     info_logger.info("PickupDetail|POST|Pickup Started for SKU-{}, Qty-{}, Bin-{}"
-                                     .format(j, i, bin_id))
+                                     .format(j, pickup_quantity, bin_id))
+                    if total_to_be_picked != picking_details.last().quantity :
+                        return Response({'is_success': False,
+                                         'message': "To be Picked qty has changed, please revise your input for "
+                                                    "Picked qty",
+                                         'data': None}, status=status.HTTP_200_OK)
                     tr_id = picking_details.last().pickup.id
                     pick_qty = picking_details.last().pickup_quantity
                     info_logger.info("PickupDetail|POST|SKU-{}, Picked qty-{}"
@@ -566,7 +578,7 @@ class PickupDetail(APIView):
                     if pick_qty is None:
                         pick_qty = 0
                     qty = picking_details.last().quantity
-                    if pick_qty + i > qty:
+                    if pick_qty + pickup_quantity > qty:
                         if qty - pick_qty == 0:
                             data_list.append({'is_success': False, 'message': "You can't add more Pick up quantity."})
                         else:
@@ -589,18 +601,18 @@ class PickupDetail(APIView):
                             info_logger.info('PickupDetail|POST API| Bin Inventory Object not found, Bin Inv ID-{}'
                                              .format(bin_inv_id))
                             continue
-                        CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(i, bin_inv_obj)
+                        CommonBinInventoryFunctions.deduct_to_be_picked_from_bin(pickup_quantity, bin_inv_obj)
 
                         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                            warehouse, sku, inventory_type, state_to_be_picked, -1*i, tr_type, tr_id )
+                            warehouse, sku, inventory_type, state_to_be_picked, -1*pickup_quantity, tr_type, tr_id )
 
                         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                            warehouse, sku, inventory_type, state_total_available, -1 * i, tr_type, tr_id)
+                            warehouse, sku, inventory_type, state_total_available, -1 * pickup_quantity, tr_type, tr_id)
 
                         CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                            warehouse, sku, inventory_type, state_picked, i, tr_type, tr_id)
+                            warehouse, sku, inventory_type, state_picked, pickup_quantity, tr_type, tr_id)
 
-                        picking_details.update(pickup_quantity=i + pick_qty, last_picked_at=timezone.now(),
+                        picking_details.update(pickup_quantity=pickup_quantity + pick_qty, last_picked_at=timezone.now(),
                                                remarks=remarks_text)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no,
                                                                         pickup__sku__id=j)\

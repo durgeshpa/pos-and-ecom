@@ -390,7 +390,6 @@ CRONJOBS = [
     ('0 3 * * *', 'wms.views.move_expired_inventory_cron'),
     ('0 23 * * *', 'audit.cron.update_audit_status_cron'),
     ('*/30 * * * *', 'audit.cron.create_audit_tickets_cron'),
-    ('*/30 * * * *', 'audit.cron.create_picklist_cron'),
     ('0 */1 * * *', 'audit.cron.release_products_from_audit'),
     ('30 19 * * *', 'franchise.crons.cron.franchise_sales_returns_inventory'),
     ('30 21 * * *', 'franchise.crons.sales_rewards.process_rewards_on_sales'),
@@ -535,14 +534,20 @@ LOGGING = {
        # },
        'file-info': {
            'level': 'INFO',
-           'class': 'logging.FileHandler',
+           'class': 'logging.handlers.TimedRotatingFileHandler',
            'filename': '/var/log/retailer-backend/info.log',
+           'when': 'D',  # this specifies the interval
+           'interval': 1,  # defaults to 1, only necessary for other values
+           'backupCount': 10, # how many backup file to keep, 10 days
            'formatter': 'verbose',
        },
        'file-error': {
            'level': 'ERROR',
-           'class': 'logging.FileHandler',
+           'class': 'logging.handlers.TimedRotatingFileHandler',
            'filename': '/var/log/retailer-backend/error.log',
+           'when': 'D',  # this specifies the interval
+           'interval': 1,  # defaults to 1, only necessary for other values
+           'backupCount': 10, # how many backup file to keep, 10 days
            'formatter': 'verbose',
        },
        # 'console': {
@@ -551,8 +556,11 @@ LOGGING = {
        # },
         'cron_log_file': {
              'level': 'INFO',
-             'class': 'logging.FileHandler',
+             'class': 'logging.handlers.TimedRotatingFileHandler',
              'filename': '/var/log/retailer-backend/scheduled_jobs.log',
+             'when': 'D',  # this specifies the interval
+             'interval': 1,  # defaults to 1, only necessary for other values
+             'backupCount': 10, # how many backup file to keep, 10 days
              'formatter': 'verbose'
          },
 

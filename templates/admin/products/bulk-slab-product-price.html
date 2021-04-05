@@ -1,0 +1,56 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block breadcrumb1 %}<a href="/admin/products/">Products</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/products/slabproductprice/">Slab Product Price<a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Upload SLab Product Prices in Bulk</a>{% endblock %}
+
+{% block content %}
+<div id="content" class="colM">
+
+      <h1>{% block content_header %}{% endblock %}</h1>
+      <div id="content-main">
+         <ul class="object-tools">
+         </ul>
+         {% if error %}
+            <span class="errornote">{{ error|escape }}</span>
+         {% endif %}
+         {% if success %}
+            <ul class="messagelist">
+            <li class="success">{{ success|escape }}</li>
+            </ul>
+         {% endif %}
+         <div class="mt-5 pt-4">
+            {% if messages %}
+                {% for message in messages %}
+
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    <strong>{{ message }}</strong>
+                </div>
+
+                {% endfor %}
+            {% endif %}
+        </div>
+         <div>
+            <form method="post" enctype="multipart/form-data">
+               <div>
+                  <fieldset class="module aligned ">
+                     {% csrf_token %}
+                     {{form.as_p}}
+                  </fieldset>
+                  <div class="submit-row">
+                     <a href="{% url 'admin:slab_product_price_sample_csv' %}" class="button">Get CSV sample</a>
+                     <input type="submit" value="Save" class="button" name="_save" >
+                  </div>
+               </div>
+            </form>
+         </div>
+      </div>
+   </div>
+{% endblock %}
+{% block javascript %}
+<script>
+
+$(function () {
+  $("select").select2();
+});
+</script>
+{% endblock javascript %}

@@ -217,9 +217,7 @@ class OrderReport(CreateAPIView):
                                                                                                seller_shop=seller_shop).last().price_to_retailer
                         # product_mrp = products.product.getMRP(order.seller_shop.id, order.buyer_shop.id)
                         # product_value_tax_included = products.product.getRetailerPrice(order.seller_shop.id,order.buyer_shop.id)
-                        for price in order.ordered_cart.rt_cart_list.all():
-                            selling_price = price.cart_product_price.selling_price
-                            item_effective_price = price.item_effective_prices
+
                         if products.product.product_pro_tax.filter(tax__tax_type ='gst').exists():
                             product_gst = products.product.product_pro_tax.filter(tax__tax_type ='gst').last()
                         if order.shipping_address.state == order.seller_shop.shop_name_address_mapping.filter(address_type='shipping').last().state:

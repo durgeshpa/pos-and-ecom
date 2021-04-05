@@ -22,7 +22,6 @@ from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
 from categories.models import Category
 from coupon.models import Coupon
-from retailer_backend.messages import ERROR_MESSAGES, VALIDATION_ERROR_MESSAGES
 from retailer_backend.validators import *
 from shops.models import Shop
 
@@ -133,20 +132,6 @@ class ParentProduct(models.Model):
     parent_brand = models.ForeignKey(Brand, related_name='parent_brand_product', blank=False, on_delete=models.CASCADE)
     # category = models.ForeignKey(Category, related_name='category_parent_category', on_delete=models.CASCADE)
     product_hsn = models.ForeignKey(ProductHSN, related_name='parent_hsn', blank=False, on_delete=models.CASCADE)
-    # GST_CHOICES = (
-    #     (0, '0 %'),
-    #     (5, '5 %'),
-    #     (12, '12 %'),
-    #     (18, '18 %'),
-    #     (28, '28 %'),
-    # )
-    # gst = models.PositiveIntegerField(default=0, choices=GST_CHOICES)
-    # CESS_CHOICES = (
-    #     (0, '0 %'),
-    #     (12, '12 %'),
-    # )
-    # cess = models.PositiveIntegerField(default=0, choices=CESS_CHOICES, blank=True)
-    # surcharge = models.PositiveIntegerField(default=0, blank=True)
     brand_case_size = models.PositiveIntegerField(blank=False)
     inner_case_size = models.PositiveIntegerField(blank=False, default=1)
     PRODUCT_TYPE_CHOICES = (
@@ -155,8 +140,11 @@ class ParentProduct(models.Model):
         ('both', 'Both B2B and B2C'),
     )
     product_type = models.CharField(max_length=5, choices=PRODUCT_TYPE_CHOICES)
-    # image = models.ImageField(upload_to='parent_product_image', blank=False)
     status = models.BooleanField(default=True)
+    is_ptr_applicable = models.BooleanField(verbose_name='Is PTR Applicable', default=False)
+    ptr_percent = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True)
+    PTR_TYPE_CHOICES = Choices((1, 'MARK_UP', 'Mark Up'),(2, 'MARK_DOWN', 'Mark Down'))
+    ptr_type = models.SmallIntegerField(choices=PTR_TYPE_CHOICES, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -355,7 +343,7 @@ class Product(models.Model):
             product_price = product_price.filter(
                 buyer_shop_id=buyer_shop_id)
         if not product_price:
-            product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, approval_status=ProductPrice.APPROVED, start_date__lte=today, end_date__gte=today).order_by('start_date')
+            product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, approval_status=ProductPrice.APPROVED)
         if not product_price:
             return None
         return product_price.last()
@@ -510,19 +498,19 @@ class ProductPrice(models.Model):
     def __str__(self):
         return "%s - %s" % (self.product.product_name, self.selling_price)
 
-    def validate(self, exception_type):
-        # if not self.mrp:
-        #     raise ValidationError(_('Please enter valid Mrp price.'))
-        if not self.selling_price:
-            print(self.selling_price)
-            raise ValidationError(_('Please enter valid Selling price.'))
-            #raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
-        if self.selling_price and self.mrp and self.selling_price > self.mrp:
-            raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
-
-    def clean(self):
-        super(ProductPrice, self).clean()
-        self.validate(ValidationError)
+    # def validate(self, exception_type):
+    #     # if not self.mrp:
+    #     #     raise ValidationError(_('Please enter valid Mrp price.'))
+    #     if not self.selling_price:
+    #         print(self.selling_price)
+    #         raise ValidationError(_('Please enter valid Selling price.'))
+    #         #raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
+    #     if self.selling_price and self.mrp and self.selling_price > self.mrp:
+    #         raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
+    #
+    # def clean(self):
+    #     super(ProductPrice, self).clean()
+    #     self.validate(ValidationError)
 
     def update_city_pincode(self):
         if self.buyer_shop and not (self.city or self.pincode):
@@ -535,7 +523,6 @@ class ProductPrice(models.Model):
             self.city_id = self.pincode.city_id
 
     def save(self, *args, **kwargs):
-        self.validate(Exception)
         self.update_city_pincode()
         if self.approval_status == self.APPROVED:
             if self.buyer_shop:
@@ -576,7 +563,7 @@ class ProductPrice(models.Model):
                 )
             product_price.update(approval_status=ProductPrice.DEACTIVATED)
             self.approval_status = ProductPrice.APPROVED
-            self.end_date = self.start_date + datetime.timedelta(days=365)
+            # self.end_date = self.start_date + datetime.timedelta(days=365)
         super().save(*args, **kwargs)
 
     @property
@@ -587,9 +574,57 @@ class ProductPrice(models.Model):
     def sku_code(self):
         return self.product.product_sku
 
+
+    def get_PTR(self, qty):
+        slabs = self.price_slabs.all()
+        if slabs.count() == 0:
+            return float(self.selling_price)
+        for slab in slabs:
+            if qty >= slab.start_value and (qty <= slab.end_value or slab.end_value == 0):
+                return slab.ptr
     # @property
     # def mrp(self):
     #     return self.product.product_mrp
+
+class SlabProductPrice(ProductPrice):
+    class Meta:
+        proxy = True
+
+class PriceSlab(models.Model):
+    product_price = models.ForeignKey(ProductPrice, related_name='price_slabs', on_delete=models.CASCADE)
+    start_value = models.PositiveIntegerField()
+    end_value = models.PositiveIntegerField()
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False,
+                                        verbose_name='Selling Price(Per saleable unit)')
+    offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,
+                                      verbose_name='Offer Price(Per saleable unit)')
+    offer_price_start_date = models.DateField(null=True, blank=True)
+    offer_price_end_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Price Slab Category")
+        verbose_name_plural = _("Price Slabs")
+
+    @property
+    def ptr(self):
+        ptr = self.selling_price
+        if self.offer_price and self.is_offer_price_valid:
+            ptr = self.offer_price
+        return float(ptr)
+
+    def is_offer_price_valid(self):
+        today = datetime.datetime.today().date()
+        if self.offer_price_start_date > today or self.offer_price_end_date < today:
+            return False
+        return True
+
+    def clean(self):
+        super(PriceSlab, self).clean()
+        case_size = self.product_price.product.parent_product.inner_case_size
+        if not self.selling_price or self.selling_price > self.product_price.product.product_mrp*case_size:
+            raise ValidationError(_('Invalid Selling price.'))
 
 
 class ProductCategory(models.Model):
@@ -936,4 +971,3 @@ class Repackaging(models.Model):
 
     def __str__(self):
         return self.repackaging_no
-

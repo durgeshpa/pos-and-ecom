@@ -138,7 +138,7 @@ def update_putaway(id, batch_id, warehouse, put_quantity, user):
             put_quantity = put_quantity - diff_quantity
         else:
             quantity = put_away_quantity
-            put_quantity = 0
+            put_quantity = put_quantity - put_away_new
         pu.update(putaway_quantity=quantity, putaway_user=user)
         info_logger.info(put_quantity, "Put away quantity updated successfully.")
         return put_quantity
@@ -895,8 +895,8 @@ def pickup_entry_creation_with_cron():
     cron_log_entry = CronRunLog.objects.create(cron_name=cron_name)
     cron_logger.info("{} started, cron log entry-{}"
                      .format(cron_log_entry.cron_name, cron_log_entry.id))
-    try:
-        for order in order_obj:
+    for order in order_obj:
+        try:
             with transaction.atomic():
                 pincode = "00"
                 if pickup_entry_exists_for_order(order.id):
@@ -910,15 +910,13 @@ def pickup_entry_creation_with_cron():
                 order.order_status = 'PICKUP_CREATED'
                 order.save()
                 cron_logger.info('pickup entry created for order {}'.format(order.order_no))
-        cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
-        cron_log_entry.completed_at = timezone.now()
-        cron_logger.info("{} completed, cron log entry-{}"
-                         .format(cron_log_entry.cron_name, cron_log_entry.id))
-    except Exception as e:
-        cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.ABORTED
-        cron_logger.info("{} aborted, cron log entry-{}"
-                         .format(cron_name, cron_log_entry.id))
-        traceback.print_exc()
+        except Exception as e:
+            cron_logger.info('Exception while creating pickup for order {}'.format(order.order_no))
+            cron_logger.error(e)
+    cron_log_entry.status = CronRunLog.CRON_STATUS_CHOICES.COMPLETED
+    cron_log_entry.completed_at = timezone.now()
+    cron_logger.info("{} completed, cron log entry-{}"
+                     .format(cron_log_entry.cron_name, cron_log_entry.id))
     cron_log_entry.save()
 
 

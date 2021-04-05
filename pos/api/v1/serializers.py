@@ -645,9 +645,8 @@ class BasicOrderSerializer(serializers.ModelSerializer):
         return round(discount, 2)
 
     def invoice_dt(self, obj):
-        if self.context.get("invoice", None):
-            return get_invoice_and_link(OrderedProduct.objects.get(order=obj), self.context.get("current_url", None))
-        return False
+        return get_invoice_and_link(OrderedProduct.objects.get(order=obj), self.context.get("current_url", None))
+
 
     class Meta:
         model = Order
