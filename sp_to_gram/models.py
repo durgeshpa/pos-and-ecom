@@ -513,8 +513,8 @@ def create_credit_note_on_trip_close(trip_id):
                 grn_item.save()
                 try:
                     cart_product_map = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-                    credit_amount += (item.shipped_qty * cart_product_map.get_item_effective_prize(item.shipped_qty)) \
-                                     - (item.delivered_qty * cart_product_map.get_item_effective_prize(item.delivered_qty))
+                    credit_amount += (item.shipped_qty * cart_product_map.get_item_effective_price(item.shipped_qty)) \
+                                     - (item.delivered_qty * cart_product_map.get_item_effective_price(item.delivered_qty))
                 except Exception as e:
                     logger.exception("Product price not found for {} -- {}".format(item.product, e))
                     shipped_at_price = item.product.product_pro_price.filter( seller_shop=shipment.order.seller_shop, approval_status=ProductPrice.APPROVED).last().get_PTR(item.shipped_qty)
