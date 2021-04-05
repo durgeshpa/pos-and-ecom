@@ -77,7 +77,7 @@ class OffersCls(object):
                               is_active=True)
 
 
-def get_response(msg, data=None, success=False):
+def get_response(msg, data=None, success=False, extra_params={}):
     """
         General Response For API
     """
@@ -88,6 +88,7 @@ def get_response(msg, data=None, success=False):
             ret = {"is_success": True, "message": msg, "response_data": data}
         else:
             ret = {"is_success": False, "message": msg, "response_data": None}
+    ret = ret.update(extra_params) if extra_params else ret
     return Response(ret, status=status.HTTP_200_OK)
 
 

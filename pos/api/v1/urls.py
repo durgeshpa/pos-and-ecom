@@ -6,7 +6,6 @@ from .views import SearchView, CartCentral, OrderCentral, CartCheckout, OrderLis
 
 urlpatterns = [
     url(r'^catalogue-product/', CatalogueProductCreation.as_view(), name='catalogue-product'),
-    url('^search/$', SearchView.as_view()),
     url('^cart/$', CartCentral.as_view()),
     url('^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
     url('^cart/checkout/$', CartCheckout.as_view()),
