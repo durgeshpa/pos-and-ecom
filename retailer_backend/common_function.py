@@ -110,7 +110,8 @@ def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=
             last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)
-    if shop_code == 'F':
+
+    if len(warehouse_code) == 3 and shop_code == 'F':
         ends_with = str(format(last_number, '06d'))
     else:
         ends_with = str(format(last_number, '07d'))
