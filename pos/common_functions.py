@@ -1,3 +1,5 @@
+import requests
+import logging
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
@@ -9,6 +11,11 @@ from retailer_to_gram.models import (CartProductMapping as GramMappedCartProduct
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
 from shops.models import Shop
 
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+cron_logger = logging.getLogger('cron_log')
 
 class RetailerProductCls(object):
 
