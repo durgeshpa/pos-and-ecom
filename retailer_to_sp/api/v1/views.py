@@ -405,7 +405,7 @@ class SearchProducts(APIView):
             Search GramFactory Catalogue By Name, Brand, Category
             Full catalogue or for a particular parent shop
         """
-        shop_id = self.request.GET.get('shop_id')
+        shop_id = self.request.GET.get('shop_id') if self.request.GET.get('shop_id') else None
         parent_shop_id = None
         cart_products = None
         cart = None
