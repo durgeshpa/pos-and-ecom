@@ -64,7 +64,8 @@ from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_invoice_send)
+                                 create_invoice_data, whatsapp_invoice_send, whatsapp_opt_in, whatsapp_order_cancel,
+                                 whatsapp_order_refund)
 from wms.models import OrderReserveRelease, InventoryType
 from pos.common_functions import get_shop_id_from_token, get_response, create_user_shop_mapping,\
     delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP
@@ -475,8 +476,6 @@ class SearchProducts(APIView):
                                     if i['item_sku'] == c_p.cart_product.product_sku:
                                         discounted_product_subtotal = i['discounted_product_subtotal']
                                         p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
-                                p["_source"]["margin"] = (((float(check_price_mrp) - c_p.item_effective_prices) / float(
-                                    check_price_mrp)) * 100)
                                 cart_brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], cart_offers))
                                 for j in coupons:
                                     for i in (cart_brand_offers + cart_product_offers):
@@ -529,7 +528,6 @@ class SearchProducts(APIView):
             category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
             filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
         return query
-
 
 class AutoSuggest(APIView):
     permission_classes = (AllowAny,)
@@ -695,6 +693,9 @@ class CartCentral(APIView):
             cart.buyer = customer
             cart.last_modified_by = self.request.user
             cart.save()
+            if customer.is_whatsapp is True:
+                # whatsapp api call for user opt in
+                whatsapp_opt_in.delay(ph_no)
             serializer = BasicCartSerializer(cart)
             return get_response("Cart Updated Successfully!", serializer.data)
 
@@ -2003,7 +2004,7 @@ class OrderCentral(APIView):
         """
             allowed updates to order status
         """
-        cart_type = request.GET.get('cart_type', '1')
+        cart_type = request.data.get('cart_type', '1')
         if cart_type == '1':
             return self.put_retail_order(pk)
         elif cart_type == '2':
@@ -2015,21 +2016,21 @@ class OrderCentral(APIView):
         """
             Cancel POS order
         """
-        # Check shop
-        shop_id = get_shop_id_from_token(self.request)
-        if not type(shop_id) == int:
-            return get_response("Shop Doesn't Exist!")
-        # Check if order exists
-        try:
-            order = Order.objects.get(pk=pk, seller_shop_id=shop_id, order_status='ordered')
-        except ObjectDoesNotExist:
-            return get_response('Order Not Found To Cancel!')
-        # check input status validity
-        allowed_updates = [Order.CANCELLED]
-        status = self.request.data.get('status')
-        if status not in allowed_updates:
-            return get_response("Please Provide A Valid Status To Update Order")
         with transaction.atomic():
+            # Check shop
+            shop_id = get_shop_id_from_token(self.request)
+            if not type(shop_id) == int:
+                return get_response("Shop Doesn't Exist!")
+            # Check if order exists
+            try:
+                order = Order.objects.get(pk=pk, seller_shop_id=shop_id, order_status='ordered')
+            except ObjectDoesNotExist:
+                return get_response('Order Not Found To Cancel!')
+            # check input status validity
+            allowed_updates = [Order.CANCELLED]
+            status = self.request.data.get('status')
+            if status not in allowed_updates:
+                return get_response("Please Provide A Valid Status To Update Order")
             # cancel order
             order.order_status = status
             order.last_modified_by = self.request.user
@@ -2037,6 +2038,11 @@ class OrderCentral(APIView):
             # cancel shipment
             OrderedProduct.objects.filter(order=order).update(shipment_status='CANCELLED',
                                                               last_modified_by=self.request.user)
+            order_number = order.order_no
+            shop_name = order.seller_shop.shop_name
+            phone_number = order.buyer.phone_number
+            # whatsapp api call for order cancellation
+            whatsapp_order_cancel.delay(order_number, shop_name, phone_number)
             return get_response("Order cancelled successfully!", [], True)
 
     def put_retail_order(self, pk):
@@ -2598,8 +2604,7 @@ class OrderCentral(APIView):
         # Complete Shipment
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
-        invoice_data = get_invoice_and_link(shipment, self.request.get_host())
-        return invoice_data
+        pdf_generation_retailer(self.request, order.id)
 
 
 class CreateOrder(APIView):
@@ -3636,6 +3641,12 @@ class OrderReturnComplete(APIView):
             # complete return
             order_return.status = 'completed'
             order_return.save()
+            # whatsapp api call for refund notification
+            order_number = order.order_no
+            order_status = order.order_status
+            phone_number = order.buyer.phone_number
+            refund_amount = order.rt_return_order.all()[0].refund_amount
+            whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount)
         return get_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data)
 
 

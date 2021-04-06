@@ -245,3 +245,29 @@ def whatsapp_order_cancel(order_number, shop_name, phone_number):
     except Exception as e:
         error_logger.error(e)
         return False
+
+
+@task()
+def whatsapp_order_refund(order_number, order_status, phone_number, refund_amount):
+    """
+    request param:- order number
+    request param:- order_status
+    request param:- phone_number
+    request param:- refund_amount
+    return :- Ture if success else False
+    """
+    try:
+        api_end_point = WHATSAPP_API_ENDPOINT
+        whatsapp_user_id = WHATSAPP_API_USERID
+        whatsapp_user_password = WHATSAPP_API_PASSWORD
+        caption = "Hi! Your Order " +order_number+" has been "+order_status+" refunded. Your refund amount is "+str(refund_amount)+" INR."
+        data_string = "method=SendMessage&format=json&password=" + whatsapp_user_password + "&send_to=" + phone_number +" +&v=1.1&auth_scheme=plain&&msg_type=HSM&msg=" + caption
+        refund_order_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
+        response = requests.get(refund_order_api)
+        if json.loads(response.text)['response']['status'] == 'success':
+            return True
+        else:
+            return False
+    except Exception as e:
+        error_logger.error(e)
+        return False
