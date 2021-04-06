@@ -388,7 +388,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
             product_mrp = product_price.mrp if product_price.mrp else obj.cart_product.product_mrp
             margin = (((float(product_mrp) - product_price.get_PTR(obj.qty)/int(obj.cart_product.product_inner_case_size)) / float(product_mrp)) * 100)
             if obj.cart.offers:
-                margin = (((float(product_mrp) - obj.get_item_effective_price(obj.qty)) / float(product_mrp)) * 100)
+                margin = (((float(product_mrp) - obj.get_item_effective_price(obj.qty)/int(obj.cart_product.product_inner_case_size)) / float(product_mrp)) * 100)
             return round(margin, 2)
         return False
 
