@@ -39,11 +39,10 @@ def update_shop_retailer_product_es(shop_id, product_id, **kwargs):
                 brand = ''
                 category = ''
                 if product.linked_product and product.linked_product.parent_product:
-                    if product.linked_product.parent_product.parent_brand:
-                        brand = product.linked_product.parent_product.parent_brand
+                    brand = str(product.linked_product.product_brand)
                     if product.linked_product.parent_product.parent_product_pro_category:
                         category = [str(c.category) for c in
-                                              product.parent_product.parent_product_pro_category.filter(status=True)]
+                                              product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
                 params = {
                     'id' : product.id,
                     'name' : product.name,
