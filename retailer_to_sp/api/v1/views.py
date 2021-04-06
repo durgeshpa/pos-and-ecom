@@ -2404,7 +2404,7 @@ class OrderCentral(APIView):
 
     def create_basic_order(self, cart, shop):
         user = self.request.user
-        order, _ = Order.objects.create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
+        order, _ = Order.objects.get_or_create(last_modified_by=user, ordered_by=user, ordered_cart=cart)
         order.buyer = cart.buyer
         order.seller_shop = shop
         order.received_by = cart.buyer
