@@ -94,7 +94,7 @@
                 <div class="table">
                     <table class="table table-condensed">
                         <thead>
-                        <tr class="text-center">
+                        <tr class="text-center" style="text-align:center;">
                             <td><strong>Serial No.</strong></td>
                             <td><strong>Description of Goods</strong></td>
                             <td><strong>MRP</strong></td>
@@ -106,7 +106,7 @@
                         <tbody>
                         {% for m in product_listing %}
                         {% if m.qty != 0 %}
-                        <tr class="text-center">
+                        <tr class="text-center" style="text-align:center;">
                             <td><strong>{{forloop.counter}}</strong></td>
                             <td><strong>{{ m.product_short_description}}</strong></td>
                             <td><strong>{{ m.mrp}}</strong></td>
@@ -117,7 +117,7 @@
                         </tr>
                         {% endif %}
                         {% endfor %}
-                        <tr class="text-center">
+                        <tr class="text-center" style="text-align:center;">
                             <td></td>
                             <td></td>
                             <td></td>
@@ -125,7 +125,7 @@
                             <td class="thick-line"></td>
                             <td class="thick-line"><strong>₹{{total| intcomma}}/-</strong></td>
                         </tr>
-                        <tr class="text-center">
+                        <tr class="text-center" style="text-align:center;">
                             <td class="no-line"></td>
                             <td class="no-line"></td>
                             <td class="no-line"></td>
@@ -133,7 +133,7 @@
                             <td class="thick-line"></td>
                             <td class="thick-line"></td>
                         </tr>
-                        <tr class="text-center">
+                        <tr class="text-center" style="text-align:center;">
                             <td class="no-line"></td>
                             <td class="no-line"></td>
                             <td class="no-line"></td>
@@ -143,7 +143,7 @@
                                 <strong>₹ {{discount| intcomma}}/- </strong>
                             </td>
                         </tr>
-                        <tr class="text-center">
+                        <tr class="text-center" style="text-align:center;">
                             <td class="no-line"></td>
                             <td class="no-line"></td>
                             <td class="no-line"></td>
