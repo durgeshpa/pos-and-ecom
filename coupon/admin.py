@@ -50,11 +50,21 @@ class DiscountValueAdmin(admin.ModelAdmin):
     list_display = ('discount_value', 'is_percentage', 'max_discount')
 
 class CouponRuleSetAdmin( admin.ModelAdmin):
+
+    def get_queryset(self, request):
+        qs = super(CouponRuleSetAdmin, self).get_queryset(request)
+        return qs.exclude(coupon_ruleset__shop__shop_type__shop_type='f')
+
     search_fields = ('rulename',)
     list_filter = [RuleNameFilter, 'is_active', ('created_at', DateRangeFilter), ('expiry_date', DateRangeFilter)]
     list_display = ('rulename', 'rule_description', 'all_users', 'discount_qty_step', 'discount_qty_amount', 'discount', 'is_free_shipment', 'cart_qualifying_min_sku_value', 'cart_qualifying_min_sku_item', 'is_active', 'created_at', 'expiry_date')
 
 class CouponAdmin( admin.ModelAdmin):
+
+    def get_queryset(self, request):
+        qs = super(CouponAdmin, self).get_queryset(request)
+        return qs.exclude(shop__shop_type__shop_type='f')
+
     fields = ('coupon_code', 'coupon_name', 'rule', 'limit_per_user_per_day', 'limit_of_usages', 'coupon_type', 'no_of_times_used', 'is_active', 'start_date', 'expiry_date')
     list_display = ('coupon_code', 'coupon_name', 'rule', 'limit_per_user_per_day', 'limit_of_usages', 'coupon_type', 'no_of_times_used', 'is_active', 'created_at', 'expiry_date')
     list_filter = (RuleSetFilter, CouponNameFilter, CouponCodeFilter,'coupon_type', 'is_active')
@@ -67,6 +77,11 @@ class CusotmerCouponUsageAdmin( admin.ModelAdmin):
     list_display = ('coupon', 'cart', 'shop', 'product', 'times_used')
 
 class RuleSetProductMappingAdmin(ImportExportModelAdmin):
+
+    def get_queryset(self, request):
+        qs = super(RuleSetProductMappingAdmin, self).get_queryset(request)
+        return qs.exclude(rule__coupon_ruleset__shop__shop_type__shop_type='f')
+
     resource_class = RuleSetProductMappingResource
     list_display = ('purchased_product', 'free_product', 'rule', 'max_qty_per_use', 'created_at')
 

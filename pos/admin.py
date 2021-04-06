@@ -1,10 +1,11 @@
 from django.contrib import admin
 from django.conf.urls import url
 
-from pos.models import RetailerProduct, RetailerProductImage, Payment
+from pos.models import RetailerProduct, RetailerProductImage, Payment, UserMappedShop
 from pos.views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload
 from pos.forms import RetailerProductsForm
+from marketing.filters import UserFilter
 
 
 class RetailerProductImageAdmin(admin.TabularInline):
@@ -78,6 +79,24 @@ class PaymentAdmin(admin.ModelAdmin):
         return False
 
 
+class UserMappedShopAdmin(admin.ModelAdmin):
+    list_display = ('shop', 'user')
+    list_filter = [UserFilter]
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(Payment, PaymentAdmin)
 admin.site.register(RetailerProductImage)
+admin.site.register(UserMappedShop, UserMappedShopAdmin)

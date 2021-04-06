@@ -354,8 +354,9 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         """
         product_coupons = []
         date = datetime.datetime.now()
-        for rules in obj.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
-            for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
+        for rules in obj.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date).\
+                exclude(rule__coupon_ruleset__shop__shop_type__shop_type='f'):
+            for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date).exclude(shop__shop_type__shop_type='f'):
                 product_coupons.append(rule.coupon_code)
         parent_product_brand = obj.cart_product.parent_product.parent_brand if obj.cart_product.parent_product else None
         if parent_product_brand:
