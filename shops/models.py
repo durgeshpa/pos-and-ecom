@@ -214,7 +214,7 @@ def warehouse_code_generator():
         This Function will create auto Incrementel Warehouse_code
     """
 
-    latest_record = Shop.objects.filter(shop_type=5).order_by('-id')[0]
+    latest_record = Shop.objects.filter(shop_type__shop_type='f').order_by('-id')[0]
     return int(latest_record.warehouse_code)+1
 
 

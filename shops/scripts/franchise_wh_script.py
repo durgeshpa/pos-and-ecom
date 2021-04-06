@@ -2,8 +2,7 @@
 import logging
 
 # app imports
-from shops.models import Shop
-
+from shops.models import Shop, warehouse_code_generator
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -23,11 +22,12 @@ def run():
 def set_warehouse_code():
     try:
         info_logger.info('refactor warehouse_code when shop_type is Franchise|started')
-        shop_franchise = Shop.objects.filter(shop_type=5)   # shop_type = Franchise
+        shop_franchise = Shop.objects.filter(shop_type__shop_type='f')  # shop_type = Franchise
         if shop_franchise:
             for franchise in shop_franchise:
-                print (franchise)
-                franchise.warehouse_code = '0'+franchise.warehouse_code
+                if franchise.warehouse_code:
+                    franchise.warehouse_code = '0' + franchise.warehouse_code
+                    franchise.shop_code = 'F'
                 franchise.save()
             info_logger.info('warehouse_code is successfully updated')
         else:
