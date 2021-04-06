@@ -175,7 +175,7 @@ class Cart(models.Model):
         verbose_name = 'Order Items Detail'
 
     def __str__(self):
-        return "{}".format(self.order_id)
+        return "{}".format(self.id)
 
     @property
     def subtotal(self):
@@ -392,7 +392,8 @@ class Cart(models.Model):
                             brands_specific_list.pop()
             array1 = list(filter(lambda d: d['coupon_type'] in 'brand', offers_list))
             discount_value_cart = 0
-            cart_coupons = Coupon.objects.filter(coupon_type='cart', is_active=True, expiry_date__gte=date).order_by(
+            cart_coupons = Coupon.objects.filter(coupon_type='cart', is_active=True, expiry_date__gte=date).\
+                exclude(shop__shop_type__shop_type='f').order_by(
                 '-rule__cart_qualifying_min_sku_value')
             cart_coupon_list = []
             i = 0
@@ -799,7 +800,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
             if len(products_available) > 0:
                 reserved_args = json.dumps({
                     'shop_id': instance.seller_shop.id,
-                    'transaction_id': instance.cart.order_id,
+                    'transaction_id': instance.cart.id,
                     'products': products_available,
                     'transaction_type': 'reserved'
                 })
@@ -820,7 +821,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 order.save()
                 reserved_args = json.dumps({
                     'shop_id': instance.seller_shop.id,
-                    'transaction_id': instance.cart.order_id,
+                    'transaction_id': instance.cart.id,
                     'transaction_type': 'ordered',
                     'order_status': order.order_status
                 })
