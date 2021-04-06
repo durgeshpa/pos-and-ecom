@@ -1939,7 +1939,7 @@ class ReservedOrder(generics.ListAPIView):
                 else:
                     reserved_args = json.dumps({
                         'shop_id': parent_mapping.parent.id,
-                        'transaction_id': cart.order_id,
+                        'transaction_id': cart.id,
                         'products': products_available,
                         'transaction_type': 'reserved'
                     })
@@ -2721,7 +2721,7 @@ class CreateOrder(APIView):
                         sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
                         reserved_args = json.dumps({
                             'shop_id': parent_mapping.parent.id,
-                            'transaction_id': cart.order_id,
+                            'transaction_id': cart.id,
                             'transaction_type': 'ordered',
                             'order_status': order.order_status
                         })
@@ -4476,7 +4476,7 @@ class ReleaseBlocking(APIView):
             sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
             reserved_args = json.dumps({
                 'shop_id': parent_mapping.parent.id,
-                'transaction_id': cart.order_id,
+                'transaction_id': cart.id,
                 'transaction_type': 'released',
                 'order_status': 'available'
             })

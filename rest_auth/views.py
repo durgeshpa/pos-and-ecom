@@ -129,7 +129,7 @@ class LoginView(GenericAPIView):
             shop_object = Shop.objects.filter(Q(shop_owner=self.user) | Q(related_users=self.user),
                                               shop_type__shop_type='f').last()
         response_serializer = response_serializer_class(instance={'user': self.user, 'token': serializer.data['key'],
-                                                                  'shop_object': shop_object})
+                                                                  'shop_object': shop_object, 'action': 1})
         return Response({'is_success': True, 'message': ['Successfully logged in'],
                          'response_data': [response_serializer.data]}, status=status.HTTP_200_OK)
 
