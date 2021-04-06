@@ -2257,16 +2257,10 @@ class OrderedProductMapping(models.Model):
         # if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty, self.returned_qty]):
         #     raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
         # else:
-        if self.retailer_product:
-            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-                retailer_product=self.retailer_product, product_type = self.product_type).last().item_effective_prices
-            self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-                retailer_product=self.retailer_product, product_type = self.product_type).last().discounted_price
-        else:
-            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-                cart_product=self.product).last().get_item_effective_price(self.shipped_qty)
-            self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-                cart_product=self.product).last().discounted_price
+        self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+            cart_product=self.product).last().get_item_effective_price(self.shipped_qty)
+        self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+            cart_product=self.product).last().discounted_price
         super().save(*args, **kwargs)
 
 
