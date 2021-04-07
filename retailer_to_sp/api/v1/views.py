@@ -1052,6 +1052,14 @@ class CartCentral(APIView):
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
+        if not self.request.data.get('cart_product'):
+            if not self.request.data.get('product_name') and self.request.data.get('selling_price'):
+                return {'error': "Please provide cart_product or product_name with selling_price!"}
+            if self.request.data.get('linked_product_id'):
+                self.create_product_with_linked_product_id(product_name,linked_product_id,selling_price)
+            else:
+                self.create_product(product_name,selling_price)
+
         qty = self.request.data.get('qty')
         # Added Quantity check
         if qty is None or qty == '':
@@ -1061,11 +1069,12 @@ class CartCentral(APIView):
             shop = Shop.objects.get(id=shop_id)
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
-        # Check if product exists for that shop
-        try:
-            product = RetailerProduct.objects.get(id=self.request.data.get('cart_product'), shop=shop)
-        except ObjectDoesNotExist:
-            return {'error': "Product Not Found!"}
+        if self.request.data.get('cart_product'):
+            # Check if product exists for that shop
+            try:
+                product = RetailerProduct.objects.get(id=self.request.data.get('cart_product'), shop=shop)
+            except ObjectDoesNotExist:
+                return {'error': "Product Not Found!"}
         # Check if existing or new cart
         cart = None
         cart_id = self.request.data.get('cart_id')
@@ -1287,6 +1296,12 @@ class CartCentral(APIView):
         """
         serializer = BasicCartSerializer(Cart.objects.get(id=cart.id))
         return serializer.data
+
+    def create_product_with_linked_product_id(self, product_name, linked_product_id, selling_price):
+        pass
+
+    def create_product(self, product_name, selling_price):
+        pass
 
 
 class CartCheckout(APIView):

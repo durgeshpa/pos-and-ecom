@@ -556,8 +556,8 @@ class CouponOfferCreation(GenericAPIView):
         else:
             discount_obj = DiscountValue.objects.create(discount_value=discount_value)
         # creating CouponRuleSet
-        coupon_name_with_shop_id = f"{shop_id}_on Spending {discount_amount} get {discount_value} Off"
-        coupon_obj = OffersCls.rule_set_creation(coupon_name_with_shop_id, start_date, expiry_date, discount_amount,
+        rule_set_name_with_shop_id = f"{shop_id}_on Spending {discount_amount} get {discount_value} Off"
+        coupon_obj = OffersCls.rule_set_creation(rule_set_name_with_shop_id, start_date, expiry_date, discount_amount,
                                                  discount_obj)
         if type(coupon_obj) == str:
             msg = {"is_success": False, "message": coupon_obj,
