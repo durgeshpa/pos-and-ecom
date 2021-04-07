@@ -175,7 +175,7 @@ class Cart(models.Model):
         verbose_name = 'Order Items Detail'
 
     def __str__(self):
-        return "{}".format(self.order_id)
+        return "{}".format(self.id)
 
     @property
     def subtotal(self):
@@ -258,7 +258,7 @@ class Cart(models.Model):
                         rule__brand_ruleset__brand=parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
                 b_list = [x.coupon_name for x in brand_coupons]
                 cart_coupons = Coupon.objects.filter(coupon_type='cart', is_active=True,
-                                                     expiry_date__gte=date).order_by(
+                                                     expiry_date__gte=date).exclude(shop__shop_type__shop_type='f').order_by(
                     'rule__cart_qualifying_min_sku_value')
                 c_list = [x.coupon_name for x in cart_coupons]
                 sku_qty = int(m.qty)
@@ -269,8 +269,9 @@ class Cart(models.Model):
                                                                        created_at__date=date.date()).count() if CusotmerCouponUsage.objects.filter(
                     shop=buyer_shop, product=m.cart_product, created_at__date=date.date()) else 0
                 for n in m.cart_product.purchased_product_coupon.filter(rule__is_active=True,
-                                                                        rule__expiry_date__gte=date):
-                    for o in n.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte=date):
+                                                                        rule__expiry_date__gte=date,
+                                                                        ).exclude(rule__coupon_ruleset__shop__shop_type__shop_type='f'):
+                    for o in n.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte=date).exclude(shop__shop_type__shop_type='f'):
                         if o.limit_per_user_per_day > coupon_times_used:
                             if n.rule.discount_qty_amount > 0:
                                 if sku_qty >= n.rule.discount_qty_step:
@@ -391,7 +392,8 @@ class Cart(models.Model):
                             brands_specific_list.pop()
             array1 = list(filter(lambda d: d['coupon_type'] in 'brand', offers_list))
             discount_value_cart = 0
-            cart_coupons = Coupon.objects.filter(coupon_type='cart', is_active=True, expiry_date__gte=date).order_by(
+            cart_coupons = Coupon.objects.filter(coupon_type='cart', is_active=True, expiry_date__gte=date).\
+                exclude(shop__shop_type__shop_type='f').order_by(
                 '-rule__cart_qualifying_min_sku_value')
             cart_coupon_list = []
             i = 0
@@ -798,7 +800,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
             if len(products_available) > 0:
                 reserved_args = json.dumps({
                     'shop_id': instance.seller_shop.id,
-                    'transaction_id': instance.cart.order_id,
+                    'transaction_id': instance.cart.id,
                     'products': products_available,
                     'transaction_type': 'reserved'
                 })
@@ -819,7 +821,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 order.save()
                 reserved_args = json.dumps({
                     'shop_id': instance.seller_shop.id,
-                    'transaction_id': instance.cart.order_id,
+                    'transaction_id': instance.cart.id,
                     'transaction_type': 'ordered',
                     'order_status': order.order_status
                 })

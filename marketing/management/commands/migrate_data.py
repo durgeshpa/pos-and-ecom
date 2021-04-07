@@ -1,9 +1,19 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from decouple import config
+import pyodbc
 
 import os
 import csv
 import codecs
+
+from pos.common_functions import create_user_shop_mapping
+from franchise.models import ShopLocationMap
+
+CONNECTION_PATH = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + config('HDPOS_DB_HOST') \
+                  + ';DATABASE=' + config('HDPOS_DB_NAME') \
+                  + ';UID=' + config('HDPOS_DB_USER') \
+                  +';PWD=' + config('HDPOS_DB_PASSWORD')
 
 from marketing.models import *
 
@@ -14,6 +24,24 @@ class Command(BaseCommand):
     """
     def handle(self, *args, **options):
         with transaction.atomic():
+            # get shop data mlmusers
+            mlmphonenos = MLMUser.objects.values_list('phone_number', flat=True)
+            cnxn = pyodbc.connect(CONNECTION_PATH)
+            cursor = cnxn.cursor()
+            module_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            file_path = os.path.join(module_dir, 'crons/sql/users_sql.sql')
+            fd = open(file_path, 'r')
+            sqlfile = fd.read()
+            fd.close()
+            sqlfile += " where contacts.MobileNumber in ('" + "','".join(mlmphonenos) + "')"
+            cursor.execute(sqlfile)
+
+            phone_shop_map = {}
+            for row in cursor:
+                shop = ShopLocationMap.objects.filter(location_name=row[4]).last()
+                if shop:
+                    phone_shop_map[row[0]] = shop.shop.id
+
             mlmusers = MLMUser.objects.all()
             for mlmuser in mlmusers:
                 # user creation
@@ -28,13 +56,16 @@ class Command(BaseCommand):
                     print("user exists {}".format(mlmuser.phone_number))
                     user = User.objects.filter(phone_number=mlmuser.phone_number).last()
 
+                if mlmuser.phone_number in phone_shop_map:
+                    create_user_shop_mapping(user, phone_shop_map[mlmuser.phone_number])
+
                 # referral code store in different model
                 ref_obj, created = ReferralCode.objects.get_or_create(user=user)
                 ref_obj.referral_code = mlmuser.referral_code
                 ref_obj.save()
 
                 # Create profiles for all users
-                Profile.objects.create(user=user)
+                Profile.objects.get_or_create(user=user)
 
             # Other models
             module_dir = os.path.dirname(__file__)

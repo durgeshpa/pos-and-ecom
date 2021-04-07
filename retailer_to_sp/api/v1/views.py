@@ -406,7 +406,7 @@ class SearchProducts(APIView):
             Search GramFactory Catalogue By Name, Brand, Category
             Full catalogue or for a particular parent shop
         """
-        shop_id = self.request.GET.get('shop_id')
+        shop_id = self.request.GET.get('shop_id') if self.request.GET.get('shop_id') else None
         parent_shop_id = None
         cart_products = None
         cart = None
@@ -643,7 +643,7 @@ class CartCentral(APIView):
         try:
             cart = Cart.objects.get(id=pk, cart_status__in=['active', 'pending'], seller_shop_id=shop_id)
         except:
-            return get_response("Cart Not Found")
+            return get_response("Active Cart Not Found")
         # check phone_number
         phone_no = self.request.data.get('phone_number')
         if not phone_no:
@@ -662,10 +662,9 @@ class CartCentral(APIView):
             return get_response("Shop Doesn't Exist!")
         # Check If Cart Exists
         try:
-            cart = Cart.objects.get(id=pk, last_modified_by=self.request.user, cart_status__in=['active', 'pending'],
-                                    cart_type='BASIC', seller_shop_id=shop_id)
+            cart = Cart.objects.get(id=pk, cart_status__in=['active', 'pending'], seller_shop_id=shop_id)
         except:
-            return get_response("Cart Not Found")
+            return get_response("Active Cart Not Found")
         Cart.objects.filter(id=cart.id).update(cart_status=Cart.DELETED)
         return get_response('Deleted Cart', self.post_serialize_process_basic(cart))
 
@@ -681,23 +680,24 @@ class CartCentral(APIView):
                 validators.validate_email(email)
             except:
                 return get_response("Please enter a valid email")
-
-        # Check Customer - Update Or Create
-        customer, created = User.objects.get_or_create(phone_number=ph_no)
-        customer.email = email if email else customer.email
-        customer.first_name = name if name else customer.first_name
-        customer.is_whatsapp = True if is_whatsapp else False
-        customer.save()
-        if created:
-            create_user_shop_mapping(user=customer, shop_id=shop_id)
-        # Update customer as buyer in cart
-        cart.buyer = customer
-        cart.save()
-        if customer.is_whatsapp is True:
-            # whatsapp api call for user opt in
-            whatsapp_opt_in.delay(ph_no)
-        serializer = BasicCartSerializer(cart)
-        return get_response("Cart Updated Successfully!", serializer.data)
+        with transaction.atomic():
+            # Check Customer - Update Or Create
+            customer, created = User.objects.get_or_create(phone_number=ph_no)
+            customer.email = email if email else customer.email
+            customer.first_name = name if name else customer.first_name
+            customer.is_whatsapp = True if is_whatsapp else False
+            customer.save()
+            if created:
+                create_user_shop_mapping(user=customer, shop_id=shop_id)
+            # Update customer as buyer in cart
+            cart.buyer = customer
+            cart.last_modified_by = self.request.user
+            cart.save()
+            if customer.is_whatsapp is True:
+                # whatsapp api call for user opt in
+                whatsapp_opt_in.delay(ph_no)
+            serializer = BasicCartSerializer(cart)
+            return get_response("Cart Updated Successfully!", serializer.data)
 
     def get_retail_cart(self):
         """
@@ -815,15 +815,11 @@ class CartCentral(APIView):
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
         try:
-            shop = Shop.objects.get(id=shop_id)
-        except ObjectDoesNotExist:
-            return {'error': "Shop Doesn't Exist!"}
-        try:
-            cart = Cart.objects.get(seller_shop=shop, cart_type='BASIC',
+            cart = Cart.objects.get(seller_shop_id=shop_id, cart_type='BASIC',
                                     id=self.request.GET.get('cart_id'), )
         except ObjectDoesNotExist:
             return {'error': "Cart Not Found!"}
-        return {'shop': shop, 'cart': cart}
+        return {'cart': cart}
 
     @staticmethod
     def filter_cart_products(cart, seller_shop):
@@ -997,25 +993,26 @@ class CartCentral(APIView):
         qty = initial_validation['quantity']
         cart = initial_validation['cart']
 
-        # Update or create cart for shop
-        cart = self.post_update_basic_cart(shop, cart)
-        # Check if product has to be removed
-        if int(qty) == 0:
-            delete_cart_mapping(cart, product, 'basic')
-        else:
-            # Check if price needs to be updated and return selling price
-            selling_price = self.get_basic_cart_product_price(product)
-            # Add quantity to cart
-            cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
-                                                                       product_type=1)
-            cart_mapping.selling_price = selling_price
-            cart_mapping.qty = qty
-            cart_mapping.no_of_pieces = int(qty)
-            cart_mapping.save()
-        if cart.rt_cart_list.count() <= 0:
-            return get_response('No product added to this cart yet')
-        # serialize and return response
-        return get_response('Added To Cart', self.post_serialize_process_basic(cart))
+        with transaction.atomic():
+            # Update or create cart for shop
+            cart = self.post_update_basic_cart(shop, cart)
+            # Check if product has to be removed
+            if int(qty) == 0:
+                delete_cart_mapping(cart, product, 'basic')
+            else:
+                # Check if price needs to be updated and return selling price
+                selling_price = self.get_basic_cart_product_price(product)
+                # Add quantity to cart
+                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, retailer_product=product,
+                                                                           product_type=1)
+                cart_mapping.selling_price = selling_price
+                cart_mapping.qty = qty
+                cart_mapping.no_of_pieces = int(qty)
+                cart_mapping.save()
+            if cart.rt_cart_list.count() <= 0:
+                return get_response('No product added to this cart yet')
+            # serialize and return response
+            return get_response('Added To Cart', self.post_serialize_process_basic(cart))
 
     def post_retail_validate(self):
         """
@@ -1108,8 +1105,7 @@ class CartCentral(APIView):
             cart.buyer_shop = buyer_shop
             cart.save()
         else:
-            cart = Cart(last_modified_by=user, cart_status='active')
-            cart.cart_type = 'RETAIL'
+            cart = Cart(last_modified_by=user, cart_status='active', cart_type='RETAIL')
             cart.approval_status = False
             cart.seller_shop = seller_shop
             cart.buyer_shop = buyer_shop
@@ -1138,16 +1134,12 @@ class CartCentral(APIView):
         user = self.request.user
 
         if cart:
-            cart.cart_type = 'BASIC'
-            cart.approval_status = False
-            cart.cart_status = 'active'
-            cart.seller_shop = seller_shop
+            cart.last_modified_by = user
             cart.save()
         else:
-            cart = Cart(last_modified_by=user, cart_status='active')
-            cart.cart_type = 'BASIC'
+            cart = Cart(last_modified_by=user, cart_status='active', cart_type='BASIC',
+                        seller_shop=seller_shop)
             cart.approval_status = False
-            cart.seller_shop = seller_shop
             cart.save()
         return cart
 
@@ -1321,14 +1313,15 @@ class CartCheckout(APIView):
         cart = initial_validation['cart']
         # Check spot discount
         spot_discount = self.request.data.get('spot_discount')
-        if spot_discount:
-            offers = BasicCartOffers.apply_spot_discount(cart, spot_discount, self.request.data.get('is_percentage'))
-        else:
-            # Get offers available now and apply coupon if applicable
-            offers = BasicCartOffers.refresh_offers(cart, False, self.request.data.get('coupon_id'))
-        if 'error' in offers:
-            return get_response(offers['error'])
-        return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(cart))
+        with transaction.atomic():
+            if spot_discount:
+                offers = BasicCartOffers.apply_spot_discount(cart, spot_discount, self.request.data.get('is_percentage'))
+            else:
+                # Get offers available now and apply coupon if applicable
+                offers = BasicCartOffers.refresh_offers(cart, False, self.request.data.get('coupon_id'))
+            if 'error' in offers:
+                return get_response(offers['error'])
+            return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(cart))
 
     def get(self, request):
         """
@@ -1341,11 +1334,12 @@ class CartCheckout(APIView):
         cart = initial_validation['cart']
         # Auto apply highest applicable discount
         auto_apply = self.request.GET.get('auto_apply')
-        # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
-        offers = BasicCartOffers.refresh_offers(cart, auto_apply)
-        if 'error' in offers:
-            return get_response(offers['error'])
-        return get_response("Cart Checkout", self.serialize(cart, offers['total_offers'], offers['spot_discount']))
+        with transaction.atomic():
+            # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
+            offers = BasicCartOffers.refresh_offers(cart, auto_apply)
+            if 'error' in offers:
+                return get_response(offers['error'])
+            return get_response("Cart Checkout", self.serialize(cart, offers['total_offers'], offers['spot_discount']))
 
     def delete(self, request):
         """
@@ -1365,9 +1359,10 @@ class CartCheckout(APIView):
         cart_value = 0
         for product_map in cart_products:
             cart_value += product_map.selling_price * product_map.qty
-        offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
-        Cart.objects.filter(pk=cart.id).update(offers=offers_list)
-        return get_response("Removed Offer From Cart Successfully", [], True)
+        with transaction.atomic():
+            offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
+            Cart.objects.filter(pk=cart.id).update(offers=offers_list)
+            return get_response("Removed Offer From Cart Successfully", [], True)
 
     def post_validate(self):
         """
@@ -1944,7 +1939,7 @@ class ReservedOrder(generics.ListAPIView):
                 else:
                     reserved_args = json.dumps({
                         'shop_id': parent_mapping.parent.id,
-                        'transaction_id': cart.order_id,
+                        'transaction_id': cart.id,
                         'products': products_available,
                         'transaction_type': 'reserved'
                     })
@@ -2295,10 +2290,9 @@ class OrderCentral(APIView):
         # Check if cart exists
         cart_id = self.request.data.get('cart_id')
         try:
-            cart = Cart.objects.get(id=cart_id, last_modified_by=self.request.user, seller_shop=shop,
-                                    cart_status__in=['active', 'pending'])
+            cart = Cart.objects.get(id=cart_id, seller_shop=shop, cart_status__in=['active', 'pending'])
         except ObjectDoesNotExist:
-            return {'error': "Cart Doesn't Exist!"}
+            return {'error': "Active Cart Doesn't Exist!"}
         if not cart.buyer:
             return {'error': "Cart customer not found!"}
         # Check if products available in cart
@@ -2371,6 +2365,7 @@ class OrderCentral(APIView):
             For basic cart
         """
         cart.cart_status = 'ordered'
+        cart.last_modified_by = self.request.user
         cart.save()
 
     def create_retail_order_sp(self, cart, parent_mapping, billing_address, shipping_address):
@@ -2413,7 +2408,7 @@ class OrderCentral(APIView):
         order.buyer = cart.buyer
         order.seller_shop = shop
         order.received_by = cart.buyer
-        order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
+        #order.total_tax_amount = float(self.request.data.get('total_tax_amount', 0))
         order.order_status = Order.ORDERED
         order.save()
         return order
@@ -2726,7 +2721,7 @@ class CreateOrder(APIView):
                         sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
                         reserved_args = json.dumps({
                             'shop_id': parent_mapping.parent.id,
-                            'transaction_id': cart.order_id,
+                            'transaction_id': cart.id,
                             'transaction_type': 'ordered',
                             'order_status': order.order_status
                         })
@@ -3013,16 +3008,12 @@ class OrderedItemCentralDashBoard(APIView):
         """
           Get Basic Order Overview based on filters
         """
+        # filter for date range
         filters = self.request.GET.get('filters')
-        if filters is None:
-            # check if filter parameter is not provided,
-            # fetch lifetime order details
-            filters = ''
-        if filters is not '':
-            # check if filter parameter is not none convert it to int
-            filters = int(filters)
+        filters = int(filters) if filters else ''
+        # order status filter
         order_status = self.request.GET.get('order_status')
-        today = datetime.today()
+        today_date = datetime.today()
 
         # get total orders for shop_id
         orders = Order.objects.filter(seller_shop=shop_id)
@@ -3039,34 +3030,34 @@ class OrderedItemCentralDashBoard(APIView):
         # filter order, product & user by get modified date
         if filters == 1:  # today
             # filter order, product & user on modified date today
-            orders = orders.filter(modified_at__date=today)
-            products = products.filter(modified_at__date=today)
-            users = users.filter(modified_at__date=today)
+            orders = orders.filter(modified_at__date=today_date)
+            products = products.filter(modified_at__date=today_date)
+            users = users.filter(modified_at__date=today_date)
 
         elif filters == 2:  # yesterday
             # filter order, product & user on modified date yesterday
-            yesterday = today - timedelta(days=1)
+            yesterday = today_date - timedelta(days=1)
             orders = orders.filter(modified_at__date=yesterday)
             products = products.filter(modified_at__date=yesterday)
             users = users.filter(modified_at__date=yesterday)
 
         elif filters == 3:  # lastweek
             # filter order, product & user on modified date lastweek
-            lastweek = today - timedelta(weeks=1)
+            lastweek = today_date - timedelta(weeks=1)
             orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
             products = products.filter(modified_at__week=lastweek.isocalendar()[1])
             users = users.filter(modified_at__week=lastweek.isocalendar()[1])
 
         elif filters == 4:  # lastmonth
             # filter order, product & user on modified date lastmonth
-            lastmonth = today - timedelta(days=30)
+            lastmonth = today_date - timedelta(days=30)
             orders = orders.filter(modified_at__month=lastmonth.month)
             products = products.filter(modified_at__month=lastmonth.month)
             users = users.filter(modified_at__month=lastmonth.month)
 
         elif filters == 5:  # lastyear
             # filter order, product & user on modified date lastyear
-            lastyear = today - timedelta(days=365)
+            lastyear = today_date - timedelta(days=365)
             orders = orders.filter(modified_at__year=lastyear.year)
             products = products.filter(modified_at__year=lastyear.year)
             users = users.filter(modified_at__year=lastyear.year)
@@ -3464,15 +3455,16 @@ class OrderReturnsCheckout(APIView):
         spot_discount = self.request.data.get('spot_discount')
         offers_list = dict()
         offers_list['applied'] = False
-        if spot_discount:
-            offers = BasicCartOffers.apply_spot_discount_returns(spot_discount, self.request.data.get('is_percentage'),
-                                                                 current_amount, order_return, refund_amount_raw)
-        else:
-            offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw,
-                                                            self.request.data.get('coupon_id'))
-        if 'error' in offers:
-            return get_response(offers['error'])
-        return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(order))
+        with transaction.atomic():
+            if spot_discount:
+                offers = BasicCartOffers.apply_spot_discount_returns(spot_discount, self.request.data.get('is_percentage'),
+                                                                     current_amount, order_return, refund_amount_raw)
+            else:
+                offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw,
+                                                                self.request.data.get('coupon_id'))
+            if 'error' in offers:
+                return get_response(offers['error'])
+            return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(order))
 
     def post_validate(self):
         """
@@ -3527,10 +3519,11 @@ class OrderReturnsCheckout(APIView):
         refund_amount_raw = refund_amount - discount_given
         # new order amount when no discount is applied
         current_amount = received_amount - refund_amount_raw
-        offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw)
-        if 'error' in offers:
-            return get_response(offers['error'])
-        return get_response("Return Checkout", self.serialize(order, offers['total_offers'], offers['spot_discount']))
+        with transaction.atomic():
+            offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw)
+            if 'error' in offers:
+                return get_response(offers['error'])
+            return get_response("Return Checkout", self.serialize(order, offers['total_offers'], offers['spot_discount']))
 
     def get_validate(self):
         """
@@ -4483,7 +4476,7 @@ class ReleaseBlocking(APIView):
             sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
             reserved_args = json.dumps({
                 'shop_id': parent_mapping.parent.id,
-                'transaction_id': cart.order_id,
+                'transaction_id': cart.id,
                 'transaction_type': 'released',
                 'order_status': 'available'
             })
