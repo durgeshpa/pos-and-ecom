@@ -68,7 +68,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  whatsapp_order_refund)
 from wms.models import OrderReserveRelease, InventoryType
 from pos.common_functions import get_shop_id_from_token, get_response, create_user_shop_mapping,\
-    delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP
+    delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP, RetailerProductCls
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,\
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer
@@ -1052,13 +1052,6 @@ class CartCentral(APIView):
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
-        if not self.request.data.get('cart_product'):
-            if not self.request.data.get('product_name') and self.request.data.get('selling_price'):
-                return {'error': "Please provide cart_product or product_name with selling_price!"}
-            if self.request.data.get('linked_product_id'):
-                self.create_product_with_linked_product_id(product_name,linked_product_id,selling_price)
-            else:
-                self.create_product(product_name,selling_price)
 
         qty = self.request.data.get('qty')
         # Added Quantity check
@@ -1069,6 +1062,28 @@ class CartCentral(APIView):
             shop = Shop.objects.get(id=shop_id)
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
+
+        if not self.request.data.get('cart_product'):
+            if not (self.request.data.get('product_name') and self.request.data.get('selling_price')
+                    and self.request.data.get('product_ean_code')):
+                return {'error': "Please provide cart_product or product_name, product_ean_code with selling_price!"}
+            product_ean_code = self.request.data.get('product_ean_code')
+            product_name = self.request.data.get('product_name')
+            if self.request.data.get('linked_product_id'):
+                linked_product_id = self.request.data.get('linked_product_id')
+                # If user provides linked_product_id
+                linked_product = Product.objects.filter(id=linked_product_id)
+                if not linked_product.exists():
+                    return {'error': "Linked Product ID not found! Please enter a valid Product ID"}
+                # If product is linked with existing product
+                product = self.create_product(shop_id, product_name,
+                                              linked_product.values()[0].get('product_mrp'),
+                                              self.request.data.get('selling_price'), linked_product_id,
+                                              2, product_ean_code)
+            else:
+                product = self.create_product(shop_id, product_name,
+                                              None, self.request.data.get('selling_price'), None,
+                                              1, product_ean_code)
         if self.request.data.get('cart_product'):
             # Check if product exists for that shop
             try:
@@ -1297,11 +1312,12 @@ class CartCentral(APIView):
         serializer = BasicCartSerializer(Cart.objects.get(id=cart.id))
         return serializer.data
 
-    def create_product_with_linked_product_id(self, product_name, linked_product_id, selling_price):
-        pass
-
-    def create_product(self, product_name, selling_price):
-        pass
+    def create_product(self, shop_id, product_name, mrp, selling_price, linked_product_id, sku_type, product_ean_code):
+        # create a Product
+        product_obj = RetailerProductCls.create_retailer_product(shop_id, product_name, mrp,
+                                                                 selling_price, linked_product_id, sku_type,
+                                                                 None, product_ean_code, None)
+        return product_obj
 
 
 class CartCheckout(APIView):

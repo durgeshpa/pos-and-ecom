@@ -24,6 +24,7 @@ error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 cron_logger = logging.getLogger('cron_log')
 
+
 class RetailerProductCls(object):
 
     @classmethod
@@ -34,8 +35,8 @@ class RetailerProductCls(object):
         if status is None:
             status = 'active'
         return RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
-                                       mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description,
-                                       product_ean_code=product_ean_code, status=status)
+                                              mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description,
+                                              product_ean_code=product_ean_code, status=status)
 
     @classmethod
     def get_sku_type(cls, sku_type):
