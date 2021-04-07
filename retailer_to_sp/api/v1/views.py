@@ -1321,8 +1321,6 @@ class CartCentral(APIView):
             product_obj = RetailerProductCls.create_retailer_product(shop_id, product_name, 0.0,
                                                                      selling_price, None, 1,
                                                                      None, product_ean_code, None)
-
-
         return product_obj
 
 
