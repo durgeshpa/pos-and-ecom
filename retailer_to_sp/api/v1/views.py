@@ -1076,12 +1076,13 @@ class CartCentral(APIView):
                 linked_product = Product.objects.filter(id=linked_product_id)
                 if not linked_product.exists():
                     return {'error': "Linked Product ID not found! Please enter a valid Product ID"}
-                # If product is linked with existing product
+                # If product is linked with existing product sku_type=2
                 product = self.create_product(shop_id, product_name,
                                               linked_product.values()[0].get('product_mrp'),
                                               self.request.data.get('selling_price'), linked_product_id,
                                               2, product_ean_code)
             else:
+                # If product is not linked with existing product sku_type=1, mrp=0.0
                 product = self.create_product(shop_id, product_name,
                                               0.0, self.request.data.get('selling_price'), None,
                                               1, product_ean_code)
