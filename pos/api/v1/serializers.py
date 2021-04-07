@@ -136,7 +136,7 @@ class RetailerProductResponseSerializer(serializers.Serializer):
         return obj['modified_at']
 
 
-class RetailerProductImageDeleteSerializers(serializers.Serializer):
+class RetailerProductImageDeleteSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(required=True)
     image_id = serializers.IntegerField(required=True)
 
@@ -939,7 +939,7 @@ class ComboGetSerializer(serializers.ModelSerializer):
                   'purchased_product_qty', 'free_product_qty', 'is_active')
 
 
-class CouponRuleSetSerializers(serializers.ModelSerializer):
+class CouponRuleSetSerializer(serializers.ModelSerializer):
     coupon_ruleset = CouponGetSerializer(many=True)
     product_ruleset = ComboGetSerializer(many=True)
     discount = DiscountSerializer()
@@ -962,7 +962,7 @@ class CouponRuleSetGetSerializer(serializers.ModelSerializer):
         return DiscountSerializer(obj.discount, context=self.context).data
 
 
-class CouponListSerializers(serializers.ModelSerializer):
+class CouponListSerializer(serializers.ModelSerializer):
     rule = CouponRuleSetGetSerializer()
 
     class Meta:

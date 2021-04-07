@@ -20,9 +20,9 @@ from pos.common_functions import RetailerProductCls, OffersCls, serializer_error
 
 from .pagination import pagination
 from .serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
-    RetailerProductResponseSerializer, CouponCodeSerializer, FreeProductOfferSerializer, ComboDealsSerializer,\
-    CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponRuleSetSerializers, CouponListSerializers,\
-    RetailerProductImageDeleteSerializers, FreeProductUpdateSerializer
+    RetailerProductResponseSerializer, RetailerProductImageDeleteSerializer, CouponCodeSerializer, \
+    FreeProductOfferSerializer, ComboDealsSerializer, CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, \
+    CouponRuleSetSerializer, CouponListSerializer, FreeProductUpdateSerializer
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -33,7 +33,7 @@ cron_logger = logging.getLogger('cron_log')
 POS_SERIALIZERS_MAP = {
     0: RetailerProductCreateSerializer,
     1: RetailerProductUpdateSerializer,
-    2: RetailerProductImageDeleteSerializers
+    2: RetailerProductImageDeleteSerializer
 }
 
 
@@ -505,7 +505,7 @@ class CouponOfferCreation(GenericAPIView):
        """
         coupon_offers = CouponRuleSet.objects.filter(coupon_ruleset__shop=shop_id,
                                                      coupon_ruleset__id=combo_coupon_id)
-        serializer = CouponRuleSetSerializers(coupon_offers, many=True)
+        serializer = CouponRuleSetSerializer(coupon_offers, many=True)
         return serializer.data
 
     def get_coupons_combo_offers_list(self, request, shop_id):
@@ -518,13 +518,13 @@ class CouponOfferCreation(GenericAPIView):
                  Get Offers/Coupons when search_text is given in params
             """
             coupon = Coupon.objects.filter(shop=shop_id, coupon_code__icontains=request.GET.get('search_text'))
-            serializer = CouponListSerializers(coupon, many=True)
+            serializer = CouponListSerializer(coupon, many=True)
         else:
             """
                 Get Offers/Coupons when search_text is not given in params
            """
             coupon_ruleset = Coupon.objects.filter(shop=shop_id)
-            serializer = CouponListSerializers(coupon_ruleset, many=True)
+            serializer = CouponListSerializer(coupon_ruleset, many=True)
         """
             Pagination on Offers/Coupons
         """
