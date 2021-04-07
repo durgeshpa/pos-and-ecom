@@ -247,7 +247,6 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
     """
     retailer_product = RetailerProductsSearchSerializer()
     product_price = serializers.SerializerMethodField('product_price_dt')
-    margin = serializers.SerializerMethodField('margin_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     display_text = serializers.SerializerMethodField('display_text_dt')
 
@@ -262,13 +261,6 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
             Cart Product sub total / selling price
         """
         return Decimal(self.product_price_dt(obj)) * Decimal(obj.qty)
-
-    def margin_dt(self, obj):
-        """
-            Mrp, cart product price margin
-        """
-        return ((float(obj.retailer_product.mrp) - float(obj.item_effective_prices)) / float(
-            obj.retailer_product.mrp)) * 100
 
     def display_text_dt(self, obj):
         """
@@ -285,7 +277,7 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'retailer_product', 'qty', 'product_price', 'margin', 'product_sub_total', 'display_text')
+        fields = ('id', 'retailer_product', 'qty', 'product_price', 'product_sub_total', 'display_text')
 
 
 class BasicCartSerializer(serializers.ModelSerializer):
@@ -544,7 +536,7 @@ class ReturnItemsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnItems
-        fields = ('return_qty', )
+        fields = ('return_qty', 'new_sp')
 
 
 class OrderReturnSerializer(serializers.ModelSerializer):
@@ -635,6 +627,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
             rt_return_ordered_product = product.pop('rt_return_ordered_product', None)
             if rt_return_ordered_product:
                 product['return_qty'] = rt_return_ordered_product['return_qty']
+                product['new_sp'] = rt_return_ordered_product['new_sp']
             # map purchased product with free product
             if product['retailer_product']['id'] in product_offer_map:
                 offer = product_offer_map[product['retailer_product']['id']]
@@ -672,8 +665,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ('id', 'order_no', 'order_status', 'total_final_amount', 'total_discount_amount',
-                  'total_tax_amount', 'total_mrp_amount', 'products', 'invoice', 'ordered_by', 'created_at',
-                  'modified_at', 'rt_return_order')
+                  'products', 'invoice', 'ordered_by', 'created_at', 'modified_at', 'rt_return_order')
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
@@ -681,21 +673,26 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         Get refund amount on checkout
     """
     received_amount = serializers.SerializerMethodField()
-    current_amount = serializers.SerializerMethodField()
     refund_amount = serializers.SerializerMethodField()
+    cart_offers = serializers.SerializerMethodField()
     buyer = UserSerializer()
+
+    def get_cart_offers(self, obj):
+        """
+            Get offers applied on cart
+        """
+        offers = obj.ordered_cart.offers
+        cart_offers = []
+        for offer in offers:
+            if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
+                cart_offers.append(offer)
+        return cart_offers
 
     def get_received_amount(self, obj):
         """
             order amount
         """
         return obj.total_final_amount
-
-    def get_current_amount(self, obj):
-        """
-            net pay
-        """
-        return self.get_received_amount(obj) - self.get_refund_amount(obj)
 
     def get_refund_amount(self, obj):
         """
@@ -706,7 +703,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'received_amount',  'current_amount', 'refund_amount', 'buyer', 'order_status')
+        fields = ('id', 'received_amount', 'refund_amount', 'cart_offers', 'buyer', 'order_status')
 
 
 def coupon_name_validation(coupon_name):

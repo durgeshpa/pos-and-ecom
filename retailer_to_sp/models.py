@@ -2738,6 +2738,7 @@ class ReturnItems(models.Model):
     ordered_product = models.OneToOneField(OrderedProductMapping, related_name='rt_return_ordered_product',
                                         on_delete=models.DO_NOTHING)
     return_qty = models.PositiveIntegerField(default=0)
+    new_sp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
