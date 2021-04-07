@@ -247,7 +247,6 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
     """
     retailer_product = RetailerProductsSearchSerializer()
     product_price = serializers.SerializerMethodField('product_price_dt')
-    margin = serializers.SerializerMethodField('margin_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     display_text = serializers.SerializerMethodField('display_text_dt')
 
@@ -263,12 +262,6 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
         """
         return Decimal(self.product_price_dt(obj)) * Decimal(obj.qty)
 
-    def margin_dt(self, obj):
-        """
-            Mrp, cart product price margin
-        """
-        return ((float(obj.retailer_product.mrp) - float(obj.item_effective_prices)) / float(
-            obj.retailer_product.mrp)) * 100
 
     def display_text_dt(self, obj):
         """
@@ -285,7 +278,7 @@ class BasicCartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'retailer_product', 'qty', 'product_price', 'margin', 'product_sub_total', 'display_text')
+        fields = ('id', 'retailer_product', 'qty', 'product_price', 'product_sub_total', 'display_text')
 
 
 class BasicCartSerializer(serializers.ModelSerializer):

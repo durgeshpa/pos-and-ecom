@@ -1082,7 +1082,7 @@ class CartCentral(APIView):
                                               2, product_ean_code)
             else:
                 product = self.create_product(shop_id, product_name,
-                                              None, self.request.data.get('selling_price'), None,
+                                              0.0, self.request.data.get('selling_price'), None,
                                               1, product_ean_code)
         if self.request.data.get('cart_product'):
             # Check if product exists for that shop
