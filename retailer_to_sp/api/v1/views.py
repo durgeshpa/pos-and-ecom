@@ -1086,7 +1086,7 @@ class CartCentral(APIView):
                 product = self.create_product(shop_id, product_name,
                                               0.0, self.request.data.get('selling_price'), None,
                                               1, product_ean_code)
-        if self.request.data.get('cart_product'):
+        else:
             # Check if product exists for that shop
             try:
                 product = RetailerProduct.objects.get(id=self.request.data.get('cart_product'), shop=shop)
