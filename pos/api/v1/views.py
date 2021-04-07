@@ -519,18 +519,13 @@ class CouponOfferCreation(GenericAPIView):
           Get Offers/Coupons
           Serialize Offers/Coupons
        """
+        coupon = Coupon.objects.filter(shop=shop_id)
         if request.GET.get('search_text'):
             """
                  Get Offers/Coupons when search_text is given in params
             """
-            coupon = Coupon.objects.filter(shop=shop_id, coupon_code__icontains=request.GET.get('search_text'))
-            serializer = CouponListSerializer(coupon, many=True)
-        else:
-            """
-                Get Offers/Coupons when search_text is not given in params
-           """
-            coupon_ruleset = Coupon.objects.filter(shop=shop_id)
-            serializer = CouponListSerializer(coupon_ruleset, many=True)
+            coupon = coupon.filter(coupon_code__icontains=request.GET.get('search_text'))
+        serializer = CouponListSerializer(coupon, many=True)
         """
             Pagination on Offers/Coupons
         """
