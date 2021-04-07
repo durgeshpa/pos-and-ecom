@@ -1064,6 +1064,7 @@ class CartCentral(APIView):
             return {'error': "Shop Doesn't Exist!"}
 
         if not self.request.data.get('cart_product'):
+            # if not cart_product create new product
             if not (self.request.data.get('product_name') and self.request.data.get('selling_price')
                     and self.request.data.get('product_ean_code')):
                 return {'error': "Please provide cart_product or product_name, product_ean_code with selling_price!"}
