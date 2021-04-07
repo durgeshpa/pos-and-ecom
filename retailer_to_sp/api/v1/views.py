@@ -1084,7 +1084,7 @@ class CartCentral(APIView):
                                                   2, product_ean_code)
                 except Exception as e:
                     logger.exception(e)
-                    return {'error': "Product not getting created"}
+                    return {'error': "Product not getting created please provide valid value"}
             else:
                 # If product is not linked with existing product sku_type=1, mrp=0.0
                 try:
@@ -1093,7 +1093,7 @@ class CartCentral(APIView):
                                                   1, product_ean_code)
                 except Exception as e:
                     logger.exception(e)
-                    return {'error': "Product not getting created"}
+                    return {'error': "Product not getting created please provide valid value"}
         else:
             # Check if product exists for that shop
             try:
