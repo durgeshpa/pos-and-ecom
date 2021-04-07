@@ -359,7 +359,8 @@ class CouponOfferCreation(GenericAPIView):
                             msg, status_code = self.create_coupon(request, serializer, shop_id)
                             return Response(msg, status=status_code.get("status_code"))
                     except Exception as e:
-                        msg = {"is_success": False, "message": "Something went wrong",
+                        error_logger.error(e)
+                        msg = {"is_success": False, "message": "something went wrong ",
                                "response_data": serializer.data}
                         return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                 else:
@@ -377,7 +378,8 @@ class CouponOfferCreation(GenericAPIView):
                             msg, status_code = self.create_combo_offer(request, serializer, shop_id)
                             return Response(msg, status=status_code.get("status_code"))
                     except Exception as e:
-                        msg = {"is_success": False, "message": f"{e}",
+                        error_logger.error(e)
+                        msg = {"is_success": False, "message": "something went wrong ",
                                "response_data": serializer.data}
                         return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                 else:
@@ -395,7 +397,8 @@ class CouponOfferCreation(GenericAPIView):
                             msg, status_code = self.create_free_product_offer(serializer, shop_id)
                             return Response(msg, status=status_code.get("status_code"))
                     except Exception as e:
-                        msg = {"is_success": False, "message": "Something went wrong",
+                        error_logger.error(e)
+                        msg = {"is_success": False, "message": "something went wrong ",
                                "response_data": serializer.data}
                         return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                 else:
@@ -428,7 +431,8 @@ class CouponOfferCreation(GenericAPIView):
                                 msg, status_code = self.update_coupon(request, coupon_id, serializer, shop_id)
                                 return Response(msg, status=status_code.get("status_code"))
                         except Exception as e:
-                            msg = {"is_success": False, "message": "Something went wrong",
+                            error_logger.error(e)
+                            msg = {"is_success": False, "message": "something went wrong ",
                                    "response_data": serializer.data}
                             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                     else:
@@ -454,7 +458,8 @@ class CouponOfferCreation(GenericAPIView):
                                 msg, status_code = self.update_combo(request, combo_offer_id, serializer, shop_id)
                                 return Response(msg, status=status_code.get("status_code"))
                         except Exception as e:
-                            msg = {"is_success": False, "message": "Something went wrong",
+                            error_logger.error(e)
+                            msg = {"is_success": False, "message": "something went wrong ",
                                    "response_data": serializer.data}
                             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                     else:
@@ -479,8 +484,9 @@ class CouponOfferCreation(GenericAPIView):
                             with transaction.atomic():
                                 msg, status_code = self.update_free_product_offer(coupon_id, serializer, shop_id)
                                 return Response(msg, status=status_code.get("status_code"))
-                        except:
-                            msg = {"is_success": False, "message": "Something went wrong",
+                        except Exception as e:
+                            error_logger.error(e)
+                            msg = {"is_success": False, "message": "something went wrong",
                                    "response_data": serializer.data}
                             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                     else:
