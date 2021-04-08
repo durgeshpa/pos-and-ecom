@@ -78,7 +78,7 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
         availableQuantity.append(product_available)
         capping = product.get_current_shop_capping(shop, buyer_shop)
         product_qty = int(row[2])
-        parent_mapping = getShopMapping(buyer_shop_id)
+        parent_mapping = getShopMapping(buyer_shop)
         if parent_mapping is None:
             message = "Parent Maaping is not Found"
             error_dict[row[0]] = message
