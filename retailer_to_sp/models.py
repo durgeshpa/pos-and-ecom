@@ -1,60 +1,45 @@
 import datetime
 import logging
-from decimal import Decimal
 import csv
 import codecs
-import re
 import json
 
-from django.db import models
-from accounts.middlewares import get_current_user
-from celery.task import task
+from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-
 from django.db.models import F, FloatField, Sum, Func, Q, Count, Case, Value, When
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html, format_html_join
-from django.core.exceptions import ObjectDoesNotExist
-from django.utils.crypto import get_random_string
-from accounts.middlewares import get_current_user
+from django.contrib.postgres.fields import JSONField
+
 from addresses.models import Address
+from brand.models import Brand
+from products.models import Product, ProductPrice, Repackaging
+from shops.models import Shop, ParentRetailerMapping, ShopNameDisplay
+from accounts.models import UserWithName, User
+from coupon.models import Coupon, CusotmerCouponUsage
+from wms.models import Out, PickupBinInventory, Pickup, BinInventory,\
+    Putaway, PutawayBinInventory, InventoryType, InventoryState, Bin
+
+
+from celery.task import task
+from accounts.middlewares import get_current_user
+from otp.sms import SendSms
+from retailer_backend import common_function
 from retailer_backend import common_function as CommonFunction
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+from .bulk_order_clean import bulk_order_validation
+from .common_function import capping_check, getShopMapping
+from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
+    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
                     picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at)
-from shops.models import Shop, ShopNameDisplay
-from brand.models import Brand
-from addresses.models import Address
-from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType, \
-    InventoryState, Bin
-from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
-    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
-from brand.models import Brand
-from otp.sms import SendSms
-from products.models import Product, ProductPrice, Repackaging
-from shops.models import Shop, ParentRetailerMapping
 
-from .utils import (order_invoices, order_shipment_amount,
-                    order_shipment_details_util, order_shipment_status)
-
-from accounts.models import UserWithName, User
-from django.core.validators import RegexValidator
-from django.contrib.postgres.fields import JSONField
-# from analytics.post_save_signal import get_order_report
-from coupon.models import Coupon, CusotmerCouponUsage
-from django.db.models import Sum
-from django.db.models import Q
-from django.urls import reverse
-from retailer_backend import common_function
-from wms.models import WarehouseInventory
-# from datetime import datetime, timedelta
 today = datetime.datetime.today()
 
 logger = logging.getLogger(__name__)
@@ -602,83 +587,10 @@ class BulkOrder(models.Model):
         availableQuantity = []
         error_dict = {}
         if self.cart_products_csv:
-            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
-            headers = next(reader, None)
-            duplicate_products = []
-
-            for id, row in enumerate(reader):
-                count = 0
-                if not row[0]:
-                    raise ValidationError(
-                        "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | Product SKU cannot be empty")
-                try:
-                    product = Product.objects.get(product_sku=row[0])
-                except:
-                    raise ValidationError(
-                        "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
-                            'INVALID_PRODUCT_SKU'])
-
-                if not row[2] or not re.match("^[\d\,]*$", row[2]):
-                    raise ValidationError(
-                        "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
-                            'EMPTY'] % ("qty"))
-
-                if self.order_type == 'DISCOUNTED':
-                    if not row[3] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[3]):
-                        raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " +
-                                              VALIDATION_ERROR_MESSAGES[
-                                                  'EMPTY'] % ("discounted_price"))
-
-                if product in duplicate_products:
-                    raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                        0] + " | Duplicate entries of this product has been uploaded"))
-                duplicate_products.append(product)
-                product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
-                if not product_price:
-                    raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                        0] + " | Product Price Not Available"))
-                if row[3] and self.order_type == 'DISCOUNTED':
-                    discounted_price = float(row[3])
-                    if product_price.selling_price < discounted_price:
-                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                            0] + " | Discounted Price can't be more than Product Price."))
-                ordered_qty = int(row[2])
-                shop = Shop.objects.filter(id=self.seller_shop.id).last()
-                product = Product.objects.filter(product_sku=row[0]).last()
-                inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
-                product_qty_dict = get_stock(shop, inventory_type, [product.id])
-                if product_qty_dict.get(product.id) is not None:
-                    available_quantity = product_qty_dict[product.id]
-                else:
-                    available_quantity = 0
-                    info_logger.info(f"[retailer_to_sp:BulkOrder]-{row[0]} doesn't exist in warehouse")
-                product_available = int(
-                    int(available_quantity) / int(product.product_inner_case_size))
-                availableQuantity.append(product_available)
-                capping = product.get_current_shop_capping(shop,self.buyer_shop)
-                product_qty = int(row[2])
-                parent_mapping = getShopMapping(self.buyer_shop_id)
-                if parent_mapping is None:
-                    message = "Parent Maaping is not Found"
-                    error_dict[row[0]] = message
-                if capping:
-                    msg = capping_check(capping, parent_mapping, product, product_qty, qty)
-                    if msg[0] is False:
-                        error_dict[row[0]] = msg[1]
-
-                from audit.views import BlockUnblockProduct
-                is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product,
-                                                                                        self.seller_shop)
-                if is_blocked_for_audit is True:
-                    message = "Failed because of SKU {} is Blocked for Audit".format(str(product.product_sku))
-                    error_dict[row[0]] = message
-
-                if product_available >= ordered_qty:
-                    count += 1
-                if count == 0:
-                    message = "Failed because of Ordered quantity is {} > Available quantity {}".format(str(int(row[2])),
-                                                                                                        str(available_quantity))
-                    error_dict[row[0]] = message
+            unavailable_skus, availableQuantity, error_dict = \
+                bulk_order_validation(self.cart_products_csv,self.order_type,
+                                      unavailable_skus, self.seller_shop, self.buyer_shop,
+                                      availableQuantity, error_dict)
         info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]--Unavailable-SKUs:{unavailable_skus}, "
                          f"Available_Qty_of_Ordered_SKUs:{availableQuantity}")
         if len(error_dict) > 0:
@@ -2898,71 +2810,6 @@ def franchise_inventory_update(shipment, warehouse):
             product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_product_batch, initial_type,
                                                      final_type, initial_stage, final_stage)
 
-def check_date_range(capping):
-    """
-    capping object
-    return start date and end date
-    """
-    if capping.capping_type == 0:
-        end_date = datetime.datetime.today()
-        start_date = datetime.datetime.today()
-        return end_date, start_date
-    elif capping.capping_type == 1:
-        end_date = datetime.datetime.today()
-        start_date = end_date - datetime.timedelta(days=today.weekday())
-        return start_date, end_date
-    elif capping.capping_type == 2:
-        end_date = datetime.datetime.today()
-        start_date = datetime.datetime.today().replace(day=1)
-        return start_date, end_date
 
 
-def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qty):
-    """
-    capping:- Capping object
-    parent_mapping :- parent mapping object
-    cart_product:- cart products
-    product_qty:- quantity of product
-    ordered_qty:- quantity of order
-    """
-    # to get the start and end date according to capping type
-    start_date, end_date = check_date_range(capping)
-    capping_start_date = start_date
-    capping_end_date = end_date
-    capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                created_at__gte=capping_start_date,
-                                                created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
-    if capping_range_orders:
-        for order in capping_range_orders:
-            if order.ordered_cart.rt_cart_list.filter(
-                    cart_product=cart_product).exists():
-                ordered_qty += order.ordered_cart.rt_cart_list.filter(
-                    cart_product=cart_product).last().qty
-    if capping.capping_qty > ordered_qty:
-        if (capping.capping_qty - ordered_qty) < product_qty:
-            if (capping.capping_qty - ordered_qty) > 0:
-                cart_product.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
-                        capping.capping_qty - ordered_qty)]
-            else:
-                cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
-            cart_product.save()
-            return False, cart_product.capping_error_msg
-        else:
-            cart_product.capping_error_msg = ['Allow to reserve the Product']
-            return True, cart_product.capping_error_msg
-    else:
-        if (capping.capping_qty - ordered_qty) > 0:
-            cart_product.capping_error_msg = ['The Purchase Limit of the Product is %s' % (
-                    capping.capping_qty - ordered_qty)]
-        else:
-            cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
-        cart_product.save()
-        return False, cart_product.capping_error_msg
 
-
-def getShopMapping(shop_id):
-    try:
-        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id,status=True)
-        return parent_mapping
-    except ObjectDoesNotExist:
-        return None
