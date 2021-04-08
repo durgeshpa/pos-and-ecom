@@ -1,3 +1,5 @@
+import logging
+
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -10,6 +12,7 @@ from addresses.models import City
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
+error_logger = logging.getLogger('file-error')
 
 # Create your models here.
 class DiscountValue(models.Model):
@@ -174,16 +177,18 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     """
     # POS Coupons
     if instance.shop:
-        params = get_common_coupon_params(instance)
-        coupon_type = instance.coupon_type
-        if coupon_type == 'catalog':
-            response = get_catalogue_coupon_params(instance)
-            if 'error' in response:
-                return ""
-        else:
-            response = get_cart_coupon_params(instance)
-        params.update(response)
-        es.index(index=create_es_index('rc-{}'.format(instance.shop.id)), id=params['id'], body=params)
+        try:
+            params = get_common_coupon_params(instance)
+            coupon_type = instance.coupon_type
+            if coupon_type == 'catalog':
+                response = get_catalogue_coupon_params(instance)
+            else:
+                response = get_cart_coupon_params(instance)
+            params.update(response)
+            es.index(index=create_es_index('rc-{}'.format(instance.shop.id)), id=params['id'], body=params)
+        except Exception as e:
+            error_logger.error("Could not add coupon to elastic shop {}, coupon {}".format(instance.shop.id, instance.id))
+            error_logger.error(e)
 
 
 def get_common_coupon_params(coupon):
@@ -205,9 +210,6 @@ def get_catalogue_coupon_params(coupon):
     """
         Get coupon fields for adding in es for catalog coupons - combo/discount
     """
-    # Product rule set should exist for catalog type coupon
-    if not coupon.rule.product_ruleset:
-        return ""
     # Either Discount on product OR Combo Offer
     params = dict()
     product_ruleset = RuleSetProductMapping.objects.get(rule_id=coupon.rule.id)
