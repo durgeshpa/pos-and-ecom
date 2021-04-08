@@ -148,8 +148,9 @@ class GetMessageListView(APIView):
 
     def get(self,*args,**kwargs):
         data = HomePageMessage.objects.filter(is_active=True).last()
+        is_success = True if data else False
         home_page_serializer = HomePageSerializer(data)
-        return Response({"response_data": home_page_serializer.data})
+        return Response({"message":[""], "response_data": home_page_serializer.data, "is_success": is_success})
 
 
 '''@api_view(['GET', 'POST'])
