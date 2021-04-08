@@ -95,7 +95,6 @@ class ShopPurchaseMatrix(APIView):
                                                                       'PARTIALLY_DELIVERED_AND_CLOSED',
                                                                       'FULLY_DELIVERED_AND_CLOSED'])
         for shipped_item in shipment_products:
-            print(shipped_item.id)
             total_sales += shipped_item.basic_rate*shipped_item.delivered_qty
         return floor(total_sales)
 
