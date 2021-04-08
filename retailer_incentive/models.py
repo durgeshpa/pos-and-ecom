@@ -25,8 +25,8 @@ class Scheme(BaseTimestampModel):
     """
     name_regex = RegexValidator(r'^[0-9a-zA-Z ]*$', "Scheme name is not valid")
     name = models.CharField(validators=[name_regex], max_length=50)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
     is_active = models.BooleanField(default=True)
     user = models.ForeignKey(get_user_model(), related_name='schemes',
                              on_delete=models.CASCADE, verbose_name='Created By')

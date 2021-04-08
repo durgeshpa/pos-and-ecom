@@ -28,7 +28,7 @@ class SchemeCreationForm(forms.ModelForm):
         data = self.cleaned_data
         start_date = data.get('start_date')
         end_date = data.get('end_date')
-        if start_date < datetime.datetime.today().date():
+        if start_date < datetime.datetime.today():
             raise ValidationError('Start date cannot be earlier than today')
 
         if end_date <= start_date:
@@ -131,7 +131,7 @@ class UploadSchemeShopMappingForm(forms.Form):
             if row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '':
                 continue
             if not row[0] or not Scheme.objects.filter(id=row[0], is_active=True,
-                                                       end_date__gte=datetime.datetime.today().date()).exists():
+                                                       end_date__gte=datetime.datetime.today()).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Scheme ID'"))
             if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['f','r']).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id', no retailer/franchise shop exists in the system with this ID."))
