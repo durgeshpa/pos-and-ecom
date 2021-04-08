@@ -417,7 +417,7 @@ class CartSerializer(serializers.ModelSerializer):
         return self.total_amount
 
     def shop_min_amount_id(self, obj):
-        return str(MIN_ORDER_AMOUNT)
+        return round(float(MIN_ORDER_AMOUNT), 2)
 
     def sub_total_id(self, obj):
         sub_total = float(self.total_amount_id(obj)) - self.get_total_discount(obj)
