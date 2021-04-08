@@ -1068,13 +1068,9 @@ class CartCentral(APIView):
             if not (self.request.data.get('product_name') and self.request.data.get('selling_price')
                     and self.request.data.get('product_ean_code')):
                 return {'error': "Please provide cart_product or product_name, product_ean_code with selling_price!"}
-            try:
-                product = self.create_product(shop_id)
-                if 'error' in product:
-                    return {'error': product['error']}
-            except Exception as e:
-                logger.exception(e)
-                return {'error': "Product could not create please provide valid value"}
+            product = self.create_product(shop_id)
+            if 'error' in product:
+                return get_response(product['error'])
         else:
             # Check if product exists for that shop
             try:
