@@ -53,6 +53,7 @@ class ShopType(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+    shop_min_amount = models.FloatField(default=0)
 
     def __str__(self):
         return "%s - %s" % (

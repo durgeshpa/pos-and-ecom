@@ -49,6 +49,12 @@ function getProductDetails() {
         success: function (data) {
             if(data.found === true){
                 document.getElementById('id_mrp').value = data.product_mrp;
+                if(data.selling_price_per_saleable_unit == null){
+                    document.getElementById('id_price_slabs-0-selling_price').readOnly = false
+                }else{
+                    document.getElementById('id_price_slabs-0-selling_price').value = data.selling_price_per_saleable_unit;
+                    document.getElementById('id_price_slabs-0-selling_price').readOnly = True
+                }
             }
             return true;
         },

@@ -2,7 +2,7 @@ from django.contrib import admin
 
 # Register your models here.
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
-from .models import Banner, BannerData,BannerPosition, BannerSlot, Page
+from .models import Banner, BannerData,BannerPosition, BannerSlot, Page, HomePageMessage
 from.forms import BannerForm, BannerPositionForm, BannerDataPosition
 from .views import (BannerDataAutocomplete, BannerShopAutocomplete,
                     RetailerShopAutocomplete, PincodeAutocomplete, CityAutocomplete)
@@ -62,7 +62,12 @@ class BannerSlotAdmin(admin.ModelAdmin):
 class PageAdmin(admin.ModelAdmin):
     field = ('name')
 
+class HomePageMessageAdmin(admin.ModelAdmin):
+    field = ('message', 'is_active')
+
+
 admin.site.register(Page,PageAdmin)
 admin.site.register(Banner,BannerAdmin)
 admin.site.register(BannerSlot,BannerSlotAdmin)
 admin.site.register(BannerPosition, BannerPositionAdmin)
+admin.site.register(HomePageMessage, HomePageMessageAdmin)
