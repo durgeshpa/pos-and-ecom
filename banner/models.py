@@ -117,3 +117,12 @@ class BannerData(SortableMixin):
 
     class Meta:
         ordering = ['banner_data_order']
+
+
+class HomePageMessage(models.Model):
+    message = models.CharField(max_length=255, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = _("HomePage Message")
+        verbose_name_plural = _("HomePage Messages")
