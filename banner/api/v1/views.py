@@ -142,6 +142,16 @@ class GetPageBannerListView(APIView):
         return Response({"message":[""], "response_data": banner_data_serializer.data ,"is_success": is_success})
 
 
+class GetMessageListView(APIView):
+
+    permission_classes = (AllowAny,)
+
+    def get(self,*args,**kwargs):
+        is_success = True
+        message = "Minimum Order Amount Limit is 3000."
+        return Response({"response_data": message, "is_success": is_success})
+
+
 '''@api_view(['GET', 'POST'])
 def all_slot_list_view(request):
     """
