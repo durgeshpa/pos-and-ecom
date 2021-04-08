@@ -756,7 +756,8 @@ class CouponOfferCreation(GenericAPIView):
             discount_amount = request.data.get('discount_qty_amount')
             coupon_ruleset.cart_qualifying_min_sku_value = discount_amount
             rulename = f"{shop_id}_on Spending {discount_amount} get {discount.discount_value} Off"
-            coupon_ruleset_name = CouponRuleSet.objects.filter(rulename=rulename)
+            coupon_ruleset_name = CouponRuleSet.objects.filter(rulename=rulename).\
+                exclude(id=coupon_ruleset.id)
             if coupon_ruleset_name:
                 msg = {"is_success": False,
                        "message": f"Offer already exist for ruleset_name {rulename} ",
@@ -776,7 +777,8 @@ class CouponOfferCreation(GenericAPIView):
             coupon.coupon_code = f"Get {discount_value} OFF on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
             rulename = f"{shop_id}_on Spending {coupon_ruleset.cart_qualifying_min_sku_value} get {discount_value} Off"
 
-            coupon_ruleset_name = CouponRuleSet.objects.filter(rulename=rulename)
+            coupon_ruleset_name = CouponRuleSet.objects.filter(rulename=rulename).\
+                exclude(id=coupon_ruleset.id)
             if coupon_ruleset_name:
                 msg = {"is_success": False,
                        "message": f"Offer already exist for ruleset_name {rulename} ",
@@ -874,7 +876,8 @@ class CouponOfferCreation(GenericAPIView):
 
             ruleset = RuleSetProductMapping.objects.filter(rule__coupon_ruleset__shop__id=shop_id,
                                                            retailer_primary_product=retailer_primary_product_obj,
-                                                           rule__coupon_ruleset__is_active=True)
+                                                           rule__coupon_ruleset__is_active=True).\
+                exclude(id=rule_set_product_mapping.id)
             if ruleset:
                 msg = {"is_success": False, "message": f"Offer already exist for  {retailer_primary_product_obj.sku}",
                        "response_data": serializer.data}
@@ -1001,7 +1004,8 @@ class CouponOfferCreation(GenericAPIView):
             discount_amount = self.request.data.get('cart_qualifying_min_sku_value')
             # checking if offer already exist with retailer_free_product, discount_qty_amount
             coupon_ruleset_qty = Coupon.objects.filter(rule__cart_qualifying_min_sku_value=discount_amount,
-                                                       shop=shop_id, rule__coupon_ruleset__is_active=True)
+                                                       shop=shop_id, rule__coupon_ruleset__is_active=True).\
+                exclude(id=coupon.id)
             if coupon_ruleset_qty:
                 msg = {"is_success": False, "message": f"Offer already exist for discount amount {discount_amount} ",
                        "response_data": serializer.data}
@@ -1025,7 +1029,8 @@ class CouponOfferCreation(GenericAPIView):
             if not 'free_product_qty' in actual_input_data_list:
                 coupon_ruleset_product = Coupon.objects.filter(rule__free_product=retailer_free_product_obj,
                                                                rule__free_product_qty=coupon_ruleset.free_product_qty,
-                                                               shop=shop_id, rule__coupon_ruleset__is_active=True)
+                                                               shop=shop_id, rule__coupon_ruleset__is_active=True).\
+                    exclude(id=coupon.id)
 
                 if coupon_ruleset_product:
                     msg = {"is_success": False,
@@ -1039,6 +1044,14 @@ class CouponOfferCreation(GenericAPIView):
             ruleset_name = f"{shop_id}_{retailer_free_product_obj.name}_{coupon_ruleset.free_product_qty}"
             coupon_code = f"Get {coupon_ruleset.free_product_qty} {retailer_free_product_obj.name} " \
                           f"Free on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
+
+            if CouponRuleSet.objects.filter(rulename=ruleset_name).exclude(id=coupon_ruleset.id):
+                msg = {"is_success": False,
+                       "message": f"cannot create a Offer with {ruleset_name}, already exists",
+                       "response_data": serializer.data}
+                status_code = {"status_code": 404}
+                return msg, status_code
+
             coupon_ruleset.rulename = ruleset_name
             coupon.coupon_code = coupon_code
 
@@ -1047,7 +1060,8 @@ class CouponOfferCreation(GenericAPIView):
             free_product_qty = self.request.data.get('free_product_qty')
             coupon_ruleset_qty = Coupon.objects.filter(rule__free_product=coupon_ruleset.free_product,
                                                        rule__free_product_qty=free_product_qty,
-                                                       shop=shop_id, rule__coupon_ruleset__is_active=True)
+                                                       shop=shop_id, rule__coupon_ruleset__is_active=True).\
+                exclude(id=coupon.id)
             if coupon_ruleset_qty:
                 msg = {"is_success": False,
                        "message": f"Offer already exist for SKU {coupon_ruleset.free_product.sku} with "
@@ -1060,6 +1074,14 @@ class CouponOfferCreation(GenericAPIView):
             ruleset_name = f"{shop_id}_{coupon_ruleset.free_product.name}_{free_product_qty}"
             coupon_code = f"Get {free_product_qty} {coupon_ruleset.free_product.name} " \
                           f"Free on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
+
+            if CouponRuleSet.objects.filter(rulename=ruleset_name).exclude(id=coupon_ruleset.id):
+                msg = {"is_success": False,
+                       "message": f"cannot create a Offer with {ruleset_name}, already exists",
+                       "response_data": serializer.data}
+                status_code = {"status_code": 404}
+                return msg, status_code
+
             coupon_ruleset.rulename = ruleset_name
             coupon.coupon_code = coupon_code
 
