@@ -191,7 +191,7 @@ class CatalogueProductCreation(GenericAPIView):
                         # if both mrp & selling price are there in edit product request
                         # checking if product already exist, through error
                         if RetailerProduct.objects.filter(shop_id=shop_id_or_error_message, name=product.name, mrp=mrp,
-                                                          selling_price=selling_price).exists():
+                                                          selling_price=selling_price).exclude(id=product_id).exists():
                             msg = {"is_success": False,
                                    "message": "Product {} with mrp {} & selling_price {} already exist."
                                        .format(product.name, mrp, selling_price),
@@ -201,7 +201,8 @@ class CatalogueProductCreation(GenericAPIView):
                         # if only mrp is there in edit product request
                         # checking if product already exist, through error
                         if RetailerProduct.objects.filter(shop_id=shop_id_or_error_message, name=product.name, mrp=mrp,
-                                                          selling_price=product.selling_price).exists():
+                                                          selling_price=product.selling_price).\
+                                                          exclude(id=product_id).exists():
                             msg = {"is_success": False,
                                    "message": "Product {} with mrp {} & selling_price {} already exist."
                                        .format(product.name, mrp, product.selling_price),
@@ -211,7 +212,8 @@ class CatalogueProductCreation(GenericAPIView):
                         # if only selling_price is there in edit product request
                         # checking if product already exist, through error
                         if RetailerProduct.objects.filter(shop_id=shop_id_or_error_message, name=product.name, mrp=product.mrp,
-                                                          selling_price=selling_price).exists():
+                                                          selling_price=selling_price).\
+                                                          exclude(id=product_id).exists():
                             msg = {"is_success": False,
                                    "message": "Product {} with mrp {} & selling_price {} already exist."
                                        .format(product.name, product.mrp, selling_price),
