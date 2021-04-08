@@ -600,33 +600,24 @@ class BulkOrder(models.Model):
     def clean(self, *args, **kwargs):
         unavailable_skus = []
         availableQuantity = []
-        error_dict ={}
+        error_dict = {}
         if self.cart_products_csv:
-            product_ids = []
-            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
-            headers = next(reader, None)
-            product_skus = [x[0] for x in reader if x]
-            for sku in product_skus:
-                if Product.objects.filter(product_sku=sku).exists():
-                    product_ids.append(Product.objects.get(product_sku=sku).id)
-                else:
-                    raise ValidationError("The SKU %s is invalid" % (sku))
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8', errors='ignore'))
             headers = next(reader, None)
             duplicate_products = []
-            qty = 0
+
             for id, row in enumerate(reader):
                 count = 0
                 if not row[0]:
                     raise ValidationError(
                         "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | Product SKU cannot be empty")
-
                 try:
-                    Product.objects.get(product_sku=row[0])
+                    product = Product.objects.get(product_sku=row[0])
                 except:
                     raise ValidationError(
                         "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
                             'INVALID_PRODUCT_SKU'])
+
                 if not row[2] or not re.match("^[\d\,]*$", row[2]):
                     raise ValidationError(
                         "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
@@ -637,65 +628,57 @@ class BulkOrder(models.Model):
                         raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " +
                                               VALIDATION_ERROR_MESSAGES[
                                                   'EMPTY'] % ("discounted_price"))
-                if row[0]:
-                    product = Product.objects.get(product_sku=row[0])
-                    if product in duplicate_products:
-                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                            0] + " | Duplicate entries of this product has been uploaded"))
-                    duplicate_products.append(product)
-                    product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
-                    if not product_price:
-                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                            0] + " | Product Price Not Available"))
-                    if row[3] and self.order_type == 'DISCOUNTED':
-                        discounted_price = float(row[3])
-                        if product_price.selling_price < discounted_price:
-                            raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                                0] + " | Discounted Price can't be more than Product Price."))
-                    ordered_qty = int(row[2])
-                    shop = Shop.objects.filter(id=self.seller_shop.id).last()
-                    product = Product.objects.filter(product_sku=row[0]).last()
-                    inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
-                    product_qty_dict = get_stock(shop, inventory_type, [product.id])
-                    if product_qty_dict.get(product.id) is not None:
-                        available_quantity = product_qty_dict[product.id]
-                    else:
-                        available_quantity = 0
-                        info_logger.info(f"[retailer_to_sp:BulkOrder]-{row[0]} doesn't exist in warehouse")
-                    product_available = int(
-                        int(available_quantity) / int(product.product_inner_case_size))
-                    availableQuantity.append(product_available)
-                    capping = product.get_current_shop_capping(shop,self.buyer_shop)
-                    product_qty = int(row[2])
-                    parent_mapping = getShopMapping(self.buyer_shop_id)
-                    if parent_mapping is None:
-                        #unavailable_skus.append(row[0])
-                        message = "Parent Maaping is not Found"
-                        error_dict[row[0]] = message
-                    if capping:
-                        msg = capping_check(capping, parent_mapping, product, product_qty, qty)
-                        if msg[0] is False:
-                            #unavailable_skus.append(row[0])
-                            error_dict[row[0]] = msg[1]
-                    else:
-                        pass
 
-                    from audit.views import BlockUnblockProduct
-                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product,
-                                                                                            self.seller_shop)
-                    if is_blocked_for_audit is False:
-                        pass
-                    else:
-                        message = "Failed because of SKU {} is Blocked for Audit".format(str(product.product_sku))
-                        error_dict[row[0]] = message
+                if product in duplicate_products:
+                    raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                        0] + " | Duplicate entries of this product has been uploaded"))
+                duplicate_products.append(product)
+                product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
+                if not product_price:
+                    raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                        0] + " | Product Price Not Available"))
+                if row[3] and self.order_type == 'DISCOUNTED':
+                    discounted_price = float(row[3])
+                    if product_price.selling_price < discounted_price:
+                        raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                            0] + " | Discounted Price can't be more than Product Price."))
+                ordered_qty = int(row[2])
+                shop = Shop.objects.filter(id=self.seller_shop.id).last()
+                product = Product.objects.filter(product_sku=row[0]).last()
+                inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+                product_qty_dict = get_stock(shop, inventory_type, [product.id])
+                if product_qty_dict.get(product.id) is not None:
+                    available_quantity = product_qty_dict[product.id]
+                else:
+                    available_quantity = 0
+                    info_logger.info(f"[retailer_to_sp:BulkOrder]-{row[0]} doesn't exist in warehouse")
+                product_available = int(
+                    int(available_quantity) / int(product.product_inner_case_size))
+                availableQuantity.append(product_available)
+                capping = product.get_current_shop_capping(shop,self.buyer_shop)
+                product_qty = int(row[2])
+                parent_mapping = getShopMapping(self.buyer_shop_id)
+                if parent_mapping is None:
+                    message = "Parent Maaping is not Found"
+                    error_dict[row[0]] = message
+                if capping:
+                    msg = capping_check(capping, parent_mapping, product, product_qty, qty)
+                    if msg[0] is False:
+                        error_dict[row[0]] = msg[1]
 
-                    if product_available >= ordered_qty:
-                        count += 1
-                    if count == 0:
-                        #unavailable_skus.append(row[0])
-                        message = "Failed because of Ordered quantity is {} > Available quantity {}".format(str(int(row[2])),
-                                                                                                            str(available_quantity))
-                        error_dict[row[0]] = message
+                from audit.views import BlockUnblockProduct
+                is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product,
+                                                                                        self.seller_shop)
+                if is_blocked_for_audit is True:
+                    message = "Failed because of SKU {} is Blocked for Audit".format(str(product.product_sku))
+                    error_dict[row[0]] = message
+
+                if product_available >= ordered_qty:
+                    count += 1
+                if count == 0:
+                    message = "Failed because of Ordered quantity is {} > Available quantity {}".format(str(int(row[2])),
+                                                                                                        str(available_quantity))
+                    error_dict[row[0]] = message
         info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]--Unavailable-SKUs:{unavailable_skus}, "
                          f"Available_Qty_of_Ordered_SKUs:{availableQuantity}")
         if len(error_dict) > 0:
@@ -745,14 +728,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
         if created:
             products_available = {}
             if instance.cart_products_csv:
-                product_ids = []
                 reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8', errors='ignore'))
-                headers = next(reader, None)
-                product_skus = [x[0] for x in reader if x]
-                for sku in product_skus:
-                    product_ids.append(Product.objects.get(product_sku=sku).id)
-                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8', errors='ignore'))
-                qty = 0
                 for id, row in enumerate(reader):
                     for row in reader:
                         if row[0]:
@@ -762,12 +738,11 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                             ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
                             ordered_qty = int(row[2])
                             shop = Shop.objects.filter(id=instance.seller_shop_id).last()
-                            product = Product.objects.filter(product_sku=row[0]).last()
                             inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
-                            product_qty_dict = get_stock(shop, inventory_type, [product.id])
+                            product_qty_dict = get_stock(shop, inventory_type, [product_id])
                             available_quantity = 0
-                            if product_qty_dict.get(product.id) is not None:
-                                available_quantity = product_qty_dict[product.id]
+                            if product_qty_dict.get(product_id) is not None:
+                                available_quantity = product_qty_dict[product_id]
 
                             capping = product.get_current_shop_capping(instance.seller_shop,
                                                                        instance.buyer_shop)
@@ -779,36 +754,26 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                                 msg = capping_check(capping, parent_mapping, product, product_qty, qty)
                                 if msg[0] is False:
                                     continue
-                                else:
-                                    pass
-                            else:
-                                pass
 
                             from audit.views import BlockUnblockProduct
                             is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product,
                                                                                                     instance.seller_shop)
                             if is_blocked_for_audit:
                                 continue
-                            else:
-                                pass
                             product_available = int(
                                 int(available_quantity) / int(product.product_inner_case_size))
                             if product_available >= ordered_qty:
                                 products_available[product_id] = ordered_pieces
                                 if instance.order_type == 'DISCOUNTED':
-                                    CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
-                                                                      qty=int(row[2]),
-                                                                      no_of_pieces=int(row[2]) * int(
-                                                                          product.product_inner_case_size),
-                                                                      cart_product_price=product_price,
-                                                                      discounted_price=float(row[3]))
+                                    discounted_price = float(row[3])
                                 else:
-                                    CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
-                                                                      qty=int(row[2]),
-                                                                      no_of_pieces=int(row[2]) * int(
-                                                                          product.product_inner_case_size),
-                                                                      cart_product_price=product_price,
-                                                                      discounted_price=0)
+                                    discounted_price = 0
+                                CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
+                                                                  qty=int(row[2]),
+                                                                  no_of_pieces=int(row[2]) * int(
+                                                                  product.product_inner_case_size),
+                                                                  cart_product_price=product_price,
+                                                                  discounted_price=discounted_price)
                             else:
                                 continue
             if len(products_available) > 0:
