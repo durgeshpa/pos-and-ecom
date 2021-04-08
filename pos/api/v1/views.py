@@ -756,7 +756,8 @@ class CouponOfferCreation(GenericAPIView):
             discount_amount = request.data.get('discount_qty_amount')
             coupon_ruleset.cart_qualifying_min_sku_value = discount_amount
             rulename = f"{shop_id}_on Spending {discount_amount} get {discount.discount_value} Off"
-            coupon_ruleset_name = CouponRuleSet.objects.filter(rulename=rulename)
+            coupon_ruleset_name = CouponRuleSet.objects.filter(rulename=rulename).\
+                exclude(id=coupon_ruleset.id)
             if coupon_ruleset_name:
                 msg = {"is_success": False,
                        "message": f"Offer already exist for ruleset_name {rulename} ",
@@ -776,7 +777,8 @@ class CouponOfferCreation(GenericAPIView):
             coupon.coupon_code = f"Get {discount_value} OFF on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
             rulename = f"{shop_id}_on Spending {coupon_ruleset.cart_qualifying_min_sku_value} get {discount_value} Off"
 
-            coupon_ruleset_name = CouponRuleSet.objects.filter(rulename=rulename)
+            coupon_ruleset_name = CouponRuleSet.objects.filter(rulename=rulename).\
+                exclude(id=coupon_ruleset.id)
             if coupon_ruleset_name:
                 msg = {"is_success": False,
                        "message": f"Offer already exist for ruleset_name {rulename} ",
