@@ -264,7 +264,7 @@ class BasicCartOffers(object):
                 discount = BasicCartOffers.discount_value(offer, cart_value)
                 offer['discount_value'] = discount
                 offer['applicable'] = 1
-                if coupon_id == coupon['id']:
+                if coupon_id and int(coupon_id) == int(coupon['id']):
                     applied = True
                     final_offer_coupon_id = offer
                     continue
@@ -285,8 +285,10 @@ class BasicCartOffers(object):
                 final_offer_coupon_id['applied'] = 1
                 applicable_offers.append(final_offer_coupon_id)
                 final_offer = final_offer_coupon_id
-            if final_offer_applied:
+            elif final_offer_applied:
+                final_offer_applied['applied'] = 1
                 applicable_offers.append(final_offer_applied)
+                final_offer = final_offer_applied
         elif final_offer_applied:
             final_offer_applied['applied'] = 1
             applicable_offers.append(final_offer_applied)
@@ -500,7 +502,6 @@ class BasicCartOffers(object):
             for c in coupons_list['hits']['hits']:
                 c_list.append(c["_source"])
         except Exception as e:
-            print(e)
             pass
         return c_list
 

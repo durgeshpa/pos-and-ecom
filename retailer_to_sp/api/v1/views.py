@@ -3195,6 +3195,7 @@ class OrderReturns(APIView):
         order = initial_validation['order']
         return_items = initial_validation['return_items']
         return_reason = initial_validation['return_reason']
+        ordered_product = initial_validation['ordered_product']
         with transaction.atomic():
             # map all products to combo offers in cart
             product_combo_map, cart_free_product = self.get_combo_offers(order)
@@ -3204,21 +3205,16 @@ class OrderReturns(APIView):
             free_returns = {}
             free_qty_product_map = []
             new_cart_value = 0
-            ordered_product = OrderedProduct.objects.get(order=order)
-            all_products = ordered_product.rt_order_product_order_product_mapping.filter(product_type=1).values_list('retailer_product_id', flat=True)
-            given_products = []
             # for each purchased product add/remove returns according to quantity provided
             for return_product in return_items:
-                product_validate = self.validate_product(ordered_product, return_product)
-                if 'error' in product_validate:
-                    return get_response(product_validate['error'])
-                product_id = product_validate['product_id']
-                ordered_product_map = product_validate['ordered_product_map']
-                return_qty = product_validate['return_qty']
-                given_products += [product_id]
+                product_id = return_product['product_id']
+                ordered_product_map = return_product['ordered_product_map']
+                return_qty = return_product['return_qty']
+                changed_sp = return_product['changed_sp']
+                price_change = return_product['price_change']
                 # if return quantity of product is greater than zero
                 if return_qty > 0:
-                    self.return_item(order_return, ordered_product_map, return_qty)
+                    self.return_item(order_return, ordered_product_map, return_qty, changed_sp)
                     if product_id in product_combo_map:
                         new_prod_qty = ordered_product_map.shipped_qty - return_qty
                         for offer in product_combo_map[product_id]:
@@ -3229,15 +3225,16 @@ class OrderReturns(APIView):
                                 self.get_free_item_map(product_id, offer['free_item_id'], return_free_qty))
                             free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'],
                                                                          return_free_qty)
+                    new_cart_value += (ordered_product_map.shipped_qty - return_qty) * ordered_product_map.selling_price
+                elif price_change:
+                    self.return_item(order_return, ordered_product_map, 0, changed_sp)
+                    new_cart_value += ordered_product_map.shipped_qty * changed_sp
                 else:
                     ReturnItems.objects.filter(return_id=order_return, ordered_product=ordered_product_map).delete()
                     if product_id in product_combo_map:
                         for offer in product_combo_map[product_id]:
                             free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'], 0)
-                new_cart_value += (ordered_product_map.shipped_qty - return_qty) * ordered_product_map.selling_price
-            for id in all_products:
-                if id not in given_products:
-                    return get_response("Please provide product {}".format(id) + " in return items")
+                    new_cart_value += ordered_product_map.shipped_qty * ordered_product_map.selling_price
             # check and update refund amount
             self.update_refund_amount(order, new_cart_value, order_return)
             # check if free product offered on order value is still valid
@@ -3257,7 +3254,7 @@ class OrderReturns(APIView):
         if not type(shop_id) == int:
             return {"error": "Shop Doesn't Exist!"}
         return_items = self.request.data.get('return_items')
-        if not return_items:
+        if not return_items or type(return_items) != list:
             return {'error': "Provide return item details"}
         # check if order exists
         order_id = self.request.data.get('order_id')
@@ -3269,29 +3266,46 @@ class OrderReturns(APIView):
         return_reason = self.request.data.get('return_reason', '')
         if return_reason and return_reason not in dict(OrderReturn.RETURN_REASON):
             return {'error': 'Provide a valid return reason'}
-        return {'order': order, 'return_reason': return_reason, 'return_items': return_items}
+        # Check return item details
+        ordered_product = OrderedProduct.objects.get(order=order)
+        all_products = ordered_product.rt_order_product_order_product_mapping.filter(product_type=1).values_list(
+            'retailer_product_id', flat=True)
+        given_products = []
+        for item in return_items:
+            given_products += [item['product_id']]
+        for pid in all_products:
+            if pid not in given_products:
+                return get_response("Please provide product {}".format(id) + " in return items")
+        return_details = []
+        for return_product in return_items:
+            product_validate = self.validate_product(ordered_product, return_product)
+            if 'error' in product_validate:
+                return product_validate
+            else:
+                return_details.append(product_validate)
+        return {'order': order, 'return_reason': return_reason, 'return_items': return_details,
+                'ordered_product': ordered_product}
 
     def update_refund_amount(self, order, new_cart_value, order_return):
         """
             Calculate refund amount
-            Check offers applied on order
-            Remove coupon if new cart value does not qualify for offer
-            Remove spot discount if discount exceeds new cart value
+            Without offers applied on order
         """
-        # previous offer on order
-        order_offer = {}
-        applied_offers = order.ordered_cart.offers
-        if applied_offers:
-            for offer in applied_offers:
-                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['applied']:
-                    order_offer = self.modify_applied_cart_offer(offer, new_cart_value)
-        discount = order_offer['discount_value'] if order_offer else 0
-        refund_amount = round(float(order.total_final_amount) - float(new_cart_value) + discount, 2)
-        refund_amount_provided = self.request.data.get('refund_amount')
-        if refund_amount_provided and refund_amount_provided <= refund_amount:
-            refund_amount = refund_amount_provided
+        # # previous offer on order
+        # order_offer = {}
+        # applied_offers = order.ordered_cart.offers
+        # if applied_offers:
+        #     for offer in applied_offers:
+        #         if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['applied']:
+        #             order_offer = self.modify_applied_cart_offer(offer, new_cart_value)
+        # discount = order_offer['discount_value'] if order_offer else 0
+        # refund_amount = round(float(order.total_final_amount) - float(new_cart_value) + discount, 2)
+        refund_amount = round(float(order.total_final_amount) - float(new_cart_value), 2)
+        # refund_amount_provided = self.request.data.get('refund_amount')
+        # if refund_amount_provided and refund_amount_provided <= refund_amount:
+        #     refund_amount = refund_amount_provided
         order_return.refund_amount = refund_amount
-        order_return.offers = [order_offer] if order_offer else []
+        # order_return.offers = [order_offer] if order_offer else []
         order_return.save()
 
     def modify_applied_cart_offer(self, offer, new_cart_value):
@@ -3352,12 +3366,13 @@ class OrderReturns(APIView):
         free_returns[free_item_id] = qty + free_returns[free_item_id] if free_item_id in free_returns else qty
         return free_returns
 
-    def return_item(self, order_return, ordered_product_map, return_qty):
+    def return_item(self, order_return, ordered_product_map, return_qty, changed_sp=0):
         """
             Update return for a product
         """
         return_item, _ = ReturnItems.objects.get_or_create(return_id=order_return,
                                                            ordered_product=ordered_product_map)
+        return_item.new_sp = changed_sp
         return_item.return_qty = return_qty
         return_item.save()
 
@@ -3376,23 +3391,35 @@ class OrderReturns(APIView):
             Validate return detail - product_id, qty, amt (refund amount) - provided for a product
         """
         # product id
-        if 'product_id' not in return_product:
-            return {'error': "Provide product ids"}
+        if 'product_id' not in return_product or 'qty' not in return_product or 'new_sp' not in return_product:
+            return {'error': "Provide product product_id, qty, new_sp for each product"}
         product_id = return_product['product_id']
-        # return qty
-        if 'qty' not in return_product or return_product['qty'] < 0:
-            return {'error': "Return qty not provided / invalid for product {}".format(product_id)}
-        return_qty = return_product['qty']
+        qty = return_product['qty']
+        new_sp = return_product['new_sp']
+        if qty < 0 or new_sp < 0:
+            return {'error': "Provide valid qty and new_sp for product {}".format(product_id)}
         # ordered product
         try:
             ordered_product_map = ShipmentProducts.objects.get(ordered_product=ordered_product, product_type=1,
-                                                                    retailer_product_id=product_id)
+                                                               retailer_product_id=product_id)
         except:
             return {'error': "{} is not a purchased product in this order".format(product_id)}
+        order_sp = ordered_product_map.selling_price
+        price_change = 0
+        changed_sp = new_sp
+        if new_sp > order_sp:
+            return {'error': "New selling price cannot be greater than ordered product's selling price for product"
+                             " {}".format(product_id)}
+        elif new_sp < order_sp:
+            if qty != 0:
+                return {'error': "Either of return qty or new selling price can be changed. Error in return details "
+                                 "for product {}".format(product_id)}
+            price_change = 1
         # check return qty
-        if return_qty > ordered_product_map.shipped_qty:
+        if qty > ordered_product_map.shipped_qty:
             return {'error': "Product {} - return qty cannot be greater than sold quantity".format(product_id)}
-        return {'ordered_product_map': ordered_product_map, 'return_qty': return_qty, 'product_id': product_id}
+        return {'ordered_product_map': ordered_product_map, 'return_qty': qty, 'product_id': product_id,
+                'changed_sp': changed_sp, 'price_change': price_change}
 
     def process_free_products(self, ordered_product, order_return, free_returns):
         """
@@ -3413,6 +3440,7 @@ class OrderReturns(APIView):
             free_return, _ = ReturnItems.objects.get_or_create(return_id=order_return,
                                                                ordered_product=ordered_product_map_free)
             free_return.return_qty = return_qty
+            free_return.new_sp = ordered_product_map_free.selling_price
             free_return.save()
 
 
@@ -3423,48 +3451,48 @@ class OrderReturnsCheckout(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request):
-        """
-            Apply Any Available Applicable Offer - Either coupon or spot discount
-            Inputs
-            cart_id
-            coupon_id
-            spot_discount
-            is_percentage (spot discount type)
-        """
-        initial_validation = self.post_validate()
-        if 'error' in initial_validation:
-            return get_response(initial_validation['error'])
-        order = initial_validation['order']
-        order_return = initial_validation['order_return']
-        # initial order amount
-        received_amount = order.total_final_amount
-        # refund amount according to any previous offer applied
-        refund_amount = order_return.refund_amount
-        applied_offers = order_return.offers
-        discount_given = 0
-        if applied_offers:
-            for offer in applied_offers:
-                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['applied']:
-                    discount_given += offer['discount_value']
-        # refund amount without any offer
-        refund_amount_raw = refund_amount - discount_given
-        # new order amount when no discount is applied
-        current_amount = received_amount - refund_amount_raw
-        # Check spot discount or cart offer
-        spot_discount = self.request.data.get('spot_discount')
-        offers_list = dict()
-        offers_list['applied'] = False
-        with transaction.atomic():
-            if spot_discount:
-                offers = BasicCartOffers.apply_spot_discount_returns(spot_discount, self.request.data.get('is_percentage'),
-                                                                     current_amount, order_return, refund_amount_raw)
-            else:
-                offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw,
-                                                                self.request.data.get('coupon_id'))
-            if 'error' in offers:
-                return get_response(offers['error'])
-            return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(order))
+    # def post(self, request):
+    #     """
+    #         Apply Any Available Applicable Offer - Either coupon or spot discount
+    #         Inputs
+    #         cart_id
+    #         coupon_id
+    #         spot_discount
+    #         is_percentage (spot discount type)
+    #     """
+    #     initial_validation = self.post_validate()
+    #     if 'error' in initial_validation:
+    #         return get_response(initial_validation['error'])
+    #     order = initial_validation['order']
+    #     order_return = initial_validation['order_return']
+    #     # initial order amount
+    #     received_amount = order.total_final_amount
+    #     # refund amount according to any previous offer applied
+    #     refund_amount = order_return.refund_amount
+    #     applied_offers = order_return.offers
+    #     discount_given = 0
+    #     if applied_offers:
+    #         for offer in applied_offers:
+    #             if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['applied']:
+    #                 discount_given += offer['discount_value']
+    #     # refund amount without any offer
+    #     refund_amount_raw = refund_amount - discount_given
+    #     # new order amount when no discount is applied
+    #     current_amount = received_amount - refund_amount_raw
+    #     # Check spot discount or cart offer
+    #     spot_discount = self.request.data.get('spot_discount')
+    #     offers_list = dict()
+    #     offers_list['applied'] = False
+    #     with transaction.atomic():
+    #         if spot_discount:
+    #             offers = BasicCartOffers.apply_spot_discount_returns(spot_discount, self.request.data.get('is_percentage'),
+    #                                                                  current_amount, order_return, refund_amount_raw)
+    #         else:
+    #             offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw,
+    #                                                             self.request.data.get('coupon_id'))
+    #         if 'error' in offers:
+    #             return get_response(offers['error'])
+    #         return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(order))
 
     def post_validate(self):
         """
@@ -3502,28 +3530,29 @@ class OrderReturnsCheckout(APIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         order = initial_validation['order']
-        order_return = initial_validation['order_return']
+        # order_return = initial_validation['order_return']
         # get available offers
         # Get coupons available on cart from es
         # initial order amount
-        received_amount = order.total_final_amount
+        # received_amount = order.total_final_amount
         # refund amount according to any previous offer applied
-        refund_amount = order_return.refund_amount
-        applied_offers = order_return.offers
-        discount_given = 0
-        if applied_offers:
-            for offer in applied_offers:
-                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['applied']:
-                    discount_given += offer['discount_value']
-        # refund amount without any offer
-        refund_amount_raw = refund_amount - discount_given
-        # new order amount when no discount is applied
-        current_amount = received_amount - refund_amount_raw
-        with transaction.atomic():
-            offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw)
-            if 'error' in offers:
-                return get_response(offers['error'])
-            return get_response("Return Checkout", self.serialize(order, offers['total_offers'], offers['spot_discount']))
+        # refund_amount = order_return.refund_amount
+        # applied_offers = order_return.offers
+        # discount_given = 0
+        # if applied_offers:
+        #     for offer in applied_offers:
+        #         if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['applied']:
+        #             discount_given += offer['discount_value']
+        # # refund amount without any offer
+        # refund_amount_raw = refund_amount - discount_given
+        # # new order amount when no discount is applied
+        # current_amount = received_amount - refund_amount_raw
+        # with transaction.atomic():
+        #     offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw)
+        #     if 'error' in offers:
+        #         return get_response(offers['error'])
+        #     return get_response("Return Checkout", self.serialize(order, offers['total_offers'], offers['spot_discount']))
+        return get_response("Return Checkout", self.serialize(order))
 
     def get_validate(self):
         """
@@ -3547,38 +3576,38 @@ class OrderReturnsCheckout(APIView):
             return {'error': "Order Return Created Does Not Exist / Already Closed"}
         return {'order': order, 'order_return': order_return}
 
-    def delete(self, request):
-        """
-            Order return checkout
-            Delete any applied offers
-        """
-        # Check shop
-        shop_id = get_shop_id_from_token(self.request)
-        if not type(shop_id) == int:
-            return get_response("Shop Doesn't Exist!")
-        # check order
-        order_id = self.request.GET.get('order_id')
-        try:
-            order = Order.objects.get(pk=order_id, seller_shop_id=shop_id)
-        except ObjectDoesNotExist:
-            return get_response("Order Does Not Exist")
-        # check if return created
-        try:
-            order_return = OrderReturn.objects.get(order=order)
-        except ObjectDoesNotExist:
-            return {'error': "Order Return Does Not Exist"}
-        refund_amount = order_return.refund_amount
-        applied_offers = order_return.offers
-        discount_given = 0
-        if applied_offers:
-            for offer in applied_offers:
-                if offer['coupon_type'] == 'cart' and offer['applied']:
-                    discount_given += float(offer['discount_value'])
-        refund_amount = refund_amount - discount_given
-        order_return.offers = []
-        order_return.refund_amount = refund_amount
-        order_return.save()
-        return get_response("Deleted Successfully", [], True)
+    # def delete(self, request):
+    #     """
+    #         Order return checkout
+    #         Delete any applied offers
+    #     """
+    #     # Check shop
+    #     shop_id = get_shop_id_from_token(self.request)
+    #     if not type(shop_id) == int:
+    #         return get_response("Shop Doesn't Exist!")
+    #     # check order
+    #     order_id = self.request.GET.get('order_id')
+    #     try:
+    #         order = Order.objects.get(pk=order_id, seller_shop_id=shop_id)
+    #     except ObjectDoesNotExist:
+    #         return get_response("Order Does Not Exist")
+    #     # check if return created
+    #     try:
+    #         order_return = OrderReturn.objects.get(order=order)
+    #     except ObjectDoesNotExist:
+    #         return {'error': "Order Return Does Not Exist"}
+    #     refund_amount = order_return.refund_amount
+    #     applied_offers = order_return.offers
+    #     discount_given = 0
+    #     if applied_offers:
+    #         for offer in applied_offers:
+    #             if offer['coupon_type'] == 'cart' and offer['applied']:
+    #                 discount_given += float(offer['discount_value'])
+    #     refund_amount = refund_amount - discount_given
+    #     order_return.offers = []
+    #     order_return.refund_amount = refund_amount
+    #     order_return.save()
+    #     return get_response("Deleted Successfully", [], True)
 
     def serialize(self, order, offers=None, spot_discount=None):
         """
@@ -3586,10 +3615,15 @@ class OrderReturnsCheckout(APIView):
         """
         serializer = OrderReturnCheckoutSerializer(order)
         response = serializer.data
-        if offers:
-            response['available_offers'] = offers
-        if spot_discount:
-            response['spot_discount'] = spot_discount
+        response['discount_given'] = 0
+        for offer in response['cart_offers']:
+            response['discount_given'] = float(offer['discount_value'])
+        response['order_total'] = response['received_amount'] + response['discount_given']
+        response['current_amount'] = response['received_amount'] - response['refund_amount']
+        # if offers:
+        #     response['available_offers'] = offers
+        # if spot_discount:
+        #     response['spot_discount'] = spot_discount
         return response
 
 
