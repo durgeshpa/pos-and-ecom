@@ -24,18 +24,19 @@ error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 cron_logger = logging.getLogger('cron_log')
 
+
 class RetailerProductCls(object):
 
     @classmethod
-    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description, product_ean_code, status):
+    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description, product_ean_code, status='active'):
         """
             General Response For API
         """
         if status is None:
             status = 'active'
         return RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
-                                       mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description,
-                                       product_ean_code=product_ean_code, status=status)
+                                              mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description,
+                                              product_ean_code=product_ean_code, status=status)
 
     @classmethod
     def get_sku_type(cls, sku_type):

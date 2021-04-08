@@ -68,7 +68,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  whatsapp_order_refund)
 from wms.models import OrderReserveRelease, InventoryType
 from pos.common_functions import get_shop_id_from_token, get_response, create_user_shop_mapping,\
-    delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP
+    delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP, RetailerProductCls
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,\
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer
@@ -984,16 +984,16 @@ class CartCentral(APIView):
             Add To Cart
             For cart type 'basic'
         """
-        # basic validations for inputs
-        initial_validation = self.post_basic_validate()
-        if 'error' in initial_validation:
-            return get_response(initial_validation['error'])
-        product = initial_validation['product']
-        shop = initial_validation['shop']
-        qty = initial_validation['quantity']
-        cart = initial_validation['cart']
-
         with transaction.atomic():
+            # basic validations for inputs
+            initial_validation = self.post_basic_validate()
+            if 'error' in initial_validation:
+                return get_response(initial_validation['error'])
+            product = initial_validation['product']
+            shop = initial_validation['shop']
+            qty = initial_validation['quantity']
+            cart = initial_validation['cart']
+
             # Update or create cart for shop
             cart = self.post_update_basic_cart(shop, cart)
             # Check if product has to be removed
@@ -1052,6 +1052,7 @@ class CartCentral(APIView):
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
+
         qty = self.request.data.get('qty')
         # Added Quantity check
         if qty is None or qty == '':
@@ -1061,11 +1062,28 @@ class CartCentral(APIView):
             shop = Shop.objects.get(id=shop_id)
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
-        # Check if product exists for that shop
-        try:
-            product = RetailerProduct.objects.get(id=self.request.data.get('cart_product'), shop=shop)
-        except ObjectDoesNotExist:
-            return {'error': "Product Not Found!"}
+
+        if not self.request.data.get('cart_product'):
+            name, sp, ean = self.request.data.get('product_name'), self.request.data.get('selling_price'),\
+                            self.request.data.get('product_ean_code')
+            if not (name and sp and ean):
+                return {'error': "Please provide cart_product OR product_name, product_ean_code, selling_price!"}
+            linked_pid = self.request.data.get('linked_product_id') if self.request.data.get('linked_product_id') else None
+            mrp, linked = None, 1
+            if linked_pid:
+                linked_product = Product.objects.filter(id=linked_pid).last()
+                if not linked_product:
+                    return {'error': 'GramFactory product not found for given linked_product_id'}
+                mrp, linked = linked_product.product_mrp, 2
+            try:
+                product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, linked, None, ean)
+            except:
+                return {'error': "Product could not be created. Please check values provided"}
+        else:
+            try:
+                product = RetailerProduct.objects.get(id=self.request.data.get('cart_product'), shop=shop)
+            except ObjectDoesNotExist:
+                return {'error': "Product Not Found!"}
         # Check if existing or new cart
         cart = None
         cart_id = self.request.data.get('cart_id')

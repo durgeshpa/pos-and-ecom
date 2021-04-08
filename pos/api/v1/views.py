@@ -20,9 +20,9 @@ from pos.common_functions import RetailerProductCls, OffersCls, serializer_error
 
 from .pagination import pagination
 from .serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
-    RetailerProductResponseSerializer, CouponCodeSerializer, FreeProductOfferSerializer, ComboDealsSerializer,\
-    CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, CouponRuleSetSerializers, CouponListSerializers,\
-    RetailerProductImageDeleteSerializers, FreeProductUpdateSerializer
+    RetailerProductResponseSerializer, RetailerProductImageDeleteSerializer, CouponCodeSerializer, \
+    FreeProductOfferSerializer, ComboDealsSerializer, CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, \
+    CouponRuleSetSerializer, CouponListSerializer, FreeProductUpdateSerializer
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -33,7 +33,7 @@ cron_logger = logging.getLogger('cron_log')
 POS_SERIALIZERS_MAP = {
     0: RetailerProductCreateSerializer,
     1: RetailerProductUpdateSerializer,
-    2: RetailerProductImageDeleteSerializers
+    2: RetailerProductImageDeleteSerializer
 }
 
 
@@ -191,7 +191,7 @@ class CatalogueProductCreation(GenericAPIView):
                         # if both mrp & selling price are there in edit product request
                         # checking if product already exist, through error
                         if RetailerProduct.objects.filter(shop_id=shop_id_or_error_message, name=product.name, mrp=mrp,
-                                                          selling_price=selling_price).exists():
+                                                          selling_price=selling_price).exclude(id=product_id).exists():
                             msg = {"is_success": False,
                                    "message": "Product {} with mrp {} & selling_price {} already exist."
                                        .format(product.name, mrp, selling_price),
@@ -201,7 +201,8 @@ class CatalogueProductCreation(GenericAPIView):
                         # if only mrp is there in edit product request
                         # checking if product already exist, through error
                         if RetailerProduct.objects.filter(shop_id=shop_id_or_error_message, name=product.name, mrp=mrp,
-                                                          selling_price=product.selling_price).exists():
+                                                          selling_price=product.selling_price).\
+                                                          exclude(id=product_id).exists():
                             msg = {"is_success": False,
                                    "message": "Product {} with mrp {} & selling_price {} already exist."
                                        .format(product.name, mrp, product.selling_price),
@@ -211,7 +212,8 @@ class CatalogueProductCreation(GenericAPIView):
                         # if only selling_price is there in edit product request
                         # checking if product already exist, through error
                         if RetailerProduct.objects.filter(shop_id=shop_id_or_error_message, name=product.name, mrp=product.mrp,
-                                                          selling_price=selling_price).exists():
+                                                          selling_price=selling_price).\
+                                                          exclude(id=product_id).exists():
                             msg = {"is_success": False,
                                    "message": "Product {} with mrp {} & selling_price {} already exist."
                                        .format(product.name, product.mrp, selling_price),
@@ -359,7 +361,8 @@ class CouponOfferCreation(GenericAPIView):
                             msg, status_code = self.create_coupon(request, serializer, shop_id)
                             return Response(msg, status=status_code.get("status_code"))
                     except Exception as e:
-                        msg = {"is_success": False, "message": "Something went wrong",
+                        error_logger.error(e)
+                        msg = {"is_success": False, "message": "something went wrong ",
                                "response_data": serializer.data}
                         return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                 else:
@@ -377,7 +380,8 @@ class CouponOfferCreation(GenericAPIView):
                             msg, status_code = self.create_combo_offer(request, serializer, shop_id)
                             return Response(msg, status=status_code.get("status_code"))
                     except Exception as e:
-                        msg = {"is_success": False, "message": f"{e}",
+                        error_logger.error(e)
+                        msg = {"is_success": False, "message": "something went wrong ",
                                "response_data": serializer.data}
                         return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                 else:
@@ -395,7 +399,8 @@ class CouponOfferCreation(GenericAPIView):
                             msg, status_code = self.create_free_product_offer(serializer, shop_id)
                             return Response(msg, status=status_code.get("status_code"))
                     except Exception as e:
-                        msg = {"is_success": False, "message": "Something went wrong",
+                        error_logger.error(e)
+                        msg = {"is_success": False, "message": "something went wrong ",
                                "response_data": serializer.data}
                         return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                 else:
@@ -428,7 +433,8 @@ class CouponOfferCreation(GenericAPIView):
                                 msg, status_code = self.update_coupon(request, coupon_id, serializer, shop_id)
                                 return Response(msg, status=status_code.get("status_code"))
                         except Exception as e:
-                            msg = {"is_success": False, "message": "Something went wrong",
+                            error_logger.error(e)
+                            msg = {"is_success": False, "message": "something went wrong ",
                                    "response_data": serializer.data}
                             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                     else:
@@ -454,7 +460,8 @@ class CouponOfferCreation(GenericAPIView):
                                 msg, status_code = self.update_combo(request, combo_offer_id, serializer, shop_id)
                                 return Response(msg, status=status_code.get("status_code"))
                         except Exception as e:
-                            msg = {"is_success": False, "message": "Something went wrong",
+                            error_logger.error(e)
+                            msg = {"is_success": False, "message": "something went wrong ",
                                    "response_data": serializer.data}
                             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                     else:
@@ -479,8 +486,9 @@ class CouponOfferCreation(GenericAPIView):
                             with transaction.atomic():
                                 msg, status_code = self.update_free_product_offer(coupon_id, serializer, shop_id)
                                 return Response(msg, status=status_code.get("status_code"))
-                        except:
-                            msg = {"is_success": False, "message": "Something went wrong",
+                        except Exception as e:
+                            error_logger.error(e)
+                            msg = {"is_success": False, "message": "something went wrong",
                                    "response_data": serializer.data}
                             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
                     else:
@@ -505,7 +513,7 @@ class CouponOfferCreation(GenericAPIView):
        """
         coupon_offers = CouponRuleSet.objects.filter(coupon_ruleset__shop=shop_id,
                                                      coupon_ruleset__id=combo_coupon_id)
-        serializer = CouponRuleSetSerializers(coupon_offers, many=True)
+        serializer = CouponRuleSetSerializer(coupon_offers, many=True)
         return serializer.data
 
     def get_coupons_combo_offers_list(self, request, shop_id):
@@ -513,18 +521,13 @@ class CouponOfferCreation(GenericAPIView):
           Get Offers/Coupons
           Serialize Offers/Coupons
        """
+        coupon = Coupon.objects.filter(shop=shop_id)
         if request.GET.get('search_text'):
             """
                  Get Offers/Coupons when search_text is given in params
             """
-            coupon = Coupon.objects.filter(shop=shop_id, coupon_code__icontains=request.GET.get('search_text'))
-            serializer = CouponListSerializers(coupon, many=True)
-        else:
-            """
-                Get Offers/Coupons when search_text is not given in params
-           """
-            coupon_ruleset = Coupon.objects.filter(shop=shop_id)
-            serializer = CouponListSerializers(coupon_ruleset, many=True)
+            coupon = coupon.filter(coupon_code__icontains=request.GET.get('search_text'))
+        serializer = CouponListSerializer(coupon, many=True)
         """
             Pagination on Offers/Coupons
         """
@@ -555,8 +558,8 @@ class CouponOfferCreation(GenericAPIView):
         else:
             discount_obj = DiscountValue.objects.create(discount_value=discount_value)
         # creating CouponRuleSet
-        coupon_name_with_shop_id = f"{shop_id}_on Spending {discount_amount} get {discount_value} Off"
-        coupon_obj = OffersCls.rule_set_creation(coupon_name_with_shop_id, start_date, expiry_date, discount_amount,
+        rule_set_name_with_shop_id = f"{shop_id}_on Spending {discount_amount} get {discount_value} Off"
+        coupon_obj = OffersCls.rule_set_creation(rule_set_name_with_shop_id, start_date, expiry_date, discount_amount,
                                                  discount_obj)
         if type(coupon_obj) == str:
             msg = {"is_success": False, "message": coupon_obj,
