@@ -409,7 +409,7 @@ class CartSerializer(serializers.ModelSerializer):
     sub_total = serializers.SerializerMethodField('sub_total_id')
     delivery_msg = serializers.SerializerMethodField()
     discounted_prices_sum = serializers.SerializerMethodField()
-    shop_min_amount = serializers.SerializerMethodField()
+    shop_min_amount = serializers.SerializerMethodField('shop_min_amount_id')
 
     class Meta:
         model = Cart
@@ -454,8 +454,8 @@ class CartSerializer(serializers.ModelSerializer):
                 self.total_amount+=0
         return self.total_amount
 
-    def shop_min_amount(self, obj):
-        return MIN_ORDER_AMOUNT
+    def shop_min_amount_id(self, obj):
+        return str(MIN_ORDER_AMOUNT)
 
     def sub_total_id(self, obj):
         sub_total = float(self.total_amount_id(obj)) - self.get_total_discount(obj)
