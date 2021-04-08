@@ -36,6 +36,7 @@ from coupon.serializers import CouponSerializer
 import datetime
 from coupon.models import Coupon
 from django.db.models import F,Sum, Q
+from common.constants import MIN_ORDER_AMOUNT
 
 User = get_user_model()
 
@@ -408,11 +409,12 @@ class CartSerializer(serializers.ModelSerializer):
     sub_total = serializers.SerializerMethodField('sub_total_id')
     delivery_msg = serializers.SerializerMethodField()
     discounted_prices_sum = serializers.SerializerMethodField()
+    shop_min_amount = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
-                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
+                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount', 'shop_min_amount',
                   'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers')
 
     def get_discounted_prices_sum(self, obj):
@@ -452,7 +454,8 @@ class CartSerializer(serializers.ModelSerializer):
                 self.total_amount+=0
         return self.total_amount
 
-
+    def shop_min_amount(self, obj):
+        return MIN_ORDER_AMOUNT
 
     def sub_total_id(self, obj):
         sub_total = float(self.total_amount_id(obj)) - self.get_total_discount(obj)
