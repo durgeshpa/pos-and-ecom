@@ -699,13 +699,13 @@ class CartDetail(APIView):
 
         if int(time) < 17 and not (day == 'Saturday'):
             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=1)).strftime('%A'), MIN_ORDER_AMOUNT))
+                (date_time_now + timedelta(days=1)).strftime('%A'), str(MIN_ORDER_AMOUNT)))
         elif (day == 'Friday'):
             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=3)).strftime('%A'), MIN_ORDER_AMOUNT))
+                (date_time_now + timedelta(days=3)).strftime('%A'), str(MIN_ORDER_AMOUNT)))
         else:
             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=2)).strftime('%A'), MIN_ORDER_AMOUNT))
+                (date_time_now + timedelta(days=2)).strftime('%A'), str(MIN_ORDER_AMOUNT)))
 
     def get(self, request, *args, **kwargs):
         shop_id = self.request.GET.get('shop_id')
