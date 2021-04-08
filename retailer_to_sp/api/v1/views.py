@@ -1070,8 +1070,6 @@ class CartCentral(APIView):
                 return {'error': "Please provide cart_product or product_name, product_ean_code with selling_price!"}
             try:
                 product = self.create_product(shop_id)
-                if 'error' in product:
-                    return get_response(product['error'])
             except Exception as e:
                 logger.exception(e)
                 return {'error': "Product could not create please provide valid value"}
@@ -1313,7 +1311,8 @@ class CartCentral(APIView):
             try:
                 linked_product = Product.objects.get(id=linked_product_id)
             except ObjectDoesNotExist:
-                return {'error': "Linked Product ID not found! Please enter a valid Product ID"}
+                msg = {'is_success': False, 'message': ['Linked Product ID not found! Please enter a valid Product ID!'], 'response_data': None}
+                return Response(msg, status=status.HTTP_200_OK)
             # If product is linked with existing product sku_type=2
             product_obj = RetailerProductCls.create_retailer_product(shop_id, product_name, linked_product.product_mrp,
                                                                      selling_price, linked_product_id, 2,
