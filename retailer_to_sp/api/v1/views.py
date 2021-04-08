@@ -984,16 +984,16 @@ class CartCentral(APIView):
             Add To Cart
             For cart type 'basic'
         """
-        # basic validations for inputs
-        initial_validation = self.post_basic_validate()
-        if 'error' in initial_validation:
-            return get_response(initial_validation['error'])
-        product = initial_validation['product']
-        shop = initial_validation['shop']
-        qty = initial_validation['quantity']
-        cart = initial_validation['cart']
-
         with transaction.atomic():
+            # basic validations for inputs
+            initial_validation = self.post_basic_validate()
+            if 'error' in initial_validation:
+                return get_response(initial_validation['error'])
+            product = initial_validation['product']
+            shop = initial_validation['shop']
+            qty = initial_validation['quantity']
+            cart = initial_validation['cart']
+
             # Update or create cart for shop
             cart = self.post_update_basic_cart(shop, cart)
             # Check if product has to be removed
@@ -1064,21 +1064,22 @@ class CartCentral(APIView):
             return {'error': "Shop Doesn't Exist!"}
 
         if not self.request.data.get('cart_product'):
-            # if not cart_product create new product
-            if not (self.request.data.get('product_name') and self.request.data.get('selling_price')
-                    and self.request.data.get('product_ean_code')):
-                return {'error': "Please provide cart_product or product_name, product_ean_code with selling_price!"}
+            name, sp, ean = self.request.data.get('product_name'), self.request.data.get('selling_price'),\
+                            self.request.data.get('product_ean_code')
+            if not (name and sp and ean):
+                return {'error': "Please provide cart_product OR product_name, product_ean_code, selling_price!"}
+            linked_pid = self.request.data.get('linked_product_id') if self.request.data.get('linked_product_id') else None
+            mrp, linked = None, 1
+            if linked_pid:
+                linked_product = Product.objects.filter(id=linked_pid).last()
+                if not linked_product:
+                    return {'error': 'GramFactory product not found for given linked_product_id'}
+                mrp, linked = linked_product.product_mrp, 2
             try:
-                product = self.create_product(shop_id)
-                try:
-                    product = RetailerProduct.objects.get(id=product.id)
-                except:
-                    return {'error': product['error']}
-            except Exception as e:
-                logger.exception(e)
-                return {'error': "Product could not create please provide valid value"}
+                product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, linked, None, ean)
+            except:
+                return {'error': "Product could not be created. Please check values provided"}
         else:
-            # Check if product exists for that shop
             try:
                 product = RetailerProduct.objects.get(id=self.request.data.get('cart_product'), shop=shop)
             except ObjectDoesNotExist:
@@ -1304,28 +1305,6 @@ class CartCentral(APIView):
         """
         serializer = BasicCartSerializer(Cart.objects.get(id=cart.id))
         return serializer.data
-
-    def create_product(self, shop_id):
-        product_ean_code = self.request.data.get('product_ean_code')
-        product_name = self.request.data.get('product_name')
-        selling_price = self.request.data.get('selling_price')
-        if self.request.data.get('linked_product_id'):
-            linked_product_id = self.request.data.get('linked_product_id')
-            # If user provides linked_product_id
-            try:
-                linked_product = Product.objects.get(id=linked_product_id)
-            except ObjectDoesNotExist:
-                return { 'error': 'Linked Product ID not found! Please enter a valid Product ID!'}
-            # If product is linked with existing product sku_type=2
-            product_obj = RetailerProductCls.create_retailer_product(shop_id, product_name, linked_product.product_mrp,
-                                                                     selling_price, linked_product_id, 2,
-                                                                     None, product_ean_code, None)
-        else:
-            # If product is not linked with existing product sku_type=1, mrp=0.0
-            product_obj = RetailerProductCls.create_retailer_product(shop_id, product_name, 0.0,
-                                                                     selling_price, None, 1,
-                                                                     None, product_ean_code, None)
-        return product_obj
 
 
 class CartCheckout(APIView):
