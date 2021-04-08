@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 
 
+# bulk order validation for csv uploaded
 def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop,
                           availableQuantity, error_dict):
 
@@ -97,5 +98,7 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
             message = "Failed because of Ordered quantity is {} > Available quantity {}".format(str(int(row[2])),
                                                                                                 str(available_quantity))
             error_dict[row[0]] = message
+
+    return availableQuantity, error_dict
 
 

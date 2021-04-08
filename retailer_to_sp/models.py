@@ -583,16 +583,14 @@ class BulkOrder(models.Model):
         return url
 
     def clean(self, *args, **kwargs):
-        unavailable_skus = []
         availableQuantity = []
         error_dict = {}
         if self.cart_products_csv:
-            unavailable_skus, availableQuantity, error_dict = \
-                bulk_order_validation(self.cart_products_csv,self.order_type,
-                                      unavailable_skus, self.seller_shop, self.buyer_shop,
+            availableQuantity, error_dict = \
+                bulk_order_validation(self.cart_products_csv, self.order_type,
+                                      self.seller_shop, self.buyer_shop,
                                       availableQuantity, error_dict)
-        info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]--Unavailable-SKUs:{unavailable_skus}, "
-                         f"Available_Qty_of_Ordered_SKUs:{availableQuantity}")
+        info_logger.info(f"Available_Qty_of_Ordered_SKUs:{availableQuantity}")
         if len(error_dict) > 0:
             if self.cart_products_csv and self.order_type:
                 self.save()
