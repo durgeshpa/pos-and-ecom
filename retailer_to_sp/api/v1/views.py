@@ -92,7 +92,7 @@ from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
 from products.models import Product
-from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
+from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME, MIN_ORDER_AMOUNT
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data)
 from retailer_to_sp.views import pick_list_download
@@ -698,14 +698,14 @@ class CartDetail(APIView):
         time = date_time_now.strftime("%H")
 
         if int(time) < 17 and not (day == 'Saturday'):
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=1)).strftime('%A')))
+            return str('Order now and get delivery by {}.Now the Order amount must be more than {}'.format(
+                (date_time_now + timedelta(days=1)).strftime('%A'), MIN_ORDER_AMOUNT))
         elif (day == 'Friday'):
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=3)).strftime('%A')))
+            return str('Order now and get delivery by {}.Now the Order amount must be more than {}'.format(
+                (date_time_now + timedelta(days=3)).strftime('%A'), MIN_ORDER_AMOUNT))
         else:
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=2)).strftime('%A')))
+            return str('Order now and get delivery by {}.Now the Order amount must be more than {}'.format(
+                (date_time_now + timedelta(days=2)).strftime('%A'), MIN_ORDER_AMOUNT))
 
     def get(self, request, *args, **kwargs):
         shop_id = self.request.GET.get('shop_id')
