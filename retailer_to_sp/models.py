@@ -641,50 +641,51 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8', errors='ignore'))
                 qty = 0
                 for id, row in enumerate(reader):
-                    if row[0]:
-                        product = Product.objects.get(product_sku=row[0])
-                        product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
-                        ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
-                        ordered_qty = int(row[2])
-                        shop = Shop.objects.filter(id=instance.seller_shop_id).last()
-                        inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
-                        product_qty_dict = get_stock(shop, inventory_type, [product.id])
-                        available_quantity = 0
-                        if product_qty_dict.get(product.id) is not None:
-                            available_quantity = product_qty_dict[product.id]
+                    for row in reader:
+                        if row[0]:
+                            product = Product.objects.get(product_sku=row[0])
+                            product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
+                            ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
+                            ordered_qty = int(row[2])
+                            shop = Shop.objects.filter(id=instance.seller_shop_id).last()
+                            inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+                            product_qty_dict = get_stock(shop, inventory_type, [product.id])
+                            available_quantity = 0
+                            if product_qty_dict.get(product.id) is not None:
+                                available_quantity = product_qty_dict[product.id]
 
-                        capping = product.get_current_shop_capping(instance.seller_shop,
-                                                                   instance.buyer_shop)
-                        product_qty = int(row[2])
-                        parent_mapping = getShopMapping(instance.buyer_shop_id)
-                        if parent_mapping is None:
-                            continue
-                        if capping:
-                            msg = capping_check(capping, parent_mapping, product, product_qty, qty)
-                            if msg[0] is False:
+                            capping = product.get_current_shop_capping(instance.seller_shop,
+                                                                       instance.buyer_shop)
+                            product_qty = int(row[2])
+                            parent_mapping = getShopMapping(instance.buyer_shop_id)
+                            if parent_mapping is None:
                                 continue
+                            if capping:
+                                msg = capping_check(capping, parent_mapping, product, product_qty, qty)
+                                if msg[0] is False:
+                                    continue
 
-                        from audit.views import BlockUnblockProduct
-                        is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product,
-                                                                                                instance.seller_shop)
-                        if is_blocked_for_audit:
-                            continue
-                        product_available = int(
-                            int(available_quantity) / int(product.product_inner_case_size))
-                        if product_available >= ordered_qty:
-                            products_available[product_id] = ordered_pieces
-                            if instance.order_type == 'DISCOUNTED':
-                                discounted_price = float(row[3])
+                            from audit.views import BlockUnblockProduct
+                            is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product,
+                                                                                                    instance.seller_shop)
+                            if is_blocked_for_audit:
+                                continue
+                            product_available = int(
+                                int(available_quantity) / int(product.product_inner_case_size))
+                            if product_available >= ordered_qty:
+                                products_available[product.id] = ordered_pieces
+                                if instance.order_type == 'DISCOUNTED':
+                                    discounted_price = float(row[3])
+                                else:
+                                    discounted_price = 0
+                                CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product.id,
+                                                                  qty=int(row[2]),
+                                                                  no_of_pieces=int(row[2]) * int(
+                                                                  product.product_inner_case_size),
+                                                                  cart_product_price=product_price,
+                                                                  discounted_price=discounted_price)
                             else:
-                                discounted_price = 0
-                            CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product_id,
-                                                              qty=int(row[2]),
-                                                              no_of_pieces=int(row[2]) * int(
-                                                              product.product_inner_case_size),
-                                                              cart_product_price=product_price,
-                                                              discounted_price=discounted_price)
-                        else:
-                            continue
+                                continue
             if len(products_available) > 0:
                 reserved_args = json.dumps({
                     'shop_id': instance.seller_shop.id,
