@@ -1044,6 +1044,14 @@ class CouponOfferCreation(GenericAPIView):
             ruleset_name = f"{shop_id}_{retailer_free_product_obj.name}_{coupon_ruleset.free_product_qty}"
             coupon_code = f"Get {coupon_ruleset.free_product_qty} {retailer_free_product_obj.name} " \
                           f"Free on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
+
+            if CouponRuleSet.objects.filter(rulename=ruleset_name).exclude(id=coupon_ruleset.id):
+                msg = {"is_success": False,
+                       "message": f"cannot create a Offer with {ruleset_name}, already exists",
+                       "response_data": serializer.data}
+                status_code = {"status_code": 404}
+                return msg, status_code
+
             coupon_ruleset.rulename = ruleset_name
             coupon.coupon_code = coupon_code
 
@@ -1066,6 +1074,14 @@ class CouponOfferCreation(GenericAPIView):
             ruleset_name = f"{shop_id}_{coupon_ruleset.free_product.name}_{free_product_qty}"
             coupon_code = f"Get {free_product_qty} {coupon_ruleset.free_product.name} " \
                           f"Free on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
+
+            if CouponRuleSet.objects.filter(rulename=ruleset_name).exclude(id=coupon_ruleset.id):
+                msg = {"is_success": False,
+                       "message": f"cannot create a Offer with {ruleset_name}, already exists",
+                       "response_data": serializer.data}
+                status_code = {"status_code": 404}
+                return msg, status_code
+
             coupon_ruleset.rulename = ruleset_name
             coupon.coupon_code = coupon_code
 
