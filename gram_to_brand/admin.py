@@ -1,48 +1,33 @@
 import logging
 import datetime
 import math
-from django.contrib import messages, admin
-from django.contrib import admin
-from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList,
-                     PickListItems,
-                     OrderedProductReserved, Po_Message, Document)
-from products.models import Product, ProductVendorMapping, ParentProduct
-from retailer_backend.admin import InputFilter
-from django import forms
-from django.db.models import Sum, F
-from django.utils.html import format_html
-from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
-from dal import autocomplete
-from django.utils.html import format_html
-from django.urls import reverse
-from daterange_filter.filter import DateRangeFilter
-from django.db.models import Q
-from brand.models import Brand
-from addresses.models import State, Address
-from brand.models import Vendor
-from shops.models import Shop, ParentRetailerMapping
-from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm, GRNOrderProductForm,
-                                 GRNOrderProductFormset, POGenerationAccountForm)
-from .forms import POGenerationForm, DocumentForm
-from shops.models import Shop
-from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm, GRNOrderProductForm, GRNOrderProductFormset, POGenerationAccountForm)
-from .forms import POGenerationForm, DocumentForm, DocumentFormset
-from django.http import HttpResponse, HttpResponseRedirect
-from retailer_backend.filters import (BrandFilter, SupplierStateFilter, SupplierFilter, OrderSearch, QuantitySearch,
-                                      InvoiceNoSearch,
-                                      GRNSearch, POAmountSearch, PORaisedBy, ProductNameSearch, ProductSKUSearch,
-                                      SupplierNameSearch, POCreatedBySearch, PONumberSearch)
 
-from django.db.models import Q
-from .views import DownloadPurchaseOrder, GetMessage
+from dal import autocomplete
+from django import forms
+from django.db.models import Sum, F, Q
 from django.db import models
+from django.contrib import messages, admin
 from django.forms import Textarea
 from django.contrib.admin.models import LogEntry, ADDITION
 from django.contrib.contenttypes.models import ContentType
-from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
-from .common_functions import upload_cart_product_csv
+from django.utils.html import format_html
+from django.urls import reverse
+from daterange_filter.filter import DateRangeFilter
+from django.http import HttpResponseRedirect
 
-from barCodeGenerator import barcodeGen, merged_barcode_gen
+from retailer_backend.filters import (BrandFilter, SupplierStateFilter, SupplierFilter, OrderSearch, QuantitySearch,
+                                      InvoiceNoSearch, GRNSearch, POAmountSearch, PORaisedBy, ProductNameSearch,
+                                      ProductSKUSearch, SupplierNameSearch, POCreatedBySearch, PONumberSearch)
+from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
+from products.models import ProductVendorMapping, ParentProduct
+from barCodeGenerator import merged_barcode_gen
+
+from .views import DownloadPurchaseOrder, GetMessage
+from .common_functions import upload_cart_product_csv
+from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList, Document,
+                     PickListItems, OrderedProductReserved, Po_Message)
+from .forms import (OrderForm, CartProductMappingForm, GRNOrderProductForm, GRNOrderProductFormset, DocumentFormset,
+                    POGenerationAccountForm, POGenerationForm, DocumentForm)
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -61,7 +46,7 @@ class CartProductMappingAdmin(admin.TabularInline):
         widget=autocomplete.ModelSelect2(
             url='parent-product-autocomplete',
             attrs={
-                "onChange":'getLastGrnProductDetails(this)'
+                "onChange": 'getLastGrnProductDetails(this)'
             },
             forward=['supplier_name']
         )
@@ -69,29 +54,26 @@ class CartProductMappingAdmin(admin.TabularInline):
 
     class Media:
         js = (
-            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/po_generation_form.js'
         )
 
-    fields = (
-    'cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes', 'no_of_cases', 'no_of_pieces','brand_to_gram_price_units','price', 'sub_total')
-    readonly_fields = ('tax_percentage', 'mrp', 'sku', 'case_sizes','brand_to_gram_price_units', 'sub_total')
-
-    ##readonly_fields = ('tax_percentage','case_sizes','total_no_of_pieces',)
+    fields = ('cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes', 'no_of_cases',
+              'no_of_pieces', 'brand_to_gram_price_units', 'price', 'sub_total')
+    readonly_fields = ('tax_percentage', 'mrp', 'sku', 'case_sizes', 'brand_to_gram_price_units', 'sub_total')
 
     def get_readonly_fields(self, request, obj=None):
         if request.user.is_superuser:
-            return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total','brand_to_gram_price_units'
+            return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total', 'brand_to_gram_price_units'
         elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total','brand_to_gram_price_units'
-        return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total','brand_to_gram_price_units'
+            return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total', 'brand_to_gram_price_units'
+        return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total', 'brand_to_gram_price_units'
 
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status', 'last_modified_by')
     autocomplete_fields = ('brand',)
-    # list_display = ('po_no','po_edit_link','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_raised_by','po_status', 'download_purchase_order')
     list_filter = [BrandFilter, SupplierStateFilter, SupplierFilter, ('po_creation_date', DateRangeFilter),
                    ('po_validity_date', DateRangeFilter), POAmountSearch, PORaisedBy, PONumberSearch]
     form = POGenerationForm
@@ -171,11 +153,9 @@ class CartAdmin(admin.ModelAdmin):
             upload_cart_product_csv(obj)
         return HttpResponseRedirect("/admin/gram_to_brand/cart/")
 
-    # class Media:
-    #     pass
     class Media:
         js = (
-            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/po_generation_form.js'
         )
 
@@ -186,16 +166,12 @@ class CartAdmin(admin.ModelAdmin):
                    url(r'^download-purchase-order/(?P<pk>\d+)/purchase_order/$',
                        self.admin_site.admin_view(DownloadPurchaseOrder.as_view()),
                        name='download_purchase_order'),
-
                    url(r'^message-list/$',
                        self.admin_site.admin_view(GetMessage.as_view()),
                        name='message-list'),
                ] + urls
         return urls
 
-    """
-        TextArea Rows and columns can set here
-    """
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 2, 'cols': 33})},
     }
@@ -204,7 +180,8 @@ class CartAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return 'po_status',
         elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return 'brand', 'supplier_state', 'supplier_name', 'gf_shipping_address', 'gf_billing_address', 'po_validity_date', 'payment_term', 'delivery_term', 'po_status',
+            return 'brand', 'supplier_state', 'supplier_name', 'gf_shipping_address', 'gf_billing_address', \
+                   'po_validity_date', 'payment_term', 'delivery_term', 'po_status',
         return 'po_status',
 
     def get_form(self, request, obj=None, **kwargs):

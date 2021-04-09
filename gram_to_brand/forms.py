@@ -145,13 +145,14 @@ class POGenerationAccountForm(forms.ModelForm):
 
     change_form_template = 'admin/gram_to_brand/acc-cart/change_form.html'
 
+
 class CartProductMappingForm(forms.ModelForm):
     cart_parent_product = forms.ModelChoiceField(
         queryset=ParentProduct.objects.all(),
         widget=autocomplete.ModelSelect2(
             url='parent-product-autocomplete',
             attrs={
-                "onChange":'getLastGrnProductDetails(this)'
+                "onChange": 'getLastGrnProductDetails(this)'
             },
             forward=['supplier_name']
         )
@@ -161,7 +162,7 @@ class CartProductMappingForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='vendor-product-autocomplete',
             attrs={
-                "onChange":'getProductVendorPriceDetails(this)'
+                "onChange": 'getProductVendorPriceDetails(this)'
             },
             forward=['supplier_name', 'cart_parent_product']
         ),
@@ -171,12 +172,10 @@ class CartProductMappingForm(forms.ModelForm):
     sku = forms.CharField(disabled=True, required=False)
     tax_percentage = forms.CharField(disabled=True, required=False)
     case_sizes = forms.CharField(disabled=True, required=False, label='case size')
-    no_of_cases = forms.CharField(max_length=64,
-        widget=forms.TextInput(attrs={'style':'max-width: 8em'}),
-        required=True)
-    no_of_pieces = forms.CharField(max_length=64,
-        widget=forms.TextInput(attrs={'style':'max-width: 8em'}),
-        required=False)
+    no_of_cases = forms.CharField(max_length=64, widget=forms.TextInput(attrs={'style': 'max-width: 8em'}),
+                                  required=True)
+    no_of_pieces = forms.CharField(max_length=64, widget=forms.TextInput(attrs={'style': 'max-width: 8em'}),
+                                   required=False)
     brand_to_gram_price_units = forms.CharField(disabled=True, required=False)
     sub_total = forms.CharField(disabled=True, required=False)
 
@@ -187,27 +186,31 @@ class CartProductMappingForm(forms.ModelForm):
             self.fields['sku'].initial = kwargs['instance'].sku
             self.fields['no_of_cases'].initial = kwargs['instance'].no_of_cases
             self.fields['brand_to_gram_price_units'].initial = kwargs['instance'].brand_to_gram_price_units
-           
-            self.fields['no_of_pieces'].initial = kwargs['instance'].no_of_pieces if kwargs['instance'].no_of_pieces else \
-                int(kwargs['instance'].cart_product.product_inner_case_size)*int(kwargs['instance'].cart_product.product_case_size)*int(kwargs['instance'].number_of_cases)
-    
+            self.fields['no_of_pieces'].initial = kwargs['instance'].no_of_pieces if kwargs[
+                'instance'].no_of_pieces else \
+                int(kwargs['instance'].cart_product.product_inner_case_size) * int(
+                    kwargs['instance'].cart_product.product_case_size) * int(kwargs['instance'].number_of_cases)
+
     class Meta:
         model = CartProductMapping
-        fields = ('cart', 'cart_parent_product', 'cart_product','mrp','sku','tax_percentage','case_sizes','no_of_cases','price','sub_total','no_of_pieces','vendor_product','brand_to_gram_price_units')
-        search_fields=('cart_product',)
+        fields = ('cart', 'cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes',
+                  'no_of_cases', 'price', 'sub_total', 'no_of_pieces', 'vendor_product', 'brand_to_gram_price_units')
+        search_fields = ('cart_product',)
         exclude = ('qty',)
 
     class Media:
         js = (
-            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
             'admin/js/po_generation_form.js'
         )
+
 
 class GRNOrderForm(forms.ModelForm):
     class Meta:
         model = GRNOrder
         fields = ('order','invoice_no')
         readonly_fields = ('order')
+
 
 class GRNOrderProductForm(forms.ModelForm):
     product = forms.ModelChoiceField(
