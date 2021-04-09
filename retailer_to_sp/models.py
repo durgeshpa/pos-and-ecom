@@ -8,12 +8,12 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models import F, FloatField, Sum, Func, Q, Count, Case, Value, When
-from django.db.models.signals import post_save, pre_save
+from django.db.models import F, FloatField, Sum, Func, Q, Case, Value, When
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
-from django.utils.html import format_html, format_html_join
+from django.utils.html import format_html_join
 from django.contrib.postgres.fields import JSONField
 
 from addresses.models import Address
@@ -24,7 +24,6 @@ from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
 from wms.models import Out, PickupBinInventory, Pickup, BinInventory,\
     Putaway, PutawayBinInventory, InventoryType, InventoryState, Bin
-
 
 from celery.task import task
 from accounts.middlewares import get_current_user
@@ -43,7 +42,11 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 today = datetime.datetime.today()
 
 logger = logging.getLogger(__name__)
+
+# Logger
 info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
@@ -97,9 +100,7 @@ def generate_picklist_id(pincode):
     if PickerDashboard.objects.exists():
         last_picking = PickerDashboard.objects.last()
         picklist_id = last_picking.picklist_id
-
         new_picklist_id = "PIK/" + str(pincode)[-2:] + "/" + str(int(picklist_id.split('/')[2]) + 1)
-
     else:
         new_picklist_id = "PIK/" + str(pincode)[-2:] + "/" + str(1)
 
@@ -494,7 +495,6 @@ class Cart(models.Model):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
                 cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
-
         super().save(*args, **kwargs)
 
     @property
@@ -591,6 +591,8 @@ class BulkOrder(models.Model):
         if len(error_dict) > 0:
             if self.cart_products_csv and self.order_type:
                 self.save()
+                error_logger.info(f"Order can't placed for SKUs:"
+                                  f"{self.cart_product_list_status(error_dict)}")
                 raise ValidationError(mark_safe(f"Order can't placed for some SKUs, Please click the "
                                                 f"below Link for seeing the status"
                                                 f"{self.cart_product_list_status(error_dict)}"))
@@ -604,30 +606,6 @@ class BulkOrder(models.Model):
             super().save(*args, **kwargs)
 
 
-@receiver(post_save, sender=Cart)
-def create_order_id(sender, instance=None, created=False, **kwargs):
-    if created:
-        if instance.cart_type == 'RETAIL':
-            instance.order_id = order_id_pattern(
-                sender, 'order_id', instance.pk,
-                instance.seller_shop.
-                    shop_name_address_mapping.filter(
-                    address_type='billing').last().pk)
-        elif instance.cart_type == 'BULK':
-            instance.order_id = order_id_pattern_bulk(
-                sender, 'order_id', instance.pk,
-                instance.seller_shop.
-                    shop_name_address_mapping.filter(
-                    address_type='billing').last().pk)
-        elif instance.cart_type == 'DISCOUNTED':
-            instance.order_id = order_id_pattern_discounted(
-                sender, 'order_id', instance.pk,
-                instance.seller_shop.
-                    shop_name_address_mapping.filter(
-                    address_type='billing').last().pk)
-        instance.save()
-
-
 @receiver(post_save, sender=BulkOrder)
 def create_bulk_order(sender, instance=None, created=False, **kwargs):
     info_logger.info("Post save for Bulk Order called")
@@ -639,50 +617,53 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 qty = 0
                 rows = [row for id, row in enumerate(reader) if id]
                 for row in rows:
-                    if row[0]:
-                        product = Product.objects.get(product_sku=row[0])
-                        product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
-                        ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
-                        ordered_qty = int(row[2])
-                        shop = Shop.objects.filter(id=instance.seller_shop_id).last()
-                        inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
-                        product_qty_dict = get_stock(shop, inventory_type, [product.id])
-                        available_quantity = 0
-                        if product_qty_dict.get(product.id) is not None:
-                            available_quantity = product_qty_dict[product.id]
+                    product = Product.objects.get(product_sku=row[0])
+                    product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
+                    ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
+                    ordered_qty = int(row[2])
+                    shop = Shop.objects.filter(id=instance.seller_shop_id).last()
+                    inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+                    product_qty_dict = get_stock(shop, inventory_type, [product.id])
+                    available_quantity = 0
+                    if product_qty_dict.get(product.id) is not None:
+                        available_quantity = product_qty_dict[product.id]
 
-                        capping = product.get_current_shop_capping(instance.seller_shop,
-                                                                   instance.buyer_shop)
-                        product_qty = int(row[2])
-                        parent_mapping = getShopMapping(instance.buyer_shop_id)
-                        if parent_mapping is None:
+                    capping = product.get_current_shop_capping(instance.seller_shop,
+                                                               instance.buyer_shop)
+                    product_qty = int(row[2])
+                    parent_mapping = getShopMapping(instance.buyer_shop_id)
+                    if parent_mapping is None:
+                        continue
+                    if capping:
+                        msg = capping_check(capping, parent_mapping, product, product_qty, qty)
+                        if msg[0] is False:
                             continue
-                        if capping:
-                            msg = capping_check(capping, parent_mapping, product, product_qty, qty)
-                            if msg[0] is False:
-                                continue
 
-                        from audit.views import BlockUnblockProduct
-                        is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product,
-                                                                                                instance.seller_shop)
-                        if is_blocked_for_audit:
-                            continue
-                        product_available = int(
-                            int(available_quantity) / int(product.product_inner_case_size))
-                        if product_available >= ordered_qty:
-                            products_available[product.id] = ordered_pieces
-                            if instance.order_type == 'DISCOUNTED':
-                                discounted_price = float(row[3])
-                            else:
-                                discounted_price = 0
+                    from audit.views import BlockUnblockProduct
+                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product,
+                                                                                            instance.seller_shop)
+                    if is_blocked_for_audit:
+                        continue
+                    product_available = int(
+                        int(available_quantity) / int(product.product_inner_case_size))
+                    if product_available >= ordered_qty:
+                        products_available[product.id] = ordered_pieces
+                        if instance.order_type == 'DISCOUNTED':
+                            discounted_price = float(row[3])
+                        else:
+                            discounted_price = 0
+                        try:
                             CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product.id,
                                                               qty=int(row[2]),
                                                               no_of_pieces=int(row[2]) * int(
-                                                              product.product_inner_case_size),
+                                                                  product.product_inner_case_size),
                                                               cart_product_price=product_price,
                                                               discounted_price=discounted_price)
-                        else:
-                            continue
+                        except Exception as error:
+                            error_logger.info(f"error while creating CartProductMapping in "
+                                              f"Bulk Order post_save method {error}")
+                    else:
+                        continue
             if len(products_available) > 0:
                 reserved_args = json.dumps({
                     'shop_id': instance.seller_shop.id,
@@ -717,8 +698,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 OrderManagement.release_blocking(reserved_args, sku_id)
                 info_logger.info("ordered_bulk_order_success")
             else:
-                info_logger.info(f"No products available for which order can be placed.")
-                pass
+                error_logger.info(f"No products available for which order can be placed.")
 
 
 class CartProductMapping(models.Model):
@@ -2704,7 +2684,7 @@ def create_offers(sender, instance=None, created=False, **kwargs):
         Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 
 
-from django.db.models.signals import post_delete
+
 
 
 @receiver(post_delete, sender=CartProductMapping)

@@ -1,6 +1,7 @@
 import csv
 import codecs
 import re
+import logging
 
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
@@ -13,10 +14,12 @@ from shops.models import Shop
 
 from .common_function import capping_check, getShopMapping
 
-
-import logging
 logger = logging.getLogger(__name__)
+
+# Logger
 info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 # bulk order validation for csv uploaded
@@ -72,7 +75,7 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
             available_quantity = product_qty_dict[product.id]
         else:
             available_quantity = 0
-            info_logger.info(f"[retailer_to_sp:BulkOrder]-{row[0]} doesn't exist in warehouse")
+            error_logger.info(f"[retailer_to_sp:BulkOrder]-{row[0]} doesn't exist in warehouse")
         product_available = int(
             int(available_quantity) / int(product.product_inner_case_size))
         availableQuantity.append(product_available)
@@ -100,5 +103,3 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
             error_dict[row[0]] = message
 
     return availableQuantity, error_dict
-
-
