@@ -2971,8 +2971,8 @@ def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qt
 
     else:
         capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                    created_at__gte=capping_start_date.date(),
-                                                    created_at__lte=capping_end_date.date()).exclude(order_status='CANCELLED')
+                                                    created_at__gte=capping_start_date,
+                                                    created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
     if capping_range_orders:
         for order in capping_range_orders:
             if order.ordered_cart.rt_cart_list.filter(
