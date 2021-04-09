@@ -2917,7 +2917,6 @@ def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qt
             cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
         cart_product.save()
         return False, cart_product.capping_error_msg
->>>>>>> dev
 
 
 
