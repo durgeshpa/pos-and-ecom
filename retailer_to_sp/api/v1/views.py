@@ -381,7 +381,7 @@ class GramGRNProductsList(APIView):
                         user_selected_qty = c_p.qty or 0
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
-                        p["_source"]["ptr"] = c_p.get_item_effective_price(c_p.qty)
+                        p["_source"]["ptr"] = c_p.applicable_slab_price
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
             p_list.append(p["_source"])
@@ -1500,10 +1500,10 @@ def pdf_generation(request, ordered_product):
                 ordered_product.order.ordered_cart.seller_shop,
                 ordered_product.order.ordered_cart.buyer_shop)
 
-            if ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
-                product_pro_price_ptr = round(product_price.get_PTR(m.shipped_qty), 2)
+            if ordered_product.order.ordered_cart.cart_type != 'DISCOUNTED':
+                product_pro_price_ptr = round(product_price.get_per_piece_price(m.shipped_qty, m.product.product_inner_case_size), 2)
             else:
-                product_pro_price_ptr = cart_product_map.get_item_effective_price(m.shipped_qty)
+                product_pro_price_ptr = cart_product_map.item_effective_prices
             if m.product.product_mrp:
                 product_pro_price_mrp = m.product.product_mrp
             else:
