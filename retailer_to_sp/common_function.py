@@ -45,9 +45,16 @@ def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qt
     capping_start_date = start_date
     capping_end_date = end_date
     from .models import Order
-    capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                created_at__gte=capping_start_date,
-                                                created_at__lte=capping_end_date).exclude(order_status='CANCELLED')
+    if capping_start_date.date() == capping_end_date.date():
+        capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
+                                                    created_at__gte=capping_start_date.date(),
+                                                    ).exclude(order_status='CANCELLED')
+
+    else:
+        capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
+                                                    created_at__gte=capping_start_date.date(),
+                                                    created_at__lte=capping_end_date.date()).\
+                                                    exclude(order_status='CANCELLED')
     if capping_range_orders:
         for order in capping_range_orders:
             if order.ordered_cart.rt_cart_list.filter(
@@ -74,4 +81,3 @@ def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qt
             cart_product.capping_error_msg = ['You have already exceeded the purchase limit of this product']
         cart_product.save()
         return False, cart_product.capping_error_msg
-
