@@ -36,7 +36,6 @@ from coupon.serializers import CouponSerializer
 import datetime
 from coupon.models import Coupon
 from django.db.models import F,Sum, Q
-from common.constants import MIN_ORDER_AMOUNT
 
 User = get_user_model()
 
