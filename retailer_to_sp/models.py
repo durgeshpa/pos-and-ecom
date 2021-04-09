@@ -564,7 +564,7 @@ class BulkOrder(models.Model):
         return url
 
     def cart_product_list_status(self, error_dict):
-        order_status_info =[]
+        order_status_info = []
         info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]-cart_product_list_status function called")
         error_dict[str('cart_id')] = str(self.cart_id)
         order_status_info.extend([error_dict])
@@ -583,14 +583,10 @@ class BulkOrder(models.Model):
         return url
 
     def clean(self, *args, **kwargs):
-        availableQuantity = []
-        error_dict = {}
         if self.cart_products_csv:
-
             availableQuantity, error_dict = \
                 bulk_order_validation(self.cart_products_csv, self.order_type,
-                                      self.seller_shop, self.buyer_shop,
-                                      availableQuantity, error_dict)
+                                      self.seller_shop, self.buyer_shop)
         info_logger.info(f"Available_Qty_of_Ordered_SKUs:{availableQuantity}")
         
         if len(error_dict) > 0:

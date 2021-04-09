@@ -20,9 +20,9 @@ info_logger = logging.getLogger('file-info')
 
 
 # bulk order validation for csv uploaded
-def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop,
-                          availableQuantity, error_dict):
-
+def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop):
+    availableQuantity = []
+    error_dict = {}
     reader = csv.reader(codecs.iterdecode(cart_products_csv, 'utf-8', errors='ignore'))
     headers = next(reader, None)
     duplicate_products = []
