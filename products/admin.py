@@ -1398,8 +1398,8 @@ class PriceSlabAdmin(TabularInline):
     model = PriceSlab
     form = PriceSlabForm
     formset = SlabInlineFormSet
-    min_num = 2
-    extra = 0
+    min_num = 1
+    extra = 1
     max_num = 2
     can_delete = False
 

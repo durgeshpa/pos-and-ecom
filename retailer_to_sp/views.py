@@ -195,15 +195,22 @@ class DownloadCreditNote(APIView):
             for m in products:
                 dict1 = {}
                 flag = 0
+                return_rate = m.return_rate
+                gst = m.get_products_gst()
+                cess = m.get_products_gst_cess_tax()
+                surcharge = m.get_products_gst_surcharge()
                 if len(list1) > 0:
                     for i in list1:
                         if i["hsn"] == m.product.product_hsn:
-                            i["taxable_value"] = i["taxable_value"] + m.return_rate * (m.returned_qty + m.returned_damage_qty)
-                            i["cgst"] = i["cgst"] + (m.return_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst()) / 200
-                            i["sgst"] = i["sgst"] + (m.return_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst()) / 200
-                            i["igst"] = i["igst"] + (m.return_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst()) / 100
-                            i["cess"] = i["cess"] + (m.return_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst_cess_tax()) / 100
-                            i["surcharge"] = i["surcharge"] + (m.base_price * m.get_products_gst_surcharge()) / 100
+                            i["taxable_value"] = i["taxable_value"] + return_rate * (m.returned_qty + m.returned_damage_qty)
+                            i["cgst"] = i["cgst"] + (
+                                    return_rate * (m.returned_qty + m.returned_damage_qty) * gst) / 200
+                            i["sgst"] = i["sgst"] + (
+                                    return_rate * (m.returned_qty + m.returned_damage_qty) * gst) / 200
+                            i["igst"] = i["igst"] + (
+                                    return_rate * (m.returned_qty + m.returned_damage_qty) * gst) / 100
+                            i["cess"] = i["cess"] + (return_rate * (m.returned_qty + m.returned_damage_qty) * cess) / 100
+                            i["surcharge"] = i["surcharge"] + (m.base_price * surcharge) / 100
                             if m.product.product_special_cess is None:
                                 i["product_special_cess"] = i["product_special_cess"] + 0.0
                             else:
@@ -214,18 +221,18 @@ class DownloadCreditNote(APIView):
 
                 if flag == 0:
                     dict1["hsn"] = m.product.product_hsn
-                    dict1["taxable_value"] = m.return_rate * (m.returned_qty + m.returned_damage_qty)
-                    dict1["cgst"] = (m.return_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst()) / 200
-                    dict1["cgst_rate"] = m.get_products_gst() / 2
-                    dict1["sgst"] = (m.return_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst()) / 200
-                    dict1["sgst_rate"] = m.get_products_gst() / 2
-                    dict1["igst"] = (m.return_rate * (m.returned_qty + m.returned_damage_qty)* m.get_products_gst()) / 100
-                    dict1["igst_rate"] = m.get_products_gst()
-                    dict1["cess"] = (m.return_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst_cess_tax()) / 100
-                    dict1["cess_rate"] = m.get_products_gst_cess_tax()
-                    dict1["surcharge"] = (m.return_rate * (m.returned_qty + m.returned_damage_qty) * m.get_products_gst_surcharge()) / 100
+                    dict1["taxable_value"] = return_rate * (m.returned_qty + m.returned_damage_qty)
+                    dict1["cgst"] = (return_rate * (m.returned_qty + m.returned_damage_qty) * gst) / 200
+                    dict1["cgst_rate"] = gst / 2
+                    dict1["sgst"] = (return_rate * (m.returned_qty + m.returned_damage_qty) * gst) / 200
+                    dict1["sgst_rate"] = gst / 2
+                    dict1["igst"] = (return_rate * (m.returned_qty + m.returned_damage_qty) * gst) / 100
+                    dict1["igst_rate"] = gst
+                    dict1["cess"] = (return_rate * (m.returned_qty + m.returned_damage_qty) * cess) / 100
+                    dict1["cess_rate"] = cess
+                    dict1["surcharge"] = (return_rate * (m.returned_qty + m.returned_damage_qty) * surcharge) / 100
                     # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
-                    dict1["surcharge_rate"] = m.get_products_gst_surcharge()
+                    dict1["surcharge_rate"] = surcharge
                     dict1["product_special_cess"] = m.product_cess_amount
                     if dict1["product_special_cess"] is None:
                         dict1["product_special_cess"] = 0.0
@@ -235,12 +242,12 @@ class DownloadCreditNote(APIView):
                     dict1["total"] = round(m.product_tax_return_amount, 2)
                     list1.append(dict1)
                 sum_qty = sum_qty + (int(m.returned_qty + m.returned_damage_qty))
-                sum_basic_amount += m.return_rate * (m.returned_qty + m.returned_damage_qty)
+                sum_basic_amount += return_rate * (m.returned_qty + m.returned_damage_qty)
                 sum_amount = sum_amount + m.product_credit_amount
                 total_product_tax_amount += m.product_tax_return_amount
-                gst_tax = ((m.returned_qty + m.returned_damage_qty) * m.return_rate * m.get_products_gst())/100
-                cess_tax = ((m.returned_qty + m.returned_damage_qty) * m.return_rate * m.get_products_gst_cess_tax())/100
-                surcharge_tax = ((m.returned_qty + m.returned_damage_qty) * m.return_rate * m.get_products_gst_surcharge())/100
+                gst_tax = ((m.returned_qty + m.returned_damage_qty) * return_rate * gst) / 100
+                cess_tax = ((m.returned_qty + m.returned_damage_qty) * return_rate * cess) / 100
+                surcharge_tax = ((m.returned_qty + m.returned_damage_qty) * return_rate * surcharge) / 100
                 gst_tax_list.append(gst_tax)
                 cess_tax_list.append(cess_tax)
                 surcharge_tax_list.append(surcharge_tax)

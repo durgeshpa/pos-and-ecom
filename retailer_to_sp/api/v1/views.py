@@ -93,7 +93,7 @@ from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
 from products.models import Product
-from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME, MIN_ORDER_AMOUNT
+from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data)
 from retailer_to_sp.views import pick_list_download
@@ -382,7 +382,7 @@ class GramGRNProductsList(APIView):
                         user_selected_qty = c_p.qty or 0
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
-                        p["_source"]["ptr"] = c_p.get_item_effective_price(c_p.qty)
+                        p["_source"]["ptr"] = c_p.applicable_slab_price
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
             p_list.append(p["_source"])
@@ -528,12 +528,12 @@ class AddToCart(APIView):
                     capping_end_date = end_date
                     if capping_start_date.date() == capping_end_date.date():
                         capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                                    created_at__gte=capping_start_date,
+                                                                    created_at__gte=capping_start_date.date(),
                                                                     ).exclude(order_status='CANCELLED')
                     else:
                         capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                                    created_at__gte=capping_start_date,
-                                                                    created_at__lte=capping_end_date).exclude(
+                                                                    created_at__gte=capping_start_date.date(),
+                                                                    created_at__lte=capping_end_date.date()).exclude(
                             order_status='CANCELLED')
                     if capping_range_orders:
                         for order in capping_range_orders:
@@ -693,20 +693,20 @@ class CartDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def delivery_message(self):
+    def delivery_message(self, shop_type):
         date_time_now = datetime.now()
         day = date_time_now.strftime("%A")
         time = date_time_now.strftime("%H")
 
         if int(time) < 17 and not (day == 'Saturday'):
             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=1)).strftime('%A'), str(MIN_ORDER_AMOUNT)))
+                (date_time_now + timedelta(days=1)).strftime('%A'), str(shop_type.shop_min_amount)))
         elif (day == 'Friday'):
             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=3)).strftime('%A'), str(MIN_ORDER_AMOUNT)))
+                (date_time_now + timedelta(days=3)).strftime('%A'), str(shop_type.shop_min_amount)))
         else:
             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=2)).strftime('%A'), str(MIN_ORDER_AMOUNT)))
+                (date_time_now + timedelta(days=2)).strftime('%A'), str(shop_type.shop_min_amount)))
 
     def get(self, request, *args, **kwargs):
         shop_id = self.request.GET.get('shop_id')
@@ -769,7 +769,7 @@ class CartDetail(APIView):
                         Cart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
                                  'buyer_shop_id': shop_id,
-                                 'delivery_message': self.delivery_message()}
+                                 'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
                     )
                     for i in serializer.data['rt_cart_list']:
                         if not i['cart_product']['product_pro_image']:
@@ -814,7 +814,7 @@ class CartDetail(APIView):
                     serializer = GramMappedCartSerializer(
                         GramMappedCart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
-                                 'delivery_message': self.delivery_message()}
+                                 'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
                     )
                     msg = {'is_success': True, 'message': [
                         ''], 'response_data': serializer.data}
@@ -1501,10 +1501,10 @@ def pdf_generation(request, ordered_product):
                 ordered_product.order.ordered_cart.seller_shop,
                 ordered_product.order.ordered_cart.buyer_shop)
 
-            if ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
-                product_pro_price_ptr = round(product_price.get_PTR(m.shipped_qty), 2)
+            if ordered_product.order.ordered_cart.cart_type != 'DISCOUNTED':
+                product_pro_price_ptr = round(product_price.get_per_piece_price(m.shipped_qty, m.product.product_inner_case_size), 2)
             else:
-                product_pro_price_ptr = cart_product_map.get_item_effective_price(m.shipped_qty)
+                product_pro_price_ptr = cart_product_map.item_effective_prices
             if m.product.product_mrp:
                 product_pro_price_mrp = m.product.product_mrp
             else:
