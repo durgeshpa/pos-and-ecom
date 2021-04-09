@@ -4,7 +4,7 @@ import codecs
 from django.db import transaction
 
 from gram_to_brand.models import GRNOrderProductMapping
-from products.models import Product, ProductVendorMapping, ParentProduct
+from products.models import ProductVendorMapping, ParentProduct
 from .models import CartProductMapping
 
 
@@ -24,6 +24,7 @@ def upload_cart_product_csv(instance):
         CartProductMapping.objects.filter(cart_id=instance.id).delete()
         if instance.cart_product_mapping_csv:
             reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
+            next(reader)
             for row in reader:
                 if row[0] and row[2] and row[6] and row[7]:
                     create_cart_product_mapping(row, instance)

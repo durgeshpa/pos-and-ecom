@@ -1,43 +1,20 @@
 import datetime
-import csv
-import codecs
-import re
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
-from django.db.models.signals import pre_save, post_save
-from django.dispatch import receiver
 from django.urls import reverse
 from django.utils import timezone
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Sum
-from django.db import transaction
-from shops.models import Shop, ParentRetailerMapping
+
 from products.models import Product, ProductVendorMapping, ParentProduct
 from brand.models import Brand, Vendor
-from addresses.models import Address, City, State
-from retailer_to_gram.models import (
-    Cart as GramMapperRetialerCart,
-    Order as GramMapperRetialerOrder
-)
-from retailer_backend.common_function import (
-    po_pattern, grn_pattern,
-    brand_note_pattern, brand_debit_note_pattern
-)
-from sp_to_gram.models import (
-    Cart as SpPO,
-    CartProductMapping as SpPOProducts,
-    Order as SpOrder,
-    OrderedProduct as SpGRNOrder,
-    OrderedProductMapping as SpGRNOrderProductMapping
-)
-
+from addresses.models import Address, State
+from retailer_to_gram.models import (Cart as GramMapperRetailerCart, Order as GramMapperRetailerOrder)
 from base.models import (BaseOrder, BaseCart, BaseShipment)
-# from gram_to_brand.forms import GRNOrderProductForm
-# from analytics.post_save_signal import get_grn_report
 
 
 ITEM_STATUS = (
@@ -598,7 +575,7 @@ class OrderedProductReserved(models.Model):
                                                blank=True, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='retiler_product_order_product_reserved', null=True, blank=True,
                                 on_delete=models.CASCADE)
-    cart = models.ForeignKey(GramMapperRetialerCart, related_name='retiler_ordered_retailer_cart', null=True,
+    cart = models.ForeignKey(GramMapperRetailerCart, related_name='retiler_ordered_retailer_cart', null=True,
                              blank=True, on_delete=models.CASCADE)
     reserved_qty = models.PositiveIntegerField(default=0)
     order_reserve_end_time = models.DateTimeField(null=True, blank=True, editable=False)
@@ -619,9 +596,9 @@ class OrderedProductReserved(models.Model):
 
 
 class PickList(models.Model):
-    order = models.ForeignKey(GramMapperRetialerOrder, related_name='pick_list_order', null=True, blank=True,
+    order = models.ForeignKey(GramMapperRetailerOrder, related_name='pick_list_order', null=True, blank=True,
                               on_delete=models.CASCADE)
-    cart = models.ForeignKey(GramMapperRetialerCart, related_name='pick_list_cart', on_delete=models.CASCADE)
+    cart = models.ForeignKey(GramMapperRetailerCart, related_name='pick_list_cart', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
