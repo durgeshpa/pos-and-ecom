@@ -22,10 +22,11 @@ def get_grned_product_qty_by_grn_id(grn_id):
 def upload_cart_product_csv(instance):
     with transaction.atomic():
         CartProductMapping.objects.filter(cart_id=instance.id).delete()
-        reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
-        for row in reader:
-            if row[0] and row[2] and row[6] and row[7]:
-                create_cart_product_mapping(row, instance)
+        if instance.cart_product_mapping_csv:
+            reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
+            for row in reader:
+                if row[0] and row[2] and row[6] and row[7]:
+                    create_cart_product_mapping(row, instance)
 
 
 def create_cart_product_mapping(row, instance):
