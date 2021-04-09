@@ -704,20 +704,20 @@ class CartDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def delivery_message(self):
+    def delivery_message(self, shop_type):
         date_time_now = datetime.now()
         day = date_time_now.strftime("%A")
         time = date_time_now.strftime("%H")
 
         if int(time) < 17 and not (day == 'Saturday'):
             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=1)).strftime('%A'), str(MIN_ORDER_AMOUNT)))
+                (date_time_now + timedelta(days=1)).strftime('%A'), str(shop_type.shop_min_amount)))
         elif (day == 'Friday'):
             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=3)).strftime('%A'), str(MIN_ORDER_AMOUNT)))
+                (date_time_now + timedelta(days=3)).strftime('%A'), str(shop_type.shop_min_amount)))
         else:
             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=2)).strftime('%A'), str(MIN_ORDER_AMOUNT)))
+                (date_time_now + timedelta(days=2)).strftime('%A'), str(shop_type.shop_min_amount)))
 
     def get(self, request, *args, **kwargs):
         shop_id = self.request.GET.get('shop_id')
@@ -779,7 +779,7 @@ class CartDetail(APIView):
                         Cart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
                                  'buyer_shop_id': shop_id,
-                                 'delivery_message': self.delivery_message()}
+                                 'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
                     )
                     for i in serializer.data['rt_cart_list']:
                         if not i['cart_product']['product_pro_image']:
@@ -824,7 +824,7 @@ class CartDetail(APIView):
                     serializer = GramMappedCartSerializer(
                         GramMappedCart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
-                                 'delivery_message': self.delivery_message()}
+                                 'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
                     )
                     msg = {'is_success': True, 'message': [
                         ''], 'response_data': serializer.data}
