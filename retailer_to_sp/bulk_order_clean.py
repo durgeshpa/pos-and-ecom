@@ -72,6 +72,7 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
         ordered_qty = int(row[2])
         shop = Shop.objects.filter(id=seller_shop.id).last()
         inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+
         product_qty_dict = get_stock(shop, inventory_type, [product.id])
         if product_qty_dict.get(product.id) is not None:
             available_quantity = product_qty_dict[product.id]

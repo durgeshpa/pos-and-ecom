@@ -615,27 +615,41 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
             products_available = {}
             if instance.cart_products_csv:
                 reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8', errors='ignore'))
-                qty = 0
+
                 rows = [row for id, row in enumerate(reader) if id]
                 for row in rows:
                     product = Product.objects.get(product_sku=row[0])
-                    product_price = product.get_current_shop_price(instance.seller_shop,
-                                                                   instance.buyer_shop)
-                    if instance.order_type == 'DISCOUNTED':
-                        discounted_price = float(row[3])
-                    else:
-                        discounted_price = 0
-                    try:
-                        CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product.id,
-                                                          qty=int(row[2]),
-                                                          no_of_pieces=int(row[2]) * int(
-                                                              product.product_inner_case_size),
-                                                          cart_product_price=product_price,
-                                                          discounted_price=discounted_price)
-                    except Exception as error:
-                        error_logger.info(f"error while creating CartProductMapping in "
-                                          f"Bulk Order post_save method {error}")
+                    product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
+                    ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
+                    ordered_qty = int(row[2])
+                    shop = Shop.objects.filter(id=instance.seller_shop_id).last()
+                    inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
+                    product_qty_dict = get_stock(shop, inventory_type, [product.id])
 
+                    available_quantity = 0
+                    if product_qty_dict.get(product.id) is not None:
+                        available_quantity = product_qty_dict[product.id]
+
+                    product_available = int(
+                        int(available_quantity) / int(product.product_inner_case_size))
+                    if product_available >= ordered_qty:
+                        products_available[product.id] = ordered_pieces
+                        if instance.order_type == 'DISCOUNTED':
+                            discounted_price = float(row[3])
+                        else:
+                            discounted_price = 0
+                        try:
+                            CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product.id,
+                                                              qty=int(row[2]),
+                                                              no_of_pieces=int(row[2]) * int(
+                                                                  product.product_inner_case_size),
+                                                              cart_product_price=product_price,
+                                                              discounted_price=discounted_price)
+                        except Exception as error:
+                            error_logger.info(f"error while creating CartProductMapping in "
+                                              f"Bulk Order post_save method {error}")
+                    else:
+                        continue
             if len(products_available) > 0:
                 reserved_args = json.dumps({
                     'shop_id': instance.seller_shop.id,
@@ -700,6 +714,7 @@ class CartProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+    product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
 
     def __str__(self):
         return self.cart_product.product_name
