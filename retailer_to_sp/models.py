@@ -614,14 +614,17 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
         if created:
             products_available = {}
             if instance.cart_products_csv:
-                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8', errors='ignore'))
+                reader = csv.reader(codecs.iterdecode(instance.cart_products_csv,
+                                                      'utf-8', errors='ignore'))
 
                 rows = [row for id, row in enumerate(reader) if id]
                 for row in rows:
                     product = Product.objects.get(product_sku=row[0])
-                    product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
+                    product_price = product.get_current_shop_price(instance.seller_shop,
+                                                                   instance.buyer_shop)
                     ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
                     ordered_qty = int(row[2])
+
                     shop = Shop.objects.filter(id=instance.seller_shop_id).last()
                     inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
                     product_qty_dict = get_stock(shop, inventory_type, [product.id])
@@ -632,6 +635,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
 
                     product_available = int(
                         int(available_quantity) / int(product.product_inner_case_size))
+
                     if product_available >= ordered_qty:
                         products_available[product.id] = ordered_pieces
                         if instance.order_type == 'DISCOUNTED':
