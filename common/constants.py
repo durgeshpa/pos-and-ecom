@@ -36,6 +36,3 @@ ZIP_FORMAT = '.zip'
 
 # Time Format
 TIME_FORMAT = "%d%m%y_%H%M"
-
-# Constant for min order amount
-MIN_ORDER_AMOUNT = 3000
