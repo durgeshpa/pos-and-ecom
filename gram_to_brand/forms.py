@@ -2,31 +2,21 @@ import datetime
 import csv
 import codecs
 import re
-from datetime import timedelta
 
+from dal import autocomplete
 from django import forms
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils.translation import gettext_lazy as _
 from dateutil.relativedelta import relativedelta
 from django.contrib.admin.widgets import AdminDateWidget
-from django.urls import reverse
-from django.forms import ModelForm
 from django.db.models import Sum
 
-from dal import autocomplete
-from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
-
-from shops.models import Shop, ShopType
-from .models import (
-    Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping,
-    BrandNote, PickList, PickListItems, OrderedProductReserved, Po_Message,
-    BEST_BEFORE_MONTH_CHOICE, BEST_BEFORE_YEAR_CHOICE, Document
-)
-from brand.models import Brand
+from brand.models import Brand, Vendor
 from addresses.models import State, Address
-from brand.models import Vendor
 from products.models import Product, ProductVendorMapping, ParentProduct
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BEST_BEFORE_MONTH_CHOICE,
+                     BEST_BEFORE_YEAR_CHOICE, Document)
 
 
 class OrderForm(forms.ModelForm):
@@ -38,11 +28,11 @@ class OrderForm(forms.ModelForm):
 class POGenerationForm(forms.ModelForm):
     brand = forms.ModelChoiceField(
         queryset=Brand.objects.filter(active_status='active'),
-        widget=autocomplete.ModelSelect2(url='brand-autocomplete',)
+        widget=autocomplete.ModelSelect2(url='brand-autocomplete', )
     )
     supplier_state = forms.ModelChoiceField(
         queryset=State.objects.all(),
-        widget=autocomplete.ModelSelect2(url='state-autocomplete',)
+        widget=autocomplete.ModelSelect2(url='state-autocomplete', )
     )
     supplier_name = forms.ModelChoiceField(
         queryset=Vendor.objects.all(),
@@ -63,7 +53,7 @@ class POGenerationForm(forms.ModelForm):
             forward=('supplier_state',)
         )
     )
-    delivery_term = forms.CharField(widget=forms.Textarea(attrs={'rows': 2, 'cols': 33}),required=True)
+    delivery_term = forms.CharField(widget=forms.Textarea(attrs={'rows': 2, 'cols': 33}), required=True)
 
     class Media:
         js = (
@@ -73,95 +63,74 @@ class POGenerationForm(forms.ModelForm):
 
     class Meta:
         model = Cart
-        fields = ('brand', 'supplier_state','supplier_name', 'gf_shipping_address',
-                  'gf_billing_address', 'po_validity_date', 'payment_term',
-                  'delivery_term', 'cart_product_mapping_csv','po_status'
-                  )
+        fields = ('brand', 'supplier_state', 'supplier_name', 'gf_shipping_address', 'gf_billing_address',
+                  'po_validity_date', 'payment_term', 'delivery_term', 'cart_product_mapping_csv', 'po_status')
 
     def __init__(self, *args, **kwargs):
         super(POGenerationForm, self).__init__(*args, **kwargs)
-        self.fields['cart_product_mapping_csv'].help_text = self.instance.\
-            products_sample_file
+        self.fields['cart_product_mapping_csv'].help_text = self.instance.products_sample_file
 
     def clean(self):
-        if self.cleaned_data['cart_product_mapping_csv']:
-    
-            if not self.cleaned_data['cart_product_mapping_csv'].name[-4:] in ('.csv'):
+        # Upload Products For Po Generation
+        if 'cart_product_mapping_csv' in self.changed_data and self.cleaned_data['cart_product_mapping_csv']:
+            if self.cleaned_data['cart_product_mapping_csv'].name[-4:] != '.csv':
                 raise forms.ValidationError("Sorry! Only csv file accepted")
-            reader = csv.reader(codecs.iterdecode(self.cleaned_data['cart_product_mapping_csv'], 'utf-8', errors='ignore'))
-            first_row = next(reader)
-            for id,row in enumerate(reader):
-                
+            reader = csv.reader(
+                codecs.iterdecode(self.cleaned_data['cart_product_mapping_csv'], 'utf-8', errors='ignore'))
+            titles = next(reader)
+            for row_id, row in enumerate(reader):
+                # Input Format Validation
                 if not row[0]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Parent Product ID cannot be empty")
-
+                    self.error_csv(row_id, titles[0], row[0], VALIDATION_ERROR_MESSAGES['EMPTY'] % "Parent Product ID")
+                if not row[2]:
+                    self.error_csv(row_id, titles[0], row[0], VALIDATION_ERROR_MESSAGES['EMPTY'] % "Product ID")
+                if not row[7] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[7]):
+                    self.error_csv(row_id, titles[0], row[0], VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID'] % "MRP")
+                if not row[5] or not re.match("^[\d\,]*$", row[5]):
+                    self.error_csv(row_id, titles[0], row[0],
+                                   VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID'] % "Case Size")
+                if not row[6] or not re.match("^[\d\,]*$", row[6]):
+                    self.error_csv(row_id, titles[0], row[0],
+                                   VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID'] % "No Of Cases")
+                if row[8].lower() not in ["per piece", "per pack"]:
+                    self.error_csv(row_id, titles[0], row[0],
+                                   VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID_STRING'] % "Gram To Brand Price Unit")
+                if not row[9] or not re.match("[0-9]*([1-9][0-9]*(\.[0-9]*)?|\.[0-9]*[1-9][0-9]*)", row[9]):
+                    self.error_csv(row_id, titles[0], row[0],
+                                   VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID'] % "Brand To Gram Price")
+                # Input Value Validation
                 try:
                     parent_product = ParentProduct.objects.get(parent_id=row[0])
-            
-                except:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PARENT_ID'])
-
-                if not row[2]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | Product ID cannot be empty")
-
+                except ObjectDoesNotExist:
+                    self.error_csv(row_id, titles[0], row[0], VALIDATION_ERROR_MESSAGES['INVALID_PARENT_ID'])
                 try:
                     product = Product.objects.get(pk=row[2], parent_product=parent_product)
-                except:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRODUCT_ID'])
-
-                if not row[5] or not re.match("^[\d\,]*$", row[5]):
-                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
-                    'EMPTY']%("Case_Size"))
-
-                if not row[6] or not re.match("^[\d\,]*$", row[6]):
-                
-                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
-                    'EMPTY']%("No_of_cases"))
-
-                if not ProductVendorMapping.objects.filter(product=row[2], vendor_id=self.data['supplier_name'], status=True).exists():
-                    raise ValidationError(
-                        "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
-                            'VENDOR_NOT_MAPPED'] % ("Vendor"))
-
-                if not ProductVendorMapping.objects.filter(product=row[2], vendor_id=self.data['supplier_name'], status=True).last().case_size == int(row[5]):
-                    raise ValidationError(
-                        "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
-                            'NOT_VALID'] % ("Case size"))
-
-                if not row[7] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[7]):
-                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
-                    'EMPTY_OR_NOT_VALID']%("MRP"))
-
-                if Product.objects.filter(id=row[2], status='deactivated').exists():
-                    raise ValidationError(
-                        "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
-                            'DEACTIVATE'] % ("Product"))
-
-                if not float(Product.objects.filter(id=row[2], status__in=['active', 'pending_approval']).last().product_mrp) == float(row[7]):
-                    raise ValidationError(
-                        "Row[" + str(id + 1) + "] | " + first_row[4] + ":" + row[4] + " | " + VALIDATION_ERROR_MESSAGES[
-                            'NOT_VALID'] % ("MRP"))
-
-                if not (row[8].lower()  == "per piece" or row[8].lower() == "per pack"):
-
-                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
-                    'EMPTY_OR_NOT_VALID_STRING']%("Gram_to_brand_Price_Unit"))
-
-                if not row[9] or not re.match("[0-9]*([1-9][0-9]*(\.[0-9]*)?|\.[0-9]*[1-9][0-9]*)", row[9]):
-                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
-                    'EMPTY_OR_NOT_VALID']%("Brand_to_gram"))
+                except ObjectDoesNotExist:
+                    self.error_csv(row_id, titles[2], row[2], VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_ID'])
+                if product.status == 'deactivated':
+                    self.error_csv(row_id, titles[4], row[4], VALIDATION_ERROR_MESSAGES['DEACTIVATE'] % "Product")
+                if float(product.product_mrp) != float(row[7]):
+                    self.error_csv(row_id, titles[7], row[7], VALIDATION_ERROR_MESSAGES['NOT_VALID'] % "MRP")
+                vendor = ProductVendorMapping.objects.filter(product=row[2], vendor_id=self.data['supplier_name'],
+                                                             status=True).last()
+                if not vendor:
+                    self.error_csv(row_id, titles[4], row[4], VALIDATION_ERROR_MESSAGES['VENDOR_NOT_MAPPED'] % "Vendor")
+                if vendor.case_size != int(row[5]):
+                    self.error_csv(row_id, titles[5], row[5], VALIDATION_ERROR_MESSAGES['NOT_VALID'] % "Case Size")
 
         if 'po_validity_date' in self.cleaned_data and self.cleaned_data['po_validity_date'] < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))
 
-        if 'cart_product_mapping_csv' in self.changed_data:
-            print("The following fields changed: %s" % ", ".join(self.changed_data))
-
         return self.cleaned_data
 
+    def error_csv(self, row_id, title, value, error):
+        """
+            Raise Validation Error In Product Upload Csv
+        """
+        raise ValidationError("Row {}  -  {}: {}  -  {}".format(str(row_id + 1), title, value, error))
+
     change_form_template = 'admin/gram_to_brand/cart/change_form.html'
+
 
 class POGenerationAccountForm(forms.ModelForm):
 
