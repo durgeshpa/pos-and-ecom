@@ -12,7 +12,7 @@ def getShopMapping(shop_id):
     except ObjectDoesNotExist:
         return None
 
-    
+
 def check_date_range(capping):
     """
     capping object

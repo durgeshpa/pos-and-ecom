@@ -4,17 +4,18 @@ import csv
 import codecs
 import json
 
-from django.urls import reverse
-from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import F, FloatField, Sum, Func, Q, Case, Value, When
 from django.db.models.signals import post_save, post_delete
+from django.urls import reverse
+from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
+from django.contrib.postgres.fields import JSONField
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html_join
-from django.contrib.postgres.fields import JSONField
+
 
 from addresses.models import Address
 from brand.models import Brand
@@ -592,7 +593,7 @@ class BulkOrder(models.Model):
             if self.cart_products_csv and self.order_type:
                 self.save()
                 error_logger.info(f"Order can't placed for SKUs:"
-                                  f"{self.cart_product_list_status(error_dict)}")
+                                  f"{error_dict}")
                 raise ValidationError(mark_safe(f"Order can't placed for some SKUs, Please click the "
                                                 f"below Link for seeing the status"
                                                 f"{self.cart_product_list_status(error_dict)}"))
