@@ -1,29 +1,23 @@
 import datetime
+import logging
+
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 
 from wms.models import InventoryType
-
-from .models import BrandNote, GRNOrderProductMapping, GRNOrder
 from shops.models import Shop, ParentRetailerMapping
-from sp_to_gram.models import (
-    Cart as SpPO,
-    CartProductMapping as SpPOProducts,
-    Order as SpOrder,
-    OrderedProduct as SpGRNOrder,
-    OrderedProductMapping as SpGRNOrderProductMapping
-)
-
-from retailer_backend.common_function import brand_debit_note_pattern, grn_pattern
+from whc.models import AutoOrderProcessing
+from sp_to_gram.models import (Cart as SpPO, CartProductMapping as SpPOProducts, Order as SpOrder,
+                               OrderedProduct as SpGRNOrder, OrderedProductMapping as SpGRNOrderProductMapping)
+from retailer_backend.common_function import brand_debit_note_pattern, grn_pattern, po_pattern
 from wms.common_functions import InCommonFunctions
 from global_config.views import get_config
 
-import logging
+from .models import BrandNote, GRNOrderProductMapping, GRNOrder, Cart, Order
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 
-from whc.models import AutoOrderProcessing
 
 @receiver(post_save, sender=GRNOrder)
 def create_grn_id(sender, instance=None, created=False, **kwargs):
@@ -170,4 +164,12 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
         instance.save()
 
 
-
+@receiver(post_save, sender=Cart)
+def create_cart_product(sender, instance=None, created=False, update_fields=None, **kwargs):
+    if not instance.po_status == 'DLVR':
+        if created:
+            instance.po_no = po_pattern(sender, 'po_no', instance.pk, instance.gf_billing_address_id)
+            instance.save()
+        order, created = Order.objects.get_or_create(ordered_cart=instance)
+        order.order_no = instance.po_no
+        order.save()

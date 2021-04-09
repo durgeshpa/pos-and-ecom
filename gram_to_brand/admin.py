@@ -40,6 +40,7 @@ from django.forms import Textarea
 from django.contrib.admin.models import LogEntry, ADDITION
 from django.contrib.contenttypes.models import ContentType
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
+from .common_functions import upload_cart_product_csv
 
 from barCodeGenerator import barcodeGen, merged_barcode_gen
 
@@ -166,6 +167,8 @@ class CartAdmin(admin.ModelAdmin):
                 change_message=SUCCESS_MESSAGES['CHANGED_STATUS'] % obj.get_po_status_display(),
             )
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+        if 'cart_product_mapping_csv' in form.changed_data:
+            upload_cart_product_csv(obj)
         return HttpResponseRedirect("/admin/gram_to_brand/cart/")
 
     # class Media:
