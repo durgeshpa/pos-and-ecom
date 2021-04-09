@@ -2828,3 +2828,4 @@ def franchise_inventory_update(shipment, warehouse):
         for shipment_product_batch in shipment_product.rt_ordered_product_mapping.all():
             product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_product_batch, initial_type,
                                                      final_type, initial_stage, final_stage)
+

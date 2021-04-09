@@ -532,8 +532,8 @@ class AddToCart(APIView):
                                                                     ).exclude(order_status='CANCELLED')
                     else:
                         capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                                    created_at__gte=capping_start_date.date(),
-                                                                    created_at__lte=capping_end_date.date()).exclude(
+                                                                    created_at__gte=capping_start_date,
+                                                                    created_at__lte=capping_end_date).exclude(
                             order_status='CANCELLED')
                     if capping_range_orders:
                         for order in capping_range_orders:
