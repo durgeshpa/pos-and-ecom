@@ -86,13 +86,12 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
 
         # checking capping
         capping = product.get_current_shop_capping(shop, buyer_shop)
-        product_qty = int(row[2])
         parent_mapping = getShopMapping(buyer_shop)
         if parent_mapping is None:
             message = "Parent Mapping is not Found"
             error_dict[row[0]] = message
         if capping:
-            msg = capping_check(capping, parent_mapping, product, product_qty, qty)
+            msg = capping_check(capping, parent_mapping, product, ordered_qty, qty)
             if msg[0] is False:
                 error_dict[row[0]] = msg[1]
 
@@ -107,7 +106,7 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
             count += 1
         if count == 0:
             message = "Failed because of Ordered quantity is {} > Available quantity {}"\
-                .format(str(int(row[2])), str(available_quantity))
+                .format(str(ordered_qty), str(available_quantity))
             error_dict[row[0]] = message
 
     return availableQuantity, error_dict
