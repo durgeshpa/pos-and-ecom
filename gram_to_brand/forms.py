@@ -71,6 +71,9 @@ class POGenerationForm(forms.ModelForm):
         self.fields['cart_product_mapping_csv'].help_text = self.instance.products_sample_file
 
     def clean_cart_product_mapping_csv(self):
+        """
+            Validate products data to be uploaded in cart
+        """
         if 'cart_product_mapping_csv' in self.changed_data and self.cleaned_data['cart_product_mapping_csv']:
             if self.cleaned_data['cart_product_mapping_csv'].name[-4:] != '.csv':
                 raise forms.ValidationError("Sorry! Only csv file accepted")
@@ -120,6 +123,9 @@ class POGenerationForm(forms.ModelForm):
         return self.cleaned_data['cart_product_mapping_csv']
 
     def clean_po_validity_date(self):
+        """
+            Validate po validity date
+        """
         if self.cleaned_data['po_validity_date'] < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))
         return self.cleaned_data['po_validity_date']

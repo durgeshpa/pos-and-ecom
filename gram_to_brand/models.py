@@ -133,6 +133,9 @@ class Cart(BaseCart):
 
     @property
     def products_sample_file(self):
+        """
+            Sample file containing products mapped to vendor
+        """
         if self.cart_product_mapping_csv and hasattr(self.cart_product_mapping_csv, 'url'):
             url = """<h3><a href="%s">Download Products List</a></h3>""" % \
                   (reverse('admin:products_vendor_mapping', args=(self.supplier_name_id,)))
@@ -171,20 +174,32 @@ class CartProductMapping(models.Model):
 
     @property
     def tax_percentage(self):
+        """
+            Get tax percentage for product
+        """
         return self._tax_percentage if self._tax_percentage else '-'
 
     @tax_percentage.setter
     def tax_percentage(self, value):
+        """
+            Set product tax percentage for cart
+        """
         self._tax_percentage = value
 
     @property
     def qty(self):
+        """
+            Qty of product added
+        """
         return int(self.no_of_pieces) if self.vendor_product else int(
             int(self.cart_product.product_inner_case_size) * int(self.cart_product.product_case_size) * float(
                 self.number_of_cases))
 
     @property
     def total_price(self):
+        """
+            Total price of this product added in cart
+        """
         if self.vendor_product:
             piece_price = self.vendor_product.product_price
             pack_price = self.vendor_product.product_price_pack
@@ -198,15 +213,24 @@ class CartProductMapping(models.Model):
 
     @property
     def no_of_cases(self):
+        """
+            No of cases of product added to cart
+        """
         return (int(self.no_of_pieces) // int(
             self.vendor_product.case_size)) if self.vendor_product else self.number_of_cases
 
     @property
     def total_no_of_pieces(self):
+        """
+            Total no of pieces of cart product
+        """
         return int(self.no_of_pieces) if self.vendor_product else self.qty
 
     @property
     def sub_total(self):
+        """
+            Cart product subtotal
+        """
         if self.vendor_product:
             piece_price = self.vendor_product.product_price
             pack_price = self.vendor_product.product_price_pack
@@ -216,20 +240,35 @@ class CartProductMapping(models.Model):
 
     @property
     def sku(self):
+        """
+            Cart product SKU number
+        """
         return self.cart_product.product_sku
 
     @property
     def mrp(self):
+        """
+            Product mrp
+        """
         return round(self.vendor_product.product_mrp, 2) if self.vendor_product else '-'
 
     def case_sizes(self):
+        """
+            Case size for product and vendor
+        """
         return self.vendor_product.case_size if self.vendor_product else self.cart_product.product_case_size
 
     def calculate_tax_percentage(self):
+        """
+            Cart Product Tax Percentage
+        """
         tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
         return sum(tax_percentage)
 
     def per_unit_prices(self):
+        """
+            Price of one piece of product
+        """
         piece_price = self.vendor_product.product_price
         pack_price = self.vendor_product.product_price_pack
         per_unit_price = piece_price if piece_price else (
@@ -237,6 +276,9 @@ class CartProductMapping(models.Model):
         return per_unit_price
 
     def brand_to_gram_price_units(self):
+        """
+            Price unit, per pack or per piece
+        """
         return self.vendor_product.brand_to_gram_price_unit if self.vendor_product else '-'
 
     def save(self, *args, **kwargs):

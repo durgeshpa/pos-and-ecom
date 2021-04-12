@@ -165,7 +165,10 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
 
 
 @receiver(post_save, sender=Cart)
-def create_cart_product(sender, instance=None, created=False, update_fields=None, **kwargs):
+def generate_po_no(sender, instance=None, created=False, update_fields=None, **kwargs):
+    """
+        PO Number Generation on Cart creation
+    """
     if not instance.po_status == 'DLVR':
         if created:
             instance.po_no = po_pattern(sender, 'po_no', instance.pk, instance.gf_billing_address_id)

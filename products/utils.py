@@ -227,6 +227,9 @@ def products_price_excel(queryset):
 
 
 def vendor_product_mapping(supplier, product_id, price, mrp, case_size, unit):
+    """
+        Create vendor product mapping for product purchase price with case size
+    """
     vendor_product_obj = None
     if unit.lower() == 'per piece':
         vendor_product_obj = ProductVendorMapping.objects.create(vendor=supplier, product_id=product_id,

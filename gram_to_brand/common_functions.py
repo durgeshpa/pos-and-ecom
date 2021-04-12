@@ -21,6 +21,9 @@ def get_grned_product_qty_by_grn_id(grn_id):
 
 
 def upload_cart_product_csv(instance):
+    """
+        Add products to cart via csv upload
+    """
     with transaction.atomic():
         product_ids = []
         if instance.cart_product_mapping_csv:
@@ -29,12 +32,20 @@ def upload_cart_product_csv(instance):
             for row in reader:
                 if row[0] and row[2] and row[6] and row[7]:
                     product_ids += [int(row[2])]
+                    # create/update cart product mapping for each product in csv
                     create_cart_product_mapping(row, instance)
+        # Delete all other existing cart products
         CartProductMapping.objects.filter(cart_id=instance.id).exclude(cart_product_id__in=product_ids).delete()
 
 
 def create_cart_product_mapping(row, instance):
+    """
+        Adding product in cart
+        Mapping product to vendor, price details
+        Adding entry for product to map to cart and vendor
+    """
     parent_product = ParentProduct.objects.get(parent_id=row[0])
+    # check if vendor mapping already exists, else create
     vendor_product = ProductVendorMapping.objects.filter(vendor=instance.supplier_name, product_id=row[2])
     if row[8].lower() == "per piece":
         if vendor_product.filter(product_price=row[9], status=True).exists():
@@ -48,6 +59,7 @@ def create_cart_product_mapping(row, instance):
         else:
             vendor_product_dt = vendor_product_mapping(instance.supplier_name, row[2], row[9], row[7], row[5],
                                                        'per pack')
+    # create or update entry for product in cart
     no_of_pieces = int(vendor_product_dt.case_size) * int(row[6])
     cart_prod_map = CartProductMapping.objects.filter(cart=instance, cart_product_id=row[2]).last()
     if cart_prod_map:
