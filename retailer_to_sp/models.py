@@ -638,10 +638,9 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
 
                     if product_available >= ordered_qty:
                         products_available[product.id] = ordered_pieces
+                        discounted_price = 0
                         if instance.order_type == 'DISCOUNTED':
                             discounted_price = float(row[3])
-                        else:
-                            discounted_price = 0
                         try:
                             CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product.id,
                                                               qty=int(row[2]),
