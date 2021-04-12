@@ -2130,13 +2130,13 @@ class SlabInlineFormSet(BaseInlineFormSet):
                 raise ValidationError("Slab Start Value is Invalid")
             elif slab_data.get('end_value') is None or slab_data.get('end_value') < 0:
                 raise ValidationError("Slab End Value is Invalid")
-            elif form.prefix != 'price_slabs-0' and slab_data['start_value'] <= last_slab_end_value:
-                raise ValidationError("Quantity should be greater than earlier slabs quantity")
-            elif form.prefix != 'price_slabs-0' and (slab_data['selling_price'] >= last_slab_selling_price \
-                    or (last_slab_offer_price and slab_data['selling_price'] >= last_slab_offer_price)) :
-                raise ValidationError("Selling price should be less than earlier slabs selling price/offer price.")
             elif slab_data.get('selling_price') is None or slab_data.get('selling_price') == 0:
                 raise ValidationError('Invalid Selling Price')
+            elif form.prefix != 'price_slabs-0' and slab_data['start_value'] <= last_slab_end_value:
+                raise ValidationError("Quantity should be greater than earlier slabs quantity")
+            elif form.prefix != 'price_slabs-0' and slab_data.get('selling_price') and (slab_data.get('selling_price') >= last_slab_selling_price \
+                    or (last_slab_offer_price and slab_data.get('selling_price') >= last_slab_offer_price)) :
+                raise ValidationError("Selling price should be less than earlier slabs selling price/offer price.")
             elif slab_data.get('offer_price') is not None:
                 if slab_data.get('selling_price') <= slab_data.get('offer_price'):
                     raise ValidationError('Invalid Offer Price')
@@ -2196,19 +2196,20 @@ class UploadSlabProductPriceForm(forms.Form):
             elif row[7] and float(row[7]) >= selling_price_per_saleable_unit:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
             elif row[7] and (not isDateValid(row[8]) or not isDateValid(row[9])
-                             or getStrToDate(row[8]) > datetime.datetime.today().date()
+                             or getStrToDate(row[8]) < datetime.datetime.today().date()
                              or getStrToDate(row[9]) < datetime.datetime.today().date()
                              or getStrToDate(row[8]) >= getStrToDate(row[9])):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
             elif int(row[5]) > 0 :
                 if not row[10] or int(row[10]) != int(row[5])+1:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
-                elif not row[11] or float(row[11]) >= selling_price_per_saleable_unit or float(row[11]) >= float(row[7]) :
+                elif not row[11] or float(row[11]) >= selling_price_per_saleable_unit or float(row[11]) >= float(row[6])\
+                        or (row[7] and float(row[11]) > float(row[7])):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
                 elif row[12] and float(row[12]) >= float(row[11]):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
                 elif row[12] and (not isDateValid(row[13]) or not isDateValid(row[14])
-                                  or getStrToDate(row[13]) > datetime.datetime.today().date()
+                                  or getStrToDate(row[13]) < datetime.datetime.today().date()
                                   or getStrToDate(row[14]) < datetime.datetime.today().date()
                                   or getStrToDate(row[13]) >= getStrToDate(row[14])):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
