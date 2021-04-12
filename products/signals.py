@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 
 from products.models import Product, ProductPrice, ProductCategory, \
-    ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging
+    ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es, update_product_es
@@ -20,7 +20,7 @@ logger = logging.getLogger('django')
 from .tasks import approve_product_price
 
 
-@receiver(post_save, sender=ProductPrice)
+@receiver(post_save, sender=SlabProductPrice)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     update_shop_product_es(instance.seller_shop.id, instance.product.id)
     visibility_changes = get_visibility_changes(instance.seller_shop.id, instance.product.id)
