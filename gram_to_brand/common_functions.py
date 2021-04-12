@@ -35,7 +35,7 @@ def upload_cart_product_csv(instance):
 
 def create_cart_product_mapping(row, instance):
     parent_product = ParentProduct.objects.get(parent_id=row[0])
-    vendor_product = ProductVendorMapping.objects.filter(vendor=instance.supplier_name, product_id=row[2]).last()
+    vendor_product = ProductVendorMapping.objects.filter(vendor=instance.supplier_name, product_id=row[2])
     if row[8].lower() == "per piece":
         if vendor_product.filter(product_price=row[9], status=True).exists():
             vendor_product_dt = vendor_product.filter(product_price=row[9], status=True).last()
