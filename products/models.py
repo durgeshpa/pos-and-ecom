@@ -600,6 +600,7 @@ class ProductPrice(models.Model):
     #     return self.product.product_mrp
 
 class SlabProductPrice(ProductPrice):
+
     class Meta:
         proxy = True
 
@@ -638,6 +639,19 @@ class PriceSlab(models.Model):
         case_size = self.product_price.product.parent_product.inner_case_size
         if not self.selling_price or self.selling_price > self.product_price.product.product_mrp*case_size:
             raise ValidationError(_('Invalid Selling price.'))
+
+    def __str__(self):
+
+        single_slab = "Single Slab, SP - %s" % (self.selling_price)
+        start_slab = "Up to %s, SP - %s" % (self.end_value, self.selling_price)
+        # intermediate_slab = "%s - %s, SP - %s," %  (self.start_value, self.end_value, self.selling_price)
+        end_slab = "For %s+, SP - %s " %  (self.start_value, self.selling_price)
+        offer_price = "Offer Price - %s, Offer Start Date - %s, Offer End Date -%s"\
+                      % (self.offer_price, self.offer_price_start_date, self.offer_price_end_date)
+        slab_details = single_slab if self.start_value==0 and self.end_value==0 else end_slab if self.end_value == 0 else start_slab
+        if self.offer_price:
+            slab_details = slab_details + ", " + offer_price
+        return slab_details
 
 
 class ProductCategory(models.Model):
