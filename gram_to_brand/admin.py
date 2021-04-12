@@ -111,10 +111,9 @@ class CartAdmin(admin.ModelAdmin):
 
     def save_formset(self, request, form, formset, change):
         obj = form.instance
-        flag = False
         get_po_msg = Po_Message.objects.create(message=request.POST.get('message'),
                                                created_by=request.user) if request.POST.get('message') else None
-
+        flag = False
         if "_approve" in request.POST:
             obj.po_status = obj.FINANCE_APPROVED
             flag = True
@@ -133,12 +132,6 @@ class CartAdmin(admin.ModelAdmin):
         obj.po_raised_by = request.user
         obj.last_modified_by = request.user
         obj.save()
-        if len(form.changed_data) > 0:
-            formset.save(commit=False)
-        else:
-            formset.save()
-        if change is False:
-            formset.save()
         if flag:
             LogEntry.objects.log_action(
                 user_id=request.user.pk,
@@ -148,7 +141,7 @@ class CartAdmin(admin.ModelAdmin):
                 object_repr='',
                 change_message=SUCCESS_MESSAGES['CHANGED_STATUS'] % obj.get_po_status_display(),
             )
-            return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+        formset.save()
         if 'cart_product_mapping_csv' in form.changed_data:
             upload_cart_product_csv(obj)
         return HttpResponseRedirect("/admin/gram_to_brand/cart/")

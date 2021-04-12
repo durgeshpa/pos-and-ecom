@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.db.models import Q
 
 from addresses.models import Address, City, State
-from products.models import ProductPrice
+from products.models import ProductVendorMapping
 
 
 def create_shops_excel(queryset):
@@ -225,3 +225,15 @@ def products_price_excel(queryset):
 
     return response
 
+
+def vendor_product_mapping(supplier, product_id, price, mrp, case_size, unit):
+    vendor_product_obj = None
+    if unit.lower() == 'per piece':
+        vendor_product_obj = ProductVendorMapping.objects.create(vendor=supplier, product_id=product_id,
+                                                                 product_price=price, product_mrp=mrp,
+                                                                 case_size=case_size, status=True)
+    elif unit.lower() == 'per pack':
+        vendor_product_obj = ProductVendorMapping.objects.create(vendor=supplier, product_id=product_id,
+                                                                 product_price_pack=price, product_mrp=mrp,
+                                                                 case_size=case_size, status=True)
+    return vendor_product_obj

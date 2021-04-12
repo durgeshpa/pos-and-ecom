@@ -70,8 +70,7 @@ class POGenerationForm(forms.ModelForm):
         super(POGenerationForm, self).__init__(*args, **kwargs)
         self.fields['cart_product_mapping_csv'].help_text = self.instance.products_sample_file
 
-    def clean(self):
-        # Upload Products For Po Generation
+    def clean_cart_product_mapping_csv(self):
         if 'cart_product_mapping_csv' in self.changed_data and self.cleaned_data['cart_product_mapping_csv']:
             if self.cleaned_data['cart_product_mapping_csv'].name[-4:] != '.csv':
                 raise forms.ValidationError("Sorry! Only csv file accepted")
@@ -118,10 +117,12 @@ class POGenerationForm(forms.ModelForm):
                 if vendor.case_size != int(row[5]):
                     self.error_csv(row_id, titles[5], row[5], VALIDATION_ERROR_MESSAGES['NOT_VALID'] % "Case Size")
 
-        if 'po_validity_date' in self.cleaned_data and self.cleaned_data['po_validity_date'] < datetime.date.today():
-            raise ValidationError(_("Po validity date cannot be in the past!"))
+        return self.cleaned_data['cart_product_mapping_csv']
 
-        return self.cleaned_data
+    def clean_po_validity_date(self):
+        if self.cleaned_data['po_validity_date'] < datetime.date.today():
+            raise ValidationError(_("Po validity date cannot be in the past!"))
+        return self.cleaned_data['po_validity_date']
 
     def error_csv(self, row_id, title, value, error):
         """
@@ -133,12 +134,10 @@ class POGenerationForm(forms.ModelForm):
 
 
 class POGenerationAccountForm(forms.ModelForm):
-
     class Meta:
         model = Cart
-        fields = ('brand', 'supplier_state','supplier_name', 'gf_shipping_address',
-                  'gf_billing_address', 'po_validity_date', 'payment_term',
-                  'delivery_term','po_status')
+        fields = ('brand', 'supplier_state', 'supplier_name', 'gf_shipping_address', 'gf_billing_address',
+                  'po_validity_date', 'payment_term', 'delivery_term', 'po_status')
 
     class Media:
         js = ('/static/admin/js/po_generation_acc_form.js',)
