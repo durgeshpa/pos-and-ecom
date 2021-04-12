@@ -1,3 +1,6 @@
+import logging
+from io import StringIO
+
 from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django_filters import BooleanFilter
@@ -58,6 +61,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
 
+info_logger = logging.getLogger('file-info')
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
     field_name = 'product' # name of the foreign key field
@@ -1422,11 +1426,6 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             'fields': ('product', 'mrp', 'seller_shop', 'approval_status',),
             'classes': ('required',)
         }),
-
-        # ('Price Details', {
-        #     'fields': ('selling_price', 'offer_price', 'offer_price_start_date', 'offer_price_end_date'),
-        #     'classes': ('single_slab',)
-        # })
     )
     change_form_template = 'admin/products/product_price_change_form.html'
 
@@ -1535,7 +1534,41 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
                ] + urls
         return urls
 
+    def export_as_csv(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "Slab 1 Qty", "Selling Price 1",
+                     "Offer Price 1", "Offer Price 1 Start Date", "Offer Price 1 End Date",
+                     "Slab 2 Qty", "Selling Price 2", "Offer Price 2", "Offer Price 2 Start Date", "Offer Price 2 End Date"])
+        for query in queryset:
+            obj = SlabProductPrice.objects.get(id=query.id)
+            try:
+                row = [obj.product.product_sku, obj.product.product_name, obj.seller_shop.id, obj.seller_shop.shop_name,
+                       obj.mrp]
+                first_slab=True
+                for slab in obj.price_slabs.all():
+                    if first_slab:
+                        row.append(slab.end_value)
+                    else:
+                        row.append(slab.start_value)
+                    row.append(slab.selling_price)
+                    row.append(slab.offer_price)
+                    row.append(slab.offer_price_start_date)
+                    row.append(slab.offer_price_end_date)
+                    first_slab = False
+                writer.writerow(row)
+
+            except Exception as exc:
+                info_logger.error(exc)
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=slab_product_prices.csv'
+        return response
+
+    actions = [export_as_csv,]
     change_list_template = 'admin/products/products-slab-price-change-list.html'
+
 
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
