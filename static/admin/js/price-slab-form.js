@@ -17,9 +17,7 @@ jQuery(function($) {
                 document.getElementById('id_price_slabs-1-end_value').value = 0;
             }
         }
-        if($('#id_slab_price_applicable').length){
-            toggle_price_slab($('#id_slab_price_applicable').prop('checked'))
-        }
+        toggle_price_slab($('#id_slab_price_applicable').prop('checked'))
         $('#id_price_slabs-1-start_value').change(function() {
             document.getElementById('id_price_slabs-0-end_value').value = $('#id_price_slabs-1-start_value').val()-1;
         });
