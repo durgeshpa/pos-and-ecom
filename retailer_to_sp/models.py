@@ -622,8 +622,8 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                     product = Product.objects.get(product_sku=row[0])
                     product_price = product.get_current_shop_price(instance.seller_shop,
                                                                    instance.buyer_shop)
-                    ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
                     ordered_qty = int(row[2])
+                    ordered_pieces = ordered_qty * int(product.product_inner_case_size)
 
                     shop = Shop.objects.filter(id=instance.seller_shop_id).last()
                     inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
@@ -643,9 +643,8 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                             discounted_price = float(row[3])
                         try:
                             CartProductMapping.objects.create(cart=instance.cart, cart_product_id=product.id,
-                                                              qty=int(row[2]),
-                                                              no_of_pieces=int(row[2]) * int(
-                                                                  product.product_inner_case_size),
+                                                              qty=ordered_qty,
+                                                              no_of_pieces=ordered_pieces,
                                                               cart_product_price=product_price,
                                                               discounted_price=discounted_price)
                         except Exception as error:
