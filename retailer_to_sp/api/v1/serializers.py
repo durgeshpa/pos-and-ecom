@@ -255,8 +255,9 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def product_price_dt(self, obj):
         current_price = obj.get_current_shop_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
-        self.product_price = current_price.get_applicable_slab_price_per_pack(self.context.get('qty', 1))
-        return self.product_price
+        if current_price:
+            self.product_price = current_price.get_applicable_slab_price_per_pack(self.context.get('qty', 1))
+            return self.product_price
 
     def m_per_piece_price(self, obj):
         return round(self.product_price/obj.product_inner_case_size, 2)
