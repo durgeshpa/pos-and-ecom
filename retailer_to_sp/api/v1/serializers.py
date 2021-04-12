@@ -1,4 +1,5 @@
 from decimal import Decimal
+import math
 from rest_framework import serializers
 
 from common.common_utils import convert_date_format_ddmmmyyyy
@@ -101,7 +102,8 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
         if cart_product_mapping and cart_product_mapping.cart_product_price:
             cart_product_price = cart_product_mapping.cart_product_price
             cart_product_case_size = cart_product_mapping.no_of_pieces/cart_product_mapping.qty
-            self.product_price = round(cart_product_price.get_per_piece_price(obj.shipped_qty/cart_product_case_size, cart_product_case_size), 2)
+            shipped_qty_in_pack = math.ceil(obj.shipped_qty / cart_product_case_size)
+            self.product_price = round(cart_product_price.get_per_piece_price(shipped_qty_in_pack, cart_product_case_size), 2)
             return self.product_price
         else :
             return 0
@@ -1140,7 +1142,8 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
             if obj.effective_price:
                 return obj.effective_price
             cart_product = obj.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product=obj.product)
-            return cart_product.cart_product_price.get_per_piece_price(obj.shipped_qty, obj.product.product_inner_case_size)
+            shipped_qty_in_pack = math.ceil(obj.shipped_qty/obj.product.product_inner_case_size)
+            return cart_product.cart_product_price.get_per_piece_price(shipped_qty_in_pack, obj.product.product_inner_case_size)
 
 
     class Meta:
