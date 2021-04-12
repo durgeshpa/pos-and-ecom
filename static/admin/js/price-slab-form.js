@@ -8,6 +8,7 @@ jQuery(function($) {
             if (value == false){
                 div.style.display = "none";
                 document.getElementById('id_price_slabs-0-end_value').value=0;
+                document.getElementById('id_price_slabs-1-start_value').value='';
                 document.getElementById('id_price_slabs-1-end_value').value='';
                 $('.single_slab').show()
             }else if(value == true){
