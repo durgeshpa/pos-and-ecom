@@ -2291,7 +2291,7 @@ def slab_product_price_csv_upload(request):
             try:
                 for row_id, row in enumerate(reader):
                     product = Product.objects.filter(product_sku=row[0]).last()
-                    seller_shop_id = row[2]
+                    seller_shop_id = int(row[2])
 
                     # Create ProductPrice
                     product_price = SlabProductPrice(product=product, mrp=product.product_mrp,
@@ -2305,30 +2305,34 @@ def slab_product_price_csv_upload(request):
                         case_size = product.parent_product.inner_case_size
                         selling_price_per_saleable_unit = round(selling_price * case_size, 2)
                     else:
-                        selling_price_per_saleable_unit = row[6]
+                        selling_price_per_saleable_unit = float(row[6])
 
                     # Create Price Slabs
 
                     # Create Price Slab 1
-                    price_slab_1 = PriceSlab(product_price=product_price, start_value=0, end_value=row[5],
+                    price_slab_1 = PriceSlab(product_price=product_price, start_value=0, end_value=int(row[5]),
                                              selling_price=selling_price_per_saleable_unit)
                     if row[7]:
-                        price_slab_1.offer_price = row[7]
+                        price_slab_1.offer_price = float(row[7])
                         price_slab_1.offer_price_start_date = row[8]
                         price_slab_1.offer_price_end_date = row[9]
                     price_slab_1.save()
 
+                    #If slab 1 quantity is Zero then slab is not to be created
+                    if int(row[5]) == 0:
+                        continue
                     # Create Price Slab 2
                     price_slab_2 = PriceSlab(product_price=product_price, start_value=row[10], end_value=0,
-                                             selling_price=row[11])
+                                             selling_price=float(row[11]))
                     if row[12]:
-                        price_slab_2.offer_price = row[12]
+                        price_slab_2.offer_price = float(row[12])
                         price_slab_2.offer_price_start_date = row[13]
                         price_slab_2.offer_price_end_date = row[14]
                     price_slab_2.save()
 
             except Exception as e:
                 print(e)
+                return render(request, 'admin/products/bulk-slab-product-price.html', {'form': form,})
             return render(request, 'admin/products/bulk-slab-product-price.html', {
                 'form': form,
                 'success': 'Slab Product Prices uploaded successfully !',

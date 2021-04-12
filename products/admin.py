@@ -22,7 +22,7 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
                     ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
-                    SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm)
+                    SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -1398,8 +1398,8 @@ class PriceSlabAdmin(TabularInline):
     model = PriceSlab
     form = PriceSlabForm
     formset = SlabInlineFormSet
-    min_num = 1
-    extra = 1
+    min_num = 0
+    extra = 2
     max_num = 2
     can_delete = False
 
@@ -1418,11 +1418,21 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     """
     inlines = [PriceSlabAdmin]
     form = ProductPriceSlabForm
-    list_display = ['product', 'product_mrp','seller_shop', 'approval_status', 'status']
+    list_display = ['product', 'product_mrp','seller_shop', 'approval_status', 'slab1_details', 'slab2_details'
+                    ]
     autocomplete_fields = ['product']
     list_filter = [ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch, ProductCategoryFilter, 'approval_status']
-    fields = ('product', 'mrp', 'seller_shop', 'approval_status')
+    fieldsets = (
+        ('Basic', {
+            'fields': ('product', 'mrp', 'seller_shop', 'approval_status',),
+            'classes': ('required',)
+        }),
 
+        # ('Price Details', {
+        #     'fields': ('selling_price', 'offer_price', 'offer_price_start_date', 'offer_price_end_date'),
+        #     'classes': ('single_slab',)
+        # })
+    )
     change_form_template = 'admin/products/product_price_change_form.html'
 
     class Media:
@@ -1432,6 +1442,24 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             'admin/js/price-slab-form.js'
         )
 
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super(ProductSlabPriceAdmin, self).get_fieldsets(request, obj)
+        if obj is None:
+            fieldsets = (
+                            ('Basic', {
+                                'fields': ('product', 'mrp', 'seller_shop', 'approval_status',),
+                                'classes': ('required',)})
+                            ,
+                            ('Slab Price Applicable', {
+                                'fields': ('slab_price_applicable',),
+                                'classes': ('slab_applicable',)}),
+                            ('Price Details', {
+                                'fields': ('selling_price', 'offer_price', 'offer_price_start_date', 'offer_price_end_date'),
+                                'classes': ('single_slab',)
+                            })
+            )
+        return fieldsets
+
     def get_readonly_fields(self, request, obj=None):
         if obj is None:
             return self.readonly_fields
@@ -1439,6 +1467,15 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             return self.readonly_fields + (
                 'product', 'mrp', 'seller_shop', 'approval_status')
         return self.readonly_fields + ( 'product', 'mrp', 'seller_shop')
+
+
+    def slab1_details(self, obj):
+        first_slab = obj.price_slabs.filter(start_value=0).last()
+        return first_slab
+
+    def slab2_details(self, obj):
+        last_slab = obj.price_slabs.filter(~Q(start_value=0), end_value=0).last()
+        return last_slab
 
     def product_mrp(self, obj):
         if obj.product.product_mrp:
@@ -1465,8 +1502,12 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         return False
 
     def get_form(self, request, obj=None, **kwargs):
-        kwargs['form'] = ProductPriceSlabForm
+        if not obj:
+            kwargs['form'] = ProductPriceSlabCreationForm
+        else:
+            kwargs['form'] = ProductPriceSlabForm
         return super().get_form(request, obj, **kwargs)
+
 
     def get_queryset(self, request):
         qs = super(ProductSlabPriceAdmin, self).get_queryset(request)
