@@ -840,11 +840,6 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="product-category-mapping-sample"
             ),
             url(
-                r'^product-price-upload/$',
-                self.admin_site.admin_view(ProductPriceUpload.as_view()),
-                name="product_price_upload"
-            ),
-            url(
                 r'^city-autocomplete/$',
                 self.admin_site.admin_view(CityAutocomplete.as_view()),
                 name="city_autocomplete"
