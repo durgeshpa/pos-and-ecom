@@ -422,6 +422,12 @@ class ParentProductForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = self.cleaned_data
+        if cleaned_data.get('is_ptr_applicable') :
+            if not cleaned_data.get('ptr_type'):
+                raise ValidationError(_('Invalid PTR Type'))
+            elif not cleaned_data.get('ptr_percent'):
+                raise ValidationError(_('Invalid PTR Percentage'))
+
         return cleaned_data
 
 
