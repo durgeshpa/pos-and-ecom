@@ -2221,8 +2221,8 @@ class OrderCentral(APIView):
             # Update Cart To Ordered
             self.update_cart_basic(cart)
             order = self.create_basic_order(cart, shop)
-            invoice = self.auto_process_order(order, payment_method)
-            return get_response('Ordered Successfully!', self.post_serialize_process_basic(order, invoice))
+            self.auto_process_order(order, payment_method)
+            return get_response('Ordered Successfully!', self.post_serialize_process_basic(order))
 
     def get_retail_validate(self):
         """
@@ -2305,6 +2305,9 @@ class OrderCentral(APIView):
             shop = Shop.objects.get(id=shop_id)
         except ObjectDoesNotExist:
             return {'error': "Shop Doesn't Exist!"}
+        # Check Billing Address
+        if not shop.shop_name_address_mapping.filter(address_type='billing').exists():
+            return {'error': "Shop Billing Address Doesn't Exist!"}
         # Check if cart exists
         cart_id = self.request.data.get('cart_id')
         try:
@@ -2546,7 +2549,7 @@ class OrderCentral(APIView):
                                                                'current_url': self.request.get_host()})
         return serializer.data
 
-    def post_serialize_process_basic(self, order, invoice=False):
+    def post_serialize_process_basic(self, order):
         """
             Place Order
             Serialize retail order for sp shop
@@ -2554,7 +2557,6 @@ class OrderCentral(APIView):
         serializer = BasicOrderSerializer(Order.objects.get(pk=order.id),
                                           context={'current_url': self.request.get_host()})
         response = serializer.data
-        response['invoice'] = invoice
         return response
 
     def auto_process_order(self, order, payment_method):
