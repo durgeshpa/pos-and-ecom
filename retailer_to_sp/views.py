@@ -1463,10 +1463,6 @@ class RetailerCart(APIView):
             context={'parent_mapping_id': order_obj.seller_shop.id,
                      'buyer_shop_id': order_obj.buyer_shop.id}
         )
-        for i in dt.data['rt_cart_list']:
-            if not i['cart_product_price']['product_mrp'] or i['cart_product_price']['product_mrp'] is None:
-                product = Product.objects.get(id=i['cart_product']['id'])
-                i['cart_product_price']['product_mrp'] = product.product_mrp or i['cart_product_price']['product_mrp']
         return Response({'is_success': True, 'response_data': dt.data}, status=status.HTTP_200_OK)
 
 

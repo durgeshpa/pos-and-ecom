@@ -226,12 +226,16 @@ class PriceSlabSerializer(serializers.ModelSerializer):
         fields = ('start_value', 'end_value', 'ptr', 'margin')
 
 class SlabProductPriceSerializer(serializers.ModelSerializer):
-
+    product_mrp = serializers.SerializerMethodField()
+    # product_price = serializers.SerializerMethodField()
     price_slabs = PriceSlabSerializer(many=True)
 
+    def get_product_mrp(self,obj):
+        return obj.mrp if obj.mrp else obj.product.product_mrp
+
     class Meta:
-        model = ProductPrice
-        fields = ('mrp', 'price_slabs',)
+        model = SlabProductPrice
+        fields = ('product_mrp', 'price_slabs',)
 
 
 class ProductsSearchSerializer(serializers.ModelSerializer):
@@ -559,14 +563,17 @@ class ProductsSerializer(serializers.ModelSerializer):
 
 class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     cart_product = ProductsSerializer()
-    #cart = CartDataSerializer()
     cart_product_price = SlabProductPriceSerializer()
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_inner_case_size = serializers.SerializerMethodField('product_inner_case_size_dt')
+    product_price = serializers.SerializerMethodField()
 
     def no_pieces_dt(self, obj):
         return int(obj.no_of_pieces)
+
+    def get_product_price(self,obj):
+        return obj.cart_product_price.get_applicable_slab_price_per_pack(obj.qty)
 
     def product_sub_total_dt(self,obj):
         product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
@@ -580,7 +587,7 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartProductMapping
         fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','no_of_pieces','product_sub_total',
-                  'cart_product_price','product_inner_case_size')
+                  'cart_product_price','product_inner_case_size', 'product_price')
 
 
 class OrderedCartSerializer(serializers.ModelSerializer):

@@ -1546,7 +1546,7 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
                 row = [obj.product.product_sku, obj.product.product_name, obj.seller_shop.id, obj.seller_shop.shop_name,
                        obj.mrp]
                 first_slab=True
-                for slab in obj.price_slabs.all():
+                for slab in obj.price_slabs.all().order_by('start_value'):
                     if first_slab:
                         row.append(slab.end_value)
                     else:
