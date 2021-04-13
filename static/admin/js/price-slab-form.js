@@ -14,6 +14,7 @@ jQuery(function($) {
             }else if(value == true){
                  div.style.display = "block";
                 $('.single_slab').hide()
+                getProductDetails()
                 document.getElementById('id_price_slabs-1-end_value').value = 0;
             }
         }
