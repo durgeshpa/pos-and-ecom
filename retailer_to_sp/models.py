@@ -2,7 +2,6 @@ import datetime
 import logging
 import csv
 import codecs
-import re
 import math
 
 from django.db import models, transaction
