@@ -229,7 +229,7 @@ class SlabProductPriceSerializer(serializers.ModelSerializer):
     mrp = serializers.SerializerMethodField()
     price_slabs = PriceSlabSerializer(many=True)
 
-    def get_mrp(self,obj):
+    def get_mrp(self, obj):
         return obj.mrp if obj.mrp else obj.product.product_mrp
 
     class Meta:
@@ -570,7 +570,8 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
         return int(obj.no_of_pieces)
 
     def get_product_price(self,obj):
-        return obj.cart_product_price.get_applicable_slab_price_per_pack(obj.qty)
+        return obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))\
+                  .get_applicable_slab_price_per_pack(obj.qty)
 
     def product_sub_total_dt(self,obj):
         product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
