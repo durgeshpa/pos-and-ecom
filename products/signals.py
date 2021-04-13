@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 
 from products.models import Product, ProductPrice, ProductCategory, \
-    ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging
+    ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es, update_product_es
@@ -21,6 +21,19 @@ from .tasks import approve_product_price
 
 
 @receiver(post_save, sender=ProductPrice)
+def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+    update_shop_product_es(instance.seller_shop.id, instance.product.id)
+    visibility_changes = get_visibility_changes(instance.seller_shop.id, instance.product.id)
+    for prod_id, visibility in visibility_changes.items():
+        sibling_product = Product.objects.filter(pk=prod_id).last()
+        update_visibility(instance.seller_shop.id, sibling_product, visibility)
+        if prod_id == instance.product.id:
+            update_shop_product_es.delay(instance.seller_shop.id, prod_id)
+        else:
+            update_product_es.delay(instance.seller_shop.id, prod_id, visible=visibility)
+
+
+@receiver(post_save, sender=SlabProductPrice)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     update_shop_product_es(instance.seller_shop.id, instance.product.id)
     visibility_changes = get_visibility_changes(instance.seller_shop.id, instance.product.id)

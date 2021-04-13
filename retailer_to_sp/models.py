@@ -2,7 +2,8 @@ import datetime
 import logging
 import csv
 import codecs
-
+import re
+import math
 
 from django.db import models, transaction
 from django.db.models import F, FloatField, Sum, Func, Q, Case, Value, When
@@ -15,7 +16,6 @@ from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html_join
-
 
 from addresses.models import Address
 from brand.models import Brand
@@ -1457,9 +1457,10 @@ class OrderedProduct(models.Model):  # Shipment
 
     @property
     def credit_note_amount(self):
-        credit_note_amount = self.credit_note.all()\
-                                 .aggregate(cn_amt=RoundAmount(Sum(F('amount')), output_field=FloatField()))\
-                                 .get('cn_amt')
+        credit_note_amount = self.rt_order_product_order_product_mapping.all() \
+            .aggregate(cn_amt=RoundAmount(
+            Sum((F('effective_price') * F('shipped_qty')) - (F('delivered_at_price') * F('delivered_qty')), output_field=FloatField()))).get(
+            'cn_amt')
         if credit_note_amount:
             return credit_note_amount
         else:
@@ -1566,9 +1567,8 @@ class OrderedProduct(models.Model):  # Shipment
                 inv_amt=RoundAmount(Sum(F('discounted_price') * F('shipped_qty')), output_field=FloatField())).get(
                 'inv_amt')
             credit_note_amount = self.rt_order_product_order_product_mapping.all() \
-                .aggregate(cn_amt=RoundAmount(
-                Sum(F('discounted_price') * (F('shipped_qty') - F('delivered_qty')), output_field=FloatField()))).get(
-                'cn_amt')
+                .aggregate(cn_amt=RoundAmount(Sum((F('discounted_price') * F('shipped_qty')) - ((F('delivered_at_price') * F('delivered_qty')))), output_field=FloatField()))\
+                .get('cn_amt')
             if self.invoice_amount:
                 return (invoice_amount - credit_note_amount)
             else:
@@ -1903,7 +1903,8 @@ class OrderedProductMapping(models.Model):
     def price_to_retailer(self):
         if self.ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
             cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product=self.product)
-            ptr = cart_product_mapping.cart_product_price.get_per_piece_price(self.shipped_qty/cart_product_mapping.cart_product_case_size,
+            shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
+            ptr = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack,
                                                                               cart_product_mapping.cart_product_case_size)
             return ptr
         else:
@@ -1914,7 +1915,8 @@ class OrderedProductMapping(models.Model):
     def set_effective_price(self):
         try:
             cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product=self.product)
-            effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(self.shipped_qty/cart_product_mapping.cart_product_case_size,
+            shipper_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
+            effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipper_qty_in_pack,
                                                                                           cart_product_mapping.cart_product_case_size)
             OrderedProductMapping.objects.filter(id=self.id).update(effective_price=effective_price)
         except:
@@ -2093,12 +2095,14 @@ class OrderedProductMapping(models.Model):
         # else:
         cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last()
 
-        self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(self.shipped_qty/cart_product_mapping.cart_product_case_size,
+        shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
+        self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack,
                                                                                            cart_product_mapping.cart_product_case_size)
         self.discounted_price = cart_product_mapping.discounted_price
-        if not self.delivered_at_price and self.delivered_qty > 0:
+        if self.delivered_qty > 0:
+            delivered_qty_in_pack = math.ceil(self.delivered_qty / self.product.product_inner_case_size)
             self.delivered_at_price = cart_product_mapping.cart_product_price\
-                                                          .get_per_piece_price(self.delivered_qty/self.product.product_inner_case_size,
+                                                          .get_per_piece_price(delivered_qty_in_pack,
                                                                                self.product.product_inner_case_size)
         super().save(*args, **kwargs)
 

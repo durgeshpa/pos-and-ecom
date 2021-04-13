@@ -1,4 +1,5 @@
 from decimal import Decimal
+import math
 from rest_framework import serializers
 
 from common.common_utils import convert_date_format_ddmmmyyyy
@@ -101,7 +102,8 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
         if cart_product_mapping and cart_product_mapping.cart_product_price:
             cart_product_price = cart_product_mapping.cart_product_price
             cart_product_case_size = cart_product_mapping.no_of_pieces/cart_product_mapping.qty
-            self.product_price = round(cart_product_price.get_per_piece_price(obj.shipped_qty/cart_product_case_size, cart_product_case_size), 2)
+            shipped_qty_in_pack = math.ceil(obj.shipped_qty / cart_product_case_size)
+            self.product_price = round(cart_product_price.get_per_piece_price(shipped_qty_in_pack, cart_product_case_size), 2)
             return self.product_price
         else :
             return 0
@@ -224,11 +226,14 @@ class PriceSlabSerializer(serializers.ModelSerializer):
         fields = ('start_value', 'end_value', 'ptr', 'margin')
 
 class SlabProductPriceSerializer(serializers.ModelSerializer):
-
+    mrp = serializers.SerializerMethodField()
     price_slabs = PriceSlabSerializer(many=True)
 
+    def get_mrp(self,obj):
+        return obj.mrp if obj.mrp else obj.product.product_mrp
+
     class Meta:
-        model = ProductPrice
+        model = SlabProductPrice
         fields = ('mrp', 'price_slabs',)
 
 
@@ -255,8 +260,9 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def product_price_dt(self, obj):
         current_price = obj.get_current_shop_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
-        self.product_price = current_price.get_applicable_slab_price_per_pack(self.context.get('qty', 1))
-        return self.product_price
+        if current_price:
+            self.product_price = current_price.get_applicable_slab_price_per_pack(self.context.get('qty', 1))
+            return self.product_price
 
     def m_per_piece_price(self, obj):
         return round(self.product_price/obj.product_inner_case_size, 2)
@@ -556,14 +562,17 @@ class ProductsSerializer(serializers.ModelSerializer):
 
 class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     cart_product = ProductsSerializer()
-    #cart = CartDataSerializer()
     cart_product_price = SlabProductPriceSerializer()
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_inner_case_size = serializers.SerializerMethodField('product_inner_case_size_dt')
+    product_price = serializers.SerializerMethodField()
 
     def no_pieces_dt(self, obj):
         return int(obj.no_of_pieces)
+
+    def get_product_price(self,obj):
+        return obj.cart_product_price.get_applicable_slab_price_per_pack(obj.qty)
 
     def product_sub_total_dt(self,obj):
         product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
@@ -577,7 +586,7 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartProductMapping
         fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','no_of_pieces','product_sub_total',
-                  'cart_product_price','product_inner_case_size')
+                  'cart_product_price','product_inner_case_size', 'product_price')
 
 
 class OrderedCartSerializer(serializers.ModelSerializer):
@@ -1139,7 +1148,8 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
             if obj.effective_price:
                 return obj.effective_price
             cart_product = obj.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product=obj.product)
-            return cart_product.cart_product_price.get_per_piece_price(obj.shipped_qty, obj.product.product_inner_case_size)
+            shipped_qty_in_pack = math.ceil(obj.shipped_qty/obj.product.product_inner_case_size)
+            return cart_product.cart_product_price.get_per_piece_price(shipped_qty_in_pack, obj.product.product_inner_case_size)
 
 
     class Meta:
