@@ -34,7 +34,7 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
 
 
 @receiver(post_save, sender=SlabProductPrice)
-def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+def update_elasticsearch_on_price_update(sender, instance=None, created=False, **kwargs):
     update_shop_product_es(instance.seller_shop.id, instance.product.id)
     visibility_changes = get_visibility_changes(instance.seller_shop.id, instance.product.id)
     for prod_id, visibility in visibility_changes.items():

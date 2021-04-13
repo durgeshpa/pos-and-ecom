@@ -624,15 +624,16 @@ class PriceSlab(models.Model):
     @property
     def ptr(self):
         ptr = self.selling_price
-        if self.offer_price and self.is_offer_price_valid:
+        if self.is_offer_price_valid is True:
             ptr = self.offer_price
         return float(ptr)
 
+    @property
     def is_offer_price_valid(self):
         today = datetime.datetime.today().date()
-        if self.offer_price_start_date > today or self.offer_price_end_date < today:
-            return False
-        return True
+        if self.offer_price and self.offer_price_start_date <= today <= self.offer_price_end_date:
+            return True
+        return False
 
     def clean(self):
         super(PriceSlab, self).clean()
