@@ -648,8 +648,8 @@ class BulkOrder(models.Model):
                     if not product_price:
                         raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                             0] + " | Product Price Not Available"))
+                    ordered_qty = int(row[2])
                     if row[3] and self.order_type == 'DISCOUNTED':
-                        ordered_qty = int(row[2])
                         discounted_price = float(row[3])
                         per_piece_price = product_price.get_per_piece_price(ordered_qty,
                                                                   product.product_inner_case_size)
@@ -669,14 +669,13 @@ class BulkOrder(models.Model):
                         int(available_quantity) / int(product.product_inner_case_size))
                     availableQuantity.append(product_available)
                     capping = product.get_current_shop_capping(shop,self.buyer_shop)
-                    product_qty = int(row[2])
                     parent_mapping = getShopMapping(self.buyer_shop_id)
                     if parent_mapping is None:
                         #unavailable_skus.append(row[0])
                         message = "Parent Maaping is not Found"
                         error_dict[row[0]] = message
                     if capping:
-                        msg = capping_check(capping, parent_mapping, product, product_qty, qty)
+                        msg = capping_check(capping, parent_mapping, product, ordered_qty, qty)
                         if msg[0] is False:
                             #unavailable_skus.append(row[0])
                             error_dict[row[0]] = msg[1]
@@ -696,7 +695,7 @@ class BulkOrder(models.Model):
                         count += 1
                     if count == 0:
                         #unavailable_skus.append(row[0])
-                        message = "Failed because of Ordered quantity is {} > Available quantity {}".format(str(int(row[2])),
+                        message = "Failed because of Ordered quantity is {} > Available quantity {}".format(str(ordered_qty),
                                                                                                             str(available_quantity))
                         error_dict[row[0]] = message
         info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]--Unavailable-SKUs:{unavailable_skus}, "
