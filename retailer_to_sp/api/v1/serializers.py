@@ -226,16 +226,15 @@ class PriceSlabSerializer(serializers.ModelSerializer):
         fields = ('start_value', 'end_value', 'ptr', 'margin')
 
 class SlabProductPriceSerializer(serializers.ModelSerializer):
-    product_mrp = serializers.SerializerMethodField()
-    # product_price = serializers.SerializerMethodField()
+    mrp = serializers.SerializerMethodField()
     price_slabs = PriceSlabSerializer(many=True)
 
-    def get_product_mrp(self,obj):
+    def get_mrp(self,obj):
         return obj.mrp if obj.mrp else obj.product.product_mrp
 
     class Meta:
         model = SlabProductPrice
-        fields = ('product_mrp', 'price_slabs',)
+        fields = ('mrp', 'price_slabs',)
 
 
 class ProductsSearchSerializer(serializers.ModelSerializer):
