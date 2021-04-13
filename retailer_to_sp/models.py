@@ -709,7 +709,6 @@ class CartProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
-    product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
 
     def __str__(self):
         return self.cart_product.product_name
