@@ -75,7 +75,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			continue
 		price_details = []
 		if product_price:
-			slabs = product_price.price_slabs.all()
+			slabs = product_price.price_slabs.all().order_by('start_value')
 			if slabs.count() == 0:
 				ptr = product_price.selling_price
 				if not mrp:
