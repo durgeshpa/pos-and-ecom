@@ -2,7 +2,7 @@ import datetime
 import logging
 import csv
 import codecs
-import json
+
 
 from django.db import models, transaction
 from django.db.models import F, FloatField, Sum, Func, Q, Case, Value, When
@@ -32,7 +32,7 @@ from otp.sms import SendSms
 from retailer_backend import common_function
 from retailer_backend import common_function as CommonFunction
 from .bulk_order_clean import bulk_order_validation
-from .common_function import capping_check, getShopMapping
+from .common_function import reserved_args_json_data
 from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
     get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
@@ -652,13 +652,10 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                                               f"Bulk Order post_save method {error}")
                     else:
                         continue
+
             if len(products_available) > 0:
-                reserved_args = json.dumps({
-                    'shop_id': instance.seller_shop.id,
-                    'transaction_id': instance.cart.order_id,
-                    'products': products_available,
-                    'transaction_type': 'reserved'
-                })
+                reserved_args = reserved_args_json_data(instance.seller_shop.id, instance.cart.order_id,
+                                                        products_available, 'reserved', None)
                 info_logger.info(f"reserved_bulk_order:{reserved_args}")
                 OrderManagement.create_reserved_order(reserved_args)
                 info_logger.info("reserved_bulk_order_success")
@@ -675,12 +672,8 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 order.received_by = user
                 order.order_status = 'ordered'
                 order.save()
-                reserved_args = json.dumps({
-                    'shop_id': instance.seller_shop.id,
-                    'transaction_id': instance.cart.order_id,
-                    'transaction_type': 'ordered',
-                    'order_status': order.order_status
-                })
+                reserved_args = reserved_args_json_data(instance.seller_shop.id, instance.cart.order_id,
+                                                        None, 'ordered', order.order_status)
                 sku_id = [i.cart_product.id for i in instance.cart.rt_cart_list.all()]
                 info_logger.info(f"ordered_bulk_order:{reserved_args}")
                 OrderManagement.release_blocking(reserved_args, sku_id)
@@ -716,6 +709,7 @@ class CartProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+    product_type = models.IntegerField(choices=((0, 'Free'), (1, 'Purchased')), default=1)
 
     def __str__(self):
         return self.cart_product.product_name

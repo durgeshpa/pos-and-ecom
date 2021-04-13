@@ -1,4 +1,6 @@
 import datetime
+import json
+
 today = datetime.datetime.today()
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -7,7 +9,7 @@ from shops.models import ParentRetailerMapping
 
 def getShopMapping(shop_id):
     try:
-        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id,status=True)
+        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
         return parent_mapping
     except ObjectDoesNotExist:
         return None
@@ -82,3 +84,12 @@ def capping_check(capping, parent_mapping, cart_product, product_qty, ordered_qt
         return False, cart_product.capping_error_msg
 
 
+def reserved_args_json_data(shop_id, transaction_id, products, transaction_type, order_status):
+    reserved_args = json.dumps({
+        'shop_id': shop_id,
+        'transaction_id': transaction_id,
+        'products': products,
+        'transaction_type': transaction_type,
+        'order_status': order_status
+    })
+    return reserved_args
