@@ -2204,7 +2204,7 @@ class UploadSlabProductPriceForm(forms.Form):
             elif row[7] and (not isDateValid(row[8], "%d-%m-%y") or not isDateValid(row[9], "%d-%m-%y")
                              or getStrToDate(row[8], "%d-%m-%y") < datetime.datetime.today().date()
                              or getStrToDate(row[9], "%d-%m-%y") < datetime.datetime.today().date()
-                             or getStrToDate(row[8], "%d-%m-%y") >= getStrToDate(row[9], "%d-%m-%y")):
+                             or getStrToDate(row[8], "%d-%m-%y") > getStrToDate(row[9], "%d-%m-%y")):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
             elif int(row[5]) > 0 :
                 if not row[10] or int(row[10]) != int(row[5])+1:
@@ -2217,7 +2217,7 @@ class UploadSlabProductPriceForm(forms.Form):
                 elif row[12] and (not isDateValid(row[13], "%d-%m-%y") or not isDateValid(row[14], "%d-%m-%y")
                                   or getStrToDate(row[13], "%d-%m-%y") < datetime.datetime.today().date()
                                   or getStrToDate(row[14], "%d-%m-%y") < datetime.datetime.today().date()
-                                  or getStrToDate(row[13], "%d-%m-%y") >= getStrToDate(row[14], "%d-%m-%y")):
+                                  or getStrToDate(row[13], "%d-%m-%y") > getStrToDate(row[14], "%d-%m-%y")):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
         return self.cleaned_data['file']
     
