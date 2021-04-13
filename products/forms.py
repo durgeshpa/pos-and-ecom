@@ -2151,8 +2151,8 @@ class SlabInlineFormSet(BaseInlineFormSet):
                 elif slab_data.get('offer_price_end_date') is None or slab_data.get('offer_price_end_date') < slab_data.get('offer_price_start_date'):
                     raise ValidationError('Offer Price End Date is invalid')
             last_slab_end_value = slab_data['end_value']
-            last_slab_selling_price = slab_data['selling_price']
-            last_slab_offer_price = slab_data['offer_price']
+            last_slab_selling_price = slab_data.get('selling_price')
+            last_slab_offer_price = slab_data.get('offer_price')
 
 
 class UploadSlabProductPriceForm(forms.Form):
