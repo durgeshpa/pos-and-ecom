@@ -33,29 +33,28 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
     for id, row in enumerate(reader):
         count = 0
         if not row[0]:
+            raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | "
+                                  "Product SKU cannot be empty")
+
+        if not row[2] or not re.match("^[\d\,]*$", row[2]):
             raise ValidationError(
-                "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | Product SKU cannot be empty")
+                "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " +
+                VALIDATION_ERROR_MESSAGES['EMPTY'] % "qty")
+
+        if order_type == 'DISCOUNTED':
+            if not row[3] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[3]):
+                raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " +
+                                      VALIDATION_ERROR_MESSAGES['EMPTY'] % "discounted_price")
+
+        if product in duplicate_products:
+            raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                0] + " | Duplicate entries of this product has been uploaded"))
         try:
             product = Product.objects.get(product_sku=row[0])
         except:
             raise ValidationError(
                 "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
                     'INVALID_PRODUCT_SKU'])
-
-        if not row[2] or not re.match("^[\d\,]*$", row[2]):
-            raise ValidationError(
-                "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
-                    'EMPTY'] % "qty")
-
-        if order_type == 'DISCOUNTED':
-            if not row[3] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[3]):
-                raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " +
-                                      VALIDATION_ERROR_MESSAGES[
-                                          'EMPTY'] % "discounted_price")
-
-        if product in duplicate_products:
-            raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                0] + " | Duplicate entries of this product has been uploaded"))
 
         duplicate_products.append(product)
         product_price = product.get_current_shop_price(seller_shop, buyer_shop)
@@ -98,14 +97,14 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
         from audit.views import BlockUnblockProduct
         is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(product, seller_shop)
         if is_blocked_for_audit is True:
-            message = "Failed because of SKU {} is Blocked for Audit"\
+            message = "Failed because of SKU {} is Blocked for Audit" \
                 .format(str(product.product_sku))
             error_dict[row[0]] = message
 
         if product_available >= ordered_qty:
             count += 1
         if count == 0:
-            message = "Failed because of Ordered quantity is {} > Available quantity {}"\
+            message = "Failed because of Ordered quantity is {} > Available quantity {}" \
                 .format(str(ordered_qty), str(available_quantity))
             error_dict[row[0]] = message
 
