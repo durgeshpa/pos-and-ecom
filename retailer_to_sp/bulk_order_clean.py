@@ -45,18 +45,17 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
             if not row[3] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[3]):
                 raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " +
                                       VALIDATION_ERROR_MESSAGES['EMPTY'] % "discounted_price")
-
-        if product in duplicate_products:
-            raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
-                0] + " | Duplicate entries of this product has been uploaded"))
         try:
             product = Product.objects.get(product_sku=row[0])
         except:
             raise ValidationError(
                 "Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | " + VALIDATION_ERROR_MESSAGES[
                     'INVALID_PRODUCT_SKU'])
-
+        if product in duplicate_products:
+            raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
+                0] + " | Duplicate entries of this product has been uploaded"))
         duplicate_products.append(product)
+
         product_price = product.get_current_shop_price(seller_shop, buyer_shop)
         if not product_price:
             raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
