@@ -213,41 +213,41 @@ class CartProductMappingForm(forms.ModelForm):
 class GRNOrderForm(forms.ModelForm):
     class Meta:
         model = GRNOrder
-        fields = ('order','invoice_no')
+        fields = ('order', 'invoice_no')
         readonly_fields = ('order')
 
 
 class GRNOrderProductForm(forms.ModelForm):
     product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
-     )
+        widget=autocomplete.ModelSelect2(url='product-autocomplete', forward=('order',))
+    )
     product_mrp = forms.DecimalField()
     po_product_quantity = forms.IntegerField()
     po_product_price = forms.DecimalField()
     already_grned_product = forms.IntegerField()
     already_returned_product = forms.IntegerField()
     expiry_date = forms.DateField(required=False, widget=AdminDateWidget())
-    best_before_year = forms.ChoiceField(choices=BEST_BEFORE_YEAR_CHOICE,)
-    best_before_month = forms.ChoiceField(choices=BEST_BEFORE_MONTH_CHOICE,)
+    best_before_year = forms.ChoiceField(choices=BEST_BEFORE_YEAR_CHOICE, )
+    best_before_month = forms.ChoiceField(choices=BEST_BEFORE_MONTH_CHOICE, )
 
     class Meta:
         model = GRNOrderProductMapping
-        fields = ('product', 'product_mrp', 'po_product_quantity','po_product_price','already_grned_product','already_returned_product','product_invoice_price','manufacture_date',
-                  'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty', 'barcode_id',)
-        readonly_fields = ('product','product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product', 'already_returned_product', 'barcode_id',)
+        fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product',
+                  'already_returned_product', 'product_invoice_price', 'manufacture_date', 'expiry_date',
+                  'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty', 'returned_qty',
+                  'barcode_id',)
+        readonly_fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product',
+                           'already_returned_product', 'barcode_id',)
         autocomplete_fields = ('product',)
 
-
     class Media:
-        #css = {'all': ('pretty.css',)}
-        js = ('/static/admin/js/grn_form.js', )
+        js = ('/static/admin/js/grn_form.js',)
 
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductForm, self).__init__(*args, **kwargs)
 
     def fields_required(self, fields):
-        """Used for conditionally marking fields as required."""
         for field in fields:
             if not self.cleaned_data.get(field, ''):
                 msg = forms.ValidationError("This field is required.")
@@ -256,100 +256,110 @@ class GRNOrderProductForm(forms.ModelForm):
     def clean(self):
         super(GRNOrderProductForm, self).clean()
         if self.cleaned_data.get('product', None):
-            if self.cleaned_data.get('product_invoice_qty') != 0:
-
-                if self.cleaned_data.get('expiry_date') is None:
-
-                    if not (int(self.cleaned_data.get('best_before_year')) or int(
-                            self.cleaned_data.get('best_before_month'))):
-                        raise ValidationError(_('Expiry date is required | Format should be YYYY-MM-DD'))
-
-                if self.cleaned_data.get('manufacture_date') is None:
-                    raise ValidationError(_('Manufacture date is required | Format should be YYYY-MM-DD'))
-
+            product_invoice_qty = self.cleaned_data.get('product_invoice_qty')
             manufacture_date = self.cleaned_data.get('manufacture_date')
             expiry_date = self.cleaned_data.get('expiry_date')
+            best_before_year = self.cleaned_data.get('best_before_year')
+            best_before_month = self.cleaned_data.get('best_before_month')
 
-            if self.cleaned_data.get('product_invoice_qty') is None or self.cleaned_data.get('product_invoice_qty') >0:
+            if product_invoice_qty != 0:
+                if expiry_date is None:
+                    if not (int(best_before_year) or int(best_before_month)):
+                        raise ValidationError(_('Expiry date is required | Format should be YYYY-MM-DD'))
+                if manufacture_date is None:
+                    raise ValidationError(_('Manufacture date is required | Format should be YYYY-MM-DD'))
+
+            if product_invoice_qty is None or product_invoice_qty > 0:
                 self.fields_required(['manufacture_date'])
-                if self.cleaned_data.get('manufacture_date') and self.cleaned_data.get('manufacture_date') > datetime.date.today():
+                if manufacture_date and manufacture_date > datetime.date.today():
                     raise ValidationError(_('Manufacture Date cannot be in future'))
-                if self.cleaned_data.get('expiry_date') and self.cleaned_data.get('expiry_date') < datetime.date.today():
-                    raise ValidationError(_('Expiry Date cannot be in the past'))
-                elif self.cleaned_data.get('expiry_date') and self.cleaned_data.get('expiry_date') >= datetime.date.today():
-                    pass
-                elif int(self.cleaned_data.get('best_before_year')) or int(self.cleaned_data.get('best_before_month')):
-                    expiry_date = self.cleaned_data.get('manufacture_date') + relativedelta(years=int(self.cleaned_data.get('best_before_year')), months=int(self.cleaned_data.get('best_before_month')))
+                if expiry_date:
+                    if expiry_date < datetime.date.today():
+                        raise ValidationError(_('Expiry Date cannot be in the past'))
+                elif best_before_year or best_before_month:
+                    expiry_date = manufacture_date + relativedelta(years=int(best_before_year),
+                                                                   months=int(best_before_month))
                     if expiry_date < datetime.date.today():
                         raise ValidationError(_('Manufacture date + Best before cannot be in the past'))
                     self.cleaned_data['expiry_date'] = expiry_date
                 else:
-                    raise ValidationError(_('Please enter either expiry date greater than manufactured date or best before'))
+                    raise ValidationError(
+                        _('Please enter either expiry date greater than manufactured date or best before'))
             return self.cleaned_data
 
 
 class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
     model = GRNOrderProductMapping
+
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductFormset, self).__init__(*args, **kwargs)
         if hasattr(self, 'order') and self.order:
             ordered_cart = self.order
+            products = ordered_cart.products.order_by('product_name')
             initial = []
-            for item in ordered_cart.products.order_by('product_name'):
-                already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('delivered_qty'))
-                already_return = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('returned_qty'))
-                def price(self):
-                    if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price:
-                        po_product_price = item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price
-                        return po_product_price
-                    else :
-                        po_product_price =  item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price_pack if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price
-                        return po_product_price
+            for item in products:
+                already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart). \
+                    aggregate(Sum('delivered_qty')).get('delivered_qty__sum')
+                already_return = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart). \
+                    aggregate(Sum('returned_qty')).get('returned_qty__sum')
+                cart_product = item.cart_product_mapping.filter(cart=ordered_cart).last()
+                # Price and Mrp
+                price = cart_product.price
+                mrp = '-'
+                vendor_mapping = cart_product.vendor_product
+                if vendor_mapping:
+                    piece_price, pack_price = vendor_mapping.product_price, vendor_mapping.product_price_pack
+                    price = piece_price if piece_price else (pack_price if pack_price else price)
+                    mrp = vendor_mapping.product_mrp
+                # Quantity
+                po_product_quantity = cart_product.qty
                 initial.append({
-                    'product' : item,
-                    'product_mrp': item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_mrp if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else '-',
-                    'po_product_quantity': item.cart_product_mapping.filter(cart=ordered_cart).last().qty,
-                    'po_product_price':price(self),
-                    'already_grned_product': 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum'),
-                    'already_returned_product': 0 if already_return.get('returned_qty__sum') == None else already_return.get('returned_qty__sum'),
-                    })
+                    'product': item, 'product_mrp': mrp, 'po_product_quantity': po_product_quantity,
+                    'po_product_price': price, 'already_grned_product': already_grn if already_grn else 0,
+                    'already_returned_product': already_return if already_return else 0,
+                })
             self.extra = len(initial)
-            self.initial= initial
+            self.initial = initial
 
     def clean(self):
         super(GRNOrderProductFormset, self).clean()
         products_dict = {}
-        count=0
+        count = 0
         for form in self.forms:
-            if form.cleaned_data.get('product_invoice_qty'):
-                count += 1
-            if form.cleaned_data.get('delivered_qty') is None:
-                raise ValidationError('This field is required')
-            if form.cleaned_data.get('returned_qty') is None:
+            product_invoice_qty = form.cleaned_data.get('product_invoice_qty')
+            delivered_qty = form.cleaned_data.get('delivered_qty')
+            returned_qty = form.cleaned_data.get('returned_qty')
+            count = count + 1 if product_invoice_qty else count
+            if delivered_qty is None or returned_qty is None:
                 raise ValidationError('This field is required')
 
             if form.instance.product.id in products_dict:
                 product_data = products_dict[form.instance.product.id]
-                product_data['total_items'] = product_data['total_items'] + (form.cleaned_data.get('delivered_qty') + form.cleaned_data.get('returned_qty'))
-                product_data['product_invoice_qty'] = product_data['product_invoice_qty'] + form.cleaned_data.get('product_invoice_qty')
+                product_data['total_items'] = product_data['total_items'] + (delivered_qty + returned_qty)
+                product_data['product_invoice_qty'] = product_data['product_invoice_qty'] + product_invoice_qty
             else:
-                products_data = {'total_items':(form.cleaned_data.get('delivered_qty') + form.cleaned_data.get('returned_qty')),
-                                 'diff':(form.instance.po_product_quantity - (form.instance.already_grned_product + form.instance.already_returned_product)),
-                                 'product_invoice_qty':form.cleaned_data.get('product_invoice_qty'),
-                                 'product_name':form.cleaned_data.get('product')}
+                products_data = {'total_items': (delivered_qty + returned_qty),
+                                 'diff': (form.instance.po_product_quantity - (form.instance.already_grned_product +
+                                                                               form.instance.already_returned_product)),
+                                 'product_invoice_qty': product_invoice_qty,
+                                 'product_name': form.cleaned_data.get('product')}
                 products_dict[form.instance.product.id] = products_data
 
-        if count <1:
+        if count < 1:
             raise ValidationError("Please fill the product invoice quantity of at least one product.")
 
-        for k,v in products_dict.items():
+        for k, v in products_dict.items():
+            name = v.get('product_name')
             if v.get('product_invoice_qty') <= v.get('diff'):
+                v_msg = 'Product invoice quantity {} the sum of delivered quantity and returned quantity for {}'
                 if v.get('product_invoice_qty') < v.get('total_items'):
-                    raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity for %s') % v.get('product_name'))
+                    raise ValidationError(v_msg.format('cannot be less than', name))
                 elif v.get('total_items') < v.get('product_invoice_qty'):
-                    raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity for %s') % v.get('product_name'))
+                    raise ValidationError(v_msg.format('must be equal to', name))
             else:
-                raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and (already_grned_product + already_returned_product) for %s') % v.get('product_name'))
+                raise ValidationError('Product invoice quantity cannot be greater than the difference of PO product'
+                                      ' quantity and (already_grned_product + already_returned_product) for {}'.
+                                      format(name))
 
 
 class DocumentForm(forms.ModelForm):

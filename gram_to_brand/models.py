@@ -17,7 +17,6 @@ from addresses.models import Address, State
 from retailer_to_gram.models import (Cart as GramMapperRetailerCart, Order as GramMapperRetailerOrder)
 from base.models import (BaseOrder, BaseCart, BaseShipment)
 
-
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
     ("delivered", "Delivered"),
@@ -370,11 +369,6 @@ class Document(models.Model):
     document_number = models.CharField(max_length=255, null=True, blank=True)
     document_image = models.FileField(null=True, blank=True, upload_to='brand_invoice')
 
-    # def clean(self):
-    #     super(Document).clean()
-    #     if self.document_image is None:
-    #         raise ValidationError("Document needs to be uploaded")
-
 
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder, related_name='grn_order_grn_order_product', null=True, blank=True,
@@ -422,15 +416,14 @@ class GRNOrderProductMapping(models.Model):
     @property
     def already_grned_product(self):
         already_grn = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(
-            Sum('delivered_qty'))
-        return 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum')
-        #
+            Sum('delivered_qty')).get('delivered_qty__sum')
+        return already_grn if already_grn else 0
 
     @property
     def already_returned_product(self):
         already_returned = self.product.product_grn_order_product.filter(
-            grn_order__order=self.grn_order.order).aggregate(Sum('returned_qty'))
-        return 0 if already_returned.get('returned_qty__sum') is None else already_returned.get('returned_qty__sum')
+            grn_order__order=self.grn_order.order).aggregate(Sum('returned_qty')).get('returned_qty__sum')
+        return already_returned if already_returned else 0
 
     @property
     def ordered_qty(self):
@@ -446,39 +439,11 @@ class GRNOrderProductMapping(models.Model):
 
     @property
     def product_mrp(self):
-        if self.vendor_product:
-            return self.vendor_product.product_mrp
-        else:
-            '-'
-
-    # @property
-    # def available_qty(self):
-    #     return self.delivered_qty
-
-    # @available_qty.setter
-    # def available_qty(self, value):
-    #     return self._available_qty = value
+        return self.vendor_product.product_mrp if self.vendor_product else '-'
 
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
-        # total_items= self.delivered_qty + self.returned_qty
-        # diff = self.po_product_quantity - self.already_grned_product
-
         self.already_grn = self.delivered_qty
-        # if self.product_invoice_qty <= diff:
-        #     if self.product_invoice_qty < total_items:
-        #         raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
-        #     elif total_items < self.product_invoice_qty:
-        #         raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity'))
-        # else:
-        #     raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
-        # if self.manufacture_date :
-        # if self.manufacture_date >= datetime.date.today():
-        #    raise ValidationError(_("Manufacture Date cannot be in future"))
-        # elif self.expiry_date < self.manufacture_date:
-        #     raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
-        # else:
-        #     raise ValidationError(_("Please enter all the field values"))
         if self.delivered_qty and float(self.po_product_price) != float(self.product_invoice_price):
             raise ValidationError(_("Po_Product_Price and Po_Invoice_Price are not similar"))
 
@@ -488,8 +453,7 @@ class GRNOrderProductMapping(models.Model):
             self.vendor_product = self.grn_order.order.ordered_cart.cart_list.filter(
                 cart_product=self.product).last().vendor_product
         if self.expiry_date and not self.batch_id and self.delivered_qty:
-            self.batch_id = '{}{}'.format(self.product.product_sku,
-                                          self.expiry_date.strftime('%d%m%y'))
+            self.batch_id = '{}{}'.format(self.product.product_sku, self.expiry_date.strftime('%d%m%y'))
         if self.barcode_id is None:
             if len(str(self.product_id)) == 1:
                 product_id = '0000' + str(self.product_id)
@@ -590,5 +554,3 @@ class PickListItems(models.Model):
     damage_qty = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-
-# post_save.connect(get_grn_report, sender=GRNOrder)

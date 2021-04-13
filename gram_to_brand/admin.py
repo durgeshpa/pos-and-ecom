@@ -113,38 +113,44 @@ class CartAdmin(admin.ModelAdmin):
         obj = form.instance
         get_po_msg = Po_Message.objects.create(message=request.POST.get('message'),
                                                created_by=request.user) if request.POST.get('message') else None
-        flag = False
-        if "_approve" in request.POST:
-            obj.po_status = obj.FINANCE_APPROVED
-            flag = True
-        elif "_disapprove" in request.POST:
-            obj.po_status = obj.DISAPPROVED
-            flag = True
-        elif "_approval_await" in request.POST:
-            obj.po_status = obj.APPROVAL_AWAITED
-            flag = True
-        elif "_close" in request.POST:
-            obj.po_status = obj.PARTIAL_DELIVERED_CLOSE
-            flag = True
-        else:
-            obj.po_status = obj.OPEN
+        flag, obj.po_status = self.po_status_request(request, obj)
         obj.po_message = get_po_msg
         obj.po_raised_by = request.user
         obj.last_modified_by = request.user
         obj.save()
         if flag:
-            LogEntry.objects.log_action(
-                user_id=request.user.pk,
-                content_type_id=ContentType.objects.get_for_model(obj).pk,
-                object_id=obj.pk,
-                action_flag=ADDITION,
-                object_repr='',
-                change_message=SUCCESS_MESSAGES['CHANGED_STATUS'] % obj.get_po_status_display(),
-            )
+            self.log_entry(request.user.pk, obj)
         formset.save()
         if 'cart_product_mapping_csv' in form.changed_data:
             upload_cart_product_csv(obj)
         return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+
+    @staticmethod
+    def log_entry(user_id, obj):
+        LogEntry.objects.log_action(
+            user_id=user_id,
+            content_type_id=ContentType.objects.get_for_model(obj).pk,
+            object_id=obj.pk,
+            action_flag=ADDITION,
+            object_repr='',
+            change_message=SUCCESS_MESSAGES['CHANGED_STATUS'] % obj.get_po_status_display(),
+        )
+
+    @staticmethod
+    def po_status_request(request, obj):
+        flag = True
+        if "_approve" in request.POST:
+            status = obj.FINANCE_APPROVED
+        elif "_disapprove" in request.POST:
+            status = obj.DISAPPROVED
+        elif "_approval_await" in request.POST:
+            status = obj.APPROVAL_AWAITED
+        elif "_close" in request.POST:
+            status = obj.PARTIAL_DELIVERED_CLOSE
+        else:
+            status = obj.OPEN
+            flag = False
+        return flag, status
 
     class Media:
         js = (
@@ -213,20 +219,20 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     formset = GRNOrderProductFormset
     form = GRNOrderProductForm
 
-    fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product','already_returned_product',
-              'product_invoice_price', 'manufacture_date',
-              'expiry_date', 'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty',
-              'returned_qty', 'download_batch_id_barcode', 'show_batch_id',)
+    fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product',
+              'already_returned_product', 'product_invoice_price', 'manufacture_date', 'expiry_date',
+              'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty', 'returned_qty',
+              'download_batch_id_barcode', 'show_batch_id',)
     exclude = ('last_modified_by', 'available_qty',)
     readonly_fields = ('download_batch_id_barcode', 'show_batch_id')
     extra = 0
     ordering = ['product__product_name']
     template = 'admin/gram_to_brand/grn_order/tabular.html'
 
-    # readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
     def get_readonly_fields(self, request, obj=None):
-        if obj: # editing an existing object
-            return self.readonly_fields + ('product_mrp','po_product_quantity','po_product_price','already_grned_product', 'already_returned_product')
+        if obj:
+            return self.readonly_fields + ('product_mrp', 'po_product_quantity', 'po_product_price',
+                                           'already_grned_product', 'already_returned_product')
         return self.readonly_fields
 
     def get_formset(self, request, obj=None, **kwargs):
@@ -238,25 +244,17 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
 
     def download_batch_id_barcode(self, obj):
         if obj.batch_id is None:
-            return format_html(
-                "-"
-            )
+            return format_html("-")
         if obj.barcode_id is None:
             product_id = str(obj.product_id).zfill(5)
             expiry_date = datetime.datetime.strptime(str(obj.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
-            barcode_id= str("2" + product_id + str(expiry_date))
+            barcode_id = str("2" + product_id + str(expiry_date))
         else:
-            barcode_id =  obj.barcode_id
-        return format_html(
-            "<a href= '{0}' >{1}</a>".format(reverse('batch_barcodes',args=[obj.pk]),barcode_id)
-        )
+            barcode_id = obj.barcode_id
+        return format_html("<a href= '{0}' >{1}</a>".format(reverse('batch_barcodes', args=[obj.pk]), barcode_id))
 
     def show_batch_id(self, obj):
-        if obj.batch_id is None:
-            return format_html("-")
-        else:
-            return format_html(obj.batch_id)
-
+        return format_html(obj.batch_id) if obj.batch_id else format_html("-")
 
     show_batch_id.short_description = 'Batch ID'
     download_batch_id_barcode.short_description = 'Download Barcode'
@@ -270,12 +268,11 @@ class BrandNoteAdmin(admin.ModelAdmin):
 
 class OrderItemAdmin(admin.ModelAdmin):
     list_filter = [OrderSearch, QuantitySearch, PORaisedBy, ('order__ordered_cart__po_creation_date', DateRangeFilter)]
-    list_display = (
-    'order', 'ordered_product', 'ordered_qty', 'total_delivered_qty', 'total_damaged_qty', 'po_creation_date',
-    'item_status',)
+    list_display = ('order', 'ordered_product', 'ordered_qty', 'total_delivered_qty', 'total_damaged_qty',
+                    'po_creation_date', 'item_status',)
 
     def po_creation_date(self, obj):
-        return "%s" % (obj.order.ordered_cart.po_creation_date)
+        return "%s" % obj.order.ordered_cart.po_creation_date
 
     po_creation_date.short_description = 'Po Creation Date'
 
@@ -285,18 +282,14 @@ class GRNOrderAdmin(admin.ModelAdmin):
     autocomplete_fields = ('order',)
     exclude = ('order_item', 'grn_id', 'last_modified_by',)
     actions = ['download_barcode']
-    list_per_page=50
-    list_display = (
-    'grn_id', 'order', 'invoice_no', 'grn_date', 'brand', 'supplier_state', 'supplier_name', 'po_status',
-    'po_created_by', 'download_debit_note')
+    list_per_page = 50
+    list_display = ('grn_id', 'order', 'invoice_no', 'grn_date', 'brand', 'supplier_state', 'supplier_name',
+                    'po_status', 'po_created_by', 'download_debit_note')
     list_filter = [OrderSearch, InvoiceNoSearch, GRNSearch, ProductNameSearch, ProductSKUSearch, SupplierNameSearch,
                    POCreatedBySearch, ('created_at', DateRangeFilter),
                    ('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
-    # fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document', 'invoice_date', 'invoice_amount')
     fields = ('order', 'invoice_no', 'invoice_date', 'invoice_amount', 'tcs_amount')
-
-    # template = 'admin/gram_to_brand/grn_order/change_form.html'
 
     class Media:
         js = ('admin/js/picker.js',)
@@ -327,7 +320,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     po_status.short_description = 'Po Status'
 
     def get_readonly_fields(self, request, obj=None):
-        if obj:  # editing an existing object
+        if obj:
             return self.readonly_fields + ('order',)
         return self.readonly_fields
 
@@ -335,10 +328,8 @@ class GRNOrderAdmin(admin.ModelAdmin):
         qs = super(GRNOrderAdmin, self).get_queryset(request)
         if request.user.is_superuser:
             return qs
-        return qs.filter(
-            Q(order__ordered_cart__gf_shipping_address__shop_name__related_users=request.user) |
-            Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner=request.user)
-        )
+        return qs.filter(Q(order__ordered_cart__gf_shipping_address__shop_name__related_users=request.user) |
+                         Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner=request.user))
 
     def download_debit_note(self, obj):
         if obj.grn_order_brand_note.count() > 0 and obj.grn_order_brand_note.filter(status=True):
@@ -354,9 +345,9 @@ class GRNOrderAdmin(admin.ModelAdmin):
         obj = form.instance
         obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces')
         grn_list_map = {int(i['product']): (i['delivered_qty_sum'], i['returned_qty_sum']) for i in
-                        GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).values('product')
-                            .annotate(delivered_qty_sum=Sum(F('delivered_qty')))
-                            .annotate(returned_qty_sum=Sum(F('returned_qty')))}
+                        GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).values('product').annotate(
+                            delivered_qty_sum=Sum(F('delivered_qty'))).annotate(
+                            returned_qty_sum=Sum(F('returned_qty')))}
         returned_qty_totalsum = GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).aggregate(
             returned_qty_totalsum=Sum('returned_qty'))['returned_qty_totalsum']
         for product_price_map in obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces'):
@@ -382,9 +373,9 @@ class GRNOrderAdmin(admin.ModelAdmin):
         :param queryset:
         :return:
         """
-        info_logger.info("download Barocde List for GRN method has been called.")
+        info_logger.info("download Barcode List for GRN method has been called.")
         bin_id_list = {}
-        if queryset.count()>1:
+        if queryset.count() > 1:
             response = messages.error(request, ERROR_MESSAGES['1003'])
             return response
         for obj in queryset:
@@ -394,10 +385,11 @@ class GRNOrderAdmin(admin.ModelAdmin):
                     continue
                 product_mrp = ProductVendorMapping.objects.filter(vendor=obj.order.ordered_cart.supplier_name,
                                                                   product=grn_product.product)
-                barcode_id=grn_product.barcode_id
+                barcode_id = grn_product.barcode_id
                 if barcode_id is None:
                     product_id = str(grn_product.product_id).zfill(5)
-                    expiry_date = datetime.datetime.strptime(str(grn_product.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
+                    expiry_date = datetime.datetime.strptime(str(grn_product.expiry_date), '%Y-%m-%d').strftime(
+                        '%d%m%y')
                     barcode_id = str("2" + product_id + str(expiry_date))
                 temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(product_mrp.last().case_size)),
                              "data": {"SKU": grn_product.product.product_name,
@@ -411,14 +403,14 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ['order_no', ]
-    list_display = (
-    'order_no', 'brand', 'supplier_state', 'supplier_name', 'created_at', 'po_status', 'created_by', 'add_grn_link')
+    list_display = ('order_no', 'brand', 'supplier_state', 'supplier_name', 'created_at', 'po_status', 'created_by',
+                    'add_grn_link')
     form = OrderForm
 
     def created_by(self, obj):
         return obj.ordered_cart.po_raised_by
 
-    created_by.short_description = 'Creadted By'
+    created_by.short_description = 'Created By'
 
     def brand(self, obj):
         return obj.ordered_cart.brand
@@ -442,10 +434,10 @@ class OrderAdmin(admin.ModelAdmin):
 
     def add_grn_link(self, obj):
         if obj.ordered_cart.po_status in [obj.ordered_cart.FINANCE_APPROVED, obj.ordered_cart.PARTIAL_DELIVERED,
-                                          obj.ordered_cart.PARTIAL_RETURN,obj.ordered_cart.OPEN]:
+                                          obj.ordered_cart.PARTIAL_RETURN, obj.ordered_cart.OPEN]:
             return format_html(
-                "<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&cart=%s' class ='addlink' > Add GRN</a>" % (
-                obj.id, obj.ordered_cart.id))
+                "<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&cart=%s' class ='addlink' > Add GRN</a>" %
+                (obj.id, obj.ordered_cart.id))
 
     add_grn_link.short_description = 'Add GRN'
 
@@ -460,16 +452,13 @@ class PickListAdmin(admin.ModelAdmin):
     inlines = [PickListItemAdmin]
 
 
-admin.site.register(PickList, PickListAdmin)
-
-
 class OrderedProductReservedAdmin(admin.ModelAdmin):
     list_display = ('order_product_reserved', 'cart', 'product', 'reserved_qty', 'order_reserve_end_time', 'created_at',
                     'reserve_status')
 
 
+admin.site.register(PickList, PickListAdmin)
 admin.site.register(Cart, CartAdmin)
 admin.site.register(OrderedProductReserved, OrderedProductReservedAdmin)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(GRNOrder, GRNOrderAdmin)
-# admin.site.register(BrandNote,BrandNoteAdmin)

@@ -26,15 +26,12 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
         instance.save()
         # SP auto ordered product creation
         connected_shops = ParentRetailerMapping.objects.filter(
-            parent=instance.order.ordered_cart.gf_shipping_address.shop_name,
-            status=True
-        )
+            parent=instance.order.ordered_cart.gf_shipping_address.shop_name, status=True)
         for shop in connected_shops:
             if shop.retailer.shop_type.shop_type == 'sp' and shop.retailer.status == True:
-                sp_po = SpPO.objects.create(
-                    shop=shop.retailer,
-                    po_validity_date=datetime.date.today() + datetime.timedelta(days=15)
-                )
+                SpPO.objects.create(shop=shop.retailer,
+                                    po_validity_date=datetime.date.today() + datetime.timedelta(days=15)
+                                    )
 
             source_wh_id = get_config('wh_consolidation_source')
             if source_wh_id is None:
@@ -45,7 +42,8 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                 AutoOrderProcessing.objects.create(source_po=instance.order.ordered_cart,
                                                    grn=instance,
                                                    grn_warehouse=source_wh,
-                                                   state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.GRN)
+                                                   state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.GRN
+                                                   )
                 info_logger.info("updated AutoOrderProcessing for GRN.")
 
         # data = {}
@@ -75,10 +73,11 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                 debit_note.amount = debit_note.amount + (instance.returned_qty * instance.po_product_price)
                 debit_note.save()
             else:
-                debit_note = BrandNote.objects.create(
+                BrandNote.objects.create(
                     brand_note_id=brand_debit_note_pattern(
                         BrandNote, 'brand_note_id', None, instance.grn_order.order.ordered_cart.gf_billing_address_id),
-                    grn_order=instance.grn_order, amount=instance.returned_qty * instance.po_product_price, status=True)
+                    grn_order=instance.grn_order, amount=instance.returned_qty * instance.po_product_price, status=True
+                )
 
         # SP auto ordered product creation
         connected_shops = ParentRetailerMapping.objects.filter(
@@ -90,34 +89,21 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                 sp_po = SpPO.objects.filter(
                     shop=shop.retailer
                 ).last()
-                sp_cpm = SpPOProducts.objects.create(
+                SpPOProducts.objects.create(
                     cart=sp_po,
                     cart_product=instance.product,
                     case_size=instance.product.product_case_size,
-                    number_of_cases=instance.grn_order.order. \
-                        ordered_cart.cart_list.filter
-                        (
-                        cart_product=instance.product
-                    ).last().no_of_cases,
+                    number_of_cases=instance.grn_order.order.ordered_cart.cart_list.filter(
+                        cart_product=instance.product).last().no_of_cases,
                     qty=int(instance.delivered_qty),
-                    # scheme=item.scheme,
-                    price=instance.grn_order.order. \
-                        ordered_cart.cart_list.filter
-                        (
-                        cart_product=instance.product
-                    ).last().price,
-                    total_price=round(float(instance.delivered_qty) * instance.grn_order.order. \
-                                      ordered_cart.cart_list.filter
-                        (
-                        cart_product=instance.product
-                    ).last().price, 2),
+                    price=instance.grn_order.order.ordered_cart.cart_list.filter(
+                        cart_product=instance.product).last().price,
+                    total_price=round(float(instance.delivered_qty) *
+                                      instance.grn_order.order.ordered_cart.cart_list.filter(
+                                          cart_product=instance.product).last().price, 2)
                 )
-                sp_order = SpOrder.objects.filter(
-                    ordered_cart=sp_po
-                ).last()
-                sp_grn_orders = SpGRNOrder.objects.filter(
-                    order=sp_order
-                )
+                sp_order = SpOrder.objects.filter(ordered_cart=sp_po).last()
+                sp_grn_orders = SpGRNOrder.objects.filter(order=sp_order)
                 if sp_grn_orders.exists():
                     sp_grn_order = sp_grn_orders.last()
                 else:
