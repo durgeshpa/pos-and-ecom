@@ -82,6 +82,7 @@ class CatalogueProductCreation(GenericAPIView):
         Using RetailerProductCreateSerializer for request and RetailerProductResponseSerializer for response.
         """
         try:
+            # Checking if Entered Data is in the Right Format
             json.dumps(request.data)
         except:
             msg = {'is_success': False,
@@ -169,6 +170,7 @@ class CatalogueProductCreation(GenericAPIView):
         Using RetailerProductUpdateSerializer for request and RetailerProductResponseSerializer for response.
         """
         try:
+            # Checking if Entered Data is in the Right Format
             json.dumps(request.data)
         except:
             msg = {'is_success': False,
