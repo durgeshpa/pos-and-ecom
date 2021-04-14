@@ -208,7 +208,7 @@ class RetailerOrderAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super(RetailerOrderAdmin, self).get_queryset(request)
-        qs = qs.exclude(ordered_cart__cart_type='BASIC')
+        qs = qs.filter(ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
         return qs.filter(
