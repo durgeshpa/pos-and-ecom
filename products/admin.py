@@ -25,7 +25,8 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
                     ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
-                    SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm)
+                    SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm,
+                    ProductPackingMappingForm)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -101,7 +102,8 @@ class ExportCsvMixin:
             field_names_temp = field_names.copy()
             cost_params = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
                            'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
-            add_fields = ['product_brand', 'product_category', 'image', 'source skus'] + cost_params
+            add_fields = ['product_brand', 'product_category', 'image', 'source skus', 'packing_sku',
+                          'packing_sku_weight_per_unit_sku'] + cost_params
             for field_name in add_fields:
                 field_names_temp.append(field_name)
             writer.writerow(field_names_temp)
@@ -122,6 +124,9 @@ class ExportCsvMixin:
                     source_skus = [str(psm.source_sku) for psm in ProductSourceMapping.objects.filter(
                         destination_sku_id=obj.id, status=True)]
                     items.append("\n".join(source_skus))
+                    packing_sku = ProductPackingMapping.objects.filter(sku_id=obj.id).last()
+                    items.append(str(packing_sku) if packing_sku else '-')
+                    items.append(str(packing_sku.packing_sku_weight_per_unit_sku) if packing_sku else '-')
                     cost_obj = DestinationRepackagingCostMapping.objects.filter(destination_id=obj.id).last()
                     for param in cost_params:
                         items.append(str(getattr(cost_obj, param)))
@@ -714,6 +719,17 @@ class DestinationRepackagingCostMappingAdmin(admin.TabularInline):
         pass
 
 
+class ProductPackingMappingAdmin(admin.TabularInline):
+    model = ProductPackingMapping
+    fk_name = "sku"
+    form = ProductPackingMappingForm
+    min_num = 1
+    max_num = 1
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductResource
     form = ProductForm
@@ -974,7 +990,8 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     #     ProductImageAdmin, ProductTaxMappingAdmin
     # ]
     # inlines = [ChildProductImageAdmin]
-    inlines = [ProductImageAdmin, ProductSourceMappingAdmin, DestinationRepackagingCostMappingAdmin]
+    inlines = [ProductImageAdmin, ProductSourceMappingAdmin, ProductPackingMappingAdmin,
+               DestinationRepackagingCostMappingAdmin]
     # autocomplete_fields = ['product_hsn', 'product_brand']
     autocomplete_fields = ['parent_product']
 
@@ -1037,10 +1054,12 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         return self.readonly_fields
 
     def get_form(self, request, obj=None, **kwargs):
-        self.inlines = [ProductImageAdmin, ProductSourceMappingAdmin, DestinationRepackagingCostMappingAdmin]
+        self.inlines = [ProductImageAdmin, ProductSourceMappingAdmin, ProductPackingMappingAdmin,
+                        DestinationRepackagingCostMappingAdmin]
         if obj and obj.repackaging_type != 'destination':
             self.inlines.remove(ProductSourceMappingAdmin)
             self.inlines.remove(DestinationRepackagingCostMappingAdmin)
+            self.inlines.remove(ProductPackingMappingAdmin)
         return super(ProductAdmin, self).get_form(request, obj, **kwargs)
 
 

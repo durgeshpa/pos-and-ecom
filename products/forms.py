@@ -27,7 +27,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
-                             ParentProductCategory, PriceSlab, SlabProductPrice)
+                             ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping)
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -653,7 +653,7 @@ class UploadChildProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can only be 'Gram'."))
             if not row[7]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' can not be empty."))
-            elif row[7] not in [lis[0] for lis in Product.REASON_FOR_NEW_CHILD_CHOICES]:
+            elif row[7] not in [lis[0] for lis in Product.REPACKAGING_TYPES]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' is invalid."))
             if row[7] == 'destination':
                 if not row[8]:
@@ -671,6 +671,19 @@ class UploadChildProductAdminForm(forms.Form):
                     if not there:
                         raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for Repackaging"
                                                 f" Type 'destination'."))
+
+                if not row[16]:
+                    raise ValidationError(_(f"Row {row_id + 1} | 'Packing SKU' is required for Repackaging"
+                                            f" Type 'destination'."))
+                elif not Product.objects.filter(product_sku=row[16], repackaging_type='packing_material').exists():
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid Packing Sku"))
+
+                if not row[17]:
+                    raise ValidationError(_(f"Row {row_id + 1} | 'Packing Material Weight (gm) per unit (Qty) Of "
+                                            f"Destination Sku' is required for Repackaging Type 'destination'."))
+                elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[17]):
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Packing Material Weight (gm) per unit (Qty)"
+                                            f" Of Destination Sku'"))
 
                 dest_cost_fields = ['Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
                                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost']
@@ -2239,3 +2252,18 @@ class ProductHSNForm(forms.ModelForm):
 
         # data from the form is fetched using super function
         super(ProductHSNForm, self).clean()
+
+
+class ProductPackingMappingForm(forms.ModelForm):
+    packing_sku = forms.ModelChoiceField(
+        queryset=Product.objects.filter(repackaging_type='packing_material'),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='packing-product-autocomplete'
+        )
+    )
+    packing_sku_weight_per_unit_sku = forms.CharField(required=True)
+
+    class Meta:
+        model = ProductPackingMapping
+        fields = ('packing_sku', 'packing_sku_weight_per_unit_sku')
