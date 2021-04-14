@@ -202,8 +202,7 @@ class RetailerCartAdmin(admin.ModelAdmin):
 
 
 class RetailerOrderAdmin(admin.ModelAdmin):
-
-    search_fields = ('order_no', 'seller_shop__shop_name', 'order_status')
+    search_fields = ('order_no', 'seller_shop__shop_name')
     list_per_page = FIFTY
 
     def get_queryset(self, request):
@@ -220,12 +219,15 @@ class RetailerOrderAdmin(admin.ModelAdmin):
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer')}),
         (_('Order Details'), {
-            'fields': ('order_no', 'ordered_cart', 'order_status',
+            'fields': ('order_no', 'order_status',
                        'cancellation_reason')}),
         (_('Amount Details'), {
             'fields': ('total_mrp_amount', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount')}),
+        (_('Ordered Cart id'), {
+            'fields': ('ordered_cart',)}),
     )
+
     list_filter = [PhoneNumberFilter, SKUFilter, ProductNameFilter, SellerShopFilter,
                    OrderNoSearch, ('order_status', ChoiceDropdownFilter),
                    ('created_at', DateTimeRangeFilter), ('shipping_address__city', RelatedDropdownFilter)]
