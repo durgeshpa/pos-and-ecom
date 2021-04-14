@@ -248,6 +248,7 @@ class Product(models.Model):
         ('packing_material', 'Packing Material')
     )
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
+    # moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)

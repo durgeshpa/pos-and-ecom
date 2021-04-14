@@ -1962,6 +1962,10 @@ class RepackagingForm(forms.ModelForm):
             if self.cleaned_data['source_repackage_quantity'] + self.cleaned_data['available_source_quantity'] != \
                     source_quantity:
                 raise forms.ValidationError("Source Quantity Changed! Please Input Again")
+            try:
+                ProductPackingMapping.objects.get(sku_id=self.request.GET.get('sku_id'))
+            except:
+                raise forms.ValidationError("Please Map A Packing Material To The Selected Destination Product First")
         if self.instance.source_picking_status in ['pickup_created', 'picking_assigned']:
             raise forms.ValidationError("Source pickup is still not complete.")
         return self.cleaned_data

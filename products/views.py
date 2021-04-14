@@ -2115,11 +2115,12 @@ class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
         seller_shop = self.forwarded.get('seller_shop', None)
         qs = []
         if seller_shop:
+            ids = Product.objects.filter(repackaging_type='source', product_pro_price__seller_shop=seller_shop) \
+                .values_list('id', flat=True).distinct()
             normal_type = InventoryType.objects.filter(inventory_type='normal').last()
-            product_list = get_stock(seller_shop, normal_type)
+            product_list = get_stock(seller_shop, normal_type, ids)
             product_list = {k: v for k, v in product_list.items() if v > 0}
-            pp = ProductPrice.objects.filter(seller_shop_id=seller_shop, product_id__in=product_list.keys()).values('product_id')
-            qs = Product.objects.filter(id__in=pp, repackaging_type='source')
+            qs = Product.objects.filter(id__in=product_list.keys())
             if self.q:
                 qs = qs.filter(product_name__icontains=self.q)
         return qs
@@ -2357,3 +2358,14 @@ class PackingProductAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(Q(product_name__icontains=self.q) |
                            Q(product_sku__icontains=self.q))
         return qs
+
+
+class PackingMaterialCheck(View):
+
+    def get(self, *args, **kwargs):
+        try:
+            ProductPackingMapping.objects.get(sku_id=self.request.GET.get('sku_id'))
+            return JsonResponse({"success": True})
+        except:
+            return JsonResponse({"success": False, "error": "Please Map A Packing Material To The Selected Destination "
+                                                            "Product First"})

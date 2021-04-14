@@ -57,7 +57,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     category_sub_category_mapping_sample_excel_file, brand_sub_brand_mapping_sample_excel_file,
                     ParentProductMultiPhotoUploadView, cart_product_list_status,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
-                    get_slab_product_price_sample_csv, slab_product_price_csv_upload)
+                    get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
@@ -958,6 +958,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^parent-product-list-filter-autocomplete/$',
                 self.admin_site.admin_view(ParentProductsAutocompleteView.as_view(model_admin=self)),
                 name='parent-product-list-filter-autocomplete',
+            ),
+            url(
+                r'^packing-material-check/$',
+                self.admin_site.admin_view(PackingMaterialCheck.as_view()),
+                name="packing-material-check"
             ),
             # url('custom_search/', self.admin_site.admin_view(CustomSearchView.as_view(model_admin=self)),
             #      name='custom_search'),

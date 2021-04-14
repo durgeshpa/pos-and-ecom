@@ -34,7 +34,16 @@
 	    if($(this).val() == ''){
 	        return false;
 	    }
-	    $('#id_source_repackage_quantity').attr('readonly', false);
+	    $.ajax({ data: ({'sku_id':$(this).val(), 'shop_id':$('#id_seller_shop').val() }) ,
+            type: 'GET',
+            url: '/admin/products/product/packing-material-check/',
+            success: function(response) {
+                console.log(response)
+                if (!response.success){
+                    alert(response.error)
+                }
+            },
+        });
 	});
 
 	$("#id_seller_shop").on('change', function(){

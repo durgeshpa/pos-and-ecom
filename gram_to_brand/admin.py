@@ -380,8 +380,16 @@ class GRNOrderAdmin(admin.ModelAdmin):
         super(GRNOrderAdmin, self).save_related(request, form, formsets, change)
         obj = form.instance
         obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces')
-        grn_list_map = {int(i['product']): (i['delivered_qty_sum'], i['returned_qty_sum']) for i in
-                        GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).values('product')
+        grn_list_map = {int(i['product']): (i['delivered_qty_sum'], i['returned_qty_sum']
+                                            # i['product_invoice_price'], i['vendor_product__brand_to_gram_price_unit'],
+                                            # i['vendor_product__case_size']
+                                            ) for i in
+                        GRNOrderProductMapping.objects.filter(
+                            grn_order__order=obj.order).values('product'
+                                                               # 'product_invoice_price',
+                                                               # 'vendor_product__brand_to_gram_price_unit',
+                                                               # 'vendor_product__case_size'
+                                                               )
                             .annotate(delivered_qty_sum=Sum(F('delivered_qty')))
                             .annotate(returned_qty_sum=Sum(F('returned_qty')))}
         returned_qty_totalsum = GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).aggregate(
@@ -399,6 +407,13 @@ class GRNOrderAdmin(admin.ModelAdmin):
             elif grn_list_map[product_price_map['cart_product']][0] != product_price_map['no_of_pieces']:
                 flag = 'PDLV'
                 break
+            # # If delivered quantity, update moving buying price of product
+            # if grn_list_map[product_price_map['cart_product']][0] > 0:
+            #     price = grn_list_map[product_price_map['cart_product']][2]
+            #     quantity = grn_list_map[product_price_map['cart_product']][0]
+            #     if grn_list_map[product_price_map['cart_product']][3] == 'Per Pack':
+            #         price = price * grn_list_map[product_price_map['cart_product']][4]
+
         obj.order.ordered_cart.po_status = flag
         obj.order.ordered_cart.save()
 
