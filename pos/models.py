@@ -10,7 +10,7 @@ from shops.models import Shop
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator, NameValidator
 from accounts.models import User
-from coupon.models import Coupon, RuleSetProductMapping, CouponRuleSet
+
 
 PAYMENT_MODE = (
     ('cash', 'Cash Payment'),
@@ -121,21 +121,3 @@ class Payment(models.Model):
     processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-
-
-class RetailerCouponRuleSet(CouponRuleSet):
-    class Meta:
-        proxy = True
-
-
-class RetailerRuleSetProductMapping(RuleSetProductMapping):
-    class Meta:
-        proxy = True
-
-
-class RetailerCoupon(Coupon):
-    class Meta:
-        proxy = True
-
-
-

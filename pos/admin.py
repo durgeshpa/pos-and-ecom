@@ -1,13 +1,20 @@
 from django.contrib import admin
 from django.conf.urls import url
+from django.db.models import Q
+from django.utils.translation import ugettext_lazy as _
 
-from pos.models import RetailerProduct, RetailerProductImage, Payment, UserMappedShop, \
-    RetailerCoupon, RetailerCouponRuleSet, RetailerRuleSetProductMapping
+from pos.models import RetailerProduct, RetailerProductImage, Payment, UserMappedShop
 from pos.views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload
 from pos.forms import RetailerProductsForm
 from marketing.filters import UserFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter
+from .proxy_models import RetailerCart, RetailerCoupon, RetailerCouponRuleSet, \
+    RetailerRuleSetProductMapping, RetailerOrder
+from retailer_to_sp.admin import CartProductMappingAdmin, SellerShopFilter, OrderIDFilter, \
+    PhoneNumberFilter, ProductNameFilter, SellerShopFilter, SKUFilter, ChoiceDropdownFilter, \
+    OrderNoSearch, ChoiceDropdownFilter, DateTimeRangeFilter, RelatedDropdownFilter
+from common.constants import FIFTY
 
 
 class RetailerProductImageAdmin(admin.TabularInline):
@@ -104,9 +111,11 @@ class RetailerCouponRuleSetAdmin(admin.ModelAdmin):
         return qs.filter(coupon_ruleset__shop__shop_type__shop_type='f')
 
     search_fields = ('rulename',)
-    list_filter = [RuleNameFilter, 'is_active', ('created_at', DateRangeFilter), ('expiry_date', DateRangeFilter)]
+    fields = ('rulename',  'discount', 'free_product', 'free_product_qty', 'cart_qualifying_min_sku_value',
+              'is_active', 'created_at', 'expiry_date')
     list_display = ('rulename', 'discount', 'free_product', 'free_product_qty', 'cart_qualifying_min_sku_value',
                     'is_active', 'created_at', 'expiry_date')
+    list_filter = [RuleNameFilter, 'is_active', ('created_at', DateRangeFilter), ('expiry_date', DateRangeFilter)]
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -127,8 +136,8 @@ class RetailerCouponAdmin(admin.ModelAdmin):
         qs = super(RetailerCouponAdmin, self).get_queryset(request)
         return qs.filter(shop__shop_type__shop_type='f')
 
-    list_display = ('coupon_code', 'coupon_name', 'rule', 'coupon_type', 'is_active', 'created_at', 'expiry_date')
-    readonly_fields = ('coupon_code', 'coupon_name', 'rule', 'coupon_type', 'is_active', 'created_at', 'expiry_date')
+    fields = ('rule', 'coupon_code', 'coupon_name', 'coupon_type', 'is_active', 'created_at', 'expiry_date')
+    list_display = ('rule', 'coupon_code', 'coupon_name', 'coupon_type', 'is_active', 'created_at', 'expiry_date')
     list_filter = (CouponCodeFilter, CouponNameFilter, 'coupon_type', 'is_active')
 
     def has_change_permission(self, request, obj=None):
@@ -150,8 +159,87 @@ class RetailerRuleSetProductMappingAdmin(admin.ModelAdmin):
         qs = super(RetailerRuleSetProductMappingAdmin, self).get_queryset(request)
         return qs.filter(rule__coupon_ruleset__shop__shop_type__shop_type='f')
 
-    list_display = ('combo_offer_name', 'rule', 'retailer_primary_product', 'retailer_free_product',
-                    'purchased_product_qty', 'free_product_qty', 'created_at')
+    fields = ('rule', 'combo_offer_name', 'retailer_primary_product', 'retailer_free_product',
+              'purchased_product_qty', 'free_product_qty', 'is_active', 'created_at', 'expiry_date')
+    list_display = ('rule', 'combo_offer_name', 'retailer_primary_product', 'retailer_free_product',
+                    'purchased_product_qty', 'free_product_qty', 'is_active', 'created_at', 'expiry_date')
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+class RetailerCartAdmin(admin.ModelAdmin):
+
+    def get_queryset(self, request):
+        qs = super(RetailerCartAdmin, self).get_queryset(request)
+        return qs.filter(cart_type='BASIC')
+
+    inlines = [CartProductMappingAdmin]
+    fields = ('seller_shop', 'buyer', 'offers', 'approval_status', 'cart_status')
+    list_display = ('order_id', 'cart_type', 'approval_status', 'seller_shop', 'buyer', 'cart_status', 'created_at',)
+    list_filter = (SellerShopFilter, OrderIDFilter)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+class RetailerOrderAdmin(admin.ModelAdmin):
+
+    search_fields = ('order_no', 'seller_shop__shop_name', 'order_status')
+    list_per_page = FIFTY
+
+    def get_queryset(self, request):
+        qs = super(RetailerOrderAdmin, self).get_queryset(request)
+        qs = qs.exclude(ordered_cart__cart_type='BASIC')
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user)
+        )
+
+    fieldsets = (
+        (_('Shop Details'), {
+            'fields': ('seller_shop', 'buyer')}),
+        (_('Order Details'), {
+            'fields': ('order_no', 'ordered_cart', 'order_status',
+                       'cancellation_reason')}),
+        (_('Amount Details'), {
+            'fields': ('total_mrp_amount', 'total_discount_amount',
+                       'total_tax_amount', 'total_final_amount')}),
+    )
+    list_filter = [PhoneNumberFilter, SKUFilter, ProductNameFilter, SellerShopFilter,
+                   OrderNoSearch, ('order_status', ChoiceDropdownFilter),
+                   ('created_at', DateTimeRangeFilter), ('shipping_address__city', RelatedDropdownFilter)]
+
+    list_display = (
+        'order_no', 'seller_shop', 'buyer', 'order_status', 'created_at', 'total_final_amount',
+        'total_mrp_amount'
+    )
+
+    def total_final_amount(self, obj):
+        return obj.total_final_amount
+
+    def total_mrp_amount(self, obj):
+        return obj.total_mrp_amount
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -173,3 +261,5 @@ admin.site.register(UserMappedShop, UserMappedShopAdmin)
 admin.site.register(RetailerCouponRuleSet, RetailerCouponRuleSetAdmin)
 admin.site.register(RetailerCoupon, RetailerCouponAdmin)
 admin.site.register(RetailerRuleSetProductMapping, RetailerRuleSetProductMappingAdmin)
+admin.site.register(RetailerCart, RetailerCartAdmin)
+admin.site.register(RetailerOrder, RetailerOrderAdmin)
