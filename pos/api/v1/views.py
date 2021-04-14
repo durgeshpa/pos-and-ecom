@@ -85,7 +85,7 @@ class CatalogueProductCreation(GenericAPIView):
             json.dumps(request.data)
         except:
             msg = {'is_success': False,
-                   'error_message': f"Please provide valid Json Data",
+                   'error_message': f"Please provide valid Data",
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -172,7 +172,7 @@ class CatalogueProductCreation(GenericAPIView):
             json.dumps(request.data)
         except:
             msg = {'is_success': False,
-                   'error_message': f"Please provide valid Json Data",
+                   'error_message': f"Please provide valid Data",
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         # RetailerProductUpdateSerializer is used
