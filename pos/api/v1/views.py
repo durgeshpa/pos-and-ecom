@@ -1,5 +1,6 @@
 from decimal import Decimal
 import logging
+import json
 
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
@@ -80,6 +81,15 @@ class CatalogueProductCreation(GenericAPIView):
         POST API for Product Creation.
         Using RetailerProductCreateSerializer for request and RetailerProductResponseSerializer for response.
         """
+        try:
+            # Checking if Entered Data is in the Right Format
+            json.dumps(request.data)
+        except:
+            msg = {'is_success': False,
+                   'error_message': f"Please provide valid Data",
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
         shop_id_or_error_message = self.get_shop_id_or_error_message(request)
         if type(shop_id_or_error_message) == int:
             serializer = self.get_serializer_class(0)(data=request.data)
@@ -159,6 +169,14 @@ class CatalogueProductCreation(GenericAPIView):
         PUT API for Product Update.
         Using RetailerProductUpdateSerializer for request and RetailerProductResponseSerializer for response.
         """
+        try:
+            # Checking if Entered Data is in the Right Format
+            json.dumps(request.data)
+        except:
+            msg = {'is_success': False,
+                   'error_message': f"Please provide valid Data",
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         # RetailerProductUpdateSerializer is used
         shop_id_or_error_message = self.get_shop_id_or_error_message(request)
         if type(shop_id_or_error_message) == int:
