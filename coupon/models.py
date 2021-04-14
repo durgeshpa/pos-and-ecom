@@ -14,6 +14,7 @@ from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 error_logger = logging.getLogger('file-error')
 
+
 # Create your models here.
 class DiscountValue(models.Model):
     discount_value = models.FloatField(default=0, null=True, blank=True)
