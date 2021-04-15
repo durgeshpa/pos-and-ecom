@@ -30,6 +30,3 @@ class RetailerOrderedProduct(OrderedProduct):
 class RetailerOrderedProductMapping(OrderedProductMapping):
     class Meta:
         proxy = True
-
-
-
