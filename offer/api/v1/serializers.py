@@ -13,11 +13,22 @@ class BrandSerializer(serializers.ModelSerializer):
         fields = ('id', "brand_name")
 
 class OfferBannerSerializer(serializers.ModelSerializer):
-    brand = BrandSerializer(read_only=True)
+    brand = serializers.SerializerMethodField('product_brand')
+    category = serializers.SerializerMethodField('product_category')
 
     class Meta:
         model = OfferBanner
-        fields = ('name','image','offer_banner_type','category','sub_category','brand','sub_brand','products','status','offer_banner_start_date','offer_banner_end_date','alt_text','text_below_image')
+        fields = ('name','image','offer_banner_type','category','brand','products','status','offer_banner_start_date','offer_banner_end_date','alt_text','text_below_image')
+
+    def product_category(self, obj):
+        if obj.category_id is None:
+            return obj.sub_category_id
+        return obj.category_id
+
+    def product_brand(self, obj):
+        if obj.brand_id is None:
+            return obj.sub_brand_id
+        return obj.brand_id
 
 class OfferBannerPositionSerializer(serializers.ModelSerializer):
 
