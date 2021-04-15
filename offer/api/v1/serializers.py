@@ -17,7 +17,7 @@ class OfferBannerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OfferBanner
-        fields = ('name','image','offer_banner_type','category','brand','products','status','offer_banner_start_date','offer_banner_end_date','alt_text','text_below_image')
+        fields = ('name','image','offer_banner_type','category','sub_category','brand','sub_brand','products','status','offer_banner_start_date','offer_banner_end_date','alt_text','text_below_image')
 
 class OfferBannerPositionSerializer(serializers.ModelSerializer):
 
