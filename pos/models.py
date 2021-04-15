@@ -5,12 +5,12 @@ from django.db import models
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.utils.text import slugify
-from django.contrib.postgres.fields import JSONField
 
 from shops.models import Shop
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator, NameValidator
 from accounts.models import User
+
 
 PAYMENT_MODE = (
     ('cash', 'Cash Payment'),

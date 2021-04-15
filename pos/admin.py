@@ -1,11 +1,20 @@
 from django.contrib import admin
 from django.conf.urls import url
+from django.db.models import Q
+from django.utils.translation import ugettext_lazy as _
 
 from pos.models import RetailerProduct, RetailerProductImage, Payment, UserMappedShop
 from pos.views import upload_retailer_products_list, download_retailer_products_list_form_view, \
     DownloadRetailerCatalogue, RetailerCatalogueSampleFile, RetailerProductMultiImageUpload
 from pos.forms import RetailerProductsForm
 from marketing.filters import UserFilter
+from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter
+from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
+    RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart
+from retailer_to_sp.admin import CartProductMappingAdmin, SellerShopFilter, OrderIDFilter, \
+    PhoneNumberFilter, ProductNameFilter, SellerShopFilter, SKUFilter, ChoiceDropdownFilter, \
+    OrderNoSearch, ChoiceDropdownFilter, DateTimeRangeFilter, RelatedDropdownFilter
+from common.constants import FIFTY
 
 
 class RetailerProductImageAdmin(admin.TabularInline):
@@ -19,8 +28,8 @@ class RetailerProductImageAdmin(admin.TabularInline):
 
 class RetailerProductAdmin(admin.ModelAdmin):
     form = RetailerProductsForm
-    list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'linked_product', 'description',
-                    'sku_type', 'status', 'created_at', 'modified_at')
+    list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
+                    'linked_product', 'description', 'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'created_at', 'modified_at')
     readonly_fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
@@ -96,7 +105,191 @@ class UserMappedShopAdmin(admin.ModelAdmin):
         pass
 
 
+class RetailerCouponRuleSetAdmin(admin.ModelAdmin):
+    def get_queryset(self, request):
+        qs = super(RetailerCouponRuleSetAdmin, self).get_queryset(request)
+        return qs.filter(coupon_ruleset__shop__shop_type__shop_type='f')
+
+    search_fields = ('rulename',)
+    fields = ('rulename',  'discount', 'free_product', 'free_product_qty', 'cart_qualifying_min_sku_value',
+              'is_active', 'created_at', 'expiry_date')
+    list_display = ('rulename', 'discount', 'free_product', 'free_product_qty', 'cart_qualifying_min_sku_value',
+                    'is_active', 'created_at', 'expiry_date')
+    list_filter = [RuleNameFilter, 'is_active', ('created_at', DateRangeFilter), ('expiry_date', DateRangeFilter)]
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+class RetailerCouponAdmin(admin.ModelAdmin):
+
+    def get_queryset(self, request):
+        qs = super(RetailerCouponAdmin, self).get_queryset(request)
+        return qs.filter(shop__shop_type__shop_type='f')
+
+    fields = ('rule', 'coupon_code', 'coupon_name', 'coupon_type', 'is_active', 'created_at', 'expiry_date')
+    list_display = ('rule', 'coupon_code', 'coupon_name', 'coupon_type', 'is_active', 'created_at', 'expiry_date')
+    list_filter = (CouponCodeFilter, CouponNameFilter, 'coupon_type', 'is_active')
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+class RetailerRuleSetProductMappingAdmin(admin.ModelAdmin):
+
+    def get_queryset(self, request):
+        qs = super(RetailerRuleSetProductMappingAdmin, self).get_queryset(request)
+        return qs.filter(rule__coupon_ruleset__shop__shop_type__shop_type='f')
+
+    fields = ('rule', 'combo_offer_name', 'retailer_primary_product', 'retailer_free_product',
+              'purchased_product_qty', 'free_product_qty', 'is_active', 'created_at', 'expiry_date')
+    list_display = ('rule', 'combo_offer_name', 'retailer_primary_product', 'retailer_free_product',
+                    'purchased_product_qty', 'free_product_qty', 'is_active', 'created_at', 'expiry_date')
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+class RetailerCartAdmin(admin.ModelAdmin):
+
+    def get_queryset(self, request):
+        qs = super(RetailerCartAdmin, self).get_queryset(request)
+        return qs.filter(cart_type='BASIC')
+
+    inlines = [CartProductMappingAdmin]
+    fields = ('seller_shop', 'buyer', 'offers', 'approval_status', 'cart_status')
+    list_display = ('order_id', 'cart_type', 'approval_status', 'seller_shop', 'buyer', 'cart_status', 'created_at',)
+    list_filter = (SellerShopFilter, OrderIDFilter)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+class OrderedProductMappingInline(admin.TabularInline):
+    model = RetailerOrderedProductMapping
+    fields = ['retailer_product', 'selling_price', 'product_type']
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+class RetailerOrderProductAdmin(admin.ModelAdmin):
+    inlines = (OrderedProductMappingInline, )
+    search_fields = ('invoice__invoice_no', 'order__order_no')
+    list_per_page = FIFTY
+    list_display = (
+        'order', 'invoice_no', 'created_at', 'return_reason',
+    )
+
+    fieldsets = (
+        (_('Shop Details'), {
+            'fields': ('get_seller_shop', 'get_buyer')}),
+
+        (_('Ordered Details'), {
+            'fields': ('order', 'get_orderd_cart', 'get_order_status', 'invoice_no', 'return_reason')}),
+
+        (_('Amount Details'), {
+            'fields': ('total_mrp_amount', 'total_discount_amount', 'total_tax_amount', 'total_final_amount')}),
+    )
+
+    def get_seller_shop(self, obj):
+        return obj.order.seller_shop
+
+    def get_buyer(self, obj):
+        return obj.order.buyer
+
+    def total_final_amount(self, obj):
+        return obj.order.total_final_amount
+
+    def total_mrp_amount(self, obj):
+        return obj.order.total_mrp_amount
+
+    def total_tax_amount(self, obj):
+        return obj.order.total_tax_amount
+
+    def total_discount_amount(self, obj):
+        return obj.order.total_discount_amount
+
+    def get_order_status(self, obj):
+        return obj.order.order_status
+
+    def get_orderd_cart(self, obj):
+        return obj.order.ordered_cart
+
+    def get_queryset(self, request):
+        qs = super(RetailerOrderProductAdmin, self).get_queryset(request)
+        qs = qs.filter(order__ordered_cart__cart_type='BASIC')
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(order__seller_shop__related_users=request.user) |
+            Q(order__seller_shop__shop_owner=request.user)
+        )
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
 admin.site.register(RetailerProduct, RetailerProductAdmin)
 admin.site.register(Payment, PaymentAdmin)
 admin.site.register(RetailerProductImage)
 admin.site.register(UserMappedShop, UserMappedShopAdmin)
+admin.site.register(RetailerCouponRuleSet, RetailerCouponRuleSetAdmin)
+admin.site.register(RetailerCoupon, RetailerCouponAdmin)
+admin.site.register(RetailerRuleSetProductMapping, RetailerRuleSetProductMappingAdmin)
+admin.site.register(RetailerCart, RetailerCartAdmin)
+admin.site.register(RetailerOrderedProduct, RetailerOrderProductAdmin)
