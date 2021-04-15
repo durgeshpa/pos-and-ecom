@@ -12,7 +12,7 @@
                         $("#loading").hide();
                         $.each(response['response_data']['rt_cart_list'], function(key, val) {
                             row = (key % 2)+1
-                            $("#data").append("<tr class='row"+row+"'><td>"+val.cart_product.product_name+"</td><td>"+val.cart_product_price.product_mrp+"</td><td>"+val.cart_product_price.product_price+"</td><td>"+val.qty+"</td><td>"+val.no_of_pieces+"</td></tr>")
+                            $("#data").append("<tr class='row"+row+"'><td>"+val.cart_product.product_name+"</td><td>"+val.cart_product_price.mrp+"</td><td>"+val.product_price+"</td><td>"+val.qty+"</td><td>"+val.no_of_pieces+"</td></tr>")
                         });
 
                      }

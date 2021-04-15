@@ -5,6 +5,7 @@ import csv
 import codecs
 import re
 import json
+import math
 
 from django.db import models
 from accounts.middlewares import get_current_user
@@ -258,7 +259,7 @@ class Cart(models.Model):
                 sku_qty = int(m.qty)
                 sku_no_of_pieces = int(m.cart_product.product_inner_case_size) * int(m.qty)
                 price = m.cart_product.get_current_shop_price(shop, buyer_shop)
-                sku_ptr = float(price.selling_price) if price else False
+                sku_ptr = price.get_per_piece_price(sku_qty, m.cart_product.product_inner_case_size)
                 coupon_times_used = CusotmerCouponUsage.objects.filter(shop=buyer_shop, product=m.cart_product,
                                                                        created_at__date=date.date()).count() if CusotmerCouponUsage.objects.filter(
                     shop=buyer_shop, product=m.cart_product, created_at__date=date.date()) else 0
@@ -392,9 +393,9 @@ class Cart(models.Model):
             if self.cart_status in ['active', 'pending']:
                 cart_value = 0
                 for product in self.rt_cart_list.all():
-                    cart_value += float(product.cart_product.get_current_shop_price(self.seller_shop,
-                                                                                    self.buyer_shop).selling_price * product.no_of_pieces) if product.cart_product.get_current_shop_price(
-                        self.seller_shop, self.buyer_shop) else 0
+                    shop_price = product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop)
+                    cart_value += float(shop_price.get_applicable_slab_price_per_pack(product.qty)
+                                        * product.qty) if shop_price else 0
                 cart_value -= discount_sum_sku
             if self.cart_status in ['ordered']:
                 cart_value = (self.rt_cart_list.aggregate(
@@ -638,7 +639,7 @@ class BulkOrder(models.Model):
                                               VALIDATION_ERROR_MESSAGES[
                                                   'EMPTY'] % ("discounted_price"))
                 if row[0]:
-                    product = Product.objects.get(product_sku=row[0])
+                    product = Product.objects.filter(product_sku=row[0]).last()
                     if product in duplicate_products:
                         raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                             0] + " | Duplicate entries of this product has been uploaded"))
@@ -647,14 +648,16 @@ class BulkOrder(models.Model):
                     if not product_price:
                         raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                             0] + " | Product Price Not Available"))
+                    ordered_qty = int(row[2])
                     if row[3] and self.order_type == 'DISCOUNTED':
                         discounted_price = float(row[3])
-                        if product_price.selling_price < discounted_price:
+                        per_piece_price = product_price.get_per_piece_price(ordered_qty,
+                                                                  product.product_inner_case_size)
+                        if per_piece_price < discounted_price:
                             raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                                 0] + " | Discounted Price can't be more than Product Price."))
-                    ordered_qty = int(row[2])
+
                     shop = Shop.objects.filter(id=self.seller_shop.id).last()
-                    product = Product.objects.filter(product_sku=row[0]).last()
                     inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
                     product_qty_dict = get_stock(shop, inventory_type, [product.id])
                     if product_qty_dict.get(product.id) is not None:
@@ -666,14 +669,13 @@ class BulkOrder(models.Model):
                         int(available_quantity) / int(product.product_inner_case_size))
                     availableQuantity.append(product_available)
                     capping = product.get_current_shop_capping(shop,self.buyer_shop)
-                    product_qty = int(row[2])
                     parent_mapping = getShopMapping(self.buyer_shop_id)
                     if parent_mapping is None:
                         #unavailable_skus.append(row[0])
                         message = "Parent Maaping is not Found"
                         error_dict[row[0]] = message
                     if capping:
-                        msg = capping_check(capping, parent_mapping, product, product_qty, qty)
+                        msg = capping_check(capping, parent_mapping, product, ordered_qty, qty)
                         if msg[0] is False:
                             #unavailable_skus.append(row[0])
                             error_dict[row[0]] = msg[1]
@@ -693,7 +695,7 @@ class BulkOrder(models.Model):
                         count += 1
                     if count == 0:
                         #unavailable_skus.append(row[0])
-                        message = "Failed because of Ordered quantity is {} > Available quantity {}".format(str(int(row[2])),
+                        message = "Failed because of Ordered quantity is {} > Available quantity {}".format(str(ordered_qty),
                                                                                                             str(available_quantity))
                         error_dict[row[0]] = message
         info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]--Unavailable-SKUs:{unavailable_skus}, "
@@ -889,6 +891,14 @@ class CartProductMapping(models.Model):
         return self.cart_product.product_inner_case_size
 
     @property
+    def cart_product_case_size(self):
+        """
+        This will return the cart products case size at the time product was added to the cart.
+        This wont be changed if in future product's case size is changed
+        """
+        return self.no_of_pieces/self.qty
+
+    @property
     def order_number(self):
         return self.cart.order_id
 
@@ -906,10 +916,23 @@ class CartProductMapping(models.Model):
                     if self.cart_product.id == i['item_id']:
                         item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
             else:
-                item_effective_price = float(self.cart_product_price.selling_price)
+                product_price = self.cart_product.get_current_shop_price(self.cart.seller_shop_id, self.cart.buyer_shop_id)
+                item_effective_price = float(product_price.get_per_piece_price(self.qty,
+                                                                               self.cart_product_case_size))
         except:
             logger.exception("Cart product price not found")
         return item_effective_price
+
+
+    @property
+    def applicable_slab_price(self):
+        """
+        Returns applicable slab price for any cart based on the cart products quantity(per pack)
+        """
+        product_price = self.cart_product.get_current_shop_price(self.cart.seller_shop_id, self.cart.buyer_shop_id)
+        applicable_slab_price = product_price.get_applicable_slab_price_per_pack(self.qty)
+        return applicable_slab_price
+
 
     def set_cart_product_price(self, seller_shop_id, buyer_shop_id):
         self.cart_product_price = self.cart_product. \
@@ -1605,12 +1628,13 @@ class OrderedProduct(models.Model):  # Shipment
     def credit_note_amount(self):
         credit_note_amount = self.rt_order_product_order_product_mapping.all() \
             .aggregate(cn_amt=RoundAmount(
-            Sum(F('effective_price') * (F('shipped_qty') - F('delivered_qty')), output_field=FloatField()))).get(
+            Sum((F('effective_price') * F('shipped_qty')) - (F('delivered_at_price') * F('delivered_qty')), output_field=FloatField()))).get(
             'cn_amt')
         if credit_note_amount:
             return credit_note_amount
         else:
             return 0
+
 
     @property
     def shipment_weight(self):
@@ -1712,9 +1736,8 @@ class OrderedProduct(models.Model):  # Shipment
                 inv_amt=RoundAmount(Sum(F('discounted_price') * F('shipped_qty')), output_field=FloatField())).get(
                 'inv_amt')
             credit_note_amount = self.rt_order_product_order_product_mapping.all() \
-                .aggregate(cn_amt=RoundAmount(
-                Sum(F('discounted_price') * (F('shipped_qty') - F('delivered_qty')), output_field=FloatField()))).get(
-                'cn_amt')
+                .aggregate(cn_amt=RoundAmount(Sum((F('discounted_price') * F('shipped_qty')) - ((F('delivered_at_price') * F('delivered_qty')))), output_field=FloatField()))\
+                .get('cn_amt')
             if self.invoice_amount:
                 return (invoice_amount - credit_note_amount)
             else:
@@ -1936,6 +1959,7 @@ class OrderedProductMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     effective_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     discounted_price = models.DecimalField(default=0, max_digits=10, decimal_places=2, null=True, blank=False)
+    delivered_at_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     cancellation_date = models.DateTimeField(null=True, blank=True)
     picked_pieces = models.PositiveIntegerField(default=0)
 
@@ -2047,19 +2071,22 @@ class OrderedProductMapping(models.Model):
     @property
     def price_to_retailer(self):
         if self.ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
-            ptr = self.ordered_product.order.ordered_cart.rt_cart_list \
-                .get(cart_product=self.product).cart_product_price.selling_price
+            cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product=self.product)
+            shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
+            ptr = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack,
+                                                                              cart_product_mapping.cart_product_case_size)
             return ptr
         else:
             if self.effective_price:
                 return float(self.effective_price)
-            return self.ordered_product.order.ordered_cart.rt_cart_list \
-                .get(cart_product=self.product).item_effective_prices
+            return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product=self.product).item_effective_prices
 
     def set_effective_price(self):
         try:
-            effective_price = self.ordered_product.order.ordered_cart.rt_cart_list \
-                .get(cart_product=self.product).item_effective_prices
+            cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product=self.product)
+            shipper_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
+            effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipper_qty_in_pack,
+                                                                                          cart_product_mapping.cart_product_case_size)
             OrderedProductMapping.objects.filter(id=self.id).update(effective_price=effective_price)
         except:
             pass
@@ -2102,6 +2129,22 @@ class OrderedProductMapping(models.Model):
         return round(basic_rate, 2)
 
     @property
+    def return_rate(self):
+        """This function returns the basic rate at which credit note is to be generated"""
+        get_tax_val = self.get_product_tax_json() / 100
+        return_rate = ((self.product_credit_amount/(self.returned_qty+self.returned_damage_qty))
+                       - float(self.product_cess_amount)) / (float(get_tax_val) + 1)
+        return round(return_rate, 2)
+
+    @property
+    def product_credit_amount(self):
+        return round(self.shipped_qty * float(self.effective_price) - self.delivered_qty * float(self.delivered_at_price),2)
+
+    @property
+    def product_credit_amount_per_unit(self):
+        return round(self.product_credit_amount/(self.returned_qty+self.returned_damage_qty),2)
+
+    @property
     def basic_rate_discounted(self):
         get_tax_val = self.get_product_tax_json() / 100
         basic_rate = (float(self.effective_price - self.discounted_price)) / (float(get_tax_val) + 1)
@@ -2135,7 +2178,7 @@ class OrderedProductMapping(models.Model):
         # get_tax_val = self.get_product_tax_json() / 100
         # return round(float(self.basic_rate * (self.returned_qty + self.damaged_qty)) * float(get_tax_val), 2)
         quantity = self.returned_damage_qty + self.returned_qty
-        return round(float(self.effective_price * quantity), 2) - self.basic_rate * quantity
+        return round(self.product_credit_amount - (self.return_rate * quantity))
 
     @property
     def product_tax_discount_amount(self):
@@ -2219,10 +2262,17 @@ class OrderedProductMapping(models.Model):
         # if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty, self.returned_qty]):
         #     raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
         # else:
-        self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-            cart_product=self.product).last().item_effective_prices
-        self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-            cart_product=self.product).last().discounted_price
+        cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last()
+
+        shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
+        self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack,
+                                                                                           cart_product_mapping.cart_product_case_size)
+        self.discounted_price = cart_product_mapping.discounted_price
+        if self.delivered_qty > 0:
+            delivered_qty_in_pack = math.ceil(self.delivered_qty / self.product.product_inner_case_size)
+            self.delivered_at_price = cart_product_mapping.cart_product_price\
+                                                          .get_per_piece_price(delivered_qty_in_pack,
+                                                                               self.product.product_inner_case_size)
         super().save(*args, **kwargs)
 
 

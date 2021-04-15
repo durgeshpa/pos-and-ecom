@@ -224,3 +224,4 @@ def products_price_excel(queryset):
     response['Content-Disposition'] = 'attachment; filename=%s' % filename
 
     return response
+

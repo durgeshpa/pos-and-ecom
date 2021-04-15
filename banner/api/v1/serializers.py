@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from banner.models import Banner,BannerPosition,BannerData,BannerSlot
+from banner.models import Banner,BannerPosition,BannerData,BannerSlot, HomePageMessage
 from brand.models import Brand
 
 class RecursiveSerializer(serializers.Serializer):
@@ -38,4 +38,11 @@ class BannerSlotSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BannerPosition
+        fields = '__all__'
+
+
+class HomePageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = HomePageMessage
         fields = '__all__'

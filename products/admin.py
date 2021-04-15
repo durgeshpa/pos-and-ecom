@@ -1,6 +1,10 @@
+import logging
+from io import StringIO
+
 from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django_filters import BooleanFilter
+from nested_admin.nested import NestedTabularInline
 from rangefilter.filter import DateTimeRangeFilter
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter
 from django.contrib import admin, messages
@@ -20,7 +24,8 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     ProductPriceChangePerm, ProductPriceNewForm, ProductHSNForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
-                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet)
+                    ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
+                    SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -46,21 +51,36 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     ParentProductAutocomplete, ParentProductsAutocompleteView,
                     ParentProductMultiPhotoUploadView, cart_product_list_status, upload_master_data_view,
                     UploadMasterDataSampleExcelFile, set_child_with_parent_sample_excel_file,
-                    set_inactive_status_sample_excel_file, set_child_data_sample_excel_file, set_parent_data_sample_excel_file,
+                    set_inactive_status_sample_excel_file, set_child_data_sample_excel_file,
+                    set_parent_data_sample_excel_file,
                     category_sub_category_mapping_sample_excel_file, brand_sub_brand_mapping_sample_excel_file,
                     ParentProductMultiPhotoUploadView, cart_product_list_status,
-                    bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor)
+                    bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
+                    get_slab_product_price_sample_csv, slab_product_price_csv_upload)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
 
+info_logger = logging.getLogger('file-info')
+
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
     field_name = 'product' # name of the foreign key field
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(product_id=self.value())
+            )
+
 
 class ShopFilter(AutocompleteFilter):
     title = 'Seller Shop' # display title
     field_name = 'seller_shop' # name of the foreign key field
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(seller_shop_id=self.value())
+            )
 
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']
@@ -513,7 +533,8 @@ class ParentProductAdmin(admin.ModelAdmin):
     class Media:
         js = (
             '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
-            'admin/js/child_product_form.js'
+            'admin/js/child_product_form.js',
+            'admin/js/parent_product_form.js',
         )
 
     change_list_template = 'admin/products/parent_product_change_list.html'
@@ -835,11 +856,6 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="product-category-mapping-sample"
             ),
             url(
-                r'^product-price-upload/$',
-                self.admin_site.admin_view(ProductPriceUpload.as_view()),
-                name="product_price_upload"
-            ),
-            url(
                 r'^city-autocomplete/$',
                 self.admin_site.admin_view(CityAutocomplete.as_view()),
                 name="city_autocomplete"
@@ -1087,8 +1103,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
     actions = ['export_as_csv_productprice']
-    list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
-                           'pincode')
+    list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city', 'pincode')
     list_display = [
         'product', 'product_sku', 'product_mrp', 'selling_price',
         'seller_shop', 'buyer_shop', 'city', 'pincode',
@@ -1159,6 +1174,9 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     disapprove_product_price.short_description = "Disapprove Selected Products Prices"
     disapprove_product_price.allowed_permissions = ('change',)
 
+    def has_add_permission(self, request, obj=None):
+        return False
+
     def has_delete_permission(self, request, obj=None):
         # if request.user.is_superuser:
         #     return True
@@ -1176,6 +1194,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 
     def get_queryset(self, request):
         qs = super(ProductPriceAdmin, self).get_queryset(request)
+        qs = qs.filter(price_slabs__isnull=True)
         if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
             return qs
         return qs.filter(
@@ -1383,6 +1402,185 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
     class Media:
         js = ("admin/js/repackaging.js",)
 
+class PriceSlabAdmin(TabularInline):
+    """
+    This class is used to create Price Slabs from admin panel
+    """
+    model = PriceSlab
+    form = PriceSlabForm
+    formset = SlabInlineFormSet
+    min_num = 0
+    extra = 2
+    max_num = 2
+    can_delete = False
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            return self.readonly_fields
+        return self.readonly_fields + ('start_value', 'end_value','selling_price', 'offer_price',
+                                       'offer_price_start_date', 'offer_price_end_date')
+    class Media:
+        pass
+
+class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
+
+    """
+    This class is used to create Slabbed Product Price from admin panel
+    """
+    inlines = [PriceSlabAdmin]
+    form = ProductPriceSlabForm
+    list_display = ['product', 'product_mrp','seller_shop', 'approval_status', 'slab1_details', 'slab2_details'
+                    ]
+    autocomplete_fields = ['product']
+    list_filter = [ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch, ProductCategoryFilter, 'approval_status']
+    fieldsets = (
+        ('Basic', {
+            'fields': ('product', 'mrp', 'seller_shop', 'approval_status',),
+            'classes': ('required',)
+        }),
+    )
+    change_form_template = 'admin/products/product_price_change_form.html'
+
+    class Media:
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+            'admin/js/child_product_form.js',
+            'admin/js/price-slab-form.js'
+        )
+
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super(ProductSlabPriceAdmin, self).get_fieldsets(request, obj)
+        if obj is None:
+            fieldsets = (
+                            ('Basic', {
+                                'fields': ('product', 'mrp', 'seller_shop', 'approval_status',),
+                                'classes': ('required',)})
+                            ,
+                            ('Slab Price Applicable', {
+                                'fields': ('slab_price_applicable',),
+                                'classes': ('slab_applicable',)}),
+                            ('Price Details', {
+                                'fields': ('selling_price', 'offer_price', 'offer_price_start_date', 'offer_price_end_date'),
+                                'classes': ('single_slab',)
+                            })
+            )
+        return fieldsets
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            return self.readonly_fields
+        if not request.user.is_superuser:
+            return self.readonly_fields + (
+                'product', 'mrp', 'seller_shop', 'approval_status')
+        return self.readonly_fields + ( 'product', 'mrp', 'seller_shop')
+
+
+    def slab1_details(self, obj):
+        first_slab = obj.price_slabs.filter(start_value=0).last()
+        return first_slab
+
+    def slab2_details(self, obj):
+        last_slab = obj.price_slabs.filter(~Q(start_value=0), end_value=0).last()
+        return last_slab
+
+    def product_mrp(self, obj):
+        if obj.product.product_mrp:
+            return obj.product.product_mrp
+        return ''
+
+    def approve_product_price(self, request, queryset):
+        queryset = queryset.filter(approval_status=ProductPrice.APPROVAL_PENDING).order_by('created_at')
+        for product in queryset:
+            product.approval_status = ProductPrice.APPROVED
+            product.save()
+
+    def disapprove_product_price(self, request, queryset):
+        for product in queryset:
+            product.approval_status = ProductPrice.DEACTIVATED
+            product.save()
+
+    approve_product_price.short_description = "Approve Selected Products Prices"
+    approve_product_price.allowed_permissions = ('change',)
+    disapprove_product_price.short_description = "Disapprove Selected Products Prices"
+    disapprove_product_price.allowed_permissions = ('change',)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_form(self, request, obj=None, **kwargs):
+        if not obj:
+            kwargs['form'] = ProductPriceSlabCreationForm
+        else:
+            kwargs['form'] = ProductPriceSlabForm
+        return super().get_form(request, obj, **kwargs)
+
+
+    def get_queryset(self, request):
+        qs = super(ProductSlabPriceAdmin, self).get_queryset(request)
+        qs = qs.filter(id__in=qs.filter(price_slabs__isnull=False).values_list('pk', flat=True))
+        if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
+            return qs
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user)
+        ).distinct()
+
+    def get_urls(self):
+        """
+        returns the added action urls for Slab Product Pricing
+        """
+        from django.conf.urls import url
+        urls = super(ProductSlabPriceAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^slab_product_price_sample_csv/$',
+                       self.admin_site.admin_view(get_slab_product_price_sample_csv),
+                       name="slab_product_price_sample_csv"
+                   ),
+                   url(
+                       r'^slab_product_price_csv_upload/$',
+                       self.admin_site.admin_view(slab_product_price_csv_upload),
+                       name="slab_product_price_csv_upload"
+                   ),
+
+               ] + urls
+        return urls
+
+    def export_as_csv(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "Slab 1 Qty", "Selling Price 1",
+                     "Offer Price 1", "Offer Price 1 Start Date", "Offer Price 1 End Date",
+                     "Slab 2 Qty", "Selling Price 2", "Offer Price 2", "Offer Price 2 Start Date", "Offer Price 2 End Date"])
+        for query in queryset:
+            obj = SlabProductPrice.objects.get(id=query.id)
+            try:
+                row = [obj.product.product_sku, obj.product.product_name, obj.seller_shop.id, obj.seller_shop.shop_name,
+                       obj.mrp]
+                first_slab=True
+                for slab in obj.price_slabs.all().order_by('start_value'):
+                    if first_slab:
+                        row.append(slab.end_value)
+                    else:
+                        row.append(slab.start_value)
+                    row.append(slab.selling_price)
+                    row.append(slab.offer_price)
+                    row.append(slab.offer_price_start_date)
+                    row.append(slab.offer_price_end_date)
+                    first_slab = False
+                writer.writerow(row)
+
+            except Exception as exc:
+                info_logger.error(exc)
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=slab_product_prices.csv'
+        return response
+
+    actions = [export_as_csv,]
+    change_list_template = 'admin/products/products-slab-price-change-list.html'
+
 
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
@@ -1403,3 +1601,4 @@ admin.site.register(BulkUploadForGSTChange, BulkUploadForGSTChangeAdmin)
 admin.site.register(BulkUploadForProductAttributes, BulkUploadForProductAttributesAdmin)
 admin.site.register(Repackaging, RepackagingAdmin)
 admin.site.register(ParentProduct, ParentProductAdmin)
+admin.site.register(SlabProductPrice, ProductSlabPriceAdmin)

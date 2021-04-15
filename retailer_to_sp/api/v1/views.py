@@ -360,18 +360,7 @@ class GramGRNProductsList(APIView):
                                 for i in coupons:
                                     if i['coupon_type'] == 'catalog':
                                         i['max_qty'] = max_qty
-
-                # product = Product.objects.get(id=p["_source"]["id"])
-                check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
-                if not check_price:
-                    continue
-                # # check_price_mrp = check_price.mrp if check_price.mrp else product.product_mrp
                 check_price_mrp = product.product_mrp
-                p["_source"]["ptr"] = check_price.selling_price
-                p["_source"]["mrp"] = check_price_mrp
-                p["_source"]["margin"] = (((check_price_mrp - check_price.selling_price) / check_price_mrp) * 100)
-                # loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
-                # cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
@@ -384,8 +373,6 @@ class GramGRNProductsList(APIView):
                                 if i['item_sku'] == c_p.cart_product.product_sku:
                                     discounted_product_subtotal = i['discounted_product_subtotal']
                                     p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
-                            p["_source"]["margin"] = (((float(check_price_mrp) - c_p.item_effective_prices) / float(
-                                check_price_mrp)) * 100)
                             array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet2))
                             for j in coupons:
                                 for i in (array3 + array2):
@@ -394,8 +381,9 @@ class GramGRNProductsList(APIView):
                         user_selected_qty = c_p.qty or 0
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
+                        p["_source"]["ptr"] = c_p.applicable_slab_price
                         p["_source"]["no_of_pieces"] = no_of_pieces
-                        p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
+                        p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
             p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
@@ -642,7 +630,7 @@ class AddToCart(APIView):
                                                 context={'parent_mapping_id': parent_mapping.parent.id,
                                                          'buyer_shop_id': shop_id})
                     for i in serializer.data['rt_cart_list']:
-                        if i['cart_product']['product_mrp'] == False:
+                        if i['cart_product']['price_details']['mrp'] == False:
                             CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
                             msg = {'is_success': True, 'message': ['Data added to cart'],
                                    'response_data': serializer.data}
@@ -704,20 +692,20 @@ class CartDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def delivery_message(self):
+    def delivery_message(self, shop_type):
         date_time_now = datetime.now()
         day = date_time_now.strftime("%A")
         time = date_time_now.strftime("%H")
 
         if int(time) < 17 and not (day == 'Saturday'):
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=1)).strftime('%A')))
+            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+                (date_time_now + timedelta(days=1)).strftime('%A'), str(shop_type.shop_min_amount)))
         elif (day == 'Friday'):
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=3)).strftime('%A')))
+            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+                (date_time_now + timedelta(days=3)).strftime('%A'), str(shop_type.shop_min_amount)))
         else:
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=2)).strftime('%A')))
+            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+                (date_time_now + timedelta(days=2)).strftime('%A'), str(shop_type.shop_min_amount)))
 
     def get(self, request, *args, **kwargs):
         shop_id = self.request.GET.get('shop_id')
@@ -775,11 +763,12 @@ class CartDetail(APIView):
                             CartProductMapping.objects.filter(cart__id=cart.id,
                                                               cart_product__id=i.cart_product.id).delete()
 
+
                     serializer = CartSerializer(
                         Cart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
                                  'buyer_shop_id': shop_id,
-                                 'delivery_message': self.delivery_message()}
+                                 'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
                     )
                     for i in serializer.data['rt_cart_list']:
                         if not i['cart_product']['product_pro_image']:
@@ -789,7 +778,7 @@ class CartDetail(APIView):
                                     parent_image_serializer = ParentProductImageSerializer(im)
                                     i['cart_product']['product_pro_image'].append(parent_image_serializer.data)
 
-                        if i['cart_product']['product_mrp'] == False:
+                        if i['cart_product']['price_details']['mrp'] == False:
                             i['qty'] = 0
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'],
                                                               cart_product__id=i['cart_product']['id']).delete()
@@ -824,7 +813,7 @@ class CartDetail(APIView):
                     serializer = GramMappedCartSerializer(
                         GramMappedCart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
-                                 'delivery_message': self.delivery_message()}
+                                 'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
                     )
                     msg = {'is_success': True, 'message': [
                         ''], 'response_data': serializer.data}
@@ -1000,7 +989,7 @@ class ReservedOrder(generics.ListAPIView):
                 'buyer_shop_id': shop_id})
 
             for i in serializer.data['rt_cart_list']:
-                if i['cart_product']['product_mrp'] == False:
+                if i['cart_product']['price_details']['mrp'] == False:
                     i['qty'] = 0
                     i['cart_product']['product_mrp'] = 0
                     CartProductMapping.objects.filter(cart__id=i['cart']['id'],
@@ -1511,8 +1500,8 @@ def pdf_generation(request, ordered_product):
                 ordered_product.order.ordered_cart.seller_shop,
                 ordered_product.order.ordered_cart.buyer_shop)
 
-            if ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
-                product_pro_price_ptr = round(product_price.selling_price, 2)
+            if ordered_product.order.ordered_cart.cart_type != 'DISCOUNTED':
+                product_pro_price_ptr = round(product_price.get_per_piece_price(m.shipped_qty, m.product.product_inner_case_size), 2)
             else:
                 product_pro_price_ptr = cart_product_map.item_effective_prices
             if m.product.product_mrp:
