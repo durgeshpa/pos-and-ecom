@@ -26,9 +26,12 @@ class OfferBannerSerializer(serializers.ModelSerializer):
         return obj.category_id
 
     def product_brand(self, obj):
-        if obj.brand_id is None:
-            return {"id": obj.sub_brand_id, "brand_name":obj.sub_brand.brand_name}
-        return {"id": obj.brand_id, "brand_name":obj.brand.brand_name}
+        try:
+            if obj.brand_id is None:
+                return {"id": obj.sub_brand_id, "brand_name":obj.sub_brand.brand_name}
+            return {"id": obj.brand_id, "brand_name":obj.brand.brand_name}
+        except:
+            return None
 
 class OfferBannerPositionSerializer(serializers.ModelSerializer):
 
