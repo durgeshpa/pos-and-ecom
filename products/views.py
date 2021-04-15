@@ -2364,22 +2364,8 @@ class PackingMaterialCheck(View):
 
     def get(self, *args, **kwargs):
         try:
-            ppm = ProductPackingMapping.objects.get(sku_id=self.request.GET.get('sku_id'))
-            try:
-                inventory = WarehouseInventory.objects.get(warehouse_id=self.request.GET.get('shop_id'),
-                                                           inventory_type=InventoryType.objects.filter(
-                                                               inventory_type='normal').last(),
-                                                           sku__id=ppm.packing_sku.id)
-                if inventory.weight < 0:
-                    return JsonResponse({"success": False, "error": 'No More Packing Material In Inventory',
-                                         "packing_sku": str(ppm.packing_sku)})
-                else:
-                    return JsonResponse({"success": True, 'packing_sku': str(ppm.packing_sku),
-                                         'packing_sku_weight_per_unit_sku': str(ppm.packing_sku_weight_per_unit_sku),
-                                         'packing_material_weight': inventory.weight})
-            except:
-                return JsonResponse({"success": False, "error": 'Packing Material Warehouse Inventory Not Found',
-                                     "packing_sku": str(ppm.packing_sku)})
+            ProductPackingMapping.objects.get(sku_id=self.request.GET.get('sku_id'))
+            return JsonResponse({"success": True})
         except:
             return JsonResponse({"success": False, "error": "Please Map A Packing Material To The Selected Destination"
                                                             " Product First"})

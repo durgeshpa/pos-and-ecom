@@ -978,7 +978,7 @@ class Repackaging(models.Model):
     source_repackage_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
                                                             verbose_name='No Of Pieces Of Source SKU To Be Repackaged')
     available_source_weight = models.FloatField(default=0, verbose_name='Available Source SKU Weight (Kg)')
-    available_source_quantity = models.PositiveIntegerField(default=0, verbose_name='Available Source SKU Qty(pcs)')
+    available_source_quantity = models.PositiveIntegerField(default=0, verbose_name='Available Source SKU Qty (pcs)')
     destination_sku_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
                                                            verbose_name='Created Destination SKU Qty (pcs)')
     remarks = models.TextField(null=True, blank=True)

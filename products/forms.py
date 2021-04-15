@@ -1934,13 +1934,16 @@ class RepackagingForm(forms.ModelForm):
             url='admin:destination-product-autocomplete', forward=['source_sku'])
     )
 
-    available_packing_material_weight = forms.CharField(label='Available Packing Material Weight (gm)')
+    available_packing_material_weight = forms.CharField(label='Available Packing Material Weight (Kg)', required=False)
+    available_packing_material_weight_initial = forms.CharField(widget=forms.HiddenInput(), required=False)
+    packing_sku_weight_per_unit_sku = forms.CharField(widget=forms.HiddenInput(), required=False)
 
     class Meta:
         model = Repackaging
         fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity', 'status',
                   "available_source_weight", "available_source_quantity", "destination_sku_quantity", "remarks",
-                  "expiry_date", "source_picking_status")
+                  "expiry_date", "source_picking_status", 'available_packing_material_weight',
+                  'available_packing_material_weight_initial', 'packing_sku_weight_per_unit_sku')
         widgets = {
             'remarks': forms.Textarea(attrs={'rows': 2}),
         }
@@ -1965,9 +1968,21 @@ class RepackagingForm(forms.ModelForm):
                     source_quantity:
                 raise forms.ValidationError("Source Quantity Changed! Please Input Again")
             try:
-                ProductPackingMapping.objects.get(sku_id=self.request.GET.get('sku_id'))
+                ProductPackingMapping.objects.get(sku=self.cleaned_data['destination_sku'])
             except:
                 raise forms.ValidationError("Please Map A Packing Material To The Selected Destination Product First")
+        if 'destination_sku_quantity' in self.cleaned_data:
+            try:
+                ppm = ProductPackingMapping.objects.get(sku=self.instance.destination_sku)
+            except:
+                raise forms.ValidationError("Please Map A Packing Material To The Selected Destination Product First")
+            try:
+                inv = WarehouseInventory.objects.get(inventory_type__inventory_type='normal', sku=ppm.packing_sku,
+                                                     warehouse=self.instance.seller_shop)
+            except:
+                raise forms.ValidationError("Packing Material Warehouse Inventory Not Found")
+            if inv.weight < self.cleaned_data['destination_sku_quantity'] * ppm.packing_sku_weight_per_unit_sku:
+                raise forms.ValidationError("Packing Material Inventory Not Sufficient")
         if self.instance.source_picking_status in ['pickup_created', 'picking_assigned']:
             raise forms.ValidationError("Source pickup is still not complete.")
         return self.cleaned_data
@@ -1980,6 +1995,18 @@ class RepackagingForm(forms.ModelForm):
         for key in readonly:
             if key in self.fields:
                 self.fields[key].widget.attrs['readonly'] = True
+        if self.instance.pk and 'available_packing_material_weight' in self.fields:
+            self.fields['available_packing_material_weight'].initial = 0
+            self.fields['available_packing_material_weight_initial'].initial = 0
+            self.fields['packing_sku_weight_per_unit_sku'].initial = 0
+            repack_obj = Repackaging.objects.get(pk=self.instance.pk)
+            ppm = ProductPackingMapping.objects.filter(sku=repack_obj.destination_sku).last()
+            if ppm:
+                inventory = WarehouseInventory.objects.filter(inventory_type__inventory_type='normal',
+                                                              sku=ppm.packing_sku, warehouse=repack_obj.seller_shop).last()
+                self.fields['available_packing_material_weight'].initial = (inventory.weight/1000) if inventory else 0
+                self.fields['available_packing_material_weight_initial'].initial = inventory.weight if inventory else 0
+                self.fields['packing_sku_weight_per_unit_sku'].initial = ppm.packing_sku_weight_per_unit_sku
 
 
 class BulkProductVendorMapping(forms.Form):
