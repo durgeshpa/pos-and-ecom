@@ -546,7 +546,7 @@ class BinInventoryAdmin(admin.ModelAdmin):
         js = ('admin/js/picker.js',)
 
     def weight_in_kg(self, obj):
-        return obj.weight if obj.sku.repackaging_type == 'packing_material' else '-'
+        return (obj.weight / 1000) if obj.sku.repackaging_type == 'packing_material' else '-'
 
     def expiry_date(self, obj):
         return get_expiry_date(obj.batch_id)
@@ -744,7 +744,7 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     def weight_in_kg(self, obj):
-        return obj.weight if obj.sku.repackaging_type == 'packing_material' else '-'
+        return (obj.weight / 1000) if obj.sku.repackaging_type == 'packing_material' else '-'
 
     class Media:
         pass
@@ -772,7 +772,7 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     def weight_in_kg(self, obj):
-        return obj.weight if obj.sku.repackaging_type == 'packing_material' else '-'
+        return (obj.weight / 1000) if obj.sku.repackaging_type == 'packing_material' else '-'
 
     class Media:
         pass
@@ -789,7 +789,7 @@ class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     def weight_in_kg(self, obj):
-        return obj.weight if obj.sku.repackaging_type == 'packing_material' else '-'
+        return (obj.weight / 1000) if obj.sku.repackaging_type == 'packing_material' else '-'
 
     class Media:
         pass

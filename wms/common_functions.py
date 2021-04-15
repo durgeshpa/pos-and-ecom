@@ -252,7 +252,7 @@ class CommonWarehouseInventoryFunctions(object):
             ware_house_inventory_obj.quantity = ware_house_quantity
             ware_house_inventory_obj.save()
         else:
-            ware_house_inventory_obj = WarehouseInventory.objects.get_or_create(
+            ware_house_inventory_obj, created = WarehouseInventory.objects.get_or_create(
                 warehouse=warehouse,
                 sku=sku,
                 inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
@@ -760,9 +760,11 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
         bin_inventory_obj.quantity = bin_quantity
         bin_inventory_obj.save()
     else:
-        bin_inventory_obj = BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last(), sku=putaway_sku,
-                                    batch_id=batch_id, inventory_type=InventoryType.objects.filter(
-                                    inventory_type=inv_type).last(), quantity=val, in_stock=t)
+        bin_inventory_obj = BinInventory.objects.create(warehouse=sh,
+                                                        bin=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last(),
+                                                        sku=put_away.last().sku,
+                                                        batch_id=batch_id, inventory_type=InventoryType.objects.filter(
+                                                            inventory_type=inv_type).last(), quantity=val, in_stock=t)
 
     update_weight_on_putaway(put_away.last().sku, val, bin_inventory_obj)
 
@@ -793,7 +795,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
 
 def update_weight_on_putaway(sku, quantity, obj):
     if sku.repackaging_type == 'packing_material':
-        obj.weight += (quantity * sku.weight_value) / 1000
+        obj.weight += quantity * sku.weight_value
         obj.save()
 
 
