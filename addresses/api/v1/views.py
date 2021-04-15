@@ -236,7 +236,7 @@ class DefaultAddressView(generics.ListCreateAPIView):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         msg = {'is_success': True if serializer.data else False,
-                'message': None,
+                'message': [""],
                 'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
