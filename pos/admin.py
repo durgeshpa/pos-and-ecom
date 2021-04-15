@@ -9,8 +9,8 @@ from pos.views import upload_retailer_products_list, download_retailer_products_
 from pos.forms import RetailerProductsForm
 from marketing.filters import UserFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter
-from .proxy_models import RetailerCart, RetailerCoupon, RetailerCouponRuleSet, \
-    RetailerRuleSetProductMapping, RetailerOrder
+from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
+    RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart
 from retailer_to_sp.admin import CartProductMappingAdmin, SellerShopFilter, OrderIDFilter, \
     PhoneNumberFilter, ProductNameFilter, SellerShopFilter, SKUFilter, ChoiceDropdownFilter, \
     OrderNoSearch, ChoiceDropdownFilter, DateTimeRangeFilter, RelatedDropdownFilter
@@ -201,47 +201,75 @@ class RetailerCartAdmin(admin.ModelAdmin):
         pass
 
 
-class RetailerOrderAdmin(admin.ModelAdmin):
-    search_fields = ('order_no', 'seller_shop__shop_name')
-    list_per_page = FIFTY
+class OrderedProductMappingInline(admin.TabularInline):
+    model = RetailerOrderedProductMapping
+    fields = ['retailer_product', 'selling_price', 'product_type']
 
-    def get_queryset(self, request):
-        qs = super(RetailerOrderAdmin, self).get_queryset(request)
-        qs = qs.filter(ordered_cart__cart_type='BASIC')
-        if request.user.is_superuser:
-            return qs
-        return qs.filter(
-            Q(seller_shop__related_users=request.user) |
-            Q(seller_shop__shop_owner=request.user)
-        )
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+class RetailerOrderProductAdmin(admin.ModelAdmin):
+    inlines = (OrderedProductMappingInline, )
+    search_fields = ('invoice__invoice_no', 'order__order_no')
+    list_per_page = FIFTY
+    list_display = (
+        'order', 'invoice_no', 'created_at', 'return_reason',
+    )
 
     fieldsets = (
         (_('Shop Details'), {
-            'fields': ('seller_shop', 'buyer')}),
-        (_('Order Details'), {
-            'fields': ('order_no', 'order_status',
-                       'cancellation_reason')}),
+            'fields': ('get_seller_shop', 'get_buyer')}),
+
+        (_('Ordered Details'), {
+            'fields': ('order', 'get_orderd_cart', 'get_order_status', 'invoice_no', 'return_reason')}),
+
         (_('Amount Details'), {
-            'fields': ('total_mrp_amount', 'total_discount_amount',
-                       'total_tax_amount', 'total_final_amount')}),
-        (_('Ordered Cart id'), {
-            'fields': ('ordered_cart',)}),
+            'fields': ('total_mrp_amount', 'total_discount_amount', 'total_tax_amount', 'total_final_amount')}),
     )
 
-    list_filter = [PhoneNumberFilter, SKUFilter, ProductNameFilter, SellerShopFilter,
-                   OrderNoSearch, ('order_status', ChoiceDropdownFilter),
-                   ('created_at', DateTimeRangeFilter), ('shipping_address__city', RelatedDropdownFilter)]
+    def get_seller_shop(self, obj):
+        return obj.order.seller_shop
 
-    list_display = (
-        'order_no', 'seller_shop', 'buyer', 'order_status', 'created_at', 'total_final_amount',
-        'total_mrp_amount'
-    )
+    def get_buyer(self, obj):
+        return obj.order.buyer
 
     def total_final_amount(self, obj):
-        return obj.total_final_amount
+        return obj.order.total_final_amount
 
     def total_mrp_amount(self, obj):
-        return obj.total_mrp_amount
+        return obj.order.total_mrp_amount
+
+    def total_tax_amount(self, obj):
+        return obj.order.total_tax_amount
+
+    def total_discount_amount(self, obj):
+        return obj.order.total_discount_amount
+
+    def get_order_status(self, obj):
+        return obj.order.order_status
+
+    def get_orderd_cart(self, obj):
+        return obj.order.ordered_cart
+
+    def get_queryset(self, request):
+        qs = super(RetailerOrderProductAdmin, self).get_queryset(request)
+        qs = qs.filter(order__ordered_cart__cart_type='BASIC')
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(order__seller_shop__related_users=request.user) |
+            Q(order__seller_shop__shop_owner=request.user)
+        )
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -264,4 +292,4 @@ admin.site.register(RetailerCouponRuleSet, RetailerCouponRuleSetAdmin)
 admin.site.register(RetailerCoupon, RetailerCouponAdmin)
 admin.site.register(RetailerRuleSetProductMapping, RetailerRuleSetProductMappingAdmin)
 admin.site.register(RetailerCart, RetailerCartAdmin)
-admin.site.register(RetailerOrder, RetailerOrderAdmin)
+admin.site.register(RetailerOrderedProduct, RetailerOrderProductAdmin)

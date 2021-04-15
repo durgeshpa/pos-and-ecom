@@ -1,5 +1,5 @@
 from coupon.models import Coupon, RuleSetProductMapping, CouponRuleSet
-from retailer_to_sp.models import Cart, Order
+from retailer_to_sp.models import Cart, OrderedProduct, OrderedProductMapping, Order
 
 
 class RetailerCouponRuleSet(CouponRuleSet):
@@ -22,6 +22,14 @@ class RetailerCart(Cart):
         proxy = True
 
 
-class RetailerOrder(Order):
+class RetailerOrderedProduct(OrderedProduct):
     class Meta:
         proxy = True
+
+
+class RetailerOrderedProductMapping(OrderedProductMapping):
+    class Meta:
+        proxy = True
+
+
+
