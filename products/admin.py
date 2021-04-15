@@ -62,13 +62,25 @@ from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, Des
 from wms.models import Out
 
 info_logger = logging.getLogger('file-info')
+
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
     field_name = 'product' # name of the foreign key field
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(product_id=self.value())
+            )
+
 
 class ShopFilter(AutocompleteFilter):
     title = 'Seller Shop' # display title
     field_name = 'seller_shop' # name of the foreign key field
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(seller_shop_id=self.value())
+            )
 
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']

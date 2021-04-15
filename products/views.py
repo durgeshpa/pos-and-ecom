@@ -779,7 +779,7 @@ def cart_products_mapping(request,pk=None):
     writer = csv.writer(response)
     try:
         writer.writerow(['SKU', 'product_name','qty', 'discounted_price'])
-        cart_products = ProductPrice.objects.values('product__product_sku', 'product__product_name').filter(seller_shop_id=int(pk), approval_status = 2, start_date__lte =  current_time, end_date__gte = current_time)
+        cart_products = ProductPrice.objects.values('product__product_sku', 'product__product_name').filter(seller_shop_id=int(pk), approval_status = 2)
         writer.writerows([(product.get('product__product_sku'), product.get('product__product_name'), '', '') for product in cart_products])
     except:
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
