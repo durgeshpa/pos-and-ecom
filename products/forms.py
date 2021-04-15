@@ -1934,6 +1934,8 @@ class RepackagingForm(forms.ModelForm):
             url='admin:destination-product-autocomplete', forward=['source_sku'])
     )
 
+    available_packing_material_weight = forms.CharField(label='Available Packing Material Weight (gm)')
+
     class Meta:
         model = Repackaging
         fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity', 'status',
@@ -1974,7 +1976,7 @@ class RepackagingForm(forms.ModelForm):
         super(RepackagingForm, self).__init__(*args, **kwargs)
         if self.instance.pk and 'expiry_date' in self.fields:
             self.fields['expiry_date'].required = True
-        readonly = ['available_source_weight', 'available_source_quantity']
+        readonly = ['available_source_weight', 'available_source_quantity', 'available_packing_material_weight']
         for key in readonly:
             if key in self.fields:
                 self.fields[key].widget.attrs['readonly'] = True

@@ -534,8 +534,8 @@ class BinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
     actions = ['download_barcode']
-    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'to_be_picked_qty', 'in_stock',
-                    'created_at', 'modified_at', 'expiry_date')
+    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'weight_in_kg', 'to_be_picked_qty',
+                    'in_stock', 'created_at', 'modified_at', 'expiry_date')
     readonly_fields = ['warehouse', 'bin', 'sku', 'batch_id', 'inventory_type', 'quantity', 'in_stock']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at',)
     list_filter = [BinIDFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter,
@@ -544,6 +544,9 @@ class BinInventoryAdmin(admin.ModelAdmin):
 
     class Media:
         js = ('admin/js/picker.js',)
+
+    def weight_in_kg(self, obj):
+        return obj.weight if obj.sku.repackaging_type == 'packing_material' else '-'
 
     def expiry_date(self, obj):
         return get_expiry_date(obj.batch_id)
@@ -729,7 +732,8 @@ class StockMovementCSVUploadAdmin(admin.ModelAdmin):
 
 class WarehouseInventoryAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
+        'warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'weight_in_kg', 'in_stock', 'created_at',
+        'modified_at')
     list_select_related = ('warehouse', 'inventory_type', 'inventory_state', 'sku')
 
     readonly_fields = (
@@ -738,6 +742,9 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
     list_filter = [Warehouse, SKUFilter, InventoryTypeFilter, InventoryStateFilter, ('created_at', DateTimeRangeFilter),
                    ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
+
+    def weight_in_kg(self, obj):
+        return obj.weight if obj.sku.repackaging_type == 'packing_material' else '-'
 
     class Media:
         pass
@@ -750,7 +757,8 @@ class InventoryStateAdmin(admin.ModelAdmin):
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'inventory_type', 'inventory_state', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
+        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'inventory_type', 'inventory_state', 'quantity',
+        'weight_in_kg', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = (
         'inventory_type', 'inventory_state', 'inventory_csv', 'status', 'warehouse', 'sku', 'transaction_type', 'transaction_id',
@@ -763,6 +771,9 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
                    ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
 
+    def weight_in_kg(self, obj):
+        return obj.weight if obj.sku.repackaging_type == 'packing_material' else '-'
+
     class Media:
         pass
 
@@ -770,12 +781,15 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
 class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'initial_inventory_type', 'final_inventory_type', 'initial_bin',
                     'final_bin', 'transaction_type', 'transaction_id',
-                    'quantity', 'created_at', 'modified_at', 'inventory_csv')
+                    'quantity', 'weight_in_kg', 'created_at', 'modified_at', 'inventory_csv')
     list_filter = [Warehouse, SKUFilter, BatchIdFilter, InitialInventoryTypeFilter, FinalInventoryTypeFilter,
                    InitialBinIDFilter, FinalBinIDFilter, ('transaction_type', DropdownFilter),
                    TransactionIDFilter]
 
     list_per_page = 50
+
+    def weight_in_kg(self, obj):
+        return obj.weight if obj.sku.repackaging_type == 'packing_material' else '-'
 
     class Media:
         pass

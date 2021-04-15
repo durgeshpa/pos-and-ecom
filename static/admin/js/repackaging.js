@@ -3,6 +3,8 @@
     var available_source_quantity_initial;
     var available_source_weight_initial;
     var source_sku_weight;
+    var available_packing_weight_initial;
+    var packing_sku_weight_per_unit_sku;
     if ($("#id_destination_sku").val() == ''){
         $('#id_source_repackage_quantity').attr('readonly', true);
     }
@@ -31,6 +33,7 @@
 	});
 
 	$("#id_destination_sku").on('change', function(){
+	    reset('dest')
 	    if($(this).val() == ''){
 	        return false;
 	    }
@@ -38,8 +41,22 @@
             type: 'GET',
             url: '/admin/products/product/packing-material-check/',
             success: function(response) {
-                console.log(response)
-                if (!response.success){
+                if (response.packing_sku){
+                    if ($("#packing_sku").length == 0){
+                        var packing_sku = document.createElement('span');
+                        packing_sku.setAttribute("id", "packing_sku");
+                        $(".field-available_packing_material_weight").find('div').append(packing_sku)
+                    } else {
+                        packing_sku = document.getElementById('packing_sku');
+                    }
+                    packing_sku.innerText = response.packing_sku;
+                }
+                if (response.success){
+                    available_packing_weight_initial = response.packing_material_weight
+                    $("#id_available_packing_material_weight").val(response.packing_material_weight);
+                    packing_sku_weight_per_unit_sku = response.packing_sku_weight_per_unit_sku;
+                    $('#id_source_repackage_quantity').attr('readonly', false);
+                } else {
                     alert(response.error)
                 }
             },
@@ -62,8 +79,7 @@
 	});
 
 	function reset(type){
-	    $("#id_source_repackage_quantity").val(0);
-	    $('#id_source_repackage_quantity').attr('readonly', true);
+	    $("#packing_sku").remove();
 	    if(type == 'shop' || type=='source'){
 	        $("#id_available_source_weight").val(0);
 	        $("#id_available_source_quantity").val(0);
@@ -72,10 +88,17 @@
 	        source_sku_weight = 0;
 	        $("#id_destination_sku").val($("#id_destination_sku option:first").val());
 	        $("#id_destination_sku").trigger('change');
+	        $("#id_source_repackage_quantity").val(0);
+	        $('#id_source_repackage_quantity').attr('readonly', true);
 	    }
 	    if(type == 'shop'){
             $("#id_source_sku").val($("#id_source_sku option:first").val());
 	        $("#id_source_sku").trigger('change');
+	    }
+	    if(type == 'dest'){
+	        available_packing_weight_initial = 0;
+            packing_sku_weight_per_unit_sku = 0;
+            $("#id_available_packing_material_weight").val(0);
 	    }
 	}
 
