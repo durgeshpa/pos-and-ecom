@@ -82,8 +82,8 @@ class CatalogueProductCreation(GenericAPIView):
         Using RetailerProductCreateSerializer for request and RetailerProductResponseSerializer for response.
         """
         try:
-            # Checking if Entered Data is in the Right Format
-            json.dumps(request.data)
+            # Checking if Entered Data is in the Right Format except images
+            json.dumps(request.data, default=lambda skip_image: 'images')
         except:
             msg = {'is_success': False,
                    'error_message': f"Please provide valid Data",
@@ -170,8 +170,8 @@ class CatalogueProductCreation(GenericAPIView):
         Using RetailerProductUpdateSerializer for request and RetailerProductResponseSerializer for response.
         """
         try:
-            # Checking if Entered Data is in the Right Format
-            json.dumps(request.data)
+            # Checking if Entered Data is in the Right Format except images
+            json.dumps(request.data, default=lambda skip_image: 'images')
         except:
             msg = {'is_success': False,
                    'error_message': f"Please provide valid Data",
@@ -311,6 +311,14 @@ class CatalogueProductCreation(GenericAPIView):
         """
             Delete Image from product
         """
+        try:
+            # Checking if Entered Data is in the Right Format except images
+            json.dumps(request.data)
+        except:
+            msg = {'is_success': False,
+                   'error_message': f"Please provide valid Data",
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id_or_error_message = self.get_shop_id_or_error_message(request)
         if type(shop_id_or_error_message) == int:
             serializer = self.get_serializer_class(2)(data=request.data)
@@ -365,6 +373,14 @@ class CouponOfferCreation(GenericAPIView):
         POST API for CouponOfferCreation.
         Using CouponCodeSerializer for Coupon Creation and ComboDealsSerializer for Combo Offer Creation.
         """
+        try:
+            # Checking if Entered Data is in the Right Format except images
+            json.dumps(request.data)
+        except:
+            msg = {'is_success': False,
+                   'error_message': f"Please provide valid Data",
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
             rule_type = request.data.get('rule_type')
@@ -435,6 +451,14 @@ class CouponOfferCreation(GenericAPIView):
            PUT API for CouponOfferUpdation.
            Using CouponCodeSerializer for Coupon Updation and ComboDealsSerializer for Combo Offer Updation.
         """
+        try:
+            # Checking if Entered Data is in the Right Format except images
+            json.dumps(request.data)
+        except:
+            msg = {'is_success': False,
+                   'error_message': f"Please provide valid Data",
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
             rule_type = request.data.get('rule_type')

@@ -22,7 +22,14 @@ class RetailerProductImageAdmin(admin.TabularInline):
     fields = ('image', 'image_thumbnail',)
     readonly_fields = ('image', 'image_thumbnail',)
 
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
