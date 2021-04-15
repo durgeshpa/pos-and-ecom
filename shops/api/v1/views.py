@@ -144,7 +144,7 @@ class FavouriteProductListView(generics.ListAPIView):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         msg = {'is_success':True,
-                'message': None,
+                'message': [""],
                 'response_data':serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
