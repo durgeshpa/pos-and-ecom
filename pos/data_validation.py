@@ -1,8 +1,6 @@
 import logging
 import json
 
-from rest_framework.response import Response
-from rest_framework import status
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -11,8 +9,13 @@ cron_logger = logging.getLogger('cron_log')
 
 
 def validate_data_format(request):
+    """
+        Validating Entered data,
+        Convert python data(request.data) in to a JSON string,
+    """
     try:
         # Checking if Entered Data is in the Right Format except images
+        # the result is a JSON string, which is valid Data
         json.dumps(request.data, default=lambda skip_image: 'images')
     except Exception as e:
         error_logger.error(e)
