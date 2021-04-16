@@ -1726,9 +1726,10 @@ class OrderedProduct(models.Model):  # Shipment
         if self.order.ordered_cart.approval_status == False:
             if self.invoice_amount:
                 try:
+                    #return (self.invoice_amount - self.credit_note_amount)
                     return round(self.invoice_amount - self.credit_note.all()[0].amount)
                 except:
-                    return round(self.invoice_amount)
+                    return round(self.invoice_amount - self.credit_note_amount)
             else:
                 return 0
         else:
@@ -2266,7 +2267,9 @@ class OrderedProductMapping(models.Model):
         # else:
         cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last()
         shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
-        self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack)
+        self.effective_price = cart_product_mapping.cart_product_price.\
+            get_per_piece_price(shipped_qty_in_pack, cart_product_mapping.cart_product_case_size)\
+            if not self.effective_price else self.effective_price
         self.discounted_price = cart_product_mapping.discounted_price
         if self.delivered_at_price is None and self.delivered_qty > 0:
             delivered_qty_in_pack = math.ceil(self.delivered_qty / cart_product_mapping.cart_product_case_size)
