@@ -1504,7 +1504,7 @@ def pdf_generation(request, ordered_product):
                 ordered_product.order.ordered_cart.buyer_shop)
 
             if ordered_product.order.ordered_cart.cart_type != 'DISCOUNTED':
-                product_pro_price_ptr = round(product_price.get_per_piece_price(m.shipped_qty, m.product.product_inner_case_size), 2)
+                product_pro_price_ptr = m.effective_price
             else:
                 product_pro_price_ptr = cart_product_map.item_effective_prices
             if m.product.product_mrp:

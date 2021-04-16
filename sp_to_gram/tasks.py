@@ -89,8 +89,8 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 					price_details.append({
 							"start_value": slab.start_value,
 							"end_value": slab.end_value,
-							"ptr": slab.ptr,
-							"margin": round((((float(mrp) - slab.ptr/pack_size) / float(mrp)) * 100),2)
+							"ptr": (slab.ptr*product.product_inner_case_size),
+							"margin": round((((float(mrp) - slab.ptr) / float(mrp)) * 100),2)
 						})
 
 		else:
