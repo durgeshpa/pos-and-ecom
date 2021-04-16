@@ -683,11 +683,11 @@ class AddToCart(APIView):
     #     else:
     #         return Response(msg, status=status.HTTP_200_OK)
     #
-    # def sp_mapping_cart(self, qty, product):
-    #     pass
-    #
-    # def gf_mapping_cart(self, qty, product):
-    #     pass
+    def sp_mapping_cart(self, qty, product):
+        pass
+
+    def gf_mapping_cart(self, qty, product):
+        pass
 
 
 class CartDetail(APIView):
