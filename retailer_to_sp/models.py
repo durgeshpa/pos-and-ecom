@@ -2271,8 +2271,9 @@ class OrderedProductMapping(models.Model):
         cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last()
 
         shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
-        self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack,
-                                                                                           cart_product_mapping.cart_product_case_size)
+        self.effective_price = cart_product_mapping.cart_product_price.\
+            get_per_piece_price(shipped_qty_in_pack, cart_product_mapping.cart_product_case_size)\
+            if not self.effective_price else self.effective_price
         self.discounted_price = cart_product_mapping.discounted_price
         if self.delivered_qty > 0:
             delivered_qty_in_pack = math.ceil(self.delivered_qty / self.product.product_inner_case_size)
