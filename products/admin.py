@@ -1364,9 +1364,9 @@ class ExportRepackaging:
 class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
     form = RepackagingForm
     fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity')
-    list_display = ('repackaging_no', 'status', 'source_sku_name', 'source_product_sku', 'destination_sku_name',
-                    'destination_product_sku', 'destination_batch_id', 'destination_sku_quantity',
-                    'download_batch_id_barcode', 'created_at')
+    list_display = ('repackaging_no', 'status', 'source_sku_name', 'source_product_sku', 'source_picking_status',
+                    'destination_sku_name', 'destination_product_sku', 'destination_batch_id',
+                    'destination_sku_quantity', 'download_batch_id_barcode', 'created_at', 'modified_at')
     actions = ["export_as_csv_products_repackaging"]
 
     def get_fields(self, request, obj=None):

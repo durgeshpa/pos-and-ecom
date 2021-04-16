@@ -1,3 +1,5 @@
+import math
+
 from django.db import models
 from model_utils import Choices
 
@@ -133,6 +135,11 @@ class BinInventory(models.Model):
     def __str__(self):
         return str(self.id)
 
+    def save(self, *args, **kwargs):
+        if self.sku.repackaging_type == 'packing_material':
+            self.quantity = math.ceil(float(self.weight) / float(self.sku.weight_value))
+            super(BinInventory, self).save(*args, **kwargs)
+
     class Meta:
         db_table = "wms_bin_inventory"
 
@@ -151,6 +158,11 @@ class WarehouseInventory(models.Model):
 
     class Meta:
         db_table = "wms_warehouse_inventory"
+
+    def save(self, *args, **kwargs):
+        if self.sku.repackaging_type == 'packing_material':
+            self.quantity = math.ceil(float(self.weight) / float(self.sku.weight_value))
+            super(WarehouseInventory, self).save(*args, **kwargs)
 
 
 class In(models.Model):
@@ -224,6 +236,7 @@ class Out(models.Model):
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
+    weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

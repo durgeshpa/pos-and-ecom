@@ -578,7 +578,7 @@ class OutAdmin(admin.ModelAdmin):
     info_logger.info("Out Admin has been called.")
     form = OutForm
     list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'batch_id', 'inventory_type',
-                    'quantity', 'created_at', 'modified_at')
+                    'quantity', 'weight_in_kg', 'created_at', 'modified_at')
     readonly_fields = ('warehouse', 'out_type', 'out_type_id', 'sku', 'batch_id', 'inventory_type',
                        'quantity', 'created_at', 'modified_at')
     list_filter = [Warehouse, ('out_type', DropdownFilter), SKUFilter, BatchIdFilter, OutTypeIDFilter]
@@ -586,6 +586,9 @@ class OutAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
+    def weight_in_kg(self, obj):
+        return (obj.weight / 1000) if obj.sku.repackaging_type == 'packing_material' else '-'
 
     def get_urls(self):
         from django.conf.urls import url

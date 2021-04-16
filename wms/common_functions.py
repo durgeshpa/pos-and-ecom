@@ -211,7 +211,7 @@ class CommonInventoryStateFunctions(object):
 class CommonWarehouseInventoryFunctions(object):
     @classmethod
     def create_warehouse_inventory_with_transaction_log(cls, warehouse, product, inventory_type, inventory_state, quantity,
-                                                        transaction_type, transaction_id, in_stock=True):
+                                                        transaction_type, transaction_id, in_stock=True, weight=0):
         """
         Create/Update entry in WarehouseInventory
         Create entry in WarehouseInternalInventoryChange
@@ -229,18 +229,18 @@ class CommonWarehouseInventoryFunctions(object):
                          "Inventory State-{}, Quantity-{}, Transaction type-{}, Transaction ID-{}"
                          .format(warehouse.id, product.product_sku, inventory_type.inventory_type,
                                  inventory_state.inventory_state, quantity, transaction_type, transaction_id))
-        cls.create_warehouse_inventory(warehouse, product, inventory_type, inventory_state, quantity, in_stock)
-        warehouse_inv_change = WarehouseInternalInventoryChange.objects.create(warehouse=warehouse, sku=product,
-                                                                               transaction_type=transaction_type,
-                                                                               transaction_id=transaction_id,
-                                                                               inventory_type=inventory_type,
-                                                                               inventory_state=inventory_state,
-                                                                               quantity=quantity)
-        update_weight_on_putaway(product, quantity, warehouse_inv_change)
+        cls.create_warehouse_inventory(warehouse, product, inventory_type, inventory_state, quantity, in_stock, weight)
+        WarehouseInternalInventoryChange.objects.create(warehouse=warehouse, sku=product,
+                                                        transaction_type=transaction_type,
+                                                        transaction_id=transaction_id,
+                                                        inventory_type=inventory_type,
+                                                        inventory_state=inventory_state,
+                                                        quantity=quantity,
+                                                        weight=weight)
         info_logger.info("Warehouse Inventory Update| Done")
 
     @classmethod
-    def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
+    def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock, weight=0):
 
         ware_house_inventory_obj = WarehouseInventory.objects.filter(
             warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
@@ -249,17 +249,18 @@ class CommonWarehouseInventoryFunctions(object):
 
         if ware_house_inventory_obj:
             ware_house_quantity = quantity + ware_house_inventory_obj.quantity
+            ware_house_weight = weight + ware_house_inventory_obj.weight
+            ware_house_inventory_obj.weight = ware_house_weight
             ware_house_inventory_obj.quantity = ware_house_quantity
             ware_house_inventory_obj.save()
         else:
-            ware_house_inventory_obj, created = WarehouseInventory.objects.get_or_create(
+            WarehouseInventory.objects.get_or_create(
                 warehouse=warehouse,
                 sku=sku,
                 inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
                 inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
-                in_stock=in_stock, quantity=quantity)
-
-        update_weight_on_putaway(sku, quantity, ware_house_inventory_obj)
+                in_stock=in_stock, quantity=quantity, weight=weight
+            )
 
     @classmethod
     def create_warehouse_inventory_stock_correction(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
@@ -574,35 +575,34 @@ class OrderManagement(object):
 class InternalInventoryChange(object):
     @classmethod
     def create_bin_internal_inventory_change(cls, shop_id, sku, batch_id, final_bin_id, initial_type,
-                                             final_type, transaction_type, transaction_id, quantity):
+                                             final_type, transaction_type, transaction_id, quantity,
+                                             weight=0):
         """
 
         :param shop_id:
         :param sku:
         :param batch_id:
-        :param initial_bin:
         :param final_bin_id:
         :param initial_type:
         :param final_type:
         :param transaction_type:
         :param transaction_id:
         :param quantity:
-        :param inventory_csv:
+        :param weight:
         :return:
         """
 
-        bin_inv_change = BinInternalInventoryChange.objects.create(warehouse_id=shop_id.id, sku=sku,
-                                                                   batch_id=batch_id,
-                                                                   final_bin=Bin.objects.get(bin_id=final_bin_id,
-                                                                                             warehouse=Shop.objects.get(
-                                                                                                id=shop_id.id)),
-                                                                   initial_inventory_type=initial_type,
-                                                                   final_inventory_type=final_type,
-                                                                   transaction_type=transaction_type,
-                                                                   transaction_id=transaction_id,
-                                                                   quantity=quantity)
-
-        update_weight_on_putaway(sku, quantity, bin_inv_change)
+        BinInternalInventoryChange.objects.create(warehouse_id=shop_id.id, sku=sku,
+                                                  batch_id=batch_id,
+                                                  final_bin=Bin.objects.get(bin_id=final_bin_id,
+                                                                            warehouse=Shop.objects.get(
+                                                                                id=shop_id.id)),
+                                                  initial_inventory_type=initial_type,
+                                                  final_inventory_type=final_type,
+                                                  transaction_type=transaction_type,
+                                                  transaction_id=transaction_id,
+                                                  quantity=quantity,
+                                                  weight=weight)
 
 
 class WareHouseCommonFunction(object):
@@ -732,7 +732,8 @@ class StockMovementCSV(object):
             error_logger.error(e)
 
 
-def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_state, t, val, put_away_status, pu):
+def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_state, t, val, put_away_status, pu,
+                               weight):
     """
 
     :param sh:
@@ -745,6 +746,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
     :param val:
     :param put_away_status:
     :param pu:
+    :param weight:
     :return:
     """
     bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(
@@ -757,16 +759,17 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
     if bin_inventory_obj.exists():
         bin_inventory_obj = bin_inventory_obj.last()
         bin_quantity = val + bin_inventory_obj.quantity
+        bin_weight = weight + bin_inventory_obj.weight
         bin_inventory_obj.quantity = bin_quantity
+        bin_inventory_obj.weight = bin_weight
         bin_inventory_obj.save()
     else:
-        bin_inventory_obj = BinInventory.objects.create(warehouse=sh,
-                                                        bin=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last(),
-                                                        sku=put_away.last().sku,
-                                                        batch_id=batch_id, inventory_type=InventoryType.objects.filter(
-                                                            inventory_type=inv_type).last(), quantity=val, in_stock=t)
-
-    update_weight_on_putaway(put_away.last().sku, val, bin_inventory_obj)
+        BinInventory.objects.create(warehouse=sh,
+                                    bin=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last(),
+                                    sku=put_away.last().sku,
+                                    batch_id=batch_id, inventory_type=InventoryType.objects.filter(
+                                        inventory_type=inv_type).last(), quantity=val, in_stock=t,
+                                    weight=weight)
 
     if put_away_status is True:
         PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
@@ -786,17 +789,11 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
     final_type = InventoryType.objects.filter(inventory_type='normal').last(),
     InternalInventoryChange.create_bin_internal_inventory_change(sh, pu[0].sku, batch_id, bin_id, initial_type[0],
                                                                  final_type[0], transaction_type,
-                                                                 transaction_id, val)
+                                                                 transaction_id, val, weight)
 
     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(sh, pu[0].sku, inv_type,
                                                                                       inv_state, val, transaction_type,
-                                                                                      transaction_id)
-
-
-def update_weight_on_putaway(sku, quantity, obj):
-    if sku.repackaging_type == 'packing_material':
-        obj.weight += quantity * sku.weight_value
-        obj.save()
+                                                                                      transaction_id, True, weight)
 
 
 def common_for_release(prod_list, shop_id, transaction_type, transaction_id, order_status):
