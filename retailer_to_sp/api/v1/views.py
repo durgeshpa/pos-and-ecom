@@ -462,7 +462,7 @@ class AddToCart(APIView):
         cart_product = self.request.POST.get('cart_product')
         qty = self.request.POST.get('qty')
         shop_id = self.request.POST.get('shop_id')
-        msg = {'is_success': False, 'message': ['Due to Night Curfew, We are not taking order till Sunday(18-Apr-2021). Please place your order on Monday(19-Apr-2021).'], 'response_data': None}
+        msg = {'is_success': True, 'message': ['Due to Night Curfew, We are not taking order till Sunday(18-Apr-2021). Please place your order on Monday(19-Apr-2021).'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
     #     msg = {'is_success': False, 'message': ['Sorry no any mapping with any shop!'], 'response_data': None}
     #
