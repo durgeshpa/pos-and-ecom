@@ -1083,7 +1083,7 @@ class CartCentral(APIView):
             if linked_pid:
                 linked_product = Product.objects.filter(id=linked_pid).last()
                 if not linked_product:
-                    return {'error': 'GramFactory product not found for given linked_product_id'}
+                    return {'error': f"GramFactory product not found for given {linked_pid}"}
                 mrp, linked = linked_product.product_mrp, 2
             try:
                 product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, linked, None, ean)
