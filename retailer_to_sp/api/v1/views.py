@@ -74,6 +74,7 @@ from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer,
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer
 from pos.api.v1.pagination import pagination
 from pos.models import RetailerProduct, PAYMENT_MODE, Payment as PosPayment, UserMappedShop
+from pos.data_validation import validate_data_format
 
 User = get_user_model()
 
@@ -620,6 +621,9 @@ class CartCentral(APIView):
                 cart_id (For Basic Cart)
                 qty (Quantity of product to be added)
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         cart_type = self.request.data.get('cart_type', '1')
         if cart_type == '1':
             return self.retail_add_to_cart()
@@ -635,6 +639,9 @@ class CartCentral(APIView):
             cart_id
             phone_number - Customer phone number
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         # Check shop
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
@@ -656,6 +663,9 @@ class CartCentral(APIView):
         """
             Update Cart Status To deleted For Basic Cart
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         # Check shop
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
@@ -1073,7 +1083,7 @@ class CartCentral(APIView):
             if linked_pid:
                 linked_product = Product.objects.filter(id=linked_pid).last()
                 if not linked_product:
-                    return {'error': 'GramFactory product not found for given linked_product_id'}
+                    return {'error': f"GramFactory product not found for given {linked_pid}"}
                 mrp, linked = linked_product.product_mrp, 2
             try:
                 product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, linked, None, ean)
@@ -1324,6 +1334,9 @@ class CartCheckout(APIView):
             spot_discount
             is_percentage (spot discount type)
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         # Input validation
         initial_validation = self.post_validate()
         if 'error' in initial_validation:
@@ -2022,6 +2035,9 @@ class OrderCentral(APIView):
         """
             allowed updates to order status
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         cart_type = request.data.get('cart_type', '1')
         if cart_type == '1':
             return self.put_retail_order(pk)
@@ -2092,6 +2108,9 @@ class OrderCentral(APIView):
                 basic
                     shop_id (Seller shop id)
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         cart_type = self.request.data.get('cart_type', '1')
         if cart_type == '1':
             return self.post_retail_order()
@@ -3208,6 +3227,9 @@ class OrderReturns(APIView):
             return_items - dict - product_id, qty
             refund_amount
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         # Input validation
         initial_validation = self.post_validate()
         if 'error' in initial_validation:

@@ -13,8 +13,10 @@ from retailer_backend.messages import *
 from .sms import SendSms, SendVoiceSms
 from .models import PhoneOTP
 from .serializers import PhoneOTPValidateSerializer, ResendSmsOTPSerializer, ResendVoiceOTPSerializer, SendSmsOTPSerializer
+from pos.data_validation import validate_data_format
 
 UserModel = get_user_model()
+
 
 class ValidateOTP(CreateAPIView):
     permission_classes = (AllowAny,)
@@ -112,12 +114,17 @@ class ValidateOTP(CreateAPIView):
             status_code = status.HTTP_406_NOT_ACCEPTABLE
             return msg, status_code
 
+
 class SendSmsOTP(CreateAPIView):
     permission_classes = (AllowAny,)
     queryset = PhoneOTP.objects.all()
     serializer_class = SendSmsOTPSerializer
 
     def post(self, request, format=None):
+
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         serializer = self.serializer_class(
             data=request.data, context={'request': request}
         )

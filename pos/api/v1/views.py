@@ -24,7 +24,7 @@ from .serializers import RetailerProductCreateSerializer, RetailerProductUpdateS
     RetailerProductResponseSerializer, RetailerProductImageDeleteSerializer, CouponCodeSerializer, \
     FreeProductOfferSerializer, ComboDealsSerializer, CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, \
     CouponRuleSetSerializer, CouponListSerializer, FreeProductUpdateSerializer
-
+from pos.data_validation import validate_data_format
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -81,15 +81,9 @@ class CatalogueProductCreation(GenericAPIView):
         POST API for Product Creation.
         Using RetailerProductCreateSerializer for request and RetailerProductResponseSerializer for response.
         """
-        try:
-            # Checking if Entered Data is in the Right Format
-            json.dumps(request.data)
-        except:
-            msg = {'is_success': False,
-                   'error_message': f"Please provide valid Data",
-                   'response_data': None}
+        msg = validate_data_format(request)
+        if msg:
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-
         shop_id_or_error_message = self.get_shop_id_or_error_message(request)
         if type(shop_id_or_error_message) == int:
             serializer = self.get_serializer_class(0)(data=request.data)
@@ -169,13 +163,8 @@ class CatalogueProductCreation(GenericAPIView):
         PUT API for Product Update.
         Using RetailerProductUpdateSerializer for request and RetailerProductResponseSerializer for response.
         """
-        try:
-            # Checking if Entered Data is in the Right Format
-            json.dumps(request.data)
-        except:
-            msg = {'is_success': False,
-                   'error_message': f"Please provide valid Data",
-                   'response_data': None}
+        msg = validate_data_format(request)
+        if msg:
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         # RetailerProductUpdateSerializer is used
         shop_id_or_error_message = self.get_shop_id_or_error_message(request)
@@ -311,6 +300,9 @@ class CatalogueProductCreation(GenericAPIView):
         """
             Delete Image from product
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id_or_error_message = self.get_shop_id_or_error_message(request)
         if type(shop_id_or_error_message) == int:
             serializer = self.get_serializer_class(2)(data=request.data)
@@ -365,6 +357,9 @@ class CouponOfferCreation(GenericAPIView):
         POST API for CouponOfferCreation.
         Using CouponCodeSerializer for Coupon Creation and ComboDealsSerializer for Combo Offer Creation.
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
             rule_type = request.data.get('rule_type')
@@ -435,6 +430,9 @@ class CouponOfferCreation(GenericAPIView):
            PUT API for CouponOfferUpdation.
            Using CouponCodeSerializer for Coupon Updation and ComboDealsSerializer for Combo Offer Updation.
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
             rule_type = request.data.get('rule_type')

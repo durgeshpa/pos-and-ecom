@@ -34,8 +34,10 @@ from .utils import jwt_encode
 from otp.models import PhoneOTP
 from accounts.tokens import account_activation_token
 from shops.models import Shop
+from pos.data_validation import validate_data_format
 
 UserModel = get_user_model()
+
 
 sensitive_post_parameters_m = method_decorator(
     sensitive_post_parameters(
@@ -133,7 +135,11 @@ class LoginView(GenericAPIView):
         return Response({'is_success': True, 'message': ['Successfully logged in'],
                          'response_data': [response_serializer.data]}, status=status.HTTP_200_OK)
 
+
     def post(self, request, *args, **kwargs):
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         self.request = request
         serializer_class = self.get_serializer_class()
         self.serializer = serializer_class(data=self.request.data, context={'request': request})
