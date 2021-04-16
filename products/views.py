@@ -1,6 +1,7 @@
 import csv
 import codecs
 import datetime
+import math
 import os
 import logging
 import re
@@ -1824,7 +1825,7 @@ def FetchProductDdetails(request):
         is_ptr_applicable = def_product.parent_product.is_ptr_applicable
         case_size = def_product.parent_product.inner_case_size
         if is_ptr_applicable:
-            selling_price = get_selling_price(def_product)
+            selling_price = round(get_selling_price(def_product),2)
             selling_price_per_saleable_unit = round(selling_price*case_size, 2)
         data = {
             'found': True,
