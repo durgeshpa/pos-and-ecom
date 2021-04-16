@@ -580,7 +580,7 @@ class ProductPrice(models.Model):
         Calculated the price slab applicable for a pack based on the qty supplied,
         if no slabs found for this price then return None
         """
-        per_piece_price = self.get_applicable_slab_price_per_pack(qty)
+        per_piece_price = self.get_per_piece_price(qty)
         if per_piece_price:
             return per_piece_price * case_size
 
