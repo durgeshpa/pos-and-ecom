@@ -1363,8 +1363,7 @@ class ExportRepackaging:
 
 class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
     form = RepackagingForm
-    fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity', 'available_source_weight',
-              'available_source_quantity', 'status')
+    fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity')
     list_display = ('repackaging_no', 'status', 'source_sku_name', 'source_product_sku', 'destination_sku_name',
                     'destination_product_sku', 'destination_batch_id', 'destination_sku_quantity',
                     'download_batch_id_barcode', 'created_at')
@@ -1373,12 +1372,12 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
     def get_fields(self, request, obj=None):
         if obj:
             if obj.status == 'completed':
-                return self.fields + ('source_picking_status', 'destination_sku_quantity', 'expiry_date', 'remarks')
-            return self.fields + ('source_picking_status', 'destination_sku_quantity',
-                                  'available_packing_material_weight', 'available_packing_material_weight_initial',
-                                  'packing_sku_weight_per_unit_sku', 'expiry_date', 'remarks')
+                return self.fields + ('destination_sku_quantity', 'expiry_date', 'status', 'remarks')
+            return self.fields + ('source_picking_status', 'available_packing_material_weight',
+                                  'destination_sku_quantity', 'available_packing_material_weight_initial',
+                                  'packing_sku_weight_per_unit_sku', 'expiry_date', 'status', 'remarks')
         else:
-            return self.fields
+            return self.fields + ('available_source_weight', 'available_source_quantity', 'status')
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
