@@ -1727,7 +1727,10 @@ class OrderedProduct(models.Model):  # Shipment
         # fetch the amount to be collected
         if self.order.ordered_cart.approval_status == False:
             if self.invoice_amount:
-                return (self.invoice_amount - self.credit_note_amount)
+                try:
+                    return round(self.invoice_amount - self.credit_note.all()[0].amount)
+                except:
+                    return round(self.invoice_amount)
             else:
                 return 0
         else:
@@ -1739,7 +1742,10 @@ class OrderedProduct(models.Model):  # Shipment
                 .aggregate(cn_amt=RoundAmount(Sum((F('discounted_price') * F('shipped_qty')) - ((F('delivered_at_price') * F('delivered_qty')))), output_field=FloatField()))\
                 .get('cn_amt')
             if self.invoice_amount:
-                return (invoice_amount - credit_note_amount)
+                try:
+                    return (invoice_amount - credit_note_amount)
+                except:
+                    return invoice_amount
             else:
                 return 0
 
