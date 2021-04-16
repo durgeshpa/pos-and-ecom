@@ -575,25 +575,28 @@ class ProductPrice(models.Model):
     def sku_code(self):
         return self.product.product_sku
 
-    def get_applicable_slab_price_per_pack(self, qty):
+    def get_applicable_slab_price_per_pack(self, qty, case_size):
         """
         Calculated the price slab applicable for a pack based on the qty supplied,
         if no slabs found for this price then return None
         """
-        slabs = self.price_slabs.all()
-        for slab in slabs:
-            if qty >= slab.start_value and (qty <= slab.end_value or slab.end_value == 0):
-                return slab.ptr
-        return None
+        per_piece_price = self.get_applicable_slab_price_per_pack(qty)
+        if per_piece_price:
+            return per_piece_price * case_size
 
-    def get_per_piece_price(self, qty, case_size):
+
+    def get_per_piece_price(self, qty):
 
         """
         Returns the price applicable per piece
         """
-        per_pack_price = self.get_applicable_slab_price_per_pack(qty)
-        if per_pack_price:
-            return per_pack_price / case_size
+
+        slabs = self.price_slabs.all()
+        for slab in slabs:
+            if qty >= slab.start_value and (qty <= slab.end_value or slab.end_value == 0):
+                return slab.ptr
+        return 0
+
 
     # @property
     # def mrp(self):
