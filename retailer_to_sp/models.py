@@ -2141,7 +2141,10 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_credit_amount(self):
-        return round(self.shipped_qty * float(self.effective_price) - self.delivered_qty * float(self.delivered_at_price),2)
+        if self.delivered_qty>0 :
+            return round(self.shipped_qty * float(self.effective_price)
+                         - self.delivered_qty * float(self.delivered_at_price),2)
+        return round(self.shipped_qty * float(self.effective_price),2)
 
     @property
     def product_credit_amount_per_unit(self):
