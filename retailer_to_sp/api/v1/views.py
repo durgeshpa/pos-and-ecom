@@ -385,7 +385,6 @@ class GramGRNProductsList(APIView):
                         p["_source"]["ptr"] = c_p.applicable_slab_price
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
-            p["_source"]["ptr"] = round(p["_source"]["ptr"],2)
             p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
