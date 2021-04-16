@@ -1728,9 +1728,10 @@ class OrderedProduct(models.Model):  # Shipment
         if self.order.ordered_cart.approval_status == False:
             if self.invoice_amount:
                 try:
+                    #return (self.invoice_amount - self.credit_note_amount)
                     return round(self.invoice_amount - self.credit_note.all()[0].amount)
                 except:
-                    return round(self.invoice_amount)
+                    return round(self.invoice_amount - self.credit_note_amount)
             else:
                 return 0
         else:
