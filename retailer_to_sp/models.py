@@ -2134,7 +2134,10 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_credit_amount(self):
-        return round(self.shipped_qty * float(self.effective_price) - self.delivered_qty * float(self.delivered_at_price),2)
+        if self.delivered_qty>0 :
+            return round(self.shipped_qty * float(self.effective_price)
+                         - self.delivered_qty * float(self.delivered_at_price),2)
+        return round(self.shipped_qty * float(self.effective_price),2)
 
     @property
     def product_credit_amount_per_unit(self):
@@ -2260,7 +2263,9 @@ class OrderedProductMapping(models.Model):
         # else:
         cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last()
         shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
-        self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack)
+        self.effective_price = cart_product_mapping.cart_product_price.\
+            get_per_piece_price(shipped_qty_in_pack, cart_product_mapping.cart_product_case_size)\
+            if not self.effective_price else self.effective_price
         self.discounted_price = cart_product_mapping.discounted_price
         if self.delivered_at_price is None and self.delivered_qty > 0:
             delivered_qty_in_pack = math.ceil(self.delivered_qty / cart_product_mapping.cart_product_case_size)
