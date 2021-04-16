@@ -26,7 +26,7 @@ from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
                     ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
                     SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm,
-                    ProductPackingMappingForm)
+                    ProductPackingMappingForm, ProductPackingMappingFormSet)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -723,7 +723,7 @@ class ProductPackingMappingAdmin(admin.TabularInline):
     model = ProductPackingMapping
     fk_name = "sku"
     form = ProductPackingMappingForm
-    min_num = 1
+    formset = ProductPackingMappingFormSet
     max_num = 1
 
     def has_delete_permission(self, request, obj=None):

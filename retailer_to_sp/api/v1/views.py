@@ -79,7 +79,7 @@ from retailer_backend.messages import ERROR_MESSAGES
 from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking
 )
-from wms.common_functions import OrderManagement, get_stock
+from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
 from retailer_to_sp.filters import PickerDashboardFilter
 from common.data_wrapper_view import DataWrapperViewSet
@@ -488,6 +488,11 @@ class AddToCart(APIView):
             if is_blocked_for_audit:
                 msg['message'] = [ERROR_MESSAGES['4019'].format(Product.objects.get(id=cart_product))]
                 return Response(msg, status=status.HTTP_200_OK)
+
+            if is_product_not_eligible(cart_product):
+                msg['message'] = ["Product Not Eligible To Order"]
+                return Response(msg, status=status.HTTP_200_OK)
+
             #  if shop mapped with SP
             # available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
             #     'sku__id').annotate(quantity=Sum('quantity'))

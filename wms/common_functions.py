@@ -2100,3 +2100,7 @@ def get_stock_available_category_list(warehouse=None):
     if warehouse:
         query_set = query_set.filter(warehouse=warehouse)
     return query_set.values_list('sku__parent_product__parent_product_pro_category__category', flat=True).distinct()
+
+
+def is_product_not_eligible(product_id):
+    return Product.objects.filter(id=product_id, repackaging_type='packing_material').exists()

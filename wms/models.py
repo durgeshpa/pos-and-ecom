@@ -138,7 +138,7 @@ class BinInventory(models.Model):
     def save(self, *args, **kwargs):
         if self.sku.repackaging_type == 'packing_material':
             self.quantity = math.ceil(float(self.weight) / float(self.sku.weight_value))
-            super(BinInventory, self).save(*args, **kwargs)
+        super(BinInventory, self).save(*args, **kwargs)
 
     class Meta:
         db_table = "wms_bin_inventory"
@@ -162,7 +162,7 @@ class WarehouseInventory(models.Model):
     def save(self, *args, **kwargs):
         if self.sku.repackaging_type == 'packing_material':
             self.quantity = math.ceil(float(self.weight) / float(self.sku.weight_value))
-            super(WarehouseInventory, self).save(*args, **kwargs)
+        super(WarehouseInventory, self).save(*args, **kwargs)
 
 
 class In(models.Model):
@@ -397,7 +397,8 @@ class BinInternalInventoryChange(models.Model):
         ('audit_correction_deduct', 'Audit Correction Deduct'),
         ('franchise_batch_in', 'Franchise Batch In'),
         ('franchise_sales', 'Franchise Sales'),
-        ('franchise_returns', 'Franchise Returns')
+        ('franchise_returns', 'Franchise Returns'),
+        ('repackaging', 'Repackaging')
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)

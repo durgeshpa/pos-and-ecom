@@ -2004,7 +2004,7 @@ class RepackagingForm(forms.ModelForm):
             if ppm:
                 inventory = WarehouseInventory.objects.filter(inventory_type__inventory_type='normal',
                                                               sku=ppm.packing_sku, warehouse=repack_obj.seller_shop).last()
-                self.fields['available_packing_material_weight'].initial = (inventory.weight/1000) if inventory else 0
+                self.fields['available_packing_material_weight'].initial = (inventory.weight - repack_obj.destination_sku_quantity * ppm.packing_sku_weight_per_unit_sku)/1000 if inventory else 0
                 self.fields['available_packing_material_weight_initial'].initial = inventory.weight if inventory else 0
                 self.fields['packing_sku_weight_per_unit_sku'].initial = ppm.packing_sku_weight_per_unit_sku
 
@@ -2285,6 +2285,34 @@ class ProductHSNForm(forms.ModelForm):
 
         # data from the form is fetched using super function
         super(ProductHSNForm, self).clean()
+
+
+class ProductPackingMappingFormSet(forms.models.BaseInlineFormSet):
+
+    def clean(self):
+        super(ProductPackingMappingFormSet, self).clean()
+        count = 0
+        delete_count = 0
+        valid = True
+        for form in self:
+            if form.is_valid():
+                if form.cleaned_data:
+                    count += 1
+                if self.instance.repackaging_type != 'destination' and form.cleaned_data:
+                    form.cleaned_data['DELETE'] = True
+                if 'DELETE' in form.cleaned_data and form.cleaned_data['DELETE'] is True:
+                    delete_count += 1
+            else:
+                valid = False
+
+        if self.instance.repackaging_type == 'destination':
+            if count < 1 or count == delete_count:
+                raise ValidationError("At least one packing material mapping is required")
+        if valid:
+            return self.cleaned_data
+
+    class Meta:
+        model = ProductPackingMapping
 
 
 class ProductPackingMappingForm(forms.ModelForm):
