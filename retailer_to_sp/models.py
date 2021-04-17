@@ -2270,13 +2270,19 @@ class OrderedProductMapping(models.Model):
         #     raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
         # else:
         cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last()
-        shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
-        self.effective_price = cart_product_mapping.cart_product_price.get_per_piece_price(shipped_qty_in_pack) \
-            if not self.effective_price else self.effective_price
+        cart_product_price = cart_product_mapping.get_cart_product_price(self.ordered_product.order.seller_shop_id,
+                                                            self.ordered_product.order.buyer_shop_id)
+        if cart_product_price:
+            shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
+            self.effective_price = cart_product_price.get_per_piece_price(shipped_qty_in_pack)\
+                if not self.effective_price else self.effective_price
+            if self.delivered_at_price is None and self.delivered_qty > 0:
+                delivered_qty_in_pack = math.ceil(self.delivered_qty / cart_product_mapping.cart_product_case_size)
+                self.delivered_at_price = cart_product_price.get_per_piece_price(delivered_qty_in_pack)
+        else:
+            self.effective_price = cart_product_mapping.item_effective_prices
         self.discounted_price = cart_product_mapping.discounted_price
-        if self.delivered_at_price is None and self.delivered_qty > 0:
-            delivered_qty_in_pack = math.ceil(self.delivered_qty / cart_product_mapping.cart_product_case_size)
-            self.delivered_at_price = cart_product_mapping.cart_product_price.get_per_piece_price(delivered_qty_in_pack)
+
         super().save(*args, **kwargs)
 
 
