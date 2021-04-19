@@ -184,7 +184,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                                     if price_slab.start_value == 0:
                                         product_price_slab1 = "{0} - {1}".format(price_slab.start_value,
                                                                                  price_slab.end_value)
-                                        if price_slab.offer_price_end_date and price_slab.offer_price_start_date and price_slab.offer_price_end_date >= today >= price_slab.offer_price_start_date and price_slab.offer_price:
+                                        if price_slab.offer_price_end_date and price_slab.offer_price_start_date and price_slab.offer_price_end_date >= today.date() >= price_slab.offer_price_start_date and price_slab.offer_price:
                                             product_price1 = price_slab.offer_price
                                         else:
                                             product_price1 = price_slab.selling_price
@@ -192,7 +192,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                                     else:
                                         product_price_slab2 = "{0} - {1}".format(price_slab.start_value,
                                                                                  price_slab.end_value)
-                                        if price_slab.offer_price_end_date and price_slab.offer_price_start_date and price_slab.offer_price_end_date >= today >= price_slab.offer_price_start_date and price_slab.offer_price:
+                                        if price_slab.offer_price_end_date and price_slab.offer_price_start_date and price_slab.offer_price_end_date >= today.date() >= price_slab.offer_price_start_date and price_slab.offer_price:
                                             product_price2 = price_slab.offer_price
                                         else:
                                             product_price2 = price_slab.selling_price
