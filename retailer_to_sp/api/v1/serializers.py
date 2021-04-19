@@ -227,14 +227,18 @@ class PriceSlabSerializer(serializers.ModelSerializer):
 
 class SlabProductPriceSerializer(serializers.ModelSerializer):
     mrp = serializers.SerializerMethodField()
+    product_price = serializers.SerializerMethodField()
     price_slabs = PriceSlabSerializer(many=True)
 
     def get_mrp(self, obj):
         return obj.mrp if obj.mrp else obj.product.product_mrp
 
+    def get_product_price(self, obj):
+        return obj.get_per_piece_price(self.context.get('qty', 1))
+
     class Meta:
         model = SlabProductPrice
-        fields = ('mrp', 'price_slabs',)
+        fields = ('mrp', 'product_price', 'price_slabs',)
 
 
 class ProductsSearchSerializer(serializers.ModelSerializer):
@@ -563,11 +567,19 @@ class ProductsSerializer(serializers.ModelSerializer):
 
 class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     cart_product = ProductsSerializer()
-    cart_product_price = SlabProductPriceSerializer()
+    # cart_product_price = SlabProductPriceSerializer()
+    cart_product_price = serializers.SerializerMethodField()
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_inner_case_size = serializers.SerializerMethodField('product_inner_case_size_dt')
     product_price = serializers.SerializerMethodField()
+
+    def get_cart_product_price(self, obj):
+        product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'),
+                                                   self.context.get('buyer_shop_id'))
+        self.context['qty'] = obj.qty
+        serializer = SlabProductPriceSerializer(product_price)
+        return serializer.data
 
     def no_pieces_dt(self, obj):
         return int(obj.no_of_pieces)
