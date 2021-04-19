@@ -2304,16 +2304,14 @@ def slab_product_price_csv_upload(request):
                     is_ptr_applicable = product.parent_product.is_ptr_applicable
                     if is_ptr_applicable:
                         selling_price = get_selling_price(product)
-                        case_size = product.parent_product.inner_case_size
-                        selling_price_per_saleable_unit = round(selling_price * case_size, 2)
                     else:
-                        selling_price_per_saleable_unit = float(row[6])
+                        selling_price = float(row[6])
 
                     # Create Price Slabs
 
                     # Create Price Slab 1
                     price_slab_1 = PriceSlab(product_price=product_price, start_value=0, end_value=int(row[5]),
-                                             selling_price=selling_price_per_saleable_unit)
+                                             selling_price=selling_price)
                     if row[7]:
                         price_slab_1.offer_price = float(row[7])
                         price_slab_1.offer_price_start_date = getStrToDate(row[8], '%d-%m-%y').strftime('%Y-%m-%d')
