@@ -574,7 +574,7 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
 
     def get_product_price(self,obj):
         return obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))\
-                  .get_applicable_slab_price_per_pack(obj.qty, obj.cart_product_case_size)
+                  .get_per_piece_price(obj.qty)
 
     def product_sub_total_dt(self,obj):
         product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
