@@ -91,8 +91,10 @@ class ProductTable(tables.Table):
     case_size = tables.Column()
     product_status = tables.Column()
     active_product_price = tables.Column()
-    product_price = tables.Column()
-    price_end_date = tables.Column()
+    product_price_slab1 = tables.Column()
+    product_price1 = tables.Column()
+    product_price_slab2 = tables.Column()
+    product_price2 = tables.Column()
     earliest_expiry_date = tables.Column()
     audit_blocked = tables.Column()
     visibility = tables.Column()
@@ -124,6 +126,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
         products = WarehouseInventory.objects.filter(warehouse=self.shop).prefetch_related('sku', 'inventory_type',
                                                                                            'inventory_state',
                                                                                            'sku__product_pro_price',
+                                                                                           'sku__product_pro_price__price_slabs',
                                                                                            'sku__rt_product_sku',
                                                                                            'sku__parent_product',
                                                                                            'sku__child_product_pro_image',
@@ -131,6 +134,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                                                                                            'sku__product_pro_price__seller_shop',
                                                                                            'sku__rt_audit_sku',
                                                                                            'sku__parent_product__parent_product_pro_category',
+                                                                                           'sku__parent_product__parent_product_pro_category__category',
                                                                                            'sku__parent_product__parent_brand')
         filter = self.request.GET.copy()
         filter['visible'] = ''
@@ -142,14 +146,21 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     parent_id = myproduct.sku.parent_product.parent_id
                     parent_name = myproduct.sku.parent_product.name
                     case_size = myproduct.sku.parent_product.inner_case_size
-                    category = myproduct.sku.parent_product.parent_product_pro_category.last().category
+                    category_list = myproduct.sku.parent_product.parent_product_pro_category.all()
+                    tempcategory=None
+                    for category1 in category_list:
+                        if not tempcategory or category1.modified_at > tempcategory.modified_at:
+                            tempcategory = category1
+
+                    category = tempcategory.category
+
                     brand = myproduct.sku.parent_product.parent_brand
                 except:
                     parent_id = ''
                     parent_name = ''
                     case_size = ''
-                    category=''
-                    brand=''
+                    category = ''
+                    brand = ''
                 binproducts = myproduct.sku.rt_product_sku.all()
                 earliest_expiry_date = datetime.datetime.strptime("01/01/2300", "%d/%m/%Y")
                 for binproduct in binproducts:
@@ -159,15 +170,33 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                         earliest_expiry_date = exp_date
                 price_list = myproduct.sku.product_pro_price.all()
                 is_price = False
-                price_end_date = ''
-                product_price=''
+                product_price_slab1 = ''
+                product_price1 = ''
+                product_price_slab2 = ''
+                product_price2 = ''
                 if price_list.count() > 0:
                     for price in price_list:
-                        if price.end_date and price.seller_shop == self.shop:
-                            if price.end_date >= today and price.approval_status == 2 and price.status:
+                        if price.seller_shop == self.shop:
+                            if price.approval_status == 2 and price.status:
                                 is_price = True
-                                price_end_date = price.end_date.date()
-                                product_price = price.selling_price
+                                price_slabs = price.price_slabs.all()
+                                for price_slab in price_slabs:
+                                    if price_slab.start_value == 0:
+                                        product_price_slab1 = "{0} - {1}".format(price_slab.start_value,
+                                                                                 price_slab.end_value)
+                                        if price_slab.offer_price_end_date and price_slab.offer_price_start_date and price_slab.offer_price_end_date >= today.date() >= price_slab.offer_price_start_date and price_slab.offer_price:
+                                            product_price1 = price_slab.offer_price
+                                        else:
+                                            product_price1 = price_slab.selling_price
+
+                                    else:
+                                        product_price_slab2 = "{0} - {1}".format(price_slab.start_value,
+                                                                                 price_slab.end_value)
+                                        if price_slab.offer_price_end_date and price_slab.offer_price_start_date and price_slab.offer_price_end_date >= today.date() >= price_slab.offer_price_start_date and price_slab.offer_price:
+                                            product_price2 = price_slab.offer_price
+                                        else:
+                                            product_price2 = price_slab.selling_price
+
                 audit_blocked = False
                 product_blocked_list = myproduct.sku.rt_audit_sku.all()
                 for product_blocked in product_blocked_list:
@@ -180,31 +209,33 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     'mrp': myproduct.sku.product_mrp,
                     'parent_id': parent_id,
                     'parent_name': parent_name,
-                    'ean_code':myproduct.sku.product_ean_code,
-                    'category':category,
-                    'brand':brand,
+                    'ean_code': myproduct.sku.product_ean_code,
+                    'category': category,
+                    'brand': brand,
                     'child_reason': myproduct.sku.reason_for_child_sku,
                     'case_size': case_size,
                     'product_status': myproduct.sku.status,
                     'active_product_price': is_price,
-                    'product_price': product_price,
-                    'price_end_date': price_end_date,
+                    'product_price_slab1': product_price_slab1,
+                    'product_price1': product_price1,
+                    'product_price_slab2': product_price_slab2,
+                    'product_price2': product_price2,
                     'earliest_expiry_date': earliest_expiry_date.date(),
-                    'normal':0,
-                    'damaged':0,
-                    'expired':0,
-                    'missing':0,
-                    'visibility':False,
+                    'normal': 0,
+                    'damaged': 0,
+                    'expired': 0,
+                    'missing': 0,
+                    'visibility': False,
                     'audit_blocked': audit_blocked,
                 }
             else:
                 product_temp = product_list[myproduct.sku.product_sku]
-            if myproduct.inventory_state.inventory_state=='total_available':
-                product_temp[myproduct.inventory_type.inventory_type]+=myproduct.quantity
+            if myproduct.inventory_state.inventory_state == 'total_available':
+                product_temp[myproduct.inventory_type.inventory_type] += myproduct.quantity
                 if myproduct.inventory_type == inventory_type_normal:
                     product_temp['visibility'] = myproduct.visible
-            elif myproduct.inventory_state.inventory_state in ('reserved','ordered','to_be_picked'):
-                product_temp[myproduct.inventory_type.inventory_type]-=myproduct.quantity
+            elif myproduct.inventory_state.inventory_state in ('reserved', 'ordered', 'to_be_picked'):
+                product_temp[myproduct.inventory_type.inventory_type] -= myproduct.quantity
 
             product_list[myproduct.sku.product_sku] = product_temp
         product_list_new = []

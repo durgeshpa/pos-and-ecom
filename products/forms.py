@@ -2197,7 +2197,7 @@ class UploadSlabProductPriceForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Quantity'"))
 
             if not selling_price_per_saleable_unit or selling_price_per_saleable_unit == 0 \
-                    or selling_price_per_saleable_unit > float(product.product_mrp*case_size):
+                    or selling_price_per_saleable_unit > float(product.product_mrp):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price'"))
             elif row[7] and float(row[7]) >= selling_price_per_saleable_unit:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))

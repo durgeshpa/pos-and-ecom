@@ -385,6 +385,11 @@ class GramGRNProductsList(APIView):
                         p["_source"]["ptr"] = c_p.applicable_slab_price
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
+            counter=0
+            for price_detail in p["_source"]["price_details"]:
+                p["_source"]["price_details"][counter]["ptr"]=round(p["_source"]["price_details"][counter]["ptr"],2)
+                p["_source"]["price_details"][counter]["margin"] = round(p["_source"]["price_details"][counter]["margin"], 2)
+                counter+=1
             p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
@@ -1680,7 +1685,7 @@ class DownloadCreditNoteDiscounted(APIView):
                         i["surcharge"] = i["surcharge"] + (
                                 m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
                         i["total"] = i["total"] + m.product_tax_discount_amount
-                        i["product_special_cess"] = i["product_special_cess"] + m.product.product_special_cess
+                        i["product_special_cess"] = i["product_special_cess"] + m.product.product_special_cess if m.product.product_special_cess else 0
                         flag = 1
 
             if flag == 0:
@@ -1703,7 +1708,7 @@ class DownloadCreditNoteDiscounted(APIView):
 
             sum_qty = sum_qty + (int(m.delivered_qty))
             sum_basic_amount += m.basic_rate * (m.delivered_qty)
-            sum_amount = sum_amount + (int(m.delivered_qty) * (m.price_to_retailer - m.discounted_price))
+            sum_amount = sum_amount + (int(m.delivered_qty) * (float(m.price_to_retailer) - float(m.discounted_price)))
             inline_sum_amount = (int(m.delivered_qty) * (m.price_to_retailer))
             gst_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
             total_product_tax_amount += m.product_tax_discount_amount
