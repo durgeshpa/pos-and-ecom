@@ -176,10 +176,9 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                 product_price2 = ''
                 if price_list.count() > 0:
                     for price in price_list:
-                        if price.end_date and price.seller_shop == self.shop:
-                            if price.end_date >= today and price.approval_status == 2 and price.status:
+                        if price.seller_shop == self.shop:
+                            if price.approval_status == 2 and price.status:
                                 is_price = True
-                                price_end_date = price.end_date.date()
                                 price_slabs = price.price_slabs.all()
                                 for price_slab in price_slabs:
                                     if price_slab.start_value == 0:
