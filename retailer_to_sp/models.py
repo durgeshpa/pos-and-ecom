@@ -949,7 +949,7 @@ class CartProductMapping(models.Model):
             return self.cart_product.get_current_shop_price(seller_shop_id, buyer_shop_id).mrp
 
     def clean(self, *args, **kwargs):
-        if self.discounted_price > self.cart_product_price.selling_price:
+        if self.discounted_price > self.cart_product_price.get_per_piece_price(self.qty):
             raise ValidationError("Discounted Price of %s can't be more than Product Price." % (self.cart_product))
         else:
             super(CartProductMapping, self).clean(*args, **kwargs)
