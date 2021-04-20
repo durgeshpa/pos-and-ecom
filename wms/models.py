@@ -135,11 +135,6 @@ class BinInventory(models.Model):
     def __str__(self):
         return str(self.id)
 
-    def save(self, *args, **kwargs):
-        if self.sku.repackaging_type == 'packing_material':
-            self.quantity = math.ceil(float(self.weight) / float(self.sku.weight_value))
-        super(BinInventory, self).save(*args, **kwargs)
-
     class Meta:
         db_table = "wms_bin_inventory"
 
@@ -159,11 +154,6 @@ class WarehouseInventory(models.Model):
     class Meta:
         db_table = "wms_warehouse_inventory"
 
-    def save(self, *args, **kwargs):
-        if self.sku.repackaging_type == 'packing_material':
-            self.quantity = math.ceil(float(self.weight) / float(self.sku.weight_value))
-        super(WarehouseInventory, self).save(*args, **kwargs)
-
 
 class In(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -173,6 +163,7 @@ class In(models.Model):
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='+')
     quantity = models.PositiveIntegerField()
+    weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     expiry_date = models.DateField(null=True)

@@ -848,11 +848,10 @@ class UploadMasterDataAdminForm(forms.Form):
                                                     f"'Sub_Category_Name' doesn't exist in the system "))
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] != '':
-                        repackaging_list = ['none', 'source', 'destination']
-                        if row['repackaging_type'] not in repackaging_list:
+                        if row['repackaging_type'] not in Product.REPACKAGING_TYPES:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['repackaging_type']} | 'Repackaging Type can either be 'none',"
-                                  f"'source' or 'destination'!"))
+                                  f"'source', 'destination' or 'packing_material'!"))
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] == 'destination':
                         mandatory_fields = ['raw_material', 'wastage', 'fumigation', 'label_printing',

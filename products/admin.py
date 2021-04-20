@@ -981,7 +981,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
         'product_brand', 'product_category', 'product_ean_code', 'product_mrp',
-        'product_hsn', 'product_gst', 'products_image', 'status'
+        'product_hsn', 'product_gst', 'products_image', 'status', 'moving_average_buying_price'
     ]
 
     # search_fields = ['product_name', 'id', 'product_gf_code']
