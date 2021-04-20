@@ -235,19 +235,19 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (_('Shop Details'), {
-            'fields': ('get_seller_shop', 'get_buyer')}),
+            'fields': ('seller_shop', 'buyer')}),
 
         (_('Ordered Details'), {
-            'fields': ('order', 'get_orderd_cart', 'get_order_status', 'invoice_no', 'return_reason')}),
+            'fields': ('order', 'order_id', 'ordered_cart_id', 'order_status', 'invoice_no', 'return_reason')}),
 
         (_('Amount Details'), {
             'fields': ('total_mrp_amount', 'total_discount_amount', 'total_tax_amount', 'total_final_amount')}),
     )
 
-    def get_seller_shop(self, obj):
+    def seller_shop(self, obj):
         return obj.order.seller_shop
 
-    def get_buyer(self, obj):
+    def buyer(self, obj):
         return obj.order.buyer
 
     def total_final_amount(self, obj):
@@ -262,10 +262,13 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
     def total_discount_amount(self, obj):
         return obj.order.total_discount_amount
 
-    def get_order_status(self, obj):
+    def order_status(self, obj):
         return obj.order.order_status
 
-    def get_orderd_cart(self, obj):
+    def order_id(self, obj):
+        return obj.order.id
+
+    def ordered_cart_id(self, obj):
         return obj.order.ordered_cart
 
     def get_queryset(self, request):

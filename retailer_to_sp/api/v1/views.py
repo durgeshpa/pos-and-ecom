@@ -3328,7 +3328,7 @@ class OrderReturns(APIView):
             given_products += [item['product_id']]
         for pid in all_products:
             if pid not in given_products:
-                return get_response("Please provide product {}".format(id) + " in return items")
+                return {'error': f"Please provide valid product id in return items"}
         return_details = []
         for return_product in return_items:
             product_validate = self.validate_product(ordered_product, return_product)
