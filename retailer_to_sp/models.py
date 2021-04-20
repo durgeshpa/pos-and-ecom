@@ -695,7 +695,7 @@ class BulkOrder(models.Model):
                     if count == 0:
                         #unavailable_skus.append(row[0])
                         message = "Failed because of Ordered quantity is {} > Available quantity {}".format(str(ordered_qty),
-                                                                                                            str(available_quantity))
+                                                                                                            str(product_available))
                         error_dict[row[0]] = message
         info_logger.info(f"[retailer_to_sp:models.py:BulkOrder]--Unavailable-SKUs:{unavailable_skus}, "
                          f"Available_Qty_of_Ordered_SKUs:{availableQuantity}")
@@ -1631,7 +1631,15 @@ class OrderedProduct(models.Model):  # Shipment
         if credit_note_amount:
             return credit_note_amount
         else:
-            return 0
+            credit_note_amount = self.rt_order_product_order_product_mapping.all() \
+                .aggregate(cn_amt=RoundAmount(
+                Sum((F('effective_price') * F('shipped_qty')) - (F('effective_price') * F('delivered_qty')),
+                    output_field=FloatField()))).get(
+                'cn_amt')
+            if credit_note_amount:
+                return credit_note_amount
+            else:
+                return 0
 
 
     @property
@@ -1725,11 +1733,7 @@ class OrderedProduct(models.Model):  # Shipment
         # fetch the amount to be collected
         if self.order.ordered_cart.approval_status == False:
             if self.invoice_amount:
-                try:
-                    #return (self.invoice_amount - self.credit_note_amount)
-                    return round(self.invoice_amount - self.credit_note.all()[0].amount)
-                except:
-                    return round(self.invoice_amount - self.credit_note_amount)
+                return (self.invoice_amount - self.credit_note_amount)
             else:
                 return 0
         else:
@@ -1741,10 +1745,7 @@ class OrderedProduct(models.Model):  # Shipment
                 .aggregate(cn_amt=RoundAmount(Sum((F('discounted_price') * (F('shipped_qty') - F('delivered_qty')))), output_field=FloatField()))\
                 .get('cn_amt')
             if self.invoice_amount:
-                try:
-                    return (invoice_amount - credit_note_amount)
-                except:
-                    return invoice_amount
+                return (invoice_amount - credit_note_amount)
             else:
                 return 0
 
