@@ -572,7 +572,7 @@ def create_credit_note_on_trip_close(trip_id):
                 else:
                     delivered_qty_in_pack = math.ceil(item.delivered_qty / cart_product_map.cart_product_case_size)
                     delivered_at_price = cart_product_map.cart_product_price.get_per_piece_price(delivered_qty_in_pack)
-                credit_amount += (delivered_at_price - item.discounted_price) * (item.delivered_qty)
+                credit_amount += (delivered_at_price - float(item.discounted_price)) * (item.delivered_qty)
             credit_note.amount = credit_amount
             credit_note.save()
 
