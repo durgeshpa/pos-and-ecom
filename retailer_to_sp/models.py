@@ -398,9 +398,13 @@ class Cart(models.Model):
                                         * product.no_of_pieces) if shop_price else 0
                 cart_value -= discount_sum_sku
             if self.cart_status in ['ordered']:
-                cart_value = (self.rt_cart_list.aggregate(
-                    value=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'), output_field=FloatField()))[
-                    'value']) - discount_sum_sku
+                cart_value = 0
+                for product in self.rt_cart_list.all():
+                    price = product.cart_product_price
+                    cart_value += float(price.get_per_piece_price(product.qty)
+                                        * product.no_of_pieces) if price else 0
+                    cart_value -= discount_sum_sku
+
             cart_items_count = self.rt_cart_list.count()
             for cart_coupon in cart_coupons:
                 if cart_coupon.rule.cart_qualifying_min_sku_value and not cart_coupon.rule.cart_qualifying_min_sku_item:
