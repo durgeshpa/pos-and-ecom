@@ -1,3 +1,6 @@
+import logging
+from io import StringIO
+
 from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from django_filters import BooleanFilter
@@ -18,11 +21,11 @@ from retailer_backend.admin import InputFilter, SelectInputFilter
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
 from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
-                    ProductPriceChangePerm, ProductPriceNewForm,
+                    ProductPriceChangePerm, ProductPriceNewForm, ProductHSNForm,
                     ProductVendorMappingForm, BulkProductTaxUpdateForm, BulkUploadForGSTChangeForm,
                     RepackagingForm, ParentProductForm, ProductSourceMappingForm, DestinationRepackagingCostMappingForm,
                     ProductSourceMappingFormSet, DestinationRepackagingCostMappingFormSet, ProductImageFormSet,
-                    SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm)
+                    SlabInlineFormSet, PriceSlabForm, ProductPriceSlabForm, ProductPriceSlabCreationForm)
 
 from .models import *
 from .resources import (ColorResource, FlavorResource, FragranceResource,
@@ -58,13 +61,26 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
 
+info_logger = logging.getLogger('file-info')
+
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
     field_name = 'product' # name of the foreign key field
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(product_id=self.value())
+            )
+
 
 class ShopFilter(AutocompleteFilter):
     title = 'Seller Shop' # display title
     field_name = 'seller_shop' # name of the foreign key field
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(seller_shop_id=self.value())
+            )
 
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']
@@ -840,11 +856,6 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="product-category-mapping-sample"
             ),
             url(
-                r'^product-price-upload/$',
-                self.admin_site.admin_view(ProductPriceUpload.as_view()),
-                name="product_price_upload"
-            ),
-            url(
                 r'^city-autocomplete/$',
                 self.admin_site.admin_view(CityAutocomplete.as_view()),
                 name="city_autocomplete"
@@ -1193,6 +1204,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 
 
 class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
+    form = ProductHSNForm
     fields = ['product_hsn_code']
     list_display = ['product_hsn_code']
     actions = ['export_as_csv']
@@ -1397,8 +1409,8 @@ class PriceSlabAdmin(TabularInline):
     model = PriceSlab
     form = PriceSlabForm
     formset = SlabInlineFormSet
-    min_num = 2
-    extra = 0
+    min_num = 0
+    extra = 2
     max_num = 2
     can_delete = False
 
@@ -1417,11 +1429,16 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     """
     inlines = [PriceSlabAdmin]
     form = ProductPriceSlabForm
-    list_display = ['product', 'product_mrp','seller_shop', 'approval_status', 'status']
+    list_display = ['product', 'product_mrp','seller_shop', 'approval_status', 'slab1_details', 'slab2_details'
+                    ]
     autocomplete_fields = ['product']
     list_filter = [ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch, ProductCategoryFilter, 'approval_status']
-    fields = ('product', 'mrp', 'seller_shop', 'approval_status')
-
+    fieldsets = (
+        ('Basic', {
+            'fields': ('product', 'mrp', 'seller_shop', 'approval_status',),
+            'classes': ('required',)
+        }),
+    )
     change_form_template = 'admin/products/product_price_change_form.html'
 
     class Media:
@@ -1431,6 +1448,24 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             'admin/js/price-slab-form.js'
         )
 
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super(ProductSlabPriceAdmin, self).get_fieldsets(request, obj)
+        if obj is None:
+            fieldsets = (
+                            ('Basic', {
+                                'fields': ('product', 'mrp', 'seller_shop', 'approval_status',),
+                                'classes': ('required',)})
+                            ,
+                            ('Slab Price Applicable', {
+                                'fields': ('slab_price_applicable',),
+                                'classes': ('slab_applicable',)}),
+                            ('Price Details', {
+                                'fields': ('selling_price', 'offer_price', 'offer_price_start_date', 'offer_price_end_date'),
+                                'classes': ('single_slab',)
+                            })
+            )
+        return fieldsets
+
     def get_readonly_fields(self, request, obj=None):
         if obj is None:
             return self.readonly_fields
@@ -1438,6 +1473,15 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             return self.readonly_fields + (
                 'product', 'mrp', 'seller_shop', 'approval_status')
         return self.readonly_fields + ( 'product', 'mrp', 'seller_shop')
+
+
+    def slab1_details(self, obj):
+        first_slab = obj.price_slabs.filter(start_value=0).last()
+        return first_slab
+
+    def slab2_details(self, obj):
+        last_slab = obj.price_slabs.filter(~Q(start_value=0), end_value=0).last()
+        return last_slab
 
     def product_mrp(self, obj):
         if obj.product.product_mrp:
@@ -1464,8 +1508,12 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         return False
 
     def get_form(self, request, obj=None, **kwargs):
-        kwargs['form'] = ProductPriceSlabForm
+        if not obj:
+            kwargs['form'] = ProductPriceSlabCreationForm
+        else:
+            kwargs['form'] = ProductPriceSlabForm
         return super().get_form(request, obj, **kwargs)
+
 
     def get_queryset(self, request):
         qs = super(ProductSlabPriceAdmin, self).get_queryset(request)
@@ -1498,7 +1546,41 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
                ] + urls
         return urls
 
+    def export_as_csv(self, request, queryset):
+        f = StringIO()
+        writer = csv.writer(f)
+        writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "Slab 1 Qty", "Selling Price 1",
+                     "Offer Price 1", "Offer Price 1 Start Date", "Offer Price 1 End Date",
+                     "Slab 2 Qty", "Selling Price 2", "Offer Price 2", "Offer Price 2 Start Date", "Offer Price 2 End Date"])
+        for query in queryset:
+            obj = SlabProductPrice.objects.get(id=query.id)
+            try:
+                row = [obj.product.product_sku, obj.product.product_name, obj.seller_shop.id, obj.seller_shop.shop_name,
+                       obj.mrp]
+                first_slab=True
+                for slab in obj.price_slabs.all().order_by('start_value'):
+                    if first_slab:
+                        row.append(slab.end_value)
+                    else:
+                        row.append(slab.start_value)
+                    row.append(slab.selling_price)
+                    row.append(slab.offer_price)
+                    row.append(slab.offer_price_start_date)
+                    row.append(slab.offer_price_end_date)
+                    first_slab = False
+                writer.writerow(row)
+
+            except Exception as exc:
+                info_logger.error(exc)
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=slab_product_prices.csv'
+        return response
+
+    actions = [export_as_csv,]
     change_list_template = 'admin/products/products-slab-price-change-list.html'
+
 
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)

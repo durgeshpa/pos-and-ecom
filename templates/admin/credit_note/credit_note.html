@@ -166,14 +166,14 @@
                                     	<div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
                                     	<td class="text-center"></td>
 <!--                                    {% with h=m.price_to_retailer %}-->
-                                    	<td class="text-center">{{m.product_credit_amount_per_unit}}</td>
+                                    	<td class="text-center">{{m.product_credit_amount_per_unit | floatformat:2 | intcomma}}</td>
 <!--                                    {% endwith %}-->
                                     	<td class="text-center">PCS</td>
 										<div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
-                       					<div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
+                       					<div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty }}</div>
 <!--                    				{% with h=m.price_to_retailer %}-->
                                     	<td style="display:none" class="text-right">{% addMultiplication m.price_to_retailer m.returned_qty m.returned_damage_qty %}</td>
-                                    	<td class="text-right">{{m.product_credit_amount}}</td>
+                                    	<td class="text-right">{{m.product_credit_amount | floatformat:2 | intcomma}}</td>
 <!--                                    {% endwith %}-->
                                 </tr>
                                     {% endfor %}

@@ -6,8 +6,8 @@ from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotSerializer, BannerDataSerializer, BrandSerializer
-from banner.models import Banner, BannerPosition,BannerData, BannerSlot,Page
+from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotSerializer, BannerDataSerializer, HomePageSerializer
+from banner.models import Banner, BannerPosition,BannerData, BannerSlot,Page, HomePageMessage
 from retailer_to_sp.models import OrderedProduct, Feedback
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
@@ -140,6 +140,17 @@ class GetPageBannerListView(APIView):
         banner_data_serializer = BannerDataSerializer(data,many=True)
 
         return Response({"message":[""], "response_data": banner_data_serializer.data ,"is_success": is_success})
+
+
+class GetMessageListView(APIView):
+
+    permission_classes = (AllowAny,)
+
+    def get(self,*args,**kwargs):
+        data = HomePageMessage.objects.filter(is_active=True).last()
+        is_success = True if data else False
+        home_page_serializer = HomePageSerializer(data)
+        return Response({"message":[""], "response_data": home_page_serializer.data, "is_success": is_success})
 
 
 '''@api_view(['GET', 'POST'])

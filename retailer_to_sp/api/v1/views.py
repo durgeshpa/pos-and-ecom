@@ -66,7 +66,7 @@ from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZI
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_invoice_send, whatsapp_opt_in, whatsapp_order_cancel,
                                  whatsapp_order_refund)
-from wms.models import OrderReserveRelease, InventoryType
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
 from pos.common_functions import get_shop_id_from_token, get_response, create_user_shop_mapping,\
     delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP, RetailerProductCls
 from pos.offers import BasicCartOffers
@@ -75,6 +75,9 @@ from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer,
 from pos.api.v1.pagination import pagination
 from pos.models import RetailerProduct, PAYMENT_MODE, Payment as PosPayment, UserMappedShop
 from pos.data_validation import validate_data_format
+from retailer_to_sp.views import pick_list_download
+from celery.task import task
+from retailer_backend.settings import AWS_MEDIA_URL
 
 User = get_user_model()
 
@@ -470,24 +473,31 @@ class SearchProducts(APIView):
                 if cart_check:
                     for c_p in cart_products:
                         if c_p.cart_product_id == p["_source"]["id"]:
+                            keyValList2 = ['discount_on_product']
+                            keyValList3 = ['discount_on_brand']
                             if cart.offers:
-                                cart_offers = cart.offers
-                                cart_product_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], cart_offers))
-                                for i in cart_product_offers:
+                                exampleSet2 = cart.offers
+                                array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
+                                for i in array2:
                                     if i['item_sku'] == c_p.cart_product.product_sku:
                                         discounted_product_subtotal = i['discounted_product_subtotal']
                                         p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
-                                cart_brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], cart_offers))
+                                array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet2))
                                 for j in coupons:
-                                    for i in (cart_brand_offers + cart_product_offers):
+                                    for i in (array3 + array2):
                                         if j['coupon_code'] == i['coupon_code']:
                                             j['is_applied'] = True
                             user_selected_qty = c_p.qty or 0
                             no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                             p["_source"]["user_selected_qty"] = user_selected_qty
-                            p["_source"]["ptr"] = c_p.get_item_effective_price(c_p.qty)
+                            p["_source"]["ptr"] = c_p.applicable_slab_price
                             p["_source"]["no_of_pieces"] = no_of_pieces
                             p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
+                counter = 0
+                for price_detail in p["_source"]["price_details"]:
+                    p["_source"]["price_details"][counter]["ptr"] = round(p["_source"]["price_details"][counter]["ptr"], 2)
+                    p["_source"]["price_details"][counter]["margin"] = round(p["_source"]["price_details"][counter]["margin"], 2)
+                    counter += 1
                 p_list.append(p["_source"])
         else:
             body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "weight_unit", "weight_value",
@@ -529,6 +539,7 @@ class SearchProducts(APIView):
             category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
             filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
         return query
+
 
 class AutoSuggest(APIView):
     permission_classes = (AllowAny,)
@@ -1518,7 +1529,7 @@ class AddToCart(APIView):
                     capping_end_date = end_date
                     if capping_start_date.date() == capping_end_date.date():
                         capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
-                                                                    created_at__gte=capping_start_date,
+                                                                    created_at__gte=capping_start_date.date(),
                                                                     ).exclude(order_status='CANCELLED')
                     else:
                         capping_range_orders = Order.objects.filter(buyer_shop=parent_mapping.retailer,
@@ -1683,20 +1694,20 @@ class CartDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def delivery_message(self):
+    def delivery_message(self, shop_type):
         date_time_now = datetime.now()
         day = date_time_now.strftime("%A")
         time = date_time_now.strftime("%H")
 
         if int(time) < 17 and not (day == 'Saturday'):
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=1)).strftime('%A')))
+            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+                (date_time_now + timedelta(days=1)).strftime('%A'), str(shop_type.shop_min_amount)))
         elif (day == 'Friday'):
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=3)).strftime('%A')))
+            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+                (date_time_now + timedelta(days=3)).strftime('%A'), str(shop_type.shop_min_amount)))
         else:
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=2)).strftime('%A')))
+            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+                (date_time_now + timedelta(days=2)).strftime('%A'), str(shop_type.shop_min_amount)))
 
     def get(self, request, *args, **kwargs):
         shop_id = self.request.GET.get('shop_id')
@@ -1759,7 +1770,7 @@ class CartDetail(APIView):
                         Cart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
                                  'buyer_shop_id': shop_id,
-                                 'delivery_message': self.delivery_message()}
+                                 'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
                     )
                     for i in serializer.data['rt_cart_list']:
                         if not i['cart_product']['product_pro_image']:
@@ -1804,7 +1815,7 @@ class CartDetail(APIView):
                     serializer = GramMappedCartSerializer(
                         GramMappedCart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
-                                 'delivery_message': self.delivery_message()}
+                                 'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
                     )
                     msg = {'is_success': True, 'message': [
                         ''], 'response_data': serializer.data}
@@ -3823,7 +3834,8 @@ class DownloadInvoiceSP(APIView):
             ordered_product = get_object_or_404(OrderedProduct, pk=pk)
             # call pdf generation method to generate pdf and download the pdf
             pdf_generation(request, ordered_product)
-            result = requests.get(ordered_product.invoice.invoice_pdf.url)
+            url = AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name
+            result = requests.get(url)
             file_prefix = PREFIX_INVOICE_FILE_NAME
             # generate pdf file
             response = single_pdf_file(ordered_product, result, file_prefix)
@@ -3839,12 +3851,13 @@ class DownloadInvoiceSP(APIView):
                 # call pdf generation method to generate and save pdf
                 pdf_generation(request, ordered_product)
                 # append the pdf file path
-                file_path_list.append(ordered_product.invoice.invoice_pdf.url)
+                file_path_list.append(AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name)
                 # append created date for pdf file
                 pdf_created_date.append(ordered_product.created_at)
             # condition to check the download file count
             if len(pdf_created_date) == 1:
-                result = requests.get(ordered_product.invoice.invoice_pdf.url)
+                url = AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name
+                result = requests.get(url)
                 file_prefix = PREFIX_INVOICE_FILE_NAME
                 # generate pdf file
                 response = single_pdf_file(ordered_product, result, file_prefix)
@@ -3879,11 +3892,11 @@ def pdf_generation(request, ordered_product):
         request = request
         ordered_product = ordered_product
 
-    try:
-        if ordered_product.invoice.invoice_pdf.url:
-            pass
-    except Exception as e:
-        logger.exception(e)
+    # try:
+    #     if ordered_product.invoice.invoice_pdf.url:
+    #         pass
+    # except Exception as e:
+    #     logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
 
         buyer_shop_id = ordered_product.order.buyer_shop_id
@@ -4014,10 +4027,10 @@ def pdf_generation(request, ordered_product):
                 ordered_product.order.ordered_cart.seller_shop,
                 ordered_product.order.ordered_cart.buyer_shop)
 
-            if ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
-                product_pro_price_ptr = round(product_price.get_PTR(m.shipped_qty), 2)
+            if ordered_product.order.ordered_cart.cart_type != 'DISCOUNTED':
+                product_pro_price_ptr = m.effective_price
             else:
-                product_pro_price_ptr = cart_product_map.get_item_effective_price(m.shipped_qty)
+                product_pro_price_ptr = cart_product_map.item_effective_prices
             if m.product.product_mrp:
                 product_pro_price_mrp = m.product.product_mrp
             else:
@@ -4084,7 +4097,7 @@ def pdf_generation(request, ordered_product):
                 tcs_rate = 1
                 tcs_tax = total_amount * float(tcs_rate / 100)
             else:
-                tcs_rate = 0.075
+                tcs_rate = 0.1
                 tcs_tax = total_amount * float(tcs_rate / 100)
 
         tcs_tax = round(tcs_tax, 2)
@@ -4280,7 +4293,7 @@ class DownloadCreditNoteDiscounted(APIView):
                         i["surcharge"] = i["surcharge"] + (
                                 m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
                         i["total"] = i["total"] + m.product_tax_discount_amount
-                        i["product_special_cess"] = i["product_special_cess"] + m.product.product_special_cess
+                        i["product_special_cess"] = i["product_special_cess"] + m.product.product_special_cess if m.product.product_special_cess else 0
                         flag = 1
 
             if flag == 0:
@@ -4303,7 +4316,7 @@ class DownloadCreditNoteDiscounted(APIView):
 
             sum_qty = sum_qty + (int(m.delivered_qty))
             sum_basic_amount += m.basic_rate * (m.delivered_qty)
-            sum_amount = sum_amount + (int(m.delivered_qty) * (m.price_to_retailer - m.discounted_price))
+            sum_amount = sum_amount + (int(m.delivered_qty) * (float(m.price_to_retailer) - float(m.discounted_price)))
             inline_sum_amount = (int(m.delivered_qty) * (m.price_to_retailer))
             gst_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
             total_product_tax_amount += m.product_tax_discount_amount
