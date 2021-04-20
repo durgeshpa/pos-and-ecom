@@ -1674,46 +1674,51 @@ class DownloadCreditNoteDiscounted(APIView):
         for m in products:
             dict1 = {}
             flag = 0
+            basic_rate = m.basic_rate_discounted
+            delivered_qty = m.delivered_qty
+            gst_percent = m.get_products_gst()
+            cess = m.get_products_gst_cess_tax()
+            surcharge = m.get_products_gst_surcharge()
             if len(list1) > 0:
                 for i in list1:
                     if i["hsn"] == m.product.product_hsn:
-                        i["taxable_value"] = i["taxable_value"] + m.basic_rate * m.delivered_qty
-                        i["cgst"] = i["cgst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 200
-                        i["sgst"] = i["sgst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 200
-                        i["igst"] = i["igst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
-                        i["cess"] = i["cess"] + (m.delivered_qty * m.basic_rate * m.get_products_gst_cess_tax()) / 100
+                        i["taxable_value"] = i["taxable_value"] + basic_rate * delivered_qty
+                        i["cgst"] = i["cgst"] + (delivered_qty * basic_rate * gst_percent) / 200
+                        i["sgst"] = i["sgst"] + (delivered_qty * basic_rate * gst_percent) / 200
+                        i["igst"] = i["igst"] + (delivered_qty * basic_rate * gst_percent) / 100
+                        i["cess"] = i["cess"] + (delivered_qty * basic_rate * cess) / 100
                         i["surcharge"] = i["surcharge"] + (
-                                m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
+                                delivered_qty * basic_rate * surcharge) / 100
                         i["total"] = i["total"] + m.product_tax_discount_amount
                         i["product_special_cess"] = i["product_special_cess"] + m.product.product_special_cess if m.product.product_special_cess else 0
                         flag = 1
 
             if flag == 0:
                 dict1["hsn"] = m.product.product_hsn
-                dict1["taxable_value"] = m.basic_rate * m.delivered_qty
-                dict1["cgst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 200
-                dict1["cgst_rate"] = m.get_products_gst() / 2
-                dict1["sgst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 200
-                dict1["sgst_rate"] = m.get_products_gst() / 2
-                dict1["igst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 100
-                dict1["igst_rate"] = m.get_products_gst()
-                dict1["cess"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_cess_tax()) / 100
-                dict1["cess_rate"] = m.get_products_gst_cess_tax()
-                dict1["surcharge"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_surcharge()) / 100
+                dict1["taxable_value"] = basic_rate * delivered_qty
+                dict1["cgst"] = (basic_rate * delivered_qty * gst_percent) / 200
+                dict1["cgst_rate"] = gst_percent / 2
+                dict1["sgst"] = (basic_rate * delivered_qty * gst_percent) / 200
+                dict1["sgst_rate"] = gst_percent / 2
+                dict1["igst"] = (basic_rate * delivered_qty * gst_percent) / 100
+                dict1["igst_rate"] = gst_percent
+                dict1["cess"] = (basic_rate * delivered_qty * cess) / 100
+                dict1["cess_rate"] = cess
+                dict1["surcharge"] = (basic_rate * delivered_qty * surcharge) / 100
                 # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
-                dict1["surcharge_rate"] = m.get_products_gst_surcharge()
+                dict1["surcharge_rate"] = surcharge
                 dict1["total"] = m.product_tax_discount_amount
                 dict1["product_special_cess"] = m.product.product_special_cess
                 list1.append(dict1)
 
-            sum_qty = sum_qty + (int(m.delivered_qty))
-            sum_basic_amount += m.basic_rate * (m.delivered_qty)
-            sum_amount = sum_amount + (int(m.delivered_qty) * (float(m.price_to_retailer) - float(m.discounted_price)))
-            inline_sum_amount = (int(m.delivered_qty) * (m.price_to_retailer))
-            gst_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
+            sum_qty = sum_qty + (int(delivered_qty))
+            sum_basic_amount += basic_rate * (delivered_qty)
+            sum_amount = sum_amount + (int(delivered_qty) * (float(m.price_to_retailer) - float(m.discounted_price)))
+            inline_sum_amount = (int(delivered_qty) * (m.price_to_retailer))
+            gst_tax = (delivered_qty * basic_rate * gst_percent) / 100
             total_product_tax_amount += m.product_tax_discount_amount
-            cess_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst_cess_tax()) / 100
-            surcharge_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
+            cess_tax = (delivered_qty * basic_rate * cess) / 100
+            surcharge_tax = (delivered_qty * basic_rate * surcharge) / 100
             gst_tax_list.append(gst_tax)
             cess_tax_list.append(cess_tax)
             surcharge_tax_list.append(surcharge_tax)

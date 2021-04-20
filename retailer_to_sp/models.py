@@ -2194,7 +2194,7 @@ class OrderedProductMapping(models.Model):
     @property
     def product_tax_discount_amount(self):
         get_tax_val = self.get_product_tax_json() / 100
-        return round(float(self.basic_rate * self.delivered_qty) * float(get_tax_val), 2)
+        return round(float(self.basic_rate_discounted * self.delivered_qty) * float(get_tax_val), 2)
 
     @property
     def product_sub_total(self):
@@ -2278,11 +2278,13 @@ class OrderedProductMapping(models.Model):
                                                             self.ordered_product.order.buyer_shop_id)
         if cart_product_price:
             shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
-            self.effective_price = cart_product_price.get_per_piece_price(shipped_qty_in_pack)\
-                if not self.effective_price else self.effective_price
+            self.effective_price = cart_product_price.get_per_piece_price(shipped_qty_in_pack)
             if self.delivered_at_price is None and self.delivered_qty > 0:
-                delivered_qty_in_pack = math.ceil(self.delivered_qty / cart_product_mapping.cart_product_case_size)
-                self.delivered_at_price = cart_product_price.get_per_piece_price(delivered_qty_in_pack)
+                if cart_product_mapping.cart.cart_type == 'DISCOUNTED':
+                    self.delivered_at_price = self.effective_price
+                else:
+                    delivered_qty_in_pack = math.ceil(self.delivered_qty / cart_product_mapping.cart_product_case_size)
+                    self.delivered_at_price = cart_product_price.get_per_piece_price(delivered_qty_in_pack)
         else:
             self.effective_price = cart_product_mapping.item_effective_prices
         self.discounted_price = cart_product_mapping.discounted_price
