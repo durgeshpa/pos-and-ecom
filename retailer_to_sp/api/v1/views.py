@@ -1390,7 +1390,10 @@ def pdf_generation(request, ordered_product):
             year = date_time.strftime("%Y")
             # print(str(date) + " " + str(month) + " " + str(year) + " " + str(invoice_amount.invoice_amount) + " " + str(invoice_amount.shipment_status))
             if int(month) > 2 and int(year) > 2019:
-                paid_amount += invoice_amount.invoice_amount
+                if invoice_amount.invoice_amount is None:
+                    paid_amount += 0
+                else:
+                    paid_amount += invoice_amount.invoice_amount
         #print(paid_amount)
 
         try:
