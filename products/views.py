@@ -1,6 +1,7 @@
 import csv
 import codecs
 import datetime
+import math
 import os
 import logging
 import re
@@ -62,6 +63,7 @@ error_logger = logging.getLogger('file-error')
 from dal import autocomplete
 from django.db.models import Q
 from .utils import products_price_excel
+from retailer_backend.utils import getStrToDate
 
 
 def load_cities(request):
@@ -779,7 +781,7 @@ def cart_products_mapping(request,pk=None):
     writer = csv.writer(response)
     try:
         writer.writerow(['SKU', 'product_name','qty', 'discounted_price'])
-        cart_products = ProductPrice.objects.values('product__product_sku', 'product__product_name').filter(seller_shop_id=int(pk), approval_status = 2, start_date__lte =  current_time, end_date__gte = current_time)
+        cart_products = ProductPrice.objects.values('product__product_sku', 'product__product_name').filter(seller_shop_id=int(pk), approval_status = 2)
         writer.writerows([(product.get('product__product_sku'), product.get('product__product_name'), '', '') for product in cart_products])
     except:
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
@@ -1831,7 +1833,7 @@ def FetchProductDdetails(request):
         is_ptr_applicable = def_product.parent_product.is_ptr_applicable
         case_size = def_product.parent_product.inner_case_size
         if is_ptr_applicable:
-            selling_price = get_selling_price(def_product)
+            selling_price = round(get_selling_price(def_product),2)
             selling_price_per_saleable_unit = round(selling_price*case_size, 2)
         data = {
             'found': True,
@@ -2275,11 +2277,11 @@ def get_slab_product_price_sample_csv(request):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "Slab 1 Qty", "Selling Price 1",
-                     "Offer Price 1", "Offer Price 1 Start Date", "Offer Price 1 End Date",
-                     "Slab 2 Qty", "Selling Price 2", "Offer Price 2", "Offer Price 2 Start Date", "Offer Price 2 End Date"])
+                     "Offer Price 1", "Offer Price 1 Start Date(dd-mm-yy)", "Offer Price 1 End Date(dd-mm-yy)",
+                     "Slab 2 Qty", "Selling Price 2", "Offer Price 2", "Offer Price 2 Start Date(dd-mm-yy)", "Offer Price 2 End Date(dd-mm-yy)"])
     writer.writerow(["BDCHNKDOV00000001", "Dove CREAM BAR 100G shop", "600",
                      "GFDN SERVICES PVT LTD (NOIDA) - 9319404555 - Rakesh Kumar - Service Partner", "47", "9", "46", "45.5",
-                     "2021-03-01", "2021-04-30", "10", "45", "44.5", "2021-03-01", "2021-04-30" ])
+                     "01-03-21", "30-04-21", "10", "45", "44.5", "01-03-21", "30-04-21" ])
     return response
 
 def slab_product_price_csv_upload(request):
@@ -2311,20 +2313,18 @@ def slab_product_price_csv_upload(request):
                     is_ptr_applicable = product.parent_product.is_ptr_applicable
                     if is_ptr_applicable:
                         selling_price = get_selling_price(product)
-                        case_size = product.parent_product.inner_case_size
-                        selling_price_per_saleable_unit = round(selling_price * case_size, 2)
                     else:
-                        selling_price_per_saleable_unit = float(row[6])
+                        selling_price = float(row[6])
 
                     # Create Price Slabs
 
                     # Create Price Slab 1
                     price_slab_1 = PriceSlab(product_price=product_price, start_value=0, end_value=int(row[5]),
-                                             selling_price=selling_price_per_saleable_unit)
+                                             selling_price=selling_price)
                     if row[7]:
                         price_slab_1.offer_price = float(row[7])
-                        price_slab_1.offer_price_start_date = row[8]
-                        price_slab_1.offer_price_end_date = row[9]
+                        price_slab_1.offer_price_start_date = getStrToDate(row[8], '%d-%m-%y').strftime('%Y-%m-%d')
+                        price_slab_1.offer_price_end_date = getStrToDate(row[9], '%d-%m-%y').strftime('%Y-%m-%d')
                     price_slab_1.save()
 
                     #If slab 1 quantity is Zero then slab is not to be created
@@ -2335,13 +2335,15 @@ def slab_product_price_csv_upload(request):
                                              selling_price=float(row[11]))
                     if row[12]:
                         price_slab_2.offer_price = float(row[12])
-                        price_slab_2.offer_price_start_date = row[13]
-                        price_slab_2.offer_price_end_date = row[14]
+                        price_slab_2.offer_price_start_date = getStrToDate(row[13], '%d-%m-%y').strftime('%Y-%m-%d')
+                        price_slab_2.offer_price_end_date = getStrToDate(row[14], '%d-%m-%y').strftime('%Y-%m-%d')
                     price_slab_2.save()
 
             except Exception as e:
                 print(e)
-                return render(request, 'admin/products/bulk-slab-product-price.html', {'form': form,})
+                msg =  'Unable to create price for row {}'.format(row_id+1)
+                return render(request, 'admin/products/bulk-slab-product-price.html', {'form': form, 'error': msg})
+
             return render(request, 'admin/products/bulk-slab-product-price.html', {
                 'form': form,
                 'success': 'Slab Product Prices uploaded successfully !',

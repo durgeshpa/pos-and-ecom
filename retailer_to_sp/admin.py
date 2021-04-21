@@ -486,6 +486,10 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
         js = ('admin/js/product_no_of_pieces.js', 'admin/js/select2.min.js')
 
+    def get_queryset(self, request):
+        qs = super(CartAdmin, self).get_queryset(request)
+        return qs.exclude(cart_type='BASIC')
+
     def get_urls(self):
         from django.conf.urls import url
         urls = super(CartAdmin, self).get_urls()
@@ -999,6 +1003,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
+        qs = qs.exclude(ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
         return qs.filter(
@@ -1162,6 +1167,7 @@ class OrderedProductAdmin(NestedModelAdmin):
 
     def get_queryset(self, request):
         qs = super(OrderedProductAdmin, self).get_queryset(request)
+        qs = qs.exclude(order__ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
         return qs.filter(
@@ -1384,21 +1390,28 @@ class ShipmentAdmin(NestedModelAdmin):
 
 
     def pincode(self, obj):
-        return obj.order.shipping_address.pincode
+        address = obj.order.shipping_address
+        if address:
+            return address.pincode
+        return ""
 
     def seller_shop(self, obj):
         return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
         address = obj.order.shipping_address
-        address_line = address.address_line1
-        contact = address.address_contact_number
-        shop_name = address.shop_name.shop_name
-        return str("%s, %s(%s)") % (shop_name, address_line, contact)
+        if address:
+            address_line = address.address_line1
+            contact = address.address_contact_number
+            shop_name = address.shop_name.shop_name
+            return str("%s, %s(%s)") % (shop_name, address_line, contact)
+        return "-"
 
     def invoice_city(self, obj):
-        city = obj.order.shipping_address.city
-        return str(city)
+        address = obj.order.shipping_address
+        if address:
+            return str(address.city)
+        return "-"
 
     def start_qc(self,obj):
         if obj.order.order_status == Order.CANCELLED:
@@ -1437,6 +1450,7 @@ class ShipmentAdmin(NestedModelAdmin):
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)
+        qs = qs.exclude(order__ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
         return qs.filter(
@@ -1942,6 +1956,7 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        qs = qs.exclude(shipment__order__ordered_cart__cart_type='BASIC')
         shipment_payments = ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
         shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
         credit_notes = Note.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')

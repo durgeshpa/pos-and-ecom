@@ -1,15 +1,11 @@
-import datetime
-
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils.crypto import get_random_string
 from django.db.models import Sum
 
-from retailer_backend.messages import ERROR_MESSAGES
-from retailer_to_sp.api.v1.views import release_blocking
 from shops.models import ParentRetailerMapping
-from wms.models import PickupBinInventory
-from .models import OrderedProduct, PickerDashboard, Order, OrderedProductBatch
+from .models import OrderedProduct, PickerDashboard, Order, CartProductMapping, Cart
+from pos.offers import BasicCartOffers
 
 
 # @receiver(post_save, sender=OrderedProduct)
@@ -146,8 +142,38 @@ class ReservedOrder(object):
 					cart_product.cart_product, int(cart_product.no_of_pieces), cart)
 
 
+@receiver(post_save, sender=CartProductMapping)
+def create_offers(sender, instance=None, created=False, **kwargs):
+	"""
+		Update offers on cart after any product (quantity) is updated
+		Check combo on product, check cart level discount
+	"""
+	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC'):
+		Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
+	elif instance.cart.cart_type == 'BASIC' and instance.product_type == 1 and instance.selling_price:
+		# Get combo coupon for product
+		offer = BasicCartOffers.get_basic_combo_coupons([instance.retailer_product.id], instance.cart.seller_shop.id)
+		# Check and apply/remove combo offers
+		offers_list = BasicCartOffers.basic_combo_offers(int(instance.qty), float(instance.selling_price),
+														 instance.retailer_product.id, offer[0] if offer else {},
+														 instance.cart.offers)
+		# Recheck cart discount according to updated cart value
+		offers_list = BasicCartOffers.basic_cart_offers_check(Cart.objects.get(pk=instance.cart.id), offers_list,
+															  instance.cart.seller_shop.id)
+		Cart.objects.filter(pk=instance.cart.id).update(offers=offers_list)
 
 
-
-
-
+@receiver(post_delete, sender=CartProductMapping)
+def remove_offers(sender, instance=None, created=False, **kwargs):
+	"""
+		Update offers on cart after any product is deleted
+		Remove combo on this product, check cart level discount
+	"""
+	if instance.qty and instance.no_of_pieces and instance.cart.cart_type not in ('AUTO', 'DISCOUNTED', 'BASIC'):
+		Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
+	elif instance.cart.cart_type == 'BASIC' and instance.product_type:
+		# Remove if any combo products added
+		offers_list = BasicCartOffers.update_combo(instance.retailer_product.id, instance.cart.offers, [])
+		# Recheck cart discount according to updated cart value
+		offers_list = BasicCartOffers.basic_cart_offers_check(instance.cart, offers_list, instance.cart.seller_shop.id)
+		Cart.objects.filter(pk=instance.cart.id).update(offers=offers_list)

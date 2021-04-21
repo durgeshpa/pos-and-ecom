@@ -89,8 +89,8 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 					price_details.append({
 							"start_value": slab.start_value,
 							"end_value": slab.end_value,
-							"ptr": slab.ptr,
-							"margin": round((((float(mrp) - slab.ptr/pack_size) / float(mrp)) * 100),2)
+							"ptr": (slab.ptr*product.product_inner_case_size),
+							"margin": round((((float(mrp) - slab.ptr) / float(mrp)) * 100),2)
 						})
 
 		else:
@@ -176,6 +176,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"sub_total": sub_total,
 			"available": available_qty,
 			"visible":visible,
+			"ean":product.product_ean_code,
 			"price_details" : price_details
 		}
 		yield(product_details)

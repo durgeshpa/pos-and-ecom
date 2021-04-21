@@ -2,6 +2,8 @@ from decimal import Decimal
 import math
 from rest_framework import serializers
 
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+
 from common.common_utils import convert_date_format_ddmmmyyyy
 
 from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption,
@@ -103,7 +105,7 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
             cart_product_price = cart_product_mapping.cart_product_price
             cart_product_case_size = cart_product_mapping.no_of_pieces/cart_product_mapping.qty
             shipped_qty_in_pack = math.ceil(obj.shipped_qty / cart_product_case_size)
-            self.product_price = round(cart_product_price.get_per_piece_price(shipped_qty_in_pack, cart_product_case_size), 2)
+            self.product_price = round(cart_product_price.get_per_piece_price(shipped_qty_in_pack), 2)
             return self.product_price
         else :
             return 0
@@ -219,7 +221,7 @@ class PriceSlabSerializer(serializers.ModelSerializer):
         return obj.ptr
 
     def m_margin(self, obj):
-        return round(100 * ((float(obj.product_price.mrp) - obj.ptr/obj.product_price.product.product_inner_case_size)/float(obj.product_price.mrp)), 2)
+        return round(100 * ((float(obj.product_price.mrp) - obj.ptr)/float(obj.product_price.mrp)), 2)
 
     class Meta:
         model = PriceSlab
@@ -227,14 +229,18 @@ class PriceSlabSerializer(serializers.ModelSerializer):
 
 class SlabProductPriceSerializer(serializers.ModelSerializer):
     mrp = serializers.SerializerMethodField()
+    product_price = serializers.SerializerMethodField()
     price_slabs = PriceSlabSerializer(many=True)
 
-    def get_mrp(self,obj):
+    def get_mrp(self, obj):
         return obj.mrp if obj.mrp else obj.product.product_mrp
+
+    def get_product_price(self, obj):
+        return obj.get_per_piece_price(self.context.get('qty', 1))
 
     class Meta:
         model = SlabProductPrice
-        fields = ('mrp', 'price_slabs',)
+        fields = ('mrp', 'product_price', 'price_slabs',)
 
 
 class ProductsSearchSerializer(serializers.ModelSerializer):
@@ -261,7 +267,8 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     def product_price_dt(self, obj):
         current_price = obj.get_current_shop_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
         if current_price:
-            self.product_price = current_price.get_applicable_slab_price_per_pack(self.context.get('qty', 1))
+            self.product_price = current_price.get_applicable_slab_price_per_pack(self.context.get('qty', 1),
+                                                                                  obj.product_inner_case_size)
             return self.product_price
 
     def m_per_piece_price(self, obj):
@@ -342,24 +349,34 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         return serializer.data
 
     def is_available_dt(self,obj):
+        """
+            Check is quantity of product is available
+        """
         ordered_product_sum = OrderedProductMapping.objects.filter(product=obj.cart_product).aggregate(available_qty_sum=Sum('available_qty'))
         self.is_available = True if ordered_product_sum['available_qty_sum'] and int(ordered_product_sum['available_qty_sum'])>0 else False
         return self.is_available
 
     def no_pieces_dt(self, obj):
+        """
+            No of pieces of Product
+        """
         return int(obj.cart_product.product_inner_case_size) * int(obj.qty)
 
     def product_sub_total_dt(self, obj):
         product_price = obj.cart_product.get_current_shop_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
-        price_per_pack = float(product_price.get_applicable_slab_price_per_pack(obj.qty))
-        return round((price_per_pack * obj.qty), 2)
+        price_per_piece = product_price.get_per_piece_price(obj.qty)
+        return round((price_per_piece * obj.no_of_pieces), 2)
+
 
     def product_coupons_dt(self, obj):
+        """
+            Coupons for a product
+        """
         product_coupons = []
         date = datetime.datetime.now()
-        sku_no_of_pieces = int(obj.cart_product.product_inner_case_size) * int(obj.qty)
-        for rules in obj.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
-            for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
+        for rules in obj.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date).\
+                exclude(rule__coupon_ruleset__shop__shop_type__shop_type='f'):
+            for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date).exclude(shop__shop_type__shop_type='f'):
                 product_coupons.append(rule.coupon_code)
         parent_product_brand = obj.cart_product.parent_product.parent_brand if obj.cart_product.parent_product else None
         if parent_product_brand:
@@ -367,7 +384,6 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         else:
             parent_brand = None
         product_brand_id = obj.cart_product.parent_product.parent_brand.id if obj.cart_product.parent_product else None
-        # parent_brand = obj.cart_product.product_brand.brand_parent.id if obj.cart_product.product_brand.brand_parent else None
         brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
         for x in brand_coupons:
             product_coupons.append(x.coupon_code)
@@ -383,24 +399,24 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                         for i in coupons:
                             if i['coupon_type'] == 'catalog':
                                 i['max_qty'] = max_qty
-            keyValList3 = ['discount_on_product']
-            keyValList2 = ['discount_on_brand']
-            exampleSet3 = obj.cart.offers
-            array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet3))
-            array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet3))
+            product_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_product'], obj.cart.offers))
+            brand_offers = list(filter(lambda d: d['sub_type'] in ['discount_on_brand'], obj.cart.offers))
             for j in coupons:
-                for i in (array3 + array2):
+                for i in (product_offers + brand_offers):
                     if j['coupon_code'] == i['coupon_code']:
                         j['is_applied'] = True
             return coupons
 
     def margin_dt(self, obj):
+        """
+            Mrp, selling price margin
+        """
         product_price = obj.cart_product.\
             get_current_shop_price(self.context.get('parent_mapping_id'),
                              self.context.get('buyer_shop_id'))
         if product_price:
             product_mrp = product_price.mrp if product_price.mrp else obj.cart_product.product_mrp
-            margin = (((float(product_mrp) - product_price.get_per_piece_price(obj.qty, obj.cart_product.product_inner_case_size)) / float(product_mrp)) * 100)
+            margin = (((float(product_mrp) - product_price.get_per_piece_price(obj.qty)) / float(product_mrp)) * 100)
             if obj.cart.offers:
                 margin = (((float(product_mrp) - obj.item_effective_prices) / float(product_mrp)) * 100)
             return round(margin, 2)
@@ -413,9 +429,8 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
 
 class CartSerializer(serializers.ModelSerializer):
-    rt_cart_list = CartProductMappingSerializer(many=True)
+    rt_cart_list = serializers.SerializerMethodField('rt_cart_list_dt')
     last_modified_by = UserSerializer()
-
     items_count = serializers.SerializerMethodField('items_count_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     total_discount = serializers.SerializerMethodField()
@@ -428,7 +443,32 @@ class CartSerializer(serializers.ModelSerializer):
         model = Cart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
                   'created_at', 'modified_at', 'rt_cart_list', 'total_amount', 'shop_min_amount',
-                  'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers')
+                  'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers',)
+
+    def rt_cart_list_dt(self, obj):
+        """
+         Search and pagination on cart
+        """
+        qs = CartProductMapping.objects.filter(cart=obj)
+        search_text = self.context.get('search_text')
+        # Search on name, ean and sku
+        if search_text:
+            qs = qs.filter(Q(cart_product__product_sku__icontains=search_text)
+                              | Q(cart_product__product_name__icontains=search_text)
+                              | Q(cart_product__product_ean_code__icontains=search_text))
+        # Pagination
+        if qs.exists():
+            per_page_products = self.context.get('records_per_page') if self.context.get('records_per_page') else 10
+            paginator = Paginator(qs, int(per_page_products))
+            page_number = self.context.get('page_number')
+            try:
+                qs = paginator.get_page(page_number)
+            except PageNotAnInteger:
+                qs = paginator.get_page(1)
+            except EmptyPage:
+                qs = paginator.get_page(paginator.num_pages)
+
+        return CartProductMappingSerializer(qs, many=True, context=self.context).data
 
     def get_discounted_prices_sum(self, obj):
         sum = 0
@@ -454,13 +494,12 @@ class CartSerializer(serializers.ModelSerializer):
     def total_amount_id(self, obj):
         self.total_amount = 0
         self.items_count = 0
-        total_discount = self.get_total_discount(obj)
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
             pro_price = cart_pro.cart_product.get_current_shop_price(self.context.get('parent_mapping_id'),
                                                                      self.context.get('buyer_shop_id'))
             if pro_price:
-                self.total_amount += pro_price.get_applicable_slab_price_per_pack(cart_pro.qty) * cart_pro.qty
+                self.total_amount += pro_price.get_per_piece_price(cart_pro.qty) * cart_pro.no_of_pieces
         return self.total_amount
 
     def shop_min_amount_id(self, obj):
@@ -562,22 +601,31 @@ class ProductsSerializer(serializers.ModelSerializer):
 
 class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     cart_product = ProductsSerializer()
-    cart_product_price = SlabProductPriceSerializer()
+    # cart_product_price = SlabProductPriceSerializer()
+    cart_product_price = serializers.SerializerMethodField()
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_inner_case_size = serializers.SerializerMethodField('product_inner_case_size_dt')
     product_price = serializers.SerializerMethodField()
 
+    def get_cart_product_price(self, obj):
+        product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'),
+                                                   self.context.get('buyer_shop_id'))
+        self.context['qty'] = obj.qty
+        serializer = SlabProductPriceSerializer(product_price)
+        return serializer.data
+
     def no_pieces_dt(self, obj):
         return int(obj.no_of_pieces)
 
     def get_product_price(self,obj):
-        return obj.cart_product_price.get_applicable_slab_price_per_pack(obj.qty)
+        return obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))\
+                  .get_per_piece_price(obj.qty)
 
     def product_sub_total_dt(self,obj):
         product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
-        price_per_pack = float(product_price.get_applicable_slab_price_per_pack(obj.qty))
-        return round((price_per_pack * obj.qty), 2)
+        price_per_piece = product_price.get_per_piece_price(obj.qty)
+        return round((price_per_piece * obj.no_of_pieces), 2)
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))
@@ -615,7 +663,7 @@ class OrderedCartSerializer(serializers.ModelSerializer):
                 self.items_count = self.items_count + int(cart_pro.qty)
                 pro_price = cart_pro.get_cart_product_price(self.context.get('parent_mapping_id'),
                                                             self.context.get('buyer_shop_id'))
-                self.total_amount += pro_price.get_applicable_slab_price_per_pack(cart_pro.qty) * cart_pro.qty
+                self.total_amount += pro_price.get_per_piece_price(cart_pro.qty) * cart_pro.no_of_pieces
             return self.total_amount
         except:
             return obj.subtotal
@@ -691,8 +739,8 @@ class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
 
     def product_sub_total_dt(self,obj):
         product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'), self.context.get('buyer_shop_id'))
-        price_per_pack = float(product_price.get_applicable_slab_price_per_pack(obj.qty))
-        return round((price_per_pack * obj.qty), 2)
+        price_per_piece = float(product_price.get_per_piece_price(obj.qty))
+        return round((price_per_piece * obj.no_of_pieces), 2)
 
 
     def product_inner_case_size_dt(self,obj):
@@ -1148,8 +1196,8 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
             if obj.effective_price:
                 return obj.effective_price
             cart_product = obj.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product=obj.product)
-            shipped_qty_in_pack = math.ceil(obj.shipped_qty/obj.product.product_inner_case_size)
-            return cart_product.cart_product_price.get_per_piece_price(shipped_qty_in_pack, obj.product.product_inner_case_size)
+            shipped_qty_in_pack = math.ceil(obj.shipped_qty/obj.cart_product.cart_product_case_size)
+            return cart_product.cart_product_price.get_per_piece_price(shipped_qty_in_pack)
 
 
     class Meta:
@@ -1219,8 +1267,8 @@ class SellerCartProductMappingListSerializer(serializers.ModelSerializer):
         return int(obj.no_of_pieces)
 
     def product_sub_total_dt(self,obj):
-        price_per_pack = float(obj.cart_product_price.get_applicable_slab_price_per_pack(obj.qty))
-        return round((price_per_pack * obj.qty), 2)
+        price_per_piece = float(obj.cart_product_price.get_per_piece_price(obj.qty))
+        return round((price_per_piece * obj.no_of_pieces), 2)
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))

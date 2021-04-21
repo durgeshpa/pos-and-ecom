@@ -30,7 +30,7 @@ def create_order_from_cart(form, formsets, request, Order):
     order_amounts = get_order_mrp_tax_discount_final_amount(formsets)
 
     order, _ = Order.objects.get_or_create(
-    	ordered_cart=cart_data.get('cart'), order_no=cart_data.get('order_id'))
+    	ordered_cart=cart_data.get('cart'))
 
     order.seller_shop = cart_data.get('seller_shop')
     order.buyer_shop = cart_data.get('buyer_shop')
