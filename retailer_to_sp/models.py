@@ -2280,7 +2280,7 @@ class OrderedProductMapping(models.Model):
         if cart_product_price:
             shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
             self.effective_price = cart_product_price.get_per_piece_price(shipped_qty_in_pack)
-            if self.delivered_at_price is None and self.delivered_qty > 0:
+            if self.delivered_qty > 0:
                 if cart_product_mapping.cart.cart_type == 'DISCOUNTED':
                     self.delivered_at_price = self.effective_price
                 else:
