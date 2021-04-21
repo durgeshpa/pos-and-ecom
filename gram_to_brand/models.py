@@ -368,7 +368,7 @@ def create_cart_product(sender, instance=None, created=False, update_fields=None
                                         )
             instance.save()
             if instance.cart_product_mapping_csv:
-                reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
+                reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8', errors='ignore'))
                 for id, row in enumerate(reader):
                     for row in reader:
                         if row[0] and row[2] and row[6] and row[7]:
@@ -421,7 +421,7 @@ def create_cart_product(sender, instance=None, created=False, update_fields=None
                 #     # emptying the cart
                 #     cart.delete()
 
-                reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
+                reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8', errors='ignore'))
                 for id, row in enumerate(reader):
                     for row in reader:
                         if row[0] and row[2] and row[6] and row[7]:
