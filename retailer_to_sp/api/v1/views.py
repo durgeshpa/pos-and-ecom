@@ -2123,10 +2123,12 @@ class ShipmentDetail(APIView):
         returned_qty = self.request.POST.get('returned_qty')
         returned_damage_qty = self.request.POST.get('returned_damage_qty')
 
-        if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(
+        shipment_product = ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product)
+        if int(shipment_product.shipped_qty) >= int(
                 returned_qty) + int(returned_damage_qty):
+            delivered_qty = shipment_product.shipped_qty - int(returned_qty) + int(returned_damage_qty)
             ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
-                returned_qty=returned_qty, returned_damage_qty=returned_damage_qty)
+                delivered_qty=delivered_qty, returned_qty=returned_qty, returned_damage_qty=returned_damage_qty)
             # shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
             cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
             msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': None,
