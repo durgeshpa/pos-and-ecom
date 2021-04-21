@@ -1735,11 +1735,12 @@ class OrderedProduct(models.Model):  # Shipment
 
     def cash_to_be_collected(self):
         # fetch the amount to be collected
+        cash_to_be_collected = 0
         if self.order.ordered_cart.approval_status == False:
-            if self.invoice_amount:
-                return (self.invoice_amount - self.credit_note_amount)
-            else:
-                return 0
+            for item in self.rt_order_product_order_product_mapping.all():
+                delivered_at_price = item.delivered_at_price if item.delivered_at_price else item.effective_price
+                cash_to_be_collected = cash_to_be_collected + (item.delivered_qty * delivered_at_price)
+            return cash_to_be_collected
         else:
             invoice_amount = self.rt_order_product_order_product_mapping.all() \
                 .aggregate(
