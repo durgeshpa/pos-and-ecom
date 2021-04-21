@@ -232,7 +232,7 @@ class GFProductPriceForm(forms.Form):
     def clean_file(self):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         for id, row in enumerate(reader):
             if not row[0] or not re.match("^[\d]*$", row[0]):
@@ -1701,7 +1701,7 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
                                   (row_id))
             else:
                 product_id = product.get('id')
-                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
                 csv_columns = next(csv_reader)
                 for reader_id, reader_row in enumerate(csv_reader):
                     if (reader_id + 2 != row_id) and row[0] == reader_row[0]:
@@ -1755,7 +1755,7 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
                                                     'cess_tax_id': cess_tax_id}
 
     def read_file(self, file):
-        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
         columns = next(reader)
         for row_id, row in enumerate(reader):
             self.validate_row(columns, row, row_id + 2, file)
@@ -1815,7 +1815,7 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
                                   (row_id))
             else:
                 product_id = product.get('id')
-                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
                 csv_columns = next(csv_reader)
                 for reader_id, reader_row in enumerate(csv_reader):
                     if (reader_id + 2 != row_id) and row[0] == reader_row[0]:
@@ -1869,7 +1869,7 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
                                                     'cess_tax_id': cess_tax_id}
 
     def read_file(self, file):
-        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
         columns = next(reader)
         for row_id, row in enumerate(reader):
             self.validate_row(columns, row, row_id + 2, file)
@@ -2168,7 +2168,7 @@ class UploadSlabProductPriceForm(forms.Form):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only .csv file accepted.")
 
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         for row_id, row in enumerate(reader):
             if len(row) == 0:

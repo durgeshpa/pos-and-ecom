@@ -218,7 +218,7 @@ class SpSrProductPrice(View):
                              end_date, sp_sr):
         try:
             with transaction.atomic():
-                reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
                 first_row = next(reader)
                 for row_id, row in enumerate(reader):
 
@@ -310,7 +310,7 @@ def gf_product_price(request):
             start_date = form.cleaned_data.get('start_date_time')
             end_date = form.cleaned_data.get('end_date_time')
             shops = form.cleaned_data.get('gf_list')
-            reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
             first_row = next(reader)
             try:
                 for row in reader:
@@ -1859,7 +1859,7 @@ class ProductCategoryMapping(View):
     def update_mapping(self, request, file):
         try:
             with transaction.atomic():
-                reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
                 first_row = next(reader)
                 for row_id, row in enumerate(reader):
                     self.validate_row(first_row, row)
