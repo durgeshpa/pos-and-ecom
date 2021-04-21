@@ -2180,25 +2180,29 @@ class CancelOrder(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def put(self, request, format=None):
-        try:
-            order = Order.objects.get(buyer_shop__shop_owner=request.user,
-                                      pk=request.data['order_id'])
-        except ObjectDoesNotExist:
-            msg = {'is_success': False,
-                   'message': ['Order is not associated with the current user'],
-                   'response_data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-
-        serializer = CancelOrderSerializer(order, data=request.data,
-                                           context={'order': order})
-        if serializer.is_valid():
-            serializer.save()
-            msg = {'is_success': True,
-                   'message': ["Order Cancelled Successfully!"],
-                   'response_data': serializer.data}
-            return Response(msg, status=status.HTTP_200_OK)
-        else:
-            return format_serializer_errors(serializer.errors)
+        msg = {'is_success': False,
+               'message': ['Sorry! Order cannot be cancelled from the APP'],
+               'response_data': None}
+        return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        # try:
+        #     order = Order.objects.get(buyer_shop__shop_owner=request.user,
+        #                               pk=request.data['order_id'])
+        # except ObjectDoesNotExist:
+        #     msg = {'is_success': False,
+        #            'message': ['Order is not associated with the current user'],
+        #            'response_data': None}
+        #     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        #
+        # serializer = CancelOrderSerializer(order, data=request.data,
+        #                                    context={'order': order})
+        # if serializer.is_valid():
+        #     serializer.save()
+        #     msg = {'is_success': True,
+        #            'message': ["Order Cancelled Successfully!"],
+        #            'response_data': serializer.data}
+        #     return Response(msg, status=status.HTTP_200_OK)
+        # else:
+        #     return format_serializer_errors(serializer.errors)
 
 
 class RetailerShopsList(APIView):
