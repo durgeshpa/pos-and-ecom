@@ -684,7 +684,7 @@ def bulk_audit_csv_upload_view(request):
             upload_file = form.cleaned_data.get('file')
             warehouse_id = request.POST.get('select')
           
-            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
             first_row = next(reader)
             try:
                 for row_id, row in enumerate(reader):
