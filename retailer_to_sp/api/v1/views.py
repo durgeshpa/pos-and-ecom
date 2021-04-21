@@ -1238,7 +1238,7 @@ class OrderList(generics.ListAPIView):
 
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            queryset = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
+            queryset = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')[:10]
             serializer = OrderListSerializer(
                 queryset, many=True,
                 context={'parent_mapping_id': parent_mapping.parent.id,
