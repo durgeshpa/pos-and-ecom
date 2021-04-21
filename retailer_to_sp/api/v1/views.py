@@ -2185,6 +2185,9 @@ class CancelOrder(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def put(self, request, format=None):
+        """
+        Return error message
+        """
         msg = {'is_success': False,
                'message': ['Sorry! Order cannot be cancelled from the APP'],
                'response_data': None}
