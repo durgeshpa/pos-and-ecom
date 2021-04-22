@@ -59,7 +59,7 @@ class StockCsvConvert(View):
 
         if form.is_valid():
             file = form.cleaned_data['file']
-            reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
 
             # download file
             filename = 'franchise_stock_correction' + ".csv"

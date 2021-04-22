@@ -99,6 +99,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
+from retailer_backend.settings import AWS_MEDIA_URL
 
 User = get_user_model()
 
@@ -385,6 +386,11 @@ class GramGRNProductsList(APIView):
                         p["_source"]["ptr"] = c_p.applicable_slab_price
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
+            counter=0
+            for price_detail in p["_source"]["price_details"]:
+                p["_source"]["price_details"][counter]["ptr"]=round(p["_source"]["price_details"][counter]["ptr"],2)
+                p["_source"]["price_details"][counter]["margin"] = round(p["_source"]["price_details"][counter]["margin"], 2)
+                counter+=1
             p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
@@ -1233,7 +1239,7 @@ class OrderList(generics.ListAPIView):
 
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            queryset = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
+            queryset = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')[:10]
             serializer = OrderListSerializer(
                 queryset, many=True,
                 context={'parent_mapping_id': parent_mapping.parent.id,
@@ -1310,7 +1316,8 @@ class DownloadInvoiceSP(APIView):
             ordered_product = get_object_or_404(OrderedProduct, pk=pk)
             # call pdf generation method to generate pdf and download the pdf
             pdf_generation(request, ordered_product)
-            result = requests.get(ordered_product.invoice.invoice_pdf.url)
+            url = AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name
+            result = requests.get(url)
             file_prefix = PREFIX_INVOICE_FILE_NAME
             # generate pdf file
             response = single_pdf_file(ordered_product, result, file_prefix)
@@ -1326,12 +1333,13 @@ class DownloadInvoiceSP(APIView):
                 # call pdf generation method to generate and save pdf
                 pdf_generation(request, ordered_product)
                 # append the pdf file path
-                file_path_list.append(ordered_product.invoice.invoice_pdf.url)
+                file_path_list.append(AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name)
                 # append created date for pdf file
                 pdf_created_date.append(ordered_product.created_at)
             # condition to check the download file count
             if len(pdf_created_date) == 1:
-                result = requests.get(ordered_product.invoice.invoice_pdf.url)
+                url = AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name
+                result = requests.get(url)
                 file_prefix = PREFIX_INVOICE_FILE_NAME
                 # generate pdf file
                 response = single_pdf_file(ordered_product, result, file_prefix)
@@ -1366,11 +1374,11 @@ def pdf_generation(request, ordered_product):
         request = request
         ordered_product = ordered_product
 
-    try:
-        if ordered_product.invoice.invoice_pdf.url:
-            pass
-    except Exception as e:
-        logger.exception(e)
+    # try:
+    #     if ordered_product.invoice.invoice_pdf.url:
+    #         pass
+    # except Exception as e:
+    #     logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
 
         buyer_shop_id = ordered_product.order.buyer_shop_id
@@ -1383,7 +1391,10 @@ def pdf_generation(request, ordered_product):
             year = date_time.strftime("%Y")
             # print(str(date) + " " + str(month) + " " + str(year) + " " + str(invoice_amount.invoice_amount) + " " + str(invoice_amount.shipment_status))
             if int(month) > 2 and int(year) > 2019:
-                paid_amount += invoice_amount.invoice_amount
+                if invoice_amount.invoice_amount is None:
+                    paid_amount += 0
+                else:
+                    paid_amount += invoice_amount.invoice_amount
         #print(paid_amount)
 
         try:
@@ -1502,7 +1513,7 @@ def pdf_generation(request, ordered_product):
                 ordered_product.order.ordered_cart.buyer_shop)
 
             if ordered_product.order.ordered_cart.cart_type != 'DISCOUNTED':
-                product_pro_price_ptr = round(product_price.get_per_piece_price(m.shipped_qty, m.product.product_inner_case_size), 2)
+                product_pro_price_ptr = m.effective_price
             else:
                 product_pro_price_ptr = cart_product_map.item_effective_prices
             if m.product.product_mrp:
@@ -1667,46 +1678,51 @@ class DownloadCreditNoteDiscounted(APIView):
         for m in products:
             dict1 = {}
             flag = 0
+            basic_rate = m.basic_rate_discounted
+            delivered_qty = m.delivered_qty
+            gst_percent = m.get_products_gst()
+            cess = m.get_products_gst_cess_tax()
+            surcharge = m.get_products_gst_surcharge()
             if len(list1) > 0:
                 for i in list1:
                     if i["hsn"] == m.product.product_hsn:
-                        i["taxable_value"] = i["taxable_value"] + m.basic_rate * m.delivered_qty
-                        i["cgst"] = i["cgst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 200
-                        i["sgst"] = i["sgst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 200
-                        i["igst"] = i["igst"] + (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
-                        i["cess"] = i["cess"] + (m.delivered_qty * m.basic_rate * m.get_products_gst_cess_tax()) / 100
+                        i["taxable_value"] = i["taxable_value"] + basic_rate * delivered_qty
+                        i["cgst"] = i["cgst"] + (delivered_qty * basic_rate * gst_percent) / 200
+                        i["sgst"] = i["sgst"] + (delivered_qty * basic_rate * gst_percent) / 200
+                        i["igst"] = i["igst"] + (delivered_qty * basic_rate * gst_percent) / 100
+                        i["cess"] = i["cess"] + (delivered_qty * basic_rate * cess) / 100
                         i["surcharge"] = i["surcharge"] + (
-                                m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
+                                delivered_qty * basic_rate * surcharge) / 100
                         i["total"] = i["total"] + m.product_tax_discount_amount
-                        i["product_special_cess"] = i["product_special_cess"] + m.product.product_special_cess
+                        i["product_special_cess"] = i["product_special_cess"] + m.product.product_special_cess if m.product.product_special_cess else 0
                         flag = 1
 
             if flag == 0:
                 dict1["hsn"] = m.product.product_hsn
-                dict1["taxable_value"] = m.basic_rate * m.delivered_qty
-                dict1["cgst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 200
-                dict1["cgst_rate"] = m.get_products_gst() / 2
-                dict1["sgst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 200
-                dict1["sgst_rate"] = m.get_products_gst() / 2
-                dict1["igst"] = (m.basic_rate * m.delivered_qty * m.get_products_gst()) / 100
-                dict1["igst_rate"] = m.get_products_gst()
-                dict1["cess"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_cess_tax()) / 100
-                dict1["cess_rate"] = m.get_products_gst_cess_tax()
-                dict1["surcharge"] = (m.basic_rate * m.delivered_qty * m.get_products_gst_surcharge()) / 100
+                dict1["taxable_value"] = basic_rate * delivered_qty
+                dict1["cgst"] = (basic_rate * delivered_qty * gst_percent) / 200
+                dict1["cgst_rate"] = gst_percent / 2
+                dict1["sgst"] = (basic_rate * delivered_qty * gst_percent) / 200
+                dict1["sgst_rate"] = gst_percent / 2
+                dict1["igst"] = (basic_rate * delivered_qty * gst_percent) / 100
+                dict1["igst_rate"] = gst_percent
+                dict1["cess"] = (basic_rate * delivered_qty * cess) / 100
+                dict1["cess_rate"] = cess
+                dict1["surcharge"] = (basic_rate * delivered_qty * surcharge) / 100
                 # dict1["surcharge_rate"] = m.get_products_gst_surcharge() / 2
-                dict1["surcharge_rate"] = m.get_products_gst_surcharge()
+                dict1["surcharge_rate"] = surcharge
                 dict1["total"] = m.product_tax_discount_amount
                 dict1["product_special_cess"] = m.product.product_special_cess
                 list1.append(dict1)
 
-            sum_qty = sum_qty + (int(m.delivered_qty))
-            sum_basic_amount += m.basic_rate * (m.delivered_qty)
-            sum_amount = sum_amount + (int(m.delivered_qty) * (m.price_to_retailer - m.discounted_price))
-            inline_sum_amount = (int(m.delivered_qty) * (m.price_to_retailer))
-            gst_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst()) / 100
+            sum_qty = sum_qty + (int(delivered_qty))
+            sum_basic_amount += basic_rate * (delivered_qty)
+            sum_amount = sum_amount + (int(delivered_qty) * (float(m.price_to_retailer) - float(m.discounted_price)))
+            inline_sum_amount = (int(delivered_qty) * (m.price_to_retailer))
+            gst_tax = (delivered_qty * basic_rate * gst_percent) / 100
             total_product_tax_amount += m.product_tax_discount_amount
-            cess_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst_cess_tax()) / 100
-            surcharge_tax = (m.delivered_qty * m.basic_rate * m.get_products_gst_surcharge()) / 100
+            cess_tax = (delivered_qty * basic_rate * cess) / 100
+            surcharge_tax = (delivered_qty * basic_rate * surcharge) / 100
             gst_tax_list.append(gst_tax)
             cess_tax_list.append(cess_tax)
             surcharge_tax_list.append(surcharge_tax)
@@ -2108,10 +2124,12 @@ class ShipmentDetail(APIView):
         returned_qty = self.request.POST.get('returned_qty')
         returned_damage_qty = self.request.POST.get('returned_damage_qty')
 
-        if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(
+        shipment_product = ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product)
+        if int(shipment_product.shipped_qty) >= int(
                 returned_qty) + int(returned_damage_qty):
+            delivered_qty = shipment_product.shipped_qty - int(returned_qty) + int(returned_damage_qty)
             ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
-                returned_qty=returned_qty, returned_damage_qty=returned_damage_qty)
+                delivered_qty=delivered_qty, returned_qty=returned_qty, returned_damage_qty=returned_damage_qty)
             # shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
             cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
             msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': None,
@@ -2170,25 +2188,32 @@ class CancelOrder(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def put(self, request, format=None):
-        try:
-            order = Order.objects.get(buyer_shop__shop_owner=request.user,
-                                      pk=request.data['order_id'])
-        except ObjectDoesNotExist:
-            msg = {'is_success': False,
-                   'message': ['Order is not associated with the current user'],
-                   'response_data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-
-        serializer = CancelOrderSerializer(order, data=request.data,
-                                           context={'order': order})
-        if serializer.is_valid():
-            serializer.save()
-            msg = {'is_success': True,
-                   'message': ["Order Cancelled Successfully!"],
-                   'response_data': serializer.data}
-            return Response(msg, status=status.HTTP_200_OK)
-        else:
-            return format_serializer_errors(serializer.errors)
+        """
+        Return error message
+        """
+        msg = {'is_success': False,
+               'message': ['Sorry! Order cannot be cancelled from the APP'],
+               'response_data': None}
+        return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        # try:
+        #     order = Order.objects.get(buyer_shop__shop_owner=request.user,
+        #                               pk=request.data['order_id'])
+        # except ObjectDoesNotExist:
+        #     msg = {'is_success': False,
+        #            'message': ['Order is not associated with the current user'],
+        #            'response_data': None}
+        #     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        #
+        # serializer = CancelOrderSerializer(order, data=request.data,
+        #                                    context={'order': order})
+        # if serializer.is_valid():
+        #     serializer.save()
+        #     msg = {'is_success': True,
+        #            'message': ["Order Cancelled Successfully!"],
+        #            'response_data': serializer.data}
+        #     return Response(msg, status=status.HTTP_200_OK)
+        # else:
+        #     return format_serializer_errors(serializer.errors)
 
 
 class RetailerShopsList(APIView):

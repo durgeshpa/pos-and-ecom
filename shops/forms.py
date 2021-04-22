@@ -64,7 +64,7 @@ class StockAdjustmentUploadForm(forms.Form):
     def clean_upload_file(self):
         if self.cleaned_data['upload_file'].name[-4:] != ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['upload_file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['upload_file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         for id, row in enumerate(reader):
             if not row[0]:
@@ -282,7 +282,7 @@ class ShopUserMappingCsvViewForm(forms.Form):
     def clean_file(self):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         uploaded_employee_list = []
         for id, row in enumerate(reader):
@@ -355,7 +355,7 @@ class BeatUserMappingCsvViewForm(forms.Form):
         # Validate to check the file format, It should be csv file.
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted.")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         # list which contains csv data and pass into the view file
         form_data_list = []
