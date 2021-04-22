@@ -12,8 +12,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Sum, Q
 from wkhtmltopdf.views import PDFTemplateResponse
 from django.shortcuts import get_object_or_404, get_list_or_404
-from django.utils import timezone
-from django.contrib.postgres.search import SearchVector
+
+
 from django_filters import rest_framework as filters
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -60,8 +60,9 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare, Return, Feedback,
                                    OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch, check_date_range, capping_check
+                                   ShipmentRescheduling, Note, OrderedProductBatch
                                    )
+from retailer_to_sp.common_function import check_date_range, capping_check
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramOrderedProduct,
                                      Payment as GramMappedPayment,
