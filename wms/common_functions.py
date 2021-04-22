@@ -109,11 +109,11 @@ class PutawayCommonFunctions(object):
 class InCommonFunctions(object):
 
     @classmethod
-    def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type):
+    def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type, weight=0):
         if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, inventory_type=inventory_type,
-                                       quantity=quantity, expiry_date=get_expiry_date_db(batch_id))
+                                       quantity=quantity, expiry_date=get_expiry_date_db(batch_id), weight=weight)
             PutawayCommonFunctions.create_putaway(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku,
                                                   in_obj.batch_id, in_obj.quantity, putaway_quantity,
                                                   in_obj.inventory_type)
