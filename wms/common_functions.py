@@ -109,11 +109,11 @@ class PutawayCommonFunctions(object):
 class InCommonFunctions(object):
 
     @classmethod
-    def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type):
+    def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity, inventory_type, weight=0):
         if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, inventory_type=inventory_type,
-                                       quantity=quantity, expiry_date=get_expiry_date_db(batch_id))
+                                       quantity=quantity, expiry_date=get_expiry_date_db(batch_id), weight=weight)
             PutawayCommonFunctions.create_putaway(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku,
                                                   in_obj.batch_id, in_obj.quantity, putaway_quantity,
                                                   in_obj.inventory_type)
@@ -211,7 +211,7 @@ class CommonInventoryStateFunctions(object):
 class CommonWarehouseInventoryFunctions(object):
     @classmethod
     def create_warehouse_inventory_with_transaction_log(cls, warehouse, product, inventory_type, inventory_state, quantity,
-                                                        transaction_type, transaction_id, in_stock=True):
+                                                        transaction_type, transaction_id, in_stock=True, weight=0):
         """
         Create/Update entry in WarehouseInventory
         Create entry in WarehouseInternalInventoryChange
@@ -229,15 +229,18 @@ class CommonWarehouseInventoryFunctions(object):
                          "Inventory State-{}, Quantity-{}, Transaction type-{}, Transaction ID-{}"
                          .format(warehouse.id, product.product_sku, inventory_type.inventory_type,
                                  inventory_state.inventory_state, quantity, transaction_type, transaction_id))
-        cls.create_warehouse_inventory(warehouse, product, inventory_type, inventory_state, quantity, in_stock)
+        cls.create_warehouse_inventory(warehouse, product, inventory_type, inventory_state, quantity, in_stock, weight)
         WarehouseInternalInventoryChange.objects.create(warehouse=warehouse, sku=product,
                                                         transaction_type=transaction_type,
-                                                        transaction_id=transaction_id, inventory_type=inventory_type,
-                                                        inventory_state=inventory_state, quantity=quantity)
+                                                        transaction_id=transaction_id,
+                                                        inventory_type=inventory_type,
+                                                        inventory_state=inventory_state,
+                                                        quantity=quantity,
+                                                        weight=weight)
         info_logger.info("Warehouse Inventory Update| Done")
 
     @classmethod
-    def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
+    def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock, weight=0):
 
         ware_house_inventory_obj = WarehouseInventory.objects.filter(
             warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
@@ -246,6 +249,8 @@ class CommonWarehouseInventoryFunctions(object):
 
         if ware_house_inventory_obj:
             ware_house_quantity = quantity + ware_house_inventory_obj.quantity
+            ware_house_weight = weight + ware_house_inventory_obj.weight
+            ware_house_inventory_obj.weight = ware_house_weight
             ware_house_inventory_obj.quantity = ware_house_quantity
             ware_house_inventory_obj.save()
         else:
@@ -254,8 +259,8 @@ class CommonWarehouseInventoryFunctions(object):
                 sku=sku,
                 inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
                 inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
-                in_stock=in_stock, quantity=quantity)
-
+                in_stock=in_stock, quantity=quantity, weight=weight
+            )
 
     @classmethod
     def create_warehouse_inventory_stock_correction(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
@@ -570,20 +575,20 @@ class OrderManagement(object):
 class InternalInventoryChange(object):
     @classmethod
     def create_bin_internal_inventory_change(cls, shop_id, sku, batch_id, final_bin_id, initial_type,
-                                             final_type, transaction_type, transaction_id, quantity):
+                                             final_type, transaction_type, transaction_id, quantity,
+                                             weight=0):
         """
 
         :param shop_id:
         :param sku:
         :param batch_id:
-        :param initial_bin:
         :param final_bin_id:
         :param initial_type:
         :param final_type:
         :param transaction_type:
         :param transaction_id:
         :param quantity:
-        :param inventory_csv:
+        :param weight:
         :return:
         """
 
@@ -596,7 +601,8 @@ class InternalInventoryChange(object):
                                                   final_inventory_type=final_type,
                                                   transaction_type=transaction_type,
                                                   transaction_id=transaction_id,
-                                                  quantity=quantity)
+                                                  quantity=quantity,
+                                                  weight=weight)
 
 
 class WareHouseCommonFunction(object):
@@ -726,7 +732,8 @@ class StockMovementCSV(object):
             error_logger.error(e)
 
 
-def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_state, t, val, put_away_status, pu):
+def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_state, t, val, put_away_status, pu,
+                               weight):
     """
 
     :param sh:
@@ -739,6 +746,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
     :param val:
     :param put_away_status:
     :param pu:
+    :param weight:
     :return:
     """
     bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(
@@ -751,12 +759,17 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
     if bin_inventory_obj.exists():
         bin_inventory_obj = bin_inventory_obj.last()
         bin_quantity = val + bin_inventory_obj.quantity
+        bin_weight = weight + bin_inventory_obj.weight
         bin_inventory_obj.quantity = bin_quantity
+        bin_inventory_obj.weight = bin_weight
         bin_inventory_obj.save()
     else:
-        BinInventory.objects.create(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last(), sku=put_away.last().sku,
+        BinInventory.objects.create(warehouse=sh,
+                                    bin=Bin.objects.filter(bin_id=bin_id, warehouse=sh).last(),
+                                    sku=put_away.last().sku,
                                     batch_id=batch_id, inventory_type=InventoryType.objects.filter(
-                                    inventory_type=inv_type).last(), quantity=val, in_stock=t)
+                                        inventory_type=inv_type).last(), quantity=val, in_stock=t,
+                                    weight=weight)
 
     if put_away_status is True:
         PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
@@ -776,11 +789,11 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
     final_type = InventoryType.objects.filter(inventory_type='normal').last(),
     InternalInventoryChange.create_bin_internal_inventory_change(sh, pu[0].sku, batch_id, bin_id, initial_type[0],
                                                                  final_type[0], transaction_type,
-                                                                 transaction_id, val)
+                                                                 transaction_id, val, weight)
 
     CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(sh, pu[0].sku, inv_type,
                                                                                       inv_state, val, transaction_type,
-                                                                                      transaction_id)
+                                                                                      transaction_id, True, weight)
 
 
 def common_for_release(prod_list, shop_id, transaction_type, transaction_id, order_status):
@@ -2087,3 +2100,7 @@ def get_stock_available_category_list(warehouse=None):
     if warehouse:
         query_set = query_set.filter(warehouse=warehouse)
     return query_set.values_list('sku__parent_product__parent_product_pro_category__category', flat=True).distinct()
+
+
+def is_product_not_eligible(product_id):
+    return Product.objects.filter(id=product_id, repackaging_type='packing_material').exists()

@@ -534,8 +534,8 @@ class BinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
     actions = ['download_barcode']
-    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'to_be_picked_qty', 'in_stock',
-                    'created_at', 'modified_at', 'expiry_date')
+    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity_display', 'weight_in_kg', 'to_be_picked_qty',
+                    'in_stock', 'created_at', 'modified_at', 'expiry_date')
     readonly_fields = ['warehouse', 'bin', 'sku', 'batch_id', 'inventory_type', 'quantity', 'in_stock']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id', 'created_at', 'modified_at',)
     list_filter = [BinIDFilterForBinInventory, Warehouse, BatchIdFilter, SKUFilter, InventoryTypeFilter,
@@ -544,6 +544,14 @@ class BinInventoryAdmin(admin.ModelAdmin):
 
     class Media:
         js = ('admin/js/picker.js',)
+
+    def quantity_display(self, obj):
+        return obj.quantity if obj.sku.repackaging_type != 'packing_material' else '-'
+
+    quantity_display.short_description = "Quantity"
+
+    def weight_in_kg(self, obj):
+        return (obj.weight / 1000) if obj.sku.repackaging_type == 'packing_material' else '-'
 
     def expiry_date(self, obj):
         return get_expiry_date(obj.batch_id)
@@ -575,7 +583,7 @@ class OutAdmin(admin.ModelAdmin):
     info_logger.info("Out Admin has been called.")
     form = OutForm
     list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'batch_id', 'inventory_type',
-                    'quantity', 'created_at', 'modified_at')
+                    'quantity_display', 'weight_in_kg', 'created_at', 'modified_at')
     readonly_fields = ('warehouse', 'out_type', 'out_type_id', 'sku', 'batch_id', 'inventory_type',
                        'quantity', 'created_at', 'modified_at')
     list_filter = [Warehouse, ('out_type', DropdownFilter), SKUFilter, BatchIdFilter, OutTypeIDFilter]
@@ -583,6 +591,14 @@ class OutAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
+    def quantity_display(self, obj):
+        return obj.quantity if obj.sku.repackaging_type != 'packing_material' else '-'
+
+    quantity_display.short_description = "Quantity"
+
+    def weight_in_kg(self, obj):
+        return (obj.weight / 1000) if obj.sku.repackaging_type == 'packing_material' else '-'
 
     def get_urls(self):
         from django.conf.urls import url
@@ -729,7 +745,8 @@ class StockMovementCSVUploadAdmin(admin.ModelAdmin):
 
 class WarehouseInventoryAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
+        'warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity_display', 'weight_in_kg', 'in_stock', 'created_at',
+        'modified_at')
     list_select_related = ('warehouse', 'inventory_type', 'inventory_state', 'sku')
 
     readonly_fields = (
@@ -738,6 +755,14 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
     list_filter = [Warehouse, SKUFilter, InventoryTypeFilter, InventoryStateFilter, ('created_at', DateTimeRangeFilter),
                    ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
+
+    def quantity_display(self, obj):
+        return obj.quantity if obj.sku.repackaging_type != 'packing_material' else '-'
+
+    quantity_display.short_description = "Quantity"
+
+    def weight_in_kg(self, obj):
+        return (obj.weight / 1000) if obj.sku.repackaging_type == 'packing_material' else '-'
 
     class Media:
         pass
@@ -750,18 +775,27 @@ class InventoryStateAdmin(admin.ModelAdmin):
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'inventory_type', 'inventory_state', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
+        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'inventory_type', 'inventory_state', 'quantity',
+        'weight_in_kg', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = (
         'inventory_type', 'inventory_state', 'inventory_csv', 'status', 'warehouse', 'sku', 'transaction_type', 'transaction_id',
         'initial_type', 'initial_stage',
-        'final_type', 'final_stage', 'quantity', 'created_at', 'modified_at')
+        'final_type', 'final_stage', 'quantity_display', 'created_at', 'modified_at')
 
     search_fields = ('sku__product_sku', 'transaction_id',)
     list_filter = [Warehouse, ProductSKUFilter, TransactionIDFilter, InventoryTypeFilter, InventoryStateFilter,
                     ('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter),
                    ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
+
+    def quantity_display(self, obj):
+        return obj.quantity if obj.sku.repackaging_type != 'packing_material' else '-'
+
+    quantity_display.short_description = "Quantity"
+
+    def weight_in_kg(self, obj):
+        return (obj.weight / 1000) if obj.sku.repackaging_type == 'packing_material' else '-'
 
     class Media:
         pass
@@ -770,12 +804,20 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
 class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'initial_inventory_type', 'final_inventory_type', 'initial_bin',
                     'final_bin', 'transaction_type', 'transaction_id',
-                    'quantity', 'created_at', 'modified_at', 'inventory_csv')
+                    'quantity_display', 'weight_in_kg', 'created_at', 'modified_at', 'inventory_csv')
     list_filter = [Warehouse, SKUFilter, BatchIdFilter, InitialInventoryTypeFilter, FinalInventoryTypeFilter,
                    InitialBinIDFilter, FinalBinIDFilter, ('transaction_type', DropdownFilter),
                    TransactionIDFilter]
 
     list_per_page = 50
+
+    def quantity_display(self, obj):
+        return obj.quantity if obj.sku.repackaging_type != 'packing_material' else '-'
+
+    quantity_display.short_description = "Quantity"
+
+    def weight_in_kg(self, obj):
+        return (obj.weight / 1000) if obj.sku.repackaging_type == 'packing_material' else '-'
 
     class Media:
         pass

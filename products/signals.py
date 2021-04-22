@@ -1,14 +1,16 @@
 from django.contrib.auth.models import User
+from decimal import Decimal
 
 from products.models import Product, ProductPrice, ProductCategory, \
-    ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice, PriceSlab
-from django.db.models.signals import post_save
+    ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice, PriceSlab,\
+    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es, update_product_es
 from analytics.post_save_signal import get_category_product_report
 import logging
 from django.db import transaction
-from wms.models import Out, In, InventoryType, Pickup, WarehouseInventory, InventoryState,WarehouseInternalInventoryChange, PutawayBinInventory, Putaway
+from wms.models import Out, In, InventoryType, Pickup, WarehouseInventory, InventoryState, BinInventory, PutawayBinInventory, Putaway
 from retailer_to_sp.models import generate_picklist_id, PickerDashboard
 from wms.common_functions import CommonPickupFunctions, CommonPickBinInvFunction, InternalInventoryChange, \
     CommonWarehouseInventoryFunctions,update_visibility, get_visibility_changes
@@ -161,6 +163,87 @@ def update_product_tax_mapping(product):
             ).save()
 
 
+def get_bin_inv_dict(bin_inv, bin_inv_dict):
+    if len(bin_inv.batch_id) == 23:
+        bin_inv_dict[bin_inv] = str(datetime.strptime(
+            bin_inv.batch_id[17:19] + '-' + bin_inv.batch_id[19:21] + '-' + '20' + bin_inv.batch_id[21:23],
+            "%d-%m-%Y"))
+    else:
+        bin_inv_dict[bin_inv] = str(
+            datetime.strptime('30-' + bin_inv.batch_id[17:19] + '-20' + bin_inv.batch_id[19:21],
+                              "%d-%m-%Y"))
+    return bin_inv_dict
+
+
+def repackaging_packing_material_inventory(rep_obj):
+    """
+        Manage Inventory Of Packing Material In Repackaging
+    """
+    type_normal = InventoryType.objects.filter(inventory_type="normal").last()
+    state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
+    state_repackaging = InventoryState.objects.filter(inventory_state='repackaging').last()
+
+    # Packing Material Mapped To Destination SKU
+    ppm = ProductPackingMapping.objects.get(sku=rep_obj.destination_sku)
+    weight = rep_obj.destination_sku_quantity * ppm.packing_sku_weight_per_unit_sku
+    packing_sku = ppm.packing_sku
+    shop = rep_obj.seller_shop
+
+    # Moving Warehouse Inventory From Total Available To Repackaging State
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+        shop, packing_sku, type_normal, state_total_available, 0, 'repackaging', rep_obj.id, True, -1 * weight)
+
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
+        shop, packing_sku, type_normal, state_repackaging, 0, 'repackaging', rep_obj.id, True, weight)
+
+    # Check And Move Bin Inventory
+    bin_inv_dict = {}
+    bin_lists = BinInventory.objects.filter(quantity__gt=0, warehouse=rep_obj.seller_shop, sku=ppm.packing_sku,
+                                            inventory_type__inventory_type='normal').order_by('-batch_id', 'quantity')
+    if bin_lists.exists():
+        for k in bin_lists:
+            bin_inv_dict = get_bin_inv_dict(k, bin_inv_dict)
+    else:
+        bin_lists = BinInventory.objects.filter(quantity=0, warehouse=rep_obj.seller_shop, sku=ppm.packing_sku,
+                                                inventory_type__inventory_type='normal').order_by('-batch_id',
+                                                                                                  'quantity').last()
+        bin_inv_dict = get_bin_inv_dict(bin_lists, bin_inv_dict)
+    bin_inv_list = list(bin_inv_dict.items())
+    bin_inv_dict = dict(sorted(dict(bin_inv_list).items(), key=lambda x: x[1]))
+
+    # Deduct Inventory From Available Inventory In Bins
+    for bin_inv in bin_inv_dict.keys():
+        if weight == 0:
+            break
+        already_deducted = 0
+        batch_id = bin_inv.batch_id if bin_inv else None
+        wt_in_bin = bin_inv.weight if bin_inv else 0
+        if weight - already_deducted <= wt_in_bin:
+            already_deducted += weight
+            remaining_wt = wt_in_bin - already_deducted
+            bin_inv.weight = remaining_wt
+            bin_inv.save()
+            weight = 0
+            Out.objects.create(warehouse=rep_obj.seller_shop, out_type='repackaging', out_type_id=rep_obj.id,
+                               sku=ppm.packing_sku, batch_id=batch_id, weight=already_deducted, quantity=0,
+                               inventory_type=type_normal)
+            InternalInventoryChange.create_bin_internal_inventory_change(rep_obj.seller_shop, ppm.packing_sku, batch_id,
+                                                                         bin_inv.bin, type_normal, type_normal,
+                                                                         "repackaging", rep_obj.id, 0, already_deducted)
+        else:
+            already_deducted = wt_in_bin
+            remaining_wt = weight - already_deducted
+            bin_inv.weight = 0
+            bin_inv.save()
+            weight = remaining_wt
+            Out.objects.create(warehouse=rep_obj.seller_shop, out_type='repackaging', out_type_id=rep_obj.id,
+                               sku=ppm.packing_sku, batch_id=batch_id, weight=already_deducted, quantity=0,
+                               inventory_type=type_normal)
+            InternalInventoryChange.create_bin_internal_inventory_change(rep_obj.seller_shop, ppm.packing_sku, batch_id,
+                                                                         bin_inv.bin, type_normal, type_normal,
+                                                                         "repackaging", rep_obj.id, 0, already_deducted)
+
+
 @receiver(post_save, sender=Repackaging)
 def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
     type_normal = InventoryType.objects.filter(inventory_type="normal").last()
@@ -211,28 +294,13 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                         'quantity')
                     if bin_lists.exists():
                         for k in bin_lists:
-                            if len(k.batch_id) == 23:
-                                bin_inv_dict[k] = str(datetime.strptime(
-                                    k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],
-                                    "%d-%m-%Y"))
-                            else:
-                                bin_inv_dict[k] = str(
-                                    datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21],
-                                                      "%d-%m-%Y"))
+                            bin_inv_dict = get_bin_inv_dict(k, bin_inv_dict)
                     else:
                         bin_lists = obj.sku.rt_product_sku.filter(quantity=0, warehouse=shop,
                                                                   inventory_type__inventory_type='normal').order_by(
                             '-batch_id',
                             'quantity').last()
-                        if len(bin_lists.batch_id) == 23:
-                            bin_inv_dict[bin_lists] = str(datetime.strptime(
-                                bin_lists.batch_id[17:19] + '-' + bin_lists.batch_id[
-                                                                  19:21] + '-' + '20' + bin_lists.batch_id[21:23],
-                                "%d-%m-%Y"))
-                        else:
-                            bin_inv_dict[bin_lists] = str(
-                                datetime.strptime('30-' + bin_lists.batch_id[17:19] + '-20' + bin_lists.batch_id[19:21],
-                                                  "%d-%m-%Y"))
+                        bin_inv_dict = get_bin_inv_dict(bin_lists, bin_inv_dict)
 
                     bin_inv_list = list(bin_inv_dict.items())
                     bin_inv_dict = dict(sorted(dict(bin_inv_list).items(), key=lambda x: x[1]))
@@ -317,6 +385,52 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                    putaway=pu,
                                                    putaway_status=False,
                                                    putaway_quantity=rep_obj.destination_sku_quantity)
+
+                repackaging_packing_material_inventory(rep_obj)
+
+
+@receiver(post_save, sender=ProductPackingMapping)
+def update_packing_material_cost(sender, instance=None, created=False, **kwargs):
+    pack_m_cost = 0
+    if instance.packing_sku.moving_average_buying_price:
+        pack_m_cost = (
+                              instance.packing_sku.moving_average_buying_price / instance.packing_sku.weight_value) * instance.packing_sku_weight_per_unit_sku
+
+    DestinationRepackagingCostMapping.objects.filter(destination=instance.sku).update(
+        primary_pm_cost=round(Decimal(pack_m_cost), 2)
+    )
+
+
+@receiver(post_save, sender=ProductSourceMapping)
+def update_raw_material_cost_save(sender, instance=None, created=False, **kwargs):
+    source_sku_maps = ProductSourceMapping.objects.filter(destination_sku=instance.destination_sku)
+    total_raw_material = 0
+    count = 0
+    for source_sku_map in source_sku_maps:
+        source_sku = source_sku_map.source_sku
+        if source_sku.moving_average_buying_price:
+            count += 1
+            total_raw_material += (
+                                          source_sku.moving_average_buying_price / source_sku.weight_value) * instance.destination_sku.weight_value
+    raw_m_cost = total_raw_material / count if count > 0 else 0
+    DestinationRepackagingCostMapping.objects.filter(destination=instance.destination_sku). \
+        update(raw_material=round(Decimal(raw_m_cost), 2))
+
+
+@receiver(post_delete, sender=ProductSourceMapping)
+def update_raw_material_cost_delete(sender, instance=None, created=False, **kwargs):
+    source_sku_maps = ProductSourceMapping.objects.filter(destination_sku=instance.destination_sku)
+    total_raw_material = 0
+    count = 0
+    for source_sku_map in source_sku_maps:
+        source_sku = source_sku_map.source_sku
+        if source_sku.moving_average_buying_price:
+            count += 1
+            total_raw_material += (
+                                          source_sku.moving_average_buying_price / source_sku.weight_value) * instance.destination_sku.weight_value
+    raw_m_cost = total_raw_material / count if count > 0 else 0
+    DestinationRepackagingCostMapping.objects.filter(destination=instance.destination_sku). \
+        update(raw_material=round(Decimal(raw_m_cost), 2))
 
 
 post_save.connect(get_category_product_report, sender=Product)

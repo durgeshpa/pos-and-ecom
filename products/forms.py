@@ -27,7 +27,7 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
-                             ParentProductCategory, PriceSlab, SlabProductPrice)
+                             ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping)
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
@@ -653,7 +653,7 @@ class UploadChildProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can only be 'Gram'."))
             if not row[7]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' can not be empty."))
-            elif row[7] not in [lis[0] for lis in Product.REASON_FOR_NEW_CHILD_CHOICES]:
+            elif row[7] not in [lis[0] for lis in Product.REPACKAGING_TYPES]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' is invalid."))
             if row[7] == 'destination':
                 if not row[8]:
@@ -671,6 +671,19 @@ class UploadChildProductAdminForm(forms.Form):
                     if not there:
                         raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for Repackaging"
                                                 f" Type 'destination'."))
+
+                if not row[16]:
+                    raise ValidationError(_(f"Row {row_id + 1} | 'Packing SKU' is required for Repackaging"
+                                            f" Type 'destination'."))
+                elif not Product.objects.filter(product_sku=row[16], repackaging_type='packing_material').exists():
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid Packing Sku"))
+
+                if not row[17]:
+                    raise ValidationError(_(f"Row {row_id + 1} | 'Packing Material Weight (gm) per unit (Qty) Of "
+                                            f"Destination Sku' is required for Repackaging Type 'destination'."))
+                elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[17]):
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Packing Material Weight (gm) per unit (Qty)"
+                                            f" Of Destination Sku'"))
 
                 dest_cost_fields = ['Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
                                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost']
@@ -835,11 +848,10 @@ class UploadMasterDataAdminForm(forms.Form):
                                                     f"'Sub_Category_Name' doesn't exist in the system "))
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] != '':
-                        repackaging_list = ['none', 'source', 'destination']
-                        if row['repackaging_type'] not in repackaging_list:
+                        if row['repackaging_type'] not in Product.REPACKAGING_TYPES:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['repackaging_type']} | 'Repackaging Type can either be 'none',"
-                                  f"'source' or 'destination'!"))
+                                  f"'source', 'destination' or 'packing_material'!"))
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] == 'destination':
                         mandatory_fields = ['raw_material', 'wastage', 'fumigation', 'label_printing',
@@ -1921,11 +1933,16 @@ class RepackagingForm(forms.ModelForm):
             url='admin:destination-product-autocomplete', forward=['source_sku'])
     )
 
+    available_packing_material_weight = forms.CharField(label='Available Packing Material Weight (Kg)', required=False)
+    available_packing_material_weight_initial = forms.CharField(widget=forms.HiddenInput(), required=False)
+    packing_sku_weight_per_unit_sku = forms.CharField(widget=forms.HiddenInput(), required=False)
+
     class Meta:
         model = Repackaging
         fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity', 'status',
                   "available_source_weight", "available_source_quantity", "destination_sku_quantity", "remarks",
-                  "expiry_date", "source_picking_status")
+                  "expiry_date", "source_picking_status", 'available_packing_material_weight',
+                  'available_packing_material_weight_initial', 'packing_sku_weight_per_unit_sku')
         widgets = {
             'remarks': forms.Textarea(attrs={'rows': 2}),
         }
@@ -1949,6 +1966,22 @@ class RepackagingForm(forms.ModelForm):
             if self.cleaned_data['source_repackage_quantity'] + self.cleaned_data['available_source_quantity'] != \
                     source_quantity:
                 raise forms.ValidationError("Source Quantity Changed! Please Input Again")
+            try:
+                ProductPackingMapping.objects.get(sku=self.cleaned_data['destination_sku'])
+            except:
+                raise forms.ValidationError("Please Map A Packing Material To The Selected Destination Product First")
+        if 'destination_sku_quantity' in self.cleaned_data:
+            try:
+                ppm = ProductPackingMapping.objects.get(sku=self.instance.destination_sku)
+            except:
+                raise forms.ValidationError("Please Map A Packing Material To The Selected Destination Product First")
+            try:
+                inv = WarehouseInventory.objects.get(inventory_type__inventory_type='normal', sku=ppm.packing_sku,
+                                                     warehouse=self.instance.seller_shop)
+            except:
+                raise forms.ValidationError("Packing Material Warehouse Inventory Not Found")
+            if inv.weight < self.cleaned_data['destination_sku_quantity'] * ppm.packing_sku_weight_per_unit_sku:
+                raise forms.ValidationError("Packing Material Inventory Not Sufficient")
         if self.instance.source_picking_status in ['pickup_created', 'picking_assigned']:
             raise forms.ValidationError("Source pickup is still not complete.")
         return self.cleaned_data
@@ -1957,10 +1990,22 @@ class RepackagingForm(forms.ModelForm):
         super(RepackagingForm, self).__init__(*args, **kwargs)
         if self.instance.pk and 'expiry_date' in self.fields:
             self.fields['expiry_date'].required = True
-        readonly = ['available_source_weight', 'available_source_quantity']
+        readonly = ['available_source_weight', 'available_source_quantity', 'available_packing_material_weight']
         for key in readonly:
             if key in self.fields:
                 self.fields[key].widget.attrs['readonly'] = True
+        if self.instance.pk and 'available_packing_material_weight' in self.fields:
+            self.fields['available_packing_material_weight'].initial = 0
+            self.fields['available_packing_material_weight_initial'].initial = 0
+            self.fields['packing_sku_weight_per_unit_sku'].initial = 0
+            repack_obj = Repackaging.objects.get(pk=self.instance.pk)
+            ppm = ProductPackingMapping.objects.filter(sku=repack_obj.destination_sku).last()
+            if ppm:
+                inventory = WarehouseInventory.objects.filter(inventory_type__inventory_type='normal',
+                                                              sku=ppm.packing_sku, warehouse=repack_obj.seller_shop).last()
+                self.fields['available_packing_material_weight'].initial = (inventory.weight - repack_obj.destination_sku_quantity * ppm.packing_sku_weight_per_unit_sku)/1000 if inventory else 0
+                self.fields['available_packing_material_weight_initial'].initial = inventory.weight if inventory else 0
+                self.fields['packing_sku_weight_per_unit_sku'].initial = ppm.packing_sku_weight_per_unit_sku
 
 
 class BulkProductVendorMapping(forms.Form):
@@ -2239,3 +2284,46 @@ class ProductHSNForm(forms.ModelForm):
 
         # data from the form is fetched using super function
         super(ProductHSNForm, self).clean()
+
+
+class ProductPackingMappingFormSet(forms.models.BaseInlineFormSet):
+
+    def clean(self):
+        super(ProductPackingMappingFormSet, self).clean()
+        count = 0
+        delete_count = 0
+        valid = True
+        for form in self:
+            if form.is_valid():
+                if form.cleaned_data:
+                    count += 1
+                if self.instance.repackaging_type != 'destination' and form.cleaned_data:
+                    form.cleaned_data['DELETE'] = True
+                if 'DELETE' in form.cleaned_data and form.cleaned_data['DELETE'] is True:
+                    delete_count += 1
+            else:
+                valid = False
+
+        if self.instance.repackaging_type == 'destination':
+            if count < 1 or count == delete_count:
+                raise ValidationError("At least one packing material mapping is required")
+        if valid:
+            return self.cleaned_data
+
+    class Meta:
+        model = ProductPackingMapping
+
+
+class ProductPackingMappingForm(forms.ModelForm):
+    packing_sku = forms.ModelChoiceField(
+        queryset=Product.objects.filter(repackaging_type='packing_material'),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='packing-product-autocomplete'
+        )
+    )
+    packing_sku_weight_per_unit_sku = forms.CharField(required=True)
+
+    class Meta:
+        model = ProductPackingMapping
+        fields = ('packing_sku', 'packing_sku_weight_per_unit_sku')

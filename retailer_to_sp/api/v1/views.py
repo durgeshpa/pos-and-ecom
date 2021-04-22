@@ -56,7 +56,12 @@ from shops.models import Shop, ParentRetailerMapping, ShopUserMapping, ShopMigra
 from brand.models import Brand
 from addresses.models import Address
 
-from wms.common_functions import OrderManagement, get_stock
+from retailer_to_sp.tasks import (
+    ordered_product_available_qty_update, release_blocking
+)
+from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
+from .filters import OrderedProductMappingFilter, OrderedProductFilter
+from retailer_to_sp.filters import PickerDashboardFilter
 from common.data_wrapper_view import DataWrapperViewSet
 from common.data_wrapper import format_serializer_errors
 from sp_to_gram.tasks import es_search, upload_shop_stock
@@ -1490,6 +1495,11 @@ class AddToCart(APIView):
             if is_blocked_for_audit:
                 msg['message'] = [ERROR_MESSAGES['4019'].format(Product.objects.get(id=cart_product))]
                 return Response(msg, status=status.HTTP_200_OK)
+
+            if is_product_not_eligible(cart_product):
+                msg['message'] = ["Product Not Eligible To Order"]
+                return Response(msg, status=status.HTTP_200_OK)
+
             #  if shop mapped with SP
             # available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
             #     'sku__id').annotate(quantity=Sum('quantity'))

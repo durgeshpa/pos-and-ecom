@@ -51,7 +51,8 @@ from products.models import (
     ParentProduct, ParentProductCategory,
     ProductSourceMapping,
     ParentProductTaxMapping, Tax, ParentProductImage,
-    DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab
+    DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab,
+    ProductPackingMapping
 )
 
 logger = logging.getLogger(__name__)
@@ -1054,11 +1055,13 @@ def ChildProductsDownloadSampleCSV(request):
     writer.writerow(["Parent Product ID", "Reason for Child SKU", "Product Name", "Product EAN Code",
                      "Product MRP", "Weight Value", "Weight Unit", "Repackaging Type", "Map Source SKU",
                      'Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
-                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost'])
+                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost', "Packing SKU",
+                     "Packing Sku Weight (gm) Per Unit (Qty) Destination Sku"])
     writer.writerow(["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram", "none"])
     writer.writerow(["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "Gram", "source"])
     writer.writerow(["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "Gram", "destination",
-                     "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22"])
+                     "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
+                     "BPOBLKREG00000001", "10.00"])
     return response
 
 
@@ -1131,6 +1134,11 @@ def product_csv_upload(request):
                                 secondary_pm_cost=float(row[15])
                             )
                             dcm.save()
+                            ProductPackingMapping.objects.create(
+                                sku=product,
+                                packing_sku=Product.objects.get(product_sku=row[16]),
+                                packing_sku_weight_per_unit_sku=row[17]
+                            )
 
             except Exception as e:
                 print(e)
@@ -2109,11 +2117,12 @@ class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
         seller_shop = self.forwarded.get('seller_shop', None)
         qs = []
         if seller_shop:
+            ids = Product.objects.filter(repackaging_type='source', product_pro_price__seller_shop=seller_shop) \
+                .values_list('id', flat=True).distinct()
             normal_type = InventoryType.objects.filter(inventory_type='normal').last()
-            product_list = get_stock(seller_shop, normal_type)
+            product_list = get_stock(seller_shop, normal_type, ids)
             product_list = {k: v for k, v in product_list.items() if v > 0}
-            pp = ProductPrice.objects.filter(seller_shop_id=seller_shop, product_id__in=product_list.keys()).values('product_id')
-            qs = Product.objects.filter(id__in=pp, repackaging_type='source')
+            qs = Product.objects.filter(id__in=product_list.keys())
             if self.q:
                 qs = qs.filter(product_name__icontains=self.q)
         return qs
@@ -2342,3 +2351,23 @@ def slab_product_price_csv_upload(request):
     else:
         form = UploadSlabProductPriceForm()
     return render(request, 'admin/products/bulk-slab-product-price.html', {'form': form})
+
+
+class PackingProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Product.objects.filter(repackaging_type='packing_material')
+        if self.q:
+            qs = qs.filter(Q(product_name__icontains=self.q) |
+                           Q(product_sku__icontains=self.q))
+        return qs
+
+
+class PackingMaterialCheck(View):
+
+    def get(self, *args, **kwargs):
+        try:
+            ProductPackingMapping.objects.get(sku_id=self.request.GET.get('sku_id'))
+            return JsonResponse({"success": True})
+        except:
+            return JsonResponse({"success": False, "error": "Please Map A Packing Material To The Selected Destination"
+                                                            " Product First"})

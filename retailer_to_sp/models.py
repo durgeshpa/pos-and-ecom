@@ -31,8 +31,8 @@ from .utils import (order_shipment_date, order_delivery_date, order_cash_to_be_c
 from addresses.models import Address
 from wms.models import PickupBinInventory, Pickup, BinInventory, InventoryType, \
     InventoryState, Bin
-from wms.common_functions import common_on_return_and_partial, \
-    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
+from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
+    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock, is_product_not_eligible
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice, Repackaging
@@ -702,6 +702,10 @@ class BulkOrder(models.Model):
                         pass
                     else:
                         message = "Failed because of SKU {} is Blocked for Audit".format(str(product.product_sku))
+                        error_dict[row[0]] = message
+
+                    if is_product_not_eligible(product.id):
+                        message = "Failed because SKU {} is not eligible to order".format(str(product.product_sku))
                         error_dict[row[0]] = message
 
                     if product_available >= ordered_qty:
