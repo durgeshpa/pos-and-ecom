@@ -1393,7 +1393,7 @@ class Trip(models.Model):
         trip_shipments = self.rt_invoice_trip.filter(shipment_status__in=shipment_status_list)
         for shipment in trip_shipments:
             cash_to_be_collected.append(
-                shipment.cash_to_be_collected())
+                float(shipment.cash_to_be_collected()))
         return round(sum(cash_to_be_collected), 2)
 
     def total_paid_amount(self):
