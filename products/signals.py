@@ -1,9 +1,10 @@
 from django.contrib.auth.models import User
+from decimal import Decimal
 
 from products.models import Product, ProductPrice, ProductCategory, \
     ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice,\
-    ProductPackingMapping
-from django.db.models.signals import post_save
+    ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es, update_product_es
 from analytics.post_save_signal import get_category_product_report
@@ -373,6 +374,50 @@ def create_repackaging_pickup(sender, instance=None, created=False, **kwargs):
                                                    putaway_quantity=rep_obj.destination_sku_quantity)
 
                 repackaging_packing_material_inventory(rep_obj)
+
+
+@receiver(post_save, sender=ProductPackingMapping)
+def update_packing_material_cost(sender, instance=None, created=False, **kwargs):
+    pack_m_cost = 0
+    if instance.packing_sku.moving_average_buying_price:
+        pack_m_cost = (
+                              instance.packing_sku.moving_average_buying_price / instance.packing_sku.weight_value) * instance.packing_sku_weight_per_unit_sku
+
+    DestinationRepackagingCostMapping.objects.filter(destination=instance.sku).update(
+        primary_pm_cost=round(Decimal(pack_m_cost), 2)
+    )
+
+
+@receiver(post_save, sender=ProductSourceMapping)
+def update_raw_material_cost_save(sender, instance=None, created=False, **kwargs):
+    source_sku_maps = ProductSourceMapping.objects.filter(destination_sku=instance.destination_sku)
+    total_raw_material = 0
+    count = 0
+    for source_sku_map in source_sku_maps:
+        source_sku = source_sku_map.source_sku
+        if source_sku.moving_average_buying_price:
+            count += 1
+            total_raw_material += (
+                                          source_sku.moving_average_buying_price / source_sku.weight_value) * instance.destination_sku.weight_value
+    raw_m_cost = total_raw_material / count if count > 0 else 0
+    DestinationRepackagingCostMapping.objects.filter(destination=instance.destination_sku). \
+        update(raw_material=round(Decimal(raw_m_cost), 2))
+
+
+@receiver(post_delete, sender=ProductSourceMapping)
+def update_raw_material_cost_delete(sender, instance=None, created=False, **kwargs):
+    source_sku_maps = ProductSourceMapping.objects.filter(destination_sku=instance.destination_sku)
+    total_raw_material = 0
+    count = 0
+    for source_sku_map in source_sku_maps:
+        source_sku = source_sku_map.source_sku
+        if source_sku.moving_average_buying_price:
+            count += 1
+            total_raw_material += (
+                                          source_sku.moving_average_buying_price / source_sku.weight_value) * instance.destination_sku.weight_value
+    raw_m_cost = total_raw_material / count if count > 0 else 0
+    DestinationRepackagingCostMapping.objects.filter(destination=instance.destination_sku). \
+        update(raw_material=round(Decimal(raw_m_cost), 2))
 
 
 post_save.connect(get_category_product_report, sender=Product)

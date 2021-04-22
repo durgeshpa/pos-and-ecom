@@ -1014,6 +1014,7 @@ class ProductPackingMapping(models.Model):
 
     class Meta:
         verbose_name = _("Packing Material Product")
+        unique_together = ('sku', 'packing_sku')
 
     def __str__(self):
         return self.packing_sku.product_sku
