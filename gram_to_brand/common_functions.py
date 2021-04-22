@@ -44,19 +44,19 @@ def moving_average_buying_price(product_id, grn_map_id, product_type, grn_price,
 
     last_product_grn = GRNOrderProductMapping.objects.filter(product=product_id, delivered_qty__gt=0). \
         exclude(id=grn_map_id).order_by('created_at').last()
-    last_tax_percentage = last_product_grn.grn_order.order.ordered_cart.cart_list.filter(cart_product=product_id). \
-        values_list('_tax_percentage', flat=True)
-    last_tax_percentage = last_tax_percentage[0] if last_tax_percentage else 0
     last_price = 0
+    last_tax_percentage = 0
     if last_product_grn:
         vendor_product = last_product_grn.vendor_product
         last_price = last_product_grn.product_invoice_price
         if vendor_product.brand_to_gram_price_unit == 'Per Pack':
             last_price = last_price / vendor_product.case_size
+        last_tax_percentage = last_product_grn.grn_order.order.ordered_cart.cart_list.filter(cart_product=product_id). \
+            values_list('_tax_percentage', flat=True)
+        last_tax_percentage = last_tax_percentage[0] if last_tax_percentage else 0
 
-    moving_buying_price = round(Decimal((float(grn_total) * (float(grn_piece_price) / (1 + tax_percentage)) +
-                                         float(inv_total) * (float(last_price) / (1 + last_tax_percentage))) / float(
-        grn_total + inv_total)), 2)
+    moving_buying_price = round(Decimal((float(grn_total) * (float(grn_piece_price) / (1 + (tax_percentage / 100))) +
+                                         float(inv_total) * (float(last_price) / (1 + (last_tax_percentage / 100)))) / float(grn_total + inv_total)), 2)
     Product.objects.filter(id=product_id).update(moving_average_buying_price=moving_buying_price)
     update_destination_pack_cost(product_type, product_id)
 

@@ -339,13 +339,21 @@ class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
     list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'inventory_type',
-                    'quantity', 'expiry_date')
+                    'quantity_display', 'weight_in_kg', 'expiry_date')
     readonly_fields = ('warehouse', 'in_type', 'in_type_id', 'sku', 'batch_id', 'inventory_type',
                        'quantity', 'expiry_date')
     search_fields = ('batch_id', 'in_type_id', 'sku__product_sku',)
     list_filter = [Warehouse, BatchIdFilter, SKUFilter, InTypeIDFilter, 'in_type',
                    ('expiry_date', DateRangeFilter)]
     list_per_page = 50
+
+    def quantity_display(self, obj):
+        return obj.quantity if obj.sku.repackaging_type != 'packing_material' else '-'
+
+    quantity_display.short_description = "Quantity"
+
+    def weight_in_kg(self, obj):
+        return (obj.weight / 1000) if obj.sku.repackaging_type == 'packing_material' else '-'
 
     class Media:
         pass
@@ -775,7 +783,7 @@ class InventoryStateAdmin(admin.ModelAdmin):
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = (
-        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'inventory_type', 'inventory_state', 'quantity',
+        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'inventory_type', 'inventory_state', 'quantity_display',
         'weight_in_kg', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = (
