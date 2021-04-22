@@ -149,7 +149,7 @@ class OrderedProductViewSet(APIView):
             id=shipment_id
         )
         serializer = ReadOrderedProductSerializer(ordered_product[0])
-        msg = {'is_success': True, 'message': [''], 'results': serializer.data}
+        msg = {'is_success': True, 'message': [''], 'response_data':{'results':[serializer.data]}}
         return Response(msg, status=status.HTTP_200_OK)
 
 
