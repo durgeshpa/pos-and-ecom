@@ -133,43 +133,25 @@ class PickerDashboardViewSet(DataWrapperViewSet):
         return picker_dashboard
 
 
-class OrderedProductViewSet(DataWrapperViewSet):
+class OrderedProductViewSet(APIView):
     '''
     This class handles all operation of ordered product
     '''
-    # permission_classes = (AllowAny,)
     model = OrderedProduct
     queryset = OrderedProduct.objects.all()
     serializer_class = OrderedProductSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    # filter_backends = (filters.DjangoFilterBackend,)
-    # filter_class = OrderedProductFilter
-
-    def get_serializer_class(self):
-        '''
-        Returns the serializer according to action of viewset
-        '''
-        serializer_action_classes = {
-            'retrieve': ReadOrderedProductSerializer,
-            'list': ReadOrderedProductSerializer,
-            'create': OrderedProductSerializer,
-            'update': OrderedProductSerializer
-        }
-        if hasattr(self, 'action'):
-            return serializer_action_classes.get(self.action, self.serializer_class)
-        return self.serializer_class
-
-    def get_queryset(self):
+    def get(self, request, *args, **kwargs):
         shipment_id = self.request.query_params.get('shipment_id', None)
-        ordered_product = OrderedProduct.objects.all()
+        ordered_product = self.queryset.filter(
+            id=shipment_id
+        )
+        serializer = ReadOrderedProductSerializer(ordered_product[0])
+        msg = {'is_success': True, 'message': [''], 'response_data':{'results':[serializer.data]}}
+        return Response(msg, status=status.HTTP_200_OK)
 
-        if shipment_id is not None:
-            ordered_product = ordered_product.filter(
-                id=shipment_id
-            )
-        return ordered_product
 
 
 class OrderedProductMappingView(DataWrapperViewSet):
