@@ -316,6 +316,20 @@ class Product(models.Model):
             return self.parent_product.image
         return self.child_product_image
 
+    @property
+    def is_ptr_applicable(self):
+        return self.parent_product.is_ptr_applicable if self.parent_product else ''
+
+    @property
+    def ptr_type(self):
+        return ParentProduct.PTR_TYPE_CHOICES[self.parent_product.ptr_type] \
+            if self.parent_product and self.parent_product.is_ptr_applicable else ''
+
+    @property
+    def ptr_percent(self):
+        return self.parent_product.ptr_percent \
+            if self.parent_product and self.parent_product.is_ptr_applicable else ''
+
     def get_current_shop_price(self, seller_shop_id, buyer_shop_id):
         '''
         Firstly we will only filter using seller shop. If the queryset exists

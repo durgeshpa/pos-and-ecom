@@ -1398,7 +1398,7 @@ def set_parent_data_sample_excel_file(request, *args):
     columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)', 'brand_case_size',
                'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
-               'status', ]
+               'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent']
     mandatory_columns = ['parent_id', 'parent_name', 'status']
 
     for col_num, column_title in enumerate(columns, 1):
@@ -1423,7 +1423,10 @@ def set_parent_data_sample_excel_file(request, *args):
                                                            'category__id', 'category__category_name',
                                                            'category__category_parent_id',
                                                            'category__category_parent__category_name',
-                                                           'parent_product__status').filter(
+                                                           'parent_product__status',
+                                                           'parent_product__is_ptr_applicable',
+                                                           'parent_product__ptr_type',
+                                                           'parent_product__ptr_percent').filter(
                                                             category=int(category_id))
     for product in parent_products:
         row = []
@@ -1470,6 +1473,9 @@ def set_parent_data_sample_excel_file(request, *args):
             row.append("active")
         else:
             row.append("deactivated")
+        row.append('Yes' if product['parent_product__is_ptr_applicable'] else 'No')
+        row.append(ParentProduct.PTR_TYPE_CHOICES[product['parent_product__ptr_type']] if product['parent_product__is_ptr_applicable'] else '')
+        row.append(product['parent_product__ptr_percent'])
         row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
