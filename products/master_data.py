@@ -134,7 +134,7 @@ class UploadMasterData(object):
 
                         fields = ['product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)',
                                   'tax_3(surcharge)', 'brand_case_size', 'inner_case_size', 'brand_id',
-                                  'sub_brand_id', 'category_id', 'sub_category_id']
+                                  'sub_brand_id', 'category_id', 'sub_category_id', 'is_ptr_applicable', 'ptr_type', 'ptr_percent']
                         available_fields = []
                         for col in fields:
                             if col in row.keys():
@@ -191,6 +191,17 @@ class UploadMasterData(object):
                             if col == 'sub_brand_id':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update(
                                     parent_brand=Brand.objects.filter(id=row['sub_brand_id']).last())
+                            if col == 'is_ptr_applicable':
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update \
+                                    (is_ptr_applicable=True if row['is_ptr_applicable'].lower() == 'yes' else False)
+                            if col == 'ptr_type':
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update \
+                                    (ptr_type=None if not row['is_ptr_applicable'].lower() == 'yes' else ParentProduct.PTR_TYPE_CHOICES.MARK_UP
+                                              if row['ptr_type'].lower() == 'mark up'
+                                              else ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN)
+                            if col == 'ptr_percent':
+                                ParentProduct.objects.filter(parent_id=row['parent_id']).update \
+                                    (ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent'])
                     except Exception as e:
                         parent_data.append(str(row_num) + ' ' + str(e))
                 else:
