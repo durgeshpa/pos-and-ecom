@@ -1376,6 +1376,10 @@ def set_child_with_parent_sample_excel_file(request):
     info_logger.info("Child Parent Mapping Sample Excel File has been Successfully Downloaded")
     return response
 
+def get_ptr_type_text(ptr_type=None):
+    if ptr_type is not None and ptr_type in ParentProduct.PTR_TYPE_CHOICES:
+        return ParentProduct.PTR_TYPE_CHOICES[ptr_type]
+    return ''
 
 def set_parent_data_sample_excel_file(request, *args):
     """
@@ -1474,7 +1478,7 @@ def set_parent_data_sample_excel_file(request, *args):
         else:
             row.append("deactivated")
         row.append('Yes' if product['parent_product__is_ptr_applicable'] else 'No')
-        row.append(ParentProduct.PTR_TYPE_CHOICES[product['parent_product__ptr_type']] if product['parent_product__is_ptr_applicable'] else '')
+        row.append(get_ptr_type_text(product['parent_product__ptr_type']))
         row.append(product['parent_product__ptr_percent'])
         row_num += 1
         for col_num, cell_value in enumerate(row, 1):

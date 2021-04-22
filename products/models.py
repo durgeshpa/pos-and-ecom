@@ -149,6 +149,12 @@ class ParentProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def ptr_type_text(self):
+        if self.ptr_type is not None and self.ptr_type in self.PTR_TYPE_CHOICES:
+            return self.PTR_TYPE_CHOICES[self.ptr_type]
+        return ''
+
     def save(self, *args, **kwargs):
         self.parent_slug = slugify(self.name)
         super(ParentProduct, self).save(*args, **kwargs)
@@ -322,8 +328,8 @@ class Product(models.Model):
 
     @property
     def ptr_type(self):
-        return ParentProduct.PTR_TYPE_CHOICES[self.parent_product.ptr_type] \
-            if self.parent_product and self.parent_product.is_ptr_applicable else ''
+        return self.parent_product.ptr_type_text \
+            if self.parent_product else ''
 
     @property
     def ptr_percent(self):
