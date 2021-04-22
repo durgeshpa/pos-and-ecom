@@ -1383,8 +1383,8 @@ class Trip(models.Model):
         trip_shipments = self.rt_invoice_trip.all()
         for shipment in trip_shipments:
             cash_to_be_collected.append(
-                shipment.cash_to_be_collected())
-        return sum(cash_to_be_collected)
+                float(shipment.cash_to_be_collected()))
+        return round(sum(cash_to_be_collected),2)
 
     def cash_collected_by_delivery_boy(self):
         cash_to_be_collected = []
