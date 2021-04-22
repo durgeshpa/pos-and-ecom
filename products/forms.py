@@ -2203,7 +2203,7 @@ class UploadSlabProductPriceForm(forms.Form):
                     selling_price = product.product_mrp / (1 + (ptr_percent / 100))
                 elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
                     selling_price = product.product_mrp*(1 - (ptr_percent / 100))
-                selling_price_per_saleable_unit = float(selling_price)
+                selling_price_per_saleable_unit = round(selling_price, 2)
             else:
                 selling_price_per_saleable_unit = float(row[6])
 

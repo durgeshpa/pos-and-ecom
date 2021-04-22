@@ -618,7 +618,8 @@ class ParentProductAdmin(admin.ModelAdmin):
                 try:
                     val = getattr(obj, field)
                     if field == 'ptr_type':
-                        val = ParentProduct.PTR_TYPE_CHOICES[val]
+                        if val is not None:
+                            val = ParentProduct.PTR_TYPE_CHOICES[val]
                 except:
                     if field == 'product_image':
                         if obj.parent_product_pro_image.exists():
