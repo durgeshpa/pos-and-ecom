@@ -12,7 +12,7 @@ from .views import (ProductsList, GramGRNProductsList, AddToCart, CartDetail,
                     )
 
 router = routers.DefaultRouter()
-router.register(r'ordered-product', OrderedProductViewSet)
+#router.register(r'ordered-product', OrderedProductViewSet)
 router.register(r'picker-dashboard', PickerDashboardViewSet)
 router.register(r'ordered-product-mapping', OrderedProductMappingView)
 
@@ -56,6 +56,7 @@ urlpatterns = [
         name='discounted_credit_note'),
     url('^autosearch/suggest/$', AutoSuggest.as_view()),
     url('^refresh-es/$', RefreshEs.as_view()),
+    url(r'^ordered-product/$', OrderedProductViewSet.as_view())
 ]
 
 urlpatterns += router.urls
