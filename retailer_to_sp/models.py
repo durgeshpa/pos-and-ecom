@@ -1570,6 +1570,8 @@ class OrderedProduct(models.Model):  # Shipment
         if self.order.ordered_cart.approval_status == False:
             for item in self.rt_order_product_order_product_mapping.all():
                 delivered_at_price = item.delivered_at_price if item.delivered_at_price else item.effective_price
+                if delivered_at_price is None:
+                    delivered_at_price = 0
                 cash_to_be_collected = cash_to_be_collected + (item.delivered_qty * delivered_at_price)
             return cash_to_be_collected
         else:
