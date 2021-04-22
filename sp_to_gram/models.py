@@ -12,6 +12,7 @@ from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Sum, Q
 import logging
+import math
 
 from shops.models import Shop, ParentRetailerMapping, ShopInvoicePattern
 from brand.models import Brand
@@ -26,6 +27,7 @@ from sp_to_gram.tasks import update_shop_product_es
 logger = logging.getLogger(__name__)
 from dateutil.relativedelta import relativedelta
 from celery.task import task
+
 
 
 ORDER_STATUS = (
@@ -521,16 +523,18 @@ def create_credit_note_on_trip_close(trip_id):
                     else:
                         cart_product_mapping = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
                         cart_product_price = cart_product_mapping.cart_product_price
-                        delivered_at_price = cart_product_price.get_per_piece_price(item.delivered_qty/cart_product_mapping.cart_product_case_size, cart_product_mapping.cart_product_case_size)
+                        delivered_qty_in_pack = math.ceil(item.delivered_qty / cart_product_mapping.cart_product_case_size)
+                        delivered_at_price = cart_product_price.get_per_piece_price(delivered_qty_in_pack)
                     credit_amount += (item.shipped_qty * float(shipped_at_price)) - (item.delivered_qty * float(delivered_at_price))
                 except Exception as e:
                     logger.exception("Product price not found for {} -- {}".format(item.product, e))
                     product_current_price = item.product.product_pro_price.filter(seller_shop=shipment.order.seller_shop,
                                                                  approval_status=ProductPrice.APPROVED).last()
-                    delivered_at_price = product_current_price.get_per_piece_price(item.delivered_qty/item.product.product_inner_case_size, item.product.product_inner_case_size)
+                    delivered_qty_in_pack = math.ceil(item.delivered_qty / item.product.product_inner_case_size)
+                    delivered_at_price = product_current_price.get_per_piece_price(delivered_qty_in_pack)
                     credit_amount += float(shipped_at_price)*item.shipped_qty - float(delivered_at_price)*item.delivered_qty
 
-            credit_note.amount = round(credit_amount,2)
+            credit_note.amount = credit_amount
             credit_note.save()
         if shipment.order.ordered_cart.approval_status == True:
             invoice_prefix = shipment.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
@@ -563,7 +567,12 @@ def create_credit_note_on_trip_close(trip_id):
                     status=True)
             for item in shipment.rt_order_product_order_product_mapping.all():
                 cart_product_map = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-                credit_amount += (cart_product_map.cart_product_price.selling_price - item.discounted_price) * (item.delivered_qty)
+                if item.delivered_at_price:
+                    delivered_at_price = item.delivered_at_price
+                else:
+                    delivered_qty_in_pack = math.ceil(item.delivered_qty / cart_product_map.cart_product_case_size)
+                    delivered_at_price = cart_product_map.cart_product_price.get_per_piece_price(delivered_qty_in_pack)
+                credit_amount += (float(delivered_at_price) - float(item.discounted_price)) * (item.delivered_qty)
             credit_note.amount = credit_amount
             credit_note.save()
 

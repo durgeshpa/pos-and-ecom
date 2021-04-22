@@ -575,25 +575,28 @@ class ProductPrice(models.Model):
     def sku_code(self):
         return self.product.product_sku
 
-    def get_applicable_slab_price_per_pack(self, qty):
+    def get_applicable_slab_price_per_pack(self, qty, case_size):
         """
         Calculated the price slab applicable for a pack based on the qty supplied,
         if no slabs found for this price then return None
         """
-        slabs = self.price_slabs.all()
-        for slab in slabs:
-            if qty >= slab.start_value and (qty <= slab.end_value or slab.end_value == 0):
-                return slab.ptr
-        return None
+        per_piece_price = self.get_per_piece_price(qty)
+        if per_piece_price:
+            return per_piece_price * case_size
 
-    def get_per_piece_price(self, qty, case_size):
+
+    def get_per_piece_price(self, qty):
 
         """
         Returns the price applicable per piece
         """
-        per_pack_price = self.get_applicable_slab_price_per_pack(qty)
-        if per_pack_price:
-            return per_pack_price / case_size
+
+        slabs = self.price_slabs.all()
+        for slab in slabs:
+            if qty >= slab.start_value and (qty <= slab.end_value or slab.end_value == 0):
+                return slab.ptr
+        return 0
+
 
     # @property
     # def mrp(self):
@@ -609,9 +612,9 @@ class PriceSlab(models.Model):
     start_value = models.PositiveIntegerField()
     end_value = models.PositiveIntegerField()
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False, validators=[PriceValidator],
-                                        verbose_name='Selling Price(Per saleable unit)')
+                                        verbose_name='Selling Price(Per piece)')
     offer_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, validators=[PriceValidator],
-                                      verbose_name='Offer Price(Per saleable unit)')
+                                      verbose_name='Offer Price(Per piece)')
     offer_price_start_date = models.DateField(null=True, blank=True)
     offer_price_end_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -624,20 +627,20 @@ class PriceSlab(models.Model):
     @property
     def ptr(self):
         ptr = self.selling_price
-        if self.offer_price and self.is_offer_price_valid:
+        if self.is_offer_price_valid is True:
             ptr = self.offer_price
         return float(ptr)
 
+    @property
     def is_offer_price_valid(self):
         today = datetime.datetime.today().date()
-        if self.offer_price_start_date > today or self.offer_price_end_date < today:
-            return False
-        return True
+        if self.offer_price and self.offer_price_start_date <= today <= self.offer_price_end_date:
+            return True
+        return False
 
     def clean(self):
         super(PriceSlab, self).clean()
-        case_size = self.product_price.product.parent_product.inner_case_size
-        if not self.selling_price or self.selling_price > self.product_price.product.product_mrp*case_size:
+        if not self.selling_price or self.selling_price > self.product_price.product.product_mrp:
             raise ValidationError(_('Invalid Selling price.'))
 
     def __str__(self):

@@ -35,7 +35,7 @@ def create_mrp_data():
     mrp_data = {}
 
     missing_mrp_file = open('products/management/commands/missing_mrp_data.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(missing_mrp_file, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(missing_mrp_file, 'utf-8', errors='ignore'))
     first_row = next(reader)
     for _, row in enumerate(reader):
         if not row[0] or not row[9]:

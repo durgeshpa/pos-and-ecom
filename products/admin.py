@@ -62,13 +62,25 @@ from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, Des
 from wms.models import Out
 
 info_logger = logging.getLogger('file-info')
+
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
     field_name = 'product' # name of the foreign key field
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(product_id=self.value())
+            )
+
 
 class ShopFilter(AutocompleteFilter):
     title = 'Seller Shop' # display title
     field_name = 'seller_shop' # name of the foreign key field
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(seller_shop_id=self.value())
+            )
 
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']
@@ -1546,7 +1558,7 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
                 row = [obj.product.product_sku, obj.product.product_name, obj.seller_shop.id, obj.seller_shop.shop_name,
                        obj.mrp]
                 first_slab=True
-                for slab in obj.price_slabs.all():
+                for slab in obj.price_slabs.all().order_by('start_value'):
                     if first_slab:
                         row.append(slab.end_value)
                     else:

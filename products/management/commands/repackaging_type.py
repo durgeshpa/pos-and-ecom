@@ -13,7 +13,7 @@ class Command(BaseCommand):
 
 def repackaging_type_modify():
     f = open('products/management/repackaging_type_update.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(f, 'utf-8', errors='ignore'))
     first_row = next(reader)
     for row_id, row in enumerate(reader):
         if not row[0]:

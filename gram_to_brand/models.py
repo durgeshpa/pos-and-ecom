@@ -234,7 +234,7 @@ class CartProductMapping(models.Model):
             piece_price = self.vendor_product.product_price
             pack_price = self.vendor_product.product_price_pack
             return round(float(self.qty) * float(piece_price), 2) if piece_price else round(
-                float(self.qty) * float(pack_price), 2)
+                float(self.qty) * (float(pack_price) / float(self.vendor_product.case_size)), 2)
         return self.total_price
 
     @property

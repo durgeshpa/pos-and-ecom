@@ -232,7 +232,7 @@ class GFProductPriceForm(forms.Form):
     def clean_file(self):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         for id, row in enumerate(reader):
             if not row[0] or not re.match("^[\d]*$", row[0]):
@@ -422,6 +422,12 @@ class ParentProductForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = self.cleaned_data
+        if cleaned_data.get('is_ptr_applicable') :
+            if not cleaned_data.get('ptr_type'):
+                raise ValidationError(_('Invalid PTR Type'))
+            elif not cleaned_data.get('ptr_percent'):
+                raise ValidationError(_('Invalid PTR Percentage'))
+
         return cleaned_data
 
 
@@ -1695,7 +1701,7 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
                                   (row_id))
             else:
                 product_id = product.get('id')
-                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
                 csv_columns = next(csv_reader)
                 for reader_id, reader_row in enumerate(csv_reader):
                     if (reader_id + 2 != row_id) and row[0] == reader_row[0]:
@@ -1749,7 +1755,7 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
                                                     'cess_tax_id': cess_tax_id}
 
     def read_file(self, file):
-        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
         columns = next(reader)
         for row_id, row in enumerate(reader):
             self.validate_row(columns, row, row_id + 2, file)
@@ -1809,7 +1815,7 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
                                   (row_id))
             else:
                 product_id = product.get('id')
-                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
                 csv_columns = next(csv_reader)
                 for reader_id, reader_row in enumerate(csv_reader):
                     if (reader_id + 2 != row_id) and row[0] == reader_row[0]:
@@ -1863,7 +1869,7 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
                                                     'cess_tax_id': cess_tax_id}
 
     def read_file(self, file):
-        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
         columns = next(reader)
         for row_id, row in enumerate(reader):
             self.validate_row(columns, row, row_id + 2, file)
@@ -2145,8 +2151,8 @@ class SlabInlineFormSet(BaseInlineFormSet):
                 elif slab_data.get('offer_price_end_date') is None or slab_data.get('offer_price_end_date') < slab_data.get('offer_price_start_date'):
                     raise ValidationError('Offer Price End Date is invalid')
             last_slab_end_value = slab_data['end_value']
-            last_slab_selling_price = slab_data['selling_price']
-            last_slab_offer_price = slab_data['offer_price']
+            last_slab_selling_price = slab_data.get('selling_price')
+            last_slab_offer_price = slab_data.get('offer_price')
 
 
 class UploadSlabProductPriceForm(forms.Form):
@@ -2162,7 +2168,7 @@ class UploadSlabProductPriceForm(forms.Form):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only .csv file accepted.")
 
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         for row_id, row in enumerate(reader):
             if len(row) == 0:
@@ -2181,7 +2187,7 @@ class UploadSlabProductPriceForm(forms.Form):
                     selling_price = product.product_mrp / (1 + (ptr_percent / 100))
                 elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
                     selling_price = product.product_mrp*(1 - (ptr_percent / 100))
-                selling_price_per_saleable_unit = round(selling_price * case_size, 2)
+                selling_price_per_saleable_unit = selling_price
             else:
                 selling_price_per_saleable_unit = float(row[6])
 
@@ -2191,27 +2197,27 @@ class UploadSlabProductPriceForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Quantity'"))
 
             if not selling_price_per_saleable_unit or selling_price_per_saleable_unit == 0 \
-                    or selling_price_per_saleable_unit > float(product.product_mrp*case_size):
+                    or selling_price_per_saleable_unit > float(product.product_mrp):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price'"))
             elif row[7] and float(row[7]) >= selling_price_per_saleable_unit:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
-            elif row[7] and (not isDateValid(row[8]) or not isDateValid(row[9])
-                             or getStrToDate(row[8]) < datetime.datetime.today().date()
-                             or getStrToDate(row[9]) < datetime.datetime.today().date()
-                             or getStrToDate(row[8]) >= getStrToDate(row[9])):
+            elif row[7] and (not isDateValid(row[8], "%d-%m-%y") or not isDateValid(row[9], "%d-%m-%y")
+                             or getStrToDate(row[8], "%d-%m-%y") < datetime.datetime.today().date()
+                             or getStrToDate(row[9], "%d-%m-%y") < datetime.datetime.today().date()
+                             or getStrToDate(row[8], "%d-%m-%y") > getStrToDate(row[9], "%d-%m-%y")):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Start/End Date'"))
             elif int(row[5]) > 0 :
                 if not row[10] or int(row[10]) != int(row[5])+1:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
                 elif not row[11] or float(row[11]) >= selling_price_per_saleable_unit or float(row[11]) >= float(row[6])\
-                        or (row[7] and float(row[11]) > float(row[7])):
+                        or (row[7] and float(row[11]) >= float(row[7])):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
                 elif row[12] and float(row[12]) >= float(row[11]):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
-                elif row[12] and (not isDateValid(row[13]) or not isDateValid(row[14])
-                                  or getStrToDate(row[13]) < datetime.datetime.today().date()
-                                  or getStrToDate(row[14]) < datetime.datetime.today().date()
-                                  or getStrToDate(row[13]) >= getStrToDate(row[14])):
+                elif row[12] and (not isDateValid(row[13], "%d-%m-%y") or not isDateValid(row[14], "%d-%m-%y")
+                                  or getStrToDate(row[13], "%d-%m-%y") < datetime.datetime.today().date()
+                                  or getStrToDate(row[14], "%d-%m-%y") < datetime.datetime.today().date()
+                                  or getStrToDate(row[13], "%d-%m-%y") > getStrToDate(row[14], "%d-%m-%y")):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Start/End Date'"))
         return self.cleaned_data['file']
     
