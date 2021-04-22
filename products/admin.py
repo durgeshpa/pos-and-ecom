@@ -594,7 +594,7 @@ class ParentProductAdmin(admin.ModelAdmin):
         return '-'
 
     def ptrtype(self, obj):
-        if obj.is_ptr_applicable:
+        if obj.is_ptr_applicable and obj.ptr_type is not None:
             return ParentProduct.PTR_TYPE_CHOICES[obj.ptr_type]
 
     def ptrpercent(self, obj):
@@ -1031,7 +1031,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         return obj.parent_product.is_ptr_applicable
 
     def ptr_type(self, obj):
-        return obj.parent_product.ptr_type
+        return ParentProduct.PTR_TYPE_CHOICES[obj.parent_product.ptr_type] if obj.parent_product.ptr_type else ''
 
     def ptr_percent(self, obj):
         return obj.parent_product.ptr_percent
