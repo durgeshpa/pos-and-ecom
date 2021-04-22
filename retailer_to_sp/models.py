@@ -591,17 +591,17 @@ class BulkOrder(models.Model):
             availableQuantity, error_dict = \
                 bulk_order_validation(self.cart_products_csv, self.order_type,
                                       self.seller_shop, self.buyer_shop)
-        info_logger.info(f"Available_Qty_of_Ordered_SKUs:{availableQuantity}")
-        if len(error_dict) > 0:
-            if self.cart_products_csv and self.order_type:
-                self.save()
-                error_logger.info(f"Order can't placed for SKUs:"
-                                  f"{error_dict}")
-                raise ValidationError(mark_safe(f"Order can't placed for some SKUs, Please click the "
-                                                f"below Link for seeing the status"
-                                                f"{self.cart_product_list_status(error_dict)}"))
-        else:
-            super(BulkOrder, self).clean(*args, **kwargs)
+            info_logger.info(f"Available_Qty_of_Ordered_SKUs:{availableQuantity}")
+            if len(error_dict) > 0:
+                if self.cart_products_csv and self.order_type:
+                    self.save()
+                    error_logger.info(f"Order can't placed for SKUs:"
+                                      f"{error_dict}")
+                    raise ValidationError(mark_safe(f"Order can't placed for some SKUs, Please click the "
+                                                    f"below Link for seeing the status"
+                                                    f"{self.cart_product_list_status(error_dict)}"))
+            else:
+                super(BulkOrder, self).clean(*args, **kwargs)
 
     def save(self, *args, **kwargs):
         if self.pk is None:
