@@ -294,7 +294,7 @@ class StockMovementCSVUpload(models.Model):
         (2, "Bin Stock Movement"),
         (3, "Stock Correction"),
         (4, "WareHouse Inventory Change"),
-
+        (5, "Packing Material Stock Correction")
     )
 
     uploaded_by = models.ForeignKey(get_user_model(), related_name='inventory_manager', on_delete=models.CASCADE)
@@ -421,6 +421,7 @@ class StockCorrectionChange(models.Model):
     correction_type = models.CharField(max_length=10, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
+    weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
