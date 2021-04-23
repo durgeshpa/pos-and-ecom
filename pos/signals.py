@@ -14,7 +14,7 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
 
 
 @receiver(post_save, sender=RetailerProductImage)
-def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+def update_elasticsearch_image(sender, instance=None, created=False, **kwargs):
     """
         Update elastic data on RetailerProduct update
     """

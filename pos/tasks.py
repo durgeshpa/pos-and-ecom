@@ -27,7 +27,7 @@ def update_shop_retailer_product_es(shop_id, product_id, **kwargs):
                 products = RetailerProduct.objects.filter(id=product_id, shop_id=shop_id)
             update_es(products, shop_id)
     except Exception as e:
-        pass
+        info_logger.info(e)
 
 
 def update_es(products, shop_id):
