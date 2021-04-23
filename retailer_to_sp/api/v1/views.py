@@ -83,6 +83,7 @@ from pos.data_validation import validate_data_format
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
 from retailer_backend.settings import AWS_MEDIA_URL
+from pos.tasks import update_es
 
 User = get_user_model()
 
@@ -363,7 +364,7 @@ class SearchProducts(APIView):
         p_list = []
         # Raw Output
         if output_type == '1':
-            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "ean", "status", "images"]}
+            body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -372,7 +373,7 @@ class SearchProducts(APIView):
                 error_logger.error(e)
         # Processed Output
         else:
-            body["_source"] = {"includes": ["id", "name", "selling_price", "mrp", "margin", "images", "ean", "status"]}
+            body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -506,7 +507,7 @@ class SearchProducts(APIView):
                 p_list.append(p["_source"])
         else:
             body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "weight_unit", "weight_value",
-                                            "visible", "mrp", "ptr"]}
+                                            "visible", "mrp", "ptr", "ean"]}
             products_list = es_search(index='all_products', body=body)
             for p in products_list['hits']['hits']:
                 p_list.append(p["_source"])
@@ -4975,3 +4976,28 @@ class RefreshEs(APIView):
         upload_shop_stock(shop_id)
         info_logger.info('RefreshEs| shop {}, Ended'.format(shop_id))
         return Response({"message": "Shop data updated on ES", "response_data": None, "is_success": True})
+
+
+class RefreshEsRetailer(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        """
+            Refresh retailer Products Es
+        """
+        shop_id = self.request.GET.get('shop_id')
+        try:
+            shop = Shop.objects.get(id=shop_id, shop_type__shop_type='f')
+        except ObjectDoesNotExist:
+            return get_response("Shop Not Found")
+        info_logger.info('RefreshEsRetailer | shop {}, Started'.format(shop_id))
+        all_products = RetailerProduct.objects.filter(shop=shop)
+        try:
+            update_es(all_products, shop_id)
+        except Exception as e:
+            info_logger.info("error in retailer shop index creation")
+            info_logger.info(e)
+        info_logger.info('RefreshEsRetailer | shop {}, Ended'.format(shop_id))
+        return get_response("Shop data updated on ES")
+
