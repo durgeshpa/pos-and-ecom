@@ -400,8 +400,8 @@ class GRNOrderAdmin(admin.ModelAdmin):
                             .annotate(returned_qty_sum=Sum(F('returned_qty')))}
         returned_qty_totalsum = GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).aggregate(
             returned_qty_totalsum=Sum('returned_qty'))['returned_qty_totalsum']
-        for product_price_map in obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces',
-                                                                         '_tax_percentage'):
+        for product_price_map in obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces'):
+
             if returned_qty_totalsum > 0:
                 flag = 'PDLC'
                 if grn_list_map[product_price_map['cart_product']][0] == 0 and \
@@ -414,6 +414,9 @@ class GRNOrderAdmin(admin.ModelAdmin):
             elif grn_list_map[product_price_map['cart_product']][0] != product_price_map['no_of_pieces']:
                 flag = 'PDLV'
                 break
+
+        for product_price_map in obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces',
+                                                                         '_tax_percentage'):
             # If delivered quantity, update moving buying price of product
             if grn_list_map[product_price_map['cart_product']][0] > 0:
                 grn_product_data = grn_list_map[product_price_map['cart_product']]
@@ -421,6 +424,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
                                             grn_product_data[2], grn_product_data[0], grn_product_data[6],
                                             grn_product_data[3], grn_product_data[4],
                                             product_price_map['_tax_percentage'])
+
         obj.order.ordered_cart.po_status = flag
         obj.order.ordered_cart.save()
 
