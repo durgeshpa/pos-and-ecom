@@ -2194,6 +2194,7 @@ class UploadSlabProductPriceForm(forms.Form):
             is_ptr_applicable = product.parent_product.is_ptr_applicable
             case_size = product.parent_product.inner_case_size
             selling_price = float(row[6])
+            selling_price_per_saleable_unit = selling_price
             if is_ptr_applicable:
                 ptr_percent = product.parent_product.ptr_percent
                 ptr_type = product.parent_product.ptr_type
