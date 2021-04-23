@@ -7,7 +7,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     OrderedProductViewSet, OrderedProductMappingView, DeliveryBoyTrips, RetailerShopsList, FeedbackData,
                     SellerOrderList, DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
-                    AutoSuggest, RefreshEs
+                    AutoSuggest, RefreshEs, RefreshEsRetailer
                     )
 
 router = routers.DefaultRouter()
@@ -64,6 +64,7 @@ urlpatterns = [
         name='discounted_credit_note'),
     url('^autosearch/suggest/$', AutoSuggest.as_view()),
     url('^refresh-es/$', RefreshEs.as_view()),
+    url('^refresh-es-retailer/$', RefreshEsRetailer.as_view())
 ]
 
 urlpatterns += router.urls
