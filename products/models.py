@@ -149,6 +149,12 @@ class ParentProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def ptr_type_text(self):
+        if self.ptr_type is not None and self.ptr_type in self.PTR_TYPE_CHOICES:
+            return self.PTR_TYPE_CHOICES[self.ptr_type]
+        return ''
+
     def save(self, *args, **kwargs):
         self.parent_slug = slugify(self.name)
         super(ParentProduct, self).save(*args, **kwargs)
@@ -315,6 +321,20 @@ class Product(models.Model):
         if self.use_parent_image:
             return self.parent_product.image
         return self.child_product_image
+
+    @property
+    def is_ptr_applicable(self):
+        return self.parent_product.is_ptr_applicable if self.parent_product else ''
+
+    @property
+    def ptr_type(self):
+        return self.parent_product.ptr_type_text \
+            if self.parent_product else ''
+
+    @property
+    def ptr_percent(self):
+        return self.parent_product.ptr_percent \
+            if self.parent_product and self.parent_product.is_ptr_applicable else ''
 
     def get_current_shop_price(self, seller_shop_id, buyer_shop_id):
         '''
