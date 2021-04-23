@@ -837,18 +837,15 @@ class UploadMasterDataAdminForm(forms.Form):
                     if row['is_ptr_applicable'] != '' and str(row['is_ptr_applicable']).lower() not in ['yes', 'no']:
                             raise ValidationError(_(f"Row {row_num} | {row['is_ptr_applicable']} | "
                                                     f"'is_ptr_applicable' can only be 'Yes' or 'No' "))
-
-                if 'ptr_type' in header_list and 'ptr_type' in row.keys():
-                    if row['is_ptr_applicable'].lower()=='yes' \
-                            and (row['ptr_type'] == '' or row['ptr_type'].lower() not in ['mark up', 'mark down']):
-                            raise ValidationError(_(f"Row {row_num} | {row['ptr_type']} | "
+                    elif row['is_ptr_applicable'].lower()=='yes' and \
+                        ('ptr_type' not in row.keys() or row['ptr_type'] == '' or row['ptr_type'].lower() not in ['mark up', 'mark down']):
+                        raise ValidationError(_(f"Row {row_num} | "
                                                     f"'ptr_type' can either be 'Mark Up' or 'Mark Down' "))
-
-                if 'ptr_percent' in header_list and 'ptr_percent' in row.keys():
-                    if row['is_ptr_applicable'].lower() == 'yes' \
-                            and (row['ptr_percent'] == '' or 100 < row['ptr_percent'] or  row['ptr_percent'] < 0) :
-                            raise ValidationError(_(f"Row {row_num} | {row['ptr_percent']} | "
+                    elif row['is_ptr_applicable'].lower() == 'yes' \
+                        and ('ptr_percent' not in row.keys() or row['ptr_percent'] == '' or 100 < row['ptr_percent'] or  row['ptr_percent'] < 0) :
+                        raise ValidationError(_(f"Row {row_num} | "
                                                     f"'ptr_percent' is invalid"))
+
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] != '':
                         repackaging_list = ['none', 'source', 'destination']
@@ -2196,6 +2193,7 @@ class UploadSlabProductPriceForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
             is_ptr_applicable = product.parent_product.is_ptr_applicable
             case_size = product.parent_product.inner_case_size
+            selling_price = float(row[6])
             if is_ptr_applicable:
                 ptr_percent = product.parent_product.ptr_percent
                 ptr_type = product.parent_product.ptr_type
@@ -2203,9 +2201,8 @@ class UploadSlabProductPriceForm(forms.Form):
                     selling_price = product.product_mrp / (1 + (ptr_percent / 100))
                 elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
                     selling_price = product.product_mrp*(1 - (ptr_percent / 100))
-                selling_price_per_saleable_unit = round(selling_price, 2)
-            else:
-                selling_price_per_saleable_unit = float(row[6])
+                selling_price_per_saleable_unit = float(round(selling_price, 2))
+
 
             if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))
