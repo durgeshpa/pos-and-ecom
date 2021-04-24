@@ -8,7 +8,7 @@ import collections
 from django.forms import BaseInlineFormSet
 from django.urls import reverse
 
-from dal import autocomplete
+from dal import autocomplete, forward
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -2073,11 +2073,12 @@ class ProductPriceSlabForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
     product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
+        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination']),
         empty_label='Not Specified',
         widget=autocomplete.ModelSelect2(
             url='product-autocomplete',
-            attrs={"onChange": 'getProductDetails()'}
+            attrs={"onChange": 'getProductDetails()'},
+            forward=(forward.Const(1, 'price-slab'))
         )
     )
     mrp = forms.DecimalField(required=False)
@@ -2101,11 +2102,12 @@ class ProductPriceSlabCreationForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
     product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
+        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination']),
         empty_label='Not Specified',
         widget=autocomplete.ModelSelect2(
             url='product-autocomplete',
-            attrs={"onChange": 'getProductDetails()'}
+            attrs={"onChange": 'getProductDetails()'},
+            forward=(forward.Const(1, 'price-slab'), )
         )
     )
     mrp = forms.DecimalField(required=False)

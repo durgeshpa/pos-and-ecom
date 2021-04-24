@@ -430,7 +430,7 @@ def validation_bin_stock_movement(file, user):
                                   params={'value': row_id + 1},)
 
         # validate for product sku is exist or not
-        if not Product.objects.filter(product_sku=row[1]).exists():
+        if not Product.objects.filter(product_sku=row[1], repackaging_type__in=['none', 'source', 'destination']).exists():
             raise ValidationError(_('Invalid Product SKU at Row number [%(value)s].'
                                     'Product SKU does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 1},)
@@ -558,7 +558,7 @@ def validation_stock_correction(file, user, type=''):
                                   params={'value': row_id + 2}, )
 
         # validate for product sku is exist or not
-        if not Product.objects.filter(product_sku=row[2]).exists():
+        if not Product.objects.filter(product_sku=row[2], repackaging_type__in=['none', 'source', 'destination']).exists():
             raise ValidationError(_('Invalid Product SKU at Row number [%(value)s].'
                                     'Product SKU does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 2}, )
@@ -759,7 +759,7 @@ def validation_warehouse_inventory(file, user):
                                   params={'value': row_id + 1}, )
 
         # validation for product sku is exist or not
-        if not Product.objects.filter(product_sku=row[1]).exists():
+        if not Product.objects.filter(product_sku=row[1], repackaging_type__in=['none', 'source', 'destination']).exists():
             raise ValidationError(_('Invalid Product SKU at Row number [%(value)s].'
                                     'Product SKU does not exists in the system.Please re-verify at your end.'),
                                   params={'value': row_id + 1}, )

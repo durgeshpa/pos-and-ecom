@@ -24,7 +24,7 @@ class AuditCreationForm(forms.ModelForm):
                                                  forward=('warehouse',)))
     sku = forms.ModelMultipleChoiceField(
         required=False,
-        queryset=Product.objects.all(),
+        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination']),
         widget=autocomplete.ModelSelect2Multiple(url='sku-autocomplete',
                                                  forward=('warehouse',))
     )
