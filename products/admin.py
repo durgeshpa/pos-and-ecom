@@ -57,7 +57,9 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     category_sub_category_mapping_sample_excel_file, brand_sub_brand_mapping_sample_excel_file,
                     ParentProductMultiPhotoUploadView, cart_product_list_status,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
-                    get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck)
+                    get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck,
+                    packing_material_inventory, packing_material_inventory_download,
+                    packing_material_inventory_sample_upload)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out
@@ -1368,6 +1370,30 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
                     'destination_sku_name', 'destination_product_sku', 'destination_batch_id',
                     'destination_sku_quantity', 'download_batch_id_barcode', 'created_at', 'modified_at')
     actions = ["export_as_csv_products_repackaging"]
+
+    change_list_template = 'admin/products/repackaging_change_list.html'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(RepackagingAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^packing-material-inventory/$',
+                       self.admin_site.admin_view(packing_material_inventory),
+                       name="packing-material-inventory"
+                   ),
+                   url(
+                       r'^packing-material-inventory-download/$',
+                       self.admin_site.admin_view(packing_material_inventory_download),
+                       name="packing-material-inventory-download"
+                   ),
+                   url(
+                       r'^packing-material-inventory-sample-upload/$',
+                       self.admin_site.admin_view(packing_material_inventory_sample_upload),
+                       name="packing-material-inventory-sample-upload"
+                   )
+               ] + urls
+        return urls
 
     def get_fields(self, request, obj=None):
         if obj:

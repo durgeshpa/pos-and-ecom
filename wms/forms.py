@@ -360,6 +360,10 @@ class StockMovementCSVUploadAdminForm(forms.ModelForm):
       Stock Movement Admin Form
       """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['inventory_movement_type'].choices = StockMovementCSVUpload.upload_inventory_type[:-1]
+
     class Meta:
         model = StockMovementCSVUpload
         fields = ('inventory_movement_type',)
