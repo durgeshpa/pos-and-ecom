@@ -916,7 +916,8 @@ class DiscountSerializer(serializers.ModelSerializer):
 class CouponGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Coupon
-        fields = ('coupon_name', 'is_active',)
+        fields = ('id', 'coupon_code', 'coupon_name', 'coupon_type',
+                  'start_date', 'expiry_date', 'is_active',)
 
 
 class ComboGetSerializer(serializers.ModelSerializer):
@@ -933,9 +934,8 @@ class CouponRuleSetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CouponRuleSet
-        fields = ('is_active', 'cart_qualifying_min_sku_value', 'discount',
-                  'free_product', 'free_product_qty',
-                  'product_ruleset', 'coupon_ruleset',)
+        fields = ('coupon_ruleset', 'cart_qualifying_min_sku_value', 'discount',
+                  'free_product', 'free_product_qty', 'product_ruleset', 'coupon_ruleset',)
 
 
 class CouponRuleSetGetSerializer(serializers.ModelSerializer):
@@ -949,9 +949,20 @@ class CouponRuleSetGetSerializer(serializers.ModelSerializer):
         fields = ('discount', 'rulename', 'is_active', 'cart_qualifying_min_sku_value', )
 
 
+class CouponSerializer(serializers.ModelSerializer):
+    product_ruleset = ComboGetSerializer(many=True)
+    discount = DiscountSerializer()
+
+    class Meta:
+        model = CouponRuleSet
+        fields = ('is_active', 'cart_qualifying_min_sku_value', 'discount',
+                  'free_product', 'free_product_qty', 'product_ruleset',)
+
+
 class CouponListSerializer(serializers.ModelSerializer):
-    rule = CouponRuleSetSerializer()
+    rule = CouponSerializer()
 
     class Meta:
         model = Coupon
-        fields = ('id', 'coupon_code', 'coupon_type', 'start_date', 'expiry_date', 'rule', 'is_active')
+        fields = ('id', 'coupon_code', 'coupon_name', 'coupon_type',
+                  'start_date', 'expiry_date', 'is_active', 'rule', )
