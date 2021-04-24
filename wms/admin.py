@@ -833,10 +833,18 @@ class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
 
 class StockCorrectionChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id',
-                    'correction_type', 'inventory_type', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
+                    'correction_type', 'inventory_type', 'quantity_display', 'weight_in_kg', 'created_at', 'modified_at', 'inventory_csv')
     readonly_fields = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id', 'correction_type', 'inventory_type', 'quantity',
                        'created_at', 'modified_at', 'inventory_csv')
     list_per_page = 50
+
+    def quantity_display(self, obj):
+        return obj.quantity if obj.stock_sku.repackaging_type != 'packing_material' else '-'
+
+    quantity_display.short_description = "Quantity"
+
+    def weight_in_kg(self, obj):
+        return (obj.weight / 1000) if obj.stock_sku.repackaging_type == 'packing_material' else '-'
 
 
 class OrderReleaseAdmin(admin.ModelAdmin):
