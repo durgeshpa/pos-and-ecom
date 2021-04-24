@@ -120,11 +120,11 @@ class InCommonFunctions(object):
             return in_obj
 
     @classmethod
-    def create_only_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, inventory_type):
+    def create_only_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, inventory_type, weight=0):
         if warehouse.shop_type.shop_type in ['sp', 'f']:
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, quantity=quantity, expiry_date=get_expiry_date_db(batch_id),
-                                       inventory_type=inventory_type)
+                                       inventory_type=inventory_type, weight=weight)
             return in_obj
 
     @classmethod
@@ -300,6 +300,41 @@ class CommonWarehouseInventoryFunctions(object):
                 inventory_state=inventory_state,
                 inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
                 in_stock=in_stock, quantity=quantity)
+
+    @classmethod
+    def create_warehouse_inventory_stock_correction_weight(cls, warehouse, sku, inventory_type, inventory_state, weight,
+                                                    in_stock):
+        # This function is only used for update warehouse inventory while stock correction change method
+        """
+        :param warehouse:
+        :param sku:
+        :param inventory_type:
+        :param inventory_state:
+        :param weight:
+        :param in_stock:
+        :return:
+        """
+        ware_house_inventory_obj = WarehouseInventory.objects.filter(
+            warehouse=warehouse, sku=sku, inventory_state=inventory_state, inventory_type=InventoryType.objects.filter(
+                inventory_type=inventory_type).last(), in_stock=in_stock).last()
+
+        weight = BinInventory.objects.filter(Q(warehouse=warehouse),
+                                               Q(sku=sku),
+                                               Q(inventory_type__id=
+                                                 InventoryType.objects.filter(inventory_type=inventory_type)[0].id),
+                                               Q(weight__gt=0)).aggregate(total=Sum('weight')).get('total')
+        if weight is None:
+            weight = 0
+        if ware_house_inventory_obj:
+            ware_house_inventory_obj.weight = weight
+            ware_house_inventory_obj.save()
+        else:
+            WarehouseInventory.objects.get_or_create(
+                warehouse=warehouse,
+                sku=sku,
+                inventory_state=inventory_state,
+                inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
+                in_stock=in_stock, quantity=0, weight=weight)
 
     @classmethod
     def filtered_warehouse_inventory_items(cls, **kwargs):
@@ -689,7 +724,7 @@ class InternalWarehouseChange(object):
 class InternalStockCorrectionChange(object):
     @classmethod
     def create_stock_inventory_change(cls, warehouse, stock_sku, batch_id, stock_bin_id, correction_type,
-                                      quantity, inventory_csv, inventory_type):
+                                      quantity, inventory_csv, inventory_type, weight=0):
         """
 
         :param warehouse: warehouse obj
@@ -706,7 +741,7 @@ class InternalStockCorrectionChange(object):
                                                  stock_sku=stock_sku, batch_id=batch_id,
                                                  stock_bin_id=stock_bin_id, correction_type=correction_type,
                                                  quantity=quantity, inventory_csv=inventory_csv,
-                                                 inventory_type=inventory_type)
+                                                 inventory_type=inventory_type, weight=weight)
         except Exception as e:
             error_logger.error(e)
 
@@ -1993,6 +2028,52 @@ def inventory_in_and_out(sh, bin_id, sku, batch_id, inv_type, inv_state, t, val,
     InternalInventoryChange.create_bin_internal_inventory_change(sh, transaction_type_obj[0].sku, batch_id, bin_id,
                                                                  initial_type[0], final_type[0], transaction_type,
                                                                  transaction_id, val)
+
+
+def inventory_in_and_out_weight(warehouse_obj, bin_obj, product_obj, batch_id, inv_type, inventory_state, weight,
+                                transaction_type, transaction_id):
+    """
+
+    :param warehouse_obj:
+    :param bin_obj:
+    :param batch_id:
+    :param inv_type:
+    :param inventory_state:
+    :param product_obj:
+    :param weight:
+    :param transaction_id
+    :param transaction_type
+    :return:
+    """
+    bin_inventory_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=warehouse_obj, bin=bin_obj,
+                                                                               sku=product_obj, batch_id=batch_id,
+                                                                               inventory_type=InventoryType.objects.filter(
+                                                                                   inventory_type=inv_type).last(),
+                                                                               in_stock=True)
+    if bin_inventory_obj.exists():
+        bin_inventory_obj = bin_inventory_obj.last()
+        bin_inventory_obj.weight = weight
+        bin_inventory_obj.save()
+    else:
+        BinInventory.objects.create(warehouse=warehouse_obj, bin=bin_obj, sku=product_obj, batch_id=batch_id,
+                                    inventory_type=InventoryType.objects.filter(
+                                        inventory_type=inv_type).last(), quantity=0, weight=weight, in_stock=True)
+
+    initial_type = InventoryType.objects.filter(inventory_type='new').last(),
+    final_type = InventoryType.objects.filter(inventory_type=inv_type).last(),
+    final_stage = InventoryState.objects.filter(inventory_state='total_available').last(),
+
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory_stock_correction_weight(warehouse_obj, product_obj,
+                                                                                         inv_type, inventory_state,
+                                                                                         weight, True)
+    WarehouseInternalInventoryChange.objects.create(warehouse=warehouse_obj, sku=product_obj,
+                                                    transaction_type=transaction_type, transaction_id=transaction_id,
+                                                    inventory_type=final_type[0], inventory_state=final_stage[0],
+                                                    quantity=0, weight=weight)
+
+    InternalInventoryChange.create_bin_internal_inventory_change(warehouse_obj, product_obj, batch_id, bin_obj.bin_id,
+                                                                 initial_type[0], final_type[0], transaction_type,
+                                                                 transaction_id, 0, weight)
 
 
 def product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_product_batch, initial_type, final_type,
