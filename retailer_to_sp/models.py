@@ -912,6 +912,7 @@ class Order(models.Model):
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
     total_mrp = models.FloatField(default=0)
+    order_amount = models.FloatField(default=0)
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
     order_status = models.CharField(max_length=50, choices=ORDER_STATUS)

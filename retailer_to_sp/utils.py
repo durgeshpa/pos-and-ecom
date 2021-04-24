@@ -294,8 +294,8 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
 
     orders = queryset\
         .annotate(
-            total_mrp_amount=RoundAmount(Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__mrp'), output_field=FloatField())),
-            total_final_amount=RoundAmount(Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__selling_price'), output_field=FloatField())),
+            # total_mrp_amount=RoundAmount(Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__mrp'), output_field=FloatField())),
+            # total_final_amount=RoundAmount(Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__selling_price'), output_field=FloatField())),
             shipment_paid_amount=Subquery(shipment_paid_amount),
             order_paid_amount=Subquery(order_paid_amount),
             invoice_amount=Subquery(OrderedProduct.objects.filter(order=OuterRef('pk')).annotate(sum=RoundAmount(Sum(
@@ -320,17 +320,17 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
                 'picker_order__picker_boy__phone_number',
                 'shipment_paid_amount',
                 'order_paid_amount',
-                'total_mrp_amount', 'ordered_cart__offers',
-                'total_final_amount',
+                'total_mrp', 'ordered_cart__offers',
+                'order_amount',
                 'picker_order__picker_assigned_date',
-                'picker_order__completed_at',)
+                'picker_order__completed_at')
     for order in orders.iterator():
         offers = order.get('ordered_cart__offers')
         if offers:
             total_final_amount = sum([i.get('discounted_product_subtotal', 0) for i in offers])
             total_final_amount = round(total_final_amount)
         else:
-            total_final_amount = order.get('total_final_amount')
+            total_final_amount = order.get('order_amount')
         writer.writerow([
             order.get('order_no'),
             order_status_dict.get(order.get('order_status'),
@@ -345,8 +345,8 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
             order.get('buyer_shop__shop_owner__phone_number'),
             order.get('shipping_address__city__city_name'),
             order.get('shipping_address__pincode_link__pincode'),
-            order.get('total_mrp_amount'),
-            total_final_amount,
+            order.get('total_mrp'),
+            order.get('order_amount'),
             order.get('order_paid_amount'),
             order.get('rt_order_order_product__invoice__invoice_no'),
             order.get('invoice_amount'),
