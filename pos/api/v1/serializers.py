@@ -771,15 +771,18 @@ class CouponCodeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Coupon
-        fields = ('coupon_name', 'start_date', 'expiry_date', 'discount_qty_amount', 'discount_value')
+        fields = ('id', 'coupon_name', 'start_date', 'expiry_date', 'discount_qty_amount', 'discount_value')
 
 
 class ComboDealsSerializer(serializers.ModelSerializer):
     combo_offer_name = serializers.CharField(required=True)
     retailer_primary_product = serializers.IntegerField(required=True)
+    retailer_primary_product_name = serializers.SerializerMethodField('is_retailer_primary_product_name')
     purchased_product_qty = serializers.IntegerField(required=True)
     retailer_free_product = serializers.IntegerField(required=True)
+    retailer_free_product_name =serializers.SerializerMethodField('is_retailer_free_product_name')
     free_product_qty = serializers.IntegerField(required=True)
+
 
     def validate(self, data):
         """
@@ -791,16 +794,29 @@ class ComboDealsSerializer(serializers.ModelSerializer):
         combo_offer_name_validation(data.get('combo_offer_name'))
         return data
 
+    def is_retailer_primary_product_name(self, obj):
+        id = obj['retailer_primary_product']
+        product = RetailerProduct.objects.filter(id=id).last()
+        if product:
+            return product.name
+
+    def is_retailer_free_product_name(self, obj):
+        id = obj['retailer_free_product']
+        product = RetailerProduct.objects.filter(id=id).last()
+        if product:
+            return product.name
+
     class Meta:
         model = RuleSetProductMapping
-        fields = ('combo_offer_name', 'retailer_primary_product', 'retailer_free_product',
-                  'purchased_product_qty', 'free_product_qty', 'start_date', 'expiry_date')
+        fields = ('combo_offer_name', 'retailer_primary_product', 'retailer_primary_product_name', 'retailer_free_product',
+                  'retailer_free_product_name', 'purchased_product_qty', 'free_product_qty', 'start_date', 'expiry_date')
 
 
 class FreeProductOfferSerializer(serializers.ModelSerializer):
     rulename = serializers.CharField(required=True)
     cart_qualifying_min_sku_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=4)
     free_product = serializers.IntegerField(required=True)
+    free_product_name = serializers.SerializerMethodField('is_free_product_name')
     free_product_qty = serializers.IntegerField(required=True)
 
     def validate(self, data):
@@ -812,9 +828,15 @@ class FreeProductOfferSerializer(serializers.ModelSerializer):
         combo_offer_name_validation(data.get('rulename'))
         return data
 
+    def is_free_product_name(self, obj):
+        id = obj['free_product']
+        product = RetailerProduct.objects.get(id=id)
+        return product.name
+
+
     class Meta:
         model = CouponRuleSet
-        fields = ('rulename', 'cart_qualifying_min_sku_value', 'free_product',
+        fields = ('rulename', 'cart_qualifying_min_sku_value', 'free_product', 'free_product_name',
                   'free_product_qty', 'start_date', 'expiry_date', )
 
 
@@ -870,8 +892,8 @@ class CouponCodeUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Coupon
-        fields = (
-        'id', 'coupon_name', 'start_date', 'expiry_date', 'discount_qty_amount', 'discount_value', 'is_active')
+        fields = ('id', 'coupon_name', 'start_date', 'expiry_date', 'discount_qty_amount',
+                  'discount_value', 'is_active')
 
 
 class ComboDealsUpdateSerializer(serializers.ModelSerializer):
@@ -884,6 +906,7 @@ class ComboDealsUpdateSerializer(serializers.ModelSerializer):
     start_date = serializers.DateField(required=False)
     expiry_date = serializers.DateField(required=False)
     is_active = serializers.BooleanField(required=False)
+
 
     def validate(self, data):
         """
@@ -898,6 +921,18 @@ class ComboDealsUpdateSerializer(serializers.ModelSerializer):
         if data.get('combo_offer_name'):
             combo_offer_name_validation(data.get('combo_offer_name'))
         return data
+
+    def is_retailer_primary_product_name(self, obj):
+        id = obj['retailer_primary_product']
+        product = RetailerProduct.objects.filter(id=id).last()
+        if product:
+            return product.name
+
+    def is_retailer_free_product_name(self, obj):
+        id = obj['retailer_free_product']
+        product = RetailerProduct.objects.filter(id=id).last()
+        if product:
+            return product.name
 
     class Meta:
         model = RuleSetProductMapping
@@ -920,14 +955,24 @@ class CouponGetSerializer(serializers.ModelSerializer):
                   'start_date', 'expiry_date', 'is_active',)
 
 
+class RetailerProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RetailerProduct
+        fields = ('id', 'name')
+
+
 class ComboGetSerializer(serializers.ModelSerializer):
+    retailer_free_product = RetailerProductSerializer()
+    retailer_primary_product = RetailerProductSerializer()
+
     class Meta:
         model = RuleSetProductMapping
         fields = ('combo_offer_name', 'retailer_primary_product', 'retailer_free_product',
-                  'purchased_product_qty', 'free_product_qty', 'is_active')
+                  'purchased_product_qty', 'free_product_qty', 'is_active',)
 
 
 class CouponRuleSetSerializer(serializers.ModelSerializer):
+    free_product = RetailerProductSerializer()
     coupon_ruleset = CouponGetSerializer(many=True)
     product_ruleset = ComboGetSerializer(many=True)
     discount = DiscountSerializer()
@@ -950,6 +995,7 @@ class CouponRuleSetGetSerializer(serializers.ModelSerializer):
 
 
 class CouponSerializer(serializers.ModelSerializer):
+    free_product = RetailerProductSerializer()
     product_ruleset = ComboGetSerializer(many=True)
     discount = DiscountSerializer()
 
