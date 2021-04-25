@@ -905,6 +905,7 @@ class ComboDealsUpdateSerializer(serializers.ModelSerializer):
     expiry_date = serializers.DateField(required=False)
     is_active = serializers.BooleanField(required=False)
 
+
     def validate(self, data):
         """
             start & expiry date, combo_offer_name & product validation.
@@ -918,6 +919,16 @@ class ComboDealsUpdateSerializer(serializers.ModelSerializer):
         if data.get('combo_offer_name'):
             combo_offer_name_validation(data.get('combo_offer_name'))
         return data
+
+    def is_retailer_primary_product_name(self, obj):
+        id = obj['retailer_primary_product']
+        product = RetailerProduct.objects.get(id=id)
+        return product.name
+
+    def is_retailer_free_product_name(self, obj):
+        id = obj['retailer_free_product']
+        product = RetailerProduct.objects.get(id=id)
+        return product.name
 
     class Meta:
         model = RuleSetProductMapping
