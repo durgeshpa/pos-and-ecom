@@ -796,13 +796,15 @@ class ComboDealsSerializer(serializers.ModelSerializer):
 
     def is_retailer_primary_product_name(self, obj):
         id = obj['retailer_primary_product']
-        product = RetailerProduct.objects.get(id=id)
-        return product.name
+        product = RetailerProduct.objects.filter(id=id).last()
+        if product:
+            return product.name
 
     def is_retailer_free_product_name(self, obj):
         id = obj['retailer_free_product']
-        product = RetailerProduct.objects.get(id=id)
-        return product.name
+        product = RetailerProduct.objects.filter(id=id).last()
+        if product:
+            return product.name
 
     class Meta:
         model = RuleSetProductMapping
@@ -922,13 +924,15 @@ class ComboDealsUpdateSerializer(serializers.ModelSerializer):
 
     def is_retailer_primary_product_name(self, obj):
         id = obj['retailer_primary_product']
-        product = RetailerProduct.objects.get(id=id)
-        return product.name
+        product = RetailerProduct.objects.filter(id=id).last()
+        if product:
+            return product.name
 
     def is_retailer_free_product_name(self, obj):
         id = obj['retailer_free_product']
-        product = RetailerProduct.objects.get(id=id)
-        return product.name
+        product = RetailerProduct.objects.filter(id=id).last()
+        if product:
+            return product.name
 
     class Meta:
         model = RuleSetProductMapping
