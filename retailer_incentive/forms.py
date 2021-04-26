@@ -28,7 +28,7 @@ class SchemeCreationForm(forms.ModelForm):
         data = self.cleaned_data
         start_date = data.get('start_date')
         end_date = data.get('end_date')
-        if start_date < datetime.datetime.today():
+        if start_date < datetime.datetime.today().date():
             raise ValidationError('Start date cannot be earlier than today')
 
         if end_date <= start_date:
