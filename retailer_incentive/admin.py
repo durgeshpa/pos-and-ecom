@@ -48,8 +48,8 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
     """
     model = SchemeShopMapping
     form = SchemeShopMappingCreationForm
-    list_display = ('scheme_id', 'scheme_name', 'shop_name', 'priority', 'is_active', 'user')
-    actions = ['download_active_scheme_mappings','deactivate_selected_mappings', 'activate_selected_mappings']
+    list_display = ('scheme_id', 'scheme_name', 'shop_name', 'priority', 'is_active', 'user',  'start_date', 'end_date',)
+    actions = ['download_active_scheme_mappings', 'deactivate_selected_mappings', 'activate_selected_mappings']
 
     def scheme_id(self, obj):
         return obj.scheme_id

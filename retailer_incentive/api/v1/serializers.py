@@ -48,22 +48,6 @@ class SchemeShopMappingSerializer(serializers.ModelSerializer):
         fields = ('scheme', 'scheme_name', 'start_date', 'end_date', 'shop', 'slabs')
 
 
-class ShopSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Shop
-        fields = ['id', 'shop_name']
-
-
-class IncentiveSerializer(serializers.ModelSerializer):
-    shop = ShopSerializer(read_only=True)
-
-    class Meta:
-        """ Meta class """
-        model = ShopUserMapping
-        fields = ['shop', 'employee']
-
-
 class EmployeeDetails(serializers.ModelSerializer):
     class Meta:
         """ Meta class """
@@ -78,3 +62,17 @@ class SalesExecutiveListSerializer(serializers.ModelSerializer):
         """ Meta class """
         model = ShopUserMapping
         fields = ['employee', ]
+
+
+class SchemeDetailSerializer(serializers.ModelSerializer):
+    scheme = serializers.SerializerMethodField('scheme_slab')
+
+    def scheme_slab(self, obj):
+        slabs = SchemeSlab.objects.filter(scheme=obj.scheme)
+        serializer = SchemeSlabSerializer(slabs, many=True)
+        return serializer.data
+
+    class Meta:
+        """ Meta class """
+        model = SchemeSlab
+        fields = ['id', 'scheme', ]

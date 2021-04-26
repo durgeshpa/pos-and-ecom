@@ -1,3 +1,4 @@
+import datetime
 import logging
 from math import floor
 
@@ -7,9 +8,9 @@ from rest_framework.views import APIView
 
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
-from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, IncentiveSerializer, SalesExecutiveListSerializer
+from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, SchemeDetailSerializer
 from retailer_incentive.models import SchemeSlab
-from retailer_incentive.utils import get_shop_scheme_mapping
+from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based_on_month
 from retailer_to_sp.models import OrderedProductMapping
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
 from retailer_incentive.common_function import get_user_id_from_token
@@ -203,21 +204,19 @@ class IncentiveDashBoard(APIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = IncentiveSerializer
     queryset = ShopUserMapping.objects.all()
 
     def get_user_id_or_error_message(self, request):
-        user = request.GET.get('user_id')
-        if user:
-            user = User.objects.filter(id=user).last()
-            if user is None:
-                return "Please Provide a Valid TOKEN"
-        else:
-            user = get_user_id_from_token(request)
+        user = get_user_id_from_token(request)
+        if not type(user) == str:
+            if user.user_type == 7:
+                user_id = request.GET.get('user_id')
+                user = User.objects.filter(id=user_id).last()
+                if user is None:
+                    return "Please Provide a Valid user_id"
         return user
 
     def get(self, request):
-
         user = self.get_user_id_or_error_message(request)
         if type(user) == str:
             msg = {'is_success': False,
@@ -228,9 +227,12 @@ class IncentiveDashBoard(APIView):
         try:
             # check if user_type is Sales Executive
             if user.user_type == 6:  # 'Sales Executive'
-                shop_serializer = self.sales_executive(user)
+                today = datetime.date.today()
+                month = int(request.GET.get('month')) if request.GET.get(
+                    'month') else today.month
+                mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user, month)
                 return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
-                                 "data": shop_serializer.data,
+                                 "data": mapped_shop_scheme_details,
                                  'is_success': True}, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False,
@@ -243,20 +245,81 @@ class IncentiveDashBoard(APIView):
             return Response({"detail": "Error while getting mapped shop for Sales Executive",
                              'is_success': False}, status=status.HTTP_200_OK)
 
-    def sales_executive(self, user):
+    def get_sales_executive_shop_scheme_details(self, user, month):
         shop_mapping_object = (self.queryset.filter(
             employee=user.shop_employee.instance, status=True))
         if shop_mapping_object:
+            scheme_shop_mapping_list = []
             for shop_scheme in shop_mapping_object:
-                # scheme_shop_mapping = get_shop_scheme_mapping(shop_scheme['shop']['id'])
-                shop_serializer = self.serializer_class(shop_mapping_object, many=True)
-                return shop_serializer
+                scheme_shop_mapping = get_shop_scheme_mapping_based_on_month(shop_scheme.shop_id, month)
+                if scheme_shop_mapping:
+                    scheme_shop_mapping_list.append(scheme_shop_mapping)
+            if scheme_shop_mapping_list:
+                scheme_data_list = []
+                for scheme_shop_map in scheme_shop_mapping_list:
+                    scheme = scheme_shop_map.scheme
+                    total_sales = self.get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date, scheme_shop_map.end_date)
+                    scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by(
+                        'min_value').last()
+
+                    discount_percentage = 0
+                    if scheme_slab is not None:
+                        discount_percentage = scheme_slab.discount_value
+                    discount_value = floor(discount_percentage * total_sales / 100)
+
+                    shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
+                    scheme_data = [{'shop_id': shop.id,
+                                    'shop_name': shop.shop_name,
+                                    'mapped_scheme_id': scheme.id,
+                                    'mapped_scheme': scheme.name,
+                                    'total_sales': total_sales,
+                                    'discount_percentage': discount_percentage,
+                                    'discount_value': discount_value,
+                                    'start_date': scheme_shop_map.start_date,
+                                    'end_date': scheme_shop_map.end_date
+                                    }]
+                    scheme_data_list.append(scheme_data)
+
+                return scheme_data_list
+
+    def get_total_sales(self, shop_id, start_date, end_date):
+        """
+        Returns the total purchase of a shop between given start_date and end_date
+        Param :
+            shop_id : id of shop
+            start_date : start date from which sales to be considered
+            end_date : date till which the sales to be considered
+        Returns:
+            floor value of total purchase of a shop between given start_date and end_date
+        """
+        total_sales = 0
+        shipment_products = OrderedProductMapping.objects.filter(ordered_product__order__buyer_shop_id=shop_id,
+                                                                 ordered_product__order__created_at__gte=start_date,
+                                                                 ordered_product__order__created_at__lte=end_date,
+                                                                 ordered_product__shipment_status__in=
+                                                                     ['PARTIALLY_DELIVERED_AND_COMPLETED',
+                                                                      'FULLY_DELIVERED_AND_COMPLETED',
+                                                                      'PARTIALLY_DELIVERED_AND_VERIFIED',
+                                                                      'FULLY_DELIVERED_AND_VERIFIED',
+                                                                      'PARTIALLY_DELIVERED_AND_CLOSED',
+                                                                      'FULLY_DELIVERED_AND_CLOSED'])
+        for shipped_item in shipment_products:
+            total_sales += shipped_item.basic_rate*shipped_item.delivered_qty
+        return floor(total_sales)
 
 
-# def shop_scheme_mapping(shop_serializer):
-#     scheme_shop_mappings = []
-#     for shop_id in shop_serializer.data:
-#         scheme_shop_mapping = get_shop_scheme_mapping(shop_id['shop']['id'])
-#         scheme_shop_mappings.append(scheme_shop_mapping)
-#     serializer = SchemeShopMappingSerializer(scheme_shop_mappings)
-#     return serializer
+class ShopSchemeDetails(APIView):
+    """
+       This class is used to get SchemeSlab detail based on scheme id
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        scheme_id = request.GET.get('scheme_id')
+        scheme_slab = SchemeSlab.objects.filter(id=scheme_id).last()
+
+        if scheme_slab:
+            serializer = SchemeDetailSerializer(scheme_slab)
+        msg = {'is_success': True, 'message': ['OK'], 'data': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
