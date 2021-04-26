@@ -207,7 +207,6 @@ class IncentiveDashBoard(APIView):
     queryset = ShopUserMapping.objects.all()
 
     def get_user_id_or_error_message(self, request):
-
         user = request.GET.get('user_id')
         if user:
             user = User.objects.filter(id=user).last()
@@ -227,7 +226,7 @@ class IncentiveDashBoard(APIView):
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
         try:
-            # check user_type if Sales Executive
+            # check if user_type is Sales Executive
             if user.user_type == 6:  # 'Sales Executive'
                 shop_serializer = self.sales_executive(user)
                 return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
