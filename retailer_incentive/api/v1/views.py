@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
-from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, IncentiveSerializer, SalesExecutiveListSerializer
+from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer
 from retailer_incentive.models import SchemeSlab
 from retailer_incentive.utils import get_shop_scheme_mapping
 from retailer_to_sp.models import OrderedProductMapping
@@ -203,7 +203,6 @@ class IncentiveDashBoard(APIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = IncentiveSerializer
     queryset = ShopUserMapping.objects.all()
 
     def get_user_id_or_error_message(self, request):
@@ -228,9 +227,9 @@ class IncentiveDashBoard(APIView):
         try:
             # check if user_type is Sales Executive
             if user.user_type == 6:  # 'Sales Executive'
-                shop_serializer = self.sales_executive(user)
+                mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user)
                 return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
-                                 "data": shop_serializer,
+                                 "data": mapped_shop_scheme_details,
                                  'is_success': True}, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False,
@@ -243,7 +242,7 @@ class IncentiveDashBoard(APIView):
             return Response({"detail": "Error while getting mapped shop for Sales Executive",
                              'is_success': False}, status=status.HTTP_200_OK)
 
-    def sales_executive(self, user):
+    def get_sales_executive_shop_scheme_details(self, user):
         shop_mapping_object = (self.queryset.filter(
             employee=user.shop_employee.instance, status=True))
         if shop_mapping_object:
@@ -264,21 +263,15 @@ class IncentiveDashBoard(APIView):
                     if scheme_slab is not None:
                         discount_percentage = scheme_slab.discount_value
                     discount_value = floor(discount_percentage * total_sales / 100)
-                    next_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__gt=total_sales).order_by(
-                        'min_value').first()
-                    message = SUCCESS_MESSAGES['SCHEME_SLAB_HIGHEST']
-                    if next_slab is not None:
-                        message = SUCCESS_MESSAGES['SCHEME_SLAB_ADD_MORE'].format(floor(next_slab.min_value - total_sales),
-                                                                                  (
-                                                                                              next_slab.min_value * next_slab.discount_value / 100),
-                                                                                  next_slab.discount_value)
+
                     shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
 
                     data = [{'shop_name': shop.shop_name,
+                             'mapped_scheme': scheme.name,
                              'total_sales': total_sales,
                              'discount_percentage': discount_percentage,
-                             'discount_value': discount_value,
-                             'message': message}]
+                             'discount_value': discount_value
+                             }]
 
                     all_data.append(data)
 

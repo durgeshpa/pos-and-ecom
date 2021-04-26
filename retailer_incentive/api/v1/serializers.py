@@ -48,22 +48,6 @@ class SchemeShopMappingSerializer(serializers.ModelSerializer):
         fields = ('scheme', 'scheme_name', 'start_date', 'end_date', 'shop', 'slabs')
 
 
-class ShopSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Shop
-        fields = ['id', 'shop_name']
-
-
-class IncentiveSerializer(serializers.ModelSerializer):
-    shop = ShopSerializer(read_only=True)
-
-    class Meta:
-        """ Meta class """
-        model = ShopUserMapping
-        fields = ['shop', 'employee']
-
-
 class EmployeeDetails(serializers.ModelSerializer):
     class Meta:
         """ Meta class """
