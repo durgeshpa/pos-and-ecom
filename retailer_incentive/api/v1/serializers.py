@@ -62,3 +62,17 @@ class SalesExecutiveListSerializer(serializers.ModelSerializer):
         """ Meta class """
         model = ShopUserMapping
         fields = ['employee', ]
+
+
+class SchemeDetailSerializer(serializers.ModelSerializer):
+    scheme = serializers.SerializerMethodField('scheme_slab')
+
+    def scheme_slab(self, obj):
+        slabs = SchemeSlab.objects.filter(scheme=obj.scheme)
+        serializer = SchemeSlabSerializer(slabs, many=True)
+        return serializer.data
+
+    class Meta:
+        """ Meta class """
+        model = SchemeSlab
+        fields = ['id', 'scheme' ]

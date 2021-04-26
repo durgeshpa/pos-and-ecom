@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
-from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer
+from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, SchemeDetailSerializer
 from retailer_incentive.models import SchemeSlab
 from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based_on_month
 from retailer_to_sp.models import OrderedProductMapping
@@ -268,7 +268,9 @@ class IncentiveDashBoard(APIView):
                     discount_value = floor(discount_percentage * total_sales / 100)
 
                     shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
-                    scheme_data = [{'shop_name': shop.shop_name,
+                    scheme_data = [{'shop_id': shop.id,
+                                    'shop_name': shop.shop_name,
+                                    'mapped_scheme_id': scheme.id,
                                     'mapped_scheme': scheme.name,
                                     'total_sales': total_sales,
                                     'discount_percentage': discount_percentage,
@@ -304,3 +306,20 @@ class IncentiveDashBoard(APIView):
         for shipped_item in shipment_products:
             total_sales += shipped_item.basic_rate*shipped_item.delivered_qty
         return floor(total_sales)
+
+
+class ShopSchemeDetails(APIView):
+    """
+       This class is used to get SchemeSlab detail based on scheme id
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        scheme_id = request.GET.get('scheme_id')
+        scheme_slab = SchemeSlab.objects.filter(id=scheme_id).last()
+
+        if scheme_slab:
+            serializer = SchemeDetailSerializer(scheme_slab)
+        msg = {'is_success': True, 'message': ['OK'], 'data': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
