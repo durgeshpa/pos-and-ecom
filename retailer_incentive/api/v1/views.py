@@ -199,7 +199,7 @@ class SalesManagerLogin(APIView):
 class IncentiveDashBoard(APIView):
     """
         This class is used to get the incentive details of all mapped Shop
-        for 'Sales Executive' or all Sales Executive & Shop for 'Sales Manager'
+        for 'Sales Executive'
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
