@@ -236,6 +236,19 @@ class Cart(models.Model):
         sum = 0
         buyer_shop = self.buyer_shop
         if cart_products:
+            if self.cart_status in ['active', 'pending']:
+                cart_value = 0
+                for product in cart_products:
+                    shop_price = product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop)
+                    cart_value += float(shop_price.get_per_piece_price(product.qty)
+                                        * product.no_of_pieces) if shop_price else 0
+            if self.cart_status in ['ordered']:
+                cart_value = 0
+                for product in cart_products:
+                    price = product.cart_product_price
+                    cart_value += float(price.get_per_piece_price(product.qty)
+                                        * product.no_of_pieces) if price else 0
+
             for m in cart_products:
                 if m.cart_product.get_current_shop_price(shop, buyer_shop) == None:
                     CartProductMapping.objects.filter(cart__id=self.id, cart_product__id=m.cart_product.id).delete()
@@ -245,7 +258,6 @@ class Cart(models.Model):
                     parent_brand = parent_product_brand.brand_parent.id if parent_product_brand.brand_parent else None
                 else:
                     parent_brand = None
-                # parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
                 product_brand_id = m.cart_product.parent_product.parent_brand.id if m.cart_product.parent_product else None
                 brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True,
                                                       expiry_date__gte=date).filter(
@@ -263,9 +275,11 @@ class Cart(models.Model):
                 coupon_times_used = CusotmerCouponUsage.objects.filter(shop=buyer_shop, product=m.cart_product,
                                                                        created_at__date=date.date()).count() if CusotmerCouponUsage.objects.filter(
                     shop=buyer_shop, product=m.cart_product, created_at__date=date.date()) else 0
-                for n in m.cart_product.purchased_product_coupon.filter(rule__is_active=True,
-                                                                        rule__expiry_date__gte=date):
+                for n in m.cart_product.purchased_product_coupon.filter(rule__is_active=True, rule__expiry_date__gte=date):
                     for o in n.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte=date):
+                        if o.rule.cart_qualifying_min_sku_value and not o.rule.cart_qualifying_min_sku_item:
+                            if cart_value < o.rule.cart_qualifying_min_sku_value:
+                                continue
                         if o.limit_per_user_per_day > coupon_times_used:
                             if n.rule.discount_qty_amount > 0:
                                 if sku_qty >= n.rule.discount_qty_step:
@@ -358,7 +372,9 @@ class Cart(models.Model):
                                      'brand_product_subtotals': brand_product_subtotals,
                                      'discount_sum_brand': discount_sum_brand})
                             elif brand_coupon.rule.discount.is_percentage == True and (
-                                    brand_coupon.rule.discount.max_discount == 0):
+                                    brand_coupon.rule.discount.max_discount == 0 or (
+                                    brand_coupon.rule.discount.max_discount >= (
+                                    (brand_coupon.rule.discount.discount_value / 100) * brand_product_subtotals))):
                                 discount_value_brand = round(
                                     (brand_coupon.rule.discount.discount_value / 100) * brand_product_subtotals, 2)
                                 discount_sum_brand += round(discount_value_brand, 2)
@@ -390,20 +406,7 @@ class Cart(models.Model):
             cart_coupon_list = []
             i = 0
             coupon_applied = False
-            if self.cart_status in ['active', 'pending']:
-                cart_value = 0
-                for product in self.rt_cart_list.all():
-                    shop_price = product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop)
-                    cart_value += float(shop_price.get_per_piece_price(product.qty)
-                                        * product.no_of_pieces) if shop_price else 0
-                cart_value -= discount_sum_sku
-            if self.cart_status in ['ordered']:
-                cart_value = 0
-                for product in self.rt_cart_list.all():
-                    price = product.cart_product_price
-                    cart_value += float(price.get_per_piece_price(product.qty)
-                                        * product.no_of_pieces) if price else 0
-                    cart_value -= discount_sum_sku
+            cart_value = cart_value - discount_sum_sku
 
             cart_items_count = self.rt_cart_list.count()
             for cart_coupon in cart_coupons:
@@ -427,7 +430,7 @@ class Cart(models.Model):
                                  'coupon': cart_coupon.coupon_name, 'coupon_code': cart_coupon.coupon_code,
                                  'discount_value': discount_value_cart, 'coupon_type': 'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (
-                                cart_coupon.rule.discount.max_discount > (
+                                cart_coupon.rule.discount.max_discount >= (
                                 (cart_coupon.rule.discount.discount_value / 100) * cart_value)):
                             discount_value_cart = round((cart_coupon.rule.discount.discount_value / 100) * cart_value,
                                                         2)
