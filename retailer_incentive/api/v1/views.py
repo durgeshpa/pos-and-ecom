@@ -1,16 +1,22 @@
-import datetime
+import logging
 from math import floor
 
 from rest_framework import authentication, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from retailer_backend.messages import SUCCESS_MESSAGES
-from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer
+from retailer_backend import messages
+from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
+from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, IncentiveSerializer, SalesExecutiveListSerializer
 from retailer_incentive.models import SchemeSlab
 from retailer_incentive.utils import get_shop_scheme_mapping
 from retailer_to_sp.models import OrderedProductMapping
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
+from retailer_incentive.common_function import get_user_id_from_token
+from accounts.models import User
+
+
+logger = logging.getLogger('dashboard-api')
 
 
 class ShopSchemeMappingView(APIView):
@@ -142,3 +148,117 @@ class ShopUserMappingView(APIView):
                                                                'sm_no': sales_manager_number
                                                                }}
         return Response(msg, status=status.HTTP_200_OK)
+
+
+class SalesManagerLogin(APIView):
+    """
+        This class is used to get the mapped 'Sales Executive' for 'Sales Manager'
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = SalesExecutiveListSerializer
+    queryset = ShopUserMapping.objects.all()
+
+    def get(self, request):
+        # get user from token
+        user = get_user_id_from_token(request)
+        if type(user) == str:
+            msg = {'is_success': False,
+                   'error_message': user,
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        try:
+            # check if user_type is Sales Manager
+            if user.user_type == 7:  # 'Sales Manager'
+                shop_mapping_object = (self.queryset.filter(
+                    employee=user.shop_employee.instance, status=True))
+                if shop_mapping_object:
+                    executive_list = []
+                    for shop_mapping in shop_mapping_object:
+                        executive = self.queryset.filter(manager=shop_mapping).distinct('employee_id')
+                        for sales_executives in executive:
+                            if sales_executives.employee.user_type == 6 and \
+                                    sales_executives.employee_group.name == 'Sales Executive':
+                                sales_executive = sales_executives
+                                executive_list.append(sales_executive)
+                    shop_serializer = self.serializer_class(executive_list, many=True)
+                    return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
+                                     "data": shop_serializer.data,
+                                     'is_success': True}, status=status.HTTP_200_OK)
+            else:
+                msg = {'is_success': False,
+                       'error_message': "User is not Authorised",
+                       'response_data': None}
+                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        except Exception as error:
+            logger.exception(error)
+            return Response({"detail": messages.ERROR_MESSAGES["4007"],
+                                 'is_success': False}, status=status.HTTP_200_OK)
+
+
+class IncentiveDashBoard(APIView):
+    """
+        This class is used to get the incentive details of all mapped Shop
+        for 'Sales Executive' or all Sales Executive & Shop for 'Sales Manager'
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = IncentiveSerializer
+    queryset = ShopUserMapping.objects.all()
+
+    def get_user_id_or_error_message(self, request):
+
+        user = request.GET.get('user_id')
+        if user:
+            user = User.objects.filter(id=user).last()
+            if user is None:
+                return "Please Provide a Valid TOKEN"
+        else:
+            user = get_user_id_from_token(request)
+        return user
+
+    def get(self, request):
+
+        user = self.get_user_id_or_error_message(request)
+        if type(user) == str:
+            msg = {'is_success': False,
+                   'error_message': user,
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        try:
+            # check user_type if Sales Executive
+            if user.user_type == 6:  # 'Sales Executive'
+                shop_serializer = self.sales_executive(user)
+                return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
+                                 "data": shop_serializer.data,
+                                 'is_success': True}, status=status.HTTP_200_OK)
+            else:
+                msg = {'is_success': False,
+                       'error_message': "User is not Authorised",
+                       'response_data': None}
+                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        except Exception as error:
+            logger.exception(error)
+            return Response({"detail": messages.ERROR_MESSAGES["4007"],
+                             'is_success': False}, status=status.HTTP_200_OK)
+
+    def sales_executive(self, user):
+        shop_mapping_object = (self.queryset.filter(
+            employee=user.shop_employee.instance, status=True))
+        if shop_mapping_object:
+            for shop_scheme in shop_mapping_object:
+                # scheme_shop_mapping = get_shop_scheme_mapping(shop_scheme['shop']['id'])
+                shop_serializer = self.serializer_class(shop_mapping_object, many=True)
+                return shop_serializer
+
+
+# def shop_scheme_mapping(shop_serializer):
+#     scheme_shop_mappings = []
+#     for shop_id in shop_serializer.data:
+#         scheme_shop_mapping = get_shop_scheme_mapping(shop_id['shop']['id'])
+#         scheme_shop_mappings.append(scheme_shop_mapping)
+#     serializer = SchemeShopMappingSerializer(scheme_shop_mappings)
+#     return serializer
