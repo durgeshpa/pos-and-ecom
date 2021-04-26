@@ -207,19 +207,13 @@ class IncentiveDashBoard(APIView):
     queryset = ShopUserMapping.objects.all()
 
     def get_user_id_or_error_message(self, request):
-        user = request.GET.get('user_id')
-        if user:
-            # when manager logged in
-            manager = get_user_id_from_token(request)
-            if manager.user_type == 7:
-                user = User.objects.filter(id=user).last()
+        user = get_user_id_from_token(request)
+        if not type(user) == str:
+            if user.user_type == 7:
+                user_id = request.GET.get('user_id')
+                user = User.objects.filter(id=user_id).last()
                 if user is None:
                     return "Please Provide a Valid user_id"
-            else:
-                return "Please Provide a Valid token"
-        else:
-            # when sales executive logged in
-            user = get_user_id_from_token(request)
         return user
 
     def get(self, request):
