@@ -22,5 +22,6 @@ def set_start_end_date():
             for scheme_sh_map in scheme_shop_mapping:
                 scheme_sh_map.start_date = scheme.start_date
                 scheme_sh_map.end_date = scheme.end_date
+                scheme_sh_map.save()
     except Exception as e:
         error_logger.error(e)

@@ -209,10 +209,16 @@ class IncentiveDashBoard(APIView):
     def get_user_id_or_error_message(self, request):
         user = request.GET.get('user_id')
         if user:
-            user = User.objects.filter(id=user).last()
-            if user is None:
-                return "Please Provide a Valid TOKEN"
+            # when manager logged in
+            manager = get_user_id_from_token(request)
+            if manager.user_type == 7:
+                user = User.objects.filter(id=user).last()
+                if user is None:
+                    return "Please Provide a Valid user_id"
+            else:
+                return "Please Provide a Valid token"
         else:
+            # when sales executive logged in
             user = get_user_id_from_token(request)
         return user
 
