@@ -193,8 +193,8 @@ class SalesManagerLogin(APIView):
 
         except Exception as error:
             logger.exception(error)
-            return Response({"detail": messages.ERROR_MESSAGES["4007"],
-                                 'is_success': False}, status=status.HTTP_200_OK)
+            return Response({"detail": "Error while getting mapped Sales Executive for Sales Manager",
+                             'is_success': False}, status=status.HTTP_200_OK)
 
 
 class IncentiveDashBoard(APIView):
@@ -242,7 +242,7 @@ class IncentiveDashBoard(APIView):
 
         except Exception as error:
             logger.exception(error)
-            return Response({"detail": messages.ERROR_MESSAGES["4007"],
+            return Response({"detail": "Error while getting mapped shop for Sales Executive",
                              'is_success': False}, status=status.HTTP_200_OK)
 
     def sales_executive(self, user):
