@@ -135,7 +135,7 @@ class Cart(BaseCart):
         """
             Sample file containing products mapped to vendor
         """
-        if self.cart_product_mapping_csv and hasattr(self.cart_product_mapping_csv, 'url'):
+        if self.supplier_name:
             url = """<h3><a href="%s">Download Products List</a></h3>""" % \
                   (reverse('admin:products_vendor_mapping', args=(self.supplier_name_id,)))
         else:
