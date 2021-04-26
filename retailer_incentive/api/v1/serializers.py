@@ -75,4 +75,4 @@ class SchemeDetailSerializer(serializers.ModelSerializer):
     class Meta:
         """ Meta class """
         model = SchemeSlab
-        fields = ['id', 'scheme' ]
+        fields = ['id', 'scheme', ]
