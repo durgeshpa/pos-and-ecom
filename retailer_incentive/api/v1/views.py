@@ -230,7 +230,7 @@ class IncentiveDashBoard(APIView):
             if user.user_type == 6:  # 'Sales Executive'
                 shop_serializer = self.sales_executive(user)
                 return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
-                                 "data": shop_serializer.data,
+                                 "data": shop_serializer,
                                  'is_success': True}, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False,
@@ -247,16 +247,65 @@ class IncentiveDashBoard(APIView):
         shop_mapping_object = (self.queryset.filter(
             employee=user.shop_employee.instance, status=True))
         if shop_mapping_object:
+            scheme_shop_mapping_list = []
             for shop_scheme in shop_mapping_object:
-                # scheme_shop_mapping = get_shop_scheme_mapping(shop_scheme['shop']['id'])
-                shop_serializer = self.serializer_class(shop_mapping_object, many=True)
-                return shop_serializer
+                scheme_shop_mapping = get_shop_scheme_mapping(shop_scheme.shop_id)
+                if scheme_shop_mapping:
+                    scheme_shop_mapping_list.append(scheme_shop_mapping)
+            if scheme_shop_mapping_list:
+                all_data = []
+                for scheme_shop_map in scheme_shop_mapping_list:
+                    scheme = scheme_shop_map.scheme
+                    shop_id = shop_scheme.shop_id
+                    total_sales = self.get_total_sales(shop_scheme.shop_id, scheme.start_date, scheme.end_date)
+                    scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by(
+                        'min_value').last()
 
+                    discount_percentage = 0
+                    if scheme_slab is not None:
+                        discount_percentage = scheme_slab.discount_value
+                    discount_value = floor(discount_percentage * total_sales / 100)
+                    next_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__gt=total_sales).order_by(
+                        'min_value').first()
+                    message = SUCCESS_MESSAGES['SCHEME_SLAB_HIGHEST']
+                    if next_slab is not None:
+                        message = SUCCESS_MESSAGES['SCHEME_SLAB_ADD_MORE'].format(floor(next_slab.min_value - total_sales),
+                                                                                  (
+                                                                                              next_slab.min_value * next_slab.discount_value / 100),
+                                                                                  next_slab.discount_value)
+                    shop = Shop.objects.filter(id=shop_id).last()
 
-# def shop_scheme_mapping(shop_serializer):
-#     scheme_shop_mappings = []
-#     for shop_id in shop_serializer.data:
-#         scheme_shop_mapping = get_shop_scheme_mapping(shop_id['shop']['id'])
-#         scheme_shop_mappings.append(scheme_shop_mapping)
-#     serializer = SchemeShopMappingSerializer(scheme_shop_mappings)
-#     return serializer
+                    data = [{'shop_name': shop.shop_name,
+                             'total_sales': total_sales,
+                             'discount_percentage': discount_percentage,
+                             'discount_value': discount_value,
+                             'message': message}]
+
+                    all_data.append(data)
+
+                return all_data
+
+    def get_total_sales(self, shop_id, start_date, end_date):
+        """
+        Returns the total purchase of a shop between given start_date and end_date
+        Param :
+            shop_id : id of shop
+            start_date : start date from which sales to be considered
+            end_date : date till which the sales to be considered
+        Returns:
+            floor value of total purchase of a shop between given start_date and end_date
+        """
+        total_sales = 0
+        shipment_products = OrderedProductMapping.objects.filter(ordered_product__order__buyer_shop_id=shop_id,
+                                                                 ordered_product__order__created_at__gte=start_date,
+                                                                 ordered_product__order__created_at__lte=end_date,
+                                                                 ordered_product__shipment_status__in=
+                                                                     ['PARTIALLY_DELIVERED_AND_COMPLETED',
+                                                                      'FULLY_DELIVERED_AND_COMPLETED',
+                                                                      'PARTIALLY_DELIVERED_AND_VERIFIED',
+                                                                      'FULLY_DELIVERED_AND_VERIFIED',
+                                                                      'PARTIALLY_DELIVERED_AND_CLOSED',
+                                                                      'FULLY_DELIVERED_AND_CLOSED'])
+        for shipped_item in shipment_products:
+            total_sales += shipped_item.basic_rate*shipped_item.delivered_qty
+        return floor(total_sales)
