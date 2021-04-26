@@ -180,9 +180,9 @@ class SalesManagerLogin(APIView):
                             if sales_executive.employee.user_type == 6 and \
                                     sales_executive.employee_group.name == 'Sales Executive':
                                 executive_list.append(sales_executive)
-                    shop_serializer = self.serializer_class(executive_list, many=True)
+                    executive_serializer = self.serializer_class(executive_list, many=True)
                     return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
-                                     "data": shop_serializer.data,
+                                     "data": executive_serializer.data,
                                      'is_success': True}, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False,
