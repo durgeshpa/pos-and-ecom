@@ -1,3 +1,4 @@
+import datetime
 import logging
 from math import floor
 
@@ -9,7 +10,7 @@ from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer
 from retailer_incentive.models import SchemeSlab
-from retailer_incentive.utils import get_shop_scheme_mapping
+from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based_on_month
 from retailer_to_sp.models import OrderedProductMapping
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
 from retailer_incentive.common_function import get_user_id_from_token
@@ -216,7 +217,6 @@ class IncentiveDashBoard(APIView):
         return user
 
     def get(self, request):
-
         user = self.get_user_id_or_error_message(request)
         if type(user) == str:
             msg = {'is_success': False,
@@ -227,7 +227,10 @@ class IncentiveDashBoard(APIView):
         try:
             # check if user_type is Sales Executive
             if user.user_type == 6:  # 'Sales Executive'
-                mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user)
+                today = datetime.date.today()
+                month = int(request.GET.get('month')) if request.GET.get(
+                    'month') else today.month
+                mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user, month)
                 return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
                                  "data": mapped_shop_scheme_details,
                                  'is_success': True}, status=status.HTTP_200_OK)
@@ -242,20 +245,20 @@ class IncentiveDashBoard(APIView):
             return Response({"detail": "Error while getting mapped shop for Sales Executive",
                              'is_success': False}, status=status.HTTP_200_OK)
 
-    def get_sales_executive_shop_scheme_details(self, user):
+    def get_sales_executive_shop_scheme_details(self, user, month):
         shop_mapping_object = (self.queryset.filter(
             employee=user.shop_employee.instance, status=True))
         if shop_mapping_object:
             scheme_shop_mapping_list = []
             for shop_scheme in shop_mapping_object:
-                scheme_shop_mapping = get_shop_scheme_mapping(shop_scheme.shop_id)
+                scheme_shop_mapping = get_shop_scheme_mapping_based_on_month(shop_scheme.shop_id, month)
                 if scheme_shop_mapping:
                     scheme_shop_mapping_list.append(scheme_shop_mapping)
             if scheme_shop_mapping_list:
-                all_data = []
+                scheme_data_list = []
                 for scheme_shop_map in scheme_shop_mapping_list:
                     scheme = scheme_shop_map.scheme
-                    total_sales = self.get_total_sales(scheme_shop_map.shop_id, scheme.start_date, scheme.end_date)
+                    total_sales = self.get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date, scheme_shop_map.end_date)
                     scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by(
                         'min_value').last()
 
@@ -265,17 +268,17 @@ class IncentiveDashBoard(APIView):
                     discount_value = floor(discount_percentage * total_sales / 100)
 
                     shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
+                    scheme_data = [{'shop_name': shop.shop_name,
+                                    'mapped_scheme': scheme.name,
+                                    'total_sales': total_sales,
+                                    'discount_percentage': discount_percentage,
+                                    'discount_value': discount_value,
+                                    'start_date': scheme_shop_map.start_date,
+                                    'end_date': scheme_shop_map.end_date
+                                    }]
+                    scheme_data_list.append(scheme_data)
 
-                    data = [{'shop_name': shop.shop_name,
-                             'mapped_scheme': scheme.name,
-                             'total_sales': total_sales,
-                             'discount_percentage': discount_percentage,
-                             'discount_value': discount_value
-                             }]
-
-                    all_data.append(data)
-
-                return all_data
+                return scheme_data_list
 
     def get_total_sales(self, shop_id, start_date, end_date):
         """

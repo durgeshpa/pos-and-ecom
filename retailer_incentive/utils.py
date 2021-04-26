@@ -22,3 +22,14 @@ def get_shop_scheme_mapping(shop_id):
     if shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).exists():
         return shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).last()
     return shop_scheme_mapping_qs.last()
+
+
+
+def get_shop_scheme_mapping_based_on_month(shop_id, month):
+    """Returns the valid Scheme mapped for given shop_id"""
+    shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True,
+                                                              start_date__month=month,
+                                                              end_date__month=month)
+    if shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).exists():
+        return shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).last()
+    return shop_scheme_mapping_qs.last()
