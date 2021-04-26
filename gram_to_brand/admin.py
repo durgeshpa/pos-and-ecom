@@ -20,10 +20,9 @@ from retailer_backend.filters import (BrandFilter, SupplierStateFilter, Supplier
                                       ProductSKUSearch, SupplierNameSearch, POCreatedBySearch, PONumberSearch)
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 from products.models import ProductVendorMapping, ParentProduct
-from barCodeGenerator import merged_barcode_gen
-
+from barCodeGenerator import barcodeGen, merged_barcode_gen
 from .views import DownloadPurchaseOrder, GetMessage
-from .common_functions import upload_cart_product_csv
+from .common_functions import upload_cart_product_csv, moving_average_buying_price
 from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList, Document,
                      PickListItems, OrderedProductReserved, Po_Message)
 from .forms import (OrderForm, CartProductMappingForm, GRNOrderProductForm, GRNOrderProductFormset, DocumentFormset,
@@ -344,13 +343,27 @@ class GRNOrderAdmin(admin.ModelAdmin):
         super(GRNOrderAdmin, self).save_related(request, form, formsets, change)
         obj = form.instance
         obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces')
-        grn_list_map = {int(i['product']): (i['delivered_qty_sum'], i['returned_qty_sum']) for i in
-                        GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).values('product').annotate(
-                            delivered_qty_sum=Sum(F('delivered_qty'))).annotate(
-                            returned_qty_sum=Sum(F('returned_qty')))}
+        grn_list_map = {int(i['product']): (i['delivered_qty_sum'], i['returned_qty_sum'],
+                                            i['product_invoice_price'], i['vendor_product__brand_to_gram_price_unit'],
+                                            i['vendor_product__case_size'], i['product__repackaging_type'],
+                                            i['grn_order__order__ordered_cart__gf_shipping_address__shop_name'],
+                                            i['id']
+                                            ) for i in
+                        GRNOrderProductMapping.objects.filter(
+                            grn_order__order=obj.order).values('product',
+                                                               'product_invoice_price',
+                                                               'vendor_product__brand_to_gram_price_unit',
+                                                               'vendor_product__case_size',
+                                                               'product__repackaging_type',
+                                                               'grn_order__order__ordered_cart__gf_shipping_address__shop_name',
+                                                               'id'
+                                                               )
+                            .annotate(delivered_qty_sum=Sum(F('delivered_qty')))
+                            .annotate(returned_qty_sum=Sum(F('returned_qty')))}
         returned_qty_totalsum = GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).aggregate(
             returned_qty_totalsum=Sum('returned_qty'))['returned_qty_totalsum']
         for product_price_map in obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces'):
+
             if returned_qty_totalsum > 0:
                 flag = 'PDLC'
                 if grn_list_map[product_price_map['cart_product']][0] == 0 and \
@@ -363,6 +376,17 @@ class GRNOrderAdmin(admin.ModelAdmin):
             elif grn_list_map[product_price_map['cart_product']][0] != product_price_map['no_of_pieces']:
                 flag = 'PDLV'
                 break
+
+        for product_price_map in obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces',
+                                                                         '_tax_percentage'):
+            # If delivered quantity, update moving buying price of product
+            if grn_list_map[product_price_map['cart_product']][0] > 0:
+                grn_product_data = grn_list_map[product_price_map['cart_product']]
+                moving_average_buying_price(product_price_map['cart_product'], grn_product_data[7], grn_product_data[5],
+                                            grn_product_data[2], grn_product_data[0], grn_product_data[6],
+                                            grn_product_data[3], grn_product_data[4],
+                                            product_price_map['_tax_percentage'])
+
         obj.order.ordered_cart.po_status = flag
         obj.order.ordered_cart.save()
 

@@ -31,10 +31,21 @@
 	});
 
 	$("#id_destination_sku").on('change', function(){
+	    reset('dest')
 	    if($(this).val() == ''){
 	        return false;
 	    }
-	    $('#id_source_repackage_quantity').attr('readonly', false);
+	    $.ajax({ data: ({'sku_id':$(this).val(), 'shop_id':$('#id_seller_shop').val() }) ,
+            type: 'GET',
+            url: '/admin/products/product/packing-material-check/',
+            success: function(response) {
+                if (response.success){
+                    $('#id_source_repackage_quantity').attr('readonly', false);
+                } else {
+                    alert(response.error)
+                }
+            },
+        });
 	});
 
 	$("#id_seller_shop").on('change', function(){
@@ -52,9 +63,26 @@
         set_weights(repackage_qty);
 	});
 
+	$('#id_destination_sku_quantity').on('blur', function(){
+	    if($(this).val() < 0 || $(this).val() == ''){
+	        $(this).val(0);
+	    }
+	    var packing_sku_weight_per_unit_sku = $("#id_packing_sku_weight_per_unit_sku").val();
+	    if (packing_sku_weight_per_unit_sku <= 0){
+	        alert("Packing SKU / Packing SKU Weight Per Unit Destination SKU Not Found");
+	        return false;
+	    }
+	    var destination_qty = $(this).val();
+	    var packing_sku_weight = $("#id_available_packing_material_weight_initial").val();
+	    var packing_sku_weight_needed = destination_qty * packing_sku_weight_per_unit_sku;
+	    if (packing_sku_weight_needed > packing_sku_weight){
+	        alert("Packing Material Inventory Not Sufficient");
+	        return false;
+	    }
+	    $("#id_available_packing_material_weight").val((packing_sku_weight - packing_sku_weight_needed) / 1000);
+	});
+
 	function reset(type){
-	    $("#id_source_repackage_quantity").val(0);
-	    $('#id_source_repackage_quantity').attr('readonly', true);
 	    if(type == 'shop' || type=='source'){
 	        $("#id_available_source_weight").val(0);
 	        $("#id_available_source_quantity").val(0);
@@ -63,6 +91,8 @@
 	        source_sku_weight = 0;
 	        $("#id_destination_sku").val($("#id_destination_sku option:first").val());
 	        $("#id_destination_sku").trigger('change');
+	        $("#id_source_repackage_quantity").val(0);
+	        $('#id_source_repackage_quantity').attr('readonly', true);
 	    }
 	    if(type == 'shop'){
             $("#id_source_sku").val($("#id_source_sku option:first").val());

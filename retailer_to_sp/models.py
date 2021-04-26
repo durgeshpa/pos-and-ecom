@@ -16,28 +16,32 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html_join
 
-from addresses.models import Address
-from brand.models import Brand
-from products.models import Product, ProductPrice, Repackaging
-from shops.models import Shop, ParentRetailerMapping, ShopNameDisplay
 from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
-from wms.models import Out, PickupBinInventory, Pickup, BinInventory,\
-    Putaway, PutawayBinInventory, InventoryType, InventoryState, Bin
 
 from celery.task import task
 from accounts.middlewares import get_current_user
-from otp.sms import SendSms
 from retailer_backend import common_function
 from retailer_backend import common_function as CommonFunction
 from .bulk_order_clean import bulk_order_validation
 from .common_function import reserved_args_json_data
-from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
-    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
                     picking_statuses, picker_boys, picklist_ids, picklist_refreshed_at)
+
+from addresses.models import Address
+from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType, \
+    InventoryState, Bin
+from wms.common_functions import CommonPickupFunctions, PutawayCommonFunctions, common_on_return_and_partial, \
+    get_expiry_date, OrderManagement, product_batch_inventory_update_franchise, get_stock, is_product_not_eligible
+from brand.models import Brand
+from otp.sms import SendSms
+from products.models import Product, ProductPrice, Repackaging
+from shops.models import Shop, ParentRetailerMapping
+
+from .utils import (order_invoices, order_shipment_amount,
+                    order_shipment_details_util, order_shipment_status)
 
 today = datetime.datetime.today()
 
