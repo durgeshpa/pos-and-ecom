@@ -135,6 +135,11 @@ class BinInventory(models.Model):
     def __str__(self):
         return str(self.id)
 
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(BinInventory, self).save(*args, **kwargs)
+
     class Meta:
         db_table = "wms_bin_inventory"
 
@@ -150,6 +155,11 @@ class WarehouseInventory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     visible = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(WarehouseInventory, self).save(*args, **kwargs)
 
     class Meta:
         db_table = "wms_warehouse_inventory"
@@ -167,6 +177,11 @@ class In(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     expiry_date = models.DateField(null=True)
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(In, self).save(*args, **kwargs)
 
 
 class Putaway(models.Model):
@@ -230,6 +245,11 @@ class Out(models.Model):
     weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(Out, self).save(*args, **kwargs)
 
 
 class Pickup(models.Model):
@@ -363,6 +383,11 @@ class WarehouseInternalInventoryChange(models.Model):
     def __str__(self):
         return self.transaction_type
 
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(WarehouseInternalInventoryChange, self).save(*args, **kwargs)
+
     class Meta:
         db_table = "wms_warehouse_internal_inventory_change"
 
@@ -409,6 +434,11 @@ class BinInternalInventoryChange(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(BinInternalInventoryChange, self).save(*args, **kwargs)
+
     class Meta:
         db_table = "wms_bin_internal_inventory_change"
 
@@ -425,6 +455,11 @@ class StockCorrectionChange(models.Model):
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(StockCorrectionChange, self).save(*args, **kwargs)
 
     class Meta:
         db_table = "wms_stock_correction_change"
