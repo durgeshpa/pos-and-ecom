@@ -1,48 +1,32 @@
 import logging
 import datetime
 import math
-from django.contrib import messages, admin
-from django.contrib import admin
-from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList,
-                     PickListItems,
-                     OrderedProductReserved, Po_Message, Document)
-from products.models import Product, ProductVendorMapping, ParentProduct
-from retailer_backend.admin import InputFilter
-from django import forms
-from django.db.models import Sum, F
-from django.utils.html import format_html
-from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
-from dal import autocomplete
-from django.utils.html import format_html
-from django.urls import reverse
-from daterange_filter.filter import DateRangeFilter
-from django.db.models import Q
-from brand.models import Brand
-from addresses.models import State, Address
-from brand.models import Vendor
-from shops.models import Shop, ParentRetailerMapping
-from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm, GRNOrderProductForm,
-                                 GRNOrderProductFormset, POGenerationAccountForm)
-from .forms import POGenerationForm, DocumentForm
-from shops.models import Shop
-from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm, GRNOrderProductForm, GRNOrderProductFormset, POGenerationAccountForm)
-from .forms import POGenerationForm, DocumentForm, DocumentFormset
-from django.http import HttpResponse, HttpResponseRedirect
-from retailer_backend.filters import (BrandFilter, SupplierStateFilter, SupplierFilter, OrderSearch, QuantitySearch,
-                                      InvoiceNoSearch,
-                                      GRNSearch, POAmountSearch, PORaisedBy, ProductNameSearch, ProductSKUSearch,
-                                      SupplierNameSearch, POCreatedBySearch, PONumberSearch)
 
-from django.db.models import Q
-from .views import DownloadPurchaseOrder, GetMessage
+from dal import autocomplete
+from django import forms
+from django.db.models import Sum, F, Q
 from django.db import models
+from django.contrib import messages, admin
 from django.forms import Textarea
 from django.contrib.admin.models import LogEntry, ADDITION
 from django.contrib.contenttypes.models import ContentType
-from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
+from django.utils.html import format_html
+from django.urls import reverse
+from daterange_filter.filter import DateRangeFilter
+from django.http import HttpResponseRedirect
 
+from retailer_backend.filters import (BrandFilter, SupplierStateFilter, SupplierFilter, OrderSearch, QuantitySearch,
+                                      InvoiceNoSearch, GRNSearch, POAmountSearch, PORaisedBy, ProductNameSearch,
+                                      ProductSKUSearch, SupplierNameSearch, POCreatedBySearch, PONumberSearch)
+from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
+from products.models import ProductVendorMapping, ParentProduct
 from barCodeGenerator import barcodeGen, merged_barcode_gen
-from .common_functions import moving_average_buying_price
+from .views import DownloadPurchaseOrder, GetMessage
+from .common_functions import upload_cart_product_csv, moving_average_buying_price
+from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList, Document,
+                     PickListItems, OrderedProductReserved, Po_Message)
+from .forms import (OrderForm, CartProductMappingForm, GRNOrderProductForm, GRNOrderProductFormset, DocumentFormset,
+                    POGenerationAccountForm, POGenerationForm, DocumentForm)
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -61,7 +45,7 @@ class CartProductMappingAdmin(admin.TabularInline):
         widget=autocomplete.ModelSelect2(
             url='parent-product-autocomplete',
             attrs={
-                "onChange":'getLastGrnProductDetails(this)'
+                "onChange": 'getLastGrnProductDetails(this)'
             },
             forward=['supplier_name']
         )
@@ -69,29 +53,26 @@ class CartProductMappingAdmin(admin.TabularInline):
 
     class Media:
         js = (
-            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/po_generation_form.js'
         )
 
-    fields = (
-    'cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes', 'no_of_cases', 'no_of_pieces','brand_to_gram_price_units','price', 'sub_total')
-    readonly_fields = ('tax_percentage', 'mrp', 'sku', 'case_sizes','brand_to_gram_price_units', 'sub_total')
-
-    ##readonly_fields = ('tax_percentage','case_sizes','total_no_of_pieces',)
+    fields = ('cart_parent_product', 'cart_product', 'mrp', 'sku', 'tax_percentage', 'case_sizes', 'no_of_cases',
+              'no_of_pieces', 'brand_to_gram_price_units', 'price', 'sub_total')
+    readonly_fields = ('tax_percentage', 'mrp', 'sku', 'case_sizes', 'brand_to_gram_price_units', 'sub_total')
 
     def get_readonly_fields(self, request, obj=None):
         if request.user.is_superuser:
-            return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total','brand_to_gram_price_units'
+            return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total', 'brand_to_gram_price_units'
         elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total','brand_to_gram_price_units'
-        return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total','brand_to_gram_price_units'
+            return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total', 'brand_to_gram_price_units'
+        return 'tax_percentage', 'mrp', 'sku', 'case_sizes', 'sub_total', 'brand_to_gram_price_units'
 
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status', 'last_modified_by')
     autocomplete_fields = ('brand',)
-    # list_display = ('po_no','po_edit_link','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_raised_by','po_status', 'download_purchase_order')
     list_filter = [BrandFilter, SupplierStateFilter, SupplierFilter, ('po_creation_date', DateRangeFilter),
                    ('po_validity_date', DateRangeFilter), POAmountSearch, PORaisedBy, PONumberSearch]
     form = POGenerationForm
@@ -129,51 +110,50 @@ class CartAdmin(admin.ModelAdmin):
 
     def save_formset(self, request, form, formset, change):
         obj = form.instance
-        flag = False
         get_po_msg = Po_Message.objects.create(message=request.POST.get('message'),
                                                created_by=request.user) if request.POST.get('message') else None
-
-        if "_approve" in request.POST:
-            obj.po_status = obj.FINANCE_APPROVED
-            flag = True
-        elif "_disapprove" in request.POST:
-            obj.po_status = obj.DISAPPROVED
-            flag = True
-        elif "_approval_await" in request.POST:
-            obj.po_status = obj.APPROVAL_AWAITED
-            flag = True
-        elif "_close" in request.POST:
-            obj.po_status = obj.PARTIAL_DELIVERED_CLOSE
-            flag = True
-        else:
-            obj.po_status = obj.OPEN
+        flag, obj.po_status = self.po_status_request(request, obj)
         obj.po_message = get_po_msg
         obj.po_raised_by = request.user
         obj.last_modified_by = request.user
         obj.save()
-        if len(form.changed_data) > 0:
-            formset.save(commit=False)
-        else:
-            formset.save()
-        if change is False:
-            formset.save()
         if flag:
-            LogEntry.objects.log_action(
-                user_id=request.user.pk,
-                content_type_id=ContentType.objects.get_for_model(obj).pk,
-                object_id=obj.pk,
-                action_flag=ADDITION,
-                object_repr='',
-                change_message=SUCCESS_MESSAGES['CHANGED_STATUS'] % obj.get_po_status_display(),
-            )
-            return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+            self.log_entry(request.user.pk, obj)
+        formset.save()
+        if 'cart_product_mapping_csv' in form.changed_data:
+            upload_cart_product_csv(obj)
         return HttpResponseRedirect("/admin/gram_to_brand/cart/")
 
-    # class Media:
-    #     pass
+    @staticmethod
+    def log_entry(user_id, obj):
+        LogEntry.objects.log_action(
+            user_id=user_id,
+            content_type_id=ContentType.objects.get_for_model(obj).pk,
+            object_id=obj.pk,
+            action_flag=ADDITION,
+            object_repr='',
+            change_message=SUCCESS_MESSAGES['CHANGED_STATUS'] % obj.get_po_status_display(),
+        )
+
+    @staticmethod
+    def po_status_request(request, obj):
+        flag = True
+        if "_approve" in request.POST:
+            status = obj.FINANCE_APPROVED
+        elif "_disapprove" in request.POST:
+            status = obj.DISAPPROVED
+        elif "_approval_await" in request.POST:
+            status = obj.APPROVAL_AWAITED
+        elif "_close" in request.POST:
+            status = obj.PARTIAL_DELIVERED_CLOSE
+        else:
+            status = obj.OPEN
+            flag = False
+        return flag, status
+
     class Media:
         js = (
-            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', # jquery
+            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/po_generation_form.js'
         )
 
@@ -184,16 +164,12 @@ class CartAdmin(admin.ModelAdmin):
                    url(r'^download-purchase-order/(?P<pk>\d+)/purchase_order/$',
                        self.admin_site.admin_view(DownloadPurchaseOrder.as_view()),
                        name='download_purchase_order'),
-
                    url(r'^message-list/$',
                        self.admin_site.admin_view(GetMessage.as_view()),
                        name='message-list'),
                ] + urls
         return urls
 
-    """
-        TextArea Rows and columns can set here
-    """
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 2, 'cols': 33})},
     }
@@ -202,7 +178,8 @@ class CartAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return 'po_status',
         elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return 'brand', 'supplier_state', 'supplier_name', 'gf_shipping_address', 'gf_billing_address', 'po_validity_date', 'payment_term', 'delivery_term', 'po_status',
+            return 'brand', 'supplier_state', 'supplier_name', 'gf_shipping_address', 'gf_billing_address', \
+                   'po_validity_date', 'payment_term', 'delivery_term', 'po_status',
         return 'po_status',
 
     def get_form(self, request, obj=None, **kwargs):
@@ -241,20 +218,20 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     formset = GRNOrderProductFormset
     form = GRNOrderProductForm
 
-    fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product','already_returned_product',
-              'product_invoice_price', 'manufacture_date',
-              'expiry_date', 'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty',
-              'returned_qty', 'download_batch_id_barcode', 'show_batch_id',)
+    fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product',
+              'already_returned_product', 'product_invoice_price', 'manufacture_date', 'expiry_date',
+              'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty', 'returned_qty',
+              'download_batch_id_barcode', 'show_batch_id',)
     exclude = ('last_modified_by', 'available_qty',)
     readonly_fields = ('download_batch_id_barcode', 'show_batch_id')
     extra = 0
     ordering = ['product__product_name']
     template = 'admin/gram_to_brand/grn_order/tabular.html'
 
-    # readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
     def get_readonly_fields(self, request, obj=None):
-        if obj: # editing an existing object
-            return self.readonly_fields + ('product_mrp','po_product_quantity','po_product_price','already_grned_product', 'already_returned_product')
+        if obj:
+            return self.readonly_fields + ('product_mrp', 'po_product_quantity', 'po_product_price',
+                                           'already_grned_product', 'already_returned_product')
         return self.readonly_fields
 
     def get_formset(self, request, obj=None, **kwargs):
@@ -266,25 +243,17 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
 
     def download_batch_id_barcode(self, obj):
         if obj.batch_id is None:
-            return format_html(
-                "-"
-            )
+            return format_html("-")
         if obj.barcode_id is None:
             product_id = str(obj.product_id).zfill(5)
             expiry_date = datetime.datetime.strptime(str(obj.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
-            barcode_id= str("2" + product_id + str(expiry_date))
+            barcode_id = str("2" + product_id + str(expiry_date))
         else:
-            barcode_id =  obj.barcode_id
-        return format_html(
-            "<a href= '{0}' >{1}</a>".format(reverse('batch_barcodes',args=[obj.pk]),barcode_id)
-        )
+            barcode_id = obj.barcode_id
+        return format_html("<a href= '{0}' >{1}</a>".format(reverse('batch_barcodes', args=[obj.pk]), barcode_id))
 
     def show_batch_id(self, obj):
-        if obj.batch_id is None:
-            return format_html("-")
-        else:
-            return format_html(obj.batch_id)
-
+        return format_html(obj.batch_id) if obj.batch_id else format_html("-")
 
     show_batch_id.short_description = 'Batch ID'
     download_batch_id_barcode.short_description = 'Download Barcode'
@@ -298,12 +267,11 @@ class BrandNoteAdmin(admin.ModelAdmin):
 
 class OrderItemAdmin(admin.ModelAdmin):
     list_filter = [OrderSearch, QuantitySearch, PORaisedBy, ('order__ordered_cart__po_creation_date', DateRangeFilter)]
-    list_display = (
-    'order', 'ordered_product', 'ordered_qty', 'total_delivered_qty', 'total_damaged_qty', 'po_creation_date',
-    'item_status',)
+    list_display = ('order', 'ordered_product', 'ordered_qty', 'total_delivered_qty', 'total_damaged_qty',
+                    'po_creation_date', 'item_status',)
 
     def po_creation_date(self, obj):
-        return "%s" % (obj.order.ordered_cart.po_creation_date)
+        return "%s" % obj.order.ordered_cart.po_creation_date
 
     po_creation_date.short_description = 'Po Creation Date'
 
@@ -313,18 +281,14 @@ class GRNOrderAdmin(admin.ModelAdmin):
     autocomplete_fields = ('order',)
     exclude = ('order_item', 'grn_id', 'last_modified_by',)
     actions = ['download_barcode']
-    list_per_page=50
-    list_display = (
-    'grn_id', 'order', 'invoice_no', 'grn_date', 'brand', 'supplier_state', 'supplier_name', 'po_status',
-    'po_created_by', 'download_debit_note')
+    list_per_page = 50
+    list_display = ('grn_id', 'order', 'invoice_no', 'grn_date', 'brand', 'supplier_state', 'supplier_name',
+                    'po_status', 'po_created_by', 'download_debit_note')
     list_filter = [OrderSearch, InvoiceNoSearch, GRNSearch, ProductNameSearch, ProductSKUSearch, SupplierNameSearch,
                    POCreatedBySearch, ('created_at', DateRangeFilter),
                    ('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
-    # fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document', 'invoice_date', 'invoice_amount')
     fields = ('order', 'invoice_no', 'invoice_date', 'invoice_amount', 'tcs_amount')
-
-    # template = 'admin/gram_to_brand/grn_order/change_form.html'
 
     class Media:
         js = ('admin/js/picker.js',)
@@ -355,7 +319,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     po_status.short_description = 'Po Status'
 
     def get_readonly_fields(self, request, obj=None):
-        if obj:  # editing an existing object
+        if obj:
             return self.readonly_fields + ('order',)
         return self.readonly_fields
 
@@ -363,10 +327,8 @@ class GRNOrderAdmin(admin.ModelAdmin):
         qs = super(GRNOrderAdmin, self).get_queryset(request)
         if request.user.is_superuser:
             return qs
-        return qs.filter(
-            Q(order__ordered_cart__gf_shipping_address__shop_name__related_users=request.user) |
-            Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner=request.user)
-        )
+        return qs.filter(Q(order__ordered_cart__gf_shipping_address__shop_name__related_users=request.user) |
+                         Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner=request.user))
 
     def download_debit_note(self, obj):
         if obj.grn_order_brand_note.count() > 0 and obj.grn_order_brand_note.filter(status=True):
@@ -435,9 +397,9 @@ class GRNOrderAdmin(admin.ModelAdmin):
         :param queryset:
         :return:
         """
-        info_logger.info("download Barocde List for GRN method has been called.")
+        info_logger.info("download Barcode List for GRN method has been called.")
         bin_id_list = {}
-        if queryset.count()>1:
+        if queryset.count() > 1:
             response = messages.error(request, ERROR_MESSAGES['1003'])
             return response
         for obj in queryset:
@@ -447,10 +409,11 @@ class GRNOrderAdmin(admin.ModelAdmin):
                     continue
                 product_mrp = ProductVendorMapping.objects.filter(vendor=obj.order.ordered_cart.supplier_name,
                                                                   product=grn_product.product)
-                barcode_id=grn_product.barcode_id
+                barcode_id = grn_product.barcode_id
                 if barcode_id is None:
                     product_id = str(grn_product.product_id).zfill(5)
-                    expiry_date = datetime.datetime.strptime(str(grn_product.expiry_date), '%Y-%m-%d').strftime('%d%m%y')
+                    expiry_date = datetime.datetime.strptime(str(grn_product.expiry_date), '%Y-%m-%d').strftime(
+                        '%d%m%y')
                     barcode_id = str("2" + product_id + str(expiry_date))
                 temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(product_mrp.last().case_size)),
                              "data": {"SKU": grn_product.product.product_name,
@@ -464,14 +427,14 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ['order_no', ]
-    list_display = (
-    'order_no', 'brand', 'supplier_state', 'supplier_name', 'created_at', 'po_status', 'created_by', 'add_grn_link')
+    list_display = ('order_no', 'brand', 'supplier_state', 'supplier_name', 'created_at', 'po_status', 'created_by',
+                    'add_grn_link')
     form = OrderForm
 
     def created_by(self, obj):
         return obj.ordered_cart.po_raised_by
 
-    created_by.short_description = 'Creadted By'
+    created_by.short_description = 'Created By'
 
     def brand(self, obj):
         return obj.ordered_cart.brand
@@ -495,10 +458,10 @@ class OrderAdmin(admin.ModelAdmin):
 
     def add_grn_link(self, obj):
         if obj.ordered_cart.po_status in [obj.ordered_cart.FINANCE_APPROVED, obj.ordered_cart.PARTIAL_DELIVERED,
-                                          obj.ordered_cart.PARTIAL_RETURN,obj.ordered_cart.OPEN]:
+                                          obj.ordered_cart.PARTIAL_RETURN, obj.ordered_cart.OPEN]:
             return format_html(
-                "<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&cart=%s' class ='addlink' > Add GRN</a>" % (
-                obj.id, obj.ordered_cart.id))
+                "<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&cart=%s' class ='addlink' > Add GRN</a>" %
+                (obj.id, obj.ordered_cart.id))
 
     add_grn_link.short_description = 'Add GRN'
 
@@ -513,16 +476,13 @@ class PickListAdmin(admin.ModelAdmin):
     inlines = [PickListItemAdmin]
 
 
-admin.site.register(PickList, PickListAdmin)
-
-
 class OrderedProductReservedAdmin(admin.ModelAdmin):
     list_display = ('order_product_reserved', 'cart', 'product', 'reserved_qty', 'order_reserve_end_time', 'created_at',
                     'reserve_status')
 
 
+admin.site.register(PickList, PickListAdmin)
 admin.site.register(Cart, CartAdmin)
 admin.site.register(OrderedProductReserved, OrderedProductReservedAdmin)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(GRNOrder, GRNOrderAdmin)
-# admin.site.register(BrandNote,BrandNoteAdmin)
