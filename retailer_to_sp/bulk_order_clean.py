@@ -61,13 +61,14 @@ def bulk_order_validation(cart_products_csv, order_type, seller_shop, buyer_shop
             raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                 0] + " | Product Price Not Available"))
 
+        ordered_qty = int(row[2])
         if row[3] and order_type == 'DISCOUNTED':
             discounted_price = float(row[3])
-            if product_price.selling_price < discounted_price:
+            per_piece_price = product_price.get_per_piece_price(ordered_qty)
+            if per_piece_price < discounted_price:
                 raise ValidationError(_("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[
                     0] + " | Discounted Price can't be more than Product Price."))
 
-        ordered_qty = int(row[2])
         shop = Shop.objects.filter(id=seller_shop.id).last()
         inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
 
