@@ -37,7 +37,7 @@ class BulkBinUpdation(forms.Form):
         if not file.name[-4:] == '.csv':
             error_logger.error("File Format is not correct.")
             raise forms.ValidationError("Only .CSV file accepted.")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         form_data_list = []
         for row_id, row in enumerate(reader):
@@ -400,7 +400,7 @@ class StockMovementCsvViewForm(forms.Form):
 
 
 def validation_bin_stock_movement(file, user):
-    reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
     first_row = next(reader)
     # list which contains csv data and pass into the view file
     form_data_list = []
@@ -729,7 +729,7 @@ def validation_stock_correction(file, user, type=''):
 
 
 def validation_warehouse_inventory(file, user):
-    reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
     first_row = next(reader)
     # list which contains csv data and pass into the view file
     form_data_list = []
@@ -822,7 +822,7 @@ class DownloadAuditAdminForm(forms.Form):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only .csv file accepted.")
 
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         # list which contains csv data and pass into the view file
         form_data_list = []
@@ -1097,7 +1097,7 @@ class UploadAuditAdminForm(forms.Form):
             # sum of initial quantities
             initial_count = normal + damaged + expired + missing
             final_count = 0
-            reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
             first_row = next(reader)
             # iterate the row from initial to end
             for row_id_1, row_1 in enumerate(reader):

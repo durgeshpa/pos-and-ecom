@@ -13,11 +13,41 @@ class BrandSerializer(serializers.ModelSerializer):
         fields = ('id', "brand_name")
 
 class OfferBannerSerializer(serializers.ModelSerializer):
-    brand = BrandSerializer(read_only=True)
+    brand = serializers.SerializerMethodField('product_brand')
+    category = serializers.SerializerMethodField('product_category')
+    sub_brand = serializers.SerializerMethodField('product_sub_brand')
+    sub_category = serializers.SerializerMethodField('product_sub_category')
 
     class Meta:
         model = OfferBanner
-        fields = ('name','image','offer_banner_type','category','brand','products','status','offer_banner_start_date','offer_banner_end_date','alt_text','text_below_image')
+        fields = ('name','image','offer_banner_type','category','sub_category','brand','sub_brand', 'products','status','offer_banner_start_date','offer_banner_end_date','alt_text','text_below_image')
+
+    def product_category(self, obj):
+        if obj.category_id is None:
+            return obj.sub_category_id
+        return obj.category_id
+
+    def product_brand(self, obj):
+        try:
+            if obj.brand_id is None:
+                #return None
+                return {"id": obj.sub_brand_id, "brand_name":obj.sub_brand.brand_name}
+            return {"id": obj.brand_id, "brand_name":obj.brand.brand_name}
+        except:
+            return None
+
+    def product_sub_category(self, obj):
+        if obj.sub_category_id is None:
+            return None
+        return obj.sub_category_id
+
+    def product_sub_brand(self, obj):
+        try:
+            if obj.sub_brand_id is None:
+                return None
+            return {"id": obj.sub_brand_id, "brand_name":obj.sub_brand.brand_name}
+        except:
+            return None
 
 class OfferBannerPositionSerializer(serializers.ModelSerializer):
 

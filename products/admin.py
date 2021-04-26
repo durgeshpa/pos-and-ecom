@@ -65,13 +65,25 @@ from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, Des
 from wms.models import Out
 
 info_logger = logging.getLogger('file-info')
+
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
     field_name = 'product' # name of the foreign key field
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(product_id=self.value())
+            )
+
 
 class ShopFilter(AutocompleteFilter):
     title = 'Seller Shop' # display title
     field_name = 'seller_shop' # name of the foreign key field
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(seller_shop_id=self.value())
+            )
 
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']
@@ -97,6 +109,7 @@ class ExportCsvMixin:
         meta = self.model._meta
         exclude_fields = ['created_at', 'modified_at']
         field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        field_names.extend(['is_ptr_applicable', 'ptr_type','ptr_percent'])
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
@@ -538,7 +551,7 @@ class ParentProductAdmin(admin.ModelAdmin):
     list_display = [
         'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
         'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
-        'product_type'
+        'product_type', 'is_ptr_applicable', 'ptrtype', 'ptrpercent'
     ]
     search_fields = [
         'parent_id', 'name'
@@ -587,12 +600,20 @@ class ParentProductAdmin(admin.ModelAdmin):
             ))
         return '-'
 
+    def ptrtype(self, obj):
+        if obj.is_ptr_applicable :
+            return obj.ptr_type_text
+
+    def ptrpercent(self, obj):
+        if obj.is_ptr_applicable:
+            return obj.ptr_percent
+
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
         field_names = [
             'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
             'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
-            'product_type'
+            'product_type', 'is_ptr_applicable', 'ptr_type', 'ptr_percent'
         ]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -603,6 +624,8 @@ class ParentProductAdmin(admin.ModelAdmin):
             for field in field_names:
                 try:
                     val = getattr(obj, field)
+                    if field == 'ptr_type':
+                        val = getattr(obj, 'ptr_type_text')
                 except:
                     if field == 'product_image':
                         if obj.parent_product_pro_image.exists():
@@ -982,24 +1005,17 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     # ]
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
-        'product_brand', 'product_category', 'product_ean_code', 'product_mrp',
-        'product_hsn', 'product_gst', 'products_image', 'status', 'moving_average_buying_price'
+        'product_brand', 'product_category', 'product_ean_code', 'product_hsn', 'product_gst',
+        'product_mrp',  'is_ptr_applicable', 'ptr_type', 'ptr_percent',  'products_image', 'status',
+        'moving_average_buying_price'
     ]
 
-    # search_fields = ['product_name', 'id', 'product_gf_code']
     search_fields = ['product_name', 'id']
-    # list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
     list_filter = [CategorySearch, ProductBrandSearch, ProductSearch, ChildParentIDFilter, 'status']
     list_per_page = 50
-    # prepopulated_fields = {'product_slug': ('product_name',)}
-    # inlines = [
-    #     ProductCategoryAdmin, ProductOptionAdmin,
-    #     ProductImageAdmin, ProductTaxMappingAdmin
-    # ]
-    # inlines = [ChildProductImageAdmin]
-    inlines = [ProductImageAdmin, ProductSourceMappingAdmin, ProductPackingMappingAdmin,
-               DestinationRepackagingCostMappingAdmin]
-    # autocomplete_fields = ['product_hsn', 'product_brand']
+
+    inlines = [ProductImageAdmin, ProductSourceMappingAdmin, ProductPackingMappingAdmin, DestinationRepackagingCostMappingAdmin]
+
     autocomplete_fields = ['parent_product']
 
     def product_images(self,obj):
@@ -1036,6 +1052,15 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
             return "{} %".format(obj.product_gst)
         return ''
     product_gst.short_description = 'Product GST'
+
+    def is_ptr_applicable(self, obj):
+        return obj.parent_product.is_ptr_applicable
+
+    def ptr_type(self, obj):
+        return obj.parent_product.ptr_type_text
+
+    def ptr_percent(self, obj):
+        return obj.parent_product.ptr_percent
 
     def product_category(self, obj):
         try:
@@ -1478,7 +1503,8 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     """
     inlines = [PriceSlabAdmin]
     form = ProductPriceSlabForm
-    list_display = ['product', 'product_mrp','seller_shop', 'approval_status', 'slab1_details', 'slab2_details'
+    list_display = ['product', 'product_mrp', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
+                    'seller_shop', 'approval_status', 'slab1_details', 'slab2_details'
                     ]
     autocomplete_fields = ['product']
     list_filter = [ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch, ProductCategoryFilter, 'approval_status']
@@ -1536,6 +1562,15 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         if obj.product.product_mrp:
             return obj.product.product_mrp
         return ''
+
+    def is_ptr_applicable(self, obj):
+        return obj.product.is_ptr_applicable
+
+    def ptr_type(self, obj):
+        return obj.product.ptr_type
+
+    def ptr_percent(self, obj):
+        return obj.product.ptr_percent
 
     def approve_product_price(self, request, queryset):
         queryset = queryset.filter(approval_status=ProductPrice.APPROVAL_PENDING).order_by('created_at')
@@ -1598,14 +1633,14 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     def export_as_csv(self, request, queryset):
         f = StringIO()
         writer = csv.writer(f)
-        writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "Slab 1 Qty", "Selling Price 1",
-                     "Offer Price 1", "Offer Price 1 Start Date", "Offer Price 1 End Date",
+        writer.writerow(["SKU", "Product Name", "Shop Id", "Shop Name", "MRP", "is_ptr_applicable", "ptr_type", "ptr_percent",
+                         "Slab 1 Qty", "Selling Price 1", "Offer Price 1", "Offer Price 1 Start Date", "Offer Price 1 End Date",
                      "Slab 2 Qty", "Selling Price 2", "Offer Price 2", "Offer Price 2 Start Date", "Offer Price 2 End Date"])
         for query in queryset:
             obj = SlabProductPrice.objects.get(id=query.id)
             try:
                 row = [obj.product.product_sku, obj.product.product_name, obj.seller_shop.id, obj.seller_shop.shop_name,
-                       obj.mrp]
+                       obj.mrp, obj.product.is_ptr_applicable, obj.product.ptr_type, obj.product.ptr_percent]
                 first_slab=True
                 for slab in obj.price_slabs.all().order_by('start_value'):
                     if first_slab:

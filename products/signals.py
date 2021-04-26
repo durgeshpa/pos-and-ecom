@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from decimal import Decimal
 
 from products.models import Product, ProductPrice, ProductCategory, \
-    ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice,\
+    ProductTaxMapping, ProductImage, ParentProductTaxMapping, ParentProduct, Repackaging, SlabProductPrice, PriceSlab,\
     ProductPackingMapping, DestinationRepackagingCostMapping, ProductSourceMapping
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
@@ -36,16 +36,29 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
 
 
 @receiver(post_save, sender=SlabProductPrice)
-def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    update_shop_product_es(instance.seller_shop.id, instance.product.id)
-    visibility_changes = get_visibility_changes(instance.seller_shop.id, instance.product.id)
+def update_elasticsearch_on_price_update(sender, instance=None, created=False, **kwargs):
+    shop_id = instance.seller_shop.id
+    product_id = instance.product.id
+    update_product_visibility(product_id, shop_id)
+
+
+@receiver(post_save, sender=PriceSlab)
+def update_elasticsearch_on_price_slab_add(sender, instance=None, created=False, **kwargs):
+    shop_id = instance.product_price.seller_shop.id
+    product_id = instance.product_price.product.id
+    update_product_visibility(product_id, shop_id)
+
+
+def update_product_visibility(product_id, shop_id):
+    update_shop_product_es(shop_id, product_id)
+    visibility_changes = get_visibility_changes(shop_id, product_id)
     for prod_id, visibility in visibility_changes.items():
         sibling_product = Product.objects.filter(pk=prod_id).last()
-        update_visibility(instance.seller_shop.id, sibling_product, visibility)
-        if prod_id == instance.product.id:
-            update_shop_product_es.delay(instance.seller_shop.id, prod_id)
+        update_visibility(shop_id, sibling_product, visibility)
+        if prod_id == product_id:
+            update_shop_product_es.delay(shop_id, prod_id)
         else:
-            update_product_es.delay(instance.seller_shop.id, prod_id, visible=visibility)
+            update_product_es.delay(shop_id, prod_id, visible=visibility)
 
 
 @receiver(post_save, sender=ProductCategory)

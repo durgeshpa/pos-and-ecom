@@ -32,7 +32,7 @@ def create_parents():
     skip_ids = []
     cig_ids = []
     parent_data = open('products/management/commands/parent_data.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(parent_data, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(parent_data, 'utf-8', errors='ignore'))
     first_row = next(reader)
     for row_id, row in enumerate(reader):
         if 'cigarette' in row[2].lower():
@@ -213,7 +213,7 @@ def update_child_products():
     print(len(brand_data))
     brand_file.close()
     mapping_file = open('products/management/commands/parent_child_mapping.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(mapping_file, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(mapping_file, 'utf-8', errors='ignore'))
     first_row = next(reader)
     not_found = []
     parent_nf = []

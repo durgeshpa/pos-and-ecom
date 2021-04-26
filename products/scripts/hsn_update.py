@@ -19,7 +19,7 @@ def set_product_hsn():
     This method is used for set the HSN
     """
     f = open('products/scripts/hsn_update.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(f, 'utf-8', errors='ignore'))
     first_row = next(reader)
     print("Script Start to set the product HSN from csv file")
     count = 0

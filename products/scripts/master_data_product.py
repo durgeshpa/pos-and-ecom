@@ -20,7 +20,7 @@ def set_inactive_status():
     This method is used for to set inactive status for Product
     """
     f = open('products/scripts/master_data.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(f, 'utf-8', errors='ignore'))
     first_row = next(reader)
     print ("Script Start to set the Inactive status from csv file")
     count = 0
@@ -39,7 +39,7 @@ def set_sub_brand_and_brand():
     This method is used for match sub_brand to brand
     """
     f = open('products/scripts/master_data.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(f, 'utf-8', errors='ignore'))
     first_row = next(reader)
     print("Script Start to set the Sub-brand to Brand mapping from csv file")
     count = 0
@@ -63,7 +63,7 @@ def set_sub_category_and_category():
     This method is used for match sub_category to category
     """
     f = open('products/scripts/master_data.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(f, 'utf-8', errors='ignore'))
     first_row = next(reader)
     print("Script Start to set the Sub-Category to Category mapping from csv file")
     count = 0
@@ -87,7 +87,7 @@ def set_parent_data():
     This method is used to set parent sku data from csv file
     """
     f = open('products/scripts/master_data.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(f, 'utf-8', errors='ignore'))
     first_row = next(reader)
     print("Script Start to set the data for Parent SKU")
     count = 0
@@ -136,7 +136,7 @@ def set_child_parent():
     This method is used to set child sku to parent sku
     """
     f = open('products/scripts/master_data.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(f, 'utf-8', errors='ignore'))
     first_row = next(reader)
     print("Script Start to set the Child to Parent mapping from csv file")
     count = 0
@@ -160,7 +160,7 @@ def set_child_data():
     This method is used to set child sku data from csv
     """
     f = open('products/scripts/master_data.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(f, 'utf-8', errors='ignore'))
     first_row = next(reader)
     print("Script Start to set the Child data")
     count = 0
