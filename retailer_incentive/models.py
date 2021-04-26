@@ -19,17 +19,19 @@ class BaseTimestampModel(models.Model):
     class Meta:
         abstract = True
 
+
 class Scheme(BaseTimestampModel):
     """
     This class is used as representation of Incentive Scheme
     """
     name_regex = RegexValidator(r'^[0-9a-zA-Z ]*$', "Scheme name is not valid")
     name = models.CharField(validators=[name_regex], max_length=50)
-    start_date = models.DateTimeField()
-    end_date = models.DateTimeField()
+    start_date = models.DateField()
+    end_date = models.DateField()
     is_active = models.BooleanField(default=True)
     user = models.ForeignKey(get_user_model(), related_name='schemes',
                              on_delete=models.CASCADE, verbose_name='Created By')
+
     def __str__(self):
         return self.name
 
@@ -65,9 +67,25 @@ class SchemeShopMapping(BaseTimestampModel):
     priority = models.SmallIntegerField(choices=PRIORITY_CHOICE)
     is_active = models.BooleanField(default=True)
     user = models.ForeignKey(get_user_model(), related_name='shop_mappings', on_delete=models.CASCADE, verbose_name='Created By')
+    start_date = models.DateField()
+    end_date = models.DateField()
 
 
     def save(self, *args, **kwargs):
         if not self.id:
             self.user = get_current_user()
         super(SchemeShopMapping, self).save(*args, **kwargs)
+
+
+class IncentiveDashboardDetails(BaseTimestampModel):
+    """
+       This class represents of Incentive Dashboard Details
+    """
+    sales_manager = models.ForeignKey(get_user_model(), related_name='incentive_details_sales_manager', on_delete=models.CASCADE)
+    sales_executive = models.ForeignKey(get_user_model(), related_name='incentive_details_sales_executive', on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+    mapped_scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
+    purchase_value = models.DecimalField(max_digits=4, decimal_places=2)
+    incentive_earned = models.DecimalField(max_digits=4, decimal_places=2)
+    start_date = models.DateField()
+    end_date = models.DateField()
