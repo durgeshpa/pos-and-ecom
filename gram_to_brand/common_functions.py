@@ -23,9 +23,9 @@ def moving_average_buying_price(product_id, grn_map_id, product_type, grn_price,
     """
         Update moving average buying price for source and packing material products
     """
+    retailer = ParentRetailerMapping.objects.filter(parent=shop, status=True).last().retailer
     if product_type == 'source':
         type_normal = InventoryType.objects.filter(inventory_type='normal').last()
-        retailer = ParentRetailerMapping.objects.filter(parent=shop, status=True).last().retailer
         inventory = get_stock(retailer, type_normal, [product_id])
         inv_total = inventory[int(product_id)] if inventory and int(product_id) in inventory else 0
         grn_total = grn_qty
@@ -33,7 +33,8 @@ def moving_average_buying_price(product_id, grn_map_id, product_type, grn_price,
         type_normal = InventoryType.objects.filter(inventory_type='normal').last()
         inventory = WarehouseInventory.objects.filter(inventory_type=type_normal,
                                                       inventory_state__inventory_state='total_available',
-                                                      sku_id=product_id).last()
+                                                      sku_id=product_id,
+                                                      warehouse=retailer).last()
         inv_total = inventory.weight if inventory else 0
         product = Product.objects.get(id=product_id)
         grn_total = grn_qty * product.weight_value
