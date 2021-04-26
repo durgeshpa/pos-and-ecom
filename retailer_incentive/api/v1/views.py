@@ -256,8 +256,7 @@ class IncentiveDashBoard(APIView):
                 all_data = []
                 for scheme_shop_map in scheme_shop_mapping_list:
                     scheme = scheme_shop_map.scheme
-                    shop_id = shop_scheme.shop_id
-                    total_sales = self.get_total_sales(shop_scheme.shop_id, scheme.start_date, scheme.end_date)
+                    total_sales = self.get_total_sales(scheme_shop_map.shop_id, scheme.start_date, scheme.end_date)
                     scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by(
                         'min_value').last()
 
@@ -273,7 +272,7 @@ class IncentiveDashBoard(APIView):
                                                                                   (
                                                                                               next_slab.min_value * next_slab.discount_value / 100),
                                                                                   next_slab.discount_value)
-                    shop = Shop.objects.filter(id=shop_id).last()
+                    shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
 
                     data = [{'shop_name': shop.shop_name,
                              'total_sales': total_sales,
