@@ -39,6 +39,7 @@ from coupon.serializers import CouponSerializer
 import datetime
 from coupon.models import Coupon
 from django.db.models import F,Sum, Q
+from retailer_backend.utils import SmallOffsetPagination
 
 User = get_user_model()
 
@@ -457,16 +458,8 @@ class CartSerializer(serializers.ModelSerializer):
                               | Q(cart_product__product_name__icontains=search_text)
                               | Q(cart_product__product_ean_code__icontains=search_text))
         # Pagination
-        if qs.exists():
-            per_page_products = self.context.get('records_per_page') if self.context.get('records_per_page') else 10
-            paginator = Paginator(qs, int(per_page_products))
-            page_number = self.context.get('page_number')
-            try:
-                qs = paginator.get_page(page_number)
-            except PageNotAnInteger:
-                qs = paginator.get_page(1)
-            except EmptyPage:
-                qs = paginator.get_page(paginator.num_pages)
+        if qs.exists() and self.context.get('request'):
+            qs = SmallOffsetPagination().paginate_queryset(qs, self.context.get('request'))
 
         return CartProductMappingSerializer(qs, many=True, context=self.context).data
 
