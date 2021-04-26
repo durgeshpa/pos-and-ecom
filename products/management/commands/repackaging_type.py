@@ -20,6 +20,7 @@ def repackaging_type_modify():
     with transaction.atomic():
         # update moving average price source skus
         grn_notfound = []
+        source_modified = []
         source_skus = Product.objects.filter(repackaging_type='source')
 
         for source_sku in source_skus:
@@ -36,8 +37,13 @@ def repackaging_type_modify():
                 source_sku.moving_average_buying_price = round(
                     Decimal(float(last_price) / (1 + (last_tax_percentage / 100))), 2)
                 source_sku.save()
+                source_modified += [source_sku.product_sku]
             else:
                 grn_notfound += [source_sku.product_sku]
+
+        print("below Source moving price updated")
+        print(source_modified)
+        print("           ")
 
         print("below Source grn not found")
         print(grn_notfound)
@@ -50,10 +56,11 @@ def repackaging_type_modify():
         pp_found = []
         pgrn_notfound = []
         destination_notfound = []
+        dest_found = []
         for row_id, row in enumerate(reader):
 
             try:
-                pack_product = Product.objects.get(product_sku=row[1].strip(), repackaging_type='none')
+                pack_product = Product.objects.get(product_sku=row[1].strip())
                 pp_found += [row[1]]
             except:
                 pp_notfound += [row[1]]
@@ -80,6 +87,7 @@ def repackaging_type_modify():
 
                 try:
                     dest_product = Product.objects.get(product_sku=row[0].strip(), repackaging_type='destination')
+                    dest_found += [row[0]]
                 except:
                     destination_notfound += [row[0]]
                     continue
@@ -87,7 +95,8 @@ def repackaging_type_modify():
                 try:
                     ppm = ProductPackingMapping.objects.get(sku=dest_product)
                 except:
-                    ppm = ProductPackingMapping.objects.create(sku=dest_product, packing_sku=pack_product)
+                    ppm = ProductPackingMapping.objects.create(sku=dest_product, packing_sku=pack_product,
+                                                               packing_sku_weight_per_unit_sku=round(Decimal(row[2]), 2))
                 ppm.packing_sku = pack_product
                 ppm.packing_sku_weight_per_unit_sku = round(Decimal(row[2]), 2)
                 ppm.save()
@@ -108,27 +117,33 @@ def repackaging_type_modify():
                     pack_m_cost = (
                                           pack_product.moving_average_buying_price / pack_product.weight_value) * ppm.packing_sku_weight_per_unit_sku
 
-                DestinationRepackagingCostMapping.objects.filter(destination=dest_product).update(
-                    primary_pm_cost=round(Decimal(pack_m_cost), 2),
-                    raw_material=round(Decimal(raw_m_cost), 2)
-                )
+                cost = DestinationRepackagingCostMapping.objects.filter(destination=dest_product).last()
+                if pack_m_cost > 0:
+                    cost.primary_pm_cost = round(Decimal(pack_m_cost), 2)
+                if raw_m_cost > 0:
+                    cost.raw_material = round(Decimal(raw_m_cost), 2)
+                cost.save()
 
             print("         ")
 
         print("below Packing sku grn not found")
-        print(pgrn_notfound)
+        print(set(pgrn_notfound))
         print("           ")
 
         print("below Packing sku found")
-        print(pp_found)
+        print(set(pp_found))
         print("         ")
 
         print("below packing sku not found")
-        print(pp_notfound)
+        print(set(pp_notfound))
         print("         ")
 
+        print("below destination sku updated")
+        print(set(dest_found))
+        print("      ")
+
         print("below destination sku not found")
-        print(destination_notfound)
+        print(set(destination_notfound))
 
     # f = open('products/management/repackaging_type_update.csv', 'rb')
     # reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
