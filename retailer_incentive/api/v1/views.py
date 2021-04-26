@@ -176,10 +176,9 @@ class SalesManagerLogin(APIView):
                     executive_list = []
                     for shop_mapping in shop_mapping_object:
                         executive = self.queryset.filter(manager=shop_mapping).distinct('employee_id')
-                        for sales_executives in executive:
-                            if sales_executives.employee.user_type == 6 and \
-                                    sales_executives.employee_group.name == 'Sales Executive':
-                                sales_executive = sales_executives
+                        for sales_executive in executive:
+                            if sales_executive.employee.user_type == 6 and \
+                                    sales_executive.employee_group.name == 'Sales Executive':
                                 executive_list.append(sales_executive)
                     shop_serializer = self.serializer_class(executive_list, many=True)
                     return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
