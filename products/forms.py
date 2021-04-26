@@ -1980,6 +1980,7 @@ class RepackagingForm(forms.ModelForm):
                 raise forms.ValidationError("Please Map A Packing Material To The Selected Destination Product First")
             try:
                 inv = WarehouseInventory.objects.get(inventory_type__inventory_type='normal', sku=ppm.packing_sku,
+                                                     inventory_state__inventory_state='total_available',
                                                      warehouse=self.instance.seller_shop)
             except:
                 raise forms.ValidationError("Packing Material Warehouse Inventory Not Found")
@@ -2005,6 +2006,7 @@ class RepackagingForm(forms.ModelForm):
             ppm = ProductPackingMapping.objects.filter(sku=repack_obj.destination_sku).last()
             if ppm:
                 inventory = WarehouseInventory.objects.filter(inventory_type__inventory_type='normal',
+                                                              inventory_state__inventory_state='total_available',
                                                               sku=ppm.packing_sku, warehouse=repack_obj.seller_shop).last()
                 self.fields['available_packing_material_weight'].initial = (inventory.weight - repack_obj.destination_sku_quantity * ppm.packing_sku_weight_per_unit_sku)/1000 if inventory else 0
                 self.fields['available_packing_material_weight_initial'].initial = inventory.weight if inventory else 0
