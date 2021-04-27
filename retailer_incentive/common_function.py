@@ -4,7 +4,7 @@ from math import floor
 
 from accounts.models import User
 from .models import SchemeSlab, IncentiveDashboardDetails
-from shops.models import Shop, ShopUserMapping
+from shops.models import Shop, ShopUserMapping, ParentRetailerMapping
 from retailer_to_sp.models import OrderedProductMapping
 
 
@@ -32,28 +32,46 @@ def save_scheme_shop_mapping_data(active_mapping):
     discount_value = floor(discount_percentage * total_sales / 100)
 
     shop = Shop.objects.filter(id=active_mapping.shop_id).last()
-    shop_user_map = ShopUserMapping.objects.filter(shop=shop).last()
-    manager = User.objects.filter(id=shop_user_map.manager.employee.id).last()
-    sales_executive = User.objects.filter(id=shop_user_map.employee.id).last()
-    IncentiveDashboardDetails.objects.create(sales_manager=manager, sales_executive=sales_executive,
+    shop_user_mapping = shop.shop_user.filter(employee_group__name='Sales Executive', status=True).last()
+    sales_executive = ''
+    sales_manager = None
+    if shop_user_mapping is not None:
+        sales_executive = User.objects.filter(id=shop_user_mapping.employee.id).last()
+        parent_shop_id = ParentRetailerMapping.objects.filter(retailer_id=shop.id).last().parent_id
+        parent_shop_user_mapping = ShopUserMapping.objects.filter(shop=parent_shop_id,
+                                                                  employee=sales_executive, status=True).last()
+        if parent_shop_user_mapping and parent_shop_user_mapping.manager is not None:
+            User.objects.filter(id=parent_shop_user_mapping.manager.employee).last()
+
+    IncentiveDashboardDetails.objects.create(sales_manager=sales_manager, sales_executive=sales_executive,
                                              shop=shop, mapped_scheme=scheme, purchase_value=total_sales,
                                              incentive_earned=discount_value, start_date=active_mapping.start_date,
                                              end_date=active_mapping.end_date)
 
 
 
+
 def get_total_sales(shop_id, start_date, end_date):
+    """
+    Returns the total purchase of a shop between given start_date and end_date
+    Param :
+        shop_id : id of shop
+        start_date : start date from which sales to be considered
+        end_date : date till which the sales to be considered
+    Returns:
+        floor value of total purchase of a shop between given start_date and end_date
+    """
     total_sales = 0
     shipment_products = OrderedProductMapping.objects.filter(ordered_product__order__buyer_shop_id=shop_id,
                                                              ordered_product__order__created_at__gte=start_date,
                                                              ordered_product__order__created_at__lte=end_date,
                                                              ordered_product__shipment_status__in=
-                                                             ['PARTIALLY_DELIVERED_AND_COMPLETED',
-                                                              'FULLY_DELIVERED_AND_COMPLETED',
-                                                              'PARTIALLY_DELIVERED_AND_VERIFIED',
-                                                              'FULLY_DELIVERED_AND_VERIFIED',
-                                                              'PARTIALLY_DELIVERED_AND_CLOSED',
-                                                              'FULLY_DELIVERED_AND_CLOSED'])
+                                                                 ['PARTIALLY_DELIVERED_AND_COMPLETED',
+                                                                  'FULLY_DELIVERED_AND_COMPLETED',
+                                                                  'PARTIALLY_DELIVERED_AND_VERIFIED',
+                                                                  'FULLY_DELIVERED_AND_VERIFIED',
+                                                                  'PARTIALLY_DELIVERED_AND_CLOSED',
+                                                                  'FULLY_DELIVERED_AND_CLOSED'])
     for shipped_item in shipment_products:
-        total_sales += shipped_item.basic_rate * shipped_item.delivered_qty
+        total_sales += shipped_item.basic_rate*shipped_item.delivered_qty
     return floor(total_sales)

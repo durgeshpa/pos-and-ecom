@@ -82,7 +82,7 @@ class IncentiveDashboardDetails(BaseTimestampModel):
        This class represents of Incentive Dashboard Details
     """
     sales_manager = models.ForeignKey(get_user_model(), related_name='incentive_details_sales_manager',
-                                      on_delete=models.CASCADE)
+                                      on_delete=models.CASCADE, null=True, blank=True)
     sales_executive = models.ForeignKey(get_user_model(), related_name='incentive_details_sales_executive',
                                         on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)

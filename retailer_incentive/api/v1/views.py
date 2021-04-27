@@ -11,9 +11,8 @@ from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGE
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, SchemeDetailSerializer
 from retailer_incentive.models import SchemeSlab, SchemeShopMapping, IncentiveDashboardDetails
 from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based_on_month
-from retailer_to_sp.models import OrderedProductMapping
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
-from retailer_incentive.common_function import get_user_id_from_token
+from retailer_incentive.common_function import get_user_id_from_token, get_total_sales
 from accounts.models import User
 
 
@@ -65,7 +64,7 @@ class ShopPurchaseMatrix(APIView):
             msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
         scheme = scheme_shop_mapping.scheme
-        total_sales = self.get_total_sales(shop_id, scheme.start_date, scheme.end_date)
+        total_sales = get_total_sales(shop_id, scheme.start_date, scheme.end_date)
         scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by('min_value').last()
 
         discount_percentage = 0
@@ -82,32 +81,6 @@ class ShopPurchaseMatrix(APIView):
                                                                'discount_value': discount_value,
                                                                'message': message}}
         return Response(msg, status=status.HTTP_200_OK)
-
-
-    def get_total_sales(self, shop_id, start_date, end_date):
-        """
-        Returns the total purchase of a shop between given start_date and end_date
-        Param :
-            shop_id : id of shop
-            start_date : start date from which sales to be considered
-            end_date : date till which the sales to be considered
-        Returns:
-            floor value of total purchase of a shop between given start_date and end_date
-        """
-        total_sales = 0
-        shipment_products = OrderedProductMapping.objects.filter(ordered_product__order__buyer_shop_id=shop_id,
-                                                                 ordered_product__order__created_at__gte=start_date,
-                                                                 ordered_product__order__created_at__lte=end_date,
-                                                                 ordered_product__shipment_status__in=
-                                                                     ['PARTIALLY_DELIVERED_AND_COMPLETED',
-                                                                      'FULLY_DELIVERED_AND_COMPLETED',
-                                                                      'PARTIALLY_DELIVERED_AND_VERIFIED',
-                                                                      'FULLY_DELIVERED_AND_VERIFIED',
-                                                                      'PARTIALLY_DELIVERED_AND_CLOSED',
-                                                                      'FULLY_DELIVERED_AND_CLOSED'])
-        for shipped_item in shipment_products:
-            total_sales += shipped_item.basic_rate*shipped_item.delivered_qty
-        return floor(total_sales)
 
 
 class ShopUserMappingView(APIView):
@@ -245,7 +218,7 @@ class IncentiveDashBoard(APIView):
 
         except Exception as error:
             logger.exception(error)
-            return Response({"detail": "Error while getting mapped shop for Sales Executive",
+            return Response({"detail": "Error while getting data for Sales Executive",
                              'is_success': False}, status=status.HTTP_200_OK)
 
     def get_sales_executive_shop_scheme_details(self, user, month):
@@ -261,7 +234,7 @@ class IncentiveDashBoard(APIView):
                 scheme_data_list = []
                 for scheme_shop_map in scheme_shop_mapping_list:
                     scheme = scheme_shop_map.scheme
-                    total_sales = self.get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date, scheme_shop_map.end_date)
+                    total_sales = get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date, scheme_shop_map.end_date)
                     scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by(
                         'min_value').last()
 
@@ -284,31 +257,6 @@ class IncentiveDashBoard(APIView):
                     scheme_data_list.append(scheme_data)
 
                 return scheme_data_list
-
-    def get_total_sales(self, shop_id, start_date, end_date):
-        """
-        Returns the total purchase of a shop between given start_date and end_date
-        Param :
-            shop_id : id of shop
-            start_date : start date from which sales to be considered
-            end_date : date till which the sales to be considered
-        Returns:
-            floor value of total purchase of a shop between given start_date and end_date
-        """
-        total_sales = 0
-        shipment_products = OrderedProductMapping.objects.filter(ordered_product__order__buyer_shop_id=shop_id,
-                                                                 ordered_product__order__created_at__gte=start_date,
-                                                                 ordered_product__order__created_at__lte=end_date,
-                                                                 ordered_product__shipment_status__in=
-                                                                     ['PARTIALLY_DELIVERED_AND_COMPLETED',
-                                                                      'FULLY_DELIVERED_AND_COMPLETED',
-                                                                      'PARTIALLY_DELIVERED_AND_VERIFIED',
-                                                                      'FULLY_DELIVERED_AND_VERIFIED',
-                                                                      'PARTIALLY_DELIVERED_AND_CLOSED',
-                                                                      'FULLY_DELIVERED_AND_CLOSED'])
-        for shipped_item in shipment_products:
-            total_sales += shipped_item.basic_rate*shipped_item.delivered_qty
-        return floor(total_sales)
 
 
 class ShopSchemeDetails(APIView):
