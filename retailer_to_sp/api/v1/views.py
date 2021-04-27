@@ -1026,7 +1026,7 @@ class CreateOrder(APIView):
     def post(self, request, *args, **kwargs):
         order_config = GlobalConfig.objects.filter(key='order_count').last()
         if not Order.objects.filter(created_at__date=datetime.today()).exclude(order_status='CANCELLED').count() < order_config.value:
-            msg = {'is_success': False, 'message': ['Because of the current surge in orders, we are taking only '+str(order_config.value)+' orders in a day. We regret the inconvenience caused to you.'], 'response_data': None}
+            msg = {'is_success': False, 'message': ['Because of the current surge in orders, we are not taking any more orders for today. We will start taking orders again tomorrow. We regret the inconvenience caused to you'], 'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
         else:
             cart_id = self.request.POST.get('cart_id')
