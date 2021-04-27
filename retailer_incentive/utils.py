@@ -11,7 +11,7 @@ def get_active_mappings(shop_id):
 
 
 def get_shop_scheme_mapping_based_on_month(shop_id, month):
-    """Returns the valid Scheme mapped for given shop_id based on selected month"""
+    """Returns the valid Scheme mapped for given shop_id based on selected month (current_month)"""
     shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id,
                                                               start_date__month=month,
                                                               end_date__month=month)
