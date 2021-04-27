@@ -126,12 +126,21 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
                                   .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']]))
         start_date = data.get('start_date')
         end_date = data.get('end_date')
+        scheme = data['scheme']
+        if start_date < scheme.start_date:
+            raise ValidationError('Start date cannot be earlier than scheme start date')
+
         if start_date < datetime.datetime.today():
             raise ValidationError('Start date cannot be earlier than today')
 
-        if end_date <= start_date:
-            raise ValidationError('End Date should be later than the Start Date')
+        if start_date > scheme.end_date:
+            raise ValidationError('Start date cannot be greater than scheme end date')
 
+        if end_date > scheme.end_date:
+            raise ValidationError('End Date cannot be greater than scheme end date')
+
+        if end_date < start_date:
+            raise ValidationError('End Date should be greater than the Start Date')
 
     class Meta:
         model = SchemeShopMapping

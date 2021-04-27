@@ -19,6 +19,8 @@ from accounts.models import User
 
 logger = logging.getLogger('dashboard-api')
 
+today = datetime.date.today()
+
 
 class ShopSchemeMappingView(APIView):
     """
@@ -33,7 +35,8 @@ class ShopSchemeMappingView(APIView):
         if shop is None:
             msg = {'is_success': False, 'message': ['No shop found'], 'data':{} }
             return Response(msg, status=status.HTTP_200_OK)
-        scheme_shop_mapping = get_shop_scheme_mapping(shop_id)
+        month = int(request.GET.get('month')) if request.GET.get('month') else today.month
+        scheme_shop_mapping = get_shop_scheme_mapping_based_on_month(shop_id, month)
         if scheme_shop_mapping is None:
             msg = {'is_success': False, 'message': ['No Scheme found for this shop'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
@@ -56,7 +59,8 @@ class ShopPurchaseMatrix(APIView):
         if shop is None:
             msg = {'is_success': False, 'message': ['No shop found'], 'data':{} }
             return Response(msg, status=status.HTTP_200_OK)
-        scheme_shop_mapping = get_shop_scheme_mapping(shop_id)
+        month = int(request.GET.get('month')) if request.GET.get('month') else today.month
+        scheme_shop_mapping = get_shop_scheme_mapping_based_on_month(shop_id, month)
         if scheme_shop_mapping is None:
             msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
@@ -227,7 +231,6 @@ class IncentiveDashBoard(APIView):
         try:
             # check if user_type is Sales Executive
             if user.user_type == 6:  # 'Sales Executive'
-                today = datetime.date.today()
                 month = int(request.GET.get('month')) if request.GET.get(
                     'month') else today.month
                 mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user, month)
