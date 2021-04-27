@@ -1,4 +1,3 @@
-import datetime
 import logging
 from math import floor
 
@@ -6,6 +5,8 @@ from accounts.models import User
 from .models import SchemeSlab, IncentiveDashboardDetails
 from shops.models import Shop, ShopUserMapping, ParentRetailerMapping
 from retailer_to_sp.models import OrderedProductMapping
+
+logger = logging.getLogger('dashboard-api')
 
 
 def get_user_id_from_token(request):
@@ -20,6 +21,9 @@ def get_user_id_from_token(request):
 
 
 def save_scheme_shop_mapping_data(active_mapping):
+    """
+        Store active scheme data in database before creating new scheme for shop
+    """
     scheme = active_mapping.scheme
     total_sales = get_total_sales(active_mapping.shop_id, active_mapping.start_date,
                                   active_mapping.end_date)
@@ -42,13 +46,15 @@ def save_scheme_shop_mapping_data(active_mapping):
                                                                   employee=sales_executive, status=True).last()
         if parent_shop_user_mapping and parent_shop_user_mapping.manager is not None:
             User.objects.filter(id=parent_shop_user_mapping.manager.employee).last()
+    try:
+        IncentiveDashboardDetails.objects.create(sales_manager=sales_manager, sales_executive=sales_executive,
+                                                 shop=shop, mapped_scheme=scheme, purchase_value=total_sales,
+                                                 incentive_earned=discount_value, start_date=active_mapping.start_date,
+                                                 end_date=active_mapping.end_date)
 
-    IncentiveDashboardDetails.objects.create(sales_manager=sales_manager, sales_executive=sales_executive,
-                                             shop=shop, mapped_scheme=scheme, purchase_value=total_sales,
-                                             incentive_earned=discount_value, start_date=active_mapping.start_date,
-                                             end_date=active_mapping.end_date)
-
-
+        logger.info(f'incentive dashboard details saved in database for shop {shop.shop_name}')
+    except Exception as error:
+        logger.exception(error)
 
 
 def get_total_sales(shop_id, start_date, end_date):

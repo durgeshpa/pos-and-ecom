@@ -130,6 +130,7 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
         if active_mappings.count() >= 2:
             for active_mapping in active_mappings:
                 if active_mapping and active_mapping.priority == data['priority']:
+                    # store previous scheme data in database & make it deactivate
                     save_scheme_shop_mapping_data(active_mapping)
                     active_mapping.is_active = False
                     active_mapping.save()

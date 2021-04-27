@@ -11,7 +11,7 @@ from nested_admin.nested import NestedTabularInline
 
 from retailer_incentive.forms import SchemeCreationForm, SchemeSlabCreationForm, SchemeShopMappingCreationForm, \
     SlabInlineFormSet
-from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping, IncentiveDashboardDetails
+from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
 from retailer_incentive.utils import get_active_mappings
 from retailer_incentive.views import get_scheme_shop_mapping_sample_csv, scheme_shop_mapping_csv_upload
 
@@ -167,17 +167,5 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
         return urls
 
     change_list_template = 'admin/retailer_incentive/scheme-shop-mapping-change-list.html'
-    class Media:
-        pass
-
-
-@admin.register(IncentiveDashboardDetails)
-class IncentiveDashboardDetail(admin.ModelAdmin):
-    """
-    This class is used to get the IncentiveDashboardDetails data on admin
-    """
-    model = IncentiveDashboardDetails
-    list_display = ('shop', 'start_date', 'end_date')
-
     class Media:
         pass
