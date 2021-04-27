@@ -15,6 +15,7 @@ from shops.models import Shop
 
 info_logger = logging.getLogger('file-info')
 
+
 class SchemeCreationForm(forms.ModelForm):
     """
     This class is used to create the Scheme
@@ -24,15 +25,35 @@ class SchemeCreationForm(forms.ModelForm):
         model = Scheme
         fields = ['name', 'start_date', 'end_date', 'is_active']
 
+    def __init__(self, *args, **kwargs):
+        """
+        args:- non keyword argument
+        kwargs:- keyword argument
+        """
+        self.request = kwargs.pop('request', None)
+        super(SchemeCreationForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+
+        if instance.id:
+            self.fields['name'].disabled = True
+            self.fields['start_date'] = forms.DateTimeField()
+            self.fields['start_date'].disabled = True
+            self.fields['end_date'] = forms.DateTimeField()
+            self.fields['end_date'].disabled = True
+
     def clean(self):
         data = self.cleaned_data
         start_date = data.get('start_date')
         end_date = data.get('end_date')
-        if start_date < datetime.datetime.today().date():
+        if start_date.date() < datetime.datetime.today().date():
             raise ValidationError('Start date cannot be earlier than today')
 
         if end_date <= start_date:
             raise ValidationError('End Date should be later than the Start Date')
+
+        if not self.instance.id:
+            if Scheme.objects.filter(name=data.get('name'), start_date=start_date, end_date=end_date).exists():
+                raise ValidationError('Duplicate Scheme')
 
         return self.cleaned_data
 
