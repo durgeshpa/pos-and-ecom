@@ -248,7 +248,7 @@ class IncentiveDashBoard(APIView):
                     discount_value = floor(discount_percentage * total_sales / 100)
 
                     shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
-                    scheme_data = [{'shop_id': shop.id,
+                    scheme_data = {'shop_id': shop.id,
                                     'shop_name': shop.shop_name,
                                     'mapped_scheme_id': scheme.id,
                                     'mapped_scheme': scheme.name,
@@ -257,7 +257,7 @@ class IncentiveDashBoard(APIView):
                                     'discount_value': discount_value,
                                     'start_date': scheme_shop_map.start_date,
                                     'end_date': scheme_shop_map.end_date
-                                    }]
+                                    }
                     scheme_data_list.append(scheme_data)
                 return scheme_data_list
 
