@@ -10,6 +10,16 @@ def get_active_mappings(shop_id):
     return SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True)
 
 
+def get_shop_scheme_mapping(shop_id):
+    """Returns the valid Scheme mapped for given shop_id"""
+    shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True,
+                                                              scheme__start_date__lte=datetime.datetime.today(),
+                                                              scheme__end_date__gte=datetime.datetime.today())
+    if shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).exists():
+        return shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).last()
+    return shop_scheme_mapping_qs.last()
+
+
 def get_shop_scheme_mapping_based_on_month(shop_id, month):
     """Returns the valid Scheme mapped for given shop_id based on selected month (current_month)"""
     shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id,

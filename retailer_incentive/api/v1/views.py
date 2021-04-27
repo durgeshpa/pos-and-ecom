@@ -11,7 +11,7 @@ from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGE
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, \
     SchemeDetailSerializer
 from retailer_incentive.models import SchemeSlab
-from retailer_incentive.utils import get_shop_scheme_mapping_based_on_month, get_shop_scheme_mapping_based_on_month_from_db
+from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based_on_month, get_shop_scheme_mapping_based_on_month_from_db
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
 from retailer_incentive.common_function import get_user_id_from_token, get_total_sales
 from accounts.models import User
@@ -34,8 +34,7 @@ class ShopSchemeMappingView(APIView):
         if shop is None:
             msg = {'is_success': False, 'message': ['No shop found'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
-        month = int(request.GET.get('month')) if request.GET.get('month') else today.month
-        scheme_shop_mapping = get_shop_scheme_mapping_based_on_month(shop_id, month)
+        scheme_shop_mapping = get_shop_scheme_mapping(shop_id)
         if scheme_shop_mapping is None:
             msg = {'is_success': False, 'message': ['No Scheme found for this shop'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
@@ -58,8 +57,7 @@ class ShopPurchaseMatrix(APIView):
         if shop is None:
             msg = {'is_success': False, 'message': ['No shop found'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
-        month = int(request.GET.get('month')) if request.GET.get('month') else today.month
-        scheme_shop_mapping = get_shop_scheme_mapping_based_on_month(shop_id, month)
+        scheme_shop_mapping = get_shop_scheme_mapping(shop_id)
         if scheme_shop_mapping is None:
             msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
