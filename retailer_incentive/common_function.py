@@ -33,7 +33,7 @@ def save_scheme_shop_mapping_data(active_mapping):
 
     shop = Shop.objects.filter(id=active_mapping.shop_id).last()
     shop_user_mapping = shop.shop_user.filter(employee_group__name='Sales Executive', status=True).last()
-    sales_executive = ''
+    sales_executive = None
     sales_manager = None
     if shop_user_mapping is not None:
         sales_executive = User.objects.filter(id=shop_user_mapping.employee.id).last()
