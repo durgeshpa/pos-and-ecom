@@ -1467,22 +1467,13 @@ class OrderedProduct(models.Model):  # Shipment
 
     @property
     def credit_note_amount(self):
-        credit_note_amount = self.rt_order_product_order_product_mapping.all() \
-            .aggregate(cn_amt=RoundAmount(
-            Sum((F('effective_price') * F('shipped_qty')) - (F('delivered_at_price') * F('delivered_qty')), output_field=FloatField()))).get(
-            'cn_amt')
+        credit_note_amount = self.rt_order_product_order_product_mapping.all().aggregate(cn_amt=RoundAmount(
+            Sum((F('effective_price') * F('shipped_qty') - F('delivered_qty')), output_field=FloatField())))\
+            .get('cn_amt')
         if credit_note_amount:
             return credit_note_amount
         else:
-            credit_note_amount = self.rt_order_product_order_product_mapping.all() \
-                .aggregate(cn_amt=RoundAmount(
-                Sum((F('effective_price') * F('shipped_qty')) - (F('effective_price') * F('delivered_qty')),
-                    output_field=FloatField()))).get(
-                'cn_amt')
-            if credit_note_amount:
-                return credit_note_amount
-            else:
-                return 0
+            return 0
 
 
     @property
@@ -1577,11 +1568,9 @@ class OrderedProduct(models.Model):  # Shipment
         cash_to_be_collected = 0
         if self.order.ordered_cart.approval_status == False:
             for item in self.rt_order_product_order_product_mapping.all():
-                delivered_at_price = item.delivered_at_price if item.delivered_at_price else item.effective_price
-                if delivered_at_price is None:
-                    delivered_at_price = 0
-                cash_to_be_collected = cash_to_be_collected + (item.delivered_qty * delivered_at_price)
-            return cash_to_be_collected
+                effective_price = item.effective_price if item.effective_price else 0
+                cash_to_be_collected = cash_to_be_collected + (item.delivered_qty * effective_price)
+            return round(cash_to_be_collected)
         else:
             invoice_amount = self.rt_order_product_order_product_mapping.all() \
                 .aggregate(
@@ -1981,21 +1970,16 @@ class OrderedProductMapping(models.Model):
     @property
     def return_rate(self):
         """This function returns the basic rate at which credit note is to be generated"""
-        get_tax_val = self.get_product_tax_json() / 100
-        return_rate = ((self.product_credit_amount/(self.returned_qty+self.returned_damage_qty))
-                       - float(self.product_cess_amount)) / (float(get_tax_val) + 1)
-        return round(return_rate, 2)
+        return self.basic_rate
+
 
     @property
     def product_credit_amount(self):
-        if self.delivered_qty>0 :
-            return round(self.shipped_qty * float(self.effective_price)
-                         - self.delivered_qty * float(self.delivered_at_price),2)
-        return round(self.shipped_qty * float(self.effective_price),2)
+        return round(((self.shipped_qty- self.delivered_qty) * float(self.effective_price)),2)
 
     @property
     def product_credit_amount_per_unit(self):
-        return round(self.product_credit_amount/(self.returned_qty+self.returned_damage_qty),2)
+        return self.effective_price
 
     @property
     def basic_rate_discounted(self):
@@ -2009,9 +1993,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_tax_amount(self):
-        # product_special_cess = self.total_product_cess_amount
-        # get_tax_val = self.get_product_tax_json() / 100
-        return round(float(self.product_sub_total) - float(self.base_price), 2)
+        get_tax_val = self.get_product_tax_json() / 100
+        return round((self.basic_rate * self.shipped_qty) * float(get_tax_val), 2)
 
     @property
     def total_product_cess_amount(self):
@@ -2028,10 +2011,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_tax_return_amount(self):
-        # get_tax_val = self.get_product_tax_json() / 100
-        # return round(float(self.basic_rate * (self.returned_qty + self.damaged_qty)) * float(get_tax_val), 2)
-        quantity = self.returned_damage_qty + self.returned_qty
-        return round(self.product_credit_amount - (self.return_rate * quantity))
+        get_tax_val = self.get_product_tax_json() / 100
+        return round(float(self.basic_rate * (self.returned_qty + self.returned_damage_qty)) * float(get_tax_val), 2)
 
     @property
     def product_tax_discount_amount(self):
@@ -2041,7 +2022,6 @@ class OrderedProductMapping(models.Model):
     @property
     def product_sub_total(self):
         return round(float(self.effective_price * self.shipped_qty), 2)
-        # round(float(self.effective_price * self.shipped_qty) + float(self.product_cess_amount), 2)
 
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
@@ -2112,25 +2092,11 @@ class OrderedProductMapping(models.Model):
         return round(self.discounted_price, 2)
 
     def save(self, *args, **kwargs):
-        # if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty, self.returned_qty]):
-        #     raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
-        # else:
         cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last()
-        cart_product_price = cart_product_mapping.get_cart_product_price(self.ordered_product.order.seller_shop_id,
-                                                            self.ordered_product.order.buyer_shop_id)
-        if cart_product_price:
-            shipped_qty_in_pack = math.ceil(self.shipped_qty / cart_product_mapping.cart_product_case_size)
-            self.effective_price = cart_product_price.get_per_piece_price(shipped_qty_in_pack)
-            if self.delivered_qty > 0:
-                if cart_product_mapping.cart.cart_type == 'DISCOUNTED':
-                    self.delivered_at_price = self.effective_price
-                else:
-                    delivered_qty_in_pack = math.ceil(self.delivered_qty / cart_product_mapping.cart_product_case_size)
-                    self.delivered_at_price = cart_product_price.get_per_piece_price(delivered_qty_in_pack)
-        else:
-            self.effective_price = cart_product_mapping.item_effective_prices
+        self.effective_price = cart_product_mapping.item_effective_prices
         self.discounted_price = cart_product_mapping.discounted_price
-
+        if self.delivered_qty > 0:
+            self.delivered_at_price = self.effective_price
         super().save(*args, **kwargs)
 
 
