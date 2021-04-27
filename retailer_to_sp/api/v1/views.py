@@ -13,6 +13,7 @@ from django.db.models import F, Sum, Q
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.contrib.auth import get_user_model
+from rest_framework.generics import GenericAPIView
 
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -77,13 +78,13 @@ from pos.common_functions import get_shop_id_from_token, get_response, create_us
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,\
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer
-from pos.api.v1.pagination import pagination
 from pos.models import RetailerProduct, PAYMENT_MODE, Payment as PosPayment, UserMappedShop
 from pos.data_validation import validate_data_format
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es
+from accounts.api.v1.serializers import UserSerializer
 
 User = get_user_model()
 
@@ -601,7 +602,7 @@ class ProductDetail(APIView):
         return Response({"message": [''], "response_data": product_detail_serializer.data, "is_success": True})
 
 
-class CartCentral(APIView):
+class CartCentral(GenericAPIView):
     """
         Get Cart
         Add To Cart
@@ -609,6 +610,7 @@ class CartCentral(APIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
 
     def get(self, request):
         """
@@ -723,7 +725,7 @@ class CartCentral(APIView):
             if customer.is_whatsapp is True:
                 # whatsapp api call for user opt in
                 whatsapp_opt_in.delay(ph_no)
-            serializer = BasicCartSerializer(cart)
+            serializer = UserSerializer(cart.buyer)
             return get_response("Cart Updated Successfully!", serializer.data)
 
     def get_retail_cart(self):
@@ -810,11 +812,9 @@ class CartCentral(APIView):
             carts = carts.filter(Q(buyer__phone_number__icontains=search_text) |
                                  Q(id__icontains=search_text))
 
-        """
-            Pagination on Cart List
-        """
-        open_orders = BasicCartListSerializer(carts, many=True)
-        return get_response("Open Orders", pagination(self.request, open_orders))
+        objects = self.pagination_class().paginate_queryset(carts, self.request)
+        open_orders = BasicCartListSerializer(objects, many=True)
+        return get_response("Open Orders", open_orders.data)
 
     def get_retail_validate(self):
         """
@@ -915,9 +915,8 @@ class CartCentral(APIView):
         serializer = CartSerializer(Cart.objects.get(id=cart.id),
                                     context={'parent_mapping_id': seller_shop.id, 'buyer_shop_id': buyer_shop.id,
                                              'search_text': self.request.GET.get('search_text', ''),
-                                             'page_number': self.request.GET.get('page_number', 1),
-                                             'records_per_page': self.request.GET.get('records_per_page', 10),
-                                             'delivery_message': self.delivery_message()})
+                                             'delivery_message': self.delivery_message(),
+                                             'request': self.request})
         for i in serializer.data['rt_cart_list']:
             # check if product has to use it's parent product image
             if not i['cart_product']['product_pro_image']:
@@ -952,8 +951,7 @@ class CartCentral(APIView):
         """
         serializer = BasicCartSerializer(Cart.objects.get(id=cart.id),
                                          context={'search_text': self.request.GET.get('search_text', ''),
-                                                  'page_number': self.request.GET.get('page_number', 1),
-                                                  'records_per_page': self.request.GET.get('records_per_page', 10)})
+                                                  'request': self.request})
         return serializer.data
 
     def retail_add_to_cart(self):
@@ -2856,11 +2854,10 @@ class CreateOrder(APIView):
         return Response(msg, status=status.HTTP_200_OK)
 
 
-# OrderedProductMapping.objects.filter()
-
-class OrderListCentral(APIView):
+class OrderListCentral(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
 
     def get(self, request):
         """
@@ -2986,39 +2983,42 @@ class OrderListCentral(APIView):
            Get Order
            Cart type retail - sp
         """
-        serializer = OrderListSerializer(order, many=True,
+        objects = self.pagination_class().paginate_queryset(order, self.request)
+        serializer = OrderListSerializer(objects, many=True,
                                          context={'parent_mapping_id': parent_mapping.parent.id,
                                                   'current_url': self.request.get_host(),
                                                   'buyer_shop_id': parent_mapping.retailer.id})
         """
             Pagination on Order List
         """
-        return pagination(self.request, serializer)
+        return serializer.data
 
     def get_serialize_process_gf(self, order, parent_mapping):
         """
            Get Order
            Cart type retail - gf
         """
-        serializer = GramMappedOrderSerializer(order, many=True,
+        objects = self.pagination_class().paginate_queryset(order, self.request)
+        serializer = GramMappedOrderSerializer(objects, many=True,
                                                context={'parent_mapping_id': parent_mapping.parent.id,
                                                         'current_url': self.request.get_host(),
                                                         'buyer_shop_id': parent_mapping.retailer.id})
         """
             Pagination on Order List
         """
-        return pagination(self.request, serializer)
+        return serializer.data
 
     def get_serialize_process_basic(self, order):
         """
            Get Order
            Cart type basic
         """
-        serializer = BasicOrderListSerializer(order, many=True)
+        objects = self.pagination_class().paginate_queryset(order, self.request)
+        serializer = BasicOrderListSerializer(objects, many=True)
         """
             Pagination on Order List
         """
-        return pagination(self.request, serializer)
+        return serializer.data
 
 
 class OrderedItemCentralDashBoard(APIView):

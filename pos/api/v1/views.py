@@ -19,12 +19,12 @@ from pos.models import RetailerProduct, RetailerProductImage
 from pos.utils import MultipartJsonParser
 from pos.common_functions import RetailerProductCls, OffersCls, serializer_error, get_response, get_shop_id_from_token
 
-from .pagination import pagination
 from .serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
     RetailerProductResponseSerializer, RetailerProductImageDeleteSerializer, CouponCodeSerializer, \
     FreeProductOfferSerializer, ComboDealsSerializer, CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, \
     CouponRuleSetSerializer, CouponListSerializer, FreeProductUpdateSerializer
 from pos.data_validation import validate_data_format
+from retailer_backend.utils import SmallOffsetPagination
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -331,6 +331,7 @@ class CatalogueProductCreation(GenericAPIView):
 class CouponOfferCreation(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
+    pagination_class = SmallOffsetPagination
 
     def get(self, request, *args, **kwargs):
         """
@@ -543,11 +544,12 @@ class CouponOfferCreation(GenericAPIView):
                  Get Offers/Coupons when search_text is given in params
             """
             coupon = coupon.filter(coupon_code__icontains=request.GET.get('search_text'))
-        serializer = CouponListSerializer(coupon, many=True)
+        objects = self.pagination_class().paginate_queryset(coupon, self.request)
+        serializer = CouponListSerializer(objects, many=True)
         """
             Pagination on Offers/Coupons
         """
-        return pagination(request, serializer)
+        return serializer.data
 
     def create_coupon(self, request, serializer, shop_id):
         """

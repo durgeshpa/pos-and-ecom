@@ -15,6 +15,7 @@ from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from shops.models import Shop
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
+from retailer_backend.utils import SmallOffsetPagination
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -309,19 +310,8 @@ class BasicCartSerializer(serializers.ModelSerializer):
                            | Q(retailer_product__name__icontains=search_text)
                            | Q(retailer_product__product_ean_code__icontains=search_text))
 
-        if qs.exists():
-            # Pagination
-            records_per_page = 10
-            per_page_products = self.context.get('records_per_page') if self.context.get(
-                'records_per_page') else records_per_page
-            paginator = Paginator(qs, int(per_page_products))
-            page_number = self.context.get('page_number')
-            try:
-                qs = paginator.get_page(page_number)
-            except PageNotAnInteger:
-                qs = paginator.get_page(1)
-            except EmptyPage:
-                qs = paginator.get_page(paginator.num_pages)
+        if qs.exists() and self.context.get('request'):
+            qs = SmallOffsetPagination().paginate_queryset(qs, self.context.get('request'))
 
         # Order Cart In Purchased And Free Products
         cart_products = BasicCartProductMappingSerializer(qs, many=True, context=self.context).data
