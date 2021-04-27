@@ -12,6 +12,7 @@ from django.utils.translation import gettext_lazy as _
 from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
 from retailer_incentive.utils import get_active_mappings
 from shops.models import Shop
+from .common_function import save_scheme_shop_mapping_data
 
 info_logger = logging.getLogger('file-info')
 
@@ -118,14 +119,21 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
         data = self.cleaned_data
         shop = data['shop']
         active_mappings = get_active_mappings(shop.id)
-
-        for active_mapping in active_mappings:
-            if active_mapping.priority == data['priority'] and active_mapping.start_date == data['start_date']\
-                    and active_mapping.end_date == data['end_date']:
+        active_mapping = active_mappings.last()
+        if active_mapping and active_mapping.priority == data['priority'] and active_mapping.start_date == data['start_date'] \
+                and active_mapping.end_date == data['end_date']:
                 raise ValidationError("Shop Id - {} already has an active {} mappings on same "
                                       "start date {} & end date {}"
                                       .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']],
                                               active_mapping.start_date, active_mapping.end_date))
+
+        if active_mappings.count() >= 2:
+            for active_mapping in active_mappings:
+                if active_mapping and active_mapping.priority == data['priority']:
+                    save_scheme_shop_mapping_data(active_mapping)
+                    active_mapping.is_active = False
+                    active_mapping.save()
+
         start_date = data.get('start_date')
         end_date = data.get('end_date')
         scheme = data['scheme']

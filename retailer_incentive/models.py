@@ -91,3 +91,6 @@ class IncentiveDashboardDetails(BaseTimestampModel):
     incentive_earned = models.DecimalField(max_digits=4, decimal_places=2)
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
+
+    def __str__(self):
+        return "{}-{}, {}".format(self.shop, self.start_date, self.end_date)

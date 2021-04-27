@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, SchemeDetailSerializer
-from retailer_incentive.models import SchemeSlab
+from retailer_incentive.models import SchemeSlab, SchemeShopMapping, IncentiveDashboardDetails
 from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based_on_month
 from retailer_to_sp.models import OrderedProductMapping
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
@@ -326,3 +326,5 @@ class ShopSchemeDetails(APIView):
             serializer = SchemeDetailSerializer(scheme_slab)
         msg = {'is_success': True, 'message': ['OK'], 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
+
+
