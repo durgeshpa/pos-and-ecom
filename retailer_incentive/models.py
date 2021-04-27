@@ -89,6 +89,7 @@ class IncentiveDashboardDetails(BaseTimestampModel):
     mapped_scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
     purchase_value = models.DecimalField(max_digits=4, decimal_places=2)
     incentive_earned = models.DecimalField(max_digits=4, decimal_places=2)
+    discount_percentage = models.DecimalField(max_digits=4, decimal_places=2)
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
 

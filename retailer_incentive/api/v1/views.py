@@ -8,13 +8,13 @@ from rest_framework.views import APIView
 
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
-from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, SchemeDetailSerializer
+from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, \
+    SchemeDetailSerializer
 from retailer_incentive.models import SchemeSlab
-from retailer_incentive.utils import get_shop_scheme_mapping_based_on_month
+from retailer_incentive.utils import get_shop_scheme_mapping_based_on_month, get_shop_scheme_mapping_based_on_month_from_db
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
 from retailer_incentive.common_function import get_user_id_from_token, get_total_sales
 from accounts.models import User
-
 
 logger = logging.getLogger('dashboard-api')
 
@@ -32,7 +32,7 @@ class ShopSchemeMappingView(APIView):
         shop_id = request.GET.get('shop_id')
         shop = Shop.objects.filter(id=shop_id).last()
         if shop is None:
-            msg = {'is_success': False, 'message': ['No shop found'], 'data':{} }
+            msg = {'is_success': False, 'message': ['No shop found'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
         month = int(request.GET.get('month')) if request.GET.get('month') else today.month
         scheme_shop_mapping = get_shop_scheme_mapping_based_on_month(shop_id, month)
@@ -56,7 +56,7 @@ class ShopPurchaseMatrix(APIView):
         shop_id = request.GET.get('shop_id')
         shop = Shop.objects.filter(id=shop_id).last()
         if shop is None:
-            msg = {'is_success': False, 'message': ['No shop found'], 'data':{} }
+            msg = {'is_success': False, 'message': ['No shop found'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
         month = int(request.GET.get('month')) if request.GET.get('month') else today.month
         scheme_shop_mapping = get_shop_scheme_mapping_based_on_month(shop_id, month)
@@ -70,13 +70,15 @@ class ShopPurchaseMatrix(APIView):
         discount_percentage = 0
         if scheme_slab is not None:
             discount_percentage = scheme_slab.discount_value
-        discount_value = floor(discount_percentage * total_sales/100)
+        discount_value = floor(discount_percentage * total_sales / 100)
         next_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__gt=total_sales).order_by('min_value').first()
         message = SUCCESS_MESSAGES['SCHEME_SLAB_HIGHEST']
         if next_slab is not None:
             message = SUCCESS_MESSAGES['SCHEME_SLAB_ADD_MORE'].format(floor(next_slab.min_value - total_sales),
-                        (next_slab.min_value * next_slab.discount_value / 100), next_slab.discount_value)
-        msg = {'is_success': True, 'message': ['OK'], 'data': {'total_sales' : total_sales,
+                                                                      (
+                                                                                  next_slab.min_value * next_slab.discount_value / 100),
+                                                                      next_slab.discount_value)
+        msg = {'is_success': True, 'message': ['OK'], 'data': {'total_sales': total_sales,
                                                                'discount_percentage': discount_percentage,
                                                                'discount_value': discount_value,
                                                                'message': message}}
@@ -84,7 +86,6 @@ class ShopPurchaseMatrix(APIView):
 
 
 class ShopUserMappingView(APIView):
-
     """
     This class is used to get the Shop User Mapping related data
     Returns:
@@ -93,13 +94,13 @@ class ShopUserMappingView(APIView):
     """
 
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated, )
+    permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
         shop_id = request.GET.get('shop_id')
         shop = Shop.objects.filter(id=shop_id).last()
         if shop is None:
-            msg = {'is_success': False, 'message': ['No shop found'], 'data':{} }
+            msg = {'is_success': False, 'message': ['No shop found'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
 
         sales_executive_name = ''
@@ -206,7 +207,10 @@ class IncentiveDashBoard(APIView):
             if user.user_type == 6:  # 'Sales Executive'
                 month = int(request.GET.get('month')) if request.GET.get(
                     'month') else today.month
-                mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user, month)
+                if month == today.month:
+                    mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user, month)
+                else:
+                    mapped_shop_scheme_details = self.get_sales_executive_details_from_database(user, month)
                 return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
                                  "data": mapped_shop_scheme_details,
                                  'is_success': True}, status=status.HTTP_200_OK)
@@ -234,7 +238,8 @@ class IncentiveDashBoard(APIView):
                 scheme_data_list = []
                 for scheme_shop_map in scheme_shop_mapping_list:
                     scheme = scheme_shop_map.scheme
-                    total_sales = get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date, scheme_shop_map.end_date)
+                    total_sales = get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date,
+                                                  scheme_shop_map.end_date)
                     scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by(
                         'min_value').last()
 
@@ -258,6 +263,32 @@ class IncentiveDashBoard(APIView):
 
                 return scheme_data_list
 
+    def get_sales_executive_details_from_database(self, user, month):
+        shop_mapping_object = (self.queryset.filter(
+            employee=user.shop_employee.instance, status=True))
+        if shop_mapping_object:
+            scheme_shop_mapping_list = []
+            scheme_data_list = []
+            for shop_scheme in shop_mapping_object:
+                shop_scheme_mapped_data = get_shop_scheme_mapping_based_on_month_from_db(shop_scheme.shop_id, month)
+                if shop_scheme_mapped_data:
+                    scheme_shop_mapping_list.append(shop_scheme_mapped_data)
+
+            for shop_map in scheme_shop_mapping_list:
+                shop = Shop.objects.filter(id=shop_map.shop_id).last()
+                scheme_data = [{'shop_id': shop.shop_id,
+                                'shop_name': shop.shop_name,
+                                'mapped_scheme_id': shop_map.mapped_scheme_id,
+                                'mapped_scheme': shop_map.mapped_scheme,
+                                'total_sales': shop_map.purchase_value,
+                                'discount_percentage': shop_map.discount_percentage,
+                                'discount_value': shop_map.incentive_earned,
+                                'start_date': shop_map.start_date,
+                                'end_date': shop_map.end_date
+                                }]
+                scheme_data_list.append(scheme_data)
+                return scheme_data_list
+
 
 class ShopSchemeDetails(APIView):
     """
@@ -274,5 +305,3 @@ class ShopSchemeDetails(APIView):
             serializer = SchemeDetailSerializer(scheme_slab)
         msg = {'is_success': True, 'message': ['OK'], 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
-
-
