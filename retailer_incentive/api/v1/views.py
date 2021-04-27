@@ -267,7 +267,6 @@ class IncentiveDashBoard(APIView):
             employee=user.shop_employee.instance, status=True))
         if shop_mapping_object:
             scheme_shop_mapping_list = []
-
             for shop_scheme in shop_mapping_object:
                 shop_scheme_mapped_data = get_shop_scheme_mapping_based_on_month_from_db(shop_scheme.shop_id, month)
                 if shop_scheme_mapped_data:
@@ -276,10 +275,10 @@ class IncentiveDashBoard(APIView):
                 scheme_data_list = []
                 for shop_map in scheme_shop_mapping_list:
                     shop = Shop.objects.filter(id=shop_map.shop_id).last()
-                    scheme_data = [{'shop_id': shop.shop_id,
+                    scheme_data = [{'shop_id': shop.id,
                                     'shop_name': shop.shop_name,
                                     'mapped_scheme_id': shop_map.mapped_scheme_id,
-                                    'mapped_scheme': shop_map.mapped_scheme,
+                                    'mapped_scheme': shop_map.mapped_scheme.name,
                                     'total_sales': shop_map.purchase_value,
                                     'discount_percentage': shop_map.discount_percentage,
                                     'discount_value': shop_map.incentive_earned,
