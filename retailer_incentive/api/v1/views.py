@@ -9,8 +9,8 @@ from rest_framework.views import APIView
 from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, SchemeDetailSerializer
-from retailer_incentive.models import SchemeSlab, SchemeShopMapping, IncentiveDashboardDetails
-from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based_on_month
+from retailer_incentive.models import SchemeSlab
+from retailer_incentive.utils import get_shop_scheme_mapping_based_on_month
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
 from retailer_incentive.common_function import get_user_id_from_token, get_total_sales
 from accounts.models import User
