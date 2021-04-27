@@ -15,6 +15,7 @@ from shops.models import Shop
 
 info_logger = logging.getLogger('file-info')
 
+
 class SchemeCreationForm(forms.ModelForm):
     """
     This class is used to create the Scheme
@@ -28,7 +29,7 @@ class SchemeCreationForm(forms.ModelForm):
         data = self.cleaned_data
         start_date = data.get('start_date')
         end_date = data.get('end_date')
-        if start_date < datetime.datetime.today().date():
+        if start_date < datetime.datetime.today():
             raise ValidationError('Start date cannot be earlier than today')
 
         if end_date <= start_date:
@@ -103,11 +104,18 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
         if existing_active_mapping and existing_active_mapping.priority == data['priority']:
             raise ValidationError("Shop Id - {} already has an active {} mappings"
                                   .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']]))
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        if start_date < datetime.datetime.today():
+            raise ValidationError('Start date cannot be earlier than today')
+
+        if end_date <= start_date:
+            raise ValidationError('End Date should be later than the Start Date')
 
 
     class Meta:
         model = SchemeShopMapping
-        fields = ('scheme', 'shop', 'priority', 'is_active')
+        fields = ('scheme', 'shop', 'priority', 'is_active', 'start_date', 'end_date')
 
 
 class UploadSchemeShopMappingForm(forms.Form):

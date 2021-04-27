@@ -41,6 +41,7 @@ class SchemeAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 @admin.register(SchemeShopMapping)
 class SchemeShopMappingAdmin(admin.ModelAdmin):
     """
