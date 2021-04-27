@@ -57,6 +57,7 @@ def repackaging_type_modify():
         pgrn_notfound = []
         destination_notfound = []
         dest_found = []
+        cost_not_found = []
         for row_id, row in enumerate(reader):
 
             try:
@@ -118,13 +119,20 @@ def repackaging_type_modify():
                                           pack_product.moving_average_buying_price / pack_product.weight_value) * ppm.packing_sku_weight_per_unit_sku
 
                 cost = DestinationRepackagingCostMapping.objects.filter(destination=dest_product).last()
-                if pack_m_cost > 0:
-                    cost.primary_pm_cost = round(Decimal(pack_m_cost), 2)
-                if raw_m_cost > 0:
-                    cost.raw_material = round(Decimal(raw_m_cost), 2)
-                cost.save()
+                if cost:
+                    if pack_m_cost > 0:
+                        cost.primary_pm_cost = round(Decimal(pack_m_cost), 2)
+                    if raw_m_cost > 0:
+                        cost.raw_material = round(Decimal(raw_m_cost), 2)
+                    cost.save()
+                else:
+                    cost_not_found += [row[0]]
+                    DestinationRepackagingCostMapping.objects.create(destination=dest_product, raw_material=round(Decimal(raw_m_cost), 2),
+                                                                     wastage=round(Decimal(0), 2), fumigation=round(Decimal(0), 2),
+                                                                     label_printing=round(Decimal(0), 2), packing_labour=round(Decimal(0), 2),
+                                                                     primary_pm_cost=round(Decimal(pack_m_cost), 2), secondary_pm_cost=round(Decimal(0), 2))
 
-            print("         ")
+        print("         ")
 
         print("below Packing sku grn not found")
         print(set(pgrn_notfound))
@@ -137,6 +145,10 @@ def repackaging_type_modify():
         print("below packing sku not found")
         print(set(pp_notfound))
         print("         ")
+
+        print("below destination cost not found")
+        print(set(cost_not_found))
+        print("           ")
 
         print("below destination sku updated")
         print(set(dest_found))

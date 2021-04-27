@@ -2383,6 +2383,7 @@ class UploadPackingSkuInventoryAdminForm(forms.Form):
         form_data_list = []
         user = get_current_user()
         for row_id, row in enumerate(reader):
+            row = [str(i).strip() for i in row]
             if '' in row:
                 if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
                         row[5] == '' and row[6] == '' and row[7] == '' and row[8] == ''):
