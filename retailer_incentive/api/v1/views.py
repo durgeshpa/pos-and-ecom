@@ -260,7 +260,6 @@ class IncentiveDashBoard(APIView):
                                     'end_date': scheme_shop_map.end_date
                                     }]
                     scheme_data_list.append(scheme_data)
-
                 return scheme_data_list
 
     def get_sales_executive_details_from_database(self, user, month):
@@ -268,26 +267,27 @@ class IncentiveDashBoard(APIView):
             employee=user.shop_employee.instance, status=True))
         if shop_mapping_object:
             scheme_shop_mapping_list = []
-            scheme_data_list = []
+
             for shop_scheme in shop_mapping_object:
                 shop_scheme_mapped_data = get_shop_scheme_mapping_based_on_month_from_db(shop_scheme.shop_id, month)
                 if shop_scheme_mapped_data:
                     scheme_shop_mapping_list.append(shop_scheme_mapped_data)
-
-            for shop_map in scheme_shop_mapping_list:
-                shop = Shop.objects.filter(id=shop_map.shop_id).last()
-                scheme_data = [{'shop_id': shop.shop_id,
-                                'shop_name': shop.shop_name,
-                                'mapped_scheme_id': shop_map.mapped_scheme_id,
-                                'mapped_scheme': shop_map.mapped_scheme,
-                                'total_sales': shop_map.purchase_value,
-                                'discount_percentage': shop_map.discount_percentage,
-                                'discount_value': shop_map.incentive_earned,
-                                'start_date': shop_map.start_date,
-                                'end_date': shop_map.end_date
-                                }]
-                scheme_data_list.append(scheme_data)
-            return scheme_data_list
+            if scheme_shop_mapping_list:
+                scheme_data_list = []
+                for shop_map in scheme_shop_mapping_list:
+                    shop = Shop.objects.filter(id=shop_map.shop_id).last()
+                    scheme_data = [{'shop_id': shop.shop_id,
+                                    'shop_name': shop.shop_name,
+                                    'mapped_scheme_id': shop_map.mapped_scheme_id,
+                                    'mapped_scheme': shop_map.mapped_scheme,
+                                    'total_sales': shop_map.purchase_value,
+                                    'discount_percentage': shop_map.discount_percentage,
+                                    'discount_value': shop_map.incentive_earned,
+                                    'start_date': shop_map.start_date,
+                                    'end_date': shop_map.end_date
+                                    }]
+                    scheme_data_list.append(scheme_data)
+                return scheme_data_list
 
 
 class ShopSchemeDetails(APIView):
