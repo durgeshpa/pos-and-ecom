@@ -287,7 +287,7 @@ class IncentiveDashBoard(APIView):
                                 'end_date': shop_map.end_date
                                 }]
                 scheme_data_list.append(scheme_data)
-                return scheme_data_list
+            return scheme_data_list
 
 
 class ShopSchemeDetails(APIView):
