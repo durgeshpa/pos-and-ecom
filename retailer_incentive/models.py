@@ -26,8 +26,8 @@ class Scheme(BaseTimestampModel):
     """
     name_regex = RegexValidator(r'^[0-9a-zA-Z ]*$', "Scheme name is not valid")
     name = models.CharField(validators=[name_regex], max_length=50)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
     is_active = models.BooleanField(default=True)
     user = models.ForeignKey(get_user_model(), related_name='schemes',
                              on_delete=models.CASCADE, verbose_name='Created By')
@@ -68,8 +68,8 @@ class SchemeShopMapping(BaseTimestampModel):
     is_active = models.BooleanField(default=True)
     user = models.ForeignKey(get_user_model(), related_name='shop_mappings', on_delete=models.CASCADE,
                              verbose_name='Created By')
-    start_date = models.DateField()
-    end_date = models.DateField()
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
 
     def save(self, *args, **kwargs):
         if not self.id:
@@ -89,5 +89,5 @@ class IncentiveDashboardDetails(BaseTimestampModel):
     mapped_scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
     purchase_value = models.DecimalField(max_digits=4, decimal_places=2)
     incentive_earned = models.DecimalField(max_digits=4, decimal_places=2)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
