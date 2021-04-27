@@ -12,6 +12,7 @@ from django.utils.translation import gettext_lazy as _
 from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
 from retailer_incentive.utils import get_active_mappings
 from shops.models import Shop
+from .common_function import save_scheme_shop_mapping_data
 
 info_logger = logging.getLogger('file-info')
 
@@ -45,7 +46,7 @@ class SchemeCreationForm(forms.ModelForm):
         data = self.cleaned_data
         start_date = data.get('start_date')
         end_date = data.get('end_date')
-        if start_date.date() < datetime.datetime.today().date():
+        if start_date < datetime.datetime.today():
             raise ValidationError('Start date cannot be earlier than today')
 
         if end_date <= start_date:
@@ -118,13 +119,39 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
         data = self.cleaned_data
         shop = data['shop']
         active_mappings = get_active_mappings(shop.id)
-        if active_mappings.count() >= 2:
-            raise ValidationError("Shop Id - {} already has 2 active mappings".format(shop.id))
-        existing_active_mapping = active_mappings.last()
-        if existing_active_mapping and existing_active_mapping.priority == data['priority']:
-            raise ValidationError("Shop Id - {} already has an active {} mappings"
-                                  .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']]))
+        active_mapping = active_mappings.last()
+        if active_mapping and active_mapping.priority == data['priority'] and active_mapping.start_date == data['start_date'] \
+                and active_mapping.end_date == data['end_date']:
+                raise ValidationError("Shop Id - {} already has an active {} mappings on same "
+                                      "start date {} & end date {}"
+                                      .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']],
+                                              active_mapping.start_date, active_mapping.end_date))
 
+        if active_mappings.count() >= 2:
+            for active_mapping in active_mappings:
+                if active_mapping and active_mapping.priority == data['priority']:
+                    # store previous scheme data in database & make it deactivate
+                    save_scheme_shop_mapping_data(active_mapping)
+                    active_mapping.is_active = False
+                    active_mapping.save()
+
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        scheme = data['scheme']
+        if start_date < scheme.start_date:
+            raise ValidationError('Start date cannot be earlier than scheme start date')
+
+        if start_date < datetime.datetime.today():
+            raise ValidationError('Start date cannot be earlier than today')
+
+        if start_date > scheme.end_date:
+            raise ValidationError('Start date cannot be greater than scheme end date')
+
+        if end_date > scheme.end_date:
+            raise ValidationError('End Date cannot be greater than scheme end date')
+
+        if end_date < start_date:
+            raise ValidationError('End Date should be greater than the Start Date')
 
     class Meta:
         model = SchemeShopMapping

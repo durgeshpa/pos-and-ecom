@@ -41,6 +41,7 @@ class SchemeAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 @admin.register(SchemeShopMapping)
 class SchemeShopMappingAdmin(admin.ModelAdmin):
     """
@@ -166,5 +167,6 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
         return urls
 
     change_list_template = 'admin/retailer_incentive/scheme-shop-mapping-change-list.html'
+
     class Media:
         pass
