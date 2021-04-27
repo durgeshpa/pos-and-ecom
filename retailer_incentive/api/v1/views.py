@@ -233,7 +233,8 @@ class IncentiveDashBoard(APIView):
             for shop_scheme in shop_mapping_object:
                 scheme_shop_mapping = get_shop_scheme_mapping_based_on_month(shop_scheme.shop_id, month)
                 if scheme_shop_mapping:
-                    scheme_shop_mapping_list.append(scheme_shop_mapping)
+                    for scheme_shop_mapping in scheme_shop_mapping:
+                        scheme_shop_mapping_list.append(scheme_shop_mapping)
             if scheme_shop_mapping_list:
                 scheme_data_list = []
                 for scheme_shop_map in scheme_shop_mapping_list:
