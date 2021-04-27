@@ -9,9 +9,7 @@ def get_active_mappings(shop_id):
     Params:
         shop_id : id of the shop
     """
-    return SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True,
-                                            scheme__start_date__lte=datetime.datetime.today(),
-                                            scheme__end_date__gte=datetime.datetime.today())
+    return SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True)
 
 
 def get_shop_scheme_mapping(shop_id):

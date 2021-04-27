@@ -118,12 +118,12 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
         data = self.cleaned_data
         shop = data['shop']
         active_mappings = get_active_mappings(shop.id)
-        if active_mappings.count() >= 2:
-            raise ValidationError("Shop Id - {} already has 2 active mappings".format(shop.id))
-        existing_active_mapping = active_mappings.last()
-        if existing_active_mapping and existing_active_mapping.priority == data['priority']:
-            raise ValidationError("Shop Id - {} already has an active {} mappings"
-                                  .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']]))
+
+        for active_mapping in active_mappings:
+            if active_mapping.priority == data['priority'] and active_mapping.start_date == data['start_date']\
+                    and active_mapping.end_date == data['end_date']:
+                raise ValidationError("Shop Id - {} already has an active {} mappings"
+                                      .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']]))
         start_date = data.get('start_date')
         end_date = data.get('end_date')
         scheme = data['scheme']
