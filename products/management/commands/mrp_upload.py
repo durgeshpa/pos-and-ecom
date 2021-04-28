@@ -14,7 +14,7 @@ class Command(BaseCommand):
 
 def mrp_upload_product():
     f = open('products/management/missing_mrp_products_1.csv', 'rb')
-    reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
+    reader = csv.reader(codecs.iterdecode(f, 'utf-8', errors='ignore'))
     first_row = next(reader)
     for row_id, row in enumerate(reader):
         print(row_id)

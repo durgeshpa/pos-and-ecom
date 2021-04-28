@@ -235,7 +235,7 @@ class GFProductPriceForm(forms.Form):
     def clean_file(self):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         for id, row in enumerate(reader):
             if not row[0] or not re.match("^[\d]*$", row[0]):
@@ -849,6 +849,19 @@ class UploadMasterDataAdminForm(forms.Form):
                         if not Category.objects.filter(category_name=row['sub_category_name']).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['sub_category_name']} | "
                                                     f"'Sub_Category_Name' doesn't exist in the system "))
+                if 'is_ptr_applicable' in header_list and 'is_ptr_applicable' in row.keys():
+                    if row['is_ptr_applicable'] != '' and str(row['is_ptr_applicable']).lower() not in ['yes', 'no']:
+                            raise ValidationError(_(f"Row {row_num} | {row['is_ptr_applicable']} | "
+                                                    f"'is_ptr_applicable' can only be 'Yes' or 'No' "))
+                    elif row['is_ptr_applicable'].lower()=='yes' and \
+                        ('ptr_type' not in row.keys() or row['ptr_type'] == '' or row['ptr_type'].lower() not in ['mark up', 'mark down']):
+                        raise ValidationError(_(f"Row {row_num} | "
+                                                    f"'ptr_type' can either be 'Mark Up' or 'Mark Down' "))
+                    elif row['is_ptr_applicable'].lower() == 'yes' \
+                        and ('ptr_percent' not in row.keys() or row['ptr_percent'] == '' or 100 < row['ptr_percent'] or  row['ptr_percent'] < 0) :
+                        raise ValidationError(_(f"Row {row_num} | "
+                                                    f"'ptr_percent' is invalid"))
+
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] != '':
                         if row['repackaging_type'] not in Product.REPACKAGING_TYPES:
@@ -1157,7 +1170,7 @@ class UploadMasterDataAdminForm(forms.Form):
             required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)', 'brand_case_size',
                                     'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                                     'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
-                                    'status']
+                                    'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent']
             excel_file_header_list = excel_file[0]  # headers of the uploaded excel file
             excel_file_headers = [str(ele).lower() for ele in
                                   excel_file_header_list]  # Converting headers into lowercase
@@ -1716,7 +1729,7 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
                                   (row_id))
             else:
                 product_id = product.get('id')
-                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
                 csv_columns = next(csv_reader)
                 for reader_id, reader_row in enumerate(csv_reader):
                     if (reader_id + 2 != row_id) and row[0] == reader_row[0]:
@@ -1770,7 +1783,7 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
                                                     'cess_tax_id': cess_tax_id}
 
     def read_file(self, file):
-        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
         columns = next(reader)
         for row_id, row in enumerate(reader):
             self.validate_row(columns, row, row_id + 2, file)
@@ -1830,7 +1843,7 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
                                   (row_id))
             else:
                 product_id = product.get('id')
-                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
                 csv_columns = next(csv_reader)
                 for reader_id, reader_row in enumerate(csv_reader):
                     if (reader_id + 2 != row_id) and row[0] == reader_row[0]:
@@ -1884,7 +1897,7 @@ class BulkUploadForGSTChangeForm(forms.ModelForm):
                                                     'cess_tax_id': cess_tax_id}
 
     def read_file(self, file):
-        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
         columns = next(reader)
         for row_id, row in enumerate(reader):
             self.validate_row(columns, row, row_id + 2, file)
@@ -2220,7 +2233,7 @@ class UploadSlabProductPriceForm(forms.Form):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only .csv file accepted.")
 
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
         first_row = next(reader)
         for row_id, row in enumerate(reader):
             if len(row) == 0:
@@ -2232,6 +2245,8 @@ class UploadSlabProductPriceForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'SKU'"))
             is_ptr_applicable = product.parent_product.is_ptr_applicable
             case_size = product.parent_product.inner_case_size
+            selling_price = float(row[6])
+            selling_price_per_saleable_unit = selling_price
             if is_ptr_applicable:
                 ptr_percent = product.parent_product.ptr_percent
                 ptr_type = product.parent_product.ptr_type
@@ -2239,19 +2254,20 @@ class UploadSlabProductPriceForm(forms.Form):
                     selling_price = product.product_mrp / (1 + (ptr_percent / 100))
                 elif ptr_type == ParentProduct.PTR_TYPE_CHOICES.MARK_DOWN:
                     selling_price = product.product_mrp*(1 - (ptr_percent / 100))
-                selling_price_per_saleable_unit = selling_price
-            else:
-                selling_price_per_saleable_unit = float(row[6])
+                selling_price_per_saleable_unit = float(round(selling_price, 2))
+
 
             if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['sp']).exists():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id'"))
             elif not row[5]:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Quantity'"))
-
-            if not selling_price_per_saleable_unit or selling_price_per_saleable_unit == 0 \
-                    or selling_price_per_saleable_unit > float(product.product_mrp):
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price'"))
-            elif row[7] and float(row[7]) >= selling_price_per_saleable_unit:
+            if not row[6] or float(row[6]) <= 0:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling price'"))
+            elif selling_price_per_saleable_unit != float(row[6]):
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', PTR {selling_price_per_saleable_unit} != Slab1 SP {row[6]}"))
+            elif float(row[6]) > float(product.product_mrp):
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Selling Price', Slab1 SP {row[6]} > MRP {product.product_mrp}"))
+            elif row[7] and float(row[7]) >= float(row[6]):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 1 Offer Price'"))
             elif row[7] and (not isDateValid(row[8], "%d-%m-%y") or not isDateValid(row[9], "%d-%m-%y")
                              or getStrToDate(row[8], "%d-%m-%y") < datetime.datetime.today().date()
@@ -2261,9 +2277,12 @@ class UploadSlabProductPriceForm(forms.Form):
             elif int(row[5]) > 0 :
                 if not row[10] or int(row[10]) != int(row[5])+1:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Quantity'"))
-                elif not row[11] or float(row[11]) >= selling_price_per_saleable_unit or float(row[11]) >= float(row[6])\
-                        or (row[7] and float(row[11]) >= float(row[7])):
+                elif not row[11] or float(row[11]) <= 0:
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price'"))
+                elif float(row[11]) >= float(row[6]):
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab1 SP {row[6]}"))
+                elif (row[7] and float(row[11]) >= float(row[7])):
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Selling Price', Slab2 SP {row[11]} >= Slab 1 Offer Price {row[7]}"))
                 elif row[12] and float(row[12]) >= float(row[11]):
                     raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Slab 2 Offer Price'"))
                 elif row[12] and (not isDateValid(row[13], "%d-%m-%y") or not isDateValid(row[14], "%d-%m-%y")
@@ -2364,6 +2383,7 @@ class UploadPackingSkuInventoryAdminForm(forms.Form):
         form_data_list = []
         user = get_current_user()
         for row_id, row in enumerate(reader):
+            row = [str(i).strip() for i in row]
             if '' in row:
                 if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
                         row[5] == '' and row[6] == '' and row[7] == '' and row[8] == ''):

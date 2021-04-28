@@ -2,120 +2,119 @@ import requests
 from PIL import Image
 import PIL
 import datetime
-from dal import autocomplete
 from decimal import Decimal
 
 from django.shortcuts import render
 from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import AllowAny
 from django.http import HttpResponse, Http404
 from django.conf import settings
-from retailer_to_sp.models import Order, OrderedProductMapping, Trip, OrderedProduct, CartProductMapping
-from shops.models import Shop, ParentRetailerMapping
-from django.db.models import Sum
+from retailer_to_sp.models import Order, OrderedProductMapping, CartProductMapping
+from shops.models import ParentRetailerMapping
 from shops.models import Shop
-from django.db.models import Sum, Q
-import json
+from django.db.models import Sum
 import csv
-from rest_framework import permissions, authentication
-#from .forms import SalesReportForm, OrderReportForm, GRNReportForm, MasterReportForm, OrderGrnForm
+from .forms import SalesReportForm
 from django.views import View
-from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
-from .models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports, OrderDetailReportsData, CartProductMappingData
+from products.models import Product, ProductPrice
+from .models import RetailerReports, GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports, OrderDetailReportsData, CartProductMappingData
 from gram_to_brand.models import Order as PurchaseOrder
-from datetime import timedelta
-from categories.models import Category
-from gram_to_brand.models import Order as GOrder, GRNOrder as GRNOrder
+from gram_to_brand.models import GRNOrder as GRNOrder
 # # Create your views here.
-# class SalesReport(APIView):
-#     permission_classes = (AllowAny,)
-#
-#     def get_sales_report(self, shop_id, start_date, end_date):
-#         seller_shop = Shop.objects.get(pk=shop_id)
-#         orders = Order.objects.using('readonly').filter(seller_shop=seller_shop).exclude(order_status__in=['CANCELLED', 'DENIED'])\
-#             .select_related('ordered_cart').prefetch_related('ordered_cart__rt_cart_list')
-#         if start_date:
-#             orders = orders.using('readonly').filter(created_at__gte = start_date)
-#         if end_date:
-#             orders = orders.using('readonly').filter(created_at__lte = end_date)
-#         ordered_list=[]
-#         ordered_items = {}
-#         for order in orders:
-#             order_shipments = OrderedProductMapping.objects.using('readonly').filter(
-#                 ordered_product__order = order
-#                 )
-#             for cart_product_mapping in order.ordered_cart.rt_cart_list.all():
-#                 product = cart_product_mapping.cart_product
-#                 product_id = cart_product_mapping.cart_product.id
-#                 product_name = cart_product_mapping.cart_product.product_name
-#                 product_sku = cart_product_mapping.cart_product.product_sku
-#                 product_brand = cart_product_mapping.cart_product.product_brand.brand_name
-#                 ordered_qty = cart_product_mapping.no_of_pieces
-#                 all_tax_list = cart_product_mapping.cart_product.product_pro_tax
-#                 # shopName = seller_shop
-#
-#                 product_shipments = order_shipments.filter(product=product)
-#                 product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
-#                 if not product_shipments:
-#                     product_shipments = 0
-#                 tax_sum, get_tax_val = 0, 0
-#                 if all_tax_list.exists():
-#                     for tax in all_tax_list.using('readonly').all():
-#                         tax_sum = float(tax_sum) + float(tax.tax.tax_percentage)
-#                     tax_sum = round(tax_sum, 2)
-#                     get_tax_val = tax_sum / 100
-#                 product_price_to_retailer = cart_product_mapping.cart_product_price.selling_price
-#                 ordered_amount = (product_price_to_retailer * Decimal(ordered_qty)) / (Decimal(get_tax_val) + 1)
-#                 ordered_tax_amount = (ordered_amount * Decimal(get_tax_val))
-#                 delivered_amount = float((product_price_to_retailer * Decimal(product_shipments)) / (Decimal(get_tax_val) + 1))
-#                 delivered_tax_amount = float((delivered_amount * float(get_tax_val)))
-#                 if product_sku in ordered_items:
-#                     ordered_items['ordered_qty'] += ordered_qty
-#                     ordered_items['ordered_amount'] += ordered_amount
-#                     ordered_items['ordered_tax_amount'] += ordered_tax_amount
-#                     ordered_items['delivered_qty'] += product_shipments
-#                     ordered_items['delivered_amount'] += delivered_amount
-#                     ordered_items['delivered_tax_amount'] += delivered_tax_amount
-#                 else:
-#                     ordered_items = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount, 'seller_shop':seller_shop}
-#                     ordered_list.append(ordered_items)
-#         data = ordered_list
-#         return data
-#
-#     def get(self, *args, **kwargs):
-#         from django.http import HttpResponse
-#         from django.contrib import messages
-#         shop_id = self.request.GET.get('shop')
-#         start_date = self.request.GET.get('start_date', None)
-#         end_date = self.request.GET.get('end_date', None)
-#         if end_date and end_date < start_date:
-#             messages.error(self.request, 'End date cannot be less than the start date')
-#             return render(
-#                 self.request,
-#                 'admin/services/sales-report.html',
-#                 {'form': SalesReportForm(user=None, initial=self.request.GET)}
-#             )
-#         data = self.get_sales_report(shop_id, start_date, end_date)
-#         response = HttpResponse(content_type='text/csv')
-#         response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
-#         writer = csv.writer(response)
-#         writer.writerow(['ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
-#         for dic in data:
-#             writer.writerow([dic['product_id'], dic['product_sku'], dic['product_name'], dic['product_brand'], dic['ordered_qty'], dic['delivered_qty'], dic['ordered_amount'], dic['ordered_tax_amount'],  dic['delivered_amount'], dic['delivered_tax_amount'],dic['seller_shop']])
-#
-#         return response
-#
-# class SalesReportFormView(View):
-#     def get(self, request):
-#         form = SalesReportForm(user=request.user)
-#         return render(
-#             self.request,
-#             'admin/services/sales-report.html',
-#             {'form': form}
-#         )
-# seller_shop_map = {'172':'GFDN SERVICES PVT LTD (DELHI) - 7006440794','600':'GFDN SERVICES PVT LTD (NOIDA) - 9891597697'}
-#
+class SalesReport(APIView):
+    permission_classes = (AllowAny,)
+
+    def get_sales_report(self, shop_id, start_date, end_date):
+        seller_shop = Shop.objects.get(pk=shop_id)
+        orders = Order.objects.using('readonly').filter(seller_shop=seller_shop).exclude(order_status__in=['CANCELLED', 'DENIED'])\
+            .select_related('ordered_cart').prefetch_related('ordered_cart__rt_cart_list')
+        if start_date:
+            orders = orders.using('readonly').filter(created_at__gte = start_date)
+        if end_date:
+            orders = orders.using('readonly').filter(created_at__lte = end_date)
+        ordered_list=[]
+        ordered_items = {}
+        for order in orders:
+            order_shipments = OrderedProductMapping.objects.using('readonly').filter(
+                ordered_product__order = order
+                )
+            for cart_product_mapping in order.ordered_cart.rt_cart_list.all():
+                product = cart_product_mapping.cart_product
+                product_id = cart_product_mapping.cart_product.id
+                product_name = cart_product_mapping.cart_product.product_name
+                product_sku = cart_product_mapping.cart_product.product_sku
+                product_brand = cart_product_mapping.cart_product.product_brand.brand_name
+                ordered_qty = cart_product_mapping.no_of_pieces
+                all_tax_list = cart_product_mapping.cart_product.product_pro_tax
+                # shopName = seller_shop
+
+                product_shipments = order_shipments.filter(product=product)
+                product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
+                if not product_shipments:
+                    product_shipments = 0
+                tax_sum, get_tax_val = 0, 0
+                if all_tax_list.exists():
+                    for tax in all_tax_list.using('readonly').all():
+                        tax_sum = float(tax_sum) + float(tax.tax.tax_percentage)
+                    tax_sum = round(tax_sum, 2)
+                    get_tax_val = tax_sum / 100
+                seller_shop = Shop.objects.filter(id=order.seller_shop_id).last()
+                buyer_shop = Shop.objects.filter(id=order.buyer_shop_id).last()
+                try:
+                    product_price_to_retailer = cart_product_mapping.get_cart_product_price(seller_shop,
+                                                            buyer_shop).get_per_piece_price(cart_product_mapping.qty)
+                except:
+                    product_price_to_retailer = 0
+                ordered_amount = (Decimal(product_price_to_retailer) * Decimal(ordered_qty)) / (Decimal(get_tax_val) + 1)
+                ordered_tax_amount = (ordered_amount * Decimal(get_tax_val))
+                delivered_amount = float((Decimal(product_price_to_retailer) * Decimal(product_shipments)) / (Decimal(get_tax_val) + 1))
+                delivered_tax_amount = float((delivered_amount * float(get_tax_val)))
+                if product_sku in ordered_items:
+                    ordered_items['ordered_qty'] += ordered_qty
+                    ordered_items['ordered_amount'] += ordered_amount
+                    ordered_items['ordered_tax_amount'] += ordered_tax_amount
+                    ordered_items['delivered_qty'] += product_shipments
+                    ordered_items['delivered_amount'] += delivered_amount
+                    ordered_items['delivered_tax_amount'] += delivered_tax_amount
+                else:
+                    ordered_items = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount, 'seller_shop':seller_shop}
+                    ordered_list.append(ordered_items)
+        data = ordered_list
+        return data
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+        shop_id = self.request.GET.get('shop')
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        if end_date and end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            return render(
+                self.request,
+                'admin/services/sales-report.html',
+                {'form': SalesReportForm(user=None, initial=self.request.GET)}
+            )
+        data = self.get_sales_report(shop_id, start_date, end_date)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
+        for dic in data:
+            writer.writerow([dic['product_id'], dic['product_sku'], dic['product_name'], dic['product_brand'], dic['ordered_qty'], dic['delivered_qty'], dic['ordered_amount'], dic['ordered_tax_amount'],  dic['delivered_amount'], dic['delivered_tax_amount'],dic['seller_shop']])
+
+        return response
+
+class SalesReportFormView(View):
+    def get(self, request):
+        form = SalesReportForm(user=request.user)
+        return render(
+            self.request,
+            'admin/services/sales-report.html',
+            {'form': form}
+        )
+seller_shop_map = {'172':'GFDN SERVICES PVT LTD (DELHI) - 7006440794','600':'GFDN SERVICES PVT LTD (NOIDA) - 9891597697'}
+
 # class OrderReport(APIView):
 #     permission_classes = (AllowAny,)
 #     def get_order_report(self, shop_id, start_date, end_date):

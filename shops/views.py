@@ -336,7 +336,7 @@ class StockAdjustmentView(PermissionRequiredMixin, View):
         return render(request, self.template_name, {'form': form, 'shop': shop})
 
     def handle_uploaded_file(self, shop_id, f):
-        reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
+        reader = csv.reader(codecs.iterdecode(f, 'utf-8', errors='ignore'))
         first_row = next(reader)
         self.shop = Shop.objects.get(pk=shop_id)
         self.stock_adjustment = StockAdjustment.objects.create(shop=self.shop)
@@ -539,7 +539,7 @@ class ShopUserMappingCsvView(FormView):
         not_uploaded_list = []
         if form.is_valid():
             file = request.FILES['file']
-            reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
             first_row = next(reader)
             for row in reader:
                 try:

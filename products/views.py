@@ -223,7 +223,7 @@ class SpSrProductPrice(View):
                              end_date, sp_sr):
         try:
             with transaction.atomic():
-                reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
                 first_row = next(reader)
                 for row_id, row in enumerate(reader):
 
@@ -315,7 +315,7 @@ def gf_product_price(request):
             start_date = form.cleaned_data.get('start_date_time')
             end_date = form.cleaned_data.get('end_date_time')
             shops = form.cleaned_data.get('gf_list')
-            reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+            reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
             first_row = next(reader)
             try:
                 for row in reader:
@@ -1388,6 +1388,10 @@ def set_child_with_parent_sample_excel_file(request):
     info_logger.info("Child Parent Mapping Sample Excel File has been Successfully Downloaded")
     return response
 
+def get_ptr_type_text(ptr_type=None):
+    if ptr_type is not None and ptr_type in ParentProduct.PTR_TYPE_CHOICES:
+        return ParentProduct.PTR_TYPE_CHOICES[ptr_type]
+    return ''
 
 def set_parent_data_sample_excel_file(request, *args):
     """
@@ -1410,7 +1414,7 @@ def set_parent_data_sample_excel_file(request, *args):
     columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)', 'brand_case_size',
                'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
-               'status', ]
+               'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent']
     mandatory_columns = ['parent_id', 'parent_name', 'status']
 
     for col_num, column_title in enumerate(columns, 1):
@@ -1435,7 +1439,10 @@ def set_parent_data_sample_excel_file(request, *args):
                                                            'category__id', 'category__category_name',
                                                            'category__category_parent_id',
                                                            'category__category_parent__category_name',
-                                                           'parent_product__status').filter(
+                                                           'parent_product__status',
+                                                           'parent_product__is_ptr_applicable',
+                                                           'parent_product__ptr_type',
+                                                           'parent_product__ptr_percent').filter(
                                                             category=int(category_id))
     for product in parent_products:
         row = []
@@ -1482,6 +1489,9 @@ def set_parent_data_sample_excel_file(request, *args):
             row.append("active")
         else:
             row.append("deactivated")
+        row.append('Yes' if product['parent_product__is_ptr_applicable'] else 'No')
+        row.append(get_ptr_type_text(product['parent_product__ptr_type']))
+        row.append(product['parent_product__ptr_percent'])
         row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
@@ -1871,7 +1881,7 @@ class ProductCategoryMapping(View):
     def update_mapping(self, request, file):
         try:
             with transaction.atomic():
-                reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                reader = csv.reader(codecs.iterdecode(file, 'utf-8', errors='ignore'))
                 first_row = next(reader)
                 for row_id, row in enumerate(reader):
                     self.validate_row(first_row, row)

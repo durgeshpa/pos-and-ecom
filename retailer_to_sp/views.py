@@ -1616,6 +1616,13 @@ def order_cancellation(sender, instance=None, created=False, **kwargs):
         order.cancel()
 
 
+@receiver(post_save, sender=Order)
+def populate_order_amount(sender, instance=None, created=False, **kwargs):
+    if created:
+        instance.total_mrp = instance.total_mrp_amount
+        instance.order_amount = instance.total_final_amount
+
+
 class StatusChangedAfterAmountCollected(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)

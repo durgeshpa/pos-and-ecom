@@ -24,8 +24,8 @@
                   <fieldset class="module aligned ">
                      {% csrf_token %}
                      {{form.as_p}}
-                     <p style="margin-top:20px;margin-bottom:30px;"><a href="{% url 'admin:packing-material-inventory-sample-upload' %}">Download Sample Upload File</a></p>
-                     <p><a style="padding:10px;" href="{% url 'admin:packing-material-inventory-download' %}" class="button">Download Inventory</a></p>
+                     <p style="margin-top:20px;margin-bottom:30px;"><a href="{% url 'admin:packing-material-inventory-sample-upload' %}">Sample File To Upload Packing Material Inventory</a></p>
+                     <p><a style="padding:10px;" href="{% url 'admin:packing-material-inventory-download' %}" class="button">Download Packing Material Inventory</a></p>
                   </fieldset>
                   <div class="submit-row">
                      <input type="submit" value="Save" class="button" name="_save">

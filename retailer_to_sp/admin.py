@@ -400,9 +400,9 @@ class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
-    fields = ('cart', 'cart_product', 'cart_product_price', 'qty',
-              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices', 'discounted_price')
-    autocomplete_fields = ('cart_product', 'cart_product_price')
+    fields = ('cart', 'cart_product', 'qty', 'no_of_pieces', 'product_case_size', 'product_inner_case_size',
+              'item_effective_prices', 'discounted_price')
+    autocomplete_fields = ('cart_product', )
     extra = 0
 
 
@@ -417,7 +417,7 @@ class CartProductMappingAdmin(admin.TabularInline):
             .get_readonly_fields(request, obj)
         if obj:
             readonly_fields = readonly_fields + (
-                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'item_effective_prices', 'discounted_price'
+                'cart_product', 'qty', 'no_of_pieces', 'item_effective_prices', 'discounted_price'
             )
             # if obj.approval_status == True:
             #     readonly_fields = readonly_fields + (
@@ -1059,10 +1059,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         return p
 
     def total_final_amount(self,obj):
-        return obj.total_final_amount
+        return obj.order_amount
 
     def total_mrp_amount(self,obj):
-        return obj.total_mrp_amount
+        return obj.total_mrp
 
     def picking_completion_time(self, obj):
         pd_entry = PickerDashboard.objects.filter(order=obj, picking_status='picking_complete').last()

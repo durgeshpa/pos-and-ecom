@@ -112,7 +112,7 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
             return 0
 
     def get_product_total_price(self, obj):
-        self.product_total_price = self.product_price * obj.shipped_qty
+        self.product_total_price = obj.effective_price * obj.shipped_qty
         return round(self.product_total_price,2)
 
     class Meta:
@@ -1188,6 +1188,7 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
         else:
             if obj.effective_price:
                 return obj.effective_price
+
             cart_product = obj.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product=obj.product)
             shipped_qty_in_pack = math.ceil(obj.shipped_qty/obj.cart_product.cart_product_case_size)
             return cart_product.cart_product_price.get_per_piece_price(shipped_qty_in_pack)
