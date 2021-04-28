@@ -1,3 +1,5 @@
+import math
+
 from django.db import models
 from model_utils import Choices
 
@@ -112,6 +114,7 @@ class BinInventory(models.Model):
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True, blank=True)
+    weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     to_be_picked_qty = models.PositiveIntegerField(verbose_name='To Be Picked', default=0)
     in_stock = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -132,6 +135,11 @@ class BinInventory(models.Model):
     def __str__(self):
         return str(self.id)
 
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(BinInventory, self).save(*args, **kwargs)
+
     class Meta:
         db_table = "wms_bin_inventory"
 
@@ -142,10 +150,16 @@ class WarehouseInventory(models.Model):
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     inventory_state = models.ForeignKey(InventoryState, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
+    weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     in_stock = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     visible = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(WarehouseInventory, self).save(*args, **kwargs)
 
     class Meta:
         db_table = "wms_warehouse_inventory"
@@ -159,9 +173,15 @@ class In(models.Model):
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='+')
     quantity = models.PositiveIntegerField()
+    weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     expiry_date = models.DateField(null=True)
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(In, self).save(*args, **kwargs)
 
 
 class Putaway(models.Model):
@@ -222,8 +242,14 @@ class Out(models.Model):
     batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
+    weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(Out, self).save(*args, **kwargs)
 
 
 class Pickup(models.Model):
@@ -288,7 +314,7 @@ class StockMovementCSVUpload(models.Model):
         (2, "Bin Stock Movement"),
         (3, "Stock Correction"),
         (4, "WareHouse Inventory Change"),
-
+        (5, "Packing Material Stock Correction")
     )
 
     uploaded_by = models.ForeignKey(get_user_model(), related_name='inventory_manager', on_delete=models.CASCADE)
@@ -348,6 +374,7 @@ class WarehouseInternalInventoryChange(models.Model):
     final_stage = models.ForeignKey(InventoryState, related_name='final_stage', null=True, blank=True,
                                     on_delete=models.DO_NOTHING)
     quantity = models.IntegerField(null=True, blank=True, default=0)
+    weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -355,6 +382,11 @@ class WarehouseInternalInventoryChange(models.Model):
 
     def __str__(self):
         return self.transaction_type
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(WarehouseInternalInventoryChange, self).save(*args, **kwargs)
 
     class Meta:
         db_table = "wms_warehouse_internal_inventory_change"
@@ -381,7 +413,8 @@ class BinInternalInventoryChange(models.Model):
         ('audit_correction_deduct', 'Audit Correction Deduct'),
         ('franchise_batch_in', 'Franchise Batch In'),
         ('franchise_sales', 'Franchise Sales'),
-        ('franchise_returns', 'Franchise Returns')
+        ('franchise_returns', 'Franchise Returns'),
+        ('repackaging', 'Repackaging')
 
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -396,9 +429,15 @@ class BinInternalInventoryChange(models.Model):
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=bin_transaction_type)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
     quantity = models.PositiveIntegerField()
+    weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(BinInternalInventoryChange, self).save(*args, **kwargs)
 
     class Meta:
         db_table = "wms_bin_internal_inventory_change"
@@ -412,9 +451,15 @@ class StockCorrectionChange(models.Model):
     correction_type = models.CharField(max_length=10, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
+    weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Weight In gm')
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            self.weight = 0
+        super(StockCorrectionChange, self).save(*args, **kwargs)
 
     class Meta:
         db_table = "wms_stock_correction_change"

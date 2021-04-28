@@ -267,9 +267,10 @@ class PutAwayViewSet(APIView):
                         value = put_away_done
                         put_away_status = True
                         ids.remove(ids[0])
-
+                    sku = put_away.last().sku
+                    weight = sku.weight_value * val if sku.repackaging_type == 'packing_material' else 0
                     updating_tables_on_putaway(sh, bin_id, put_away, i, type_normal, state_total_available, 't', val,
-                                               put_away_status, pu)
+                                               put_away_status, pu, weight)
 
             serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(),
                                             fields=('is_success', 'product_sku', 'inventory_type', 'batch_id',

@@ -1,0 +1,38 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+{% block title %}Products | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/products/">Products</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/products/repackaging/">Repackagings</a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Download / Upload Packing Material Inventory</a>{% endblock %}
+
+{% block content %}
+   <div id="content" class="colM">
+      <h1>{% block content_header %}{% endblock %}</h1>
+      <div id="content-main">
+         <ul class="object-tools">
+         </ul>
+         {% if error %}
+            <span class="errornote">{{ error|escape }}</span>
+         {% endif %}
+         {% if success %}
+            <ul class="messagelist">
+            <li class="success">{{ success|escape }}</li>
+            </ul>
+         {% endif %}
+         <div>
+            <form method="post" enctype="multipart/form-data">
+               <div>
+                  <fieldset class="module aligned ">
+                     {% csrf_token %}
+                     {{form.as_p}}
+                     <p style="margin-top:20px;margin-bottom:30px;"><a href="{% url 'admin:packing-material-inventory-sample-upload' %}">Sample File To Upload Packing Material Inventory</a></p>
+                     <p><a style="padding:10px;" href="{% url 'admin:packing-material-inventory-download' %}" class="button">Download Packing Material Inventory</a></p>
+                  </fieldset>
+                  <div class="submit-row">
+                     <input type="submit" value="Save" class="button" name="_save">
+                  </div>
+               </div>
+            </form>
+         </div>
+      </div>
+   </div>
+{% endblock %}

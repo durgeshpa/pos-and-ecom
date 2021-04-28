@@ -12,8 +12,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Sum, Q
 from wkhtmltopdf.views import PDFTemplateResponse
 from django.shortcuts import get_object_or_404, get_list_or_404
-from django.utils import timezone
-from django.contrib.postgres.search import SearchVector
+
+
 from django_filters import rest_framework as filters
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -60,8 +60,9 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare, Return, Feedback,
                                    OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-                                   ShipmentRescheduling, Note, OrderedProductBatch, check_date_range, capping_check
+                                   ShipmentRescheduling, Note, OrderedProductBatch
                                    )
+from retailer_to_sp.common_function import check_date_range, capping_check
 from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
                                      Order as GramMappedOrder, OrderedProduct as GramOrderedProduct,
                                      Payment as GramMappedPayment,
@@ -79,7 +80,7 @@ from retailer_backend.messages import ERROR_MESSAGES
 from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking
 )
-from wms.common_functions import OrderManagement, get_stock
+from wms.common_functions import OrderManagement, get_stock, is_product_not_eligible
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
 from retailer_to_sp.filters import PickerDashboardFilter
 from common.data_wrapper_view import DataWrapperViewSet
@@ -480,6 +481,11 @@ class AddToCart(APIView):
             if is_blocked_for_audit:
                 msg['message'] = [ERROR_MESSAGES['4019'].format(Product.objects.get(id=cart_product))]
                 return Response(msg, status=status.HTTP_200_OK)
+
+            if is_product_not_eligible(cart_product):
+                msg['message'] = ["Product Not Eligible To Order"]
+                return Response(msg, status=status.HTTP_200_OK)
+
             #  if shop mapped with SP
             # available = get_stock(parent_mapping.parent).filter(sku__id=cart_product, quantity__gt=0).values(
             #     'sku__id').annotate(quantity=Sum('quantity'))

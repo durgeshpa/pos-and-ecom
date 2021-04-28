@@ -3,11 +3,12 @@ import csv
 import datetime
 import json
 import re
+import collections
 
 from django.forms import BaseInlineFormSet
 from django.urls import reverse
 
-from dal import autocomplete
+from dal import autocomplete, forward
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -27,12 +28,14 @@ from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              BulkProductTaxUpdate, ProductTaxMapping, BulkUploadForGSTChange,
                              Repackaging, ParentProduct, ProductHSN, ProductSourceMapping,
                              DestinationRepackagingCostMapping, ParentProductImage, ProductCapping,
-                             ParentProductCategory, PriceSlab, SlabProductPrice)
+                             ParentProductCategory, PriceSlab, SlabProductPrice, ProductPackingMapping)
 from retailer_backend.utils import isDateValid, getStrToDate, isBlankRow
 from retailer_backend.validators import *
 from shops.models import Shop, ShopType
-from wms.models import InventoryType, WarehouseInventory, InventoryState
-from wms.common_functions import get_stock
+from wms.models import InventoryType, WarehouseInventory, InventoryState, Bin, BinInventory
+from wms.common_functions import get_stock, create_batch_id
+from accounts.middlewares import get_current_user
+from global_config.models import GlobalConfig
 
 
 class ProductImageForm(forms.ModelForm):
@@ -653,7 +656,7 @@ class UploadChildProductAdminForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | 'Weight Unit' can only be 'Gram'."))
             if not row[7]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' can not be empty."))
-            elif row[7] not in [lis[0] for lis in Product.REASON_FOR_NEW_CHILD_CHOICES]:
+            elif row[7] not in [lis[0] for lis in Product.REPACKAGING_TYPES]:
                 raise ValidationError(_(f"Row {row_id + 1} | 'Repackaging Type' is invalid."))
             if row[7] == 'destination':
                 if not row[8]:
@@ -671,6 +674,19 @@ class UploadChildProductAdminForm(forms.Form):
                     if not there:
                         raise ValidationError(_(f"Row {row_id + 1} | 'Source SKU Mapping' is required for Repackaging"
                                                 f" Type 'destination'."))
+
+                if not row[16]:
+                    raise ValidationError(_(f"Row {row_id + 1} | 'Packing SKU' is required for Repackaging"
+                                            f" Type 'destination'."))
+                elif not Product.objects.filter(product_sku=row[16], repackaging_type='packing_material').exists():
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid Packing Sku"))
+
+                if not row[17]:
+                    raise ValidationError(_(f"Row {row_id + 1} | 'Packing Material Weight (gm) per unit (Qty) Of "
+                                            f"Destination Sku' is required for Repackaging Type 'destination'."))
+                elif not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[17]):
+                    raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Packing Material Weight (gm) per unit (Qty)"
+                                            f" Of Destination Sku'"))
 
                 dest_cost_fields = ['Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
                                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost']
@@ -848,11 +864,10 @@ class UploadMasterDataAdminForm(forms.Form):
 
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] != '':
-                        repackaging_list = ['none', 'source', 'destination']
-                        if row['repackaging_type'] not in repackaging_list:
+                        if row['repackaging_type'] not in Product.REPACKAGING_TYPES:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['repackaging_type']} | 'Repackaging Type can either be 'none',"
-                                  f"'source' or 'destination'!"))
+                                  f"'source', 'destination' or 'packing_material'!"))
                 if 'repackaging_type' in header_list and 'repackaging_type' in row.keys():
                     if row['repackaging_type'] == 'destination':
                         mandatory_fields = ['raw_material', 'wastage', 'fumigation', 'label_printing',
@@ -1934,11 +1949,16 @@ class RepackagingForm(forms.ModelForm):
             url='admin:destination-product-autocomplete', forward=['source_sku'])
     )
 
+    available_packing_material_weight = forms.CharField(label='Available Packing Material Weight (Kg)', required=False)
+    available_packing_material_weight_initial = forms.CharField(widget=forms.HiddenInput(), required=False)
+    packing_sku_weight_per_unit_sku = forms.CharField(widget=forms.HiddenInput(), required=False)
+
     class Meta:
         model = Repackaging
         fields = ('seller_shop', 'source_sku', 'destination_sku', 'source_repackage_quantity', 'status',
                   "available_source_weight", "available_source_quantity", "destination_sku_quantity", "remarks",
-                  "expiry_date", "source_picking_status")
+                  "expiry_date", "source_picking_status", 'available_packing_material_weight',
+                  'available_packing_material_weight_initial', 'packing_sku_weight_per_unit_sku')
         widgets = {
             'remarks': forms.Textarea(attrs={'rows': 2}),
         }
@@ -1962,6 +1982,23 @@ class RepackagingForm(forms.ModelForm):
             if self.cleaned_data['source_repackage_quantity'] + self.cleaned_data['available_source_quantity'] != \
                     source_quantity:
                 raise forms.ValidationError("Source Quantity Changed! Please Input Again")
+            try:
+                ProductPackingMapping.objects.get(sku=self.cleaned_data['destination_sku'])
+            except:
+                raise forms.ValidationError("Please Map A Packing Material To The Selected Destination Product First")
+        if 'destination_sku_quantity' in self.cleaned_data:
+            try:
+                ppm = ProductPackingMapping.objects.get(sku=self.instance.destination_sku)
+            except:
+                raise forms.ValidationError("Please Map A Packing Material To The Selected Destination Product First")
+            try:
+                inv = WarehouseInventory.objects.get(inventory_type__inventory_type='normal', sku=ppm.packing_sku,
+                                                     inventory_state__inventory_state='total_available',
+                                                     warehouse=self.instance.seller_shop)
+            except:
+                raise forms.ValidationError("Packing Material Warehouse Inventory Not Found")
+            if inv.weight < self.cleaned_data['destination_sku_quantity'] * ppm.packing_sku_weight_per_unit_sku:
+                raise forms.ValidationError("Packing Material Inventory Not Sufficient")
         if self.instance.source_picking_status in ['pickup_created', 'picking_assigned']:
             raise forms.ValidationError("Source pickup is still not complete.")
         return self.cleaned_data
@@ -1970,10 +2007,23 @@ class RepackagingForm(forms.ModelForm):
         super(RepackagingForm, self).__init__(*args, **kwargs)
         if self.instance.pk and 'expiry_date' in self.fields:
             self.fields['expiry_date'].required = True
-        readonly = ['available_source_weight', 'available_source_quantity']
+        readonly = ['available_source_weight', 'available_source_quantity', 'available_packing_material_weight']
         for key in readonly:
             if key in self.fields:
                 self.fields[key].widget.attrs['readonly'] = True
+        if self.instance.pk and 'available_packing_material_weight' in self.fields:
+            self.fields['available_packing_material_weight'].initial = 0
+            self.fields['available_packing_material_weight_initial'].initial = 0
+            self.fields['packing_sku_weight_per_unit_sku'].initial = 0
+            repack_obj = Repackaging.objects.get(pk=self.instance.pk)
+            ppm = ProductPackingMapping.objects.filter(sku=repack_obj.destination_sku).last()
+            if ppm:
+                inventory = WarehouseInventory.objects.filter(inventory_type__inventory_type='normal',
+                                                              inventory_state__inventory_state='total_available',
+                                                              sku=ppm.packing_sku, warehouse=repack_obj.seller_shop).last()
+                self.fields['available_packing_material_weight'].initial = (inventory.weight - repack_obj.destination_sku_quantity * ppm.packing_sku_weight_per_unit_sku)/1000 if inventory else 0
+                self.fields['available_packing_material_weight_initial'].initial = inventory.weight if inventory else 0
+                self.fields['packing_sku_weight_per_unit_sku'].initial = ppm.packing_sku_weight_per_unit_sku
 
 
 class BulkProductVendorMapping(forms.Form):
@@ -2038,11 +2088,12 @@ class ProductPriceSlabForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
     product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
+        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination']),
         empty_label='Not Specified',
         widget=autocomplete.ModelSelect2(
             url='product-autocomplete',
-            attrs={"onChange": 'getProductDetails()'}
+            attrs={"onChange": 'getProductDetails()'},
+            forward=(forward.Const(1, 'price-slab'))
         )
     )
     mrp = forms.DecimalField(required=False)
@@ -2066,11 +2117,12 @@ class ProductPriceSlabCreationForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
     product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
+        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination']),
         empty_label='Not Specified',
         widget=autocomplete.ModelSelect2(
             url='product-autocomplete',
-            attrs={"onChange": 'getProductDetails()'}
+            attrs={"onChange": 'getProductDetails()'},
+            forward=(forward.Const(1, 'price-slab'), )
         )
     )
     mrp = forms.DecimalField(required=False)
@@ -2258,3 +2310,267 @@ class ProductHSNForm(forms.ModelForm):
 
         # data from the form is fetched using super function
         super(ProductHSNForm, self).clean()
+
+
+class ProductPackingMappingFormSet(forms.models.BaseInlineFormSet):
+
+    def clean(self):
+        super(ProductPackingMappingFormSet, self).clean()
+        count = 0
+        delete_count = 0
+        valid = True
+        for form in self:
+            if form.is_valid():
+                if form.cleaned_data:
+                    count += 1
+                if self.instance.repackaging_type != 'destination' and form.cleaned_data:
+                    form.cleaned_data['DELETE'] = True
+                if 'DELETE' in form.cleaned_data and form.cleaned_data['DELETE'] is True:
+                    delete_count += 1
+            else:
+                valid = False
+
+        if self.instance.repackaging_type == 'destination':
+            if count < 1 or count == delete_count:
+                raise ValidationError("At least one packing material mapping is required")
+        if valid:
+            return self.cleaned_data
+
+    class Meta:
+        model = ProductPackingMapping
+
+
+class ProductPackingMappingForm(forms.ModelForm):
+    packing_sku = forms.ModelChoiceField(
+        queryset=Product.objects.filter(repackaging_type='packing_material'),
+        empty_label='Not Specified',
+        widget=autocomplete.ModelSelect2(
+            url='packing-product-autocomplete'
+        )
+    )
+    packing_sku_weight_per_unit_sku = forms.CharField(required=True)
+
+    class Meta:
+        model = ProductPackingMapping
+        fields = ('packing_sku', 'packing_sku_weight_per_unit_sku')
+
+
+class UploadPackingSkuInventoryAdminForm(forms.Form):
+    file = forms.FileField(label='Upload csv', required=False)
+    inventory_threshold = forms.FloatField(label='Inventory Threshold (Kg)')
+
+    class Meta:
+        pass
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        threshold, created = GlobalConfig.objects.get_or_create(key='packing_sku_inventory_threshold_kg')
+        if created:
+            threshold.value = 50
+            threshold.save()
+        self.fields['inventory_threshold'].initial = threshold.value
+
+    def clean_file(self):
+        if not self.cleaned_data['file']:
+            return self.cleaned_data['file']
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        first_row = next(reader)
+
+        unique_data_list = []
+        form_data_list = []
+        user = get_current_user()
+        for row_id, row in enumerate(reader):
+            row = [str(i).strip() for i in row]
+            if '' in row:
+                if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
+                        row[5] == '' and row[6] == '' and row[7] == '' and row[8] == ''):
+                    continue
+            # validation for shop id, it should be numeric.
+            if not row[0] or not re.match("^[\d]*$", row[0]):
+                raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s]. It should be numeric.'),
+                                      params={'value': row_id + 2}, )
+
+            # validation for shop
+            check_shop = Shop.objects.filter(pk=row[0]).last()
+            if not check_shop:
+                raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
+                                        'Warehouse Id does not exists in the system.'),
+                                      params={'value': row_id + 2}, )
+            elif check_shop.shop_type.shop_type == 'f' and not user.is_superuser:
+                """
+                    Single virtual bin present for all products in a franchise shop. This stock correction does not
+                     apply to Franchise shops.
+                """
+                raise ValidationError(_('The warehouse/shop is of type Franchise. Stock changes not allowed'),
+                                      params={'value': row_id + 1}, )
+
+            # validate for product name
+            if not row[1]:
+                raise ValidationError(_('Product Name can not be blank at Row number [%(value)s].'),
+                                      params={'value': row_id + 2}, )
+
+            # validate for product sku
+            if not row[2]:
+                raise ValidationError(_('Product SKU can not be blank at Row number [%(value)s].'),
+                                      params={'value': row_id + 2}, )
+
+            # validate for product
+            if not Product.objects.filter(product_sku=row[2], repackaging_type='packing_material').exists():
+                raise ValidationError(_('Invalid Product SKU at Row number [%(value)s].'
+                                        'Product SKU does not exists in the system / Not a packing material'),
+                                      params={'value': row_id + 2}, )
+
+            # validate for expiry_date
+            if not row[3]:
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 2) + "," + "Expiry date can not be empty."))
+
+            try:
+                # if expiry date is "dd/mm/yy"
+                if datetime.datetime.strptime(row[3], '%d/%m/%y'):
+                    pass
+            except:
+                try:
+                    # if expiry date is "dd/mm/yyyy"
+                    if datetime.datetime.strptime(row[3], '%d/%m/%Y'):
+                        pass
+                    else:
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(
+                                row_id + 2) + "," + "Expiry date format is not correct, It should be"
+                                                    " DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY and DD-MM-YY"
+                                                    " format, Example:-11/07/2020, 11/07/20,"
+                                                    "11-07-2020 and 11-07-20."))
+                except:
+                    try:
+                        # if expiry date is "dd-mm-yy"
+                        if datetime.datetime.strptime(row[3], '%d-%m-%y'):
+                            pass
+                    except:
+                        try:
+                            # if expiry date is "dd-mm-yyyy"
+                            if datetime.datetime.strptime(row[3], '%d-%m-%Y'):
+                                pass
+                        except:
+                            # raise validation error
+                            raise ValidationError(_(
+                                "Issue in Row" + " " + str(row_id + 2) + "," + "Expiry date format is not correct, It"
+                                                                               " should be DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY"
+                                                                               " and DD-MM-YY format, Example:-11/07/2020,"
+                                                                               " 11/07/20, 11-07-2020 and 11-07-20."))
+
+            # validate for bin id
+            if not row[4]:
+                raise ValidationError(_('Bin Id can not be blank at Row number [%(value)s].'),
+                                      params={'value': row_id + 2}, )
+
+            # validate for bin
+            if not Bin.objects.filter(bin_id=row[4], is_active=True,
+                                      warehouse=Shop.objects.filter(pk=row[0]).last()).exists():
+                raise ValidationError(_('Invalid Bin Id at Row number [%(value)s]. '
+                                        'Bin Id is not associated with Warehouse.'),
+                                      params={'value': row_id + 2}, )
+
+            # validation for weight
+            if not row[5] or not re.match("^[\d+\.?\d]*$", row[5]):
+                raise ValidationError(_('Invalid Normal Weight at Row number [%(value)s].'),
+                                      params={'value': row_id + 2}, )
+
+            if not row[6] or not re.match("^[\d+\.?\d]*$", row[6]):
+                raise ValidationError(_('Invalid Damaged Weight at Row number [%(value)s].'),
+                                      params={'value': row_id + 2}, )
+
+            if not row[7] or not re.match("^[\d+\.?\d]*$", row[7]):
+                raise ValidationError(_('Invalid Expired Weight at Row number [%(value)s].'),
+                                      params={'value': row_id + 2}, )
+
+            if not row[8] or not re.match("^[\d+\.?\d]*$", row[8]):
+                raise ValidationError(_('Invalid Missing Weight at Row number [%(value)s].'),
+                                      params={'value': row_id + 2}, )
+
+            if float(row[5]) < 0:
+                raise ValidationError(
+                    _('Invalid Normal Weight at Row number [%(value)s]. It should be greater than or equal to 0.'),
+                    params={'value': row_id + 2}, )
+            if float(row[6]) < 0:
+                raise ValidationError(
+                    _('Invalid Damaged Weight at Row number [%(value)s]. It should be greater than or equal to 0.'),
+                    params={'value': row_id + 2}, )
+            if float(row[7]) < 0:
+                raise ValidationError(
+                    _('Invalid Expired Weight at Row number [%(value)s]. It should be greater than or equal to 0.'),
+                    params={'value': row_id + 2}, )
+            if float(row[8]) < 0:
+                raise ValidationError(
+                    _('Invalid Missing Weight at Row number [%(value)s]. It should be greater than or equal to 0.'),
+                    params={'value': row_id + 2}, )
+
+            # to get the date format
+            try:
+                expiry_date = datetime.datetime.strptime(row[3], '%d/%m/%Y').strftime('%Y-%m-%d')
+            except:
+                try:
+                    expiry_date = datetime.datetime.strptime(row[3], '%d-%m-%Y').strftime('%Y-%m-%d')
+                except:
+                    try:
+                        expiry_date = datetime.datetime.strptime(row[3], '%d-%m-%y').strftime('%Y-%m-%d')
+                    except:
+                        expiry_date = datetime.datetime.strptime(row[3], '%d/%m/%y').strftime('%Y-%m-%d')
+
+            # to validate normal weight for past expired date
+            if expiry_date < datetime.datetime.today().strftime("%Y-%m-%d"):
+                if float(row[5]) > 0:
+                    raise ValidationError(_(
+                        "Issue in Row" + " " + str(
+                            row_id + 2) + "," + "For Past expiry date, the normal weight (final)"
+                                                " should be 0."))
+
+            # to validate damaged weight for past expired date
+            if expiry_date < datetime.datetime.today().strftime("%Y-%m-%d"):
+                if float(row[6]) > 0:
+                    raise ValidationError(_(
+                        "Issue in Row" + " " + str(
+                            row_id + 2) + "," + "For Past expiry date, the damaged weight (final)"
+                                                " should be 0."))
+
+            # to validate expired weight for future expired date
+            if expiry_date > datetime.datetime.today().strftime("%Y-%m-%d"):
+                if float(row[7]) > 0:
+                    raise ValidationError(_(
+                        "Issue in Row" + " " + str(row_id + 2) + "," + "For Future expiry date, the expired weight "
+                                                                       " should be 0."))
+
+            # to get object from GRN Order Product Mapping
+            sku = row[2]
+            # create batch id
+            batch_id = create_batch_id(sku, row[3])
+            bin_exp_obj = BinInventory.objects.filter(warehouse=row[0],
+                                                      bin=Bin.objects.filter(bin_id=row[4], warehouse=row[0]).last(),
+                                                      sku=Product.objects.filter(
+                                                          product_sku=row[2]).last(),
+                                                      batch_id=batch_id)
+            # if combination of expiry date and sku is not exist in GRN Order Product Mapping
+            if not bin_exp_obj.exists() and check_shop.shop_type.shop_type != 'f':
+                bin_in_obj = BinInventory.objects.filter(
+                    warehouse=row[0], sku=Product.objects.filter(product_sku=row[2]).last())
+                for bin_in in bin_in_obj:
+                    sku = row[1]
+                    # create batch id
+                    if not (bin_in.batch_id == create_batch_id(sku, row[3])):
+                        if bin_in.bin.bin_id == row[4] and bin_in.weight != 0:
+                            raise ValidationError(_(
+                                "Issue in Row" + " " + str(row_id + 2) + "," + "Non zero weight of 2 Different"
+                                                                               " Batch ID/Expiry date for same SKU"
+                                                                               " can’t be in the same Bin."))
+            unique_data_list.append(row[0] + row[2] + row[3] + row[4])
+            form_data_list.append(row)
+        duplicate_data_list = ([item for item, count in collections.Counter(unique_data_list).items() if count > 1])
+        if len(duplicate_data_list) > 0:
+            raise ValidationError(_(
+                "Alert ! Duplicate Data. Same SKU, Expiry Date, Bin ID exists in the csv,"
+                " please re-verify at your end."))
+
+        return form_data_list

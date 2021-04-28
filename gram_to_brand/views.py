@@ -139,6 +139,9 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
                 .values_list('cart_product', flat=True)
             qs = qs.filter(id__in=cp_products).order_by('product_name')
 
+        if self.forwarded.get('price-slab', None):
+            qs = qs.filter(repackaging_type__in=['none', 'source', 'destination'])
+
         if self.q:
             qs = qs.filter(Q(product_name__istartswith=self.q) | Q(product_sku__istartswith=self.q))
         return qs

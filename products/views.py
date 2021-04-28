@@ -34,14 +34,17 @@ from brand.models import Vendor
 from addresses.models import City, State, Address, Pincode
 from categories.models import Category
 from brand.models import Brand, Vendor
-from wms.models import InventoryType, WarehouseInventory, InventoryState
-from wms.common_functions import get_stock
+from wms.models import InventoryType, WarehouseInventory, InventoryState, BinInventory, Bin,\
+    WarehouseInternalInventoryChange, Out
+from wms.common_functions import get_stock, StockMovementCSV, create_batch_id, InCommonFunctions,\
+    CommonBinInventoryFunctions, CommonWarehouseInventoryFunctions, InternalInventoryChange,\
+    InternalStockCorrectionChange, inventory_in_and_out_weight
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
     ProductCategoryMappingForm, NewProductPriceUpload, UploadParentProductAdminForm,
     UploadChildProductAdminForm, ParentProductImageForm, BulkProductVendorMapping,
-    UploadMasterDataAdminForm, UploadSlabProductPriceForm
+    UploadMasterDataAdminForm, UploadSlabProductPriceForm, UploadPackingSkuInventoryAdminForm
 )
 from .master_data import UploadMasterData, SetMasterData
 from products.models import (
@@ -51,8 +54,10 @@ from products.models import (
     ParentProduct, ParentProductCategory,
     ProductSourceMapping,
     ParentProductTaxMapping, Tax, ParentProductImage,
-    DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab
+    DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab,
+    ProductPackingMapping
 )
+from global_config.models import GlobalConfig
 
 logger = logging.getLogger(__name__)
 
@@ -1054,11 +1059,13 @@ def ChildProductsDownloadSampleCSV(request):
     writer.writerow(["Parent Product ID", "Reason for Child SKU", "Product Name", "Product EAN Code",
                      "Product MRP", "Weight Value", "Weight Unit", "Repackaging Type", "Map Source SKU",
                      'Raw Material Cost', 'Wastage Cost', 'Fumigation Cost', 'Label Printing Cost',
-                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost'])
+                     'Packing Labour Cost', 'Primary PM Cost', 'Secondary PM Cost', "Packing SKU",
+                     "Packing Sku Weight (gm) Per Unit (Qty) Destination Sku"])
     writer.writerow(["PHEAMGI0001", "Default", "TestChild1", "abcdefgh", "50", "20", "Gram", "none"])
     writer.writerow(["PHEAMGI0001", "Default", "TestChild2", "abcdefgh", "50", "20", "Gram", "source"])
     writer.writerow(["PHEAMGI0001", "Default", "TestChild3", "abcdefgh", "50", "20", "Gram", "destination",
-                     "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22"])
+                     "SNGSNGGMF00000016, SNGSNGGMF00000016", "10.22", "2.33", "7", "4.33", "5.33", "10.22", "5.22",
+                     "BPOBLKREG00000001", "10.00"])
     return response
 
 
@@ -1131,6 +1138,11 @@ def product_csv_upload(request):
                                 secondary_pm_cost=float(row[15])
                             )
                             dcm.save()
+                            ProductPackingMapping.objects.create(
+                                sku=product,
+                                packing_sku=Product.objects.get(product_sku=row[16]),
+                                packing_sku_weight_per_unit_sku=row[17]
+                            )
 
             except Exception as e:
                 print(e)
@@ -2119,11 +2131,12 @@ class ProductShopAutocomplete(autocomplete.Select2QuerySetView):
         seller_shop = self.forwarded.get('seller_shop', None)
         qs = []
         if seller_shop:
+            ids = Product.objects.filter(repackaging_type='source', product_pro_price__seller_shop=seller_shop) \
+                .values_list('id', flat=True).distinct()
             normal_type = InventoryType.objects.filter(inventory_type='normal').last()
-            product_list = get_stock(seller_shop, normal_type)
+            product_list = get_stock(seller_shop, normal_type, ids)
             product_list = {k: v for k, v in product_list.items() if v > 0}
-            pp = ProductPrice.objects.filter(seller_shop_id=seller_shop, product_id__in=product_list.keys()).values('product_id')
-            qs = Product.objects.filter(id__in=pp, repackaging_type='source')
+            qs = Product.objects.filter(id__in=product_list.keys())
             if self.q:
                 qs = qs.filter(product_name__icontains=self.q)
         return qs
@@ -2352,3 +2365,190 @@ def slab_product_price_csv_upload(request):
     else:
         form = UploadSlabProductPriceForm()
     return render(request, 'admin/products/bulk-slab-product-price.html', {'form': form})
+
+
+class PackingProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Product.objects.filter(repackaging_type='packing_material')
+        if self.q:
+            qs = qs.filter(Q(product_name__icontains=self.q) |
+                           Q(product_sku__icontains=self.q))
+        return qs
+
+
+class PackingMaterialCheck(View):
+
+    def get(self, *args, **kwargs):
+        try:
+            ProductPackingMapping.objects.get(sku_id=self.request.GET.get('sku_id'))
+            return JsonResponse({"success": True})
+        except:
+            return JsonResponse({"success": False, "error": "Please Map A Packing Material To The Selected Destination"
+                                                            " Product First"})
+
+
+def packing_material_inventory(request):
+    if request.method == 'POST':
+        form = UploadPackingSkuInventoryAdminForm(request.POST, request.FILES)
+        msg = 'Updated Successfully!'
+        error = 'Something Went Wrong!'
+        if form.errors:
+            return render(request, 'admin/products/packing-sku-inventory.html', {'form': form})
+
+        if form.is_valid():
+            upload_data = form.cleaned_data.get('file')
+            threshold = form.cleaned_data.get('inventory_threshold')
+            GlobalConfig.objects.filter(key='packing_sku_inventory_threshold_kg').update(value=threshold)
+            if not upload_data:
+                return render(request, 'admin/products/packing-sku-inventory.html', {'form': form, 'success': msg})
+            try:
+                with transaction.atomic():
+                    stock_movement_obj = StockMovementCSV.create_stock_movement_csv(request.user, request.FILES['file'],
+                                                                                    5)
+                    for row in upload_data:
+                        in_quantity_dict = {}
+                        out_quantity_dict = {}
+                        type_normal = InventoryType.objects.filter(inventory_type='normal').last()
+                        type_damaged = InventoryType.objects.filter(inventory_type='damaged').last()
+                        type_expired = InventoryType.objects.filter(inventory_type='expired').last()
+                        type_missing = InventoryType.objects.filter(inventory_type='missing').last()
+                        # get the type of stock
+                        stock_correction_type = 'stock_adjustment'
+                        warehouse_id = row[0]
+                        warehouse_obj = Shop.objects.get(id=warehouse_id)
+                        expiry_date = row[3]
+                        bin_id = row[4]
+                        bin_obj = Bin.objects.filter(bin_id=bin_id, warehouse=warehouse_id).last()
+                        sku = row[2]
+                        product_obj = Product.objects.filter(product_sku=sku).last()
+                        # create batch id
+                        batch_id = create_batch_id(sku, expiry_date)
+                        normal_wt = float(row[5]) * 1000
+                        damaged_wt = float(row[6]) * 1000
+                        expired_wt = float(row[7]) * 1000
+                        missing_wt = float(row[8]) * 1000
+
+                        in_quantity_dict, out_quantity_dict = update_inv_dict(warehouse_obj, bin_obj, product_obj,
+                                                                              batch_id, type_normal, normal_wt,
+                                                                              in_quantity_dict, out_quantity_dict)
+
+                        in_quantity_dict, out_quantity_dict = update_inv_dict(warehouse_obj, bin_obj, product_obj,
+                                                                              batch_id, type_damaged, damaged_wt,
+                                                                              in_quantity_dict, out_quantity_dict)
+
+                        in_quantity_dict, out_quantity_dict = update_inv_dict(warehouse_obj, bin_obj, product_obj,
+                                                                              batch_id, type_expired, expired_wt,
+                                                                              in_quantity_dict, out_quantity_dict)
+
+                        in_quantity_dict, out_quantity_dict = update_inv_dict(warehouse_obj, bin_obj, product_obj,
+                                                                              batch_id, type_missing, missing_wt,
+                                                                              in_quantity_dict, out_quantity_dict)
+
+                        inventory_state = InventoryState.objects.filter(inventory_state='total_available').last()
+                        transaction_type = 'stock_correction_in_type'
+                        for inv_type, weight in in_quantity_dict.items():
+                            in_obj = InCommonFunctions.create_only_in(warehouse_obj, stock_correction_type,
+                                                                      stock_movement_obj[0].id, product_obj, batch_id,
+                                                                      0, inv_type, weight)
+                            inventory_in_and_out_weight(warehouse_obj, bin_obj, product_obj, batch_id, inv_type,
+                                                        inventory_state, weight, transaction_type, in_obj.id)
+                            # Create data in Stock Correction change Model
+                            InternalStockCorrectionChange.create_stock_inventory_change(warehouse_obj, product_obj,
+                                                                                        batch_id, bin_obj, 'In', 0,
+                                                                                        stock_movement_obj[0], inv_type,
+                                                                                        weight)
+
+                        transaction_type = 'stock_correction_out_type'
+                        for inv_type, weight in out_quantity_dict.items():
+                            out_obj = Out.objects.create(warehouse=warehouse_obj, out_type='stock_correction_out_type',
+                                                         out_type_id=stock_movement_obj[0].id, sku=product_obj,
+                                                         batch_id=batch_id, quantity=0, inventory_type=inv_type,
+                                                         weight=weight)
+                            inventory_in_and_out_weight(warehouse_obj, bin_obj, product_obj, batch_id, inv_type,
+                                                        inventory_state, weight, transaction_type, out_obj.id)
+                            # Create data in Stock Correction change Model
+                            InternalStockCorrectionChange.create_stock_inventory_change(warehouse_obj, product_obj,
+                                                                                        batch_id, bin_obj, 'Out', 0,
+                                                                                        stock_movement_obj[0], inv_type,
+                                                                                        weight)
+                error = ''
+            except Exception as e:
+                print(e)
+                msg = ''
+            return render(request, 'admin/products/packing-sku-inventory.html', {'form': form, 'success': msg,
+                                                                                 'error': error})
+    else:
+        form = UploadPackingSkuInventoryAdminForm()
+    return render(request, 'admin/products/packing-sku-inventory.html', {'form': form})
+
+
+def update_inv_dict(warehouse, bin_obj, product_obj, batch_id, inv_type, input_wt, in_quantity_dict,
+                    out_quantity_dict):
+    bin_inv = BinInventory.objects.filter(warehouse=warehouse.id, bin=bin_obj, sku=product_obj, batch_id=batch_id,
+                                          inventory_type__id=inv_type.id).last()
+    if bin_inv:
+        if bin_inv.weight <= input_wt:
+            in_quantity_dict[inv_type] = input_wt
+        else:
+            out_quantity_dict[inv_type] = input_wt
+    else:
+        BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin_obj,
+                                           batch_id=batch_id, sku=product_obj, in_stock=True, quantity=0,
+                                           weight=input_wt, inventory_type=inv_type)
+        in_quantity_dict[inv_type] = input_wt
+
+    return in_quantity_dict, out_quantity_dict
+
+
+def packing_material_inventory_download(request):
+    dt = datetime.datetime.now().strftime("%d_%b_%y_%H_%M_")
+    filename = str(dt) + "packing_material_inventory.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+
+    bin_inventories = BinInventory.objects.filter(sku__repackaging_type='packing_material').order_by('sku_id',
+                                                                                                     'batch_id')
+
+    headings = [
+        'Parent ID', 'Parent Name', 'SKU ID', 'SKU Name', 'Product Status', 'Batch ID', 'Bin Id', 'MRP',
+        'Normal Weight (Kg)', 'Damaged Weight (Kg)', 'Expired Weight (Kg)', 'Missing Weight (Kg)'
+    ]
+
+    writer.writerow(headings)
+
+    row = []
+    current_sku_batch = ''
+    for inv in bin_inventories:
+        if current_sku_batch != str(inv.sku.id) + '_' + str(inv.batch_id):
+            if row:
+                writer.writerow(row)
+            sku = inv.sku
+            current_sku_batch = str(sku.id) + '_' + str(inv.batch_id)
+            parent = inv.sku.parent_product
+            row = [parent.parent_id, parent.name, sku.product_sku, sku.product_name, sku.status, inv.batch_id,
+                   inv.bin.bin_id, sku.product_mrp, 0, 0, 0, 0]
+
+        if inv.inventory_type.inventory_type == 'normal':
+            row[8] = inv.weight / 1000
+        elif inv.inventory_type.inventory_type == 'damaged':
+            row[9] = inv.weight / 1000
+        elif inv.inventory_type.inventory_type == 'expired':
+            row[10] = inv.weight / 1000
+        elif inv.inventory_type.inventory_type == 'missing':
+            row[11] = inv.weight / 1000
+
+    writer.writerow(row)
+    return response
+
+
+def packing_material_inventory_sample_upload(request):
+    filename = "packing_material_inventory_sample.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(['Warehouse ID', 'Product Name', 'SKU', 'Expiry Date', 'Bin Id', 'Normal Weight (Kg)',
+                     'Damaged Weight (Kg)', 'Expired Weight (Kg)', 'Missing Weight (Kg)'])
+    writer.writerow(['88', 'Plastic Wrap, 1000gm', 'HOKBACFRT00000021', '20/08/2022', 'V2VZ01SR001-0001',
+                     '0', '0', '0', '0'])
+    return response

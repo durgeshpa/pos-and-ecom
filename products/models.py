@@ -247,12 +247,14 @@ class Product(models.Model):
     reason_for_child_sku = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='default')
     use_parent_image = models.BooleanField(default=False)
     # child_product_image = models.ImageField(upload_to='child_product_image', blank=True, null=True)
-    REASON_FOR_NEW_CHILD_CHOICES = (
+    REPACKAGING_TYPES = (
         ('none', 'None'),
         ('source', 'Source'),
         ('destination', 'Destination'),
+        ('packing_material', 'Packing Material')
     )
-    repackaging_type = models.CharField(max_length=20, choices=REASON_FOR_NEW_CHILD_CHOICES, default='none')
+    repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
+    moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
 
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
@@ -999,7 +1001,7 @@ class Repackaging(models.Model):
     source_repackage_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
                                                             verbose_name='No Of Pieces Of Source SKU To Be Repackaged')
     available_source_weight = models.FloatField(default=0, verbose_name='Available Source SKU Weight (Kg)')
-    available_source_quantity = models.PositiveIntegerField(default=0, verbose_name='Available Source SKU Qty(pcs)')
+    available_source_quantity = models.PositiveIntegerField(default=0, verbose_name='Available Source SKU Qty (pcs)')
     destination_sku_quantity = models.PositiveIntegerField(default=0, validators=[PositiveIntegerValidator],
                                                            verbose_name='Created Destination SKU Qty (pcs)')
     remarks = models.TextField(null=True, blank=True)
@@ -1021,3 +1023,21 @@ class Repackaging(models.Model):
 
     def __str__(self):
         return self.repackaging_no
+
+
+class ProductPackingMapping(models.Model):
+    sku = models.ForeignKey(Product, related_name='packing_product_rt', blank=True, on_delete=models.CASCADE)
+    packing_sku = models.ForeignKey(Product, related_name='packing_material_rt', blank=True, on_delete=models.CASCADE,
+                                    verbose_name='Packing Material Sku')
+    packing_sku_weight_per_unit_sku = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False,
+                                                          verbose_name='Packing Material Weight (gm) Per Unit (Qty) Of'
+                                                                       ' Destination Sku')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Packing Material Product")
+        unique_together = ('sku', 'packing_sku')
+
+    def __str__(self):
+        return self.packing_sku.product_sku
