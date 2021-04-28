@@ -127,13 +127,13 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
                                       .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']],
                                               active_mapping.start_date, active_mapping.end_date))
 
-        if active_mappings.count() >= 2:
-            for active_mapping in active_mappings:
-                if active_mapping and active_mapping.priority == data['priority']:
-                    # store previous scheme data in database & make it deactivate
-                    save_scheme_shop_mapping_data(active_mapping)
-                    active_mapping.is_active = False
-                    active_mapping.save()
+        # if active_mappings.count() >= 2:
+        for active_mapping in active_mappings:
+            if active_mapping and active_mapping.priority == data['priority']:
+                # store previous scheme data in database & make it deactivate
+                save_scheme_shop_mapping_data(active_mapping)
+                active_mapping.is_active = False
+                active_mapping.save()
 
         start_date = data.get('start_date')
         end_date = data.get('end_date')
