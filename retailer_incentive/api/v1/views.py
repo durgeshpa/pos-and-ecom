@@ -304,7 +304,7 @@ class IncentiveDashBoard(APIView):
                         scheme_shop_mapping_list.append(scheme_shop_mapping)
                 else:
                     shop = Shop.objects.filter(id=shop_scheme.shop_id).last()
-                    scheme_data = {'shop_id': shop_scheme.shop_id,
+                    scheme_data = {'shop_id': shop.id,
                                    'shop_name': shop.shop_name,
                                    'mapped_scheme_id': "NA",
                                    'mapped_scheme': "NA",
