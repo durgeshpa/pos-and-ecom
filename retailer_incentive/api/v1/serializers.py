@@ -1,6 +1,8 @@
-
 from rest_framework import serializers
+
 from retailer_incentive.models import SchemeShopMapping, SchemeSlab, Scheme
+from shops.models import ShopUserMapping, Shop
+from accounts.models import User
 
 
 class SchemeSlabSerializer(serializers.ModelSerializer):
@@ -44,3 +46,33 @@ class SchemeShopMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = SchemeShopMapping
         fields = ('scheme', 'scheme_name', 'start_date', 'end_date', 'shop', 'slabs')
+
+
+class EmployeeDetails(serializers.ModelSerializer):
+    class Meta:
+        """ Meta class """
+        model = User
+        fields = ['id', 'first_name', 'last_name']
+
+
+class SalesExecutiveListSerializer(serializers.ModelSerializer):
+    employee = EmployeeDetails(read_only=True)
+
+    class Meta:
+        """ Meta class """
+        model = ShopUserMapping
+        fields = ['employee', ]
+
+
+class SchemeDetailSerializer(serializers.ModelSerializer):
+    scheme = serializers.SerializerMethodField('scheme_slab')
+
+    def scheme_slab(self, obj):
+        slabs = SchemeSlab.objects.filter(scheme=obj.scheme)
+        serializer = SchemeSlabSerializer(slabs, many=True)
+        return serializer.data
+
+    class Meta:
+        """ Meta class """
+        model = SchemeSlab
+        fields = ['id', 'scheme', ]
