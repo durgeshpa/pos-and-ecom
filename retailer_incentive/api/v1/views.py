@@ -280,9 +280,9 @@ class IncentiveDashBoard(APIView):
                                     'shop_name': shop.shop_name,
                                     'mapped_scheme_id': shop_map.mapped_scheme_id,
                                     'mapped_scheme': shop_map.mapped_scheme.name,
-                                    'total_sales': shop_map.purchase_value,
+                                    'discount_value': shop_map.purchase_value,
                                     'discount_percentage': shop_map.discount_percentage,
-                                    'discount_value': shop_map.incentive_earned,
+                                    'incentive_earned': shop_map.incentive_earned,
                                     'start_date': shop_map.start_date,
                                     'end_date': shop_map.end_date
                                     }
