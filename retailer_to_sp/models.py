@@ -669,6 +669,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 info_logger.info(f"reserved_bulk_order:{reserved_args}")
                 OrderManagement.create_reserved_order(reserved_args)
                 info_logger.info("reserved_bulk_order_success")
+                instance.cart.offers = instance.cart.offers_applied()
                 order, _ = Order.objects.get_or_create(ordered_cart=instance.cart)
                 order.order_no = instance.cart.order_id
                 order.ordered_cart = instance.cart
