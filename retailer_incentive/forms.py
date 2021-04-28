@@ -140,8 +140,8 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
         if start_date < scheme.start_date:
             raise ValidationError('Start date cannot be earlier than scheme start date')
 
-        if start_date < datetime.datetime.today():
-            raise ValidationError('Start date cannot be earlier than today')
+        if start_date.date() <= datetime.date.today():
+            raise ValidationError('Start date cannot be equal to today or earlier than today')
 
         if start_date > scheme.end_date:
             raise ValidationError('Start date cannot be greater than scheme end date')
