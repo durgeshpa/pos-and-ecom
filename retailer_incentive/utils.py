@@ -37,7 +37,6 @@ def get_shop_scheme_mapping_based_on_month(shop_id, month):
                                                               end_date__month=month).order_by('-start_date',
                                                                                               'priority')
 
-
     if shop_scheme_mapping_qs:
         start_end_list = []
         scheme_shop_mapping_list = []
@@ -49,9 +48,6 @@ def get_shop_scheme_mapping_based_on_month(shop_id, month):
             scheme_shop_mapping_list.append(scheme)
         return scheme_shop_mapping_list
     return shop_scheme_mapping_qs
-
-
-
 
 
 def get_shop_scheme_mapping_based_on_month_from_db(shop_id, month):
