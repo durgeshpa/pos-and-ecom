@@ -187,10 +187,10 @@ class IncentiveDashboardDetails(admin.ModelAdmin):
 @admin.register(SchemeSlab)
 class IncentiveDashboardDetails(admin.ModelAdmin):
     """
-    This class is used to get the Previous Scheme Details
+    This class is used to get the SchemeSlab
     """
     model = SchemeSlab
-    list_display = ('scheme', 'min_value','max_value', 'discount_value', 'discount_type',)
+    list_display = ('scheme', 'min_value', 'max_value', 'discount_value', 'discount_type',)
 
     class Media:
         pass
