@@ -171,14 +171,15 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 @admin.register(IncentiveDashboardDetails)
 class IncentiveDashboardDetails(admin.ModelAdmin):
     """
     This class is used to get the Previous Scheme Details
     """
     model = IncentiveDashboardDetails
-    list_display = ('sales_manager', 'sales_executive','shop', 'mapped_scheme', 'purchase_value', 'incentive_earned',
-                    'start_date', 'end_date')
+    list_display = ('sales_manager', 'sales_executive','shop', 'mapped_scheme', 'scheme_priority', 'purchase_value',
+                    'incentive_earned', 'start_date', 'end_date')
 
     class Media:
         pass

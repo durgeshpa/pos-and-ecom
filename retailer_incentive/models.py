@@ -81,12 +81,14 @@ class IncentiveDashboardDetails(BaseTimestampModel):
     """
        This class represents of Incentive Dashboard Details
     """
+    PRIORITY_CHOICE = Choices((0, 'P1', 'P1'), (1, 'P2', 'P2'))
     sales_manager = models.ForeignKey(get_user_model(), related_name='incentive_details_sales_manager',
                                       on_delete=models.CASCADE, null=True, blank=True)
     sales_executive = models.ForeignKey(get_user_model(), related_name='incentive_details_sales_executive',
                                         on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
     mapped_scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE)
+    scheme_priority = models.SmallIntegerField(choices=PRIORITY_CHOICE)
     purchase_value = models.FloatField(default=0)
     incentive_earned = models.FloatField(default=0)
     discount_percentage = models.DecimalField(max_digits=4, decimal_places=2)
