@@ -118,17 +118,17 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
     def clean(self):
         data = self.cleaned_data
         shop = data['shop']
-        active_mappings = get_active_mappings(shop.id)
-        active_mapping = active_mappings.last()
-        if active_mapping and active_mapping.priority == data['priority'] and active_mapping.start_date == data['start_date'] \
-                and active_mapping.end_date == data['end_date']:
-                raise ValidationError("Shop Id - {} already has an active {} mappings on same "
-                                      "start date {} & end date {}"
-                                      .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']],
-                                              active_mapping.start_date, active_mapping.end_date))
+        active_mapping = get_active_mappings(shop.id)
+        for active_map in active_mapping:
+            if active_map and active_map.priority == data['priority'] and active_map.start_date == data['start_date'] \
+                    and active_map.end_date == data['end_date']:
+                    raise ValidationError("Shop Id - {} already has an active {} mappings on same "
+                                          "start date {} & end date {}"
+                                          .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']],
+                                                  active_map.start_date, active_map.end_date))
 
-        for active_map in active_mappings:
-            if active_map and active_map.priority == data['priority']:
+
+            elif active_map and active_map.priority == data['priority']:
                 # store previous scheme data in database & make it deactivate
                 save_scheme_shop_mapping_data(active_map)
                 active_map.is_active = False
