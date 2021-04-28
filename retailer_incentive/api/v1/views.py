@@ -59,7 +59,7 @@ class ShopPurchaseMatrix(APIView):
         today_date = datetime.date.today()
         current_year = today_date.year
         current_month = today_date.month
-        input_month = request.GET.get('month', current_month)
+        input_month = int(request.GET.get('month', current_month))
         response_data = list()
         # Active Scheme
         if input_month == current_month:
