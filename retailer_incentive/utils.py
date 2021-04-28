@@ -13,9 +13,14 @@ def get_active_mappings(shop_id):
 
 def get_shop_scheme_mapping(shop_id):
     """Returns the valid Scheme mapped for given shop_id"""
+    today_date = datetime.date.today()
+    current_year = today_date.year
+    current_month = today_date.month
     shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True,
-                                                              scheme__start_date__lte=datetime.datetime.today(),
-                                                              scheme__end_date__gte=datetime.datetime.today())
+                                                              start_date__year=current_year,
+                                                              start_date__month=current_month,
+                                                              end_date__year=current_year,
+                                                              end_date__month=current_month)
     if shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).exists():
         return shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).last()
     return shop_scheme_mapping_qs.last()
