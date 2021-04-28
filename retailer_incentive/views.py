@@ -2,6 +2,7 @@ import codecs
 import csv
 import datetime
 import logging
+from math import floor
 
 from dal import autocomplete
 from django.db.models import Q
@@ -11,11 +12,11 @@ from django.http import HttpResponse
 from django.shortcuts import render
 
 from accounts.middlewares import get_current_user
+from retailer_incentive.common_function import get_total_sales
 from retailer_incentive.forms import UploadSchemeShopMappingForm
-from retailer_incentive.models import SchemeShopMapping
+from retailer_incentive.models import SchemeShopMapping, SchemeSlab, IncentiveDashboardDetails, Scheme
 from retailer_incentive.utils import get_active_mappings
-from shops.models import Shop
-
+from shops.models import Shop, ParentRetailerMapping, ShopUserMapping
 
 info_logger = logging.getLogger('file-info')
 
@@ -81,3 +82,88 @@ def scheme_shop_mapping_csv_upload(request):
     else:
         form = UploadSchemeShopMappingForm()
     return render(request, 'admin/retailer_incentive/bulk-create-scheme-shop-mapping.html', {'form': form})
+
+
+def deactivate_expired_schemes():
+    """
+    Marks all the schemes as inactive where end date has passed and scheme status is still active
+    """
+    schemes_to_deactivate = Scheme.objects.filter(is_active=True, end_date__lt=datetime.datetime.today().date())
+    info_logger.info('deactivate_expired_scheme_mappings | Total Schemes to deactivate-{}'.format(schemes_to_deactivate.count()))
+    for scheme in schemes_to_deactivate:
+        deactivate_scheme(scheme)
+
+
+def deactivate_scheme(scheme):
+    """
+    Marks the scheme as inactive
+    Checks for the mappings for the scheme and marks them as inactive
+    """
+    scheme_mappings = SchemeShopMapping.objects.filter(scheme=scheme, is_active=True)
+    for scheme_mapping in scheme_mappings:
+        deactivate_scheme_mapping(scheme_mapping)
+    scheme.is_active = False
+    scheme.save()
+
+
+def deactivate_expired_scheme_mappings():
+    """
+    Gets all the scheme mappings where scheme mapping end date has passed
+    Iterate these shop mapping,
+    calculate total sales between scheme mapping start date and end date for the respective shop,
+    calculate the discount based on total sales and applicable slab
+    save the values and mark scheme mapping as inactive
+    """
+    mappings_to_deactivate = SchemeShopMapping.objects.filter(is_active=True, end_date__lt=datetime.datetime.today().date())
+    info_logger.info('deactivate_expired_scheme_mappings | Total Schemes to deactivate-{}'.format(mappings_to_deactivate.count()))
+
+    for scheme_shop_mapping in mappings_to_deactivate:
+        try:
+            deactivate_scheme_mapping(scheme_shop_mapping)
+            info_logger.info('deactivate_expired_scheme_mappings | Scheme Mapping Id-{}, deactivated'
+                             .format(scheme_shop_mapping.id))
+        except Exception as e:
+            info_logger.info("Exception in deactivate_expired_scheme_mappings,Scheme Mapping Id-{}, {}"
+                             .format(scheme_shop_mapping.id, e))
+            info_logger.error(e)
+
+    info_logger.info('deactivate_expired_scheme_mappings | completed')
+
+
+def deactivate_scheme_mapping(scheme_shop_mapping):
+    """
+    Marks the given scheme mapping as inactive and save the incentive data in IncentiveDashboardDetails
+    """
+    incentive_end_date = scheme_shop_mapping.end_date
+    scheme_end_date = scheme_shop_mapping.scheme.end_date
+    if scheme_end_date < incentive_end_date:
+        incentive_end_date = scheme_end_date
+
+    total_sales = get_total_sales(scheme_shop_mapping.shop_id, scheme_shop_mapping.start_date, incentive_end_date)
+    scheme_slab = SchemeSlab.objects.filter(scheme=scheme_shop_mapping.scheme, min_value__lt=total_sales) \
+                                    .order_by('min_value').last()
+    discount_percentage = 0
+    if scheme_slab is not None:
+        discount_percentage = scheme_slab.discount_value
+    discount_value = floor(discount_percentage * total_sales / 100)
+    shop_user_mapping = scheme_shop_mapping.shop.shop_user.filter(employee_group__name='Sales Executive',
+                                                                  status=True).last()
+    sales_manager = None
+    sales_executive = None
+    if shop_user_mapping is not None:
+        sales_executive = shop_user_mapping.employee
+        parent_shop_id = ParentRetailerMapping.objects.filter(retailer_id=scheme_shop_mapping.shop_id).last().parent_id
+        parent_shop_user_mapping = ShopUserMapping.objects.filter(shop=parent_shop_id,
+                                                                  employee=sales_executive, status=True).last()
+        if parent_shop_user_mapping and parent_shop_user_mapping.manager is not None:
+            sales_manager = parent_shop_user_mapping.manager.employee
+
+    IncentiveDashboardDetails.objects.create(shop=scheme_shop_mapping.shop, sales_manager=sales_manager,
+                                             sales_executive=sales_executive,
+                                             mapped_scheme=scheme_shop_mapping.scheme,
+                                             purchase_value=total_sales, incentive_earned=discount_value,
+                                             discount_percentage=discount_percentage,
+                                             start_date=scheme_shop_mapping.start_date,
+                                             end_date=incentive_end_date)
+    scheme_shop_mapping.is_active = False
+    scheme_shop_mapping.save()
