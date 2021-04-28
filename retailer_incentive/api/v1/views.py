@@ -241,7 +241,7 @@ class IncentiveDashBoard(APIView):
                                                   scheme_shop_map.end_date)
                     discount_percentage = 0
                     discount_value = floor(discount_percentage * total_sales / 100)
-                    all_scheme_slab = SchemeSlab.objects.filter(scheme=scheme)
+                    all_scheme_slab = SchemeSlab.objects.filter(scheme=scheme).order_by('min_value')
                     if all_scheme_slab:
                         for scheme_slab_value in all_scheme_slab:
                             scheme_slab = scheme_slab_value.min_value <= total_sales <= scheme_slab_value.max_value
