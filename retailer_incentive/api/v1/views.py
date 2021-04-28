@@ -56,41 +56,47 @@ class ShopPurchaseMatrix(APIView):
         if shop is None:
             msg = {'is_success': False, 'message': ['No shop found'], 'data': {}}
             return Response(msg, status=status.HTTP_200_OK)
-        response_data = list()
-        # Active Scheme
-        scheme_shop_mapping = get_shop_scheme_mapping(shop_id)
-        if scheme_shop_mapping:
-            scheme = scheme_shop_mapping.scheme
-            total_sales = get_total_sales(shop_id, scheme.start_date, scheme.end_date)
-            scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by(
-                'min_value').last()
-            discount_percentage = scheme_slab.discount_value if scheme_slab else 0
-            discount_value = floor(discount_percentage * total_sales / 100)
-            next_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__gt=total_sales).order_by(
-                'min_value').first()
-            message = SUCCESS_MESSAGES['SCHEME_SLAB_HIGHEST']
-            if next_slab is not None:
-                message = SUCCESS_MESSAGES['SCHEME_SLAB_ADD_MORE'].format(floor(next_slab.min_value - total_sales),
-                                                                          (
-                                                                                  next_slab.min_value *
-                                                                                  next_slab.discount_value / 100),
-                                                                          next_slab.discount_value)
-            se, sm = self.current_contact(shop)
-            scheme_data = self.per_scheme_data(scheme, total_sales, discount_percentage, discount_value,
-                                               scheme.start_date, scheme.end_date, sm, se)
-            scheme_data['message'] = message
-            response_data.append(scheme_data)
-
-        # Inactive schemes
         today_date = datetime.date.today()
         current_year = today_date.year
         current_month = today_date.month
+        input_month = int(request.GET.get('month', current_month))
+        response_data = list()
+        # Active Scheme
+        if input_month == current_month:
+            scheme_shop_mapping = get_shop_scheme_mapping(shop_id)
+            if scheme_shop_mapping:
+                scheme = scheme_shop_mapping.scheme
+                total_sales = get_total_sales(shop_id, scheme.start_date, scheme.end_date)
+                scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by(
+                    'min_value').last()
+                discount_percentage = scheme_slab.discount_value if scheme_slab else 0
+                discount_value = floor(discount_percentage * total_sales / 100)
+                next_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__gt=total_sales).order_by(
+                    'min_value').first()
+                message = SUCCESS_MESSAGES['SCHEME_SLAB_HIGHEST']
+                if next_slab is not None:
+                    message = SUCCESS_MESSAGES['SCHEME_SLAB_ADD_MORE'].format(floor(next_slab.min_value - total_sales),
+                                                                              (
+                                                                                      next_slab.min_value *
+                                                                                      next_slab.discount_value / 100),
+                                                                              next_slab.discount_value)
+                se, sm = self.current_contact(shop)
+                scheme_data = self.per_scheme_data(scheme, total_sales, discount_percentage, discount_value,
+                                                   scheme.start_date, scheme.end_date, sm, se)
+                scheme_data['message'] = message
+                response_data.append(scheme_data)
 
+        # Inactive schemes
         previous_schemes = IncentiveDashboardDetails.objects.select_related('mapped_scheme'). \
-            filter(shop_id=shop_id, start_date__year=current_year, start_date__month=current_month,
-                   end_date__year=current_year, end_date__month=current_month).order_by('-start_date')
+            filter(shop_id=shop_id, start_date__year=current_year, start_date__month=input_month,
+                   end_date__year=current_year, end_date__month=input_month).order_by('-start_date', 'scheme_priority')
+        start_end_list = []
         if previous_schemes:
             for scheme in previous_schemes:
+                start_end = str(scheme.start_date) + str(scheme.end_date)
+                if start_end in start_end_list:
+                    continue
+                start_end_list += [start_end]
                 response_data.append(self.per_scheme_data(scheme.mapped_scheme, scheme.purchase_value,
                                                           scheme.discount_percentage, scheme.incentive_earned,
                                                           scheme.start_date, scheme.end_date, scheme.sales_manager,
