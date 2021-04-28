@@ -52,7 +52,9 @@ def save_scheme_shop_mapping_data(active_mapping):
         IncentiveDashboardDetails.objects.create(sales_manager=sales_manager, sales_executive=sales_executive,
                                                  shop=shop, mapped_scheme=scheme, purchase_value=total_sales,
                                                  incentive_earned=discount_value, start_date=active_mapping.start_date,
-                                                 end_date=active_mapping.end_date, discount_percentage=discount_percentage)
+                                                 end_date=active_mapping.end_date,
+                                                 discount_percentage=discount_percentage,
+                                                 scheme_priority=active_mapping.priority)
 
         logger.info(f'incentive dashboard details saved in database for shop {shop.shop_name}')
     except Exception as error:
