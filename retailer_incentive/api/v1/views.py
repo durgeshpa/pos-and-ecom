@@ -6,7 +6,6 @@ from rest_framework import authentication, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, \
     SchemeDetailSerializer
@@ -141,7 +140,7 @@ class SalesManagerLogin(APIView):
         user = get_user_id_from_token(request)
         if type(user) == str:
             msg = {'success': False,
-                   'message': "User is not Authorised",
+                   'message': ["User is not Authorised"],
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         try:
@@ -158,18 +157,19 @@ class SalesManagerLogin(APIView):
                                     sales_executive.employee_group.name == 'Sales Executive':
                                 executive_list.append(sales_executive)
                     executive_serializer = self.serializer_class(executive_list, many=True)
-                    return Response({"message": messages.SUCCESS_MESSAGES["2001"],
+                    return Response({"message": [SUCCESS_MESSAGES["2001"]],
                                      "data": executive_serializer.data,
                                      'is_success': True}, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False,
-                       'message': "User is not Authorised",
+                       'message': ["User is not Authorised"],
                        'data': None}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
         except Exception as error:
             logger.exception(error)
-            return Response({"detail": "Error while getting mapped Sales Executive for Sales Manager",
+            return Response({"message": ["Error while getting mapped Sales Executive for Sales Manager"],
+                             "data": None,
                              'is_success': False}, status=status.HTTP_200_OK)
 
 
@@ -196,7 +196,7 @@ class IncentiveDashBoard(APIView):
         user = self.get_user_id_or_error_message(request)
         if type(user) == str:
             msg = {'is_success': False,
-                   'message': 'User is not Authorised',
+                   'message': ['User is not Authorised'],
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -207,20 +207,24 @@ class IncentiveDashBoard(APIView):
                     'month') else today.month
                 if month == today.month:
                     mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user, month)
+                    messages = SUCCESS_MESSAGES["2001"]
                 else:
                     mapped_shop_scheme_details = self.get_sales_executive_details_from_database(user, month)
-                return Response({"message": messages.SUCCESS_MESSAGES["2001"],
+                    messages = SUCCESS_MESSAGES["2001"]
+                if mapped_shop_scheme_details is None:
+                    messages = "Scheme Mapping is not exist."
+                return Response({"message": [messages],
                                  "data": mapped_shop_scheme_details,
                                  'is_success': True}, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False,
-                       'message': "User is not Authorised",
+                       'message': ["User is not Authorised"],
                        'data': None}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
         except Exception as error:
             logger.exception(error)
-            return Response({"message": "Error while getting data for Sales Executive",
+            return Response({"message": ["Error while getting data for Sales Executive"],
                              'is_success': False, 'data': None}, status=status.HTTP_200_OK)
 
     def get_sales_executive_shop_scheme_details(self, user, month):
