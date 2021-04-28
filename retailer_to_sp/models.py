@@ -820,6 +820,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                             else:
                                 continue
             if len(products_available) > 0:
+                instance.cart.offers = instance.cart.offers_applied()
                 reserved_args = json.dumps({
                     'shop_id': instance.seller_shop.id,
                     'transaction_id': instance.cart.order_id,
