@@ -164,6 +164,7 @@ def deactivate_scheme_mapping(scheme_shop_mapping):
                                              purchase_value=total_sales, incentive_earned=discount_value,
                                              discount_percentage=discount_percentage,
                                              start_date=scheme_shop_mapping.start_date,
-                                             end_date=incentive_end_date)
+                                             end_date=incentive_end_date,
+                                             scheme_priority=scheme_shop_mapping.priority)
     scheme_shop_mapping.is_active = False
     scheme_shop_mapping.save()
