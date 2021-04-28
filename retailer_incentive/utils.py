@@ -29,7 +29,8 @@ def get_shop_scheme_mapping_based_on_month(shop_id, month):
     if shop_scheme_mapping_qs:
         scheme_shop_mapping_list = []
         if shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1).exists():
-            for shop_scheme_map in shop_scheme_mapping_qs:
+            shop_scheme_mapping = shop_scheme_mapping_qs.filter(priority=SchemeShopMapping.PRIORITY_CHOICE.P1)
+            for shop_scheme_map in shop_scheme_mapping:
                 scheme_shop_mapping_list.append(shop_scheme_map)
             return scheme_shop_mapping_list
         else:

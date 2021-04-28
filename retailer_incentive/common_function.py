@@ -27,13 +27,15 @@ def save_scheme_shop_mapping_data(active_mapping):
     scheme = active_mapping.scheme
     total_sales = get_total_sales(active_mapping.shop_id, active_mapping.start_date,
                                   active_mapping.end_date)
-    scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by(
-        'min_value').last()
-
     discount_percentage = 0
-    if scheme_slab is not None:
-        discount_percentage = scheme_slab.discount_value
     discount_value = floor(discount_percentage * total_sales / 100)
+    all_scheme_slab = SchemeSlab.objects.filter(scheme=scheme)
+    if all_scheme_slab:
+        for scheme_slab_value in all_scheme_slab:
+            scheme_slab = scheme_slab_value.min_value <= total_sales <= scheme_slab_value.max_value
+        if scheme_slab:
+            discount_percentage = scheme_slab.discount_value
+            discount_value = floor(discount_percentage * total_sales / 100)
 
     shop = Shop.objects.filter(id=active_mapping.shop_id).last()
     shop_user_mapping = shop.shop_user.filter(employee_group__name='Sales Executive', status=True).last()
@@ -45,7 +47,7 @@ def save_scheme_shop_mapping_data(active_mapping):
         parent_shop_user_mapping = ShopUserMapping.objects.filter(shop=parent_shop_id,
                                                                   employee=sales_executive, status=True).last()
         if parent_shop_user_mapping and parent_shop_user_mapping.manager is not None:
-            User.objects.filter(id=parent_shop_user_mapping.manager.employee).last()
+            sales_manager = User.objects.filter(id=parent_shop_user_mapping.manager.employee).last()
     try:
         IncentiveDashboardDetails.objects.create(sales_manager=sales_manager, sales_executive=sales_executive,
                                                  shop=shop, mapped_scheme=scheme, purchase_value=total_sales,
