@@ -6,7 +6,6 @@ from rest_framework import authentication, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from retailer_backend import messages
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, SalesExecutiveListSerializer, \
     SchemeDetailSerializer, SchemeSlabSerializer
@@ -199,9 +198,9 @@ class SalesManagerLogin(APIView):
         # get user from token
         user = get_user_id_from_token(request)
         if type(user) == str:
-            msg = {'is_success': False,
-                   'error_message': user,
-                   'response_data': None}
+            msg = {'success': False,
+                   'message': ["User is not Authorised"],
+                   'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         try:
             # check if user_type is Sales Manager
@@ -217,18 +216,19 @@ class SalesManagerLogin(APIView):
                                     sales_executive.employee_group.name == 'Sales Executive':
                                 executive_list.append(sales_executive)
                     executive_serializer = self.serializer_class(executive_list, many=True)
-                    return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
+                    return Response({"message": [SUCCESS_MESSAGES["2001"]],
                                      "data": executive_serializer.data,
                                      'is_success': True}, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False,
-                       'error_message': "User is not Authorised",
-                       'response_data': None}
+                       'message': ["User is not Authorised"],
+                       'data': None}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
         except Exception as error:
             logger.exception(error)
-            return Response({"detail": "Error while getting mapped Sales Executive for Sales Manager",
+            return Response({"message": ["Error while getting mapped Sales Executive for Sales Manager"],
+                             "data": None,
                              'is_success': False}, status=status.HTTP_200_OK)
 
 
@@ -255,8 +255,8 @@ class IncentiveDashBoard(APIView):
         user = self.get_user_id_or_error_message(request)
         if type(user) == str:
             msg = {'is_success': False,
-                   'error_message': user,
-                   'response_data': None}
+                   'message': ['User is not Authorised'],
+                   'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
         try:
@@ -266,21 +266,25 @@ class IncentiveDashBoard(APIView):
                     'month') else today.month
                 if month == today.month:
                     mapped_shop_scheme_details = self.get_sales_executive_shop_scheme_details(user, month)
+                    messages = SUCCESS_MESSAGES["2001"]
                 else:
                     mapped_shop_scheme_details = self.get_sales_executive_details_from_database(user, month)
-                return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
+                    messages = SUCCESS_MESSAGES["2001"]
+                if mapped_shop_scheme_details is None:
+                    messages = "Scheme Mapping is not exist."
+                return Response({"message": [messages],
                                  "data": mapped_shop_scheme_details,
                                  'is_success': True}, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False,
-                       'error_message': "User is not Authorised",
-                       'response_data': None}
+                       'message': ["User is not Authorised"],
+                       'data': None}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
         except Exception as error:
             logger.exception(error)
-            return Response({"detail": "Error while getting data for Sales Executive",
-                             'is_success': False}, status=status.HTTP_200_OK)
+            return Response({"message": ["Error while getting data for Sales Executive"],
+                             'is_success': False, 'data': None}, status=status.HTTP_200_OK)
 
     def get_sales_executive_shop_scheme_details(self, user, month):
         shop_mapping_object = (self.queryset.filter(
@@ -298,26 +302,27 @@ class IncentiveDashBoard(APIView):
                     scheme = scheme_shop_map.scheme
                     total_sales = get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date,
                                                   scheme_shop_map.end_date)
-                    scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by(
-                        'min_value').last()
-
                     discount_percentage = 0
-                    if scheme_slab is not None:
-                        discount_percentage = scheme_slab.discount_value
                     discount_value = floor(discount_percentage * total_sales / 100)
-
-                    shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
-                    scheme_data = {'shop_id': shop.id,
-                                    'shop_name': shop.shop_name,
-                                    'mapped_scheme_id': scheme.id,
-                                    'mapped_scheme': scheme.name,
-                                    'total_sales': total_sales,
-                                    'discount_percentage': discount_percentage,
-                                    'discount_value': discount_value,
-                                    'start_date': scheme_shop_map.start_date,
-                                    'end_date': scheme_shop_map.end_date
-                                    }
-                    scheme_data_list.append(scheme_data)
+                    all_scheme_slab = SchemeSlab.objects.filter(scheme=scheme)
+                    if all_scheme_slab:
+                        for scheme_slab_value in all_scheme_slab:
+                            scheme_slab = scheme_slab_value.min_value <= total_sales <= scheme_slab_value.max_value
+                        if scheme_slab:
+                            discount_percentage = scheme_slab.discount_value
+                            discount_value = floor(discount_percentage * total_sales / 100)
+                        shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
+                        scheme_data = {'shop_id': shop.id,
+                                       'shop_name': shop.shop_name,
+                                       'mapped_scheme_id': scheme.id,
+                                       'mapped_scheme': scheme.name,
+                                       'discount_value': total_sales,
+                                       'discount_percentage': discount_percentage,
+                                       'incentive_earned': discount_value,
+                                       'start_date': scheme_shop_map.start_date.strftime("%Y-%m-%d"),
+                                       'end_date': scheme_shop_map.end_date.strftime("%Y-%m-%d")
+                                       }
+                        scheme_data_list.append(scheme_data)
                 return scheme_data_list
 
     def get_sales_executive_details_from_database(self, user, month):
@@ -334,16 +339,16 @@ class IncentiveDashBoard(APIView):
                 scheme_data_list = []
                 for shop_map in scheme_shop_mapping_list:
                     shop = Shop.objects.filter(id=shop_map.shop_id).last()
-                    scheme_data = [{'shop_id': shop.id,
-                                    'shop_name': shop.shop_name,
-                                    'mapped_scheme_id': shop_map.mapped_scheme_id,
-                                    'mapped_scheme': shop_map.mapped_scheme.name,
-                                    'total_sales': shop_map.purchase_value,
-                                    'discount_percentage': shop_map.discount_percentage,
-                                    'discount_value': shop_map.incentive_earned,
-                                    'start_date': shop_map.start_date,
-                                    'end_date': shop_map.end_date
-                                    }]
+                    scheme_data = {'shop_id': shop.id,
+                                   'shop_name': shop.shop_name,
+                                   'mapped_scheme_id': shop_map.mapped_scheme_id,
+                                   'mapped_scheme': shop_map.mapped_scheme.name,
+                                   'discount_value': shop_map.purchase_value,
+                                   'discount_percentage': shop_map.discount_percentage,
+                                   'incentive_earned': shop_map.incentive_earned,
+                                   'start_date': shop_map.start_date.strftime("%Y-%m-%d"),
+                                   'end_date': shop_map.end_date.strftime("%Y-%m-%d")
+                                   }
                     scheme_data_list.append(scheme_data)
                 return scheme_data_list
 
