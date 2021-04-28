@@ -260,8 +260,8 @@ class IncentiveDashBoard(APIView):
                                        'discount_value': total_sales,
                                        'discount_percentage': discount_percentage,
                                        'incentive_earned': discount_value,
-                                       'start_date': scheme_shop_map.start_date,
-                                       'end_date': scheme_shop_map.end_date
+                                       'start_date': scheme_shop_map.start_date.strftime("%Y-%m-%d"),
+                                       'end_date': scheme_shop_map.end_date.strftime("%Y-%m-%d")
                                        }
                         scheme_data_list.append(scheme_data)
                 return scheme_data_list
@@ -287,8 +287,8 @@ class IncentiveDashBoard(APIView):
                                    'discount_value': shop_map.purchase_value,
                                    'discount_percentage': shop_map.discount_percentage,
                                    'incentive_earned': shop_map.incentive_earned,
-                                   'start_date': shop_map.start_date,
-                                   'end_date': shop_map.end_date
+                                   'start_date': shop_map.start_date.strftime("%Y-%m-%d"),
+                                   'end_date': shop_map.end_date.strftime("%Y-%m-%d")
                                    }
                     scheme_data_list.append(scheme_data)
                 return scheme_data_list
