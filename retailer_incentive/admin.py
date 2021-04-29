@@ -38,6 +38,12 @@ class SchemeAdmin(admin.ModelAdmin):
     list_display = ('name', 'start_date','end_date', 'is_active')
     inlines = [SchemeSlabAdmin, ]
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     class Media:
         pass
 
@@ -198,6 +204,12 @@ class IncentiveDashboardDetails(admin.ModelAdmin):
     """
     model = SchemeSlab
     list_display = ('scheme', 'min_value', 'max_value', 'discount_value', 'discount_type',)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
     class Media:
         pass
