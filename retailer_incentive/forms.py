@@ -35,12 +35,12 @@ class SchemeCreationForm(forms.ModelForm):
         super(SchemeCreationForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
 
-        if instance.id:
-            self.fields['name'].disabled = True
-            self.fields['start_date'] = forms.DateTimeField()
-            self.fields['start_date'].disabled = True
-            self.fields['end_date'] = forms.DateTimeField()
-            self.fields['end_date'].disabled = True
+        # if instance.id:
+        #     self.fields['name'].disabled = True
+        #     self.fields['start_date'] = forms.DateTimeField()
+        #     self.fields['start_date'].disabled = True
+        #     self.fields['end_date'] = forms.DateTimeField()
+        #     self.fields['end_date'].disabled = True
 
     def clean(self):
         data = self.cleaned_data
