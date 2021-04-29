@@ -12,7 +12,7 @@ from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, S
 from retailer_incentive.models import SchemeSlab, IncentiveDashboardDetails
 from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based_on_month, get_shop_scheme_mapping_based_on_month_from_db
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
-from retailer_incentive.common_function import get_user_id_from_token, get_total_sales
+from retailer_incentive.common_function import get_user_id_from_token, get_total_sales, shop_scheme_not_mapped
 from accounts.models import User
 
 logger = logging.getLogger('dashboard-api')
@@ -216,10 +216,9 @@ class SalesManagerLogin(APIView):
                 if shop_mapping_object:
                     executive_list = []
                     for shop_mapping in shop_mapping_object:
-                        executive = self.queryset.filter(manager=shop_mapping).distinct('employee_id')
+                        executive = self.queryset.filter(manager=shop_mapping, status=True).distinct('employee_id')
                         for sales_executive in executive:
-                            if sales_executive.employee.user_type == 6 and \
-                                    sales_executive.employee_group.name == 'Sales Executive':
+                            if sales_executive.employee.user_type == 6:
                                 executive_list.append(sales_executive)
                     executive_serializer = self.serializer_class(executive_list, many=True)
                     return Response({"message": [SUCCESS_MESSAGES["2001"]],
@@ -294,69 +293,74 @@ class IncentiveDashBoard(APIView):
 
     def get_sales_executive_shop_scheme_details(self, user, month):
         shop_mapping_object = (self.queryset.filter(
-            employee=user.shop_employee.instance, status=True))
+            employee=user.shop_employee.instance, status=True).distinct('shop'))
         if shop_mapping_object:
             scheme_shop_mapping_list = []
+            scheme_data_list = []
             for shop_scheme in shop_mapping_object:
                 scheme_shop_mapping = get_shop_scheme_mapping_based_on_month(shop_scheme.shop_id, month)
                 if scheme_shop_mapping:
-                    for scheme_shop_mapping in scheme_shop_mapping:
-                        scheme_shop_mapping_list.append(scheme_shop_mapping)
+                    for scheme_sh_map in scheme_shop_mapping:
+                        scheme_shop_mapping_list.append(scheme_sh_map)
+                else:
+                    shop = Shop.objects.filter(id=shop_scheme.shop_id).last()
+                    scheme_data = shop_scheme_not_mapped(shop)
+                    scheme_data_list.append(scheme_data)
             if scheme_shop_mapping_list:
-                scheme_data_list = []
                 for scheme_shop_map in scheme_shop_mapping_list:
                     scheme = scheme_shop_map.scheme
                     total_sales = get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date,
                                                   scheme_shop_map.end_date)
+                    scheme_slab = SchemeSlab.objects.filter(scheme=scheme,
+                                                            min_value__lt=total_sales).order_by('min_value').last()
                     discount_percentage = 0
+                    if scheme_slab is not None:
+                        discount_percentage = scheme_slab.discount_value
                     discount_value = floor(discount_percentage * total_sales / 100)
-                    all_scheme_slab = SchemeSlab.objects.filter(scheme=scheme)
-                    if all_scheme_slab:
-                        for scheme_slab_value in all_scheme_slab:
-                            scheme_slab = scheme_slab_value.min_value <= total_sales <= scheme_slab_value.max_value
-                        if scheme_slab:
-                            discount_percentage = scheme_slab.discount_value
-                            discount_value = floor(discount_percentage * total_sales / 100)
-                        shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
-                        scheme_data = {'shop_id': shop.id,
-                                       'shop_name': shop.shop_name,
-                                       'mapped_scheme_id': scheme.id,
-                                       'mapped_scheme': scheme.name,
-                                       'discount_value': total_sales,
-                                       'discount_percentage': discount_percentage,
-                                       'incentive_earned': discount_value,
-                                       'start_date': scheme_shop_map.start_date.strftime("%Y-%m-%d"),
-                                       'end_date': scheme_shop_map.end_date.strftime("%Y-%m-%d")
-                                       }
-                        scheme_data_list.append(scheme_data)
-                return scheme_data_list
+                    shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
+                    scheme_data = {'shop_id': shop.id,
+                                   'shop_name': str(shop.shop_name),
+                                   'mapped_scheme_id': str(scheme.id),
+                                   'mapped_scheme': str(scheme.name),
+                                   'discount_value': str(total_sales),
+                                   'discount_percentage': str(discount_percentage),
+                                   'incentive_earned': str(discount_value),
+                                   'start_date': str(scheme_shop_map.start_date.strftime("%Y-%m-%d")),
+                                   'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
+                                   }
+                    scheme_data_list.append(scheme_data)
+            return scheme_data_list
 
     def get_sales_executive_details_from_database(self, user, month):
         shop_mapping_object = (self.queryset.filter(
             employee=user.shop_employee.instance, status=True))
         if shop_mapping_object:
             scheme_shop_mapping_list = []
+            scheme_data_list = []
             for shop_scheme in shop_mapping_object:
                 shop_scheme_mapped_data = get_shop_scheme_mapping_based_on_month_from_db(shop_scheme.shop_id, month)
                 if shop_scheme_mapped_data:
                     for scheme_shop_mapping in shop_scheme_mapped_data:
                         scheme_shop_mapping_list.append(scheme_shop_mapping)
+                else:
+                    shop = Shop.objects.filter(id=shop_scheme.shop_id).last()
+                    scheme_data = shop_scheme_not_mapped(shop)
+                    scheme_data_list.append(scheme_data)
             if scheme_shop_mapping_list:
-                scheme_data_list = []
                 for shop_map in scheme_shop_mapping_list:
                     shop = Shop.objects.filter(id=shop_map.shop_id).last()
                     scheme_data = {'shop_id': shop.id,
-                                   'shop_name': shop.shop_name,
-                                   'mapped_scheme_id': shop_map.mapped_scheme_id,
-                                   'mapped_scheme': shop_map.mapped_scheme.name,
-                                   'discount_value': shop_map.purchase_value,
-                                   'discount_percentage': shop_map.discount_percentage,
-                                   'incentive_earned': shop_map.incentive_earned,
-                                   'start_date': shop_map.start_date.strftime("%Y-%m-%d"),
-                                   'end_date': shop_map.end_date.strftime("%Y-%m-%d")
+                                   'shop_name': str(shop.shop_name),
+                                   'mapped_scheme_id': str(shop_map.mapped_scheme_id),
+                                   'mapped_scheme': str(shop_map.mapped_scheme.name),
+                                   'discount_value': str(shop_map.purchase_value),
+                                   'discount_percentage': str(shop_map.discount_percentage),
+                                   'incentive_earned': str(shop_map.incentive_earned),
+                                   'start_date': str(shop_map.start_date.strftime("%Y-%m-%d")),
+                                   'end_date': str(shop_map.end_date.strftime("%Y-%m-%d"))
                                    }
                     scheme_data_list.append(scheme_data)
-                return scheme_data_list
+            return scheme_data_list
 
 
 class ShopSchemeDetails(APIView):

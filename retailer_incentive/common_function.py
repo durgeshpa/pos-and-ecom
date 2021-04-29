@@ -27,18 +27,15 @@ def save_scheme_shop_mapping_data(active_mapping):
     scheme = active_mapping.scheme
     total_sales = get_total_sales(active_mapping.shop_id, active_mapping.start_date,
                                   active_mapping.end_date)
+    scheme_slab = SchemeSlab.objects.filter(scheme=scheme, min_value__lt=total_sales).order_by(
+        'min_value').last()
     discount_percentage = 0
+    if scheme_slab is not None:
+        discount_percentage = scheme_slab.discount_value
     discount_value = floor(discount_percentage * total_sales / 100)
-    all_scheme_slab = SchemeSlab.objects.filter(scheme=scheme)
-    if all_scheme_slab:
-        for scheme_slab_value in all_scheme_slab:
-            scheme_slab = scheme_slab_value.min_value <= total_sales <= scheme_slab_value.max_value
-        if scheme_slab:
-            discount_percentage = scheme_slab.discount_value
-            discount_value = floor(discount_percentage * total_sales / 100)
 
     shop = Shop.objects.filter(id=active_mapping.shop_id).last()
-    shop_user_mapping = shop.shop_user.filter(employee_group__name='Sales Executive', status=True).last()
+    shop_user_mapping = shop.shop_user.filter(employee_group__name__in=['Sales Executive', 'Sales Manager'], status=True).last()
     sales_executive = None
     sales_manager = None
     if shop_user_mapping is not None:
@@ -85,3 +82,17 @@ def get_total_sales(shop_id, start_date, end_date):
     for shipped_item in shipment_products:
         total_sales += shipped_item.basic_rate*shipped_item.delivered_qty
     return floor(total_sales)
+
+
+def shop_scheme_not_mapped(shop):
+    scheme_data = {'shop_id': shop.id,
+                   'shop_name': str(shop.shop_name),
+                   'mapped_scheme_id': "NA",
+                   'mapped_scheme': "NA",
+                   'discount_value': "NA",
+                   'discount_percentage': "NA",
+                   'incentive_earned': "NA",
+                   'start_date': "NA",
+                   'end_date': "NA"
+                   }
+    return scheme_data
