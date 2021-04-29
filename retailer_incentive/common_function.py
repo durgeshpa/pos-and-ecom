@@ -39,8 +39,12 @@ def save_scheme_shop_mapping_data(active_mapping):
     sales_executive = None
     sales_manager = None
     if shop_user_mapping is not None:
-        sales_executive = shop_user_mapping.employee
-        sales_manager = shop_user_mapping.manager.employee
+        try:
+            sales_executive = shop_user_mapping.employee
+            sales_manager = shop_user_mapping.manager.employee
+        except:
+            sales_executive = None
+            sales_manager = None
     try:
         IncentiveDashboardDetails.objects.create(sales_manager=sales_manager, sales_executive=sales_executive,
                                                  shop=shop, mapped_scheme=scheme, purchase_value=total_sales,
