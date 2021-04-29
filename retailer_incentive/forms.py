@@ -8,6 +8,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.forms import formset_factory, BaseInlineFormSet
 from django.utils.translation import gettext_lazy as _
+from django.contrib.admin.widgets import AdminDateWidget
 
 from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
 from retailer_incentive.utils import get_active_mappings
@@ -22,6 +23,9 @@ class SchemeCreationForm(forms.ModelForm):
     """
     This class is used to create the Scheme
     """
+
+    start_date = forms.DateTimeField(widget=AdminDateWidget())
+    end_date = forms.DateTimeField(widget=AdminDateWidget())
 
     class Meta:
         model = Scheme
@@ -47,7 +51,8 @@ class SchemeCreationForm(forms.ModelForm):
         if not self.instance.id:
             data = self.cleaned_data
             start_date = data.get('start_date')
-            end_date = data.get('end_date')
+            end_date = data.get('end_date') + datetime.timedelta(hours=23, minutes=59, seconds=59)
+            data['end_date'] = end_date
             if start_date.date() <= datetime.date.today():
                 raise ValidationError('Start date cannot be equal to today or earlier than today')
 
@@ -115,6 +120,8 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
     scheme = forms.ModelChoiceField(queryset=Scheme.objects.all())
     shop = forms.ModelChoiceField(queryset=shop_choice,
                                   widget=autocomplete.ModelSelect2(url='shop-autocomplete'))
+    start_date = forms.DateTimeField(widget=AdminDateWidget())
+    end_date = forms.DateTimeField(widget=AdminDateWidget())
 
     def clean(self):
         data = self.cleaned_data
@@ -136,7 +143,8 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
                 active_map.save()
 
         start_date = data.get('start_date')
-        end_date = data.get('end_date')
+        end_date = data.get('end_date') + datetime.timedelta(hours=23, minutes=59, seconds=59)
+        data['end_date'] = end_date
         scheme = data['scheme']
         if start_date < scheme.start_date:
             raise ValidationError('Start date cannot be earlier than scheme start date')
@@ -152,6 +160,8 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
 
         if end_date < start_date:
             raise ValidationError('End Date should be greater than the Start Date')
+
+        return data
 
     class Meta:
         model = SchemeShopMapping
