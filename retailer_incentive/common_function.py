@@ -82,3 +82,17 @@ def get_total_sales(shop_id, start_date, end_date):
     for shipped_item in shipment_products:
         total_sales += shipped_item.basic_rate*shipped_item.delivered_qty
     return floor(total_sales)
+
+
+def shop_scheme_not_mapped(shop):
+    scheme_data = {'shop_id': shop.id,
+                   'shop_name': shop.shop_name,
+                   'mapped_scheme_id': "NA",
+                   'mapped_scheme': "NA",
+                   'discount_value': "NA",
+                   'discount_percentage': "NA",
+                   'incentive_earned': "NA",
+                   'start_date': "NA",
+                   'end_date': "NA"
+                   }
+    return scheme_data

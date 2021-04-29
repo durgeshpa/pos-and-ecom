@@ -12,7 +12,7 @@ from retailer_incentive.api.v1.serializers import SchemeShopMappingSerializer, S
 from retailer_incentive.models import SchemeSlab, IncentiveDashboardDetails
 from retailer_incentive.utils import get_shop_scheme_mapping, get_shop_scheme_mapping_based_on_month, get_shop_scheme_mapping_based_on_month_from_db
 from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
-from retailer_incentive.common_function import get_user_id_from_token, get_total_sales
+from retailer_incentive.common_function import get_user_id_from_token, get_total_sales, shop_scheme_not_mapped
 from accounts.models import User
 
 logger = logging.getLogger('dashboard-api')
@@ -300,20 +300,11 @@ class IncentiveDashBoard(APIView):
             for shop_scheme in shop_mapping_object:
                 scheme_shop_mapping = get_shop_scheme_mapping_based_on_month(shop_scheme.shop_id, month)
                 if scheme_shop_mapping:
-                    for scheme_shop_mapping in scheme_shop_mapping:
-                        scheme_shop_mapping_list.append(scheme_shop_mapping)
+                    for scheme_sh_map in scheme_shop_mapping:
+                        scheme_shop_mapping_list.append(scheme_sh_map)
                 else:
                     shop = Shop.objects.filter(id=shop_scheme.shop_id).last()
-                    scheme_data = {'shop_id': shop.id,
-                                   'shop_name': shop.shop_name,
-                                   'mapped_scheme_id': "NA",
-                                   'mapped_scheme': "NA",
-                                   'discount_value': "NA",
-                                   'discount_percentage': "NA",
-                                   'incentive_earned': "NA",
-                                   'start_date': "NA",
-                                   'end_date': "NA"
-                                   }
+                    scheme_data = shop_scheme_not_mapped(shop)
                     scheme_data_list.append(scheme_data)
             if scheme_shop_mapping_list:
                 for scheme_shop_map in scheme_shop_mapping_list:
@@ -338,20 +329,24 @@ class IncentiveDashBoard(APIView):
                                    'end_date': scheme_shop_map.end_date.strftime("%Y-%m-%d")
                                    }
                     scheme_data_list.append(scheme_data)
-                return scheme_data_list
+            return scheme_data_list
 
     def get_sales_executive_details_from_database(self, user, month):
         shop_mapping_object = (self.queryset.filter(
             employee=user.shop_employee.instance, status=True))
         if shop_mapping_object:
             scheme_shop_mapping_list = []
+            scheme_data_list = []
             for shop_scheme in shop_mapping_object:
                 shop_scheme_mapped_data = get_shop_scheme_mapping_based_on_month_from_db(shop_scheme.shop_id, month)
                 if shop_scheme_mapped_data:
                     for scheme_shop_mapping in shop_scheme_mapped_data:
                         scheme_shop_mapping_list.append(scheme_shop_mapping)
+                else:
+                    shop = Shop.objects.filter(id=shop_scheme.shop_id).last()
+                    scheme_data = shop_scheme_not_mapped(shop)
+                    scheme_data_list.append(scheme_data)
             if scheme_shop_mapping_list:
-                scheme_data_list = []
                 for shop_map in scheme_shop_mapping_list:
                     shop = Shop.objects.filter(id=shop_map.shop_id).last()
                     scheme_data = {'shop_id': shop.id,
@@ -365,7 +360,7 @@ class IncentiveDashBoard(APIView):
                                    'end_date': shop_map.end_date.strftime("%Y-%m-%d")
                                    }
                     scheme_data_list.append(scheme_data)
-                return scheme_data_list
+            return scheme_data_list
 
 
 class ShopSchemeDetails(APIView):
