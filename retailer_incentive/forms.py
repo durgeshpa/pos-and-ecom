@@ -146,7 +146,7 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
         end_date = data.get('end_date') + datetime.timedelta(hours=23, minutes=59, seconds=59)
         data['end_date'] = end_date
         scheme = data['scheme']
-        if start_date < scheme.start_date:
+        if start_date <= scheme.start_date:
             raise ValidationError('Start date cannot be earlier than scheme start date')
 
         if start_date.date() <= datetime.date.today():
