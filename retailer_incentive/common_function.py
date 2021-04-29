@@ -86,7 +86,7 @@ def get_total_sales(shop_id, start_date, end_date):
 
 def shop_scheme_not_mapped(shop):
     scheme_data = {'shop_id': shop.id,
-                   'shop_name': shop.shop_name,
+                   'shop_name': str(shop.shop_name),
                    'mapped_scheme_id': "NA",
                    'mapped_scheme': "NA",
                    'discount_value': "NA",
