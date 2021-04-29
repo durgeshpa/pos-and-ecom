@@ -44,16 +44,16 @@ class SchemeCreationForm(forms.ModelForm):
         #     self.fields['end_date'].disabled = True
 
     def clean(self):
-        data = self.cleaned_data
-        start_date = data.get('start_date')
-        end_date = data.get('end_date')
-        if start_date.date() <= datetime.date.today():
-            raise ValidationError('Start date cannot be equal to today or earlier than today')
-
-        if end_date <= start_date:
-            raise ValidationError('End Date should be later than the Start Date')
-
         if not self.instance.id:
+            data = self.cleaned_data
+            start_date = data.get('start_date')
+            end_date = data.get('end_date')
+            if start_date.date() <= datetime.date.today():
+                raise ValidationError('Start date cannot be equal to today or earlier than today')
+
+            if end_date <= start_date:
+                raise ValidationError('End Date should be later than the Start Date')
+
             if Scheme.objects.filter(name=data.get('name'), start_date=start_date, end_date=end_date).exists():
                 raise ValidationError('Duplicate Scheme')
 
