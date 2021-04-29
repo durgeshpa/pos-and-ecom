@@ -27,16 +27,25 @@ def get_shop_scheme_mapping(shop_id):
     return shop_scheme_mapping_qs.last()
 
 
-def get_shop_scheme_mapping_based_on_month(shop_id, month):
+def get_shop_scheme_mapping_based(shop_id, month):
     """Returns the valid Scheme mapped for given shop_id based on selected month (current_month)"""
     current_year = today_date.year
-    shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id,
-                                                              start_date__year=current_year,
-                                                              end_date__year=current_year,
-                                                              start_date__month=month,
-                                                              end_date__month=month).order_by('-start_date',
-                                                                                              'priority')
-
+    if month == today_date.month:
+        var_priority = 'priority'
+        shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id,
+                                                                  start_date__year=current_year,
+                                                                  end_date__year=current_year,
+                                                                  start_date__month=month,
+                                                                  end_date__month=month).order_by('-start_date',
+                                                                                                  var_priority)
+    else:
+        var_priority = 'scheme_priority'
+        shop_scheme_mapping_qs = IncentiveDashboardDetails.objects.filter(shop_id=shop_id,
+                                                                          start_date__year=current_year,
+                                                                          end_date__year=current_year,
+                                                                          start_date__month=month,
+                                                                          end_date__month=month).order_by('-start_date',
+                                                                                                          var_priority)
     if shop_scheme_mapping_qs:
         start_end_date_list = []
         scheme_shop_mapping_list = []
@@ -45,29 +54,6 @@ def get_shop_scheme_mapping_based_on_month(shop_id, month):
             if start_end_date in start_end_date_list:
                 continue
             start_end_date_list += [start_end_date]
-            scheme_shop_mapping_list.append(scheme)
-        return scheme_shop_mapping_list
-    return shop_scheme_mapping_qs
-
-
-def get_shop_scheme_mapping_based_on_month_from_db(shop_id, month):
-    """Returns the valid Scheme mapped for given shop_id based on selected month from DB"""
-    current_year = today_date.year
-    shop_scheme_mapping_qs = IncentiveDashboardDetails.objects.filter(shop_id=shop_id,
-                                                                      start_date__year=current_year,
-                                                                      end_date__year=current_year,
-                                                                      start_date__month=month,
-                                                                      end_date__month=month).order_by('-start_date',
-                                                                                                      'scheme_priority')
-
-    if shop_scheme_mapping_qs:
-        start_end_list = []
-        scheme_shop_mapping_list = []
-        for scheme in shop_scheme_mapping_qs:
-            start_end_date = str(scheme.start_date) + str(scheme.end_date)
-            if start_end_date in start_end_list:
-                continue
-            start_end_list += [start_end_date]
             scheme_shop_mapping_list.append(scheme)
         return scheme_shop_mapping_list
     return shop_scheme_mapping_qs
