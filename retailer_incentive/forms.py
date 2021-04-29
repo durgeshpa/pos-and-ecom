@@ -13,6 +13,7 @@ from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
 from retailer_incentive.utils import get_active_mappings
 from shops.models import Shop
 from .common_function import save_scheme_shop_mapping_data
+from retailer_backend.utils import isDateValid
 
 info_logger = logging.getLogger('file-info')
 
@@ -173,31 +174,43 @@ class UploadSchemeShopMappingForm(forms.Form):
 
         reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
         first_row = next(reader)
+        unique_data = []
         for row_id, row in enumerate(reader):
             if len(row) == 0:
                 continue
-            if row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '':
+            if row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and \
+                    row[6] == '':
                 continue
-            if not row[0] or not Scheme.objects.filter(id=row[0], is_active=True,
-                                                       end_date__gte=datetime.datetime.today()).exists():
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Scheme ID'"))
-            if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['f','r']).exists():
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id', no retailer/franchise shop exists in the system with this ID."))
+            if not row[0]:
+                raise ValidationError(_(f"Row {row_id + 1} | Please provide 'Scheme ID'"))
+            scheme = Scheme.objects.filter(id=row[0], is_active=True, end_date__gte=datetime.datetime.today(),
+                                           start_date__gte=datetime.datetime.today()).last()
+            if not scheme:
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid / Expired 'Scheme ID'"))
+            if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['f', 'r']).exists():
+                raise ValidationError(
+                    _(f"Row {row_id + 1} | Invalid 'Shop Id', no retailer/franchise shop exists in the system with this"
+                      f" ID."))
             if not row[4] or row[4] not in SchemeShopMapping.PRIORITY_CHOICE._identifier_map.keys():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Priority'"))
 
-            shop_id = row[2]
-            priority = SchemeShopMapping.PRIORITY_CHOICE._identifier_map[row[4]]
+            # Start Date
+            if not row[5]:
+                raise ValidationError(_(f"Row {row_id + 1} | Please provide a start date"))
+            start_date = isDateValid(row[5], "%Y-%m-%d")
+            if not start_date or start_date < scheme.start_date or start_date <= datetime.datetime.today():
+                raise ValidationError(_(f"Row {row_id + 1} | Please provide a valid start date"))
+            # End Date
+            if not row[6]:
+                raise ValidationError(_(f"Row {row_id + 1} | Please provide a end date"))
+            end_date = isDateValid(row[6], "%Y-%m-%d")
+            if not end_date or end_date <= start_date or end_date > scheme.end_date:
+                raise ValidationError(_(f"Row {row_id + 1} | Please provide a valid end date"))
 
-            active_mappings = get_active_mappings(shop_id)
-            if active_mappings.count() >= 2:
-                info_logger.info("Shop Id - {} already has 2 active mappings".format(shop_id))
-                raise ValidationError(_(f"Row {row_id + 1} | This shop already has 2 active mappings"))
-            existing_active_mapping = active_mappings.last()
-            if existing_active_mapping and existing_active_mapping.priority == priority:
-                info_logger.info("Shop Id - {} already has an active {} mappings".format(shop_id, row[4]))
-                raise ValidationError(_(f"Row {row_id + 1} | This shop already has an active {row[4]} mappings"))
-            elif existing_active_mapping and existing_active_mapping.scheme_id == int(row[0]):
-                info_logger.info("Shop Id - {} already mapped with scheme id {}".format(shop_id, row[0]))
-                raise ValidationError(_(f"Row {row_id + 1} | This shop is already mapped with scheme id {row[0]}"))
+            unique_key = str(row[2]) + str(row[4])
+            if unique_key in unique_data:
+                raise ValidationError(
+                    _(f"Row {row_id + 1} | Multiple entries in sheet for shop {row[2]} and priority {row[4]}"))
+
+            unique_data += [unique_key]
         return self.cleaned_data['file']

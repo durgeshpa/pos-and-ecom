@@ -21,8 +21,13 @@ class SchemeSlabAdmin(NestedTabularInline):
     form = SchemeSlabCreationForm
     formset = SlabInlineFormSet
     list_display = ('min_value', 'max_value','discount_value', 'discount_type')
-    extra = 5
+    #extra = 5
     min_num = 2
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj:
+            return 0
+        return 5
 
     class Media:
         pass
