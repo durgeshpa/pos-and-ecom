@@ -157,9 +157,9 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
 
         if end_date > scheme.end_date:
             raise ValidationError('End Date cannot be greater than scheme end date')
-        #
-        # if end_date.date() <= start_date.date():
-        #     raise ValidationError('End Date should be later than the Start Date')
+
+        if end_date.date() <= start_date.date():
+            raise ValidationError('End Date should be later than the Start Date')
 
         return data
 
