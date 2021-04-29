@@ -293,7 +293,7 @@ class IncentiveDashBoard(APIView):
 
     def get_sales_executive_shop_scheme_details(self, user, month):
         shop_mapping_object = (self.queryset.filter(
-            employee=user.shop_employee.instance, status=True))
+            employee=user.shop_employee.instance, status=True).distinct('shop'))
         if shop_mapping_object:
             scheme_shop_mapping_list = []
             scheme_data_list = []
@@ -319,14 +319,14 @@ class IncentiveDashBoard(APIView):
                     discount_value = floor(discount_percentage * total_sales / 100)
                     shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
                     scheme_data = {'shop_id': shop.id,
-                                   'shop_name': shop.shop_name,
-                                   'mapped_scheme_id': scheme.id,
-                                   'mapped_scheme': scheme.name,
-                                   'discount_value': total_sales,
-                                   'discount_percentage': discount_percentage,
-                                   'incentive_earned': discount_value,
-                                   'start_date': scheme_shop_map.start_date.strftime("%Y-%m-%d"),
-                                   'end_date': scheme_shop_map.end_date.strftime("%Y-%m-%d")
+                                   'shop_name': str(shop.shop_name),
+                                   'mapped_scheme_id': str(scheme.id),
+                                   'mapped_scheme': str(scheme.name),
+                                   'discount_value': str(total_sales),
+                                   'discount_percentage': str(discount_percentage),
+                                   'incentive_earned': str(discount_value),
+                                   'start_date': str(scheme_shop_map.start_date.strftime("%Y-%m-%d")),
+                                   'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
                                    }
                     scheme_data_list.append(scheme_data)
             return scheme_data_list
@@ -350,14 +350,14 @@ class IncentiveDashBoard(APIView):
                 for shop_map in scheme_shop_mapping_list:
                     shop = Shop.objects.filter(id=shop_map.shop_id).last()
                     scheme_data = {'shop_id': shop.id,
-                                   'shop_name': shop.shop_name,
-                                   'mapped_scheme_id': shop_map.mapped_scheme_id,
-                                   'mapped_scheme': shop_map.mapped_scheme.name,
-                                   'discount_value': shop_map.purchase_value,
-                                   'discount_percentage': shop_map.discount_percentage,
-                                   'incentive_earned': shop_map.incentive_earned,
-                                   'start_date': shop_map.start_date.strftime("%Y-%m-%d"),
-                                   'end_date': shop_map.end_date.strftime("%Y-%m-%d")
+                                   'shop_name': str(shop.shop_name),
+                                   'mapped_scheme_id': str(shop_map.mapped_scheme_id),
+                                   'mapped_scheme': str(shop_map.mapped_scheme.name),
+                                   'discount_value': str(shop_map.purchase_value),
+                                   'discount_percentage': str(shop_map.discount_percentage),
+                                   'incentive_earned': str(shop_map.incentive_earned),
+                                   'start_date': str(shop_map.start_date.strftime("%Y-%m-%d")),
+                                   'end_date': str(shop_map.end_date.strftime("%Y-%m-%d"))
                                    }
                     scheme_data_list.append(scheme_data)
             return scheme_data_list
