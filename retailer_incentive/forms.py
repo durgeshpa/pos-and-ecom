@@ -203,7 +203,7 @@ class UploadSchemeShopMappingForm(forms.Form):
             if not row[6]:
                 raise ValidationError(_(f"Row {row_id + 1} | Please provide a end date"))
             end_date = isDateValid(row[6], "%Y-%m-%d")
-            if not end_date or end_date <= start_date or end_date > scheme.end_date:
+            if not end_date or end_date < start_date or end_date > scheme.end_date:
                 raise ValidationError(_(f"Row {row_id + 1} | Please provide a valid end date"))
 
             unique_key = str(row[2]) + str(row[4])

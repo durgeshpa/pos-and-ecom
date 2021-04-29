@@ -38,9 +38,9 @@ def get_scheme_shop_mapping_sample_csv(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(["Scheme Id", "Scheme Name", "Shop Id", "Shop Name", "Priority", "Start Date (YYYY-MM-DD H:mm:ss)",
-                     "End Date (YYYY-MM-DD H:mm:ss)"])
-    writer.writerow(["1", "March Munafa", "5", "Pal Shop", "P1", "2021-04-30 00:00:00", "2021-04-30 18:00:00"])
+    writer.writerow(["Scheme Id", "Scheme Name", "Shop Id", "Shop Name", "Priority", "Start Date (YYYY-MM-DD)",
+                     "End Date (YYYY-MM-DD)"])
+    writer.writerow(["1", "March Munafa", "5", "Pal Shop", "P1", "2021-04-30", "2021-05-01"])
     return response
 
 def scheme_shop_mapping_csv_upload(request):
@@ -64,8 +64,8 @@ def scheme_shop_mapping_csv_upload(request):
                         scheme_id = row[0]
                         shop_id = row[2]
                         priority = SchemeShopMapping.PRIORITY_CHOICE._identifier_map[row[4]]
-                       # start_date = isDateValid(str(row[5]) + , "%Y-%m-%d")
-                        end_date = isDateValid(row[6], "%Y-%m-%d")
+                        start_date = isDateValid(str(row[5]) + ' 00:00:00', "%Y-%m-%d %H:%M:%S")
+                        end_date = isDateValid(str(row[6]) + ' 23:59:59', "%Y-%m-%d %H:%M:%S")
 
                         mappings_to_deactivate = SchemeShopMapping.objects.filter(shop_id=shop_id, priority=priority,
                                                                                   is_active=True)
