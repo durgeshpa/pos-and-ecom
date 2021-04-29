@@ -200,6 +200,9 @@ class SalesManagerLogin(APIView):
     serializer_class = SalesExecutiveListSerializer
     queryset = ShopUserMapping.objects.all()
 
+    def get_manager(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+
     def get(self, request):
         # get user from token
         user = get_user_id_from_token(request)
@@ -211,19 +214,12 @@ class SalesManagerLogin(APIView):
         try:
             # check if user_type is Sales Manager
             if user.user_type == 7:  # 'Sales Manager'
-                shop_mapping_object = (self.queryset.filter(
-                    employee=user.shop_employee.instance, status=True))
-                if shop_mapping_object:
-                    executive_list = []
-                    for shop_mapping in shop_mapping_object:
-                        executive = self.queryset.filter(manager=shop_mapping, status=True).distinct('employee_id')
-                        for sales_executive in executive:
-                            if sales_executive.employee.user_type == 6:
-                                executive_list.append(sales_executive)
-                    executive_serializer = self.serializer_class(executive_list, many=True)
-                    return Response({"message": [SUCCESS_MESSAGES["2001"]],
-                                     "data": executive_serializer.data,
-                                     'is_success': True}, status=status.HTTP_200_OK)
+                executive_list = ShopUserMapping.objects.filter(manager__in=self.get_manager(), status=True).order_by(
+                    'employee').distinct('employee')
+                executive_serializer = self.serializer_class(executive_list, many=True)
+                return Response({"message": [SUCCESS_MESSAGES["2001"]],
+                                 "data": executive_serializer.data,
+                                 'is_success': True}, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False,
                        'message': ["User is not Authorised"],
