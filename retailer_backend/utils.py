@@ -62,8 +62,7 @@ def isDateValid(date, pattern="%Y-%m-%d"):
     Validates if given string is of date format provided
     """
     try:
-        datetime.strptime(date, pattern)
-        return True
+        return datetime.strptime(date, pattern)
     except ValueError:
         return False
 

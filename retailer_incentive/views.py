@@ -10,6 +10,7 @@ from django.db.models import Q
 # Create your views here.
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.db import transaction
 
 from accounts.middlewares import get_current_user
 from retailer_incentive.common_function import get_total_sales
@@ -17,6 +18,7 @@ from retailer_incentive.forms import UploadSchemeShopMappingForm
 from retailer_incentive.models import SchemeShopMapping, SchemeSlab, IncentiveDashboardDetails, Scheme
 from retailer_incentive.utils import get_active_mappings
 from shops.models import Shop, ParentRetailerMapping, ShopUserMapping
+from retailer_backend.utils import isDateValid
 
 info_logger = logging.getLogger('file-info')
 
@@ -36,8 +38,9 @@ def get_scheme_shop_mapping_sample_csv(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(["Scheme Id", "Scheme Name", "Shop Id", "Shop Name", "Priority"])
-    writer.writerow(["1", "March Munafa", "5", "Pal Shop", "P1"])
+    writer.writerow(["Scheme Id", "Scheme Name", "Shop Id", "Shop Name", "Priority", "Start Date (YYYY-MM-DD)",
+                     "End Date (YYYY-MM-DD)"])
+    writer.writerow(["1", "March Munafa", "5", "Pal Shop", "P1", "2021-04-30", "2021-05-01"])
     return response
 
 def scheme_shop_mapping_csv_upload(request):
@@ -56,22 +59,22 @@ def scheme_shop_mapping_csv_upload(request):
             first_row = next(reader)
 
             try:
-                for row_id, row in enumerate(reader):
-                    scheme_id = row[0]
-                    shop_id = row[2]
-                    priority = SchemeShopMapping.PRIORITY_CHOICE._identifier_map[row[4]]
+                with transaction.atomic():
+                    for row_id, row in enumerate(reader):
+                        scheme_id = row[0]
+                        shop_id = row[2]
+                        priority = SchemeShopMapping.PRIORITY_CHOICE._identifier_map[row[4]]
+                        start_date = isDateValid(str(row[5]) + ' 00:00:00', "%Y-%m-%d %H:%M:%S")
+                        end_date = isDateValid(str(row[6]) + ' 23:59:59', "%Y-%m-%d %H:%M:%S")
 
-                    active_mappings = get_active_mappings(shop_id)
-                    if active_mappings.count() >= 2:
-                        info_logger.info("Shop Id - {} already has 2 active mappings".format(shop_id))
-                        continue
-                    existing_active_mapping = active_mappings.last()
-                    if existing_active_mapping and existing_active_mapping.priority == priority:
-                        info_logger.info("Shop Id - {} already has an active {} mappings"
-                                              .format(shop_id, priority))
-                        continue
-                    SchemeShopMapping.objects.create(shop_id=shop_id, scheme_id=scheme_id, priority=priority,
-                                                     is_active=True, user=get_current_user())
+                        mappings_to_deactivate = SchemeShopMapping.objects.filter(shop_id=shop_id, priority=priority,
+                                                                                  is_active=True)
+                        for scheme_shop_mapping in mappings_to_deactivate:
+                            deactivate_scheme_mapping(scheme_shop_mapping)
+
+                        SchemeShopMapping.objects.create(shop_id=shop_id, scheme_id=scheme_id, priority=priority,
+                                                         is_active=True, user=get_current_user(), start_date=start_date,
+                                                         end_date=end_date)
 
             except Exception as e:
                 print(e)
