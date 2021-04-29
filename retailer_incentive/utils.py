@@ -41,7 +41,7 @@ def get_shop_scheme_mapping_based_on_month(shop_id, month):
         start_end_date_list = []
         scheme_shop_mapping_list = []
         for scheme in shop_scheme_mapping_qs:
-            start_end_date = str(scheme.start_date.date()) + str(scheme.end_date.date())
+            start_end_date = str(scheme.start_date) + str(scheme.end_date)
             if start_end_date in start_end_date_list:
                 continue
             start_end_date_list += [start_end_date]
@@ -64,7 +64,7 @@ def get_shop_scheme_mapping_based_on_month_from_db(shop_id, month):
         start_end_list = []
         scheme_shop_mapping_list = []
         for scheme in shop_scheme_mapping_qs:
-            start_end_date = str(scheme.start_date.date()) + str(scheme.end_date.date())
+            start_end_date = str(scheme.start_date) + str(scheme.end_date)
             if start_end_date in start_end_list:
                 continue
             start_end_list += [start_end_date]
