@@ -189,11 +189,11 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
 
     change_list_template = 'admin/retailer_incentive/scheme-shop-mapping-change-list.html'
 
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
+    # def has_change_permission(self, request, obj=None):
+    #     return False
+    #
+    # def has_delete_permission(self, request, obj=None):
+    #     return False
 
     class Media:
         pass
