@@ -39,12 +39,8 @@ def save_scheme_shop_mapping_data(active_mapping):
     sales_executive = None
     sales_manager = None
     if shop_user_mapping is not None:
-        sales_executive = User.objects.filter(id=shop_user_mapping.employee.id).last()
-        parent_shop_id = ParentRetailerMapping.objects.filter(retailer_id=shop.id).last().parent_id
-        parent_shop_user_mapping = ShopUserMapping.objects.filter(shop=parent_shop_id,
-                                                                  employee=sales_executive, status=True).last()
-        if parent_shop_user_mapping and parent_shop_user_mapping.manager is not None:
-            sales_manager = User.objects.filter(id=parent_shop_user_mapping.manager.employee).last()
+        sales_executive = shop_user_mapping.employee
+        sales_manager = shop_user_mapping.manager.employee
     try:
         IncentiveDashboardDetails.objects.create(sales_manager=sales_manager, sales_executive=sales_executive,
                                                  shop=shop, mapped_scheme=scheme, purchase_value=total_sales,
