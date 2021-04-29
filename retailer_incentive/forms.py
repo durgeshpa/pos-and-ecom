@@ -56,8 +56,8 @@ class SchemeCreationForm(forms.ModelForm):
             if start_date.date() <= datetime.date.today():
                 raise ValidationError('Start date cannot be equal to today or earlier than today')
 
-        if end_date.date() <= start_date.date():
-            raise ValidationError('End Date should be later than the Start Date')
+            if end_date.date() <= start_date.date():
+                raise ValidationError('End Date should be later than the Start Date')
 
             if Scheme.objects.filter(name=data.get('name'), start_date=start_date, end_date=end_date).exists():
                 raise ValidationError('Duplicate Scheme')
