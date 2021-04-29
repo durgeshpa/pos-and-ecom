@@ -320,7 +320,7 @@ class IncentiveDashBoard(APIView):
                     scheme = scheme_shop_map.scheme
                     total_sales = get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date,
                                                   scheme_shop_map.end_date)
-                    scheme_slab = SchemeSlab.objects.filter(scheme=scheme_shop_mapping.scheme,
+                    scheme_slab = SchemeSlab.objects.filter(scheme=scheme,
                                                             min_value__lt=total_sales).order_by('min_value').last()
                     discount_percentage = 0
                     if scheme_slab is not None:
