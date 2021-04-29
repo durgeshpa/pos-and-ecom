@@ -54,7 +54,7 @@ class ShopPurchaseMatrix(APIView):
         shop_id = request.GET.get('shop_id')
         shop = Shop.objects.filter(id=shop_id).last()
         if shop is None:
-            msg = {'is_success': False, 'message': ['No shop found'], 'data': {}}
+            msg = {'is_success': False, 'message': ['No shop found'], 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         today_date = datetime.date.today()
         current_year = today_date.year
@@ -104,7 +104,7 @@ class ShopPurchaseMatrix(APIView):
 
         msg = {'is_success': True, 'message': ['OK'], 'data': response_data}
         if not response_data:
-            msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data': {}}
+            msg = {'is_success': False, 'message': ['No Scheme Found for this shop'], 'data':None}
         return Response(msg, status=status.HTTP_200_OK)
 
     @staticmethod
