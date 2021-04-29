@@ -217,7 +217,11 @@ class SalesManagerLogin(APIView):
                 executive_list = ShopUserMapping.objects.filter(manager__in=self.get_manager(), status=True).order_by(
                     'employee').distinct('employee')
                 executive_serializer = self.serializer_class(executive_list, many=True)
-                return Response({"message": [SUCCESS_MESSAGES["2001"]],
+                if executive_serializer.data:
+                    message = [SUCCESS_MESSAGES["2001"]]
+                else:
+                    message = [ERROR_MESSAGES["4016"]]
+                return Response({"message": message,
                                  "data": executive_serializer.data,
                                  'is_success': True}, status=status.HTTP_200_OK)
             else:
