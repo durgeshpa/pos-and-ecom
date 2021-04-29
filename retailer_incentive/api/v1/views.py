@@ -372,7 +372,7 @@ class ShopSchemeDetails(APIView):
 
     def get(self, request):
         scheme_id = request.GET.get('scheme_id')
-        scheme_slab = SchemeSlab.objects.filter(id=scheme_id).last()
+        scheme_slab = SchemeSlab.objects.filter(scheme_id=scheme_id).last()
 
         if scheme_slab:
             serializer = SchemeDetailSerializer(scheme_slab)
