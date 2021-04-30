@@ -315,26 +315,39 @@ class IncentiveDashBoard(APIView):
             if scheme_shop_mapping_list:
                 for scheme_shop_map in scheme_shop_mapping_list:
                     if month == today.month:
-                        scheme = scheme_shop_map.scheme
-                        total_sales = get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date,
-                                                      scheme_shop_map.end_date)
-                        scheme_slab = SchemeSlab.objects.filter(scheme=scheme,
-                                                                min_value__lt=total_sales).order_by('min_value').last()
-                        discount_percentage = 0
-                        if scheme_slab is not None:
-                            discount_percentage = scheme_slab.discount_value
-                        discount_value = floor(discount_percentage * total_sales / 100)
-                        shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
-                        scheme_data = {'shop_id': shop.id,
-                                       'shop_name': str(shop.shop_name),
-                                       'mapped_scheme_id': str(scheme.id),
-                                       'mapped_scheme': str(scheme.name),
-                                       'discount_value': str(total_sales),
-                                       'discount_percentage': str(discount_percentage),
-                                       'incentive_earned': str(discount_value),
-                                       'start_date': str(scheme_shop_map.start_date.strftime("%Y-%m-%d")),
-                                       'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
-                                       }
+                        try:
+                            scheme = scheme_shop_map.scheme
+                            total_sales = get_total_sales(scheme_shop_map.shop_id, scheme_shop_map.start_date,
+                                                          scheme_shop_map.end_date)
+                            scheme_slab = SchemeSlab.objects.filter(scheme=scheme,
+                                                                    min_value__lt=total_sales).order_by('min_value').last()
+                            discount_percentage = 0
+                            if scheme_slab is not None:
+                                discount_percentage = scheme_slab.discount_value
+                            discount_value = floor(discount_percentage * total_sales / 100)
+                            shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
+                            scheme_data = {'shop_id': shop.id,
+                                           'shop_name': str(shop.shop_name),
+                                           'mapped_scheme_id': str(scheme.id),
+                                           'mapped_scheme': str(scheme.name),
+                                           'discount_value': str(total_sales),
+                                           'discount_percentage': str(discount_percentage),
+                                           'incentive_earned': str(discount_value),
+                                           'start_date': str(scheme_shop_map.start_date.strftime("%Y-%m-%d")),
+                                           'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
+                                           }
+                        except:
+                            shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
+                            scheme_data = {'shop_id': shop.id,
+                                           'shop_name': str(shop.shop_name),
+                                           'mapped_scheme_id': str(scheme_shop_map.mapped_scheme_id),
+                                           'mapped_scheme': str(scheme_shop_map.mapped_scheme.name),
+                                           'discount_value': str(scheme_shop_map.purchase_value),
+                                           'discount_percentage': str(scheme_shop_map.discount_percentage),
+                                           'incentive_earned': str(scheme_shop_map.incentive_earned),
+                                           'start_date': str(scheme_shop_map.start_date.strftime("%Y-%m-%d")),
+                                           'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
+                                           }
                     else:
                         shop = Shop.objects.filter(id=scheme_shop_map.shop_id).last()
                         scheme_data = {'shop_id': shop.id,
