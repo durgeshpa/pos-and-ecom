@@ -126,14 +126,16 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
     def clean(self):
         data = self.cleaned_data
         shop = data['shop']
+        start_date = data.get('start_date')
+        end_date = data.get('end_date') + datetime.timedelta(hours=23, minutes=59, seconds=59)
         active_mapping = get_active_mappings(shop.id)
         for active_map in active_mapping:
-            if active_map and active_map.priority == data['priority'] and active_map.start_date == data['start_date'] \
-                    and active_map.end_date == data['end_date']:
+            if active_map and active_map.priority == data['priority'] and active_map.start_date == start_date \
+                    and active_map.end_date == end_date:
                     raise ValidationError("Shop Id - {} already has an active {} mappings on same "
                                           "start date {} & end date {}"
                                           .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']],
-                                                  active_map.start_date, active_map.end_date))
+                                                  active_map.start_date.date(), active_map.end_date.date()))
 
 
             elif active_map and active_map.priority == data['priority']:
@@ -142,11 +144,9 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
                 active_map.is_active = False
                 active_map.save()
 
-        start_date = data.get('start_date')
-        end_date = data.get('end_date') + datetime.timedelta(hours=23, minutes=59, seconds=59)
         data['end_date'] = end_date
         scheme = data['scheme']
-        if start_date <= scheme.start_date:
+        if start_date < scheme.start_date:
             raise ValidationError('Start date cannot be earlier than scheme start date')
 
         if start_date.date() <= datetime.date.today():
