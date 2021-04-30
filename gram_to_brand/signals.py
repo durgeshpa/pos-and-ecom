@@ -125,7 +125,9 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                 putaway_quantity = 0
                 if instance.batch_id:
                     type_normal = InventoryType.objects.filter(inventory_type='normal').last()
-                    weight = int(instance.delivered_qty) * instance.product.weight_value
+                    weight = 0
+                    if instance.product.repackaging_type == 'packing_material':
+                        weight = int(instance.delivered_qty) * instance.product.weight_value
                     in_obj = InCommonFunctions.create_in(shop.retailer, 'GRN', instance.grn_order.grn_id,
                                                          instance.product,
                                                          instance.batch_id, int(instance.delivered_qty),
