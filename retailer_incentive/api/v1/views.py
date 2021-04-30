@@ -118,12 +118,12 @@ class ShopPurchaseMatrix(APIView):
         shop_user_mapping = shop.shop_user.filter(employee_group__name='Sales Executive', status=True).last()
 
         if shop_user_mapping is not None:
-            sales_executive = shop_user_mapping.employee
-            parent_shop_id = ParentRetailerMapping.objects.filter(retailer_id=shop.id).last().parent_id
-            parent_shop_user_mapping = ShopUserMapping.objects.filter(shop=parent_shop_id,
-                                                                      employee=sales_executive, status=True).last()
-            if parent_shop_user_mapping and parent_shop_user_mapping.manager is not None:
-                sales_manager = parent_shop_user_mapping.manager.employee
+            try:
+                sales_executive = shop_user_mapping.employee
+                sales_manager = shop_user_mapping.manager.employee
+            except:
+                sales_executive = None
+                sales_manager = None
         return sales_executive, sales_manager
 
     @staticmethod
