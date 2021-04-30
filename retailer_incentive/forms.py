@@ -199,8 +199,8 @@ class UploadSchemeShopMappingForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Scheme ID'"))
             if not scheme.is_active:
                 raise ValidationError(_(f"Row {row_id + 1} | Inactive 'Scheme ID'"))
-            if scheme.start_date.date() <= datetime.datetime.today().date():
-                raise ValidationError(_(f"Row {row_id + 1} | Expired 'Scheme ID'. Start Date Of Scheme Should Be"
+            if scheme.end_date.date() <= datetime.datetime.today().date():
+                raise ValidationError(_(f"Row {row_id + 1} | Expired 'Scheme ID'. End Date Of Scheme Should Be"
                                         f" Greater Than Today"))
 
             # Shop
