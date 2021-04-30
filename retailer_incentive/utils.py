@@ -40,7 +40,13 @@ def get_shop_scheme_mapping_based(shop_id, month):
                                                                   end_date__month=month).order_by('-start_date',
                                                                                                   var_priority)
         if shop_scheme_mapping_qs:
-            scheme_shop_mapping_list.append(shop_scheme_mapping_qs.last())
+            start_end_date_list = []
+            for scheme in shop_scheme_mapping_qs:
+                start_end_date = str(scheme.start_date) + str(scheme.end_date)
+                if start_end_date in start_end_date_list:
+                    continue
+                start_end_date_list += [start_end_date]
+                scheme_shop_mapping_list.append(scheme)
         var_priority = 'scheme_priority'
         shop_scheme_mapping_qs = IncentiveDashboardDetails.objects.filter(shop_id=shop_id,
                                                                           start_date__year=current_year,
