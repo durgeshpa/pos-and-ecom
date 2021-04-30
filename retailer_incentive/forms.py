@@ -240,6 +240,13 @@ class UploadSchemeShopMappingForm(forms.Form):
                 raise ValidationError(_(f"Row {row_id + 1} | Shop Mapping End Date Should Be Less Than Equal To Scheme"
                                         f" End Date"))
 
+            # Scheme Shop Mapping
+            if SchemeShopMapping.objects.filter(shop_id=row[2], is_active=True,
+                                                priority=SchemeShopMapping.PRIORITY_CHOICE._identifier_map[row[4]],
+                                                start_date__date=start_date, end_date__date=end_date).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Shop Mapping For Shop {row[2]} Already Active For Priority"
+                                        f" {row[4]}, Start Date {row[5]} and End Date {row[6]}"))
+
             unique_key = str(row[2]) + str(row[4])
             if unique_key in unique_data:
                 raise ValidationError(
