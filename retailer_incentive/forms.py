@@ -56,7 +56,7 @@ class SchemeCreationForm(forms.ModelForm):
             if start_date.date() <= datetime.date.today():
                 raise ValidationError('Start date cannot be equal to today or earlier than today')
 
-            if end_date <= start_date:
+            if end_date.date() <= start_date.date():
                 raise ValidationError('End Date should be later than the Start Date')
 
             if Scheme.objects.filter(name=data.get('name'), start_date=start_date, end_date=end_date).exists():
@@ -146,7 +146,7 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
         end_date = data.get('end_date') + datetime.timedelta(hours=23, minutes=59, seconds=59)
         data['end_date'] = end_date
         scheme = data['scheme']
-        if start_date < scheme.start_date:
+        if start_date <= scheme.start_date:
             raise ValidationError('Start date cannot be earlier than scheme start date')
 
         if start_date.date() <= datetime.date.today():
@@ -158,8 +158,8 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
         if end_date > scheme.end_date:
             raise ValidationError('End Date cannot be greater than scheme end date')
 
-        if end_date < start_date:
-            raise ValidationError('End Date should be greater than the Start Date')
+        if end_date.date() <= start_date.date():
+            raise ValidationError('End Date should be later than the Start Date')
 
         return data
 

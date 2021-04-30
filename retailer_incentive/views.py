@@ -158,13 +158,12 @@ def deactivate_scheme_mapping(scheme_shop_mapping):
     sales_manager = None
     sales_executive = None
     if shop_user_mapping is not None:
-        sales_executive = shop_user_mapping.employee
-        parent_shop_id = ParentRetailerMapping.objects.filter(retailer_id=scheme_shop_mapping.shop_id).last().parent_id
-        parent_shop_user_mapping = ShopUserMapping.objects.filter(shop=parent_shop_id,
-                                                                  employee=sales_executive, status=True).last()
-        if parent_shop_user_mapping and parent_shop_user_mapping.manager is not None:
-            sales_manager = parent_shop_user_mapping.manager.employee
-
+        try:
+            sales_executive = shop_user_mapping.employee
+            sales_manager = shop_user_mapping.manager.employee
+        except:
+            sales_manager = None
+            sales_executive = None
     IncentiveDashboardDetails.objects.create(shop=scheme_shop_mapping.shop, sales_manager=sales_manager,
                                              sales_executive=sales_executive,
                                              mapped_scheme=scheme_shop_mapping.scheme,

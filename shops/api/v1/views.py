@@ -934,6 +934,9 @@ class ExecutiveReport(viewsets.ModelViewSet):
     queryset = ShopUserMapping.objects.all()
     http_method_names = ['get']
 
+    def get_manager(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+
     def list(self, *args, **kwargs):
         """
 
@@ -942,36 +945,16 @@ class ExecutiveReport(viewsets.ModelViewSet):
         :return: Report for Sales executive otherwise error message
         """
         try:
-            if self.request.user.user_type == 7 and self.request.GET['report'] in ['1', '2', '3']:
-                shop_mapping_object = (self.queryset.filter(
-                    employee=self.request.user.shop_employee.instance,
-                    employee_group__permissions__codename='can_sales_manager_add_shop', status=True))
-                if not shop_mapping_object:
-                    return Response({"detail": messages.ERROR_MESSAGES["4015"],
-                                     'is_success': False}, status=status.HTTP_200_OK)
-                feedback_executive_list = []
-                for shop_mapping in shop_mapping_object:
-                    executive_list = self.queryset.filter(manager=shop_mapping).distinct('employee_id')
-                    feedback_executive_list.append(executive_list)
-                if len(feedback_executive_list) <= 0:
-                    return Response({"detail": messages.ERROR_MESSAGES["4016"],
-                                     'is_success': False}, status=status.HTTP_200_OK)
-                for feedback_executive in feedback_executive_list:
-                    executive_report_serializer = self.serializer_class(feedback_executive, many=True,
-                                                                        context={'report': self.request.GET['report']})
-                    return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
-                                     "data": executive_report_serializer.data,
-                                     'is_success': True}, status=status.HTTP_200_OK)
-            else:
-                return Response({"detail": messages.ERROR_MESSAGES["4013"],
-                                 'is_success': True}, status=status.HTTP_200_OK)
+            feedback_executive = ShopUserMapping.objects.filter(manager__in=self.get_manager(), status=True).order_by(
+                'employee').distinct('employee')
+            executive_report_serializer = self.serializer_class(feedback_executive, many=True,
+                                                                context={'report': self.request.GET['report']})
+            return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
+                             "data": executive_report_serializer.data,
+                             'is_success': True}, status=status.HTTP_200_OK)
         except Exception as error:
             logger.exception(error)
-            if error.args[0] == 'report':
-                return Response({"detail": messages.ERROR_MESSAGES["4012"],
-                                 'is_success': False}, status=status.HTTP_200_OK)
-            return Response({"detail": messages.ERROR_MESSAGES["4007"],
-                             'is_success': False}, status=status.HTTP_200_OK)
+
 
 
 def set_shop_map_cron():
