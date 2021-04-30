@@ -32,12 +32,22 @@ def get_shop_scheme_mapping_based(shop_id, month):
     current_year = today_date.year
     if month == today_date.month:
         var_priority = 'priority'
-        shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id,
+        shop_scheme_mapping_qs = SchemeShopMapping.objects.filter(shop_id=shop_id, is_active=True,
                                                                   start_date__year=current_year,
                                                                   end_date__year=current_year,
                                                                   start_date__month=month,
                                                                   end_date__month=month).order_by('-start_date',
                                                                                                   var_priority)
+
+    elif month == today_date.month:
+        var_priority = 'scheme_priority'
+        shop_scheme_mapping_qs = IncentiveDashboardDetails.objects.filter(shop_id=shop_id,
+                                                                          start_date__year=current_year,
+                                                                          end_date__year=current_year,
+                                                                          start_date__month=month,
+                                                                          end_date__month=month).order_by('-start_date',
+                                                                                                          var_priority)
+
     else:
         var_priority = 'scheme_priority'
         shop_scheme_mapping_qs = IncentiveDashboardDetails.objects.filter(shop_id=shop_id,
@@ -46,6 +56,7 @@ def get_shop_scheme_mapping_based(shop_id, month):
                                                                           start_date__month=month,
                                                                           end_date__month=month).order_by('-start_date',
                                                                                                           var_priority)
+
     if shop_scheme_mapping_qs:
         start_end_date_list = []
         scheme_shop_mapping_list = []
