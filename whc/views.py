@@ -29,7 +29,8 @@ from gram_to_brand.models import GRNOrder,Cart as POCarts, CartProductMapping as
      Order as Ordered,GRNOrderProductMapping, Document
 from brand.models import Brand, Vendor
 from addresses.models import Address
-from products.models import Product, ParentProduct, ProductVendorMapping
+from products.models import Product, ParentProduct, ProductVendorMapping, ProductPrice, PriceSlab
+
 info_logger = logging.getLogger('file-info')
 
 
@@ -431,10 +432,33 @@ class AutoOrderProcessor:
                 continue
             if qty > available_qty:
                 qty = available_qty
-            CartProductMapping.objects.create(cart=cart, cart_product_id=product_id, qty=qty, no_of_pieces=qty)
+
+            product = Product.objects.filter(pk=product_id).last()
+            product_price = self.__get_product_price(product, seller_shop, buyer_shop)
+            CartProductMapping.objects.create(cart=cart, cart_product_id=product_id, qty=qty, no_of_pieces=qty,
+                                              cart_product_price=product_price)
             info_logger.info("WarehouseConsolidation|add_products_to_cart|product id-{}, cart id-{}, qty added-{}"
                              .format(product_id, cart.id, qty))
         return cart
+
+    def __get_product_price(self, product, seller_shop, buyer_shop):
+        """
+        Returns the current approved product price for this product and shop combination,
+        Creates the price using product_mrp if price doesn't alredy exists
+        """
+        price = product.get_current_shop_price(seller_shop.id, buyer_shop.id)
+        if price is None:
+            price = self.__create_price_using_mrp(product, seller_shop)
+        return price
+
+    def __create_price_using_mrp(self, product, seller_shop):
+        """
+        Creates the price for specific product and seller shop combination using product MRP
+        """
+        price = ProductPrice.objects.create(product=product, seller_shop=seller_shop, mrp=product.product_mrp,
+                                            approval_status=ProductPrice.APPROVED, status=True)
+        PriceSlab.objects.create(product_price=price, start_value=0, end_value=0, selling_price=product.product_mrp)
+        return price
 
     @transaction.atomic
     def process_putaway(self, auto_processing_entry):
