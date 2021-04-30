@@ -11,7 +11,7 @@ from nested_admin.nested import NestedTabularInline
 
 from retailer_incentive.forms import SchemeCreationForm, SchemeSlabCreationForm, SchemeShopMappingCreationForm, \
     SlabInlineFormSet
-from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
+from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping, IncentiveDashboardDetails
 from retailer_incentive.utils import get_active_mappings
 from retailer_incentive.views import get_scheme_shop_mapping_sample_csv, scheme_shop_mapping_csv_upload
 
@@ -21,8 +21,23 @@ class SchemeSlabAdmin(NestedTabularInline):
     form = SchemeSlabCreationForm
     formset = SlabInlineFormSet
     list_display = ('min_value', 'max_value','discount_value', 'discount_type')
-    extra = 5
     min_num = 2
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj:
+            return 0
+        return 5
+
+    def has_add_permission(self, request, obj):
+        if obj:
+            return False
+        return True
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
     class Media:
         pass
@@ -38,8 +53,15 @@ class SchemeAdmin(admin.ModelAdmin):
     list_display = ('name', 'start_date','end_date', 'is_active')
     inlines = [SchemeSlabAdmin, ]
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     class Media:
         pass
+
 
 @admin.register(SchemeShopMapping)
 class SchemeShopMappingAdmin(admin.ModelAdmin):
@@ -48,8 +70,8 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
     """
     model = SchemeShopMapping
     form = SchemeShopMappingCreationForm
-    list_display = ('scheme_id', 'scheme_name', 'shop_name', 'priority', 'is_active', 'user')
-    actions = ['download_active_scheme_mappings','deactivate_selected_mappings', 'activate_selected_mappings']
+    list_display = ('scheme_id', 'scheme_name', 'shop_name', 'priority', 'is_active', 'user',  'start_date', 'end_date',)
+    actions = ['download_active_scheme_mappings', 'deactivate_selected_mappings', 'activate_selected_mappings']
 
     def scheme_id(self, obj):
         return obj.scheme_id
@@ -166,5 +188,43 @@ class SchemeShopMappingAdmin(admin.ModelAdmin):
         return urls
 
     change_list_template = 'admin/retailer_incentive/scheme-shop-mapping-change-list.html'
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        pass
+
+
+@admin.register(IncentiveDashboardDetails)
+class IncentiveDashboardDetails(admin.ModelAdmin):
+    """
+    This class is used to get the Previous Scheme Details
+    """
+    model = IncentiveDashboardDetails
+    list_display = ('sales_manager', 'sales_executive','shop', 'mapped_scheme', 'scheme_priority', 'purchase_value',
+                    'incentive_earned', 'start_date', 'end_date')
+
+    class Media:
+        pass
+
+
+@admin.register(SchemeSlab)
+class IncentiveDashboardDetails(admin.ModelAdmin):
+    """
+    This class is used to get the SchemeSlab
+    """
+    model = SchemeSlab
+    list_display = ('scheme', 'min_value', 'max_value', 'discount_value', 'discount_type',)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     class Media:
         pass

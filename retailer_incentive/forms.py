@@ -8,31 +8,59 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.forms import formset_factory, BaseInlineFormSet
 from django.utils.translation import gettext_lazy as _
+from django.contrib.admin.widgets import AdminDateWidget
 
 from retailer_incentive.models import Scheme, SchemeSlab, SchemeShopMapping
 from retailer_incentive.utils import get_active_mappings
 from shops.models import Shop
+from .common_function import save_scheme_shop_mapping_data
+from retailer_backend.utils import isDateValid
 
 info_logger = logging.getLogger('file-info')
+
 
 class SchemeCreationForm(forms.ModelForm):
     """
     This class is used to create the Scheme
     """
 
+    start_date = forms.DateTimeField(widget=AdminDateWidget())
+    end_date = forms.DateTimeField(widget=AdminDateWidget())
+
     class Meta:
         model = Scheme
         fields = ['name', 'start_date', 'end_date', 'is_active']
 
-    def clean(self):
-        data = self.cleaned_data
-        start_date = data.get('start_date')
-        end_date = data.get('end_date')
-        if start_date < datetime.datetime.today():
-            raise ValidationError('Start date cannot be earlier than today')
+    def __init__(self, *args, **kwargs):
+        """
+        args:- non keyword argument
+        kwargs:- keyword argument
+        """
+        self.request = kwargs.pop('request', None)
+        super(SchemeCreationForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
 
-        if end_date <= start_date:
-            raise ValidationError('End Date should be later than the Start Date')
+        # if instance.id:
+        #     self.fields['name'].disabled = True
+        #     self.fields['start_date'] = forms.DateTimeField()
+        #     self.fields['start_date'].disabled = True
+        #     self.fields['end_date'] = forms.DateTimeField()
+        #     self.fields['end_date'].disabled = True
+
+    def clean(self):
+        if not self.instance.id:
+            data = self.cleaned_data
+            start_date = data.get('start_date')
+            end_date = data.get('end_date') + datetime.timedelta(hours=23, minutes=59, seconds=59)
+            data['end_date'] = end_date
+            if start_date.date() <= datetime.date.today():
+                raise ValidationError('Start date cannot be equal to today or earlier than today')
+
+            if end_date.date() <= start_date.date():
+                raise ValidationError('End Date should be later than the Start Date')
+
+            if Scheme.objects.filter(name=data.get('name'), start_date=start_date, end_date=end_date).exists():
+                raise ValidationError('Duplicate Scheme')
 
         return self.cleaned_data
 
@@ -92,22 +120,52 @@ class SchemeShopMappingCreationForm(forms.ModelForm):
     scheme = forms.ModelChoiceField(queryset=Scheme.objects.all())
     shop = forms.ModelChoiceField(queryset=shop_choice,
                                   widget=autocomplete.ModelSelect2(url='shop-autocomplete'))
+    start_date = forms.DateTimeField(widget=AdminDateWidget())
+    end_date = forms.DateTimeField(widget=AdminDateWidget())
 
     def clean(self):
         data = self.cleaned_data
         shop = data['shop']
-        active_mappings = get_active_mappings(shop.id)
-        if active_mappings.count() >= 2:
-            raise ValidationError("Shop Id - {} already has 2 active mappings".format(shop.id))
-        existing_active_mapping = active_mappings.last()
-        if existing_active_mapping and existing_active_mapping.priority == data['priority']:
-            raise ValidationError("Shop Id - {} already has an active {} mappings"
-                                  .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']]))
+        start_date = data.get('start_date')
+        end_date = data.get('end_date') + datetime.timedelta(hours=23, minutes=59, seconds=59)
+        active_mapping = get_active_mappings(shop.id)
+        for active_map in active_mapping:
+            if active_map and active_map.priority == data['priority'] and active_map.start_date == start_date \
+                    and active_map.end_date == end_date:
+                    raise ValidationError("Shop Id - {} already has an active {} mappings on same "
+                                          "start date {} & end date {}"
+                                          .format(shop.id, SchemeShopMapping.PRIORITY_CHOICE[data['priority']],
+                                                  active_map.start_date.date(), active_map.end_date.date()))
 
+
+            elif active_map and active_map.priority == data['priority']:
+                # store previous scheme data in database & make it deactivate
+                save_scheme_shop_mapping_data(active_map)
+                active_map.is_active = False
+                active_map.save()
+
+        data['end_date'] = end_date
+        scheme = data['scheme']
+        if start_date < scheme.start_date:
+            raise ValidationError('Start date cannot be earlier than scheme start date')
+
+        if start_date.date() <= datetime.date.today():
+            raise ValidationError('Start date cannot be equal to today or earlier than today')
+
+        if start_date > scheme.end_date:
+            raise ValidationError('Start date cannot be greater than scheme end date')
+
+        if end_date > scheme.end_date:
+            raise ValidationError('End Date cannot be greater than scheme end date')
+
+        if end_date.date() <= start_date.date():
+            raise ValidationError('End Date should be later than the Start Date')
+
+        return data
 
     class Meta:
         model = SchemeShopMapping
-        fields = ('scheme', 'shop', 'priority', 'is_active')
+        fields = ('scheme', 'shop', 'priority', 'is_active', 'start_date', 'end_date')
 
 
 class UploadSchemeShopMappingForm(forms.Form):
@@ -123,33 +181,76 @@ class UploadSchemeShopMappingForm(forms.Form):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only .csv file accepted.")
 
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8', errors='ignore'))
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
         first_row = next(reader)
+        unique_data = []
         for row_id, row in enumerate(reader):
             if len(row) == 0:
                 continue
-            if row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '':
+            if row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and \
+                    row[6] == '':
                 continue
-            if not row[0] or not Scheme.objects.filter(id=row[0], is_active=True,
-                                                       end_date__gte=datetime.datetime.today()).exists():
+
+            # Scheme ID
+            if not row[0]:
+                raise ValidationError(_(f"Row {row_id + 1} | Please provide 'Scheme ID'"))
+            scheme = Scheme.objects.filter(id=row[0]).last()
+            if not scheme:
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Scheme ID'"))
-            if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['f','r']).exists():
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Shop Id', no retailer/franchise shop exists in the system with this ID."))
+            if not scheme.is_active:
+                raise ValidationError(_(f"Row {row_id + 1} | Inactive 'Scheme ID'"))
+            if scheme.end_date.date() <= datetime.datetime.today().date():
+                raise ValidationError(_(f"Row {row_id + 1} | Expired 'Scheme ID'. End Date Of Scheme Should Be"
+                                        f" Greater Than Today"))
+
+            # Shop
+            if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['f', 'r']).exists():
+                raise ValidationError(
+                    _(f"Row {row_id + 1} | Invalid 'Shop Id', no retailer/franchise shop exists in the system with this"
+                      f" ID."))
+
+            # Priority
             if not row[4] or row[4] not in SchemeShopMapping.PRIORITY_CHOICE._identifier_map.keys():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Priority'"))
 
-            shop_id = row[2]
-            priority = SchemeShopMapping.PRIORITY_CHOICE._identifier_map[row[4]]
+            # Start Date
+            if not row[5]:
+                raise ValidationError(_(f"Row {row_id + 1} | Please Provide Shop Mapping Start Date"))
+            start_date = isDateValid(row[5], "%Y-%m-%d")
+            if not start_date:
+                raise ValidationError(_(f"Row {row_id + 1} | Please Provide A Valid Shop Mapping Start Date"))
+            start_date = start_date.date()
+            if start_date < scheme.start_date.date():
+                raise ValidationError(_(f"Row {row_id + 1} | Shop Mapping Start Date Should Be Greater Than Or Equal To"
+                                        f" Scheme Start Date"))
+            if start_date <= datetime.datetime.today().date():
+                raise ValidationError(_(f"Row {row_id + 1} | Shop Mapping Start Date Should Be Greater Than Today"))
 
-            active_mappings = get_active_mappings(shop_id)
-            if active_mappings.count() >= 2:
-                info_logger.info("Shop Id - {} already has 2 active mappings".format(shop_id))
-                raise ValidationError(_(f"Row {row_id + 1} | This shop already has 2 active mappings"))
-            existing_active_mapping = active_mappings.last()
-            if existing_active_mapping and existing_active_mapping.priority == priority:
-                info_logger.info("Shop Id - {} already has an active {} mappings".format(shop_id, row[4]))
-                raise ValidationError(_(f"Row {row_id + 1} | This shop already has an active {row[4]} mappings"))
-            elif existing_active_mapping and existing_active_mapping.scheme_id == int(row[0]):
-                info_logger.info("Shop Id - {} already mapped with scheme id {}".format(shop_id, row[0]))
-                raise ValidationError(_(f"Row {row_id + 1} | This shop is already mapped with scheme id {row[0]}"))
+            # End Date
+            if not row[6]:
+                raise ValidationError(_(f"Row {row_id + 1} | Please Provide Shop Mapping End Date"))
+            end_date = isDateValid(row[6], "%Y-%m-%d")
+            if not end_date:
+                raise ValidationError(_(f"Row {row_id + 1} | Please Provide A Valid Shop Mapping End Date"))
+            end_date = end_date.date()
+            if end_date <= start_date:
+                raise ValidationError(_(f"Row {row_id + 1} | Shop Mapping End Date Should Be Greater Than Shop Mapping"
+                                        f" Start Date"))
+            if end_date > scheme.end_date.date():
+                raise ValidationError(_(f"Row {row_id + 1} | Shop Mapping End Date Should Be Less Than Equal To Scheme"
+                                        f" End Date"))
+
+            # Scheme Shop Mapping
+            if SchemeShopMapping.objects.filter(shop_id=row[2], is_active=True,
+                                                priority=SchemeShopMapping.PRIORITY_CHOICE._identifier_map[row[4]],
+                                                start_date__date=start_date, end_date__date=end_date).exists():
+                raise ValidationError(_(f"Row {row_id + 1} | Shop Mapping For Shop {row[2]} Already Active For Priority"
+                                        f" {row[4]}, Start Date {row[5]} and End Date {row[6]}"))
+
+            unique_key = str(row[2]) + str(row[4])
+            if unique_key in unique_data:
+                raise ValidationError(
+                    _(f"Row {row_id + 1} | Multiple Entries In Sheet For Shop {row[2]} And Priority {row[4]}"))
+
+            unique_data += [unique_key]
         return self.cleaned_data['file']

@@ -398,7 +398,8 @@ CRONJOBS = [
     ('30 20 * * *', 'marketing.crons.rewards_sms.rewards_notify_users'),
     ('*/5 * * * *', 'whc.cron.initiate_auto_order_processing'),
     ('0 1 * * *', 'redash_report.views.redash_scheduled_report'),
-    ('30 21 * * *', 'products.cron.packing_sku_inventory_alert')
+    ('30 21 * * *', 'products.cron.packing_sku_inventory_alert'),
+    ('30 21 * * *', 'retailer_incentive.cron.update_scheme_status_cron')
 
 
 ]
