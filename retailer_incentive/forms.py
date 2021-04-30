@@ -190,36 +190,60 @@ class UploadSchemeShopMappingForm(forms.Form):
             if row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and \
                     row[6] == '':
                 continue
+
+            # Scheme ID
             if not row[0]:
                 raise ValidationError(_(f"Row {row_id + 1} | Please provide 'Scheme ID'"))
-            scheme = Scheme.objects.filter(id=row[0], is_active=True, end_date__gte=datetime.datetime.today(),
-                                           start_date__gte=datetime.datetime.today()).last()
+            scheme = Scheme.objects.filter(id=row[0]).last()
             if not scheme:
-                raise ValidationError(_(f"Row {row_id + 1} | Invalid / Expired 'Scheme ID'"))
+                raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Scheme ID'"))
+            if not scheme.is_active:
+                raise ValidationError(_(f"Row {row_id + 1} | Inactive 'Scheme ID'"))
+            if scheme.start_date.date() <= datetime.datetime.today().date():
+                raise ValidationError(_(f"Row {row_id + 1} | Expired 'Scheme ID'. Start Date Of Scheme Should Be"
+                                        f" Greater Than Today"))
+
+            # Shop
             if not row[2] or not Shop.objects.filter(id=row[2], shop_type__shop_type__in=['f', 'r']).exists():
                 raise ValidationError(
                     _(f"Row {row_id + 1} | Invalid 'Shop Id', no retailer/franchise shop exists in the system with this"
                       f" ID."))
+
+            # Priority
             if not row[4] or row[4] not in SchemeShopMapping.PRIORITY_CHOICE._identifier_map.keys():
                 raise ValidationError(_(f"Row {row_id + 1} | Invalid 'Priority'"))
 
             # Start Date
             if not row[5]:
-                raise ValidationError(_(f"Row {row_id + 1} | Please provide a start date"))
+                raise ValidationError(_(f"Row {row_id + 1} | Please Provide Shop Mapping Start Date"))
             start_date = isDateValid(row[5], "%Y-%m-%d")
-            if not start_date or start_date < scheme.start_date or start_date <= datetime.datetime.today():
-                raise ValidationError(_(f"Row {row_id + 1} | Please provide a valid start date"))
+            if not start_date:
+                raise ValidationError(_(f"Row {row_id + 1} | Please Provide A Valid Shop Mapping Start Date"))
+            start_date = start_date.date()
+            if start_date < scheme.start_date.date():
+                raise ValidationError(_(f"Row {row_id + 1} | Shop Mapping Start Date Should Be Greater Than Or Equal To"
+                                        f" Scheme Start Date"))
+            if start_date <= datetime.datetime.today().date():
+                raise ValidationError(_(f"Row {row_id + 1} | Shop Mapping Start Date Should Be Greater Than Today"))
+
             # End Date
             if not row[6]:
-                raise ValidationError(_(f"Row {row_id + 1} | Please provide a end date"))
+                raise ValidationError(_(f"Row {row_id + 1} | Please Provide Shop Mapping End Date"))
             end_date = isDateValid(row[6], "%Y-%m-%d")
-            if not end_date or end_date < start_date or end_date > scheme.end_date:
-                raise ValidationError(_(f"Row {row_id + 1} | Please provide a valid end date"))
+            if not end_date:
+                raise ValidationError(_(f"Row {row_id + 1} | Please Provide A Valid Shop Mapping End Date"))
+            end_date = end_date.date()
+            if end_date <= start_date:
+                raise ValidationError(_(f"Row {row_id + 1} | Shop Mapping End Date Should Be Greater Than Shop Mapping"
+                                        f" Start Date"))
+            if end_date > scheme.end_date.date():
+                raise ValidationError(_(f"Row {row_id + 1} | Shop Mapping End Date Should Be Less Than Equal To Scheme"
+                                        f" End Date"))
 
             unique_key = str(row[2]) + str(row[4])
             if unique_key in unique_data:
                 raise ValidationError(
-                    _(f"Row {row_id + 1} | Multiple entries in sheet for shop {row[2]} and priority {row[4]}"))
+                    _(f"Row {row_id + 1} | Multiple Entries In Sheet For Shop {row[2]} And Priority {row[4]}"))
 
             unique_data += [unique_key]
         return self.cleaned_data['file']
