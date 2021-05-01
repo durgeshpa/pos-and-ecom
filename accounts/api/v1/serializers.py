@@ -75,7 +75,7 @@ class UserPhoneSerializer(serializers.ModelSerializer):
         fields = ('phone_number', )
 
 
-class PosCustomerSerializer(serializers.ModelSerializer):
+class PosUserSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
 
     def get_name(self, obj):

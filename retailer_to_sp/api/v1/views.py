@@ -75,7 +75,7 @@ from pos.models import RetailerProduct, PAYMENT_MODE, Payment as PosPayment, Use
 from pos.data_validation import validate_data_format
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es
-from accounts.api.v1.serializers import UserSerializer, PosCustomerSerializer
+from accounts.api.v1.serializers import PosUserSerializer
 from global_config.models import GlobalConfig
 
 User = get_user_model()
@@ -1277,7 +1277,7 @@ class UserView(APIView):
         data, msg = [], 'Customer Does Not Exists'
         customer = User.objects.filter(phone_number=phone_no).last()
         if customer:
-            data, msg = PosCustomerSerializer(customer).data, 'Customer Detail Success'
+            data, msg = PosUserSerializer(customer).data, 'Customer Detail Success'
         return get_response(msg, data)
 
 

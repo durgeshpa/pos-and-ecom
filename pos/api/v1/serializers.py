@@ -9,7 +9,7 @@ from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from products.models import Product, ProductImage
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, OrderedProductMapping
-from accounts.api.v1.serializers import UserSerializer, UserPhoneSerializer, PosCustomerSerializer
+from accounts.api.v1.serializers import PosUserSerializer
 from pos.common_functions import get_invoice_and_link
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
@@ -450,8 +450,8 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     """
         Order List For Basic Cart
     """
-    ordered_by = UserPhoneSerializer()
-    buyer = PosCustomerSerializer()
+    ordered_by = PosUserSerializer()
+    buyer = PosUserSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
     order_no = serializers.CharField()
     total_final_amount = serializers.ReadOnlyField()
@@ -575,8 +575,8 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     """
         Pos Order detail
     """
-    ordered_by = PosCustomerSerializer()
-    buyer = PosCustomerSerializer()
+    ordered_by = PosUserSerializer()
+    buyer = PosUserSerializer()
     total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
     products = serializers.SerializerMethodField()
     invoice = serializers.SerializerMethodField('invoice_dt')
@@ -664,7 +664,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
     received_amount = serializers.SerializerMethodField()
     refund_amount = serializers.SerializerMethodField()
     cart_offers = serializers.SerializerMethodField()
-    buyer = PosCustomerSerializer()
+    buyer = PosUserSerializer()
 
     def get_cart_offers(self, obj):
         """
