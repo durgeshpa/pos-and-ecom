@@ -4175,7 +4175,7 @@ def pdf_generation_retailer(request, order_id):
             product_listing.append(ordered_p)
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
-        total_amount = ordered_product.invoice_amount
+        total_amount = ordered_product.order.total_final_amount
         total_amount_int = round(total_amount)
         # Total discount
         discount = total - total_amount
