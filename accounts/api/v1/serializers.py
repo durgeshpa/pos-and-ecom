@@ -73,3 +73,14 @@ class UserPhoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('phone_number', )
+
+
+class PosCustomerSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+
+    def get_name(self, obj):
+        return obj.first_name + ' ' + obj.last_name
+
+    class Meta:
+        model = User
+        fields = ('phone_number', 'name', 'email', 'is_whatsapp')
