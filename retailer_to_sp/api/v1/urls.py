@@ -22,7 +22,6 @@ urlpatterns = [
     url('^GRN/search/$', SearchProducts.as_view()),
     # CART
     url('^cart/$', CartCentral.as_view(), name='add_to_cart'),
-    url('^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
     url('^user/$', UserView.as_view()),
     # CART CHECKOUT
     url('^cart/checkout/$', CartCheckout.as_view()),

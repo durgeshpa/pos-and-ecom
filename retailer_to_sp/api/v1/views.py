@@ -628,33 +628,6 @@ class CartCentral(GenericAPIView):
         else:
             return get_response('Please provide a valid cart_type')
 
-    def put(self, request, pk):
-        """
-            Update Customer Details For Basic Cart
-            Inputs
-            cart_id
-            phone_number - Customer phone number
-        """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        # Check shop
-        shop_id = get_shop_id_from_token(self.request)
-        if not type(shop_id) == int:
-            return get_response("Shop Doesn't Exist!")
-        # Check If Cart Exists
-        try:
-            cart = Cart.objects.get(id=pk, cart_status__in=['active', 'pending'], seller_shop_id=shop_id)
-        except:
-            return get_response("Active Cart Not Found")
-        # check phone_number
-        phone_no = self.request.data.get('phone_number')
-        if not phone_no:
-            return get_response("Please enter phone number")
-        if not re.match(r'^[6-9]\d{9}$', phone_no):
-            return get_response("Please enter a valid phone number")
-        return self.add_customer_to_cart(cart, shop_id, phone_no)
-
     def delete(self, request, pk):
         """
             Update Cart Status To deleted For Basic Cart
@@ -673,37 +646,6 @@ class CartCentral(GenericAPIView):
             return get_response("Active Cart Not Found")
         Cart.objects.filter(id=cart.id).update(cart_status=Cart.DELETED)
         return get_response('Deleted Cart', self.post_serialize_process_basic(cart))
-
-    def add_customer_to_cart(self, cart, shop_id, ph_no):
-        """
-            Update customer details in basic cart
-        """
-        name = self.request.data.get('name')
-        email = self.request.data.get('email')
-        is_whatsapp = self.request.data.get('is_whatsapp')
-        if email:
-            try:
-                validators.validate_email(email)
-            except:
-                return get_response("Please enter a valid email")
-        with transaction.atomic():
-            # Check Customer - Update Or Create
-            customer, created = User.objects.get_or_create(phone_number=ph_no)
-            customer.email = email if email else customer.email
-            customer.first_name = name if name else customer.first_name
-            customer.is_whatsapp = True if is_whatsapp else False
-            customer.save()
-            if created:
-                create_user_shop_mapping(user=customer, shop_id=shop_id)
-            # Update customer as buyer in cart
-            cart.buyer = customer
-            cart.last_modified_by = self.request.user
-            cart.save()
-            if customer.is_whatsapp is True:
-                # whatsapp api call for user opt in
-                whatsapp_opt_in.delay(ph_no)
-            serializer = UserSerializer(cart.buyer)
-            return get_response("Cart Updated Successfully!", serializer.data)
 
     def get_retail_cart(self):
         """
@@ -1415,7 +1357,7 @@ class CartCheckout(APIView):
         with transaction.atomic():
             offers_list = BasicCartOffers.update_cart_offer(cart.offers, cart_value)
             Cart.objects.filter(pk=cart.id).update(offers=offers_list)
-            return get_response("Removed Offer From Cart Successfully", [], True)
+            return get_response("Removed Offer From Cart Successfully", self.serialize(cart))
 
     def post_validate(self):
         """
@@ -2360,8 +2302,6 @@ class OrderCentral(APIView):
             cart = Cart.objects.get(id=cart_id, seller_shop=shop, cart_status__in=['active', 'pending'])
         except ObjectDoesNotExist:
             return {'error': "Active Cart Doesn't Exist!"}
-        if not cart.buyer:
-            return {'error': "Cart customer not found!"}
         # Check if products available in cart
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)
         if cart_products.count() <= 0:
@@ -2370,6 +2310,18 @@ class OrderCentral(APIView):
         payment_method = self.request.data.get('payment_method')
         if not payment_method or payment_method not in dict(PAYMENT_MODE):
             return {'error': 'Please provide a valid payment method'}
+        # check customer phone_number
+        phone_no = self.request.data.get('phone_number')
+        if not phone_no:
+            return {'error': "Please provide customer phone number"}
+        if not re.match(r'^[6-9]\d{9}$', phone_no):
+            return {'error': "Please provide a valid customer phone number"}
+        email = self.request.data.get('email')
+        if email:
+            try:
+                validators.validate_email(email)
+            except:
+                return {'error': "Please provide a valid customer email"}
         return {'shop': shop, 'cart': cart, 'payment_method': payment_method}
 
     def retail_capping_check(self, cart, parent_mapping):
@@ -2431,6 +2383,18 @@ class OrderCentral(APIView):
             Update cart to ordered
             For basic cart
         """
+        # Check Customer - Update Or Create
+        ph_no, name, email, is_whatsapp = self.request.data.get('phone_number'), self.request.data.get('name'), \
+                                          self.request.data.get('email'), self.request.data.get('is_whatsapp')
+        customer, created = User.objects.get_or_create(phone_number=ph_no)
+        if created:
+            create_user_shop_mapping(customer, cart.seller_shop.id)
+            customer.email = email if email else customer.email
+            customer.first_name = name if name else customer.first_name
+            customer.is_whatsapp = True if is_whatsapp else False
+            customer.save()
+        # Update customer as buyer in cart
+        cart.buyer = customer
         cart.cart_status = 'ordered'
         cart.last_modified_by = self.request.user
         cart.save()
