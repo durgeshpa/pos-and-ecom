@@ -1309,6 +1309,36 @@ class CartCentral(GenericAPIView):
         return serializer.data
 
 
+class UserView(APIView):
+    """
+        User Details
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        """
+            Get Customer Details - POS Shop
+            :param request: phone_number
+        """
+        # Check shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return get_response("Shop Doesn't Exist!")
+        # check phone_number
+        phone_no = self.request.data.get('phone_number')
+        if not phone_no:
+            return get_response("Please enter phone number")
+        if not re.match(r'^[6-9]\d{9}$', phone_no):
+            return get_response("Please enter a valid phone number")
+
+        data, msg = [], 'Customer Does Not Exists'
+        customer = User.objects.filter(phone_number=phone_no).last()
+        if customer:
+            data, msg = UserSerializer(customer).data, 'Customer Detail Success'
+        return get_response(msg, data)
+
+
 class CartCheckout(APIView):
     """
         Checkout after items added
