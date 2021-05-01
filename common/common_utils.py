@@ -175,7 +175,7 @@ def barcode_gen(value):
     return output_stream
 
 @task()
-def whatsapp_opt_in(phone_number):
+def whatsapp_opt_in(phone_number, shop_name, media_url, file_name):
     """
     request param:- phone number
     return :- Ture if success else False
@@ -188,6 +188,7 @@ def whatsapp_opt_in(phone_number):
         opt_in_api = api_end_point + "userid=" + whatsapp_user_id + '&' + data_string
         response = requests.get(opt_in_api)
         if json.loads(response.text)['response']['status'] == 'success':
+            whatsapp_invoice_send.delay(phone_number, shop_name, media_url, file_name)
             return True
         else:
             return False

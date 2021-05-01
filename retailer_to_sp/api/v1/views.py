@@ -63,7 +63,7 @@ from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
-                                 create_invoice_data, whatsapp_invoice_send, whatsapp_opt_in, whatsapp_order_cancel,
+                                 create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel,
                                  whatsapp_order_refund)
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
 from pos.common_functions import get_shop_id_from_token, get_response, create_user_shop_mapping,\
@@ -4214,7 +4214,7 @@ def pdf_generation_retailer(request, order_id):
             media_url = ordered_product.invoice.invoice_pdf.url
             file_name = ordered_product.invoice.invoice_no
             # whatsapp api call for sending an invoice
-            whatsapp_invoice_send.delay(phone_number, shop_name, media_url, file_name)
+            whatsapp_opt_in.delay(phone_number, shop_name, media_url, file_name)
         except Exception as e:
             logger.exception(e)
 
