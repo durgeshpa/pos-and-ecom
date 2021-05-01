@@ -2210,7 +2210,7 @@ class OrderCentral(APIView):
             self.update_cart_basic(cart)
             order = self.create_basic_order(cart, shop)
             self.auto_process_order(order, payment_method)
-            return get_response('Ordered Successfully!', self.post_serialize_process_basic(order))
+            return get_response('Ordered Successfully!', [], True)
 
     def get_retail_validate(self):
         """

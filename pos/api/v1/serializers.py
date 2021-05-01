@@ -9,7 +9,7 @@ from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from products.models import Product, ProductImage
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, OrderedProductMapping
-from accounts.api.v1.serializers import UserSerializer, UserPhoneSerializer
+from accounts.api.v1.serializers import UserSerializer, UserPhoneSerializer, PosCustomerSerializer
 from pos.common_functions import get_invoice_and_link
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
@@ -291,12 +291,11 @@ class BasicCartSerializer(serializers.ModelSerializer):
     total_amount = serializers.SerializerMethodField('total_amount_dt')
     total_discount = serializers.SerializerMethodField()
     sub_total = serializers.SerializerMethodField('sub_total_dt')
-    buyer = UserSerializer()
 
     class Meta:
         model = Cart
         fields = ('id', 'cart_status', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount', 'offers',
-                  'total_discount', 'sub_total', 'buyer', 'created_at', 'modified_at')
+                  'total_discount', 'sub_total', 'created_at', 'modified_at')
 
     def rt_cart_list_dt(self, obj):
         """
@@ -413,7 +412,6 @@ class CheckoutSerializer(serializers.ModelSerializer):
     total_discount = serializers.SerializerMethodField()
     total_amount = serializers.SerializerMethodField()
     amount_payable = serializers.SerializerMethodField()
-    buyer = UserSerializer()
 
     def get_total_amount(self, obj):
         """
@@ -445,7 +443,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'total_amount', 'total_discount', 'amount_payable', 'buyer')
+        fields = ('id', 'total_amount', 'total_discount', 'amount_payable')
 
 
 class BasicOrderListSerializer(serializers.ModelSerializer):
@@ -453,20 +451,20 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
         Order List For Basic Cart
     """
     ordered_by = UserPhoneSerializer()
+    buyer = PosCustomerSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
     order_no = serializers.CharField()
     total_final_amount = serializers.ReadOnlyField()
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'total_final_amount', 'order_no', 'ordered_by',)
+        fields = ('id', 'order_status', 'total_final_amount', 'order_no', 'ordered_by', 'buyer')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
     """
         List of active/pending carts
     """
-    buyer = UserPhoneSerializer()
     total_amount = serializers.SerializerMethodField('total_amount_dt')
     total_discount = serializers.SerializerMethodField()
     sub_total = serializers.SerializerMethodField('sub_total_dt')
@@ -503,7 +501,7 @@ class BasicCartListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cart
         fields = ('id', 'cart_status', 'total_amount', 'total_discount', 'sub_total', 'created_at',
-                  'modified_at', 'buyer')
+                  'modified_at')
 
 
 class OrderedDashBoardSerializer(serializers.Serializer):
@@ -577,7 +575,8 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     """
         Pos Order detail
     """
-    ordered_by = UserSerializer()
+    ordered_by = PosCustomerSerializer()
+    buyer = PosCustomerSerializer()
     total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
     products = serializers.SerializerMethodField()
     invoice = serializers.SerializerMethodField('invoice_dt')
@@ -654,7 +653,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'order_status', 'total_final_amount', 'total_discount_amount',
+        fields = ('id', 'order_no', 'order_status', 'total_final_amount', 'total_discount_amount', 'buyer',
                   'products', 'invoice', 'ordered_by', 'created_at', 'modified_at', 'rt_return_order')
 
 
@@ -665,7 +664,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
     received_amount = serializers.SerializerMethodField()
     refund_amount = serializers.SerializerMethodField()
     cart_offers = serializers.SerializerMethodField()
-    buyer = UserSerializer()
+    buyer = PosCustomerSerializer()
 
     def get_cart_offers(self, obj):
         """
