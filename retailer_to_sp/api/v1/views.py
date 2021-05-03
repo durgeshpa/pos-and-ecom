@@ -3252,7 +3252,7 @@ class OrderReturns(APIView):
                 # if return quantity of product is greater than zero
                 if return_qty > 0 or price_change:
                     self.return_item(order_return, ordered_product_map, return_qty, changed_sp)
-                    if product_id in product_combo_map:
+                    if product_id in product_combo_map and return_qty > 0:
                         new_prod_qty = ordered_product_map.shipped_qty - return_qty
                         for offer in product_combo_map[product_id]:
                             purchased_product_multiple = int(int(new_prod_qty) / int(offer['item_qty']))
