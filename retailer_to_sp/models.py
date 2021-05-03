@@ -783,8 +783,8 @@ class CartProductMapping(models.Model):
                 if self.cart.offers and self.product_type:
                     array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
                     for i in array:
-                        if self.retailer_product.id == i['item_id']:
-                            item_effective_price = (i.get('discounted_product_subtotal', 0)) / self.no_of_pieces
+                        if int(self.retailer_product.id) == int(i['item_id']):
+                            item_effective_price = (float(i.get('discounted_product_subtotal', 0))) / self.no_of_pieces
                 else:
                     item_effective_price = float(self.selling_price) if self.selling_price else 0
             else:
@@ -2157,7 +2157,8 @@ class OrderedProductMapping(models.Model):
         return round(self.discounted_price, 2)
 
     def save(self, *args, **kwargs):
-        cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last()
+        cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product,
+                                                                                           product_type=self.product_type).last()
         self.effective_price = cart_product_mapping.item_effective_prices
         self.discounted_price = cart_product_mapping.discounted_price
         if self.delivered_qty > 0:
