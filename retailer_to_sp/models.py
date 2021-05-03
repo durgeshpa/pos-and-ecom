@@ -2157,8 +2157,13 @@ class OrderedProductMapping(models.Model):
         return round(self.discounted_price, 2)
 
     def save(self, *args, **kwargs):
-        cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product,
-                                                                                           product_type=self.product_type).last()
+        if self.retailer_product:
+            cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                retailer_product=self.retailer_product,
+                product_type=self.product_type).last()
+        else:
+            cart_product_mapping = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                cart_product=self.product).last()
         self.effective_price = cart_product_mapping.item_effective_prices
         self.discounted_price = cart_product_mapping.discounted_price
         if self.delivered_qty > 0:

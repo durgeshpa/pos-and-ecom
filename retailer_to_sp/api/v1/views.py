@@ -3250,7 +3250,7 @@ class OrderReturns(APIView):
                 changed_sp = return_product['changed_sp']
                 price_change = return_product['price_change']
                 # if return quantity of product is greater than zero
-                if return_qty > 0:
+                if return_qty > 0 or price_change:
                     self.return_item(order_return, ordered_product_map, return_qty, changed_sp)
                     if product_id in product_combo_map:
                         new_prod_qty = ordered_product_map.shipped_qty - return_qty
@@ -3262,10 +3262,10 @@ class OrderReturns(APIView):
                                 self.get_free_item_map(product_id, offer['free_item_id'], return_free_qty))
                             free_returns = self.get_updated_free_returns(free_returns, offer['free_item_id'],
                                                                          return_free_qty)
-                    new_cart_value += (ordered_product_map.shipped_qty - return_qty) * ordered_product_map.selling_price
-                elif price_change:
-                    self.return_item(order_return, ordered_product_map, 0, changed_sp)
-                    new_cart_value += ordered_product_map.shipped_qty * changed_sp
+                    new_cart_value += (ordered_product_map.shipped_qty - return_qty) * changed_sp
+                # elif price_change:
+                #     self.return_item(order_return, ordered_product_map, 0, changed_sp)
+                #     new_cart_value += ordered_product_map.shipped_qty * changed_sp
                 else:
                     ReturnItems.objects.filter(return_id=order_return, ordered_product=ordered_product_map).delete()
                     if product_id in product_combo_map:
@@ -3312,7 +3312,7 @@ class OrderReturns(APIView):
             given_products += [item['product_id']]
         for pid in all_products:
             if pid not in given_products:
-                return {'error': f"Please provide valid product id in return items"}
+                return {'error': 'Please provide details for all purchased products'}
         return_details = []
         for return_product in return_items:
             product_validate = self.validate_product(ordered_product, return_product)
@@ -3448,9 +3448,12 @@ class OrderReturns(APIView):
             return {'error': "New selling price cannot be greater than ordered product's selling price for product"
                              " {}".format(product_id)}
         elif new_sp < order_sp:
-            if qty != 0:
-                return {'error': "Either of return qty or new selling price can be changed. Error in return details "
-                                 "for product {}".format(product_id)}
+            if qty == ordered_product_map.shipped_qty:
+                return {'error': "Returned Quantity Equals Purchase Quantity. No item left to change selling price for"
+                                 " product {}".format(product_id)}
+            # if qty != 0:
+            #     return {'error': "Either of return qty or new selling price can be changed. Error in return details "
+            #                      "for product {}".format(product_id)}
             price_change = 1
         # check return qty
         if qty > ordered_product_map.shipped_qty:
