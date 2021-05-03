@@ -2507,11 +2507,13 @@ def packing_material_inventory_download(request):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
 
-    bin_inventories = BinInventory.objects.filter(sku__repackaging_type='packing_material').order_by('sku_id',
+    bin_inventories = BinInventory.objects.filter(sku__repackaging_type='packing_material').order_by('warehouse_id',
+                                                                                                     'sku_id',
+                                                                                                     'bin_id',
                                                                                                      'batch_id')
 
     headings = [
-        'Parent ID', 'Parent Name', 'SKU ID', 'SKU Name', 'Product Status', 'Batch ID', 'Bin Id', 'MRP',
+        'Warehouse ID', 'Parent ID', 'Parent Name', 'SKU ID', 'SKU Name', 'Product Status', 'Batch ID', 'Bin Id', 'MRP',
         'Normal Weight (Kg)', 'Damaged Weight (Kg)', 'Expired Weight (Kg)', 'Missing Weight (Kg)'
     ]
 
@@ -2520,23 +2522,23 @@ def packing_material_inventory_download(request):
     row = []
     current_sku_batch = ''
     for inv in bin_inventories:
-        if current_sku_batch != str(inv.sku.id) + '_' + str(inv.batch_id):
+        if current_sku_batch != str(inv.warehouse_id) + str(inv.sku.id) + str(inv.bin_id) + str(inv.batch_id):
             if row:
                 writer.writerow(row)
             sku = inv.sku
-            current_sku_batch = str(sku.id) + '_' + str(inv.batch_id)
+            current_sku_batch = str(inv.warehouse_id) + str(inv.sku.id) + str(inv.bin_id) + str(inv.batch_id)
             parent = inv.sku.parent_product
-            row = [parent.parent_id, parent.name, sku.product_sku, sku.product_name, sku.status, inv.batch_id,
+            row = [inv.warehouse_id, parent.parent_id, parent.name, sku.product_sku, sku.product_name, sku.status, inv.batch_id,
                    inv.bin.bin_id, sku.product_mrp, 0, 0, 0, 0]
 
         if inv.inventory_type.inventory_type == 'normal':
-            row[8] = inv.weight / 1000
-        elif inv.inventory_type.inventory_type == 'damaged':
             row[9] = inv.weight / 1000
-        elif inv.inventory_type.inventory_type == 'expired':
+        elif inv.inventory_type.inventory_type == 'damaged':
             row[10] = inv.weight / 1000
-        elif inv.inventory_type.inventory_type == 'missing':
+        elif inv.inventory_type.inventory_type == 'expired':
             row[11] = inv.weight / 1000
+        elif inv.inventory_type.inventory_type == 'missing':
+            row[12] = inv.weight / 1000
 
     writer.writerow(row)
     return response
