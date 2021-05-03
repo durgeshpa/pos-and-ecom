@@ -301,7 +301,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
         """
          Search and pagination on cart
         """
-        qs = CartProductMapping.objects.filter(cart=obj, product_type=1)
+        qs = obj.rt_cart_list.filter(product_type=1)
         search_text = self.context.get('search_text')
         # Search on name, ean and sku
         if search_text:
@@ -309,7 +309,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
                            | Q(retailer_product__name__icontains=search_text)
                            | Q(retailer_product__product_ean_code__icontains=search_text))
 
-        if qs.exists() and self.context.get('request'):
+        if self.context.get('request'):
             qs = SmallOffsetPagination().paginate_queryset(qs, self.context.get('request'))
 
         # Order Cart In Purchased And Free Products
@@ -450,15 +450,14 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     """
         Order List For Basic Cart
     """
-    ordered_by = PosUserSerializer()
     buyer = PosUserSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
     order_no = serializers.CharField()
-    total_final_amount = serializers.ReadOnlyField()
+    order_amount = serializers.ReadOnlyField()
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'total_final_amount', 'order_no', 'ordered_by', 'buyer')
+        fields = ('id', 'order_status', 'order_amount', 'order_no', 'buyer')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -575,7 +574,6 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     """
         Pos Order detail
     """
-    ordered_by = PosUserSerializer()
     buyer = PosUserSerializer()
     total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
     products = serializers.SerializerMethodField()
@@ -653,8 +651,8 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'order_status', 'total_final_amount', 'total_discount_amount', 'buyer',
-                  'products', 'invoice', 'ordered_by', 'created_at', 'modified_at', 'rt_return_order')
+        fields = ('id', 'order_no', 'order_status', 'order_amount', 'total_discount_amount', 'buyer',
+                  'products', 'invoice', 'created_at', 'modified_at', 'rt_return_order')
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
@@ -681,7 +679,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         """
             order amount
         """
-        return obj.total_final_amount
+        return obj.order_amount
 
     def get_refund_amount(self, obj):
         """

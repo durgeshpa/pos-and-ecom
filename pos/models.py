@@ -12,7 +12,7 @@ from retailer_backend.validators import ProductNameValidator, NameValidator
 from accounts.models import User
 
 
-PAYMENT_MODE = (
+PAYMENT_MODE_POS = (
     ('cash', 'Cash Payment'),
     ('online', 'Online Payment'),
     ('credit', 'Credit Payment')
@@ -116,7 +116,7 @@ class UserMappedShop(models.Model):
 class Payment(models.Model):
     order = models.ForeignKey('retailer_to_sp.Order', related_name='rt_payment_retailer_order',
                               on_delete=models.DO_NOTHING)
-    payment_mode = models.CharField(max_length=50, choices=PAYMENT_MODE, default="cash")
+    payment_mode = models.CharField(max_length=50, choices=PAYMENT_MODE_POS, default="cash")
     paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True, on_delete=models.DO_NOTHING)
     processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)

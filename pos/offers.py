@@ -26,7 +26,7 @@ class BasicCartOffers(object):
             # Add/Remove/Update combo offers on all products
             offers_list = BasicCartOffers.refresh_combo(cart, cart_products)
             # Check already applied cart offer
-            offers_list = BasicCartOffers.refresh_basic_cart_offers(Cart.objects.get(pk=cart.id), float(cart_value),
+            offers_list = BasicCartOffers.refresh_basic_cart_offers(cart, float(cart_value),
                                                                     offers_list, auto_apply, coupon_id)
             Cart.objects.filter(pk=cart.id).update(offers=offers_list['offers_list'])
             return offers_list

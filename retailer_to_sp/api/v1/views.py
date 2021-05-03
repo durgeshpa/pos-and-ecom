@@ -71,7 +71,7 @@ from pos.common_functions import get_shop_id_from_token, get_response, create_us
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,\
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer
-from pos.models import RetailerProduct, PAYMENT_MODE, Payment as PosPayment, UserMappedShop
+from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, UserMappedShop
 from pos.data_validation import validate_data_format
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es
@@ -761,8 +761,7 @@ class CartCentral(GenericAPIView):
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
         try:
-            cart = Cart.objects.get(seller_shop_id=shop_id, cart_type='BASIC',
-                                    id=self.request.GET.get('cart_id'), )
+            cart = Cart.objects.get(seller_shop_id=shop_id, id=self.request.GET.get('cart_id'))
         except ObjectDoesNotExist:
             return {'error': "Cart Not Found!"}
         return {'cart': cart}
@@ -868,7 +867,7 @@ class CartCentral(GenericAPIView):
            Cart type basic
            Serialize
         """
-        serializer = BasicCartSerializer(Cart.objects.get(id=cart.id),
+        serializer = BasicCartSerializer(Cart.objects.prefetch_related('rt_cart_list').get(id=cart.id),
                                          context={'search_text': self.request.GET.get('search_text', ''),
                                                   'request': self.request})
         return serializer.data
@@ -1247,7 +1246,7 @@ class CartCentral(GenericAPIView):
             Add To Cart
             Serialize basic cart
         """
-        serializer = BasicCartSerializer(Cart.objects.get(id=cart.id))
+        serializer = BasicCartSerializer(Cart.objects.prefetch_related('rt_cart_list').get(id=cart.id))
         return serializer.data
 
 
@@ -2308,7 +2307,7 @@ class OrderCentral(APIView):
             return {'error': 'No product is available in cart'}
         # Check payment method
         payment_method = self.request.data.get('payment_method')
-        if not payment_method or payment_method not in dict(PAYMENT_MODE):
+        if not payment_method or payment_method not in dict(PAYMENT_MODE_POS):
             return {'error': 'Please provide a valid payment method'}
         # check customer phone_number
         phone_no = self.request.data.get('phone_number')
@@ -2932,8 +2931,6 @@ class OrderListCentral(GenericAPIView):
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
-        if not Shop.objects.filter(id=shop_id).exists():
-            return {'error': "Shop Doesn't Exist!"}
         # get order list
         order = self.get_basic_order(shop_id)
         return {'order': order}
@@ -3102,7 +3099,7 @@ class OrderedItemCentralDashBoard(APIView):
         total_final_amount = 0
         for order in orders:
             # total final amount calculation
-            total_final_amount += order.total_final_amount
+            total_final_amount += order.order_amount
 
         # counts of order for shop_id with total_final_amount, users, & products
         order_count = orders.count()
@@ -3195,7 +3192,7 @@ class OrderedItemCentralDashBoard(APIView):
         total_final_amount = 0
         for order in orders:
             # total final amount calculation
-            total_final_amount += order.total_final_amount
+            total_final_amount += order.order_amount
 
         # counts of order with total_final_amount for buyer_shop
         orders = orders.count()
@@ -3340,7 +3337,7 @@ class OrderReturns(APIView):
         #             order_offer = self.modify_applied_cart_offer(offer, new_cart_value)
         # discount = order_offer['discount_value'] if order_offer else 0
         # refund_amount = round(float(order.total_final_amount) - float(new_cart_value) + discount, 2)
-        refund_amount = round(float(order.total_final_amount) - float(new_cart_value), 2)
+        refund_amount = round(float(order.order_amount) - float(new_cart_value), 2)
         # refund_amount_provided = self.request.data.get('refund_amount')
         # if refund_amount_provided and refund_amount_provided <= refund_amount:
         #     refund_amount = refund_amount_provided
@@ -3691,6 +3688,10 @@ class OrderReturnComplete(APIView):
             order_return = OrderReturn.objects.get(order=order, status='created')
         except ObjectDoesNotExist:
             return {'error': "Order Return Does Not Exist / Already Closed"}
+        # Check refund method
+        refund_method = self.request.data.get('refund_method')
+        if not refund_method or refund_method not in dict(PAYMENT_MODE_POS):
+            return {'error': 'Please provide a valid refund method'}
 
         with transaction.atomic():
             # check partial or fully refunded order
@@ -3714,6 +3715,7 @@ class OrderReturnComplete(APIView):
             order.save()
             # complete return
             order_return.status = 'completed'
+            order_return.refund_mode = refund_method
             order_return.save()
             # whatsapp api call for refund notification
             order_number = order.order_no
@@ -4175,7 +4177,7 @@ def pdf_generation_retailer(request, order_id):
             product_listing.append(ordered_p)
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
-        total_amount = ordered_product.order.total_final_amount
+        total_amount = ordered_product.order.order_amount
         total_amount_int = round(total_amount)
         # Total discount
         discount = total - total_amount

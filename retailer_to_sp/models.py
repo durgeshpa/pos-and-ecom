@@ -39,7 +39,7 @@ from shops.models import Shop, ParentRetailerMapping
 from accounts.models import UserWithName, User
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, PAYMENT_MODE_POS
 
 today = datetime.datetime.today()
 
@@ -2611,6 +2611,7 @@ class OrderReturn(models.Model):
         null=True, blank=True, verbose_name='Reason for Return',
     )
     refund_amount = models.FloatField(default=0)
+    refund_mode = models.CharField(max_length=50, choices=PAYMENT_MODE_POS, default="cash")
     status = models.CharField(max_length=200, choices=RETURN_STATUS, default='created')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
