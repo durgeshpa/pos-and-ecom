@@ -44,19 +44,28 @@ def packing_sku_inventory_alert():
         cron_logger.info('cron packing material inventory alert | started')
         threshold = GlobalConfig.objects.filter(key='packing_sku_inventory_threshold_kg').last()
         threshold_kg_weight = threshold.value if threshold else 50
-        sku_ids = WarehouseInventory.objects.filter(sku__repackaging_type='packing_material',
-                                                    inventory_state__inventory_state='total_available',
-                                                    inventory_type__inventory_type='normal',
-                                                    weight__lt=threshold_kg_weight * 1000).values_list('sku_id')
 
-        bin_inventories = BinInventory.objects.filter(sku_id__in=sku_ids).order_by('sku_id', 'batch_id')
+        w_invs = WarehouseInventory.objects.filter(sku__repackaging_type='packing_material',
+                                                   inventory_state__inventory_state='total_available',
+                                                   inventory_type__inventory_type='normal',
+                                                   weight__lt=threshold_kg_weight * 1000)
+
+        if not w_invs.exists():
+            cron_logger.info('cron packing material inventory alert | none below threshold')
+            return
+
+        sku_ids = w_invs.distinct('sku_id').values_list('sku_id', flat=True)
+        warehouse_ids = w_invs.distinct('warehouse_id').values_list('warehouse_id', flat=True)
+
+        bin_inventories = BinInventory.objects.filter(sku_id__in=sku_ids, warehouse__id__in=warehouse_ids).\
+            order_by('warehouse_id', 'sku_id', 'bin_id', 'batch_id')
 
         if bin_inventories.exists():
             f = StringIO()
             writer = csv.writer(f)
 
             headings = [
-                'Parent ID', 'Parent Name', 'SKU ID', 'SKU Name', 'Product Status', 'Batch ID', 'Bin Id', 'MRP',
+                'Warehouse ID', 'Parent ID', 'Parent Name', 'SKU ID', 'SKU Name', 'Product Status', 'Batch ID', 'Bin Id', 'MRP',
                 'Normal Weight (Kg)', 'Damaged Weight (Kg)', 'Expired Weight (Kg)', 'Missing Weight (Kg)'
             ]
 
@@ -65,23 +74,23 @@ def packing_sku_inventory_alert():
             row = []
             current_sku_batch = ''
             for inv in bin_inventories:
-                if current_sku_batch != str(inv.sku.id) + '_' + str(inv.batch_id):
+                if current_sku_batch != str(inv.warehouse_id) + str(inv.sku.id) + str(inv.bin_id) + str(inv.batch_id):
                     if row:
                         writer.writerow(row)
                     sku = inv.sku
-                    current_sku_batch = str(sku.id) + '_' + str(inv.batch_id)
+                    current_sku_batch = str(inv.warehouse_id) + str(inv.sku.id) + str(inv.bin_id) + str(inv.batch_id)
                     parent = inv.sku.parent_product
-                    row = [parent.parent_id, parent.name, sku.product_sku, sku.product_name, sku.status, inv.batch_id,
+                    row = [inv.warehouse_id, parent.parent_id, parent.name, sku.product_sku, sku.product_name, sku.status, inv.batch_id,
                            inv.bin.bin_id, sku.product_mrp, 0, 0, 0, 0]
 
                 if inv.inventory_type.inventory_type == 'normal':
-                    row[8] = inv.weight / 1000
-                elif inv.inventory_type.inventory_type == 'damaged':
                     row[9] = inv.weight / 1000
-                elif inv.inventory_type.inventory_type == 'expired':
+                elif inv.inventory_type.inventory_type == 'damaged':
                     row[10] = inv.weight / 1000
-                elif inv.inventory_type.inventory_type == 'missing':
+                elif inv.inventory_type.inventory_type == 'expired':
                     row[11] = inv.weight / 1000
+                elif inv.inventory_type.inventory_type == 'missing':
+                    row[12] = inv.weight / 1000
 
             writer.writerow(row)
 
