@@ -1,44 +1,28 @@
-from decimal import Decimal
 import math
+import datetime
+
+from django.urls import reverse
+from django.utils.translation import ugettext_lazy as _
+from django.contrib.auth import get_user_model
+from django.db.models import Sum, Q
 from rest_framework import serializers
 
-from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption, Size, Color,
+                             Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice, PriceSlab)
+from retailer_to_sp.models import (CartProductMapping, Cart, Order, OrderedProduct, Note, CustomerCare, Payment,
+                                   Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping,
+                                   Trip, PickerDashboard, ShipmentRescheduling)
 
-from common.common_utils import convert_date_format_ddmmmyyyy
-
-from products.models import (Product, ProductPrice, ProductImage, Tax, ProductTaxMapping, ProductOption,
-                             Size, Color, Fragrance, Flavor, Weight, PackageSize, ParentProductImage, SlabProductPrice,
-                             PriceSlab)
-from retailer_to_sp.models import (CartProductMapping, Cart, Order,
-                                   OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Trip, PickerDashboard, ShipmentRescheduling)
-
-from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
-    OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
- )
-from addresses.models import Address,City,State,Country
-from payments.models import ShipmentPayment, PaymentMode
-
-from gram_to_brand.models import GRNOrderProductMapping
-
-from sp_to_gram.models import OrderedProductMapping
-from accounts.api.v1.serializers import UserSerializer
-from django.urls import reverse
-from django.db.models import F,Sum
-from gram_to_brand.models import GRNOrderProductMapping
-from addresses.api.v1.serializers import AddressSerializer
-from brand.api.v1.serializers import BrandSerializer
-from django.core.validators import RegexValidator
-from django.utils.translation import ugettext_lazy as _
-from django.core.exceptions import ObjectDoesNotExist
-from shops.models import Shop
-from shops.models import ShopTiming
-
-from django.contrib.auth import get_user_model
-from coupon.serializers import CouponSerializer
-import datetime
+from retailer_to_gram.models import (Cart as GramMappedCart, CartProductMapping as GramMappedCartProductMapping,
+                                     Order as GramMappedOrder, OrderedProduct as GramMappedOrderedProduct,
+                                     Payment as GramMappedPayment)
 from coupon.models import Coupon
-from django.db.models import F,Sum, Q
+from sp_to_gram.models import OrderedProductMapping
+from gram_to_brand.models import GRNOrderProductMapping
+from shops.models import Shop, ShopTiming
+from accounts.api.v1.serializers import UserSerializer
+from addresses.api.v1.serializers import AddressSerializer
+from coupon.serializers import CouponSerializer
 from retailer_backend.utils import SmallOffsetPagination
 
 User = get_user_model()

@@ -8,6 +8,7 @@ from pos.models import RetailerProduct
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 info_logger = logging.getLogger('file-info')
 
+
 def create_es_index(index):
     return "{}-{}".format(es_prefix, index)
 

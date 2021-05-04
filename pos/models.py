@@ -1,16 +1,10 @@
-import uuid
-
 from django.utils.safestring import mark_safe
 from django.db import models
-from django.db.models.signals import pre_save
-from django.dispatch import receiver
-from django.utils.text import slugify
 
 from shops.models import Shop
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator, NameValidator
 from accounts.models import User
-
 
 PAYMENT_MODE_POS = (
     ('cash', 'Cash Payment'),
@@ -32,7 +26,6 @@ class RetailerProduct(models.Model):
     shop = models.ForeignKey(Shop, related_name='retailer_product', on_delete=models.CASCADE)
     sku = models.CharField(max_length=255, blank=False, unique=True)
     name = models.CharField(max_length=255, validators=[ProductNameValidator])
-    product_slug = models.SlugField(max_length=255, blank=True)
     product_ean_code = models.CharField(max_length=255, blank=False)
     mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
@@ -45,7 +38,7 @@ class RetailerProduct(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.sku + " - " + self.name
+        return str(self.sku) + " - " + str(self.name)
 
     @property
     def product_short_description(self):
@@ -68,23 +61,7 @@ class RetailerProduct(models.Model):
         return self.selling_price
 
     def save(self, *args, **kwargs):
-        self.product_slug = slugify(self.name)
         super(RetailerProduct, self).save(*args, **kwargs)
-
-
-def sku_generator(shop_id):
-    return (str(shop_id) + str(uuid.uuid4().hex).upper())[0:17]
-
-
-@receiver(pre_save, sender=RetailerProduct)
-def create_product_sku(sender, instance=None, created=False, **kwargs):
-    if not instance.sku:
-        # Generate a unique SKU by using shop_id & uuid4 once,
-        # then check the db. If exists, keep trying.
-        sku_id = sku_generator(instance.shop.id)
-        while RetailerProduct.objects.filter(sku=sku_id).exists():
-            sku_id = sku_generator(instance.shop.id)
-        instance.sku = sku_id
 
 
 class RetailerProductImage(models.Model):
@@ -117,7 +94,9 @@ class Payment(models.Model):
     order = models.ForeignKey('retailer_to_sp.Order', related_name='rt_payment_retailer_order',
                               on_delete=models.DO_NOTHING)
     payment_mode = models.CharField(max_length=50, choices=PAYMENT_MODE_POS, default="cash")
-    paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True, on_delete=models.DO_NOTHING)
-    processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True, on_delete=models.DO_NOTHING)
+    paid_by = models.ForeignKey(User, related_name='rt_payment_retailer_buyer', null=True, blank=True,
+                                on_delete=models.DO_NOTHING)
+    processed_by = models.ForeignKey(User, related_name='rt_payment_retailer', null=True, blank=True,
+                                     on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
