@@ -733,9 +733,21 @@ class CouponOfferCreation(GenericAPIView):
                    "response_data": serializer.data}
             status_code = {"status_code": 404}
             return msg, status_code
+        try:
+            coupon_ruleset = CouponRuleSet.objects.get(id=coupon.rule.id)
+        except:
+            msg = {"is_success": False, "error": "coupon rulest not Found",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
+        try:
+            discount = DiscountValue.objects.get(id=coupon_ruleset.discount.id)
+        except:
+            msg = {"is_success": False, "error": "discount value not Found",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
 
-        coupon_ruleset = CouponRuleSet.objects.get(id=coupon.rule.id)
-        discount = DiscountValue.objects.get(id=coupon_ruleset.discount.id)
         expected_input_data_list = ['id', 'coupon_name', 'discount_qty_amount', 'discount_value', 'start_date',
                                     'expiry_date', 'is_active', 'is_percentage', 'max_discount']
         actual_input_data_list = []
