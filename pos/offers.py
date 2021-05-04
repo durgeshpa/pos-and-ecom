@@ -150,6 +150,7 @@ class BasicCartOffers(object):
             'available_type': "combo",
             'coupon_id': coupon['id'],
             'coupon_code': coupon['coupon_code'],
+            'coupon_name': coupon['coupon_name'] if 'coupon_name' in coupon else '',
             'item_id': coupon['purchased_product'],
             'product_subtotal': product_total,
             'discounted_product_subtotal': product_total
@@ -329,6 +330,7 @@ class BasicCartOffers(object):
             'sub_type': 'set_discount',
             'coupon_id': coupon['id'],
             'coupon_code': coupon['coupon_code'],
+            'coupon_name': coupon['coupon_name'] if 'coupon_name' in coupon else '',
             'cart_minimum_value': coupon['cart_minimum_value'],
             'is_percentage': coupon['is_percentage'],
             'discount': coupon['discount'],
@@ -516,6 +518,7 @@ class BasicCartOffers(object):
             'sub_type': '',
             'coupon_id': coupon['id'],
             'coupon_code': coupon['coupon_code'],
+            'coupon_name': coupon['coupon_name'] if 'coupon_name' in coupon else '',
             'cart_minimum_value': coupon['cart_minimum_value'],
             'free_item_id': coupon['free_product'],
             'free_item_qty': coupon['free_product_qty'],
