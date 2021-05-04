@@ -2851,6 +2851,37 @@ class OrderListCentral(GenericAPIView):
         else:
             return get_response('Provide a valid cart_type')
 
+    def get_retail_order_list(self):
+        """
+            Get Order
+            For retail cart
+        """
+        # basic validations for inputs
+        initial_validation = self.get_retail_validate()
+        if 'error' in initial_validation:
+            return get_response(initial_validation['error'])
+        parent_mapping = initial_validation['parent_mapping']
+        shop_type = initial_validation['shop_type']
+        search_text = self.request.GET.get('search_text')
+        order_status = self.request.GET.get('order_status')
+        if shop_type == 'sp':
+            qs = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
+            if order_status:
+                qs = qs.filter(order_status=order_status)
+            if search_text:
+                qs = qs.filter(Q(order_no__icontains=search_text) | Q(ordered_cart__id__icontains=search_text) |
+                               Q(buyer__phone_number__icontains=search_text))
+            return get_response('Order', self.get_serialize_process_sp(qs, parent_mapping))
+        elif shop_type == 'gf':
+            qs = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
+            if order_status:
+                qs = qs.filter(order_status=order_status)
+            if search_text:
+                qs = qs.filter(Q(order_no__icontains=search_text) | Q(ordered_cart__id__icontains=search_text))
+            return get_response('Order', self.get_serialize_process_gf(qs, parent_mapping))
+        else:
+            return get_response('Sorry shop is not associated with any GramFactory or any SP')
+
     def get_retail_validate(self):
         """
             Get Order
@@ -2865,52 +2896,7 @@ class OrderListCentral(GenericAPIView):
         if parent_mapping is None:
             return {'error': "Shop Mapping Doesn't Exist!"}
         shop_type = parent_mapping.parent.shop_type.shop_type
-        # Check if order exists
-        order = self.get_retail_order(shop_type, parent_mapping)
-        return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
-
-    def get_retail_order(self, shop_type, parent_mapping):
-        """
-           Get Retail Orders
-        """
-        search_text = self.request.GET.get('search_text')
-        order_status = self.request.GET.get('order_status')
-        if shop_type == 'sp':
-            orders = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
-            if order_status:
-                orders = orders.filter(order_status=order_status)
-            if search_text:
-                order = order_search(orders, search_text)
-            else:
-                order = orders
-        elif shop_type == 'gf':
-            orders = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
-            if order_status:
-                orders = orders.filter(order_status=order_status)
-            if search_text:
-                order = order_search(orders, search_text)
-            else:
-                order = orders
-        return order
-
-    def get_retail_order_list(self):
-        """
-            Get Order
-            For retail cart
-        """
-        # basic validations for inputs
-        initial_validation = self.get_retail_validate()
-        if 'error' in initial_validation:
-            return get_response(initial_validation['error'])
-        parent_mapping = initial_validation['parent_mapping']
-        shop_type = initial_validation['shop_type']
-        order = initial_validation['order']
-        if shop_type == 'sp':
-            return get_response('Order', self.get_serialize_process_sp(order, parent_mapping))
-        elif shop_type == 'gf':
-            return get_response('Order', self.get_serialize_process_gf(order, parent_mapping))
-        else:
-            return get_response('Sorry shop is not associated with any GramFactory or any SP')
+        return {'parent_mapping': parent_mapping, 'shop_type': shop_type}
 
     def get_basic_order_list(self):
         """
@@ -2918,13 +2904,22 @@ class OrderListCentral(GenericAPIView):
             For Basic Cart
         """
         # basic validation for inputs
-        initial_validation = self.get_basic_list_validate()
+        initial_validation = self.get_basic_validate()
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
-        order = initial_validation['order']
-        return get_response('Order', self.get_serialize_process_basic(order))
+        shop_id = initial_validation['shop_id']
+        # Search, Paginate, Return Orders
+        search_text = self.request.GET.get('search_text')
+        order_status = self.request.GET.get('order_status')
+        qs = Order.objects.filter(seller_shop_id=shop_id)
+        if order_status:
+            order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
+            qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
+        if search_text:
+            qs = order_search(qs, search_text)
+        return get_response('Order', self.get_serialize_process_basic(qs))
 
-    def get_basic_list_validate(self):
+    def get_basic_validate(self):
         """
            Get Order
            Input validation for cart type 'basic'
@@ -2933,25 +2928,7 @@ class OrderListCentral(GenericAPIView):
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
-        # get order list
-        order = self.get_basic_order(shop_id)
-        return {'order': order}
-
-    def get_basic_order(self, shop_id):
-        """
-          Get Basic Orders
-        """
-        search_text = self.request.GET.get('search_text')
-        order_status = self.request.GET.get('order_status')
-        orders = Order.objects.filter(seller_shop_id=shop_id)
-        if order_status:
-            order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
-            orders = orders.filter(order_status=order_status_actual) if order_status_actual else orders
-        if search_text:
-            order = order_search(orders, search_text)
-        else:
-            order = orders
-        return order
+        return {'shop_id': shop_id}
 
     def get_serialize_process_sp(self, order, parent_mapping):
         """
@@ -2959,14 +2936,10 @@ class OrderListCentral(GenericAPIView):
            Cart type retail - sp
         """
         objects = self.pagination_class().paginate_queryset(order, self.request)
-        serializer = OrderListSerializer(objects, many=True,
-                                         context={'parent_mapping_id': parent_mapping.parent.id,
-                                                  'current_url': self.request.get_host(),
-                                                  'buyer_shop_id': parent_mapping.retailer.id})
-        """
-            Pagination on Order List
-        """
-        return serializer.data
+        return OrderListSerializer(objects, many=True,
+                                   context={'parent_mapping_id': parent_mapping.parent.id,
+                                            'current_url': self.request.get_host(),
+                                            'buyer_shop_id': parent_mapping.retailer.id}).data
 
     def get_serialize_process_gf(self, order, parent_mapping):
         """
@@ -2974,14 +2947,10 @@ class OrderListCentral(GenericAPIView):
            Cart type retail - gf
         """
         objects = self.pagination_class().paginate_queryset(order, self.request)
-        serializer = GramMappedOrderSerializer(objects, many=True,
-                                               context={'parent_mapping_id': parent_mapping.parent.id,
-                                                        'current_url': self.request.get_host(),
-                                                        'buyer_shop_id': parent_mapping.retailer.id})
-        """
-            Pagination on Order List
-        """
-        return serializer.data
+        return GramMappedOrderSerializer(objects, many=True,
+                                         context={'parent_mapping_id': parent_mapping.parent.id,
+                                                  'current_url': self.request.get_host(),
+                                                  'buyer_shop_id': parent_mapping.retailer.id}).data
 
     def get_serialize_process_basic(self, order):
         """
@@ -2989,11 +2958,7 @@ class OrderListCentral(GenericAPIView):
            Cart type basic
         """
         objects = self.pagination_class().paginate_queryset(order, self.request)
-        serializer = BasicOrderListSerializer(objects, many=True)
-        """
-            Pagination on Order List
-        """
-        return serializer.data
+        return BasicOrderListSerializer(objects, many=True).data
 
 
 class OrderedItemCentralDashBoard(APIView):
@@ -3731,43 +3696,43 @@ class OrderReturnComplete(APIView):
         return get_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data)
 
 
-class OrderList(generics.ListAPIView):
-    serializer_class = OrderListSerializer
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def list(self, request):
-        user = self.request.user
-        # queryset = self.get_queryset()
-        shop_id = self.request.GET.get('shop_id')
-        msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
-
-        if checkNotShopAndMapping(shop_id):
-            return Response(msg, status=status.HTTP_200_OK)
-
-        parent_mapping = getShopMapping(shop_id)
-        if parent_mapping is None:
-            return Response(msg, status=status.HTTP_200_OK)
-
-        current_url = request.get_host()
-        if parent_mapping.parent.shop_type.shop_type == 'sp':
-            queryset = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')[:10]
-            serializer = OrderListSerializer(
-                queryset, many=True,
-                context={'parent_mapping_id': parent_mapping.parent.id,
-                         'current_url': current_url,
-                         'buyer_shop_id': shop_id})
-        elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            queryset = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
-            serializer = GramMappedOrderSerializer(
-                queryset, many=True,
-                context={'parent_mapping_id': parent_mapping.parent.id,
-                         'current_url': current_url,
-                         'buyer_shop_id': shop_id})
-
-        if serializer.data:
-            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
-        return Response(msg, status=status.HTTP_200_OK)
+# class OrderList(generics.ListAPIView):
+#     serializer_class = OrderListSerializer
+#     authentication_classes = (authentication.TokenAuthentication,)
+#     permission_classes = (permissions.IsAuthenticated,)
+#
+#     def list(self, request):
+#         user = self.request.user
+#         # queryset = self.get_queryset()
+#         shop_id = self.request.GET.get('shop_id')
+#         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
+#
+#         if checkNotShopAndMapping(shop_id):
+#             return Response(msg, status=status.HTTP_200_OK)
+#
+#         parent_mapping = getShopMapping(shop_id)
+#         if parent_mapping is None:
+#             return Response(msg, status=status.HTTP_200_OK)
+#
+#         current_url = request.get_host()
+#         if parent_mapping.parent.shop_type.shop_type == 'sp':
+#             queryset = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')[:10]
+#             serializer = OrderListSerializer(
+#                 queryset, many=True,
+#                 context={'parent_mapping_id': parent_mapping.parent.id,
+#                          'current_url': current_url,
+#                          'buyer_shop_id': shop_id})
+#         elif parent_mapping.parent.shop_type.shop_type == 'gf':
+#             queryset = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
+#             serializer = GramMappedOrderSerializer(
+#                 queryset, many=True,
+#                 context={'parent_mapping_id': parent_mapping.parent.id,
+#                          'current_url': current_url,
+#                          'buyer_shop_id': shop_id})
+#
+#         if serializer.data:
+#             msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+#         return Response(msg, status=status.HTTP_200_OK)
 
 
 class OrderDetail(generics.RetrieveAPIView):
@@ -4784,37 +4749,37 @@ class FeedbackData(generics.ListCreateAPIView):
         return Response(msg, status=status.HTTP_200_OK)
 
 
-class CancelOrder(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def put(self, request, format=None):
-        """
-        Return error message
-        """
-        msg = {'is_success': False,
-               'message': ['Sorry! Order cannot be cancelled from the APP'],
-               'response_data': None}
-        return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        # try:
-        #     order = Order.objects.get(buyer_shop__shop_owner=request.user,
-        #                               pk=request.data['order_id'])
-        # except ObjectDoesNotExist:
-        #     msg = {'is_success': False,
-        #            'message': ['Order is not associated with the current user'],
-        #            'response_data': None}
-        #     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        #
-        # serializer = CancelOrderSerializer(order, data=request.data,
-        #                                    context={'order': order})
-        # if serializer.is_valid():
-        #     serializer.save()
-        #     msg = {'is_success': True,
-        #            'message': ["Order Cancelled Successfully!"],
-        #            'response_data': serializer.data}
-        #     return Response(msg, status=status.HTTP_200_OK)
-        # else:
-        #     return format_serializer_errors(serializer.errors)
+# class CancelOrder(APIView):
+#     authentication_classes = (authentication.TokenAuthentication,)
+#     permission_classes = (permissions.IsAuthenticated,)
+#
+#     def put(self, request, format=None):
+#         """
+#         Return error message
+#         """
+#         msg = {'is_success': False,
+#                'message': ['Sorry! Order cannot be cancelled from the APP'],
+#                'response_data': None}
+#         return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+#         # try:
+#         #     order = Order.objects.get(buyer_shop__shop_owner=request.user,
+#         #                               pk=request.data['order_id'])
+#         # except ObjectDoesNotExist:
+#         #     msg = {'is_success': False,
+#         #            'message': ['Order is not associated with the current user'],
+#         #            'response_data': None}
+#         #     return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+#         #
+#         # serializer = CancelOrderSerializer(order, data=request.data,
+#         #                                    context={'order': order})
+#         # if serializer.is_valid():
+#         #     serializer.save()
+#         #     msg = {'is_success': True,
+#         #            'message': ["Order Cancelled Successfully!"],
+#         #            'response_data': serializer.data}
+#         #     return Response(msg, status=status.HTTP_200_OK)
+#         # else:
+#         #     return format_serializer_errors(serializer.errors)
 
 
 class RetailerShopsList(APIView):
