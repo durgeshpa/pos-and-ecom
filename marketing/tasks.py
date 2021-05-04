@@ -1,6 +1,4 @@
-import urllib.parse
 import requests
-import re
 from celery.task import task
 
 

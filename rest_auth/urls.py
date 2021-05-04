@@ -5,8 +5,6 @@ from rest_auth.views import (
     PasswordResetView, PasswordResetConfirmView, PasswordResetValidateView
 )
 
-from otp.views import RevokeOTP
-
 urlpatterns = [
     # URLs that do not require a session or valid token
     url(r'^password/reset/$', PasswordResetView.as_view(),

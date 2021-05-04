@@ -1,11 +1,10 @@
 from django.contrib.auth import get_user_model, authenticate
 from django.conf import settings
-from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
+from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_decode as uid_decoder
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
-from django.db.models import Q
 from django.core.validators import RegexValidator
 from rest_framework import serializers, exceptions
 from rest_framework.exceptions import ValidationError
@@ -28,17 +27,16 @@ from .utils import import_callable
 from otp.models import PhoneOTP
 from otp.views import ValidateOTP
 from marketing.models import ReferralCode, RewardPoint, Referral, Profile
-from global_config.models import GlobalConfig
-from marketing.views import generate_user_referral_code
 from retailer_to_sp.models import Shop
 
 # Get the UserModel
 UserModel = get_user_model()
 
+
 class LoginSerializer(serializers.Serializer):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     username = serializers.CharField(
-        validators = [phone_regex],
+        validators=[phone_regex],
         max_length=get_username_max_length(),
         min_length=allauth_settings.USERNAME_MIN_LENGTH,
         required=True
@@ -47,7 +45,6 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(style={'input_type': 'password'})
 
     def _validate_email(self, email, password):
-        user = None
 
         if email and password:
             user = authenticate(email=email, password=password)
@@ -58,7 +55,6 @@ class LoginSerializer(serializers.Serializer):
         return user
 
     def _validate_username(self, username, password):
-        user = None
 
         if username and password:
             user = authenticate(username=username, password=password)
@@ -67,9 +63,7 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError(msg)
         return user
 
-
     def _validate_username_email(self, username, email, password):
-        user = None
 
         if email and password:
             user = authenticate(email=email, password=password)
@@ -156,8 +150,9 @@ class OtpLoginSerializer(serializers.Serializer):
         user = UserModel.objects.filter(phone_number=number).last()
         if not user:
             raise serializers.ValidationError("User does not exist. Please sign up!")
-        if attrs.get('app_type') == 2 and not (Shop.objects.filter(shop_owner=user, shop_type__shop_type='f').exists()
-                                                or Shop.objects.filter(related_users=user, shop_type__shop_type='f').exists()):
+        if attrs.get('app_type') == 2 and not (
+                Shop.objects.filter(shop_owner=user, shop_type__shop_type='f').exists() or Shop.objects.filter(
+            related_users=user, shop_type__shop_type='f').exists()):
             raise serializers.ValidationError("Shop Doesn't Exist!")
 
         phone_otps = PhoneOTP.objects.filter(phone_number=number)
@@ -184,8 +179,6 @@ class MlmResponseSerializer(serializers.Serializer):
     referral_code = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
     email_id = serializers.SerializerMethodField()
-    reward = serializers.SerializerMethodField()
-    discount = serializers.SerializerMethodField()
 
     def get_access_token(self, obj):
         return obj['token']
@@ -194,7 +187,7 @@ class MlmResponseSerializer(serializers.Serializer):
         return obj['user'].phone_number
 
     def get_referral_code(self, obj):
-        user_referral_code = generate_user_referral_code(obj['user'])
+        user_referral_code = ReferralCode.generate_user_referral_code(obj['user'])
         Profile.objects.get_or_create(user=obj['user'])
         if obj['action'] == 0:
             # welcome reward for new user
@@ -213,19 +206,13 @@ class MlmResponseSerializer(serializers.Serializer):
     def get_email_id(self, obj):
         return obj['user'].email if obj['user'].email else ''
 
-    def get_reward(self, obj):
-        return GlobalConfig.objects.filter(key='welcome_reward_points_referral').last().value
-
-    def get_discount(self, obj):
-        reward =  GlobalConfig.objects.filter(key='welcome_reward_points_referral').last().value
-        return int(reward / GlobalConfig.objects.filter(key='used_reward_factor').last().value)
-
 
 class LoginResponseSerializer(serializers.Serializer):
     access_token = serializers.SerializerMethodField()
 
     def get_access_token(self, obj):
         return obj['token']
+
 
 class PosLoginResponseSerializer(serializers.Serializer):
     access_token = serializers.SerializerMethodField()

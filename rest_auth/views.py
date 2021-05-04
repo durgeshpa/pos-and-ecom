@@ -1,20 +1,17 @@
 import datetime
 
-from django.contrib.auth import (
-    login as django_login,
-    logout as django_logout
-)
+from django.contrib.auth import (login as django_login, logout as django_logout)
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.decorators import method_decorator
 from django.views.decorators.debug import sensitive_post_parameters
 from django.utils import timezone
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_text
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
 from django.db.models import Q
 
-from rest_framework import status, authentication, permissions, serializers, exceptions
+from rest_framework import status, authentication
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView, RetrieveUpdateAPIView
@@ -22,22 +19,18 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authentication import TokenAuthentication
 
 from otp.sms import SendSms
-from .app_settings import (
-    TokenSerializer, UserDetailsSerializer, LoginSerializer,
-    PasswordResetSerializer, PasswordResetConfirmSerializer,
-    PasswordChangeSerializer, JWTSerializer, create_token
-)
-from .serializers import PasswordResetValidateSerializer, OtpLoginSerializer, MlmResponseSerializer, \
-    LoginResponseSerializer, PosLoginResponseSerializer
-from .models import TokenModel
-from .utils import jwt_encode
 from otp.models import PhoneOTP
 from accounts.tokens import account_activation_token
 from shops.models import Shop
-from pos.data_validation import validate_data_format
+
+from .app_settings import (UserDetailsSerializer, LoginSerializer, PasswordResetSerializer,
+                           PasswordResetConfirmSerializer, PasswordChangeSerializer, create_token)
+from .serializers import (PasswordResetValidateSerializer, OtpLoginSerializer, MlmResponseSerializer,
+                          LoginResponseSerializer, PosLoginResponseSerializer)
+from .models import TokenModel
+from .utils import jwt_encode
 
 UserModel = get_user_model()
-
 
 sensitive_post_parameters_m = method_decorator(
     sensitive_post_parameters(
@@ -46,14 +39,14 @@ sensitive_post_parameters_m = method_decorator(
 )
 
 APPLICATION_LOGIN_SERIALIZERS_MAP = {
-    '0' : LoginSerializer,
-    '1' : OtpLoginSerializer,
-    '2' : OtpLoginSerializer
+    '0': LoginSerializer,
+    '1': OtpLoginSerializer,
+    '2': OtpLoginSerializer
 }
 APPLICATION_LOGIN_RESPONSE_SERIALIZERS_MAP = {
-    '0' : LoginResponseSerializer,
-    '1' : MlmResponseSerializer,
-    '2' : PosLoginResponseSerializer
+    '0': LoginResponseSerializer,
+    '1': MlmResponseSerializer,
+    '2': PosLoginResponseSerializer
 }
 
 
@@ -75,15 +68,6 @@ class LoginView(GenericAPIView):
     def dispatch(self, *args, **kwargs):
         return super(LoginView, self).dispatch(*args, **kwargs)
 
-    def process_login(self):
-        django_login(self.request, self.user)
-
-    def get_auth_serializer(self):
-        """
-        Auth Type
-        """
-        return JWTSerializer if getattr(settings, 'REST_USE_JWT', False) else TokenSerializer
-
     def get_serializer_class(self):
         """
         Return Serializer Class Based On App Type Requested
@@ -100,67 +84,53 @@ class LoginView(GenericAPIView):
         app = app if app in APPLICATION_LOGIN_RESPONSE_SERIALIZERS_MAP else '0'
         return APPLICATION_LOGIN_RESPONSE_SERIALIZERS_MAP[app]
 
-    def login(self):
+    def post(self, request, *args, **kwargs):
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=self.request.data, context={'request': request})
+        if serializer.is_valid():
+            user, token = self.login(serializer)
+            return self.get_response(user, token)
+        else:
+            msg = {'is_success': False, 'message': self.serializer_errors(serializer.errors), 'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+    def login(self, serializer):
         """
         General Login Process
         """
-        self.user = self.serializer.validated_data['user']
-        if getattr(settings, 'REST_USE_JWT', False):
-            self.token = jwt_encode(self.user)
-        else:
-            self.token = create_token(self.token_model, self.user,
-                                      self.serializer)
+        user = serializer.validated_data['user']
+        token = jwt_encode(user) if getattr(settings, 'REST_USE_JWT', False) else create_token(self.token_model, user,
+                                                                                               serializer)
         if getattr(settings, 'REST_SESSION_LOGIN', True):
-            self.process_login()
+            django_login(self.request, user)
+        return user, token
 
-    def get_response(self):
+    def get_response(self, user, token):
         """
         Get Response Based on Authentication and App Type Requested
         """
-        serializer_class = self.get_auth_serializer()
-        if getattr(settings, 'REST_USE_JWT', False):
-            serializer = serializer_class(instance={'user': self.user, 'token': self.token},
-                                          context={'request': self.request})
-        else:
-            serializer = serializer_class(instance=self.token, context={'request': self.request})
+        token = token if getattr(settings, 'REST_USE_JWT', False) else user.auth_token.key
+        app_type = self.request.data.get('app_type', 0)
+        shop_object = Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user),
+                                          shop_type__shop_type='f').last() if app_type == '2' else None
 
         response_serializer_class = self.get_response_serializer()
-        app_type = self.request.data.get('app_type', 0)
-        shop_object = None
-        if app_type == '2':
-            shop_object = Shop.objects.filter(Q(shop_owner=self.user) | Q(related_users=self.user),
-                                              shop_type__shop_type='f').last()
-        response_serializer = response_serializer_class(instance={'user': self.user, 'token': serializer.data['key'],
+        response_serializer = response_serializer_class(instance={'user': user, 'token': token,
                                                                   'shop_object': shop_object, 'action': 1})
         return Response({'is_success': True, 'message': ['Successfully logged in'],
                          'response_data': [response_serializer.data]}, status=status.HTTP_200_OK)
 
-
-    def post(self, request, *args, **kwargs):
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        self.request = request
-        serializer_class = self.get_serializer_class()
-        self.serializer = serializer_class(data=self.request.data, context={'request': request})
-
-        if self.serializer.is_valid():
-            self.login()
-            return self.get_response()
-        else:
-            errors = []
-            for field in self.serializer.errors:
-                for error in self.serializer.errors[field]:
-                    if 'non_field_errors' in field:
-                        result = error
-                    else:
-                        result = ''.join('{} : {}'.format(field,error))
-                    errors.append(result)
-            msg = {'is_success': False,
-                    'message': errors,
-                    'response_data': None }
-            return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
+    @staticmethod
+    def serializer_errors(serializer_errors):
+        errors = []
+        for field in serializer_errors:
+            for error in serializer_errors[field]:
+                if 'non_field_errors' in field:
+                    result = error
+                else:
+                    result = ''.join('{} : {}'.format(field, error))
+                errors.append(result)
+        return errors
 
 
 class LogoutView(APIView):
@@ -183,7 +153,8 @@ class LogoutView(APIView):
     def post(self, request, *args, **kwargs):
         return self.logout(request)
 
-    def logout(self, request):
+    @staticmethod
+    def logout(request):
         try:
             request.user.auth_token.delete()
         except (AttributeError, ObjectDoesNotExist):
@@ -191,9 +162,7 @@ class LogoutView(APIView):
 
         django_logout(request)
 
-        return Response({'is_success': True,
-                        'message':['Successfully logged out'],
-                        'response_data': None},
+        return Response({'is_success': True, 'message': ['Successfully logged out'], 'response_data': None},
                         status=status.HTTP_200_OK)
 
 
