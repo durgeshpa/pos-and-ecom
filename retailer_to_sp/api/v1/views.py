@@ -2050,16 +2050,19 @@ class OrderCentral(APIView):
         """
             Cancel retailer order
         """
+        return get_response("Sorry! Order cannot be cancelled from the APP")
         try:
             order = Order.objects.get(buyer_shop__shop_owner=self.request.user, pk=pk)
         except ObjectDoesNotExist:
             return get_response('Order is not associated with the current user')
-        serializer = CancelOrderSerializer(order, data={'order_id':pk}, context={'order': order})
-        if serializer.is_valid():
-            serializer.save()
-            return get_response("Order Cancelled Successfully!", serializer.data)
-        else:
-            return format_serializer_errors(serializer.errors)
+        if order.order_status == 'CANCELLED':
+            return get_response("This order is already cancelled!")
+        if order.order_status == Order.COMPLETED:
+            return get_response('Sorry! This order cannot be cancelled')
+        order.order_status = Order.CANCELLED
+        order.last_modified_by = self.request.user
+        order.save()
+        return get_response("Order Cancelled Successfully!", [], True)
 
     def post(self, request):
         """
