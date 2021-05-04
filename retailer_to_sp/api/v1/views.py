@@ -1267,7 +1267,7 @@ class UserView(APIView):
         if not type(shop_id) == int:
             return get_response("Shop Doesn't Exist!")
         # check phone_number
-        phone_no = self.request.data.get('phone_number')
+        phone_no = self.request.GET.get('phone_number')
         if not phone_no:
             return get_response("Please enter phone number")
         if not re.match(r'^[6-9]\d{9}$', phone_no):

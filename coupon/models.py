@@ -185,6 +185,11 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
                 response = get_catalogue_coupon_params(instance)
             else:
                 response = get_cart_coupon_params(instance)
+            if 'error' in response:
+                error_logger.error(
+                    "Could not add coupon to elastic shop {}, coupon {}".format(instance.shop.id, instance.id))
+                error_logger.error(response['error'])
+                return
             params.update(response)
             es.index(index=create_es_index('rc-{}'.format(instance.shop.id)), id=params['id'], body=params)
         except Exception as e:
@@ -199,10 +204,11 @@ def get_common_coupon_params(coupon):
     params = {
         'id': coupon.id,
         'coupon_code': coupon.coupon_code,
+        'coupon_name': coupon.coupon_name,
         'active': coupon.is_active,
         'description': coupon.rule.rule_description,
-        'start_date':coupon.start_date,
-        'end_date':coupon.expiry_date
+        'start_date': coupon.start_date,
+        'end_date': coupon.expiry_date
     }
     return params
 
@@ -211,46 +217,37 @@ def get_catalogue_coupon_params(coupon):
     """
         Get coupon fields for adding in es for catalog coupons - combo/discount
     """
-    # Either Discount on product OR Combo Offer
-    params = dict()
     product_ruleset = RuleSetProductMapping.objects.get(rule_id=coupon.rule.id)
-    params['purchased_product'] = product_ruleset.retailer_primary_product.id
-    # Discount on product
-    if coupon.rule.discount:
-        params['minimum_cart_product_qty'] = coupon.rule.discount_qty_step
-        params['discount'] = coupon.rule.discount.discount_value
-        params['is_percentage'] = coupon.rule.discount.is_percentage
-        params['max_discount'] = coupon.rule.discount.max_discount
-        params['coupon_type'] = 'catalog_discount'
-    # Combo Offer on Product
-    elif product_ruleset.retailer_free_product:
+    if product_ruleset.retailer_free_product:
+        # Combo Offer
+        params = dict()
+        params['coupon_type'] = 'catalogue_combo'
+        params['purchased_product'] = product_ruleset.retailer_primary_product.id
         params['free_product'] = product_ruleset.retailer_free_product.id
         params['free_product_name'] = product_ruleset.retailer_free_product.name
-        params['coupon_type'] = 'catalogue_combo'
-        params['combo_offer_name'] = product_ruleset.combo_offer_name
         params['purchased_product_qty'] = product_ruleset.purchased_product_qty
         params['free_product_qty'] = product_ruleset.free_product_qty
+        return params
     else:
         return {'error': "Catalogue coupon invalid"}
-    return params
 
 
 def get_cart_coupon_params(coupon):
     """
         Get coupon fields for adding in es for cart coupons - discount
     """
+    params = dict()
     if coupon.rule.discount:
-        params = dict()
+        params['coupon_type'] = 'cart'
         params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
         params['discount'] = coupon.rule.discount.discount_value
         params['is_percentage'] = coupon.rule.discount.is_percentage
         params['max_discount'] = coupon.rule.discount.max_discount
-        params['coupon_type'] = 'cart'
-
     elif coupon.rule.free_product:
-        params = dict()
+        params['coupon_type'] = 'cart_free_product'
         params['cart_minimum_value'] = coupon.rule.cart_qualifying_min_sku_value
         params['free_product'] = coupon.rule.free_product.id
         params['free_product_qty'] = coupon.rule.free_product_qty
-        params['coupon_type'] = 'cart_free_product'
+    else:
+        return {'error': "Cart coupon invalid"}
     return params
