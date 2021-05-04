@@ -566,10 +566,15 @@ class CouponOfferCreation(GenericAPIView):
             discount_obj = DiscountValue.objects.create(discount_value=discount_value,
                                                         max_discount=request.data.get('max_discount'),
                                                         is_percentage=True)
+            # creating CouponRuleSet
+            rule_set_name_with_shop_id = f"{shop_id}_on Spending {discount_amount} get {discount_value} % Off"
+            coupon_code = f"Get {discount_value} % OFF on Spending {discount_amount} Rs"
         else:
             discount_obj = DiscountValue.objects.create(discount_value=discount_value)
-        # creating CouponRuleSet
-        rule_set_name_with_shop_id = f"{shop_id}_on Spending {discount_amount} get {discount_value} Off"
+            # creating CouponRuleSet
+            rule_set_name_with_shop_id = f"{shop_id}_on Spending {discount_amount} get {discount_value} Off"
+            coupon_code = f"Get {discount_value} OFF on Spending {discount_amount} Rs"
+
         coupon_obj = OffersCls.rule_set_creation(rule_set_name_with_shop_id, start_date, expiry_date, discount_amount,
                                                  discount_obj)
         if type(coupon_obj) == str:
@@ -578,7 +583,6 @@ class CouponOfferCreation(GenericAPIView):
             status_code = {"status_code": 404}
             return msg, status_code
 
-        coupon_code = f"Get {discount_value} OFF on Spending {discount_amount} Rs"
         # creating Coupon with coupon_type(cart)
         OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_code,
                                         shop, start_date, expiry_date)
@@ -770,9 +774,22 @@ class CouponOfferCreation(GenericAPIView):
             discount_value = request.data.get('discount_value')
             discount.discount_value = discount_value
 
+        if 'is_percentage' in actual_input_data_list:
+            # If discount_qty_amount in actual_input_data_list
+            discount.is_percentage = request.data.get('is_percentage')
+        if 'max_discount' in actual_input_data_list:
+            # If discount_qty_amount in actual_input_data_list
+            discount.max_discount = request.data.get('max_discount')
+
         if 'discount_qty_amount' or 'discount_value' in actual_input_data_list:
             # If discount_qty_amount or discount_value in actual_input_data_list
-            rulename = f"{shop_id}_on Spending {coupon_ruleset.cart_qualifying_min_sku_value} get {discount.discount_value} Off"
+            if discount.is_percentage:
+                rulename = f"{shop_id}_on Spending {coupon_ruleset.cart_qualifying_min_sku_value} get {discount.discount_value} % Off"
+                coupon.coupon_code = f"Get {discount.discount_value} % OFF on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
+            else:
+                rulename = f"{shop_id}_on Spending {coupon_ruleset.cart_qualifying_min_sku_value} get {discount.discount_value} Off"
+                coupon.coupon_code = f"Get {discount.discount_value} OFF on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
+
             coupon_ruleset_name = CouponRuleSet.objects.filter(rulename=rulename). \
                 exclude(id=coupon_ruleset.id)
 
@@ -784,14 +801,7 @@ class CouponOfferCreation(GenericAPIView):
                 return msg, status_code
 
             coupon_ruleset.rulename = rulename
-            coupon.coupon_code = f"Get {discount.discount_value} OFF on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
 
-        if 'is_percentage' in actual_input_data_list:
-            # If discount_qty_amount in actual_input_data_list
-            discount.is_percentage = request.data.get('is_percentage')
-        if 'max_discount' in actual_input_data_list:
-            # If discount_qty_amount in actual_input_data_list
-            discount.max_discount = request.data.get('max_discount')
         if 'start_date' in actual_input_data_list:
             # If start_date in actual_input_data_list
             coupon_ruleset.start_date = request.data.get('start_date')
