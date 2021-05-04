@@ -18,36 +18,29 @@ from allauth.socialaccount import signals
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.models import SocialAccount
 
-from rest_auth.app_settings import (TokenSerializer,
-                                    JWTSerializer,
-                                    create_token)
+from rest_auth.app_settings import create_token
 from rest_auth.models import TokenModel
-from rest_auth.registration.serializers import (VerifyEmailSerializer,
-                                                SocialLoginSerializer,
-                                                SocialAccountSerializer,
-                                                SocialConnectSerializer,
-                                                OtpRegisterSerializer
-                                                )
+from rest_auth.registration.serializers import (VerifyEmailSerializer, SocialLoginSerializer, SocialAccountSerializer,
+                                                SocialConnectSerializer, OtpRegisterSerializer)
+from rest_auth.serializers import MlmResponseSerializer, LoginResponseSerializer
 from rest_auth.utils import jwt_encode
 from rest_auth.views import LoginView
+
 from .app_settings import RegisterSerializer, register_permission_classes
-from rest_auth.serializers import MlmResponseSerializer, LoginResponseSerializer
-from pos.common_functions import create_user_shop_mapping
-from shops.models import Shop
 
 sensitive_post_parameters_m = method_decorator(
     sensitive_post_parameters('password1', 'password2')
 )
 
 APPLICATION_REGISTRATION_SERIALIZERS_MAP = {
-    '0' : RegisterSerializer,
-    '1' : OtpRegisterSerializer,
-    '2' : OtpRegisterSerializer
+    '0': RegisterSerializer,
+    '1': OtpRegisterSerializer,
+    '2': OtpRegisterSerializer
 }
 APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP = {
-    '0' : LoginResponseSerializer,
-    '1' : MlmResponseSerializer,
-    '2' : LoginResponseSerializer
+    '0': LoginResponseSerializer,
+    '1': MlmResponseSerializer,
+    '2': LoginResponseSerializer
 }
 
 
@@ -58,12 +51,6 @@ class RegisterView(CreateAPIView):
     @sensitive_post_parameters_m
     def dispatch(self, *args, **kwargs):
         return super(RegisterView, self).dispatch(*args, **kwargs)
-
-    def get_auth_serializer(self):
-        """
-        Auth Type
-        """
-        return JWTSerializer if getattr(settings, 'REST_USE_JWT', False) else TokenSerializer
 
     def get_serializer_class(self):
         """
@@ -81,60 +68,53 @@ class RegisterView(CreateAPIView):
         app = app if app in APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP else '0'
         return APPLICATION_REGISTER_RESPONSE_SERIALIZERS_MAP[app]
 
-    def get_response(self, user, headers):
-        """
-        Get Response Based on Authentication and App Type Requested
-        """
-        serializer_class = self.get_auth_serializer()
-        if getattr(settings, 'REST_USE_JWT', False):
-            serializer = serializer_class({'user': user, 'token': self.token})
-        else:
-            serializer = serializer_class(user.auth_token)
-
-        response_serializer_class = self.get_response_serializer()
-        response_serializer = response_serializer_class(
-            instance={'user': user, 'token': serializer.data['key'], 'action': 0,
-                      'referral_code': self.request.data.get('referral_code', '')})
-        return Response({'is_success': True, 'message': ['Successfully signed up!'],
-                         'response_data': [response_serializer.data]}, status=status.HTTP_201_CREATED,
-                        headers=headers)
-
     def create(self, request, *args, **kwargs):
         serializer_class = self.get_serializer_class()
         serializer = serializer_class(data=request.data)
         if serializer.is_valid():
-            user = self.perform_create(serializer)
+            user, token = self.perform_create(serializer)
             headers = self.get_success_headers(serializer.data)
-            return self.get_response(user, headers)
+            return self.get_response(user, headers, token)
         else:
-            errors = []
-            for field in serializer.errors:
-                for error in serializer.errors[field]:
-                    if 'non_field_errors' in field:
-                        result = error
-                    else:
-                        result = ''.join('{} : {}'.format(field,error))
-                    errors.append(result)
-            msg = {'is_success': False,
-                    'message': [error for error in errors],
-                    'response_data': None }
-            return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
+            errors = self.serializer_errors(serializer.errors)
+            msg = {'is_success': False, 'message': [error for error in errors], 'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
     def perform_create(self, serializer):
         user = serializer.save(self.request)
+        token = None
         if getattr(settings, 'REST_USE_JWT', False):
-            self.token = jwt_encode(user)
+            token = jwt_encode(user)
         else:
             create_token(self.token_model, user, serializer)
-        if self.request.data.get('shop_id'):
-            shop_id = Shop.objects.get(id=self.request.data.get('shop_id'))
-            # create_user with seller shop_id
-            create_user_shop_mapping(user=user, shop_id=shop_id)
-        complete_signup(self.request._request, user,
-                        allauth_settings.EMAIL_VERIFICATION,
-                        None)
-        return user
+        complete_signup(self.request._request, user, allauth_settings.EMAIL_VERIFICATION, None)
+        return user, token
+
+    def get_response(self, user, headers, token):
+        """
+        Get Response Based on Authentication and App Type Requested
+        """
+        token = token if getattr(settings, 'REST_USE_JWT', False) else user.auth_token.key
+        referral_code = self.request.data.get('referral_code', '')
+
+        response_serializer_class = self.get_response_serializer()
+        response_serializer = response_serializer_class(instance={'user': user, 'token': token, 'action': 0,
+                                                                  'referral_code': referral_code})
+        return Response({'is_success': True, 'message': ['Successfully signed up!'],
+                         'response_data': [response_serializer.data]}, status=status.HTTP_201_CREATED, headers=headers)
+
+    @staticmethod
+    def serializer_errors(serializer_errors):
+        errors = []
+        for field in serializer_errors:
+            for error in serializer_errors[field]:
+                if 'non_field_errors' in field:
+                    result = error
+                else:
+                    result = ''.join('{} : {}'.format(field, error))
+                errors.append(result)
+        return errors
+
 
 class VerifyEmailView(APIView, ConfirmEmailView):
     permission_classes = (AllowAny,)
