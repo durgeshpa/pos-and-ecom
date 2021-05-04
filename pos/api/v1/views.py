@@ -17,13 +17,13 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 
 from pos.models import RetailerProduct, RetailerProductImage
 from pos.utils import MultipartJsonParser
-from pos.common_functions import RetailerProductCls, OffersCls, serializer_error, get_response, get_shop_id_from_token
+from pos.common_functions import RetailerProductCls, OffersCls, serializer_error, get_response, get_shop_id_from_token,\
+    validate_data_format
 
 from .serializers import RetailerProductCreateSerializer, RetailerProductUpdateSerializer, \
     RetailerProductResponseSerializer, RetailerProductImageDeleteSerializer, CouponCodeSerializer, \
     FreeProductOfferSerializer, ComboDealsSerializer, CouponCodeUpdateSerializer, ComboDealsUpdateSerializer, \
     CouponRuleSetSerializer, CouponListSerializer, FreeProductUpdateSerializer
-from pos.data_validation import validate_data_format
 from retailer_backend.utils import SmallOffsetPagination
 # Logger
 info_logger = logging.getLogger('file-info')

@@ -1,5 +1,5 @@
-import requests
 import logging
+import json
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
@@ -183,3 +183,20 @@ def get_invoice_and_link(shipment, host):
     invoice_no = shipment.invoice_no
     invoice_link = "{0}{1}".format(host, reverse('download_invoice_sp', args=[shipment.id]))
     return {'invoice_no': invoice_no, 'invoice_link': invoice_link}
+
+
+def validate_data_format(request):
+    """
+        Validating Entered data,
+        Convert python data(request.data) in to a JSON string,
+    """
+    try:
+        # Checking if Entered Data is in the Right Format except images
+        # the result is a JSON string, which is valid Data
+        json.dumps(request.data, default=lambda skip_image: 'images')
+    except Exception as e:
+        error_logger.error(e)
+        msg = {'is_success': False,
+               'error_message': "Please provide valid Data",
+               'response_data': None}
+        return msg

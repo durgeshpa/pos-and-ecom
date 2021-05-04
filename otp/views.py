@@ -13,7 +13,7 @@ from retailer_backend.messages import *
 from .sms import SendSms, SendVoiceSms
 from .models import PhoneOTP
 from .serializers import PhoneOTPValidateSerializer, ResendSmsOTPSerializer, ResendVoiceOTPSerializer, SendSmsOTPSerializer
-from pos.data_validation import validate_data_format
+from pos.common_functions import validate_data_format
 
 UserModel = get_user_model()
 

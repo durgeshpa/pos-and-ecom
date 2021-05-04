@@ -67,12 +67,11 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  whatsapp_order_refund)
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
 from pos.common_functions import get_shop_id_from_token, get_response, create_user_shop_mapping,\
-    delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP, RetailerProductCls
+    delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP, RetailerProductCls, validate_data_format
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer,\
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, UserMappedShop
-from pos.data_validation import validate_data_format
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es
 from accounts.api.v1.serializers import PosUserSerializer
