@@ -1504,13 +1504,13 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     inlines = [PriceSlabAdmin]
     form = ProductPriceSlabForm
     list_display = ['product', 'product_mrp', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
-                    'seller_shop', 'approval_status', 'slab1_details', 'slab2_details'
+                    'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', 'slab1_details', 'slab2_details'
                     ]
     autocomplete_fields = ['product']
     list_filter = [ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch, ProductCategoryFilter, 'approval_status']
     fieldsets = (
         ('Basic', {
-            'fields': ('product', 'mrp', 'seller_shop', 'approval_status',),
+            'fields': ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',),
             'classes': ('required',)
         }),
     )
@@ -1528,7 +1528,7 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         if obj is None:
             fieldsets = (
                             ('Basic', {
-                                'fields': ('product', 'mrp', 'seller_shop', 'approval_status',),
+                                'fields': ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',),
                                 'classes': ('required',)})
                             ,
                             ('Slab Price Applicable', {
@@ -1546,8 +1546,8 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             return self.readonly_fields
         if not request.user.is_superuser:
             return self.readonly_fields + (
-                'product', 'mrp', 'seller_shop', 'approval_status')
-        return self.readonly_fields + ( 'product', 'mrp', 'seller_shop')
+                'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status')
+        return self.readonly_fields + ( 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode')
 
 
     def slab1_details(self, obj):

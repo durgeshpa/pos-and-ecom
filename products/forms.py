@@ -2083,28 +2083,13 @@ class ProductPriceSlabForm(forms.ModelForm):
     """
     This class is used to create Slab Product Price for a particular product
     """
-    seller_shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
-        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
-    )
-    product = forms.ModelChoiceField(
-        queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination']),
-        empty_label='Not Specified',
-        widget=autocomplete.ModelSelect2(
-            url='product-autocomplete',
-            attrs={"onChange": 'getProductDetails()'},
-            forward=(forward.Const(1, 'price-slab'))
-        )
-    )
-    mrp = forms.DecimalField(required=False)
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'mrp', 'seller_shop', 'approval_status')
+        fields = ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['mrp'].disabled = True
         if 'approval_status' in self.fields:
             self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
 
@@ -2115,6 +2100,26 @@ class ProductPriceSlabCreationForm(forms.ModelForm):
     seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='sp'),
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
+    )
+
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r', 'f']),
+        widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
+        required=False
+    )
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:city_autocomplete',
+            forward=('buyer_shop',)),
+        required=False
+    )
+    pincode = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:pincode_autocomplete',
+            forward=('city', 'buyer_shop')),
+        required=False
     )
     product = forms.ModelChoiceField(
         queryset=Product.objects.filter(repackaging_type__in=['none', 'source', 'destination']),
@@ -2134,7 +2139,7 @@ class ProductPriceSlabCreationForm(forms.ModelForm):
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'mrp', 'seller_shop', 'approval_status')
+        fields = ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

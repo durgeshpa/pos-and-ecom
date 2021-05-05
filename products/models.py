@@ -353,8 +353,7 @@ class Product(models.Model):
                     Q(city_id=buyer_shop_dt.get('city_id')) | Q(city_id=None),
                     Q(pincode_id=buyer_shop_dt.get('pincode_link')) | Q(pincode_id=None),
                     Q(buyer_shop_id=buyer_shop_id) | Q(buyer_shop_id=None),
-                    approval_status=ProductPrice.APPROVED,
-                    start_date__lte=today, end_date__gte=today)\
+                    approval_status=ProductPrice.APPROVED)\
             .order_by('start_date')
         if product_price.count() > 1:
             product_price = product_price.filter(
