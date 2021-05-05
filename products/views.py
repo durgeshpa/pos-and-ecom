@@ -1932,7 +1932,7 @@ class CityAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(state=state)
         if self.q:
             qs = qs.filter(city_name__icontains=self.q)
-        return qs
+        return qs.distinct('city_name')
 
 
 class RetailerAutocomplete(autocomplete.Select2QuerySetView):
@@ -1977,11 +1977,11 @@ class PincodeAutocomplete(autocomplete.Select2QuerySetView):
         qs = Pincode.objects.all()
         if buyer_shop:
             qs = qs.filter(pincode_address__shop_name_id=buyer_shop,
-                           pincode_address__address_type='shipping')
+                           pincode_address__address_type='shipping').distinct('pincode')
             return qs
         if city:
             qs = qs.filter(city_id=city)
-        return qs
+        return qs.distinct('pincode')
 
 
 class ProductPriceUpload(View):
