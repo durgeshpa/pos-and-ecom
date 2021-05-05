@@ -997,6 +997,7 @@ class CouponOfferCreation(GenericAPIView):
         if 'rulename' in actual_input_data_list:
             # If coupon_name in actual_input_data_list
             coupon.coupon_name = self.request.data.get('rulename')
+
         if 'cart_qualifying_min_sku_value' in actual_input_data_list:
             # If cart_qualifying_min_sku_value in actual_input_data_list
             discount_amount = self.request.data.get('cart_qualifying_min_sku_value')
@@ -1011,9 +1012,7 @@ class CouponOfferCreation(GenericAPIView):
                 return msg, status_code
 
             coupon_ruleset.cart_qualifying_min_sku_value = discount_amount
-            coupon_code = f"Get {coupon_ruleset.free_product_qty} {coupon_ruleset.free_product.name} " \
-                          f"Free on Spending {discount_amount} Rs"
-            coupon.coupon_code = coupon_code
+
         if 'free_product' in actual_input_data_list:
             # If retailer_free_product in actual_input_data_list
             retailer_free_product = self.request.data.get('free_product')
@@ -1056,7 +1055,7 @@ class CouponOfferCreation(GenericAPIView):
                 return msg, status_code
             coupon_ruleset.free_product_qty = free_product_qty
 
-        if 'free_product' or 'free_product_qty':
+        if 'cart_qualifying_min_sku_value' or 'free_product' or 'free_product_qty':
             ruleset_name = f"{shop_id}_{coupon_ruleset.free_product.name}_{coupon_ruleset.free_product_qty}"
             coupon_code = f"Get {coupon_ruleset.free_product_qty} {coupon_ruleset.free_product.name} " \
                           f"Free on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
