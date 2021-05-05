@@ -953,7 +953,6 @@ class CouponOfferCreation(GenericAPIView):
             coupon.coupon_code = combo_code
             coupon_ruleset.rulename = f"{shop_id}_{combo_code}"
 
-
         if 'is_active' in actual_input_data_list:
             # If is_active in actual_input_data_list
             rule_set_product_mapping.is_active = request.data.get('is_active')
