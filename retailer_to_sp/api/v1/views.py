@@ -433,7 +433,11 @@ class SearchProducts(APIView):
                                             "visible", "mrp", "ptr", "ean"]}
             products_list = es_search(index='all_products', body=body)
             for p in products_list['hits']['hits']:
-                p_list.append(p["_source"])
+                try:
+                    p = self.modify_gf_product_es_price(p)
+                    p_list.append(p["_source"])
+                except:
+                    pass
             return p_list
         # Active Store
         products_list = es_search(index=parent_shop_id, body=body)
@@ -445,12 +449,8 @@ class SearchProducts(APIView):
             p["_source"]["coupon"] = self.get_coupons_gf_product(product)
             if cart_check:
                 p = self.modify_gf_cart_product_es(cart, cart_products, p)
-            c = 0
             try:
-                for price_detail in p["_source"]["price_details"]:
-                    p["_source"]["price_details"][c]["ptr"] = round(p["_source"]["price_details"][c]["ptr"], 2)
-                    p["_source"]["price_details"][c]["margin"] = round(p["_source"]["price_details"][c]["margin"], 2)
-                    c += 1
+                p = self.modify_gf_product_es_price(p)
                 p_list.append(p["_source"])
             except:
                 pass
@@ -529,6 +529,14 @@ class SearchProducts(APIView):
             p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
         return p
 
+    @staticmethod
+    def modify_gf_product_es_price(p):
+        c = 0
+        for price_detail in p["_source"]["price_details"]:
+            p["_source"]["price_details"][c]["ptr"] = round(p["_source"]["price_details"][c]["ptr"], 2)
+            p["_source"]["price_details"][c]["margin"] = round(p["_source"]["price_details"][c]["margin"], 2)
+            c += 1
+        return p
 
 # class GramGRNProductsList(APIView):
 #     permission_classes = (AllowAny,)
