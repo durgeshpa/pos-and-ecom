@@ -740,7 +740,7 @@ class CouponOfferCreation(GenericAPIView):
         try:
             coupon_ruleset = CouponRuleSet.objects.get(id=coupon.rule.id)
         except:
-            msg = {"is_success": False, "error": "coupon rulest not Found",
+            msg = {"is_success": False, "error": "coupon ruleset not Found",
                    "response_data": serializer.data}
             status_code = {"status_code": 404}
             return msg, status_code
@@ -837,14 +837,14 @@ class CouponOfferCreation(GenericAPIView):
         try:
             coupon_ruleset = CouponRuleSet.objects.get(id=coupon.rule.id)
         except ObjectDoesNotExist:
-            msg = {"is_success": False, "error": "Offer Not Found",
+            msg = {"is_success": False, "error": "coupon ruleset not Found",
                    "response_data": serializer.data}
             status_code = {"status_code": 404}
             return msg, status_code
         try:
             rule_set_product_mapping = RuleSetProductMapping.objects.get(rule=coupon.rule)
         except ObjectDoesNotExist:
-            msg = {"is_success": False, "error": "Offer Not Found",
+            msg = {"is_success": False, "error": "Product mapping Not Found with Offer",
                    "response_data": serializer.data}
             status_code = {"status_code": 404}
             return msg, status_code
@@ -860,16 +860,19 @@ class CouponOfferCreation(GenericAPIView):
             # If coupon_name in actual_input_data_list
             combo_offer_name = request.data.get('combo_offer_name')
             coupon.coupon_name = combo_offer_name
+
         if 'start_date' in actual_input_data_list:
             # If start_date in actual_input_data_list
             coupon_ruleset.start_date = request.data.get('start_date')
             rule_set_product_mapping.start_date = request.data.get('start_date')
             coupon.start_date = request.data.get('start_date')
+
         if 'expiry_date' in actual_input_data_list:
             # If expiry_date in actual_input_data_list
             coupon_ruleset.expiry_date = request.data.get('expiry_date')
             rule_set_product_mapping.expiry_date = request.data.get('expiry_date')
             coupon.expiry_date = request.data.get('expiry_date')
+
         if 'retailer_primary_product' in actual_input_data_list:
             # If retailer_primary_product in actual_input_data_list
             retailer_primary_product = request.data.get('retailer_primary_product')
@@ -906,13 +909,6 @@ class CouponOfferCreation(GenericAPIView):
                 return msg, status_code
 
             rule_set_product_mapping.retailer_primary_product = retailer_primary_product_obj
-            # update ruleset_name & combo_code with existing ruleset_name , retailer_free_product name,
-            # purchased_product_qty & free_product_qty
-            combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} {retailer_primary_product_obj.name}" \
-                         f" + Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
-
-            coupon.coupon_code = combo_code
-            coupon_ruleset.rulename = f"{shop_id}_{combo_code}"
 
         if 'retailer_free_product' in actual_input_data_list:
             # If retailer_free_product in actual_input_data_list
@@ -939,32 +935,20 @@ class CouponOfferCreation(GenericAPIView):
                 return msg, status_code
 
             rule_set_product_mapping.retailer_free_product = retailer_free_product_obj
-            # update ruleset_name & combo_code with existing ruleset_name , retailer_primary_product name,
-            # purchased_product_qty & free_product_qty
-            combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} {rule_set_product_mapping.retailer_primary_product.name}" \
-                         f" + Get {rule_set_product_mapping.free_product_qty} {retailer_free_product_obj.name} Free"
-
-            coupon.coupon_code = combo_code
-            coupon_ruleset.rulename = f"{shop_id}_{combo_code}"
 
         if 'purchased_product_qty' in actual_input_data_list:
             # If purchased_product_qty in actual_input_data_list
             rule_set_product_mapping.purchased_product_qty = request.data.get('purchased_product_qty')
-            # update combo_code with existing ruleset_name , retailer_primary_product, retailer_free_product name,
-            #  & free_product_qty
-            combo_code = f"Buy {request.data.get('purchased_product_qty')} {rule_set_product_mapping.retailer_primary_product.name}" \
-                         f" + Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
-
-            coupon.coupon_code = combo_code
-            coupon_ruleset.rulename = f"{shop_id}_{combo_code}"
 
         if 'free_product_qty' in actual_input_data_list:
             # If free_product_qty in actual_input_data_list
             rule_set_product_mapping.free_product_qty = request.data.get('free_product_qty')
+
+        if 'retailer_primary_product' or 'retailer_free_product' or 'purchased_product_qty' or 'free_product_qty' in actual_input_data_list:
             # update combo_code with existing ruleset_name , retailer_primary_product, retailer_free_product name,
             #  & purchased_product_qty
             combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} {rule_set_product_mapping.retailer_primary_product.name}" \
-                         f" + Get {request.data.get('free_product_qty')} {rule_set_product_mapping.retailer_free_product.name} Free"
+                         f" + Get {rule_set_product_mapping.free_product_qty} {rule_set_product_mapping.retailer_free_product.name} Free"
 
             coupon.coupon_code = combo_code
             coupon_ruleset.rulename = f"{shop_id}_{combo_code}"
@@ -995,8 +979,13 @@ class CouponOfferCreation(GenericAPIView):
                    "response_data": serializer.data}
             status_code = {"status_code": 404}
             return msg, status_code
-        coupon_ruleset = CouponRuleSet.objects.get(id=coupon.rule.id)
-
+        try:
+            coupon_ruleset = CouponRuleSet.objects.get(id=coupon.rule.id)
+        except:
+            msg = {"is_success": False, "error": "coupon ruleset Not Found",
+                   "response_data": serializer.data}
+            status_code = {"status_code": 404}
+            return msg, status_code
         expected_input_data_list = ['id', 'rulename', 'start_date', 'expiry_date', 'free_product',
                                     'cart_qualifying_min_sku_value', 'free_product_qty', 'is_active']
         actual_input_data_list = []
@@ -1007,8 +996,9 @@ class CouponOfferCreation(GenericAPIView):
         if 'rulename' in actual_input_data_list:
             # If coupon_name in actual_input_data_list
             coupon.coupon_name = self.request.data.get('rulename')
+
         if 'cart_qualifying_min_sku_value' in actual_input_data_list:
-            # If discount_qty_amount in actual_input_data_list
+            # If cart_qualifying_min_sku_value in actual_input_data_list
             discount_amount = self.request.data.get('cart_qualifying_min_sku_value')
             # checking if offer already exist with retailer_free_product, discount_qty_amount
             coupon_ruleset_qty = Coupon.objects.filter(rule__cart_qualifying_min_sku_value=discount_amount,
@@ -1021,9 +1011,7 @@ class CouponOfferCreation(GenericAPIView):
                 return msg, status_code
 
             coupon_ruleset.cart_qualifying_min_sku_value = discount_amount
-            coupon_code = f"Get {coupon_ruleset.free_product_qty} {coupon_ruleset.free_product.name} " \
-                          f"Free on Spending {discount_amount} Rs"
-            coupon.coupon_code = coupon_code
+
         if 'free_product' in actual_input_data_list:
             # If retailer_free_product in actual_input_data_list
             retailer_free_product = self.request.data.get('free_product')
@@ -1049,19 +1037,6 @@ class CouponOfferCreation(GenericAPIView):
                     return msg, status_code
 
             coupon_ruleset.free_product = retailer_free_product_obj
-            ruleset_name = f"{shop_id}_{retailer_free_product_obj.name}_{coupon_ruleset.free_product_qty}"
-            coupon_code = f"Get {coupon_ruleset.free_product_qty} {retailer_free_product_obj.name} " \
-                          f"Free on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
-
-            if CouponRuleSet.objects.filter(rulename=ruleset_name).exclude(id=coupon_ruleset.id):
-                msg = {"is_success": False,
-                       "message": f"cannot create a Offer with {ruleset_name}, already exists",
-                       "response_data": serializer.data}
-                status_code = {"status_code": 404}
-                return msg, status_code
-
-            coupon_ruleset.rulename = ruleset_name
-            coupon.coupon_code = coupon_code
 
         if 'free_product_qty' in actual_input_data_list:
             # If free_product_qty in actual_input_data_list
@@ -1077,10 +1052,11 @@ class CouponOfferCreation(GenericAPIView):
                        "response_data": serializer.data}
                 status_code = {"status_code": 404}
                 return msg, status_code
-
             coupon_ruleset.free_product_qty = free_product_qty
-            ruleset_name = f"{shop_id}_{coupon_ruleset.free_product.name}_{free_product_qty}"
-            coupon_code = f"Get {free_product_qty} {coupon_ruleset.free_product.name} " \
+
+        if 'cart_qualifying_min_sku_value' or 'free_product' or 'free_product_qty':
+            ruleset_name = f"{shop_id}_{coupon_ruleset.free_product.name}_{coupon_ruleset.free_product_qty}"
+            coupon_code = f"Get {coupon_ruleset.free_product_qty} {coupon_ruleset.free_product.name} " \
                           f"Free on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"
 
             if CouponRuleSet.objects.filter(rulename=ruleset_name).exclude(id=coupon_ruleset.id):
