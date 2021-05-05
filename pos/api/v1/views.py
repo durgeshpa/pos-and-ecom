@@ -570,7 +570,7 @@ class CouponOfferCreation(GenericAPIView):
             rule_set_name_with_shop_id = f"{shop_id}_on Spending {discount_amount} get {discount_value} % Off"
             coupon_code = f"Get {discount_value} % OFF on Spending {discount_amount} Rs"
         else:
-            discount_obj = DiscountValue.objects.create(discount_value=discount_value)
+            discount_obj = DiscountValue.objects.create(discount_value=discount_value, is_percentage=False)
             # creating CouponRuleSet
             rule_set_name_with_shop_id = f"{shop_id}_on Spending {discount_amount} get {discount_value} Off"
             coupon_code = f"Get {discount_value} Rs OFF on Spending {discount_amount} Rs"
