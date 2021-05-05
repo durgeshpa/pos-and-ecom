@@ -1650,145 +1650,145 @@ class CartCheckout(APIView):
 #         pass
 
 
-class CartDetail(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def delivery_message(self, shop_type):
-        date_time_now = datetime.now()
-        day = date_time_now.strftime("%A")
-        time = date_time_now.strftime("%H")
-
-        if int(time) < 17 and not (day == 'Saturday'):
-            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=1)).strftime('%A'), str(shop_type.shop_min_amount)))
-        elif (day == 'Friday'):
-            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=3)).strftime('%A'), str(shop_type.shop_min_amount)))
-        else:
-            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
-                (date_time_now + timedelta(days=2)).strftime('%A'), str(shop_type.shop_min_amount)))
-
-    def get(self, request, *args, **kwargs):
-        shop_id = self.request.GET.get('shop_id')
-        msg = {'is_success': False, 'message': ['Sorry shop or shop mapping not found'], 'response_data': None}
-
-        if checkNotShopAndMapping(shop_id):
-            return Response(msg, status=status.HTTP_200_OK)
-
-        parent_mapping = getShopMapping(shop_id)
-        if parent_mapping is None:
-            return Response(msg, status=status.HTTP_200_OK)
-
-        # if shop mapped with sp
-        if parent_mapping.parent.shop_type.shop_type == 'sp':
-            if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
-                                   cart_status__in=['active', 'pending']).exists():
-                cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
-                                           cart_status__in=['active', 'pending']).last()
-                Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
-                cart_products = CartProductMapping.objects.select_related(
-                    'cart_product'
-                ).filter(
-                    cart=cart
-                )
-
-                # Check and remove if any product blocked for audit
-                cart_product_to_be_deleted = []
-                for p in cart_products:
-                    is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
-                                                                                            parent_mapping.parent)
-                    if is_blocked_for_audit:
-                        cart_product_to_be_deleted.append(p.id)
-                if len(cart_product_to_be_deleted) > 0:
-                    CartProductMapping.objects.filter(id__in=cart_product_to_be_deleted).delete()
-                    cart_products = CartProductMapping.objects.select_related('cart_product').filter(cart=cart)
-
-                # available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'),
-                #                                                     quantity__gt=0).values('sku__id').annotate(
-                #     quantity=Sum('quantity'))
-                # shop_products_dict = collections.defaultdict(lambda: 0,
-                #                                              {g['sku__id']: int(g['quantity']) for g in available})
-
-                for cart_product in cart_products:
-                    item_qty = CartProductMapping.objects.filter(cart=cart,
-                                                                 cart_product=cart_product.cart_product).last().qty
-                    updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
-                    CartProductMapping.objects.filter(cart=cart, cart_product=cart_product.cart_product).update(
-                        no_of_pieces=updated_no_of_pieces)
-                if cart.rt_cart_list.count() <= 0:
-                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
-                           'response_data': None}
-                else:
-                    for i in Cart.objects.get(id=cart.id).rt_cart_list.all():
-                        if i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id) == False:
-                            CartProductMapping.objects.filter(cart__id=cart.id,
-                                                              cart_product__id=i.cart_product.id).delete()
-
-
-                    serializer = CartSerializer(
-                        Cart.objects.get(id=cart.id),
-                        context={'parent_mapping_id': parent_mapping.parent.id,
-                                 'buyer_shop_id': shop_id,
-                                 'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
-                    )
-                    for i in serializer.data['rt_cart_list']:
-                        if not i['cart_product']['product_pro_image']:
-                            product = Product.objects.get(id=i['cart_product']['id'])
-                            if product.use_parent_image:
-                                for im in product.parent_product.parent_product_pro_image.all():
-                                    parent_image_serializer = ParentProductImageSerializer(im)
-                                    i['cart_product']['product_pro_image'].append(parent_image_serializer.data)
-
-                        if i['cart_product']['price_details']['mrp'] == False:
-                            i['qty'] = 0
-                            CartProductMapping.objects.filter(cart__id=i['cart']['id'],
-                                                              cart_product__id=i['cart_product']['id']).delete()
-                            msg = {
-                                'is_success': True,
-                                'message': [''],
-                                'response_data': serializer.data
-                            }
-                        else:
-                            msg = {
-                                'is_success': True,
-                                'message': [''],
-                                'response_data': serializer.data
-                            }
-
-                return Response(msg, status=status.HTTP_200_OK)
-            else:
-                msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
-                       'response_data': None}
-                return Response(msg, status=status.HTTP_200_OK)
-
-        # if shop mapped with gf
-        elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            if GramMappedCart.objects.filter(last_modified_by=self.request.user,
-                                             cart_status__in=['active', 'pending']).exists():
-                cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
-                                                     cart_status__in=['active', 'pending']).last()
-                if cart.rt_cart_list.count() <= 0:
-                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
-                           'response_data': None}
-                else:
-                    serializer = GramMappedCartSerializer(
-                        GramMappedCart.objects.get(id=cart.id),
-                        context={'parent_mapping_id': parent_mapping.parent.id,
-                                 'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
-                    )
-                    msg = {'is_success': True, 'message': [
-                        ''], 'response_data': serializer.data}
-                return Response(msg, status=status.HTTP_200_OK)
-            else:
-                msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
-                       'response_data': None}
-                return Response(msg, status=status.HTTP_200_OK)
-
-        else:
-            msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
-                   'response_data': None}
-            return Response(msg, status=status.HTTP_200_OK)
+# class CartDetail(APIView):
+#     authentication_classes = (authentication.TokenAuthentication,)
+#     permission_classes = (permissions.IsAuthenticated,)
+#
+#     def delivery_message(self, shop_type):
+#         date_time_now = datetime.now()
+#         day = date_time_now.strftime("%A")
+#         time = date_time_now.strftime("%H")
+#
+#         if int(time) < 17 and not (day == 'Saturday'):
+#             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+#                 (date_time_now + timedelta(days=1)).strftime('%A'), str(shop_type.shop_min_amount)))
+#         elif (day == 'Friday'):
+#             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+#                 (date_time_now + timedelta(days=3)).strftime('%A'), str(shop_type.shop_min_amount)))
+#         else:
+#             return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+#                 (date_time_now + timedelta(days=2)).strftime('%A'), str(shop_type.shop_min_amount)))
+#
+#     def get(self, request, *args, **kwargs):
+#         shop_id = self.request.GET.get('shop_id')
+#         msg = {'is_success': False, 'message': ['Sorry shop or shop mapping not found'], 'response_data': None}
+#
+#         if checkNotShopAndMapping(shop_id):
+#             return Response(msg, status=status.HTTP_200_OK)
+#
+#         parent_mapping = getShopMapping(shop_id)
+#         if parent_mapping is None:
+#             return Response(msg, status=status.HTTP_200_OK)
+#
+#         # if shop mapped with sp
+#         if parent_mapping.parent.shop_type.shop_type == 'sp':
+#             if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
+#                                    cart_status__in=['active', 'pending']).exists():
+#                 cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
+#                                            cart_status__in=['active', 'pending']).last()
+#                 Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
+#                 cart_products = CartProductMapping.objects.select_related(
+#                     'cart_product'
+#                 ).filter(
+#                     cart=cart
+#                 )
+#
+#                 # Check and remove if any product blocked for audit
+#                 cart_product_to_be_deleted = []
+#                 for p in cart_products:
+#                     is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+#                                                                                             parent_mapping.parent)
+#                     if is_blocked_for_audit:
+#                         cart_product_to_be_deleted.append(p.id)
+#                 if len(cart_product_to_be_deleted) > 0:
+#                     CartProductMapping.objects.filter(id__in=cart_product_to_be_deleted).delete()
+#                     cart_products = CartProductMapping.objects.select_related('cart_product').filter(cart=cart)
+#
+#                 # available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'),
+#                 #                                                     quantity__gt=0).values('sku__id').annotate(
+#                 #     quantity=Sum('quantity'))
+#                 # shop_products_dict = collections.defaultdict(lambda: 0,
+#                 #                                              {g['sku__id']: int(g['quantity']) for g in available})
+#
+#                 for cart_product in cart_products:
+#                     item_qty = CartProductMapping.objects.filter(cart=cart,
+#                                                                  cart_product=cart_product.cart_product).last().qty
+#                     updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
+#                     CartProductMapping.objects.filter(cart=cart, cart_product=cart_product.cart_product).update(
+#                         no_of_pieces=updated_no_of_pieces)
+#                 if cart.rt_cart_list.count() <= 0:
+#                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
+#                            'response_data': None}
+#                 else:
+#                     for i in Cart.objects.get(id=cart.id).rt_cart_list.all():
+#                         if i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id) == False:
+#                             CartProductMapping.objects.filter(cart__id=cart.id,
+#                                                               cart_product__id=i.cart_product.id).delete()
+#
+#
+#                     serializer = CartSerializer(
+#                         Cart.objects.get(id=cart.id),
+#                         context={'parent_mapping_id': parent_mapping.parent.id,
+#                                  'buyer_shop_id': shop_id,
+#                                  'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
+#                     )
+#                     for i in serializer.data['rt_cart_list']:
+#                         if not i['cart_product']['product_pro_image']:
+#                             product = Product.objects.get(id=i['cart_product']['id'])
+#                             if product.use_parent_image:
+#                                 for im in product.parent_product.parent_product_pro_image.all():
+#                                     parent_image_serializer = ParentProductImageSerializer(im)
+#                                     i['cart_product']['product_pro_image'].append(parent_image_serializer.data)
+#
+#                         if i['cart_product']['price_details']['mrp'] == False:
+#                             i['qty'] = 0
+#                             CartProductMapping.objects.filter(cart__id=i['cart']['id'],
+#                                                               cart_product__id=i['cart_product']['id']).delete()
+#                             msg = {
+#                                 'is_success': True,
+#                                 'message': [''],
+#                                 'response_data': serializer.data
+#                             }
+#                         else:
+#                             msg = {
+#                                 'is_success': True,
+#                                 'message': [''],
+#                                 'response_data': serializer.data
+#                             }
+#
+#                 return Response(msg, status=status.HTTP_200_OK)
+#             else:
+#                 msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
+#                        'response_data': None}
+#                 return Response(msg, status=status.HTTP_200_OK)
+#
+#         # if shop mapped with gf
+#         elif parent_mapping.parent.shop_type.shop_type == 'gf':
+#             if GramMappedCart.objects.filter(last_modified_by=self.request.user,
+#                                              cart_status__in=['active', 'pending']).exists():
+#                 cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
+#                                                      cart_status__in=['active', 'pending']).last()
+#                 if cart.rt_cart_list.count() <= 0:
+#                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
+#                            'response_data': None}
+#                 else:
+#                     serializer = GramMappedCartSerializer(
+#                         GramMappedCart.objects.get(id=cart.id),
+#                         context={'parent_mapping_id': parent_mapping.parent.id,
+#                                  'delivery_message': self.delivery_message(parent_mapping.parent.shop_type)}
+#                     )
+#                     msg = {'is_success': True, 'message': [
+#                         ''], 'response_data': serializer.data}
+#                 return Response(msg, status=status.HTTP_200_OK)
+#             else:
+#                 msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
+#                        'response_data': None}
+#                 return Response(msg, status=status.HTTP_200_OK)
+#
+#         else:
+#             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
+#                    'response_data': None}
+#             return Response(msg, status=status.HTTP_200_OK)
 
 
 class ReservedOrder(generics.ListAPIView):
@@ -1975,7 +1975,6 @@ class ReservedOrder(generics.ListAPIView):
             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
                    'response_data': None, 'is_shop_time_entered': False}
             return Response(msg, status=status.HTTP_200_OK)
-        return Response(msg, status=status.HTTP_200_OK)
 
     # def sp_mapping_order_reserve(self):
     #     pass
@@ -2262,8 +2261,14 @@ class OrderCentral(APIView):
             Place Order
             Input validation for cart type 'retail'
         """
-        shop_id = self.request.data.get('shop_id')
+        # Check day order count
+        order_config = GlobalConfig.objects.filter(key='order_count').last()
+        if not Order.objects.filter(created_at__date=datetime.today()).exclude(
+                order_status='CANCELLED').count() < order_config.value:
+            return {'error': 'Because of the current surge in orders, we are not taking any more orders for today. We'
+                             ' will start taking orders again tomorrow. We regret the inconvenience caused to you'}
         # Check if buyer shop exists
+        shop_id = self.request.data.get('shop_id')
         if not Shop.objects.filter(id=shop_id).exists():
             return {'error': "Shop Doesn't Exist!"}
         # Check if buyer shop is mapped to parent/seller shop
@@ -2345,8 +2350,6 @@ class OrderCentral(APIView):
                 msg = capping_check(capping, parent_mapping, cart_products, product_qty, ordered_qty)
                 if msg[0] is False:
                     return {'is_success': False, 'message': msg[1]}
-            else:
-                pass
         return {'is_success': True}
 
     def update_cart_retail_sp(self, cart, parent_mapping):
@@ -2428,7 +2431,8 @@ class OrderCentral(APIView):
         """
         user = self.request.user
         order, _ = GramMappedOrder.objects.get_or_create(last_modified_by=user,
-                                                         ordered_by=user, ordered_cart=cart)
+                                                         ordered_by=user, ordered_cart=cart,
+                                                         order_no=cart.order_id)
 
         order.billing_address = billing_address
         order.shipping_address = shipping_address
@@ -2642,197 +2646,198 @@ class OrderCentral(APIView):
         pdf_generation_retailer(self.request, order.id)
 
 
-class CreateOrder(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def post(self, request, *args, **kwargs):
-        order_config = GlobalConfig.objects.filter(key='order_count').last()
-        if not Order.objects.filter(created_at__date=datetime.today()).exclude(order_status='CANCELLED').count() < order_config.value:
-            msg = {'is_success': False, 'message': ['Because of the current surge in orders, we are not taking any more orders for today. We will start taking orders again tomorrow. We regret the inconvenience caused to you'], 'response_data': None}
-            return Response(msg, status=status.HTTP_200_OK)
-        else:
-            cart_id = self.request.POST.get('cart_id')
-            billing_address_id = self.request.POST.get('billing_address_id')
-            shipping_address_id = self.request.POST.get('shipping_address_id')
-
-            total_tax_amount = self.request.POST.get('total_tax_amount', 0)
-
-            shop_id = self.request.POST.get('shop_id')
-            msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
-
-            if checkNotShopAndMapping(shop_id):
-                return Response(msg, status=status.HTTP_200_OK)
-
-            parent_mapping = getShopMapping(shop_id)
-            if parent_mapping is None:
-                return Response(msg, status=status.HTTP_200_OK)
-
-            shop = getShop(shop_id)
-            if shop is None:
-                return Response(msg, status=status.HTTP_200_OK)
-
-            # get billing address
-            try:
-                billing_address = Address.objects.get(id=billing_address_id)
-            except ObjectDoesNotExist:
-                msg['message'] = ['Billing address not found']
-                return Response(msg, status=status.HTTP_200_OK)
-
-            # get shipping address
-            try:
-                shipping_address = Address.objects.get(id=shipping_address_id)
-            except ObjectDoesNotExist:
-                msg['message'] = ['Shipping address not found']
-                return Response(msg, status=status.HTTP_200_OK)
-
-            current_url = request.get_host()
-            # if shop mapped with sp
-            if parent_mapping.parent.shop_type.shop_type == 'sp':
-                ordered_qty = 0
-                # self.sp_mapping_order_reserve()
-                with transaction.atomic():
-                    if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
-                                           id=cart_id).exists():
-                        cart = Cart.objects.get(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
-                                                id=cart_id)
-                        # Check and remove if any product blocked for audit
-                        for p in cart.rt_cart_list.all():
-                            is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
-                                                                                                    parent_mapping.parent)
-                            if is_blocked_for_audit:
-                                p.delete()
-
-                        orderitems = []
-                        for i in cart.rt_cart_list.all():
-                            orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
-                        if len(orderitems) == 0:
-                            CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
-                            for cart_price in cart.rt_cart_list.all():
-                                cart_price.cart_product_price = None
-                                cart_price.save()
-                            msg['message'] = [
-                                "Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
-                            return Response(msg, status=status.HTTP_200_OK)
-                        else:
-                            cart.cart_status = 'ordered'
-                            cart.buyer_shop = shop
-                            cart.seller_shop = parent_mapping.parent
-                            cart.save()
-
-                        for cart_product in cart.rt_cart_list.all():
-                            # to check capping is exist or not for warehouse and product with status active
-                            capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent,
-                                                                                         parent_mapping.retailer)
-                            product_qty = int(cart_product.qty)
-                            if capping:
-                                cart_products = cart_product.cart_product
-                                msg = capping_check(capping, parent_mapping, cart_products, product_qty, ordered_qty)
-                                if msg[0] is False:
-                                    msg = {'is_success': True,
-                                           'message': msg[1], 'response_data': None}
-                                    return Response(msg, status=status.HTTP_200_OK)
-                            else:
-                                pass
-                        order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
-                                                                               transaction_id=cart.order_id,
-                                                                               warehouse_internal_inventory_release=None,
-                                                                               ).last()
-
-                        if order_reserve_obj:
-                            order, _ = Order.objects.get_or_create(last_modified_by=request.user, ordered_by=request.user,
-                                                                   ordered_cart=cart)
-
-                            order.billing_address = billing_address
-                            order.shipping_address = shipping_address
-                            order.buyer_shop = shop
-                            order.seller_shop = parent_mapping.parent
-                            order.total_tax_amount = float(total_tax_amount)
-                            order.order_status = Order.ORDERED
-                            order.save()
-
-                            # Changes OrderedProductReserved Status
-                            for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart,
-                                                                                         reserve_status=OrderedProductReserved.RESERVED):
-                                ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
-                                ordered_reserve.order_product_reserved.save()
-                                ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
-                                ordered_reserve.save()
-                            sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
-                            reserved_args = json.dumps({
-                                'shop_id': parent_mapping.parent.id,
-                                'transaction_id': cart.id,
-                                'transaction_type': 'ordered',
-                                'order_status': order.order_status
-                            })
-                            order_result = OrderManagement.release_blocking_from_order(reserved_args, sku_id)
-                            if order_result is False:
-                                order.delete()
-                                msg = {'is_success': False, 'message': ['No item in this cart.'], 'response_data': None}
-                                return Response(msg, status=status.HTTP_200_OK)
-                            serializer = OrderSerializer(order,
-                                                         context={'parent_mapping_id': parent_mapping.parent.id,
-                                                                  'buyer_shop_id': shop_id,
-                                                                  'current_url': current_url})
-                            msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
-                            # try:
-                            #     request = jsonpickle.encode(request, unpicklable=False)
-                            #     order = jsonpickle.encode(order, unpicklable=False)
-                            #     pick_list_download.delay(request, order)
-                            # except:
-                            #     msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'],
-                            #            'response_data': None}
-                            #     return Response(msg, status=status.HTTP_200_OK)
-                        else:
-                            msg = {'is_success': False, 'message': ['Sorry! your session has timed out.'], 'response_data': None}
-                            return Response(msg, status=status.HTTP_200_OK)
-
-                    return Response(msg, status=status.HTTP_200_OK)
-
-
-            # if shop mapped with gf
-            elif parent_mapping.parent.shop_type.shop_type == 'gf':
-                if GramMappedCart.objects.filter(last_modified_by=self.request.user, id=cart_id).exists():
-                    cart = GramMappedCart.objects.get(last_modified_by=self.request.user, id=cart_id)
-                    cart.cart_status = 'ordered'
-                    cart.save()
-                    if GramOrderedProductReserved.objects.filter(cart=cart).exists():
-                        order, _ = GramMappedOrder.objects.get_or_create(last_modified_by=request.user,
-                                                                         ordered_by=request.user, ordered_cart=cart,
-                                                                         order_no=cart.order_id)
-
-                        order.billing_address = billing_address
-                        order.shipping_address = shipping_address
-                        order.buyer_shop = shop
-                        order.seller_shop = parent_mapping.parent
-                        order.order_status = 'ordered'
-                        order.save()
-
-                        pick_list = PickList.objects.get(cart=cart)
-                        pick_list.order = order
-                        pick_list.status = True
-                        pick_list.save()
-
-                        # Remove Data From OrderedProductReserved
-                        for ordered_reserve in GramOrderedProductReserved.objects.filter(cart=cart):
-                            ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
-                            ordered_reserve.order_product_reserved.save()
-                            ordered_reserve.reserve_status = 'ordered'
-                            ordered_reserve.save()
-
-                        serializer = GramMappedOrderSerializer(order,
-                                                               context={'parent_mapping_id': parent_mapping.parent.id,
-                                                                        'current_url': current_url})
-                        msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
-                    else:
-                        msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
-                        return Response(msg, status=status.HTTP_200_OK)
-
-            else:
-                msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
-                       'response_data': None}
-                return Response(msg, status=status.HTTP_200_OK)
-            return Response(msg, status=status.HTTP_200_OK)
+# class CreateOrder(APIView):
+#     authentication_classes = (authentication.TokenAuthentication,)
+#     permission_classes = (permissions.IsAuthenticated,)
+#
+#     def post(self, request, *args, **kwargs):
+#         order_config = GlobalConfig.objects.filter(key='order_count').last()
+#         if not Order.objects.filter(created_at__date=datetime.today()).exclude(order_status='CANCELLED').count() < order_config.value:
+#             msg = {'is_success': False, 'message': ['Because of the current surge in orders, we are not taking any more orders for today. We will start taking orders again tomorrow. We regret the inconvenience caused to you'], 'response_data': None}
+#             return Response(msg, status=status.HTTP_200_OK)
+#         else:
+#             cart_id = self.request.POST.get('cart_id')
+#             billing_address_id = self.request.POST.get('billing_address_id')
+#             shipping_address_id = self.request.POST.get('shipping_address_id')
+#
+#             total_tax_amount = self.request.POST.get('total_tax_amount', 0)
+#
+#             shop_id = self.request.POST.get('shop_id')
+#             msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
+#
+#             if checkNotShopAndMapping(shop_id):
+#                 return Response(msg, status=status.HTTP_200_OK)
+#
+#             parent_mapping = getShopMapping(shop_id)
+#             if parent_mapping is None:
+#                 return Response(msg, status=status.HTTP_200_OK)
+#
+#             shop = getShop(shop_id)
+#             if shop is None:
+#                 return Response(msg, status=status.HTTP_200_OK)
+#
+#             # get billing address
+#             try:
+#                 billing_address = Address.objects.get(id=billing_address_id)
+#             except ObjectDoesNotExist:
+#                 msg['message'] = ['Billing address not found']
+#                 return Response(msg, status=status.HTTP_200_OK)
+#
+#             # get shipping address
+#             try:
+#                 shipping_address = Address.objects.get(id=shipping_address_id)
+#             except ObjectDoesNotExist:
+#                 msg['message'] = ['Shipping address not found']
+#                 return Response(msg, status=status.HTTP_200_OK)
+#
+#             current_url = request.get_host()
+#             # if shop mapped with sp
+#             if parent_mapping.parent.shop_type.shop_type == 'sp':
+#                 ordered_qty = 0
+#                 # self.sp_mapping_order_reserve()
+#                 with transaction.atomic():
+#                     if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
+#                                            id=cart_id).exists():
+#                         cart = Cart.objects.get(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
+#                                                 id=cart_id)
+#                         # Check and remove if any product blocked for audit
+#                         for p in cart.rt_cart_list.all():
+#                             is_blocked_for_audit = BlockUnblockProduct.is_product_blocked_for_audit(p.cart_product,
+#                                                                                                     parent_mapping.parent)
+#                             if is_blocked_for_audit:
+#                                 p.delete()
+#
+#                         orderitems = []
+#                         for i in cart.rt_cart_list.all():
+#                             orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
+#                         if len(orderitems) == 0:
+#                             CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
+#                             for cart_price in cart.rt_cart_list.all():
+#                                 cart_price.cart_product_price = None
+#                                 cart_price.save()
+#                             msg['message'] = [
+#                                 "Some products in cart arenâ€™t available anymore, please update cart and remove product from cart upon revisiting it"]
+#                             return Response(msg, status=status.HTTP_200_OK)
+#                         else:
+#                             cart.cart_status = 'ordered'
+#                             cart.buyer_shop = shop
+#                             cart.seller_shop = parent_mapping.parent
+#                             cart.save()
+#
+#                         for cart_product in cart.rt_cart_list.all():
+#                             # to check capping is exist or not for warehouse and product with status active
+#                             capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent,
+#                                                                                          parent_mapping.retailer)
+#                             product_qty = int(cart_product.qty)
+#                             if capping:
+#                                 cart_products = cart_product.cart_product
+#                                 msg = capping_check(capping, parent_mapping, cart_products, product_qty, ordered_qty)
+#                                 if msg[0] is False:
+#                                     msg = {'is_success': True,
+#                                            'message': msg[1], 'response_data': None}
+#                                     return Response(msg, status=status.HTTP_200_OK)
+#                             else:
+#                                 pass
+#                         order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
+#                                                                                transaction_id=cart.order_id,
+#                                                                                warehouse_internal_inventory_release=None,
+#                                                                                ).last()
+#
+#                         if order_reserve_obj:
+#                             order, _ = Order.objects.get_or_create(last_modified_by=request.user, ordered_by=request.user,
+#                                                                    ordered_cart=cart, order_no=cart.order_id)
+#
+#                             order.billing_address = billing_address
+#                             order.shipping_address = shipping_address
+#                             order.buyer_shop = shop
+#                             order.seller_shop = parent_mapping.parent
+#                             order.total_tax_amount = float(total_tax_amount)
+#                             order.order_status = Order.ORDERED
+#                             order.save()
+#
+#                             # Changes OrderedProductReserved Status
+#                             for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart,
+#                                                                                          reserve_status=OrderedProductReserved.RESERVED):
+#                                 ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
+#                                 ordered_reserve.order_product_reserved.save()
+#                                 ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
+#                                 ordered_reserve.save()
+#                             sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
+#                             reserved_args = json.dumps({
+#                                 'shop_id': parent_mapping.parent.id,
+#                                 'transaction_id': cart.order_id,
+#                                 'transaction_type': 'ordered',
+#                                 'order_status': order.order_status
+#                             })
+#                             order_result = OrderManagement.release_blocking_from_order(reserved_args, sku_id)
+#                             if order_result is False:
+#                                 order.delete()
+#                                 msg = {'is_success': False, 'message': ['No item in this cart.'], 'response_data': None}
+#                                 return Response(msg, status=status.HTTP_200_OK)
+#                             serializer = OrderSerializer(order,
+#                                                          context={'parent_mapping_id': parent_mapping.parent.id,
+#                                                                   'buyer_shop_id': shop_id,
+#                                                                   'current_url': current_url})
+#                             msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+#                             # try:
+#                             #     request = jsonpickle.encode(request, unpicklable=False)
+#                             #     order = jsonpickle.encode(order, unpicklable=False)
+#                             #     pick_list_download.delay(request, order)
+#                             # except:
+#                             #     msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'],
+#                             #            'response_data': None}
+#                             #     return Response(msg, status=status.HTTP_200_OK)
+#                         else:
+#                             msg = {'is_success': False, 'message': ['Sorry! your session has timed out.'], 'response_data': None}
+#                             return Response(msg, status=status.HTTP_200_OK)
+#
+#                     return Response(msg, status=status.HTTP_200_OK)
+#
+#
+#             # if shop mapped with gf
+#             elif parent_mapping.parent.shop_type.shop_type == 'gf':
+#                 if GramMappedCart.objects.filter(last_modified_by=self.request.user, id=cart_id).exists():
+#                     cart = GramMappedCart.objects.get(last_modified_by=self.request.user, id=cart_id)
+#                     cart.cart_status = 'ordered'
+#                     cart.save()
+#
+#                     if GramOrderedProductReserved.objects.filter(cart=cart).exists():
+#                         order, _ = GramMappedOrder.objects.get_or_create(last_modified_by=request.user,
+#                                                                          ordered_by=request.user, ordered_cart=cart,
+#                                                                          order_no=cart.order_id)
+#
+#                         order.billing_address = billing_address
+#                         order.shipping_address = shipping_address
+#                         order.buyer_shop = shop
+#                         order.seller_shop = parent_mapping.parent
+#                         order.order_status = 'ordered'
+#                         order.save()
+#
+#                         pick_list = PickList.objects.get(cart=cart)
+#                         pick_list.order = order
+#                         pick_list.status = True
+#                         pick_list.save()
+#
+#                         # Remove Data From OrderedProductReserved
+#                         for ordered_reserve in GramOrderedProductReserved.objects.filter(cart=cart):
+#                             ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
+#                             ordered_reserve.order_product_reserved.save()
+#                             ordered_reserve.reserve_status = 'ordered'
+#                             ordered_reserve.save()
+#
+#                         serializer = GramMappedOrderSerializer(order,
+#                                                                context={'parent_mapping_id': parent_mapping.parent.id,
+#                                                                         'current_url': current_url})
+#                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+#                     else:
+#                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
+#                         return Response(msg, status=status.HTTP_200_OK)
+#
+#             else:
+#                 msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
+#                        'response_data': None}
+#                 return Response(msg, status=status.HTTP_200_OK)
+#             return Response(msg, status=status.HTTP_200_OK)
 
 
 class OrderListCentral(GenericAPIView):
