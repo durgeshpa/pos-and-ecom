@@ -795,7 +795,7 @@ class CartCentral(GenericAPIView):
                 no_of_pieces=updated_no_of_pieces)
 
     @staticmethod
-    def delivery_message():
+    def delivery_message(shop_type):
         """
             Get Cart
             Delivery message
@@ -805,14 +805,14 @@ class CartCentral(GenericAPIView):
         time = date_time_now.strftime("%H")
 
         if int(time) < 17 and not (day == 'Saturday'):
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=1)).strftime('%A')))
+            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+                (date_time_now + timedelta(days=1)).strftime('%A'), str(shop_type.shop_min_amount)))
         elif (day == 'Friday'):
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=3)).strftime('%A')))
+            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+                (date_time_now + timedelta(days=3)).strftime('%A'), str(shop_type.shop_min_amount)))
         else:
-            return str('Order now and get delivery by {}'.format(
-                (date_time_now + timedelta(days=2)).strftime('%A')))
+            return str('Order now and get by {}.Min Order amt Rs {}.'.format(
+                (date_time_now + timedelta(days=2)).strftime('%A'), str(shop_type.shop_min_amount)))
 
     @staticmethod
     def delete_products_without_mrp(cart):
@@ -823,7 +823,7 @@ class CartCentral(GenericAPIView):
             if not i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id):
                 CartProductMapping.objects.filter(cart__id=cart.id, cart_product__id=i.cart_product.id).delete()
 
-    def get_serialize_process_sp(self, cart, seller_shop='', buyer_shop=''):
+    def get_serialize_process_sp(self, cart, seller_shop, buyer_shop):
         """
            Get Cart
            Cart type retail - sp
@@ -832,7 +832,7 @@ class CartCentral(GenericAPIView):
         serializer = CartSerializer(Cart.objects.get(id=cart.id),
                                     context={'parent_mapping_id': seller_shop.id, 'buyer_shop_id': buyer_shop.id,
                                              'search_text': self.request.GET.get('search_text', ''),
-                                             'delivery_message': self.delivery_message(),
+                                             'delivery_message': self.delivery_message(seller_shop.shop_type),
                                              'request': self.request})
         for i in serializer.data['rt_cart_list']:
             # check if product has to use it's parent product image
@@ -843,7 +843,7 @@ class CartCentral(GenericAPIView):
                         parent_image_serializer = ParentProductImageSerializer(im)
                         i['cart_product']['product_pro_image'].append(parent_image_serializer.data)
             # remove products without mrp
-            if not i['cart_product']['product_mrp']:
+            if not i['cart_product']['price_details']['mrp']:
                 i['qty'] = 0
                 CartProductMapping.objects.filter(cart__id=i['cart']['id'],
                                                   cart_product__id=i['cart_product']['id']).delete()
