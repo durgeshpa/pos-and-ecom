@@ -552,8 +552,8 @@ class ProductPrice(models.Model):
                     product=self.product,
                     seller_shop=self.seller_shop,
                     buyer_shop=self.buyer_shop,
-                    city=self.city,
-                    pincode=self.pincode,
+                    city_id=self.city_id,
+                    pincode_id=self.pincode_id,
                     approval_status=ProductPrice.APPROVED
                 )
             elif self.pincode:
