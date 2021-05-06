@@ -1662,7 +1662,7 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         response['Content-Disposition'] = 'attachment; filename=slab_product_prices.csv'
         return response
 
-    actions = [export_as_csv,]
+    actions = [export_as_csv, disapprove_product_price]
     change_list_template = 'admin/products/products-slab-price-change-list.html'
 
 
