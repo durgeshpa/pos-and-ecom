@@ -57,7 +57,7 @@ class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
 
     def get_tax_percentage(self, obj):
         return obj.tax.tax_percentage
-
+    
 
 class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_pro_image = ParentProductImageSerializers(many=True, required=True)
