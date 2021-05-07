@@ -1579,9 +1579,20 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             product.save()
 
     def disapprove_product_price(self, request, queryset):
+        failed_counter = 0
+        success_counter = 0
         for product in queryset:
-            product.approval_status = ProductPrice.DEACTIVATED
-            product.save()
+            if product.buyer_shop or product.pincode or product.city:
+                product.approval_status = ProductPrice.DEACTIVATED
+                product.save()
+                success_counter+=1
+            else:
+                failed_counter+=1
+        if success_counter>0:
+            self.message_user(request, '{} prices were deactivated.'.format(success_counter), level=messages.SUCCESS)
+        if failed_counter>0:
+            self.message_user(request, '{} warehouse level prices were not deactivated.'.format(failed_counter), level=messages.ERROR)
+
 
     approve_product_price.short_description = "Approve Selected Products Prices"
     approve_product_price.allowed_permissions = ('change',)
@@ -1662,7 +1673,7 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         response['Content-Disposition'] = 'attachment; filename=slab_product_prices.csv'
         return response
 
-    actions = [export_as_csv,]
+    actions = [export_as_csv, disapprove_product_price]
     change_list_template = 'admin/products/products-slab-price-change-list.html'
 
 
