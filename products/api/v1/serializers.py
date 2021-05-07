@@ -20,10 +20,14 @@ def valid_image_extension(image, extension_list=VALID_IMAGE_EXTENSIONS):
 
 
 class ParentProductCategorySerializers(serializers.ModelSerializer):
+    category_name = serializers.SerializerMethodField()
 
     class Meta:
         model = ParentProductCategory
-        fields = ('parent_product', 'category')
+        fields = ('parent_product', 'category', 'category_name')
+
+    def get_category_name(self, obj):
+        return obj.category.category_name
 
 
 class ParentProductImageSerializers(serializers.ModelSerializer):
@@ -37,10 +41,22 @@ class ParentProductImageSerializers(serializers.ModelSerializer):
 
 
 class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
+    tax_name = serializers.SerializerMethodField()
+    tax_type = serializers.SerializerMethodField()
+    tax_percentage = serializers.SerializerMethodField()
 
     class Meta:
         model = ParentProductTaxMapping
-        fields = ('parent_product', 'tax')
+        fields = ('parent_product', 'tax', 'tax_name', 'tax_type', 'tax_percentage')
+
+    def get_tax_name(self, obj):
+        return obj.tax.tax_name
+
+    def get_tax_type(self, obj):
+        return obj.tax.tax_type
+
+    def get_tax_percentage(self, obj):
+        return obj.tax.tax_percentage
 
 
 class ParentProductSerializers(serializers.ModelSerializer):
