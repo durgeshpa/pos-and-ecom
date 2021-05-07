@@ -5,6 +5,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from products.models import Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage
 from categories.models import Category
+from brand.models import Brand
 
 
 VALID_IMAGE_EXTENSIONS = [
@@ -57,12 +58,20 @@ class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
 
     def get_tax_percentage(self, obj):
         return obj.tax.tax_percentage
-    
+
 
 class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_pro_image = ParentProductImageSerializers(many=True, required=True)
     parent_product_pro_category = ParentProductCategorySerializers(many=True, required=True)
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True, required=True)
+    parent_brand_name = serializers.SerializerMethodField()
+    product_hsn_code = serializers.SerializerMethodField()
+
+    def get_parent_brand_name(self, obj):
+        return obj.parent_brand.brand_name
+
+    def get_product_hsn_code(self, obj):
+        return obj.product_hsn.product_hsn_code
 
     def validate(self, data):
         """
@@ -104,7 +113,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('parent_brand', 'name', 'product_hsn', 'brand_case_size',
+        fields = ('parent_brand', 'parent_brand_name', 'name', 'product_hsn', 'product_hsn_code', 'brand_case_size',
                   'inner_case_size', 'product_type', 'is_ptr_applicable', 'ptr_percent',
                   'ptr_type', 'status', 'parent_product_pro_image', 'parent_product_pro_category',
                   'parent_product_pro_tax')

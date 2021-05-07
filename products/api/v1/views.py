@@ -4,10 +4,9 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import JSONParser
 
+from products.models import  ParentProduct
 from .serializers import ParentProductSerializers
 from products.utils import MultipartJsonParser
-from products.models import  ParentProduct
-
 from retailer_backend.utils import SmallOffsetPagination
 
 
