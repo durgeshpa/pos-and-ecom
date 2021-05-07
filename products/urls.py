@@ -17,4 +17,5 @@ urlpatterns = [
     url(r'^fetch-all-parent-categories_with_id/$', FetchAllParentCategoriesWithID, name='fetch-all-parent-categories_with_id',),
     url(r'^fetch-all-product-brands/$', FetchAllProductBrands, name='fetch-all-product-brands',),
     url(r'^packing-product-autocomplete/$', PackingProductAutocomplete.as_view(), name='packing-product-autocomplete',),
+    url(r'^api/', include('products.api.urls')),
 ]
