@@ -17,7 +17,7 @@ class ParentProductView(GenericAPIView):
     def get(self, request, *args, **kwargs):
         pass
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
 
         """
            POST API for Product Creation

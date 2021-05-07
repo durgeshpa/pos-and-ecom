@@ -47,10 +47,10 @@ class ParentProductSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(_('Invalid PTR Percentage'))
 
         if len(self.initial_data.getlist('parent_product_pro_image')) == 0:
-            raise serializers.ValidationError(_('parent_product_pro_image is required'))
+            raise serializers.ValidationError(_('parent_product_image is required'))
 
         if len(self.initial_data.getlist('parent_product_pro_category')) == 0:
-            raise serializers.ValidationError(_('parent_product_pro_category is required'))
+            raise serializers.ValidationError(_('parent_product_category is required'))
 
         if len(self.initial_data.getlist('parent_product_pro_tax')):
             tax_list_type = []
@@ -67,7 +67,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
             if 'gst' not in tax_list_type:
                 raise serializers.ValidationError('Please fill the GST tax value')
 
-
         return data
 
     class Meta:
@@ -80,13 +79,16 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
+        """create a new Parent Product with image category & tax"""
+
         validated_data.pop('parent_product_pro_image')
         validated_data.pop('parent_product_pro_category')
         validated_data.pop('parent_product_pro_tax')
         try:
             parentproduct = ParentProduct.objects.create(**validated_data)
-        except:
-            raise TypeError("")
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
         for image_data in self.initial_data.getlist('parent_product_pro_image'):
             ParentProductImage.objects.create(image=image_data, image_name=image_data.name.rsplit(".", 1)[0], parent_product=parentproduct)
         for product_category in self.initial_data['parent_product_pro_category']:
