@@ -1,6 +1,7 @@
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.files.uploadedfile import InMemoryUploadedFile
 
 from rest_framework import serializers
 from products.models import Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage
@@ -49,6 +50,10 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if len(self.initial_data.getlist('parent_product_pro_image')) == 0:
             raise serializers.ValidationError(_('parent_product_image is required'))
 
+        for image in self.initial_data.getlist('parent_product_pro_image'):
+            if not isinstance(image, InMemoryUploadedFile):
+                raise serializers.ValidationError(_('parent_product_image should be image'))
+
         if len(self.initial_data.getlist('parent_product_pro_category')) == 0:
             raise serializers.ValidationError(_('parent_product_category is required'))
 
@@ -90,7 +95,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
         for image_data in self.initial_data.getlist('parent_product_pro_image'):
-            ParentProductImage.objects.create(image=image_data, image_name=image_data.name.rsplit(".", 1)[0], parent_product=parentproduct)
+            ParentProductImage.objects.create(image=image_data, image_name=image_data.name.rsplit(".", 1)[0],
+                                              parent_product=parentproduct)
         for product_category in self.initial_data['parent_product_pro_category']:
             category = Category.objects.filter(id=product_category['category']).last()
             ParentProductCategory.objects.create(parent_product=parentproduct, category=category)

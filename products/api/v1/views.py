@@ -20,7 +20,7 @@ class ParentProductView(GenericAPIView):
     def post(self, request):
 
         """
-           POST API for Product Creation
+           POST API for Parent Product Creation with Image Category & Tax
         """
 
         serializer = ParentProductSerializers(data=request.data,)
