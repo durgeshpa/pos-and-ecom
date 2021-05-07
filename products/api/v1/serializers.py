@@ -67,11 +67,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_brand_name = serializers.SerializerMethodField()
     product_hsn_code = serializers.SerializerMethodField()
 
-    def get_parent_brand_name(self, obj):
-        return obj.parent_brand.brand_name
-
-    def get_product_hsn_code(self, obj):
-        return obj.product_hsn.product_hsn_code
 
     def validate(self, data):
         """
@@ -118,7 +113,12 @@ class ParentProductSerializers(serializers.ModelSerializer):
                   'ptr_type', 'status', 'parent_product_pro_image', 'parent_product_pro_category',
                   'parent_product_pro_tax')
 
+    def get_parent_brand_name(self, obj):
+        return obj.parent_brand.brand_name
 
+    def get_product_hsn_code(self, obj):
+        return obj.product_hsn.product_hsn_code
+    
     @transaction.atomic
     def create(self, validated_data):
         """create a new Parent Product with image category & tax"""
