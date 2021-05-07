@@ -345,16 +345,6 @@ class GramGRNProductsList(APIView):
                                 for i in coupons:
                                     if i['coupon_type'] == 'catalog':
                                         i['max_qty'] = max_qty
-                check_price_mrp = product.product_mrp
-                price_details = p["_source"]["price_details"]
-                if str(shop_id) in price_details['store'].keys():
-                    p["_source"]["price_details"] = price_details['store'][str(shop_id)]
-                elif str(shop.get_shop_pin_code) in price_details['pincode'].keys():
-                    p["_source"]["price_details"] = price_details['pincode'][str(shop.get_shop_pin_code)]
-                elif str(shop.get_shop_city.id) in price_details['city'].keys():
-                    p["_source"]["price_details"] = price_details['city'][str(shop.get_shop_city.id)]
-                elif str(parent_mapping.parent_id) in price_details['store'].keys():
-                    p["_source"]["price_details"] = price_details['store'][str(parent_mapping.parent_id)]
 
             if cart_check == True:
                 for c_p in cart_products:
@@ -382,6 +372,18 @@ class GramGRNProductsList(APIView):
 
             counter = 0
             try:
+
+                check_price_mrp = product.product_mrp
+                price_details = p["_source"]["price_details"]
+                if str(shop_id) in price_details['store'].keys():
+                    p["_source"]["price_details"] = price_details['store'][str(shop_id)]
+                elif str(shop.get_shop_pin_code) in price_details['pincode'].keys():
+                    p["_source"]["price_details"] = price_details['pincode'][str(shop.get_shop_pin_code)]
+                elif str(shop.get_shop_city.id) in price_details['city'].keys():
+                    p["_source"]["price_details"] = price_details['city'][str(shop.get_shop_city.id)]
+                elif str(parent_mapping.parent_id) in price_details['store'].keys():
+                    p["_source"]["price_details"] = price_details['store'][str(parent_mapping.parent_id)]
+
                 for price_detail in p["_source"]["price_details"]:
                     p["_source"]["price_details"][counter]["ptr"] = round(p["_source"]["price_details"][counter]["ptr"], 2)
                     p["_source"]["price_details"][counter]["margin"] = round(p["_source"]["price_details"][counter]["margin"], 2)
