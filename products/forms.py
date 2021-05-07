@@ -2183,6 +2183,8 @@ class PriceSlabForm(forms.ModelForm):
         super(PriceSlabForm, self).__init__(*args, **kwargs)
         if self.instance.pk is not None:
             return
+
+        self.fields['end_value'].widget.attrs['readonly'] = True
         if self.prefix == 'price_slabs-0':
             self.fields['start_value'].widget.attrs['readonly'] = True
 
