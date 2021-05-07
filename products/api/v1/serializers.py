@@ -118,7 +118,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     def get_product_hsn_code(self, obj):
         return obj.product_hsn.product_hsn_code
-    
+
     @transaction.atomic
     def create(self, validated_data):
         """create a new Parent Product with image category & tax"""
