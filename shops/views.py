@@ -176,7 +176,7 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                 product_price2 = ''
                 if price_list.count() > 0:
                     for price in price_list:
-                        if price.seller_shop == self.shop:
+                        if price.seller_shop == self.shop and not (price.buyer_shop or price.city or price.pincode):
                             if price.approval_status == 2 and price.status:
                                 is_price = True
                                 price_slabs = price.price_slabs.all()
