@@ -8,6 +8,18 @@ from products.models import Tax, ParentProductTaxMapping, ParentProduct, ParentP
 from categories.models import Category
 
 
+VALID_IMAGE_EXTENSIONS = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+]
+
+
+def valid_image_extension(image, extension_list=VALID_IMAGE_EXTENSIONS):
+    return any([image.endswith(e) for e in extension_list])
+
+
 class ParentProductCategorySerializers(serializers.ModelSerializer):
 
     class Meta:
@@ -51,8 +63,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(_('parent_product_image is required'))
 
         for image in self.initial_data.getlist('parent_product_pro_image'):
-            if not isinstance(image, InMemoryUploadedFile):
-                raise serializers.ValidationError(_('parent_product_image should be image'))
+            if not valid_image_extension(image.name):
+                raise serializers.ValidationError(_("Not a valid Image. "
+                                                    "The URL must have an image extensions (.jpg/.jpeg/.png)"))
 
         if len(self.initial_data.getlist('parent_product_pro_category')) == 0:
             raise serializers.ValidationError(_('parent_product_category is required'))
