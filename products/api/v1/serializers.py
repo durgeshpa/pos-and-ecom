@@ -5,7 +5,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from products.models import Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage
 from categories.models import Category
-from brand.models import Brand
+
 
 
 VALID_IMAGE_EXTENSIONS = [
