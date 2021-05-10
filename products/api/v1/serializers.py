@@ -61,13 +61,26 @@ class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
 
 
 class ParentProductSerializers(serializers.ModelSerializer):
-    parent_product_pro_image = ParentProductImageSerializers(many=True)
-    parent_product_pro_category = ParentProductCategorySerializers(many=True)
-    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
+    parent_product_pro_image = ParentProductImageSerializers(many=True, required=False)
+    parent_product_pro_category = ParentProductCategorySerializers(many=True, required=False)
+    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True, required=False)
     parent_brand_name = serializers.SerializerMethodField()
     product_hsn_code = serializers.SerializerMethodField()
-    id = serializers.SerializerMethodField()
+    # id = serializers.SerializerMethodField()
+    id = serializers.IntegerField(required=True, write_only=True)
     parent_id = serializers.SerializerMethodField()
+
+    def __init__(self, *args, **kwargs):
+        """If object is being updated don't allow contact to be changed."""
+        super().__init__(*args, **kwargs)
+        if self.instance is None:
+            self.fields.get('id').read_only = True
+
+    def validate_id(self, data):
+
+        if data['id'] is None:
+            raise serializers.ValidationError("Blog post is not about Django")
+        return data
 
     def validate(self, data):
         """
@@ -123,9 +136,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
                   'inner_case_size', 'product_type', 'is_ptr_applicable', 'ptr_percent',
                   'ptr_type', 'status', 'parent_product_pro_image', 'parent_product_pro_category',
                   'parent_product_pro_tax')
-
-    def get_id(self, obj):
-        return obj.id
+    #
+    # def get_id(self, obj):
+    #     return obj.id
 
     def get_parent_id(self, obj):
         return obj.parent_id
@@ -159,6 +172,16 @@ class ParentProductSerializers(serializers.ModelSerializer):
             ParentProductTaxMapping.objects.create(parent_product=parentproduct, tax=tax)
 
         return parentproduct
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        validated_data.pop('parent_product_pro_image')
+        validated_data.pop('parent_product_pro_category')
+        validated_data.pop('parent_product_pro_tax')
+
+        instance = super().update(instance, validated_data)
+        instance.save()
+        return instance
 
 
 

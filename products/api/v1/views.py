@@ -29,9 +29,9 @@ class ParentProductView(GenericAPIView):
         search_text = request.GET.get('search_text')
 
         if request.GET.get('parent_product_id'):
-            """
-               Get Parent Product when product_id is given in params
-            """
+
+            """ Get Parent Product when product_id is given in params """
+
             parent_pro_id = int(request.GET.get('parent_product_id'))
             if self.parent_product_list.filter(id=parent_pro_id).last() is None:
                 msg = {'is_success': False,
@@ -60,20 +60,35 @@ class ParentProductView(GenericAPIView):
 
     def post(self, request):
 
-        """
-           POST API for Parent Product Creation with Image Category & Tax
-        """
+        """ POST API for Parent Product Creation with Image Category & Tax """
 
-        serializer = ParentProductSerializers(data=request.data,)
+        serializer = ParentProductSerializers(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request):
+
+        """ PUT API for Parent Product Updation with Image Category & Tax """
+        id = int(request.POST.get('id'))
+        id_instance = self.parent_product_list.filter(id=id).last()
+        if id_instance is None:
+            msg = {'is_success': False,
+                   'message': ['Please Provide a Valid id to update parent product'],
+                   'data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        serializer = ParentProductSerializers(instance=id_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        """
-            Delete Parent Product with image
-        """
+
+        """ Delete Parent Product with image """
+
         if not request.GET.get('parent_product_id'):
             msg = {'is_success': False,
                    'message': 'Please Provide a parent_product_id',
