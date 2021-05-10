@@ -68,14 +68,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
     product_hsn_code = serializers.SerializerMethodField()
     parent_id = serializers.SerializerMethodField()
     id = serializers.SerializerMethodField()
-    pk = serializers.IntegerField(required=True, write_only=True)
-
-
-    def __init__(self, *args, **kwargs):
-        """If object is being updated don't allow contact to be changed."""
-        super().__init__(*args, **kwargs)
-        if self.instance is None:
-            self.fields.get('pk').read_only = True
 
     def get_id(self, obj):
         return obj.id
@@ -139,7 +131,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('id', 'pk', 'parent_id', 'parent_brand', 'parent_brand_name', 'name', 'product_hsn', 'product_hsn_code', 'brand_case_size',
+        fields = ('id', 'parent_id',  'parent_brand', 'parent_brand_name', 'name', 'product_hsn', 'product_hsn_code', 'brand_case_size',
                   'inner_case_size', 'product_type', 'is_ptr_applicable', 'ptr_percent',
                   'ptr_type', 'status', 'parent_product_pro_image', 'parent_product_pro_category',
                   'parent_product_pro_tax')

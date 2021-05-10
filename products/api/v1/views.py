@@ -71,6 +71,11 @@ class ParentProductView(GenericAPIView):
     def put(self, request):
 
         """ PUT API for Parent Product Updation with Image Category & Tax """
+        if not request.POST.get('id'):
+            msg = {'is_success': False,
+                   'message': ['Please Provide a id to update parent product'],
+                   'data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         id = int(request.POST.get('id'))
         id_instance = self.parent_product_list.filter(id=id).last()
         if id_instance is None:
