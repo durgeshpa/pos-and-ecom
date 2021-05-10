@@ -24,7 +24,6 @@ class ParentProductView(GenericAPIView):
 
         category = request.GET.get('category')
         brand = request.GET.get('brand')
-        parent_id = request.GET.get('parent_id')
         product_status = request.GET.get('status')
         search_text = request.GET.get('search_text')
 
@@ -41,18 +40,19 @@ class ParentProductView(GenericAPIView):
 
             self.parent_product_list = self.parent_product_list.filter(id=parent_pro_id)
 
-        # search using parent_id, name
+        # search using parent_id, category_name & name based on criteria that matches
         if search_text is not None:
             self.parent_product_list = self.parent_product_list.filter(Q(name__icontains=search_text)
                                                                        | Q(parent_id__icontains=search_text)
                                                                        | Q(parent_product_pro_category__category__category_name__icontains=search_text))
             
-        # filter using brand_name & product_status
+        # filter using brand_name, category & product_status exact match
         if brand is not None:
             self.parent_product_list = self.parent_product_list.filter(parent_brand__brand_name=brand)
         if product_status is not None:
             self.parent_product_list = self.parent_product_list.filter(status=product_status)
-
+        if category is not None:
+            self.parent_product_list = self.parent_product_list.filter(parent_product_pro_category__category__category_name=category)
         parent_product = SmallOffsetPagination().paginate_queryset(self.parent_product_list, request)
         serializer = ParentProductSerializers(parent_product, many=True)
         return Response(serializer.data)
