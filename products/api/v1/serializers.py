@@ -89,6 +89,16 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
         if len(self.initial_data.getlist('parent_product_pro_category')) == 0:
             raise serializers.ValidationError(_('parent_product_category is required'))
+        cat_list = []
+        for cat_data in self.initial_data['parent_product_pro_category']:
+            try:
+                category = Category.objects.get(id=cat_data['category'])
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError('{} category not found'.format(cat_data['category']))
+            if category in cat_list:
+                raise serializers.ValidationError(
+                    '{} do not repeat same category for one product'.format(category))
+            cat_list.append(category)
 
         if len(self.initial_data.getlist('parent_product_pro_tax')):
             tax_list_type = []
