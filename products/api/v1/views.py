@@ -4,6 +4,7 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import JSONParser
 from django.db.models import Q
+from django.core.exceptions import ObjectDoesNotExist
 
 from products.models import  ParentProduct
 from .serializers import ParentProductSerializers
@@ -68,6 +69,32 @@ class ParentProductView(GenericAPIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+        """
+            Delete Parent Product with image
+        """
+        if not request.GET.get('parent_product_id'):
+            msg = {'is_success': False,
+                   'message': 'Please Provide a parent_product_id',
+                   'data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        try:
+            parent_product_id = self.parent_product_list.filter(id=int(request.GET.get('parent_product_id')))
+        except ObjectDoesNotExist:
+            msg = {'is_success': False,
+                   'message': 'Please Provide a Valid parent_product_id',
+                   'data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        parent_product_id.delete()
+        msg = {'is_success': True,
+               'message': 'Parent Product were deleted successfully!',
+               'data': None
+               }
+        return Response(msg, status=status.HTTP_204_NO_CONTENT)
+
+
+
 
 
 
