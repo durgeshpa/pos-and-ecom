@@ -19,12 +19,14 @@ class ParentProductView(GenericAPIView):
     parent_product_list = ParentProduct.objects.all()
 
     def get(self, request):
+
         """ GET API to get Parent Product List """
 
         category = request.GET.get('category')
         brand = request.GET.get('brand')
         parent_id = request.GET.get('parent_id')
         product_status = request.GET.get('status')
+        search_text = request.GET.get('search_text')
 
         if request.GET.get('parent_product_id'):
             """
@@ -38,10 +40,14 @@ class ParentProductView(GenericAPIView):
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
             self.parent_product_list = self.parent_product_list.filter(id=parent_pro_id)
-        if parent_id is not None:
-            self.parent_product_list = self.parent_product_list.filter(parent_id=parent_id)
-        if category is not None:
-            self.parent_product_list = self.parent_product_list.filter(parent_product_pro_category__category__category_name__icontains=category)
+
+        # search using parent_id, name
+        if search_text is not None:
+            self.parent_product_list = self.parent_product_list.filter(Q(name__icontains=search_text)
+                                                                       | Q(parent_id__icontains=search_text)
+                                                                       | Q(parent_product_pro_category__category__category_name__icontains=search_text))
+            
+        # filter using brand_name & product_status
         if brand is not None:
             self.parent_product_list = self.parent_product_list.filter(parent_brand__brand_name=brand)
         if product_status is not None:
