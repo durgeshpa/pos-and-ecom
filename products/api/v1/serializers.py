@@ -66,21 +66,28 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True, required=False)
     parent_brand_name = serializers.SerializerMethodField()
     product_hsn_code = serializers.SerializerMethodField()
-    # id = serializers.SerializerMethodField()
-    id = serializers.IntegerField(required=True, write_only=True)
     parent_id = serializers.SerializerMethodField()
+    id = serializers.SerializerMethodField()
+    pk = serializers.IntegerField(required=True, write_only=True)
+
 
     def __init__(self, *args, **kwargs):
         """If object is being updated don't allow contact to be changed."""
         super().__init__(*args, **kwargs)
         if self.instance is None:
-            self.fields.get('id').read_only = True
+            self.fields.get('pk').read_only = True
 
-    def validate_id(self, data):
+    def get_id(self, obj):
+        return obj.id
 
-        if data['id'] is None:
-            raise serializers.ValidationError("Blog post is not about Django")
-        return data
+    def get_parent_id(self, obj):
+        return obj.parent_id
+
+    def get_parent_brand_name(self, obj):
+        return obj.parent_brand.brand_name
+
+    def get_product_hsn_code(self, obj):
+        return obj.product_hsn.product_hsn_code
 
     def validate(self, data):
         """
@@ -91,63 +98,51 @@ class ParentProductSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(_('Invalid PTR Type'))
             elif not data.get('ptr_percent'):
                 raise serializers.ValidationError(_('Invalid PTR Percentage'))
+        if self.instance is None:
+            if len(self.initial_data.getlist('parent_product_pro_image')) == 0:
+                raise serializers.ValidationError(_('parent_product_image is required'))
 
-        if len(self.initial_data.getlist('parent_product_pro_image')) == 0:
-            raise serializers.ValidationError(_('parent_product_image is required'))
+            for image in self.initial_data.getlist('parent_product_pro_image'):
+                if not valid_image_extension(image.name):
+                    raise serializers.ValidationError(_("Not a valid Image. "
+                                                        "The URL must have an image extensions (.jpg/.jpeg/.png)"))
 
-        for image in self.initial_data.getlist('parent_product_pro_image'):
-            if not valid_image_extension(image.name):
-                raise serializers.ValidationError(_("Not a valid Image. "
-                                                    "The URL must have an image extensions (.jpg/.jpeg/.png)"))
-
-        if len(self.initial_data.getlist('parent_product_pro_category')) == 0:
-            raise serializers.ValidationError(_('parent_product_category is required'))
-        cat_list = []
-        for cat_data in self.initial_data['parent_product_pro_category']:
-            try:
-                category = Category.objects.get(id=cat_data['category'])
-            except ObjectDoesNotExist:
-                raise serializers.ValidationError('{} category not found'.format(cat_data['category']))
-            if category in cat_list:
-                raise serializers.ValidationError(
-                    '{} do not repeat same category for one product'.format(category))
-            cat_list.append(category)
-
-        if len(self.initial_data.getlist('parent_product_pro_tax')):
-            tax_list_type = []
-            for tax_data in self.initial_data['parent_product_pro_tax']:
+            if len(self.initial_data.getlist('parent_product_pro_category')) == 0:
+                raise serializers.ValidationError(_('parent_product_category is required'))
+            cat_list = []
+            for cat_data in self.initial_data['parent_product_pro_category']:
                 try:
-                    tax = Tax.objects.get(id=tax_data['tax'])
+                    category = Category.objects.get(id=cat_data['category'])
                 except ObjectDoesNotExist:
-                    raise serializers.ValidationError('tax not found')
-
-                if tax.tax_type in tax_list_type:
+                    raise serializers.ValidationError('{} category not found'.format(cat_data['category']))
+                if category in cat_list:
                     raise serializers.ValidationError(
-                        '{} type tax can be filled only once'.format(tax.tax_type))
-                tax_list_type.append(tax.tax_type)
-            if 'gst' not in tax_list_type:
-                raise serializers.ValidationError('Please fill the GST tax value')
+                        '{} do not repeat same category for one product'.format(category))
+                cat_list.append(category)
+
+            if len(self.initial_data.getlist('parent_product_pro_tax')):
+                tax_list_type = []
+                for tax_data in self.initial_data['parent_product_pro_tax']:
+                    try:
+                        tax = Tax.objects.get(id=tax_data['tax'])
+                    except ObjectDoesNotExist:
+                        raise serializers.ValidationError('tax not found')
+
+                    if tax.tax_type in tax_list_type:
+                        raise serializers.ValidationError(
+                            '{} type tax can be filled only once'.format(tax.tax_type))
+                    tax_list_type.append(tax.tax_type)
+                if 'gst' not in tax_list_type:
+                    raise serializers.ValidationError('Please fill the GST tax value')
 
         return data
 
     class Meta:
         model = ParentProduct
-        fields = ('id', 'parent_id', 'parent_brand', 'parent_brand_name', 'name', 'product_hsn', 'product_hsn_code', 'brand_case_size',
+        fields = ('id', 'pk', 'parent_id', 'parent_brand', 'parent_brand_name', 'name', 'product_hsn', 'product_hsn_code', 'brand_case_size',
                   'inner_case_size', 'product_type', 'is_ptr_applicable', 'ptr_percent',
                   'ptr_type', 'status', 'parent_product_pro_image', 'parent_product_pro_category',
                   'parent_product_pro_tax')
-    #
-    # def get_id(self, obj):
-    #     return obj.id
-
-    def get_parent_id(self, obj):
-        return obj.parent_id
-
-    def get_parent_brand_name(self, obj):
-        return obj.parent_brand.brand_name
-
-    def get_product_hsn_code(self, obj):
-        return obj.product_hsn.product_hsn_code
 
     @transaction.atomic
     def create(self, validated_data):
@@ -175,6 +170,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        """update a Parent Product with image category & tax using parent product id"""
+
         validated_data.pop('parent_product_pro_image')
         validated_data.pop('parent_product_pro_category')
         validated_data.pop('parent_product_pro_tax')
