@@ -3,6 +3,7 @@ from rest_framework import status, authentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import JSONParser
+from django.db.models import Q
 
 from products.models import  ParentProduct
 from .serializers import ParentProductSerializers
@@ -19,19 +20,33 @@ class ParentProductView(GenericAPIView):
 
     def get(self, request):
         """ GET API to get Parent Product List """
+
+        category = request.GET.get('category')
+        brand = request.GET.get('brand')
+        parent_id = request.GET.get('parent_id')
+        product_status = request.GET.get('status')
+
         if request.GET.get('parent_product_id'):
             """
                Get Parent Product when product_id is given in params
             """
-            id = request.GET.get('parent_product_id')
-            parent_pro_id = self.parent_product_list.filter(id=id).last()
-            if parent_pro_id is None:
+            parent_pro_id = int(request.GET.get('parent_product_id'))
+            if self.parent_product_list.filter(id=parent_pro_id).last() is None:
                 msg = {'is_success': False,
                        'message': ['Please Provide a Valid parent_product_id'],
                        'data': None}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
-            self.parent_product_list = self.parent_product_list.filter(id=id)
+            self.parent_product_list = self.parent_product_list.filter(id=parent_pro_id)
+        if parent_id is not None:
+            self.parent_product_list = self.parent_product_list.filter(parent_id=parent_id)
+        if category is not None:
+            self.parent_product_list = self.parent_product_list.filter(parent_product_pro_category__category__category_name__icontains=category)
+        if brand is not None:
+            self.parent_product_list = self.parent_product_list.filter(parent_brand__brand_name=brand)
+        if product_status is not None:
+            self.parent_product_list = self.parent_product_list.filter(status=product_status)
+
         parent_product = SmallOffsetPagination().paginate_queryset(self.parent_product_list, request)
         serializer = ParentProductSerializers(parent_product, many=True)
         return Response(serializer.data)

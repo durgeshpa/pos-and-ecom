@@ -61,12 +61,13 @@ class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
 
 
 class ParentProductSerializers(serializers.ModelSerializer):
-    parent_product_pro_image = ParentProductImageSerializers(many=True, required=True)
-    parent_product_pro_category = ParentProductCategorySerializers(many=True, required=True)
-    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True, required=True)
+    parent_product_pro_image = ParentProductImageSerializers(many=True)
+    parent_product_pro_category = ParentProductCategorySerializers(many=True)
+    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
     parent_brand_name = serializers.SerializerMethodField()
     product_hsn_code = serializers.SerializerMethodField()
     id = serializers.SerializerMethodField()
+    parent_id = serializers.SerializerMethodField()
 
     def validate(self, data):
         """
@@ -108,13 +109,16 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('id', 'parent_brand', 'parent_brand_name', 'name', 'product_hsn', 'product_hsn_code', 'brand_case_size',
+        fields = ('id', 'parent_id', 'parent_brand', 'parent_brand_name', 'name', 'product_hsn', 'product_hsn_code', 'brand_case_size',
                   'inner_case_size', 'product_type', 'is_ptr_applicable', 'ptr_percent',
                   'ptr_type', 'status', 'parent_product_pro_image', 'parent_product_pro_category',
                   'parent_product_pro_tax')
 
     def get_id(self, obj):
         return obj.id
+
+    def get_parent_id(self, obj):
+        return obj.parent_id
 
     def get_parent_brand_name(self, obj):
         return obj.parent_brand.brand_name
