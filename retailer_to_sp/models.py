@@ -2596,11 +2596,11 @@ class OrderReturn(models.Model):
         ('created', "Created"),
         ('completed', "Completed")
     )
-    WRONG_ORDER = 'wo'
-    ITEM_MISS_MATCH = 'imm'
-    DAMAGED_ITEM = 'di'
-    NEAR_EXPIRY = 'ne'
-    MANUFACTURING_DEFECT = 'md'
+    WRONG_ORDER = 0
+    ITEM_MISS_MATCH = 1
+    DAMAGED_ITEM = 2
+    NEAR_EXPIRY = 3
+    MANUFACTURING_DEFECT = 4
     RETURN_REASON = (
         (WRONG_ORDER, 'Wrong Order'),
         (ITEM_MISS_MATCH, 'Item miss match'),
@@ -2625,7 +2625,7 @@ class OrderReturn(models.Model):
 
 class ReturnItems(models.Model):
     return_id = models.ForeignKey(OrderReturn, related_name='rt_return_list', on_delete=models.DO_NOTHING)
-    ordered_product = models.OneToOneField(OrderedProductMapping, related_name='rt_return_ordered_product',
+    ordered_product = models.ForeignKey(OrderedProductMapping, related_name='rt_return_ordered_product',
                                         on_delete=models.DO_NOTHING)
     return_qty = models.PositiveIntegerField(default=0)
     new_sp = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

@@ -3,12 +3,13 @@ import datetime
 from django.utils.translation import ugettext_lazy as _
 
 from rest_framework import serializers
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
 from products.models import Product, ProductImage
 from pos.models import RetailerProduct, RetailerProductImage
-from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, OrderedProductMapping
+from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, \
+    OrderedProductMapping
 from accounts.api.v1.serializers import PosUserSerializer
 from pos.common_functions import get_invoice_and_link
 from products.models import Product
@@ -22,6 +23,7 @@ class RetailerProductImageSerializer(serializers.ModelSerializer):
     image = serializers.ImageField(
         max_length=None, use_url=True,
     )
+
     class Meta:
         model = RetailerProductImage
         fields = ('image_name', 'image')
@@ -202,7 +204,6 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             if not Shop.objects.filter(id=shop_id).exists():
                 raise serializers.ValidationError(_("Shop ID not found! Please enter a valid Shop ID!"))
         return attrs
-
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -515,15 +516,18 @@ class OrderedDashBoardSerializer(serializers.Serializer):
     revenue = serializers.DecimalField(max_digits=9, decimal_places=2, required=False)
 
 
-
 class ReturnItemsSerializer(serializers.ModelSerializer):
     """
         Single return item detail
     """
+    status = serializers.SerializerMethodField()
+
+    def get_status(self, obj):
+        return obj.return_id.status
 
     class Meta:
         model = ReturnItems
-        fields = ('return_qty', 'new_sp')
+        fields = ('return_qty', 'new_sp', 'status')
 
 
 class OrderReturnSerializer(serializers.ModelSerializer):
@@ -533,7 +537,7 @@ class OrderReturnSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderReturn
-        fields = ('id', 'return_reason', 'refund_amount', 'status', 'offers')
+        fields = ('id', 'return_reason', 'refund_amount', 'status')
 
 
 class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
@@ -544,7 +548,7 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
     product_subtotal = serializers.SerializerMethodField()
     received_effective_price = serializers.SerializerMethodField()
     qty = serializers.SerializerMethodField()
-    rt_return_ordered_product = ReturnItemsSerializer()
+    rt_return_ordered_product = ReturnItemsSerializer(many=True)
 
     def get_qty(self, obj):
         """
@@ -566,8 +570,8 @@ class BasicOrderProductDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProductMapping
-        fields = ('retailer_product', 'effective_price', 'selling_price', 'qty', 'product_subtotal', 'received_effective_price',
-                  'rt_return_ordered_product')
+        fields = ('retailer_product', 'selling_price', 'effective_price', 'qty', 'product_subtotal',
+                  'received_effective_price', 'rt_return_ordered_product')
 
 
 class BasicOrderSerializer(serializers.ModelSerializer):
@@ -576,9 +580,18 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     """
     buyer = PosUserSerializer()
     total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
+    refunded_amount = serializers.SerializerMethodField('refunded_amount_dt')
     products = serializers.SerializerMethodField()
     invoice = serializers.SerializerMethodField('invoice_dt')
-    rt_return_order = OrderReturnSerializer(many=True)
+    ongoing_return = serializers.SerializerMethodField('ongoing_return_dt')
+
+    def ongoing_return_dt(self, obj):
+        ongoing_ret = obj.rt_return_order.filter(status='created').last()
+        return OrderReturnSerializer(ongoing_ret).data if ongoing_ret else {}
+
+    def refunded_amount_dt(self, obj):
+        amt = obj.rt_return_order.filter(status='completed').aggregate(amt=Sum('refund_amount'))
+        return amt['amt'] if amt['amt'] else 0
 
     def get_products(self, obj):
         """
@@ -601,20 +614,39 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                     'qty': offer['free_item_qty'],
                     'coupon_code': offer['coupon_code']
                 }
-        # check if any returns
+
+        all_returns = obj.rt_return_order.prefetch_related('rt_return_list').filter(order=obj)
+        return_item_ongoing = {}
         return_item_map = {}
-        return_obj = OrderReturn.objects.filter(order=obj).last()
-        if return_obj:
+        for return_obj in all_returns:
             return_item_detail = return_obj.free_qty_map
             if return_item_detail:
-                for combo in return_item_detail:
-                    return_item_map[combo['item_id']] = combo['free_item_return_qty']
+                if return_obj.status == 'created':
+                    for combo in return_item_detail:
+                        return_item_ongoing[combo['item_id']] = combo['free_item_return_qty']
+                else:
+                    for combo in return_item_detail:
+                        if combo['item_id'] in return_item_map:
+                            return_item_map[combo['item_id']] += combo['free_item_return_qty']
+                        else:
+                            return_item_map[combo['item_id']] = combo['free_item_return_qty']
 
         for product in products:
+            product['already_returned_qty'] = 0
+            product['return_qty'] = 0
             rt_return_ordered_product = product.pop('rt_return_ordered_product', None)
             if rt_return_ordered_product:
-                product['return_qty'] = rt_return_ordered_product['return_qty']
-                product['new_sp'] = rt_return_ordered_product['new_sp']
+                for return_item in rt_return_ordered_product:
+                    if return_item['status'] == 'created':
+                        product['return_qty'] = return_item['return_qty']
+                    else:
+                        product['already_returned_qty'] = product['already_returned_qty'] + return_item[
+                            'return_qty'] if 'return_qty' in product else return_item['return_qty']
+                    if 'new_sp' in product:
+                        if return_item['new_sp'] < product['new_sp']:
+                            product['new_sp'] = return_item['new_sp']
+                    else:
+                        product['new_sp'] = return_item['new_sp']
             # map purchased product with free product
             if product['retailer_product']['id'] in product_offer_map:
                 offer = product_offer_map[product['retailer_product']['id']]
@@ -623,12 +655,19 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                     'mrp': offer['free_item_mrp'],
                     'name': offer['free_item_name'],
                     'qty': offer['free_item_qty_added'],
-                    'return_qty': return_item_map[offer['item_id']] if offer['item_id'] in return_item_map else 0,
+                    'already_returned_qty': return_item_map[offer['item_id']] if offer[
+                                                                                     'item_id'] in return_item_map else 0,
+                    'return_qty': return_item_ongoing[offer['item_id']] if offer[
+                                                                               'item_id'] in return_item_ongoing else 0,
                     'coupon_code': offer['coupon_code']
                 }
                 product['free_product'] = free_product
-        if 'free_product' in return_item_map:
-            cart_free_product['return_qty'] = return_item_map['free_product']
+
+        cart_free_product['already_returned_qty'] = return_item_map[
+            'free_product'] if 'free_product' in return_item_map else 0
+        cart_free_product['return_qty'] = return_item_ongoing[
+            'free_product'] if 'free_product' in return_item_ongoing else 0
+
         if cart_free_product:
             products.append(cart_free_product)
         return products
@@ -648,21 +687,40 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     def invoice_dt(self, obj):
         return get_invoice_and_link(OrderedProduct.objects.get(order=obj), self.context.get("current_url", None))
 
-
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'order_status', 'order_amount', 'total_discount_amount', 'buyer',
-                  'products', 'invoice', 'created_at', 'modified_at', 'rt_return_order')
+        fields = ('id', 'order_no', 'order_status', 'order_amount', 'total_discount_amount', 'refunded_amount', 'buyer',
+                  'products', 'invoice', 'created_at', 'modified_at', 'ongoing_return')
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
     """
         Get refund amount on checkout
     """
+    order_total = serializers.SerializerMethodField()
+    discount_amount = serializers.SerializerMethodField()
     received_amount = serializers.SerializerMethodField()
+    refunded_amount = serializers.SerializerMethodField()
+    current_amount = serializers.SerializerMethodField()
     refund_amount = serializers.SerializerMethodField()
-    cart_offers = serializers.SerializerMethodField()
     buyer = PosUserSerializer()
+
+    def get_order_total(self, obj):
+        return obj.order_amount + self.get_discount_amount(obj)
+
+    def get_discount_amount(self, obj):
+        discount = 0
+        offers = self.get_cart_offers(obj)
+        for offer in offers:
+            discount += float(offer['discount_value'])
+        return discount
+
+    def get_current_amount(self, obj):
+        return obj.order_amount - self.get_refunded_amount(obj) - self.get_refund_amount(obj)
+
+    def get_refunded_amount(self, obj):
+        amt = obj.rt_return_order.filter(status='completed').aggregate(amt=Sum('refund_amount'))
+        return amt['amt'] if amt['amt'] else 0
 
     def get_cart_offers(self, obj):
         """
@@ -685,12 +743,13 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         """
             refund amount
         """
-        order_return = OrderReturn.objects.get(order=obj)
-        return order_return.refund_amount
+        ongoing_return = obj.rt_return_order.filter(status='created').last()
+        return ongoing_return.refund_amount if ongoing_return else 0
 
     class Meta:
         model = Order
-        fields = ('id', 'received_amount', 'refund_amount', 'cart_offers', 'buyer', 'order_status')
+        fields = ('id', 'order_total', 'discount_amount', 'received_amount', 'refunded_amount',
+                  'current_amount', 'refund_amount', 'buyer', 'order_status')
 
 
 def coupon_name_validation(coupon_name):
@@ -767,9 +826,8 @@ class ComboDealsSerializer(serializers.ModelSerializer):
     retailer_primary_product_name = serializers.SerializerMethodField('is_retailer_primary_product_name')
     purchased_product_qty = serializers.IntegerField(required=True)
     retailer_free_product = serializers.IntegerField(required=True)
-    retailer_free_product_name =serializers.SerializerMethodField('is_retailer_free_product_name')
+    retailer_free_product_name = serializers.SerializerMethodField('is_retailer_free_product_name')
     free_product_qty = serializers.IntegerField(required=True)
-
 
     def validate(self, data):
         """
@@ -795,8 +853,9 @@ class ComboDealsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RuleSetProductMapping
-        fields = ('combo_offer_name', 'retailer_primary_product', 'retailer_primary_product_name', 'retailer_free_product',
-                  'retailer_free_product_name', 'purchased_product_qty', 'free_product_qty', 'start_date', 'expiry_date')
+        fields = (
+        'combo_offer_name', 'retailer_primary_product', 'retailer_primary_product_name', 'retailer_free_product',
+        'retailer_free_product_name', 'purchased_product_qty', 'free_product_qty', 'start_date', 'expiry_date')
 
 
 class FreeProductOfferSerializer(serializers.ModelSerializer):
@@ -820,11 +879,10 @@ class FreeProductOfferSerializer(serializers.ModelSerializer):
         product = RetailerProduct.objects.get(id=id)
         return product.name
 
-
     class Meta:
         model = CouponRuleSet
         fields = ('rulename', 'cart_qualifying_min_sku_value', 'free_product', 'free_product_name',
-                  'free_product_qty', 'start_date', 'expiry_date', )
+                  'free_product_qty', 'start_date', 'expiry_date',)
 
 
 class FreeProductUpdateSerializer(serializers.ModelSerializer):
@@ -893,7 +951,6 @@ class ComboDealsUpdateSerializer(serializers.ModelSerializer):
     start_date = serializers.DateField(required=False)
     expiry_date = serializers.DateField(required=False)
     is_active = serializers.BooleanField(required=False)
-
 
     def validate(self, data):
         """
@@ -978,7 +1035,7 @@ class CouponRuleSetGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CouponRuleSet
-        fields = ('discount', 'rulename', 'is_active', 'cart_qualifying_min_sku_value', )
+        fields = ('discount', 'rulename', 'is_active', 'cart_qualifying_min_sku_value',)
 
 
 class CouponSerializer(serializers.ModelSerializer):
@@ -998,4 +1055,4 @@ class CouponListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Coupon
         fields = ('id', 'coupon_code', 'coupon_name', 'coupon_type',
-                  'start_date', 'expiry_date', 'is_active', 'rule', )
+                  'start_date', 'expiry_date', 'is_active', 'rule',)
