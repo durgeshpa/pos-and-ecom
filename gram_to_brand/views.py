@@ -8,6 +8,7 @@ from django.urls import reverse_lazy
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, get_list_or_404
 
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -29,6 +30,8 @@ from django.db.models import Sum
 from django.db import transaction
 
 from global_config.views import get_config
+from retailer_to_sp.common_function import get_total_products_ordered
+from services.models import WarehouseInventoryHistoric
 from shops.models import Shop
 from wms.models import InventoryType, InventoryState
 
@@ -588,17 +591,3 @@ class GetMessage(APIView):
             "is_success": is_success,
             "po_status": po_obj.po_status if po_obj else ''
         })
-
-def get_demand_by_parent_product(parent_product):
-    daily_average = get_daily_average(parent_product)
-    current_inventory = get_inventory_in_stock(parent_product)
-    inventory_in_process = get_inventory_in_process(parent_product)
-    putaway_inventory = get_inventory_pending_for_putaway(parent_product)
-
-
-def initiate_ars():
-    product_vendor_mappings = ProductVendorMapping.objects.filter(
-                                                            product__parent_product__is_ars_applicable=True,
-                                                            vendors__ordering_days__contains=datetime.date.isoweekday(),
-                                                            is_default=True)
-

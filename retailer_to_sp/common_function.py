@@ -1,6 +1,10 @@
 import datetime
 import json
 
+from django.db.models import Sum
+
+from retailer_to_sp.models import Order
+
 today = datetime.datetime.today()
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -93,3 +97,10 @@ def reserved_args_json_data(shop_id, transaction_id, products, transaction_type,
         'order_status': order_status
     })
     return reserved_args
+
+def get_total_products_ordered(warehouse, parent_product, starting_from_date):
+    no_of_pieces_ordered = Order.objects.filter(seller_shop=warehouse,
+                                                ordered_cart__rt_cart_list__cart_product__parent_product=parent_product,
+                                                created_at__gte=starting_from_date)\
+                                         .values('ordered_cart__rt_cart_list__cart_product__parent_product')\
+                                         .annotate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))['ordered_pieces']
