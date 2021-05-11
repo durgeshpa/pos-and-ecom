@@ -134,8 +134,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
                 if 'gst' not in tax_list_type:
                     raise serializers.ValidationError('Please fill the GST tax value')
 
-        with transaction.atomic():
-            if self.instance:
+        if self.instance:
+            with transaction.atomic():
                 if self.initial_data.getlist('parent_product_pro_image'):
                     if self.initial_data['parent_image_id'] and self.initial_data['id']:
                         for img_data in self.initial_data['parent_image_id']:
@@ -168,12 +168,11 @@ class ParentProductSerializers(serializers.ModelSerializer):
                                     '{} do not repeat same category for one product'.format(category))
                             cat_list.append(category.category_name)
 
-                if self.initial_data.getlist('parent_product_pro_tax'):
+                if self.initial_data.get('parent_product_pro_tax'):
                     if self.initial_data['parent_tax_id'] and self.initial_data['id']:
                         for tax in self.initial_data['parent_tax_id']:
                             parent_tax = ParentProductTaxMapping.objects.filter(id=tax,
-                                                                                parent_product_id=self.initial_data[
-                                                                                    'id']).last()
+                                                                                parent_product_id=self.initial_data['id']).last()
                             if parent_tax is None:
                                 raise serializers.ValidationError('please provide valid parent_tax id')
                             parent_tax.delete()
@@ -194,7 +193,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
                             tax_list_type.append(tax.tax_type)
                         if 'gst' not in tax_list_type:
                             raise serializers.ValidationError('Please fill the GST tax value')
-
         return data
 
     class Meta:
