@@ -1107,6 +1107,7 @@ class CreateOrder(APIView):
                                 "Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
                             return Response(msg, status=status.HTTP_200_OK)
                         else:
+                            cart.offers=cart.offers_applied()
                             cart.cart_status = 'ordered'
                             cart.buyer_shop = shop
                             cart.seller_shop = parent_mapping.parent
@@ -1126,6 +1127,7 @@ class CreateOrder(APIView):
                                     return Response(msg, status=status.HTTP_200_OK)
                             else:
                                 pass
+
                         order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
                                                                                transaction_id=cart.order_id,
                                                                                warehouse_internal_inventory_release=None,
