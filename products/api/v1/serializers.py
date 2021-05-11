@@ -68,7 +68,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
     product_hsn_code = serializers.SerializerMethodField()
     parent_id = serializers.SerializerMethodField()
     id = serializers.SerializerMethodField()
-    # images = serializers.ListField(child=serializers.ImageField(allow_empty_file=True))
     parent_image_id = serializers.ListField(required=False)
     parent_category_id = serializers.ListField(required=False)
     parent_tax_id = serializers.ListField(required=False)
@@ -168,6 +167,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
         validated_data.pop('parent_product_pro_image')
         validated_data.pop('parent_product_pro_category')
         validated_data.pop('parent_product_pro_tax')
+        validated_data.pop('parent_image_id', None)
+        validated_data.pop('parent_category_id', None)
+        validated_data.pop('parent_tax_id', None)
 
         try:
             parentproduct = ParentProduct.objects.create(**validated_data)
@@ -190,12 +192,12 @@ class ParentProductSerializers(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """update a Parent Product with image category & tax using parent product id"""
 
-        validated_data.pop('parent_product_pro_image')
-        validated_data.pop('parent_product_pro_category')
-        validated_data.pop('parent_product_pro_tax')
-        parent_image = validated_data.pop('parent_image_id', None)
-        parent_category = validated_data.pop('parent_category_id', None)
-        parent_tax = validated_data.pop('parent_tax_id', None)
+        validated_data.pop('parent_product_pro_image', None)
+        validated_data.pop('parent_product_pro_category', None)
+        validated_data.pop('parent_product_pro_tax', None)
+        validated_data.pop('parent_image_id', None)
+        validated_data.pop('parent_category_id', None)
+        validated_data.pop('parent_tax_id', None)
 
         for image_data in self.initial_data.getlist('parent_product_pro_image'):
             ParentProductImage.objects.create(image=image_data, image_name=image_data.name.rsplit(".", 1)[0],
