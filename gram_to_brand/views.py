@@ -589,96 +589,16 @@ class GetMessage(APIView):
             "po_status": po_obj.po_status if po_obj else ''
         })
 
-#
-# def auto_put_away(warehouse, batch_id, put_away_quantity, grn_id):
-#
-#     virtual_bin_ids = get_config('virtual_bins')
-#     if not virtual_bin_ids:
-#         return
-#     bin_ids = eval(virtual_bin_ids)
-#     user_id = get_config('wh_consolidation_user')
-#     if user_id is None:
-#         info_logger.info("process_auto_put_away|user is not defined ")
-#         return
-#     user = User.objects.filter(pk=user_id).last()
-#     if user is None:
-#         info_logger.info("process_auto_put_away|no User found with id -{}".format(user_id))
-#         return
-#     warehouse_id = user.shop_employee.all().last().shop_id
-#     if warehouse_id is None:
-#         info_logger.info("process_auto_put_away|User-{} is not mapped with associated Warehouse-{}".format(user_id,warehouse))
-#         return
-#
-#     inventory_type = 'normal'
-#     type_normal = InventoryType.objects.filter(inventory_type=inventory_type).last()
-#     put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
-#                                                             inventory_type=type_normal).order_by('created_at')
-#
-#     ids = [i.id for i in put_away]
-#     value = put_away_quantity
-#     updated_putaway_value = put_away.aggregate(total=Sum('putaway_quantity'))['total'] if \
-#         put_away.aggregate(total=Sum('putaway_quantity'))['total'] else 0
-#     try:
-#         updated_putaway_value = put_away.aggregate(total=Sum('quantity'))['total'] if updated_putaway_value > \
-#                                                                                       put_away.aggregate(
-#                                                                                           total=Sum(
-#                                                                                               'quantity'))[
-#                                                                                           'total'] else updated_putaway_value
-#         if updated_putaway_value + put_away_quantity > put_away.aggregate(total=Sum('quantity'))['total']:
-#             info_logger.info('Put away quantity is exceeded for batch_id {} Can"t add more items'.format(batch_id))
-#             return
-#
-#         if updated_putaway_value == put_away.aggregate(total=Sum('quantity'))['total']:
-#             value = 0
-#             info_logger.info('Complete, for batch_id {} Can"t add more items'.format(batch_id))
-#             return
-#     except Exception as e:
-#         info_logger.error(e)
-#         return
-#     sh = Shop.objects.filter(id=int(warehouse.id)).last()
-#     state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
-#
-#     if sh.shop_type.shop_type == 'sp':
-#         info_logger.info("process_auto_put_away |STARTED")
-#         try:
-#             with transaction.atomic():
-#                 for bin_id in bin_ids:
-#                     # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
-#                     bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id).exclude(
-#                                                                                           batch_id=batch_id)
-#
-#                     if bin_inventory.exists():
-#                         qs = bin_inventory.filter(inventory_type=type_normal) \
-#                             .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
-#                         total = qs['available'] + qs['to_be_picked']
-#
-#                         # if inventory is more than zero, putaway won't be allowed,check for another bin_id
-#                         if total > 0:
-#                             info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
-#                                                   .format(batch_id[:17], batch_id))
-#                             # check for another bin_id
-#                             continue
-#                         else:
-#                             # breaking for loop continue with same bin_id
-#                             break
-#
-#                 pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=batch_id, warehouse=warehouse)
-#                 put_away_status = False
-#
-#                 while len(ids):
-#                     put_away_done = update_putaway(ids[0], batch_id, warehouse, value, user)
-#                     value = put_away_done
-#                     put_away_status = True
-#                     ids.remove(ids[0])
-#
-#                 updating_tables_on_putaway(sh, bin_id, put_away, batch_id, type_normal, state_total_available, 't', put_away_quantity,
-#                                            put_away_status, pu)
-#
-#                 obj = AutoOrderProcessing.objects.get(grn=grn_id)
-#                 if obj.state == 0:
-#                     AutoOrderProcessing.objects.filter(grn=grn_id).update(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PUTAWAY)
-#             info_logger.info("process_auto_put_away |COMPLETED. quantity has been updated in put away")
-#         except Exception as e:
-#             info_logger.info(
-#                 "Something Went wrong while updating quantity for put away " + str(e))
+def get_demand_by_parent_product(parent_product):
+    daily_average = get_daily_average(parent_product)
+    current_inventory = get_inventory_in_stock(parent_product)
+    inventory_in_process = get_inventory_in_process(parent_product)
+    putaway_inventory = get_inventory_pending_for_putaway(parent_product)
+
+
+def initiate_ars():
+    product_vendor_mappings = ProductVendorMapping.objects.filter(
+                                                            product__parent_product__is_ars_applicable=True,
+                                                            vendors__ordering_days__contains=datetime.date.isoweekday(),
+                                                            is_default=True)
 

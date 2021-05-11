@@ -12,7 +12,7 @@ from shops.models import Shop
 class VendorForm(forms.ModelForm):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
     city = forms.ModelChoiceField(queryset=City.objects.all())
-
+    # ordering_days = forms.MultipleChoiceField(choices=Vendor.ORDERING_DAY_CHOICES, widget=forms.MultiValueField)
     class Media:
         js = ('https://code.jquery.com/jquery-3.2.1.js','admin/js/vendor/vendor_form.js',
                 'https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js')

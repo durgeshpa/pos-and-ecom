@@ -1,9 +1,10 @@
 from django.db import models
 from adminsortable.fields import SortableForeignKey
 from adminsortable.models import SortableMixin
-#from vendor_registration.models import Vendor
-from mptt.models import TreeForeignKey
 from django.core.exceptions import ValidationError
+from multiselectfield import MultiSelectField
+from model_utils import Choices
+
 from addresses.models import City,State
 from retailer_backend.validators import ( AddressNameValidator, PinCodeValidator)
 from django.core.validators import RegexValidator
@@ -66,6 +67,18 @@ class Vendor(models.Model):
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
     #vendor_products_csv = models.FileField(upload_to='vendor/vendor_products_csv', null=True,blank=True)
     vendor_products_brand = ArrayField(models.PositiveIntegerField(),null=True, blank=True,editable=False)
+
+    ORDERING_DAY_CHOICES = Choices(
+            (1, 'Monday', 'Monday'),
+            (2, 'Tuesday', 'Tuesday'),
+            (3, 'Wednesday', 'Wednesday'),
+            (4, 'Thursday', 'Thursday'),
+            (5, 'Friday', 'Friday'),
+            (6, 'Saturday', 'Saturday'),
+            (7, 'Sunday', 'Sunday'),
+        )
+    ordering_days = MultiSelectField(max_length=50, choices=ORDERING_DAY_CHOICES, null=True, blank=True)
+    lead_time = models.PositiveSmallIntegerField(verbose_name='Lead Time(In Days)', null=True, blank=True)
 
     def __str__(self):
         return self.vendor_name

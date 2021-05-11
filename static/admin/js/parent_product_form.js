@@ -15,4 +15,12 @@ jQuery(document).ready(function($){
            ptr_percent.toggle(this.checked);
            ptr_type.toggle(this.checked);
         });
+
+        $('#id_is_ars_applicable').click(function() {
+           if(this.checked){
+                document.getElementById('id_max_inventory').value = 7;
+           }else{
+                document.getElementById('id_max_inventory').value = 10;
+           }
+        });
     });

@@ -146,6 +146,9 @@ class ParentProduct(models.Model):
                                       validators=[PercentageValidator])
     PTR_TYPE_CHOICES = Choices((1, 'MARK_UP', 'Mark Up'),(2, 'MARK_DOWN', 'Mark Down'))
     ptr_type = models.SmallIntegerField(choices=PTR_TYPE_CHOICES, null=True, blank=True)
+    is_ars_applicable = models.BooleanField(verbose_name='Is ARS Applicable', default=False)
+    max_inventory = models.PositiveSmallIntegerField(verbose_name='Max Inventory(In Days)')
+    is_lead_time_applicable = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -860,6 +863,7 @@ class ProductVendorMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
 
     def save_vendor(self,vendor):
         if vendor.vendor_products_brand is None:
@@ -881,6 +885,9 @@ class ProductVendorMapping(models.Model):
             self.brand_to_gram_price_unit = "Per Pack"
            
         ProductVendorMapping.objects.filter(product=self.product,vendor=self.vendor,status=True).update(status=False)
+        if self.is_default:
+            ProductVendorMapping.objects.filter(product=self.product, status=True, is_default=True)\
+                .update(is_default=False)
         self.status = True
         super().save(*args, **kwargs)
         self.save_vendor(vendor=self.vendor)

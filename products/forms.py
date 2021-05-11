@@ -22,6 +22,7 @@ from tempus_dominus.widgets import DatePicker, DateTimePicker, TimePicker
 from addresses.models import City, Pincode, State
 from brand.models import Brand, Vendor
 from categories.models import Category
+from global_config.views import get_config
 from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
                              ProductCategory, ProductImage, ProductPrice,
                              ProductVendorMapping, Size, Tax, Weight,
@@ -418,10 +419,13 @@ class ParentProductForm(forms.ModelForm):
         model = ParentProduct
         fields = ('parent_brand', 'name', 'product_hsn',
                   'brand_case_size', 'inner_case_size',
-                  'product_type', 'is_ptr_applicable', 'ptr_percent', 'ptr_type')
+                  'product_type', 'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
+                  'is_lead_time_applicable')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self.fields['max_inventory'].initial =  get_config('max_quantity_in_days', 10)
 
     def clean(self):
         cleaned_data = self.cleaned_data
