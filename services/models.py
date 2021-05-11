@@ -328,6 +328,7 @@ class WarehouseInventoryHistoric(models.Model):
     inventory_state = models.ForeignKey(InventoryState, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     in_stock = models.BooleanField()
+    visible = models.BooleanField(default=False)
     created_at = models.DateTimeField()
     modified_at = models.DateTimeField()
     archived_at = models.DateTimeField(auto_now_add=True)
