@@ -95,6 +95,12 @@ class ParentProductSerializers(serializers.ModelSerializer):
             elif not data.get('ptr_percent'):
                 raise serializers.ValidationError(_('Invalid PTR Percentage'))
 
+        if self.initial_data.getlist('parent_product_pro_image'):
+            for image in self.initial_data.getlist('parent_product_pro_image'):
+                if not valid_image_extension(image.name):
+                    raise serializers.ValidationError(_("Not a valid Image. "
+                                                        "The URL must have an image extensions (.jpg/.jpeg/.png)"))
+
         if self.instance is None:
             if len(self.initial_data.getlist('parent_product_pro_image')) == 0:
                 raise serializers.ValidationError(_('parent_product_image is required'))
@@ -113,7 +119,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
                         '{} do not repeat same category for one product'.format(category))
                 cat_list.append(category)
 
-            if len(self.initial_data.getlist('parent_product_pro_tax')):
+            if self.initial_data.getlist('parent_product_pro_tax'):
                 tax_list_type = []
                 for tax_data in self.initial_data['parent_product_pro_tax']:
                     try:
@@ -130,69 +136,64 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
         with transaction.atomic():
             if self.instance:
-                if self.initial_data['parent_image_id'] and self.initial_data['id']:
-                    for img_data in self.initial_data['parent_image_id']:
-                        image = ParentProductImage.objects.filter(id=img_data,
-                                                                  parent_product_id=self.initial_data['id']).last()
-                        if image is None:
-                            raise serializers.ValidationError('please provide valid parent_image id')
-                        image.delete()
-
-                if self.initial_data['parent_category_id'] and self.initial_data['id']:
-                    for cat_data in self.initial_data['parent_category_id']:
-                        parent_cat = ParentProductCategory.objects.filter(id=cat_data,
-                                                                          parent_product_id=self.initial_data[
-                                                                              'id']).last()
-                        if parent_cat is None:
-                            raise serializers.ValidationError('please provide valid parent_category id')
-                        parent_cat.delete()
-
-                if self.initial_data['parent_tax_id'] and self.initial_data['id']:
-                    for tax in self.initial_data['parent_tax_id']:
-                        parent_tax = ParentProductTaxMapping.objects.filter(id=tax, parent_product_id=self.initial_data[
-                            'id']).last()
-                        if parent_tax is None:
-                            raise serializers.ValidationError('please provide valid parent_tax id')
-                        parent_tax.delete()
+                if self.initial_data.getlist('parent_product_pro_image'):
+                    if self.initial_data['parent_image_id'] and self.initial_data['id']:
+                        for img_data in self.initial_data['parent_image_id']:
+                            image = ParentProductImage.objects.filter(id=img_data,
+                                                                      parent_product_id=self.initial_data['id']).last()
+                            if image is None:
+                                raise serializers.ValidationError('please provide valid parent_image id')
+                            image.delete()
 
                 if self.initial_data['parent_product_pro_category']:
-                    cat_list = []
-                    mapped_cat = ParentProductCategory.objects.filter(parent_product=self.instance.id)
-                    for cat in mapped_cat:
-                        cat_list.append(cat.category.category_name)
-                    for cat_data in self.initial_data['parent_product_pro_category']:
-                        try:
-                            category = Category.objects.get(id=cat_data['category'])
-                        except ObjectDoesNotExist:
-                            raise serializers.ValidationError('{} category not found'.format(cat_data['category']))
-                        if category.category_name in cat_list:
-                            raise serializers.ValidationError(
-                                '{} do not repeat same category for one product'.format(category))
-                        cat_list.append(category.category_name)
+                    if self.initial_data['parent_category_id'] and self.initial_data['id']:
+                        for cat_data in self.initial_data['parent_category_id']:
+                            parent_cat = ParentProductCategory.objects.filter(id=cat_data,
+                                                                              parent_product_id=self.initial_data[
+                                                                                  'id']).last()
+                            if parent_cat is None:
+                                raise serializers.ValidationError('please provide valid parent_category id')
+                            parent_cat.delete()
+                        cat_list = []
+                        mapped_cat = ParentProductCategory.objects.filter(parent_product=self.instance.id)
+                        for cat in mapped_cat:
+                            cat_list.append(cat.category.category_name)
+                        for cat_data in self.initial_data['parent_product_pro_category']:
+                            try:
+                                category = Category.objects.get(id=cat_data['category'])
+                            except ObjectDoesNotExist:
+                                raise serializers.ValidationError('{} category not found'.format(cat_data['category']))
+                            if category.category_name in cat_list:
+                                raise serializers.ValidationError(
+                                    '{} do not repeat same category for one product'.format(category))
+                            cat_list.append(category.category_name)
 
                 if self.initial_data.getlist('parent_product_pro_tax'):
-                    tax_list_type = []
-                    mapped_tax = ParentProductTaxMapping.objects.filter(parent_product=self.instance.id)
-                    for tax in mapped_tax:
-                        tax_list_type.append(tax.tax.tax_type)
-                    for tax_data in self.initial_data['parent_product_pro_tax']:
-                        try:
-                            tax = Tax.objects.get(id=tax_data['tax'])
-                        except ObjectDoesNotExist:
-                            raise serializers.ValidationError('tax not found')
+                    if self.initial_data['parent_tax_id'] and self.initial_data['id']:
+                        for tax in self.initial_data['parent_tax_id']:
+                            parent_tax = ParentProductTaxMapping.objects.filter(id=tax,
+                                                                                parent_product_id=self.initial_data[
+                                                                                    'id']).last()
+                            if parent_tax is None:
+                                raise serializers.ValidationError('please provide valid parent_tax id')
+                            parent_tax.delete()
 
-                        if tax.tax_type in tax_list_type:
-                            raise serializers.ValidationError(
-                                '{} type tax can be filled only once'.format(tax.tax_type))
-                        tax_list_type.append(tax.tax_type)
-                    if 'gst' not in tax_list_type:
-                        raise serializers.ValidationError('Please fill the GST tax value')
+                        tax_list_type = []
+                        mapped_tax = ParentProductTaxMapping.objects.filter(parent_product=self.instance.id)
+                        for tax in mapped_tax:
+                            tax_list_type.append(tax.tax.tax_type)
+                        for tax_data in self.initial_data['parent_product_pro_tax']:
+                            try:
+                                tax = Tax.objects.get(id=tax_data['tax'])
+                            except ObjectDoesNotExist:
+                                raise serializers.ValidationError('tax not found')
 
-        for image in self.initial_data.getlist('parent_product_pro_image'):
-            if not valid_image_extension(image.name):
-                raise serializers.ValidationError(_("Not a valid Image. "
-                                                    "The URL must have an image extensions (.jpg/.jpeg/.png)"))
-
+                            if tax.tax_type in tax_list_type:
+                                raise serializers.ValidationError(
+                                    '{} type tax can be filled only once'.format(tax.tax_type))
+                            tax_list_type.append(tax.tax_type)
+                        if 'gst' not in tax_list_type:
+                            raise serializers.ValidationError('Please fill the GST tax value')
 
         return data
 
