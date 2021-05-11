@@ -799,7 +799,6 @@ class CartCentral(GenericAPIView):
                 cart_type (retail-1 or basic-2)
                 cart_product (Product for 'retail', RetailerProduct for 'basic'
                 shop_id (Buyer shop id for 'retail', Shop id for selling shop in case of 'basic')
-                cart_id (For Basic Cart)
                 qty (Quantity of product to be added)
         """
         msg = validate_data_format(request)
@@ -810,6 +809,25 @@ class CartCentral(GenericAPIView):
             return self.retail_add_to_cart()
         elif cart_type == '2':
             return self.basic_add_to_cart()
+        else:
+            return get_response('Please provide a valid cart_type')
+
+    def put(self, request, pk):
+        """
+            Add/Update Item To Basic Cart
+            Inputs
+                cart_type (2)
+                product_id
+                shop_id
+                cart_id
+                qty
+        """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        cart_type = self.request.data.get('cart_type')
+        if cart_type == '2':
+            return self.basic_add_to_cart(pk)
         else:
             return get_response('Please provide a valid cart_type')
 
@@ -1107,14 +1125,14 @@ class CartCentral(GenericAPIView):
         else:
             return get_response('Sorry shop is not associated with any Gramfactory or any SP')
 
-    def basic_add_to_cart(self):
+    def basic_add_to_cart(self, cart_id=None):
         """
             Add To Cart
             For cart type 'basic'
         """
         with transaction.atomic():
             # basic validations for inputs
-            initial_validation = self.post_basic_validate()
+            initial_validation = self.post_basic_validate(cart_id)
             if 'error' in initial_validation:
                 return get_response(initial_validation['error'])
             product = initial_validation['product']
@@ -1174,7 +1192,7 @@ class CartCentral(GenericAPIView):
         return {'product': product, 'buyer_shop': parent_mapping.retailer, 'seller_shop': parent_mapping.parent,
                 'quantity': qty, 'shop_type': parent_mapping.parent.shop_type.shop_type}
 
-    def post_basic_validate(self):
+    def post_basic_validate(self, cart_id=None):
         """
             Add To Cart
             Input validation for add to cart for cart type 'basic'
@@ -1183,22 +1201,18 @@ class CartCentral(GenericAPIView):
         shop_id = get_shop_id_from_token(self.request)
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
+        shop = Shop.objects.get(id=shop_id)
 
-        qty = self.request.data.get('qty')
         # Added Quantity check
-        if qty is None or qty == '':
-            return {'error': "Qty Not Found!"}
-        # Check if shop exists
-        try:
-            shop = Shop.objects.get(id=shop_id)
-        except ObjectDoesNotExist:
-            return {'error': "Shop Doesn't Exist!"}
+        qty = self.request.data.get('qty')
+        if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
+            return {'error': "Qty Invalid!"}
 
-        if not self.request.data.get('cart_product'):
+        if not self.request.data.get('product_id'):
             name, sp, ean = self.request.data.get('product_name'), self.request.data.get('selling_price'),\
                             self.request.data.get('product_ean_code')
             if not (name and sp and ean):
-                return {'error': "Please provide cart_product OR product_name, product_ean_code, selling_price!"}
+                return {'error': "Please provide product_id OR product_name, product_ean_code, selling_price!"}
             linked_pid = self.request.data.get('linked_product_id') if self.request.data.get('linked_product_id') else None
             mrp, linked = None, 1
             if linked_pid:
@@ -1212,12 +1226,11 @@ class CartCentral(GenericAPIView):
                 return {'error': "Product could not be created. Please check values provided"}
         else:
             try:
-                product = RetailerProduct.objects.get(id=self.request.data.get('cart_product'), shop=shop)
+                product = RetailerProduct.objects.get(id=self.request.data.get('product_id'), shop=shop)
             except ObjectDoesNotExist:
                 return {'error': "Product Not Found!"}
         # Check if existing or new cart
         cart = None
-        cart_id = self.request.data.get('cart_id')
         if cart_id:
             try:
                 cart = Cart.objects.get(id=cart_id, last_modified_by=self.request.user, seller_shop=shop,
@@ -1226,7 +1239,7 @@ class CartCentral(GenericAPIView):
                 return {'error': "Cart Not Found!"}
         # Check if selling price is less than equal to mrp if price change
         price_change = self.request.data.get('price_change')
-        if price_change in ['1', '2']:
+        if price_change in [1, 2]:
             selling_price = self.request.data.get('selling_price')
             if not selling_price:
                 return {'error': "Please provide selling price to change price"}
@@ -1403,9 +1416,9 @@ class CartCentral(GenericAPIView):
         # Check If Price Change
         price_change = self.request.data.get('price_change')
         selling_price = None
-        if price_change in ['1', '2']:
+        if price_change in [1, 2]:
             selling_price = self.request.data.get('selling_price')
-            if price_change == '1' and selling_price:
+            if price_change == 1 and selling_price:
                 RetailerProduct.objects.filter(id=product.id).update(selling_price=selling_price)
 
         return selling_price if selling_price else product.selling_price
