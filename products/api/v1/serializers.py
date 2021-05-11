@@ -72,6 +72,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_category_id = serializers.ListField(required=False)
     parent_tax_id = serializers.ListField(required=False)
 
+    def clear_existing_images(self, instance):
+        for post_image in instance.parent_product_pro_image.all():
+            post_image.delete()
 
     def get_id(self, obj):
         return obj.id
@@ -241,9 +244,11 @@ class ParentProductSerializers(serializers.ModelSerializer):
         validated_data.pop('parent_category_id', None)
         validated_data.pop('parent_tax_id', None)
 
-        for image_data in self.initial_data.getlist('parent_product_pro_image'):
-            ParentProductImage.objects.create(image=image_data, image_name=image_data.name.rsplit(".", 1)[0],
-                                              parent_product=instance)
+        if self.initial_data.getlist('parent_product_pro_image'):
+            # self.clear_existing_images(instance)  # uncomment this if you want to clear existing images.
+            for image_data in self.initial_data.getlist('parent_product_pro_image'):
+                ParentProductImage.objects.create(image=image_data, image_name=image_data.name.rsplit(".", 1)[0],
+                                                  parent_product=instance)
         for product_category in self.initial_data['parent_product_pro_category']:
             category = Category.objects.filter(id=product_category['category']).last()
             ParentProductCategory.objects.create(parent_product=instance, category=category)
