@@ -25,7 +25,7 @@ class ParentProductCategorySerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProductCategory
-        fields = ('parent_product', 'category', 'category_name')
+        fields = ('id', 'parent_product', 'category', 'category_name')
 
     def get_category_name(self, obj):
         return obj.category.category_name
@@ -38,7 +38,7 @@ class ParentProductImageSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProductImage
-        fields = ('image_name', 'image')
+        fields = ('id', 'image_name', 'image',)
 
 
 class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
@@ -48,7 +48,7 @@ class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProductTaxMapping
-        fields = ('parent_product', 'tax', 'tax_name', 'tax_type', 'tax_percentage')
+        fields = ('id', 'parent_product', 'tax', 'tax_name', 'tax_type', 'tax_percentage')
 
     def get_tax_name(self, obj):
         return obj.tax.tax_name
@@ -68,6 +68,11 @@ class ParentProductSerializers(serializers.ModelSerializer):
     product_hsn_code = serializers.SerializerMethodField()
     parent_id = serializers.SerializerMethodField()
     id = serializers.SerializerMethodField()
+    # images = serializers.ListField(child=serializers.ImageField(allow_empty_file=True))
+    parent_image_id = serializers.ListField(required=False)
+    parent_category_id = serializers.ListField(required=False)
+    parent_tax_id = serializers.ListField(required=False)
+
 
     def get_id(self, obj):
         return obj.id
@@ -126,7 +131,27 @@ class ParentProductSerializers(serializers.ModelSerializer):
                     tax_list_type.append(tax.tax_type)
                 if 'gst' not in tax_list_type:
                     raise serializers.ValidationError('Please fill the GST tax value')
+        if self.instance:
+            if self.initial_data['parent_image_id'] and self.initial_data['id']:
+                for img_data in self.initial_data['parent_image_id']:
+                    image = ParentProductImage.objects.filter(id=img_data, parent_product_id=self.initial_data['id']).last()
+                    if image is None:
+                        raise serializers.ValidationError('please provide valid parent_image id')
+                    image.delete()
 
+            if self.initial_data['parent_category_id'] and self.initial_data['id']:
+                for cat_data in self.initial_data['parent_category_id']:
+                    parent_cat = ParentProductCategory.objects.filter(id=cat_data, parent_product_id=self.initial_data['id']).last()
+                    if parent_cat is None:
+                        raise serializers.ValidationError('please provide valid parent_category id')
+                    parent_cat.delete()
+
+            if self.initial_data['parent_tax_id'] and self.initial_data['id']:
+                for tax in self.initial_data['parent_tax_id']:
+                    parent_tax = ParentProductTaxMapping.objects.filter(id=tax, parent_product_id=self.initial_data['id']).last()
+                    if parent_tax is None:
+                        raise serializers.ValidationError('please provide valid parent_tax id')
+                    parent_tax.delete()
         return data
 
     class Meta:
@@ -134,7 +159,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         fields = ('id', 'parent_id',  'parent_brand', 'parent_brand_name', 'name', 'product_hsn', 'product_hsn_code', 'brand_case_size',
                   'inner_case_size', 'product_type', 'is_ptr_applicable', 'ptr_percent',
                   'ptr_type', 'status', 'parent_product_pro_image', 'parent_product_pro_category',
-                  'parent_product_pro_tax')
+                  'parent_product_pro_tax', 'parent_image_id', 'parent_category_id', 'parent_tax_id')
 
     @transaction.atomic
     def create(self, validated_data):
@@ -143,6 +168,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         validated_data.pop('parent_product_pro_image')
         validated_data.pop('parent_product_pro_category')
         validated_data.pop('parent_product_pro_tax')
+
         try:
             parentproduct = ParentProduct.objects.create(**validated_data)
         except Exception as e:
@@ -167,6 +193,19 @@ class ParentProductSerializers(serializers.ModelSerializer):
         validated_data.pop('parent_product_pro_image')
         validated_data.pop('parent_product_pro_category')
         validated_data.pop('parent_product_pro_tax')
+        parent_image = validated_data.pop('parent_image_id', None)
+        parent_category = validated_data.pop('parent_category_id', None)
+        parent_tax = validated_data.pop('parent_tax_id', None)
+
+        for image_data in self.initial_data.getlist('parent_product_pro_image'):
+            ParentProductImage.objects.create(image=image_data, image_name=image_data.name.rsplit(".", 1)[0],
+                                              parent_product=instance)
+        for product_category in self.initial_data['parent_product_pro_category']:
+            category = Category.objects.filter(id=product_category['category']).last()
+            ParentProductCategory.objects.create(parent_product=instance, category=category)
+        for tax_data in self.initial_data['parent_product_pro_tax']:
+            tax = Tax.objects.filter(id=tax_data['tax']).last()
+            ParentProductTaxMapping.objects.create(parent_product=instance, tax=tax)
 
         instance = super().update(instance, validated_data)
         instance.save()
