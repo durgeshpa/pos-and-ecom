@@ -97,11 +97,10 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if len(self.initial_data.getlist('parent_product_pro_category')) == 0:
             raise serializers.ValidationError(_('parent_product_category is required'))
 
-        if self.initial_data.getlist('parent_product_pro_image'):
-            for image in self.initial_data.getlist('parent_product_pro_image'):
-                if not valid_image_extension(image.name):
-                    raise serializers.ValidationError(_("Not a valid Image. "
-                                                        "The URL must have an image extensions (.jpg/.jpeg/.png)"))
+        for image in self.initial_data.getlist('parent_product_pro_image'):
+            if not valid_image_extension(image.name):
+                raise serializers.ValidationError(_("Not a valid Image. "
+                                                    "The URL must have an image extensions (.jpg/.jpeg/.png)"))
 
         cat_list = []
         for cat_data in self.initial_data['parent_product_pro_category']:
@@ -139,8 +138,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
                   'parent_product_pro_tax')
 
     def clear_existing_parent_cat(self, parentproduct):
-        for pro_iamge in parentproduct.parent_product_pro_image.all():
-            pro_iamge.delete()
+        for pro_image in parentproduct.parent_product_pro_image.all():
+            pro_image.delete()
 
     def clear_existing_parent_tax(self, parentproduct):
         for pro_cat in parentproduct.parent_product_pro_category.all():
@@ -187,6 +186,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
+
         self.clear_existing_images(parentproduct)
         self.clear_existing_parent_cat(parentproduct)
         self.clear_existing_parent_tax(parentproduct)
@@ -201,7 +201,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
         for tax_data in self.initial_data['parent_product_pro_tax']:
             tax = Tax.objects.filter(id=tax_data['tax']).last()
-            ParentProductTaxMapping.objects.create(parent_product=instance, tax=tax)
+            ParentProductTaxMapping.objects.create(parent_product=parentproduct, tax=tax)
 
         return parentproduct
 
