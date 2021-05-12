@@ -345,7 +345,7 @@ class GramGRNProductsList(APIView):
                                 for i in coupons:
                                     if i['coupon_type'] == 'catalog':
                                         i['max_qty'] = max_qty
-                check_price_mrp = product.product_mrp
+
             if cart_check == True:
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
@@ -369,15 +369,30 @@ class GramGRNProductsList(APIView):
                         p["_source"]["ptr"] = c_p.applicable_slab_price
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
-            counter=0
+
+            counter = 0
             try:
+
+                check_price_mrp = product.product_mrp
+                price_details = p["_source"]["price_details"]
+                if str(shop_id) in price_details['store'].keys():
+                    p["_source"]["price_details"] = price_details['store'][str(shop_id)]
+                elif str(shop.get_shop_pin_code) in price_details['pincode'].keys():
+                    p["_source"]["price_details"] = price_details['pincode'][str(shop.get_shop_pin_code)]
+                elif str(shop.get_shop_city.id) in price_details['city'].keys():
+                    p["_source"]["price_details"] = price_details['city'][str(shop.get_shop_city.id)]
+                elif str(parent_mapping.parent_id) in price_details['store'].keys():
+                    p["_source"]["price_details"] = price_details['store'][str(parent_mapping.parent_id)]
+
                 for price_detail in p["_source"]["price_details"]:
-                    p["_source"]["price_details"][counter]["ptr"]=round(p["_source"]["price_details"][counter]["ptr"],2)
+                    p["_source"]["price_details"][counter]["ptr"] = round(p["_source"]["price_details"][counter]["ptr"], 2)
                     p["_source"]["price_details"][counter]["margin"] = round(p["_source"]["price_details"][counter]["margin"], 2)
-                    counter+=1
+                    counter += 1
                 p_list.append(p["_source"])
             except:
                 pass
+
+
 
         msg = {'is_store_active': is_store_active,
                'is_success': True,
@@ -1092,6 +1107,7 @@ class CreateOrder(APIView):
                                 "Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
                             return Response(msg, status=status.HTTP_200_OK)
                         else:
+                            cart.offers=cart.offers_applied()
                             cart.cart_status = 'ordered'
                             cart.buyer_shop = shop
                             cart.seller_shop = parent_mapping.parent
@@ -1111,6 +1127,7 @@ class CreateOrder(APIView):
                                     return Response(msg, status=status.HTTP_200_OK)
                             else:
                                 pass
+
                         order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop.get_shop_parent.id,
                                                                                transaction_id=cart.order_id,
                                                                                warehouse_internal_inventory_release=None,
@@ -1370,11 +1387,11 @@ def pdf_generation(request, ordered_product):
         request = request
         ordered_product = ordered_product
 
-    # try:
-    #     if ordered_product.invoice.invoice_pdf.url:
-    #         pass
-    # except Exception as e:
-    #     logger.exception(e)
+    try:
+        if ordered_product.invoice.invoice_pdf.url:
+            pass
+    except Exception as e:
+        logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
 
         buyer_shop_id = ordered_product.order.buyer_shop_id
