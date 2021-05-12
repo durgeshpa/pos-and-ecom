@@ -2184,9 +2184,11 @@ class PriceSlabForm(forms.ModelForm):
         if self.instance.pk is not None:
             return
 
-        self.fields['end_value'].widget.attrs['readonly'] = True
         if self.prefix == 'price_slabs-0':
             self.fields['start_value'].widget.attrs['readonly'] = True
+            self.fields['end_value'].widget.attrs['readonly'] = True
+        elif self.prefix == 'price_slabs-1':
+            self.fields['end_value'].widget.attrs['readonly'] = True
 
 
 class SlabInlineFormSet(BaseInlineFormSet):
