@@ -611,8 +611,7 @@ class SellerShopProfile(generics.ListAPIView):
         return Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop') \
             .annotate(buyer_shop_count=Count('buyer_shop')) \
             .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
-            'ordered_cart__rt_cart_list__no_of_pieces'),
+            .annotate(ordered_amount=Sum(F('order_amount'),
                                          output_field=FloatField())).order_by('buyer_shop')
 
     def get_buyer_shop_count(self, shops_list):
@@ -647,10 +646,14 @@ class SellerShopProfile(generics.ListAPIView):
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['sum_no_of_ordered_sku'], i['avg_ordered_amount'], i['created_at'], i['ordered_amount']) for i in order_list}
 
         for shop in shop_list:
+            try:
+                order_value = round(order_map[shop['shop']][4], 2) if shop['shop'] in order_map else 0
+            except:
+                order_value = 0
             rt = {
                 'name': shop['shop__shop_name'],
                 'last_order_date': order_map[shop['shop']][3].strftime('%d-%m-%Y %H:%M') if shop['shop'] in order_map else 0,
-                'last_order_value': round(order_map[shop['shop']][4], 2) if shop['shop'] in order_map else 0,
+                'last_order_value': order_value,
                 'ordered_amount': avg_order_map[shop['shop']][1] if shop['shop'] in buyer_order_map else 0,
                 'avg_order_value': round(avg_order_map[shop['shop']][1] / buyer_order_map[shop['shop']][0], 2) if shop['shop'] in buyer_order_map else 0,
                 'sum_no_of_ordered_sku': avg_order_map[shop['shop']][0] if shop['shop'] in buyer_order_map else 0,
@@ -683,13 +686,13 @@ class SalesPerformanceView(generics.ListAPIView):
         last_15_day = today - timedelta(days=days_diff + next_15_day)
         last_30_day = today - timedelta(days=days_diff + next_30_day)
 
-        first_15_day = Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(created_at__date__lte=today, created_at__date__gte=last_15_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop'))
-        next_15_day = Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(created_at__date__lte=last_15_day, created_at__date__gte=last_30_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop'))
+        first_15_day = Order.objects.filter(buyer_shop__id__in=self.get_queryset()).filter(created_at__date__lte=today, created_at__date__gte=last_15_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop'))
+        next_15_day = Order.objects.filter(buyer_shop__id__in=self.get_queryset()).filter(created_at__date__lte=last_15_day, created_at__date__gte=last_30_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop'))
 
         if self.get_queryset():
             rt = {
                 'name': request.user.get_full_name(),
-                'shop_inactive': abs(Order.objects.filter(buyer_shop__in=self.get_queryset(), created_at__date__lte=today, created_at__date__gte=last_15_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count() - self.get_queryset().count()),
+                'shop_inactive': abs(Order.objects.filter(buyer_shop__id__in=self.get_queryset(), created_at__date__lte=today, created_at__date__gte=last_15_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count() - self.get_queryset().count()),
                 'shop_onboard': Shop.objects.filter(created_by=self.request.user, status=True,created_at__date__lte=today,created_at__date__gte=last_day).count(),
                 'shop_reactivated': first_15_day.difference(next_15_day).count(),
                 'current_target_sales_target': '',
