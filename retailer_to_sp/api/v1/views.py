@@ -2262,7 +2262,7 @@ class SellerOrderList(generics.ListAPIView):
         return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
 
     def get_child_employee(self):
-        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp',
+        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type__in=['r', 'f', 'sp'],
                                               status=True)
 
     def get_shops(self):
