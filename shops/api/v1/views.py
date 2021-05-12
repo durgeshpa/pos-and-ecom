@@ -499,10 +499,11 @@ class SellerShopOrder(generics.ListAPIView):
         return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
 
     def get_child_employee(self):
-        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp', status=True)
+        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type__in=['r', 'sp',
+                                              'f'], status=True)
 
     def get_shops(self):
-        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), shop__shop_type__shop_type__in=['r', 'f'], status=True)
+        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), shop__shop_type__shop_type__in=['r', 'f'], status=True).distinct('employee')
 
     def get_order(self, shops_list, today, last_day):
         return Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
@@ -538,7 +539,7 @@ class SellerShopOrder(generics.ListAPIView):
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
 
-        shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop__shop_name')
+        shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name')
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = self.get_order(shops_list, to_date, from_date)
         buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
@@ -591,10 +592,14 @@ class SellerShopProfile(generics.ListAPIView):
         return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
 
     def get_child_employee(self):
-        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp', status=True)
+        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type__in=['r', 'sp',
+                                                                                                              'f'],
+                                              status=True)
 
     def get_shops(self):
-        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), shop__shop_type__shop_type__in=['r', 'f'], status=True)
+        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'),
+                                              shop__shop_type__shop_type__in=['r', 'f'], status=True).distinct(
+            'employee')
 
     def get_order(self, shops_list):
         return Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop', 'created_at').\
@@ -627,7 +632,7 @@ class SellerShopProfile(generics.ListAPIView):
                 msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data}
                 return Response(msg, status=status.HTTP_200_OK)
 
-        shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').order_by('shop__shop_name')
+        shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name')
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_list = self.get_order(shops_list)
         avg_order_obj = self.get_avg_order_count(shops_list)
