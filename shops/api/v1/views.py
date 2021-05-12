@@ -354,7 +354,7 @@ class TeamListView(generics.ListAPIView):
         return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
 
     def get_employee_list(self):
-        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp', status=True).order_by('employee').distinct('employee')
+        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), status=True).order_by('employee').distinct('employee')
 
     def get_shops(self):
         return ShopUserMapping.objects.filter(employee__in=self.get_employee_list().values('employee'), status=True).values('shop').order_by('shop').distinct('shop')
@@ -366,11 +366,9 @@ class TeamListView(generics.ListAPIView):
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
             .annotate(avg_no_of_ordered_sku_pieces=Avg('ordered_cart__rt_cart_list__no_of_pieces')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
-            'ordered_cart__rt_cart_list__no_of_pieces'),
+            .annotate(ordered_amount=Sum(F('order_amount'),
                                          output_field=FloatField())) \
-            .annotate(avg_ordered_amount=Avg(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
-            'ordered_cart__rt_cart_list__no_of_pieces'),
+            .annotate(avg_ordered_amount=Avg(F('order_amount'),
                                          output_field=FloatField())) \
             .order_by('ordered_by')
 
@@ -406,24 +404,24 @@ class TeamListView(generics.ListAPIView):
         for emp in employee_list:
             store_added = emp.employee.shop_created_by.filter(created_at__date__lte=to_date, created_at__date__gte=from_date).count()
             rt = {
-                'ordered_sku_pieces': order_map[emp.employee.id][1] if emp.employee.id in order_map else 0,
-                'ordered_amount': round(order_map[emp.employee.id][3], 2) if emp.employee.id in order_map else 0,
+                'ordered_sku_pieces': order_map[emp.shop.shop_owner_id][1] if emp.shop.shop_owner_id in order_map else 0,
+                'ordered_amount': round(order_map[emp.shop.shop_owner_id][3], 2) if emp.shop.shop_owner_id in order_map else 0,
                 'delivered_amount': 0,
                 'store_added': store_added,
                 'unique_calls_made': 0,
-                'avg_order_val': round(order_map[emp.employee.id][3] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0,
-                'avg_order_line_items': round(order_map[emp.employee.id][0] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0,
+                'avg_order_val': round(order_map[emp.shop.shop_owner_id][3] / buyer_order_map[emp.shop.shop_owner_id][0], 2) if emp.shop.shop_owner_id in order_map else 0,
+                'avg_order_line_items': round(order_map[emp.shop.shop_owner_id][0] / buyer_order_map[emp.shop.shop_owner_id][0], 2) if emp.shop.shop_owner_id in order_map else 0,
                 'sales_person_name': emp.employee.get_full_name(),
-                'no_of_ordered_sku': order_map[emp.employee.id][0] if emp.employee.id in order_map else 0,
-                'shops_ordered': order_map[emp.employee.id][5] if emp.employee.id in order_map else 0,
+                'no_of_ordered_sku': order_map[emp.shop.shop_owner_id][0] if emp.shop.shop_owner_id in order_map else 0,
+                'shops_ordered': order_map[emp.shop.shop_owner_id][5] if emp.shop.shop_owner_id in order_map else 0,
             }
             data.append(rt)
-            ordered_sku_pieces_total += order_map[emp.employee.id][1] if emp.employee.id in order_map else 0
-            ordered_amount_total += round(order_map[emp.employee.id][3], 2) if emp.employee.id in order_map else 0
+            ordered_sku_pieces_total += order_map[emp.shop.shop_owner_id][1] if emp.shop.shop_owner_id in order_map else 0
+            ordered_amount_total += round(order_map[emp.shop.shop_owner_id][3], 2) if emp.shop.shop_owner_id in order_map else 0
             store_added_total += store_added
-            no_of_ordered_sku_total += order_map[emp.employee.id][0] if emp.employee.id in order_map else 0
-            avg_order_total += round(order_map[emp.employee.id][3] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0
-            avg_order_line_items_total += round(order_map[emp.employee.id][0] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0
+            no_of_ordered_sku_total += order_map[emp.shop.shop_owner_id][0] if emp.shop.shop_owner_id in order_map else 0
+            avg_order_total += round(order_map[emp.shop.shop_owner_id][3] / buyer_order_map[emp.shop.shop_owner_id][0], 2) if emp.shop.shop_owner_id in order_map else 0
+            avg_order_line_items_total += round(order_map[emp.shop.shop_owner_id][0] / buyer_order_map[emp.shop.shop_owner_id][0], 2) if emp.shop.shop_owner_id in order_map else 0
 
             dt ={
                 'ordered_sku_pieces': ordered_sku_pieces_total,
@@ -512,8 +510,7 @@ class SellerShopOrder(generics.ListAPIView):
             annotate(buyer_shop_count=Count('buyer_shop')) \
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
-            'ordered_cart__rt_cart_list__no_of_pieces'),
+            .annotate(ordered_amount=Sum(F('order_amount'),
                                          output_field=FloatField())) \
             .order_by('buyer_shop')
 
@@ -545,13 +542,13 @@ class SellerShopOrder(generics.ListAPIView):
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = self.get_order(shops_list, to_date, from_date)
         buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
-        if self.request.user.shop_employee.last().employee_group.name == 'Sales Executive':
-            order_obj = order_obj.filter(ordered_by = self.request.user)
-            buyer_order_obj = buyer_order_obj.filter(ordered_by = self.request.user)
-        elif self.request.user.shop_employee.last().employee_group.name == 'Sales Manager':
-            executives_list = self.get_child_employee().values('employee')
-            order_obj = order_obj.filter(ordered_by__in = executives_list)
-            buyer_order_obj = order_obj.filter(ordered_by__in = executives_list)
+        # if self.request.user.shop_employee.last().employee_group.name == 'Sales Executive':
+        #     order_obj = order_obj.filter(ordered_by = self.request.user)
+        #     buyer_order_obj = buyer_order_obj.filter(ordered_by = self.request.user)
+        # elif self.request.user.shop_employee.last().employee_group.name == 'Sales Manager':
+        #     executives_list = self.get_child_employee().values('employee')
+        #     order_obj = order_obj.filter(ordered_by__in = executives_list)
+        #     buyer_order_obj = order_obj.filter(ordered_by__in = executives_list)
 
         buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
