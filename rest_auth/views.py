@@ -26,7 +26,7 @@ from shops.models import Shop
 from .app_settings import (UserDetailsSerializer, LoginSerializer, PasswordResetSerializer,
                            PasswordResetConfirmSerializer, PasswordChangeSerializer, create_token)
 from .serializers import (PasswordResetValidateSerializer, OtpLoginSerializer, MlmResponseSerializer,
-                          LoginResponseSerializer, PosLoginResponseSerializer)
+                          LoginResponseSerializer, PosLoginResponseSerializer, api_serializer_errors)
 from .models import TokenModel
 from .utils import jwt_encode
 
@@ -91,8 +91,7 @@ class LoginView(GenericAPIView):
             user, token = self.login(serializer)
             return self.get_response(user, token)
         else:
-            msg = {'is_success': False, 'message': self.serializer_errors(serializer.errors), 'response_data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            return api_serializer_errors(serializer.errors)
 
     def login(self, serializer):
         """
@@ -117,20 +116,8 @@ class LoginView(GenericAPIView):
         response_serializer_class = self.get_response_serializer()
         response_serializer = response_serializer_class(instance={'user': user, 'token': token,
                                                                   'shop_object': shop_object, 'action': 1})
-        return Response({'is_success': True, 'message': ['Successfully logged in'],
+        return Response({'is_success': True, 'message': ['Logged In Successfully!'],
                          'response_data': [response_serializer.data]}, status=status.HTTP_200_OK)
-
-    @staticmethod
-    def serializer_errors(serializer_errors):
-        errors = []
-        for field in serializer_errors:
-            for error in serializer_errors[field]:
-                if 'non_field_errors' in field:
-                    result = error
-                else:
-                    result = ''.join('{} : {}'.format(field, error))
-                errors.append(result)
-        return errors
 
 
 class LogoutView(APIView):
@@ -162,7 +149,7 @@ class LogoutView(APIView):
 
         django_logout(request)
 
-        return Response({'is_success': True, 'message': ['Successfully logged out'], 'response_data': None},
+        return Response({'is_success': True, 'message': ['Logged Out Successfully!'], 'response_data': None},
                         status=status.HTTP_200_OK)
 
 
@@ -193,7 +180,7 @@ class UserDetailsView(RetrieveUpdateAPIView):
         return get_user_model().objects.none()
         
 
-
+# Todo remove
 class PasswordResetView(GenericAPIView):
     """
     Accepts the following POST parameters: mobile number
@@ -258,20 +245,10 @@ class PasswordResetView(GenericAPIView):
                     status=status.HTTP_406_NOT_ACCEPTABLE
                 )
         else:
-            errors = []
-            for field in serializer.errors:
-                for error in serializer.errors[field]:
-                    if 'non_field_errors' in field:
-                        result = error
-                    else:
-                        result = ''.join('{} : {}'.format(field,error))
-                    errors.append(result)
-            msg = {'is_success': False,
-                    'message': [error for error in errors],
-                    'response_data': None }
-            return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
+            return api_serializer_errors(serializer.errors)
 
+
+# Todo remove
 class PasswordResetValidateView(GenericAPIView):
     permission_classes = (AllowAny,)
     queryset = PhoneOTP.objects.all()
@@ -395,24 +372,10 @@ class PasswordResetConfirmView(GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response({'is_success': True,
-                            'message':['New password has been saved.'],
-                            'response_data': None},
+            return Response({'is_success': True, 'message': ['New password has been saved.'], 'response_data': None},
                             status=status.HTTP_200_OK)
         else:
-            errors = []
-            for field in serializer.errors:
-                for error in serializer.errors[field]:
-                    if 'non_field_errors' in field:
-                        result = error
-                    else:
-                        result = ''.join('{} : {}'.format(field,error))
-                    errors.append(result)
-            msg = {'is_success': False,
-                    'message': errors,
-                    'response_data': None }
-            return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
+            return api_serializer_errors(serializer.errors)
 
 
 class PasswordChangeView(GenericAPIView):
@@ -434,21 +397,7 @@ class PasswordChangeView(GenericAPIView):
 
         if serializer.is_valid():
             serializer.save()
-            return Response({'is_success': True,
-                            'message':['New password has been saved.'],
-                            'response_data': None},
+            return Response({'is_success': True, 'message': ['New password has been saved.'], 'response_data': None},
                             status=status.HTTP_200_OK)
         else:
-            errors = []
-            for field in serializer.errors:
-                for error in serializer.errors[field]:
-                    if 'non_field_errors' in field:
-                        result = error
-                    else:
-                        result = ''.join('{} : {}'.format(field,error))
-                    errors.append(result)
-            msg = {'is_success': False,
-                    'message': errors,
-                    'response_data': None }
-            return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
+            return api_serializer_errors(serializer.errors)

@@ -830,7 +830,7 @@ class CartCentral(GenericAPIView):
         except:
             return get_response("Active Cart Not Found")
         Cart.objects.filter(id=cart.id).update(cart_status=Cart.DELETED)
-        return get_response('Deleted Cart', self.post_serialize_process_basic(cart))
+        return get_response('Cancelled Successfully!', self.post_serialize_process_basic(cart))
 
     def get_retail_cart(self):
         """
@@ -895,11 +895,21 @@ class CartCentral(GenericAPIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         cart = initial_validation['cart']
+        # Refresh cart prices
+        self.refresh_cart_prices(cart)
         # Refresh - add/remove/update combo and cart level offers
         offers = BasicCartOffers.refresh_offers(cart)
         if 'error' in offers:
             return get_response(offers['error'])
         return get_response('Cart', self.get_serialize_process_basic(cart))
+
+    @staticmethod
+    def refresh_cart_prices(cart):
+        cart_products = cart.rt_cart_list.all()
+        if cart_products:
+            for product_mapping in cart_products:
+                product_mapping.selling_price = product_mapping.retailer_product.selling_price
+                product_mapping.save()
 
     def get_basic_cart_list(self):
         """

@@ -22,7 +22,7 @@ from rest_auth.app_settings import create_token
 from rest_auth.models import TokenModel
 from rest_auth.registration.serializers import (VerifyEmailSerializer, SocialLoginSerializer, SocialAccountSerializer,
                                                 SocialConnectSerializer, OtpRegisterSerializer)
-from rest_auth.serializers import MlmResponseSerializer, LoginResponseSerializer
+from rest_auth.serializers import MlmResponseSerializer, LoginResponseSerializer, api_serializer_errors
 from rest_auth.utils import jwt_encode
 from rest_auth.views import LoginView
 
@@ -76,9 +76,7 @@ class RegisterView(CreateAPIView):
             headers = self.get_success_headers(serializer.data)
             return self.get_response(user, headers, token)
         else:
-            errors = self.serializer_errors(serializer.errors)
-            msg = {'is_success': False, 'message': [error for error in errors], 'response_data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            return api_serializer_errors(serializer.errors)
 
     def perform_create(self, serializer):
         user = serializer.save(self.request)
@@ -100,20 +98,8 @@ class RegisterView(CreateAPIView):
         response_serializer_class = self.get_response_serializer()
         response_serializer = response_serializer_class(instance={'user': user, 'token': token, 'action': 0,
                                                                   'referral_code': referral_code})
-        return Response({'is_success': True, 'message': ['Successfully signed up!'],
+        return Response({'is_success': True, 'message': ['Signed Up Successfully!'],
                          'response_data': [response_serializer.data]}, status=status.HTTP_201_CREATED, headers=headers)
-
-    @staticmethod
-    def serializer_errors(serializer_errors):
-        errors = []
-        for field in serializer_errors:
-            for error in serializer_errors[field]:
-                if 'non_field_errors' in field:
-                    result = error
-                else:
-                    result = ''.join('{} : {}'.format(field, error))
-                errors.append(result)
-        return errors
 
 
 class VerifyEmailView(APIView, ConfirmEmailView):

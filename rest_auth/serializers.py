@@ -8,6 +8,8 @@ from django.utils.encoding import force_text
 from django.core.validators import RegexValidator
 from rest_framework import serializers, exceptions
 from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+from rest_framework import status
 
 try:
     from allauth.account import app_settings as allauth_settings
@@ -180,13 +182,16 @@ class MlmResponseSerializer(serializers.Serializer):
     name = serializers.SerializerMethodField()
     email_id = serializers.SerializerMethodField()
 
-    def get_access_token(self, obj):
+    @staticmethod
+    def get_access_token(obj):
         return obj['token']
 
-    def get_phone_number(self, obj):
+    @staticmethod
+    def get_phone_number(obj):
         return obj['user'].phone_number
 
-    def get_referral_code(self, obj):
+    @staticmethod
+    def get_referral_code(obj):
         user_referral_code = ReferralCode.generate_user_referral_code(obj['user'])
         Profile.objects.get_or_create(user=obj['user'])
         if obj['action'] == 0:
@@ -200,10 +205,12 @@ class MlmResponseSerializer(serializers.Serializer):
         referral_code_obj = ReferralCode.objects.filter(user_id=obj['user']).last()
         return referral_code_obj.referral_code if referral_code_obj else ''
 
-    def get_name(self, obj):
+    @staticmethod
+    def get_name(obj):
         return obj['user'].first_name.capitalize() if obj['user'].first_name else ''
 
-    def get_email_id(self, obj):
+    @staticmethod
+    def get_email_id(obj):
         return obj['user'].email if obj['user'].email else ''
 
 
@@ -219,13 +226,16 @@ class PosLoginResponseSerializer(serializers.Serializer):
     shop_id = serializers.SerializerMethodField()
     shop_name = serializers.SerializerMethodField()
 
-    def get_access_token(self, obj):
+    @staticmethod
+    def get_access_token(obj):
         return obj['token']
 
-    def get_shop_id(self, obj):
+    @staticmethod
+    def get_shop_id(obj):
         return obj['shop_object'].id if obj['shop_object'] else ''
 
-    def get_shop_name(self, obj):
+    @staticmethod
+    def get_shop_name(obj):
         return obj['shop_object'].shop_name if obj['shop_object'] else ''
 
 
@@ -243,10 +253,11 @@ class UserDetailsSerializer(serializers.ModelSerializer):
     """
     User model w/o password
     """
+
     class Meta:
         model = UserModel
         fields = ('pk', 'username', 'email', 'first_name', 'last_name')
-        read_only_fields = ('email', )
+        read_only_fields = ('email',)
 
 
 class JWTSerializer(serializers.Serializer):
@@ -269,26 +280,32 @@ class JWTSerializer(serializers.Serializer):
         return user_data
 
 
+# Todo remove
 class PasswordResetSerializer(serializers.ModelSerializer):
     """
     Serializer for requesting an OTP for password reset.
     """
+
     class Meta:
         model = PhoneOTP
         fields = (
             'phone_number',
         )
 
+
+# Todo remove
 class PasswordResetValidateSerializer(serializers.ModelSerializer):
     """
     Validate the otp send to mobile number for password reset
     """
+
     class Meta:
         model = PhoneOTP
         fields = (
             'phone_number',
             'otp'
         )
+
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
     """
@@ -377,3 +394,15 @@ class PasswordChangeSerializer(serializers.Serializer):
         if not self.logout_on_password_change:
             from django.contrib.auth import update_session_auth_hash
             update_session_auth_hash(self.request, self.user)
+
+
+def api_serializer_errors(s_errors):
+    """
+        Invalid request payload
+    """
+    errors = []
+    for field in s_errors:
+        for error in s_errors[field]:
+            errors.append(error if 'non_field_errors' in field else ''.join('{} : {}'.format(field, error)))
+    return Response({'is_success': False, 'message': errors, 'response_data': None},
+                    status=status.HTTP_406_NOT_ACCEPTABLE)
