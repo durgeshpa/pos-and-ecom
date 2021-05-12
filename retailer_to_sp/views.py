@@ -1,5 +1,3 @@
-import decimal
-import math
 
 import requests
 import jsonpickle
@@ -7,14 +5,13 @@ import logging
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 
-from global_config.views import get_config
 from products.models import *
 from num2words import num2words
 from barCodeGenerator import barcodeGen
 from django.core.files.base import ContentFile
 from django.forms import formset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Sum, Q, F, Count
+from django.db.models import Sum, Q, F
 from django.db import transaction
 from django.dispatch import receiver
 from django.db.models.signals import post_save
@@ -25,8 +22,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from celery.task import task
 
-from retailer_to_sp.common_function import get_total_products_ordered
-from services.models import WarehouseInventoryHistoric
 from sp_to_gram.models import (
     OrderedProductReserved, OrderedProductMapping as SPOrderedProductMapping,
     OrderedProduct as SPOrderedProduct)
@@ -56,10 +51,9 @@ from addresses.models import Address
 from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
-from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory, InventoryType
-from wms.common_functions import cancel_order, cancel_order_with_pick, get_stock
+from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
+from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
-from global_config.models import GlobalConfig
 
 logger = logging.getLogger('django')
 
@@ -1781,53 +1775,3 @@ def shipment_status(request):
 #     if trip_status=='COMPLETED' and current_trip_status=='CLOSED':
 #         for shipment in shipment_list:
 #             if shipment.shipment_status not in shipment_status_verify:
-
-
-def get_daily_average(warehouse, parent_product):
-    rolling_avg_days = get_config('ROLLING_AVG_DAYS', 30)
-    starting_avg_from = datetime.datetime.today().date() - datetime.timedelta(days=rolling_avg_days)
-    avg_days = WarehouseInventoryHistoric.objects.filter(warehouse=warehouse,
-                                                         sku__parent_product=parent_product, visible=True,
-                                                         archived_at__gte=starting_avg_from)\
-                                                  .values('sku__parent_product')\
-                                                  .annotate(days=Count(distinct='sku__parent_product'))
-    products_ordered = get_total_products_ordered(warehouse, parent_product, starting_avg_from)
-    rolling_avg = products_ordered/avg_days
-    return math.ceil(rolling_avg)
-
-
-
-def get_inventory_in_stock(warehouse, parent_product):
-    inventory_type_normal = InventoryType.objects.filter(inventory_type='normal').last()
-    child_products = parent_product.product_parent_product
-    child_product_ids = [p.id for p in child_products]
-    stock_dict = get_stock(warehouse, inventory_type_normal, child_product_ids)
-    total_inventory = sum(stock_dict.values()) if stock_dict.values() else 0
-    return total_inventory
-
-def get_inventory_in_process(parent_product):
-    pass
-
-
-def get_inventory_pending_for_putaway(parent_product):
-    pass
-
-
-def get_demand_by_parent_product(parent_product):
-    daily_average = get_daily_average(parent_product)
-    current_inventory = get_inventory_in_stock(parent_product)
-    inventory_in_process = get_inventory_in_process(parent_product)
-    putaway_inventory = get_inventory_pending_for_putaway(parent_product)
-    max_inventory_in_days = get_config('ARS_MAX_INVENTORY_IN_DAYS', 7)
-    demand = (daily_average * max_inventory_in_days) - current_inventory - inventory_in_process - putaway_inventory
-    if demand:
-        return math.ceil(demand)
-    return 0
-
-
-def initiate_ars():
-    product_vendor_mappings = ProductVendorMapping.objects.filter(
-                                                            product__parent_product__is_ars_applicable=True,
-                                                            vendors__ordering_days__contains=datetime.date.isoweekday(),
-                                                            is_default=True)
-

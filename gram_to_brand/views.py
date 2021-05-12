@@ -26,24 +26,9 @@ from brand.models import Brand
 from brand.models import Vendor
 from products.models import ProductVendorMapping, ParentProduct
 
-from django.db.models import Sum
-from django.db import transaction
-
-from global_config.views import get_config
-from retailer_to_sp.common_function import get_total_products_ordered
-from services.models import WarehouseInventoryHistoric
-from shops.models import Shop
-from wms.models import InventoryType, InventoryState
-
-from wms.views import update_putaway
-from wms.common_functions import PutawayCommonFunctions,CommonBinInventoryFunctions,updating_tables_on_putaway
-
 import logging
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
-
-from accounts.models import User
-from whc.models import AutoOrderProcessing
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):

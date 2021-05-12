@@ -3,8 +3,6 @@ import json
 
 from django.db.models import Sum
 
-from retailer_to_sp.models import Order
-
 today = datetime.datetime.today()
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -98,9 +96,28 @@ def reserved_args_json_data(shop_id, transaction_id, products, transaction_type,
     })
     return reserved_args
 
-def get_total_products_ordered(warehouse, parent_product, starting_from_date):
-    no_of_pieces_ordered = Order.objects.filter(seller_shop=warehouse,
-                                                ordered_cart__rt_cart_list__cart_product__parent_product=parent_product,
-                                                created_at__gte=starting_from_date)\
-                                         .values('ordered_cart__rt_cart_list__cart_product__parent_product')\
-                                         .annotate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))['ordered_pieces']
+#
+#
+# def get_daily_average(warehouse, parent_product):
+#     rolling_avg_days = get_config('ROLLING_AVG_DAYS', 30)
+#     starting_avg_from = datetime.datetime.today().date() - datetime.timedelta(days=rolling_avg_days)
+#     avg_days = WarehouseInventoryHistoric.objects.filter(warehouse=warehouse,
+#                                                          sku__parent_product=parent_product, visible=True,
+#                                                          archived_at__gte=starting_avg_from)\
+#                                                   .values('sku__parent_product')\
+#                                                   .annotate(days=Count(distinct='sku__parent_product'))
+#     products_ordered = get_total_products_ordered(warehouse, parent_product, starting_avg_from)
+#     rolling_avg = products_ordered/avg_days
+#     return math.ceil(rolling_avg)
+#
+#
+# def get_inventory_in_process(warehouse, parent_product):
+#     gf_shop = ParentRetailerMapping.objects.filter()
+#     pass
+#
+#
+# def get_inventory_pending_for_putaway(parent_product):
+#     pass
+#
+#
+#
