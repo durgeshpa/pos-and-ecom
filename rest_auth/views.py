@@ -468,5 +468,5 @@ class RetailerUserDetailsView(GenericAPIView):
         *args:-  non keyword argument
         **kwargs:- keyword argument
         """
-        serializer = self.serializer_class(request.user)
+        serializer = self.serializer_class(UserModel.objects.prefetch_related('shop_owner_shop').get(id=request.user.id))
         return Response(serializer.data)
