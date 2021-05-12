@@ -663,12 +663,11 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                 }
                 product['free_product'] = free_product
 
-        cart_free_product['already_returned_qty'] = return_item_map[
-            'free_product'] if 'free_product' in return_item_map else 0
-        cart_free_product['return_qty'] = return_item_ongoing[
-            'free_product'] if 'free_product' in return_item_ongoing else 0
-
         if cart_free_product:
+            cart_free_product['already_returned_qty'] = return_item_map[
+                'free_product'] if 'free_product' in return_item_map else 0
+            cart_free_product['return_qty'] = return_item_ongoing[
+                'free_product'] if 'free_product' in return_item_ongoing else 0
             products.append(cart_free_product)
         return products
 
