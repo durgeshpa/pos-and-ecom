@@ -6,7 +6,6 @@ from rest_framework import status
 from retailer_to_sp.models import Shop
 from .models import PhoneOTP
 
-
 UserModel = get_user_model()
 
 
@@ -57,15 +56,6 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class ResendSmsOTPSerializer(serializers.ModelSerializer):
-    """
-    Resend OTP SMS to number
-    """
-    class Meta:
-        model = PhoneOTP
-        fields = ('phone_number', )
-
-
 def api_serializer_errors(s_errors):
     """
         Invalid request payload
@@ -79,10 +69,22 @@ def api_serializer_errors(s_errors):
 
 
 # Todo remove
+class ResendSmsOTPSerializer(serializers.ModelSerializer):
+    """
+    Resend OTP SMS to number
+    """
+
+    class Meta:
+        model = PhoneOTP
+        fields = ('phone_number',)
+
+
+# Todo remove
 class ResendVoiceOTPSerializer(serializers.ModelSerializer):
     """
     Resend OTP voice call to number
     """
+
     class Meta:
         model = PhoneOTP
         fields = (

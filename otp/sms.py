@@ -19,7 +19,6 @@ class SendSms(object):
         number = ValidatePhone(self.phone)
         number.validate_mobile()
         try:
-            print(message)
             query = {
                 'method': 'SendMessage',
                 'send_to': '91%s' % self.phone,
