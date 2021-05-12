@@ -1,7 +1,8 @@
 from django.conf.urls import url
 
 from rest_auth.views import (LoginView, LogoutView, UserDetailsView, PasswordChangeView,
-                             PasswordResetView, PasswordResetConfirmView, PasswordResetValidateView)
+                             PasswordResetView, PasswordResetConfirmView, PasswordResetValidateView,
+                             RetailerUserDetailsView)
 
 urlpatterns = [
     # URLs that do not require a session or valid token
@@ -17,4 +18,5 @@ urlpatterns = [
     url(r'^logout/$', LogoutView.as_view(), name='rest_logout'),
     url(r'^user/$', UserDetailsView.as_view(), name='rest_user_details'),
     url(r'^password/change/$', PasswordChangeView.as_view(), name='rest_password_change'),
+    url(r'^retailer-user/$', RetailerUserDetailsView.as_view(), name='retailer_user_details')
 ]

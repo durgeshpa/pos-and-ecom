@@ -26,7 +26,8 @@ from shops.models import Shop
 from .app_settings import (UserDetailsSerializer, LoginSerializer, PasswordResetSerializer,
                            PasswordResetConfirmSerializer, PasswordChangeSerializer, create_token)
 from .serializers import (PasswordResetValidateSerializer, OtpLoginSerializer, MlmResponseSerializer,
-                          LoginResponseSerializer, PosLoginResponseSerializer, api_serializer_errors)
+                          LoginResponseSerializer, PosLoginResponseSerializer, RetailUserDetailsSerializer,
+                          api_serializer_errors)
 from .models import TokenModel
 from .utils import jwt_encode
 
@@ -401,3 +402,21 @@ class PasswordChangeView(GenericAPIView):
                             status=status.HTTP_200_OK)
         else:
             return api_serializer_errors(serializer.errors)
+
+
+class RetailerUserDetailsView(GenericAPIView):
+    """
+    Retailer Account Info API
+    """
+    serializer_class = RetailUserDetailsSerializer
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
+
+    def get(self, request, *args, **kwargs):
+        """
+        request:- request object
+        *args:-  non keyword argument
+        **kwargs:- keyword argument
+        """
+        serializer = self.serializer_class(UserModel.objects.prefetch_related('shop_owner_shop').get(id=request.user.id))
+        return Response(serializer.data)

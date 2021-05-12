@@ -781,7 +781,7 @@ class CouponOfferCreation(GenericAPIView):
             # If discount_qty_amount in actual_input_data_list
             discount.max_discount = request.data.get('max_discount')
 
-        if 'discount_qty_amount' or 'discount_value' in actual_input_data_list:
+        if 'discount_qty_amount' in actual_input_data_list or 'discount_value' in actual_input_data_list:
             # If discount_qty_amount or discount_value in actual_input_data_list
             if discount.is_percentage:
                 rulename = f"{shop_id}_on Spending {coupon_ruleset.cart_qualifying_min_sku_value} get {discount.discount_value} % Off"
@@ -848,7 +848,7 @@ class CouponOfferCreation(GenericAPIView):
                    "response_data": serializer.data}
             status_code = {"status_code": 404}
             return msg, status_code
-        expected_input_data_list = ['id', 'combo_offer_name', 'expiry_date', 'start_date',
+        expected_input_data_list = ['id', 'combo_offer_name', 'expiry_date', 'start_date', 'is_active',
                                     'retailer_primary_product', 'retailer_free_product', 'purchased_product_qty',
                                     'free_product_qty']
         actual_input_data_list = []
@@ -944,7 +944,8 @@ class CouponOfferCreation(GenericAPIView):
             # If free_product_qty in actual_input_data_list
             rule_set_product_mapping.free_product_qty = request.data.get('free_product_qty')
 
-        if 'retailer_primary_product' or 'retailer_free_product' or 'purchased_product_qty' or 'free_product_qty' in actual_input_data_list:
+        if 'retailer_primary_product' in actual_input_data_list or 'retailer_free_product' in actual_input_data_list or \
+                'purchased_product_qty' in actual_input_data_list or 'free_product_qty' in actual_input_data_list:
             # update combo_code with existing ruleset_name , retailer_primary_product, retailer_free_product name,
             #  & purchased_product_qty
             combo_code = f"Buy {rule_set_product_mapping.purchased_product_qty} {rule_set_product_mapping.retailer_primary_product.name}" \
@@ -1054,7 +1055,8 @@ class CouponOfferCreation(GenericAPIView):
                 return msg, status_code
             coupon_ruleset.free_product_qty = free_product_qty
 
-        if 'cart_qualifying_min_sku_value' or 'free_product' or 'free_product_qty':
+        if 'cart_qualifying_min_sku_value' in actual_input_data_list or 'free_product' in actual_input_data_list or \
+                'free_product_qty' in actual_input_data_list:
             ruleset_name = f"{shop_id}_{coupon_ruleset.free_product.name}_{coupon_ruleset.free_product_qty}"
             coupon_code = f"Get {coupon_ruleset.free_product_qty} {coupon_ruleset.free_product.name} " \
                           f"Free on Spending {coupon_ruleset.cart_qualifying_min_sku_value} Rs"

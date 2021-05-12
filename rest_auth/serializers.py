@@ -1,3 +1,4 @@
+import logging
 from django.contrib.auth import get_user_model, authenticate
 from django.conf import settings
 from django.contrib.auth.forms import SetPasswordForm
@@ -34,6 +35,10 @@ from retailer_to_sp.models import Shop
 # Get the UserModel
 UserModel = get_user_model()
 
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 class LoginSerializer(serializers.Serializer):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
@@ -258,6 +263,70 @@ class UserDetailsSerializer(serializers.ModelSerializer):
         model = UserModel
         fields = ('pk', 'username', 'email', 'first_name', 'last_name')
         read_only_fields = ('email',)
+
+
+class RetailUserDetailsSerializer(serializers.ModelSerializer):
+    """
+    Retailer User Serializer
+    """
+    shop_name = serializers.SerializerMethodField()
+    shop_image = serializers.SerializerMethodField()
+    shop_owner_name = serializers.SerializerMethodField()
+    shop_shipping_address = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_shop_name(obj):
+        """
+        obj:-User object
+        return:- shop name otherwise None
+        """
+        try:
+            return obj.shop_owner_shop.all()[0].shop_name
+        except Exception as e:
+            error_logger.info(e)
+            return None
+
+    @staticmethod
+    def get_shop_image(obj):
+        """
+        obj:-User object
+        return:- shop image otherwise None
+        """
+        try:
+            return obj.shop_owner_shop.all()[0].shop_name_photos.all()[0].shop_photo.url
+        except Exception as e:
+            error_logger.info(e)
+            return None
+
+    @staticmethod
+    def get_shop_owner_name(obj):
+        """
+        obj:-User object
+        return:- owner name otherwise None
+        """
+        try:
+            return (obj.shop_owner_shop.all()[0].shop_owner.first_name
+                    + ' ' + obj.shop_owner_shop.all()[0].shop_owner.last_name)
+        except Exception as e:
+            error_logger.info(e)
+            return None
+
+    @staticmethod
+    def get_shop_shipping_address(obj):
+        """
+        obj:-User object
+        return:- shipping address otherwise None
+        """
+        try:
+            return obj.shop_owner_shop.all()[0].get_shop_shipping_address
+        except Exception as e:
+            error_logger.info(e)
+            return None
+
+    class Meta:
+        model = UserModel
+        fields = ('pk', 'email', 'first_name', 'last_name', 'shop_name', 'shop_image',
+                  'shop_owner_name', 'shop_shipping_address',)
 
 
 class JWTSerializer(serializers.Serializer):
