@@ -1,3 +1,5 @@
+import csv
+import codecs
 from rest_framework.response import Response
 from rest_framework import status, authentication
 from rest_framework.generics import GenericAPIView
@@ -5,8 +7,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.parsers import JSONParser
 from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
-
-from products.models import  ParentProduct
+from products.forms import UploadParentProductAdminForm
+from brand.models import Brand
+from products.models import  ParentProduct, ProductHSN
 from .serializers import ParentProductSerializers
 from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
@@ -62,7 +65,7 @@ class ParentProductView(GenericAPIView):
 
         """ POST API for Parent Product Creation with Image Category & Tax """
 
-        serializer = ParentProductSerializers(data=request.data, context={'request': request})
+        serializer = ParentProductSerializers(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -115,6 +118,30 @@ class ParentProductView(GenericAPIView):
 
 
 
+class ParentProductBulkUploadView(GenericAPIView):
+
+    def post(self, request):
+        """ POST API for Bulk Parent Product Creation with Category & Tax """
+
+        form = UploadParentProductAdminForm(request.POST, request.FILES)
+        if form.is_valid():
+            upload_file = form.cleaned_data.get('file')
+            reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
+            for row in reader:
+                parent_product = ParentProduct.objects.create(
+                    name=row[0].strip(),
+                    parent_brand=Brand.objects.filter(brand_name=row[1].strip()).last(),
+                    product_hsn=ProductHSN.objects.filter(product_hsn_code=row[3].replace("'", '')).last(),
+                    brand_case_size=int(row[7]),
+                    inner_case_size=int(row[8]),
+                    product_type=row[9]
+                )
+                parent_product.save()
+            msg = {'is_success': True,
+                   'message': 'Parent Product CSV uploaded successfully !',
+                   'data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        return Response(form.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
