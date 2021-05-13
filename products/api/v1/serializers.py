@@ -365,7 +365,7 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
 
 class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
     parent_product_id_list = serializers.ListField(
-        child=serializers.IntegerField(min_value=1)
+        child=serializers.IntegerField(read_only=True)
     )
 
     class Meta:
@@ -375,7 +375,7 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
     def validate(self, data):
 
         if len(data.get('parent_product_id_list')) == 0:
-            raise serializers.ValidationError(_('id is required'))
+            raise serializers.ValidationError(_('Atleast one parent_product id must be selected '))
 
         for id in data.get('parent_product_id_list'):
             try:

@@ -1,5 +1,5 @@
 import csv
-import codecs
+from django.http import HttpResponse
 
 from rest_framework.response import Response
 from rest_framework import status, authentication
@@ -10,12 +10,12 @@ from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
 
 from products.models import  ParentProduct, ProductHSN
-from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers
+from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, ParentProductExportAsCSVSerializers
 from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
 
 
-class ParentProductView(GenericAPIView):
+class ParentProduct(GenericAPIView):
 
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -117,7 +117,7 @@ class ParentProductView(GenericAPIView):
         return Response(msg, status=status.HTTP_204_NO_CONTENT)
 
 
-class ParentProductBulkUploadView(CreateAPIView):
+class ParentProductBulkUpload(CreateAPIView):
     serializer_class = ParentProductBulkUploadSerializers
 
     def post(self, request, *args, **kwargs):
@@ -127,3 +127,16 @@ class ParentProductBulkUploadView(CreateAPIView):
             return Response('Parent Product CSV uploaded successfully !',
                             status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ParentProductExportAsCSV(GenericAPIView):
+
+    def post(self, request):
+
+        serializer = ParentProductExportAsCSVSerializers(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            return response
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
