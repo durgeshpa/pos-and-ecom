@@ -24,6 +24,7 @@ from otp.models import PhoneOTP
 from otp.views import ValidateOTP
 UserModel = get_user_model()
 
+
 class SocialAccountSerializer(serializers.ModelSerializer):
     """
     serialize allauth SocialAccounts for use with a REST API
@@ -37,6 +38,7 @@ class SocialAccountSerializer(serializers.ModelSerializer):
             'last_login',
             'date_joined',
         )
+
 
 class SocialLoginSerializer(serializers.Serializer):
     access_token = serializers.CharField(required=False, allow_blank=True)
