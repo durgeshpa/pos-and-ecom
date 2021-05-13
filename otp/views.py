@@ -187,7 +187,8 @@ class SendSmsOTP(CreateAPIView):
         """
         phone_otp, otp = PhoneOTP.create_otp_for_number(ph_no)
         action_text = 'to LogIn to' if action == "1" else 'to Register on'
-        account_type = 'POS' if app_type == '2' else ('PepperTap Rewards' if app_type == '1' else 'GramFactory')
+        account_type = 'GramFactory POS' if app_type == '2' else (
+            'PepperTap Rewards' if app_type == '1' else 'GramFactory')
         sms_body = "Your OTP {} {} is {}.".format(action_text, account_type, otp)
         message = SendVoiceSms(phone=ph_no, body=sms_body)
         message.send()
@@ -205,7 +206,8 @@ class SendSmsOTP(CreateAPIView):
         phone_otp, otp = PhoneOTP.create_otp_for_number(ph_no)
         date, time = datetime.datetime.now().strftime("%a(%d/%b/%y)"), datetime.datetime.now().strftime("%I:%M %p")
         action_text = 'to LogIn to' if action == "1" else 'to Register on'
-        account_type = 'POS' if app_type == '2' else ('PepperTap Rewards' if app_type == '1' else 'GramFactory')
+        account_type = 'GramFactory POS' if app_type == '2' else (
+            'PepperTap Rewards' if app_type == '1' else 'GramFactory')
         expires_in = int(getattr(settings, 'OTP_EXPIRES_IN', 300) / 60)
         sms_body = "Use {} as your OTP {} {}. Request time is {}, {} IST. The OTP expires within {} minutes.".format(
             otp, action_text, account_type, date, time, expires_in)
@@ -265,35 +267,35 @@ class ResendSmsOTP(CreateAPIView):
                 user = user.last()
                 if self.just_now(user):
                     msg = {'is_success': False,
-                            'message': [self.waiting()],
-                            'response_data': None }
+                           'message': [self.waiting()],
+                           'response_data': None}
                     return Response(msg,
-                        status=status.HTTP_406_NOT_ACCEPTABLE
-                    )
+                                    status=status.HTTP_406_NOT_ACCEPTABLE
+                                    )
                 else:
                     otp = user.otp
                     date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
                     time = datetime.datetime.now().strftime("%I:%M %p")
                     message = SendSms(phone=number,
-                                      body="%s is your One Time Password for GramFactory Account."\
-                                           " Request time is %s, %s IST." % (otp,date,time))
+                                      body="%s is your One Time Password for GramFactory Account." \
+                                           " Request time is %s, %s IST." % (otp, date, time))
                     message.send()
-                    #if 'success' in reason:
+                    # if 'success' in reason:
                     user.last_otp = timezone.now()
                     user.save()
                     msg = {'is_success': True,
-                            'message': ["message sent"],
-                            'response_data': None }
+                           'message': ["message sent"],
+                           'response_data': None}
                     return Response(msg,
-                        status=status.HTTP_200_OK
-                    )
+                                    status=status.HTTP_200_OK
+                                    )
             else:
                 msg = {'is_success': False,
-                        'message': [VALIDATION_ERROR_MESSAGES['INVALID_DATA']],
-                        'response_data': None }
+                       'message': [VALIDATION_ERROR_MESSAGES['INVALID_DATA']],
+                       'response_data': None}
                 return Response(msg,
-                    status=status.HTTP_406_NOT_ACCEPTABLE
-                )
+                                status=status.HTTP_406_NOT_ACCEPTABLE
+                                )
         else:
             errors = []
             for field in serializer.errors:
@@ -301,11 +303,11 @@ class ResendSmsOTP(CreateAPIView):
                     if 'non_field_errors' in field:
                         result = error
                     else:
-                        result = ''.join('{} : {}'.format(field,error))
+                        result = ''.join('{} : {}'.format(field, error))
                     errors.append(result)
             msg = {'is_success': False,
-                    'message': [error for error in errors],
-                    'response_data': None }
+                   'message': [error for error in errors],
+                   'response_data': None}
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -376,6 +378,7 @@ class ResendVoiceOTP(CreateAPIView):
 # Todo remove
 class RevokeOTP(object):
     """Revoke OTP if epired or attempts exceeds"""
+
     def __init__(self, phone, error_msg):
         super(RevokeOTP, self).__init__()
         self.phone = phone
@@ -387,15 +390,15 @@ class RevokeOTP(object):
         date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
         time = datetime.datetime.now().strftime("%I:%M %p")
         message = SendSms(phone=number,
-                          body="%s is your One Time Password for GramFactory Account."\
-                               " Request time is %s, %s IST." % (otp,date,time))
+                          body="%s is your One Time Password for GramFactory Account." \
+                               " Request time is %s, %s IST." % (otp, date, time))
         message.send()
-        #if 'success' in reason:
+        # if 'success' in reason:
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
         msg = {'is_success': True,
-                'message': ["message sent"],
-                'response_data': None }
+               'message': ["message sent"],
+               'response_data': None}
         return msg
 
 
@@ -416,11 +419,11 @@ class SendSmsOTPAnytime(CreateAPIView):
                 user = user.last()
                 if self.just_now(user):
                     msg = {'is_success': False,
-                            'message': [self.waiting()],
-                            'response_data': None }
+                           'message': [self.waiting()],
+                           'response_data': None}
                     return Response(msg,
-                        status=status.HTTP_406_NOT_ACCEPTABLE
-                    )
+                                    status=status.HTTP_406_NOT_ACCEPTABLE
+                                    )
                 else:
                     phone_otp, otp = PhoneOTP.create_otp_for_number(number)
                     date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
@@ -433,11 +436,11 @@ class SendSmsOTPAnytime(CreateAPIView):
                     phone_otp.save()
 
                     msg = {'is_success': True,
-                            'message': ["message sent"],
-                            'response_data': None }
+                           'message': ["message sent"],
+                           'response_data': None}
                     return Response(msg,
-                        status=status.HTTP_200_OK
-                    )
+                                    status=status.HTTP_200_OK
+                                    )
             else:
                 phone_otp, otp = PhoneOTP.create_otp_for_number(number)
                 date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
@@ -462,11 +465,11 @@ class SendSmsOTPAnytime(CreateAPIView):
                     if 'non_field_errors' in field:
                         result = error
                     else:
-                        result = ''.join('{} : {}'.format(field,error))
+                        result = ''.join('{} : {}'.format(field, error))
                     errors.append(result)
             msg = {'is_success': False,
-                    'message': [error for error in errors],
-                    'response_data': None }
+                   'message': [error for error in errors],
+                   'response_data': None}
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
