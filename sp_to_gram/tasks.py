@@ -23,6 +23,60 @@ info_logger = logging.getLogger('file-info')
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
 
+def create_slab_price_detail(price, mrp, case_size):
+	"""Takes ProductPrice instance and returns the list of slabs for the same."""
+	slab_price = []
+	slabs = price.price_slabs.all().order_by('start_value')
+	for slab in slabs:
+		slab_price.append({
+			"start_value": slab.start_value,
+			"end_value": slab.end_value,
+			"ptr": (slab.ptr * case_size),
+			"margin": round((((float(mrp) - slab.ptr) / float(mrp)) * 100), 2)
+		})
+	return slab_price
+
+
+def get_product_price(shop_id, products):
+	"""
+	Returns the dictionary of prices to be updated in ElasticSearch.
+	Any product may have prices at store level, pincode level or city level
+	"""
+	if shop_id:
+		products_price = ProductPrice.objects.filter(product__id__in=products, seller_shop_id=shop_id,
+													 status=True, approval_status=ProductPrice.APPROVED,
+													 price_slabs__isnull=False)\
+											 .select_related('product')\
+											 .order_by('product_id', '-created_at')
+	else:
+		products_price = ProductPrice.objects.filter(product__id__in=products, status=True,
+													 approval_status=ProductPrice.APPROVED,
+													 price_slabs__isnull=False)\
+											 .select_related('product')\
+											 .order_by('product_id', '-created_at')
+	price_dict = {}
+	for price in products_price:
+		product_active_prices = price_dict.get(price.product_id,{'store':{}, 'pincode':{}, 'city':{}})
+		if price.buyer_shop_id:
+			product_active_prices['store'][price.buyer_shop_id] = create_slab_price_detail(price,
+																		price.product.product_mrp,
+																		price.product.product_inner_case_size)
+		elif price.pincode:
+			product_active_prices['pincode'][price.pincode.pincode] = create_slab_price_detail(price,
+																		price.product.product_mrp,
+																		price.product.product_inner_case_size)
+		elif price.city:
+			product_active_prices['city'][price.city_id] = create_slab_price_detail(price,
+																		price.product.product_mrp,
+																		price.product.product_inner_case_size)
+		elif price.seller_shop_id :
+			product_active_prices['store'][price.seller_shop_id ] = create_slab_price_detail(price,
+																		price.product.product_mrp,
+																		price.product.product_inner_case_size)
+
+		price_dict[price.product.id] = product_active_prices
+	return price_dict
+
 def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 	if inventory_type is None:
 		inventory_type = InventoryType.objects.filter(inventory_type='normal').last()
@@ -30,16 +84,8 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 	if shop_id:
 		shop = Shop.objects.get(id=shop_id)
 		if product is None:
-			# stock = get_stock(shop).filter(quantity__gt=0,).values('sku__id').annotate(available_qty=Sum('quantity'))
-			# product_dict = {g['sku__id']: g['available_qty'] for g in stock}
 			product_dict = get_stock(shop, inventory_type)
 		else:
-			# stock_p = get_product_stock(shop, product)
-			# if stock_p:
-			# 	stock = stock_p.filter(quantity__gt=0, ).values('sku__id').annotate(available_qty=Sum('quantity'))
-			# 	product_dict = {g['sku__id']: g['available_qty'] for g in stock}
-			# else:
-			# 	product_dict = {product.id: 0}
 			product_dict = get_stock(shop, inventory_type, [product.id])
 			if not product_dict.get(product.id):
 				product_dict = {product.id: 0}
@@ -47,16 +93,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 	else:
 		product_list = CWIF.filtered_warehouse_inventory_items().values('sku__id').distinct()
 	products = Product.objects.filter(pk__in=product_list).order_by('product_name')
-	if shop_id:
-		products_price = ProductPrice.objects.filter(product__id__in=products, seller_shop=shop,
-													 status=True, approval_status=ProductPrice.APPROVED)\
-											 .order_by('product_id', '-created_at').distinct('product')
-	else:
-		products_price = ProductPrice.objects.filter(product__id__in=products, status=True,
-													 approval_status=ProductPrice.APPROVED)\
-											 .order_by('product_id', '-created_at').distinct('product')
-
-	product_price_dict = {pp.product_id: pp for pp in products_price}
+	product_price_dict = get_product_price(shop_id, products)
 	for product in products:
 		user_selected_qty = None
 		no_of_pieces = None
@@ -75,24 +112,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			continue
 		price_details = []
 		if product_price:
-			slabs = product_price.price_slabs.all().order_by('start_value')
-			if slabs.count() == 0:
-				ptr = product_price.selling_price
-				if not mrp:
-					mrp = product_price.mrp
-				try:
-					margin = (((mrp - product_price.selling_price) / mrp) * 100)
-				except:
-					margin = 0
-			else:
-				for slab in slabs:
-					price_details.append({
-							"start_value": slab.start_value,
-							"end_value": slab.end_value,
-							"ptr": (slab.ptr*product.product_inner_case_size),
-							"margin": round((((float(mrp) - slab.ptr) / float(mrp)) * 100),2)
-						})
-
+			price_details = product_price
 		else:
 			status = False
 		product_opt = product.product_opt_product.all()

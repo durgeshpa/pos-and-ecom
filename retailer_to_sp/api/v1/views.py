@@ -391,10 +391,7 @@ class SearchProducts(APIView):
             Full catalogue or for a particular parent shop
         """
         shop_id = self.request.GET.get('shop_id') if self.request.GET.get('shop_id') else None
-        parent_shop_id = None
-        cart_products = None
-        cart = None
-        cart_check = False
+        shop, parent_shop, cart_products, cart, cart_check  = None, None, None, None, False
         # check if shop exists
         try:
             shop = Shop.objects.get(id=shop_id, status=True)
@@ -411,16 +408,15 @@ class SearchProducts(APIView):
                     cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop_id=shop_id,
                                                cart_status__in=['active', 'pending']).last()
                     if cart:
-                        cart_products = cart.rt_cart_list.all()
-                        cart_check = True
-                    parent_shop_id = parent_mapping.parent.id
+                        cart_products, cart_check = cart.rt_cart_list.all(), True
+                    parent_shop = parent_mapping.parent
         # store approved and parent = sp
-        is_store_active = True if parent_shop_id else False
+        is_store_active = True if parent_shop else False
         query = self.search_query()
         body = {'query': query, }
-        return self.process_gf(body, parent_shop_id, cart_check, cart, cart_products), is_store_active
+        return self.process_gf(body, shop, parent_shop, cart_check, cart, cart_products), is_store_active
 
-    def process_gf(self, body, parent_shop_id=None, cart_check=False, cart=None, cart_products=None):
+    def process_gf(self, body, shop=None, parent_shop=None, cart_check=False, cart=None, cart_products=None):
         """
             Modify Es results for response based on shop
         """
@@ -428,20 +424,20 @@ class SearchProducts(APIView):
         body["size"] = int(self.request.GET.get('pro_count', 10))
         p_list = []
         # No Shop Id OR Store Inactive
-        if not parent_shop_id:
+        if not parent_shop:
             body["_source"] = {"includes": ["id", "name", "product_images", "pack_size", "weight_unit", "weight_value",
-                                            "visible", "mrp", "ptr", "ean"]}
+                                            "visible", "mrp", "ean"]}
             products_list = es_search(index='all_products', body=body)
             for p in products_list['hits']['hits']:
-                try:
-                    p = self.modify_gf_product_es_price(p)
-                    p_list.append(p["_source"])
-                except:
-                    pass
+                p_list.append(p["_source"])
             return p_list
         # Active Store
-        products_list = es_search(index=parent_shop_id, body=body)
+        products_list = es_search(index=parent_shop.id, body=body)
         for p in products_list['hits']['hits']:
+            try:
+                p = self.modify_gf_product_es_price(p, shop, parent_shop)
+            except:
+                continue
             product = Product.objects.filter(id=p["_source"]["id"]).last()
             if not product:
                 logger.info("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
@@ -449,11 +445,7 @@ class SearchProducts(APIView):
             p["_source"]["coupon"] = self.get_coupons_gf_product(product)
             if cart_check:
                 p = self.modify_gf_cart_product_es(cart, cart_products, p)
-            try:
-                p = self.modify_gf_product_es_price(p)
-                p_list.append(p["_source"])
-            except:
-                pass
+            p_list.append(p["_source"])
         return p_list
 
     def search_query(self):
@@ -530,7 +522,17 @@ class SearchProducts(APIView):
         return p
 
     @staticmethod
-    def modify_gf_product_es_price(p):
+    def modify_gf_product_es_price(p, shop, parent_shop):
+        price_details = p["_source"]["price_details"]
+        if str(shop.id) in price_details['store'].keys():
+            p["_source"]["price_details"] = price_details['store'][str(shop.id)]
+        elif str(shop.get_shop_pin_code) in price_details['pincode'].keys():
+            p["_source"]["price_details"] = price_details['pincode'][str(shop.get_shop_pin_code)]
+        elif str(shop.get_shop_city.id) in price_details['city'].keys():
+            p["_source"]["price_details"] = price_details['city'][str(shop.get_shop_city.id)]
+        elif str(parent_shop.id) in price_details['store'].keys():
+            p["_source"]["price_details"] = price_details['store'][str(parent_shop.id)]
+
         c = 0
         for price_detail in p["_source"]["price_details"]:
             p["_source"]["price_details"][c]["ptr"] = round(p["_source"]["price_details"][c]["ptr"], 2)
@@ -4096,11 +4098,11 @@ def pdf_generation(request, ordered_product):
         request = request
         ordered_product = ordered_product
 
-    # try:
-    #     if ordered_product.invoice.invoice_pdf.url:
-    #         pass
-    # except Exception as e:
-    #     logger.exception(e)
+    try:
+        if ordered_product.invoice.invoice_pdf.url:
+            pass
+    except Exception as e:
+        logger.exception(e)
         barcode = barcodeGen(ordered_product.invoice_no)
 
         buyer_shop_id = ordered_product.order.buyer_shop_id
@@ -5060,7 +5062,7 @@ class SellerOrderList(generics.ListAPIView):
         return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
 
     def get_child_employee(self):
-        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp',
+        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type__in=['r', 'f', 'sp'],
                                               status=True)
 
     def get_shops(self):
