@@ -324,6 +324,27 @@ class GramGRNProductsList(APIView):
 
         for p in products_list['hits']['hits']:
             if is_store_active:
+                counter = 0
+                try:
+                    check_price_mrp = product.product_mrp
+                    price_details = p["_source"]["price_details"]
+                    if str(shop_id) in price_details['store'].keys():
+                        p["_source"]["price_details"] = price_details['store'][str(shop_id)]
+                    elif str(shop.get_shop_pin_code) in price_details['pincode'].keys():
+                        p["_source"]["price_details"] = price_details['pincode'][str(shop.get_shop_pin_code)]
+                    elif str(shop.get_shop_city.id) in price_details['city'].keys():
+                        p["_source"]["price_details"] = price_details['city'][str(shop.get_shop_city.id)]
+                    elif str(parent_mapping.parent_id) in price_details['store'].keys():
+                        p["_source"]["price_details"] = price_details['store'][str(parent_mapping.parent_id)]
+
+                    for price_detail in p["_source"]["price_details"]:
+                        p["_source"]["price_details"][counter]["ptr"] = round(
+                            p["_source"]["price_details"][counter]["ptr"], 2)
+                        p["_source"]["price_details"][counter]["margin"] = round(
+                            p["_source"]["price_details"][counter]["margin"], 2)
+                        counter += 1
+                except:
+                    continue
                 if not Product.objects.filter(id=p["_source"]["id"]).exists():
                     logger.info("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
                     continue
@@ -370,29 +391,7 @@ class GramGRNProductsList(APIView):
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = c_p.qty * c_p.item_effective_prices
 
-            counter = 0
-            try:
-
-                check_price_mrp = product.product_mrp
-                price_details = p["_source"]["price_details"]
-                if str(shop_id) in price_details['store'].keys():
-                    p["_source"]["price_details"] = price_details['store'][str(shop_id)]
-                elif str(shop.get_shop_pin_code) in price_details['pincode'].keys():
-                    p["_source"]["price_details"] = price_details['pincode'][str(shop.get_shop_pin_code)]
-                elif str(shop.get_shop_city.id) in price_details['city'].keys():
-                    p["_source"]["price_details"] = price_details['city'][str(shop.get_shop_city.id)]
-                elif str(parent_mapping.parent_id) in price_details['store'].keys():
-                    p["_source"]["price_details"] = price_details['store'][str(parent_mapping.parent_id)]
-
-                for price_detail in p["_source"]["price_details"]:
-                    p["_source"]["price_details"][counter]["ptr"] = round(p["_source"]["price_details"][counter]["ptr"], 2)
-                    p["_source"]["price_details"][counter]["margin"] = round(p["_source"]["price_details"][counter]["margin"], 2)
-                    counter += 1
-                p_list.append(p["_source"])
-            except:
-                pass
-
-
+            p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
                'is_success': True,
