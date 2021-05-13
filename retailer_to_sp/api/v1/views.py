@@ -325,12 +325,7 @@ class GramGRNProductsList(APIView):
         for p in products_list['hits']['hits']:
             if is_store_active:
                 counter = 0
-                if not Product.objects.filter(id=p["_source"]["id"]).exists():
-                    logger.info("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
-                    continue
-                product = Product.objects.get(id=p["_source"]["id"])
                 try:
-                    #check_price_mrp = product.product_mrp
                     price_details = p["_source"]["price_details"]
                     if str(shop_id) in price_details['store'].keys():
                         p["_source"]["price_details"] = price_details['store'][str(shop_id)]
@@ -349,6 +344,11 @@ class GramGRNProductsList(APIView):
                         counter += 1
                 except:
                     continue
+
+                if not Product.objects.filter(id=p["_source"]["id"]).exists():
+                    logger.info("No product found in DB matching for ES product with id: {}".format(p["_source"]["id"]))
+                    continue
+                product = Product.objects.get(id=p["_source"]["id"])
                 product_coupons = product.getProductCoupons()
                 coupons_queryset1 = Coupon.objects.filter(coupon_code__in=product_coupons, coupon_type='catalog')
                 coupons_queryset2 = Coupon.objects.filter(coupon_code__in=product_coupons,
