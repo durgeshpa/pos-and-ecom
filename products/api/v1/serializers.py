@@ -365,7 +365,7 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
 
 class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
     parent_product_id_list = serializers.ListField(
-        child=serializers.IntegerField(read_only=True)
+        child=serializers.IntegerField()
     )
 
     class Meta:
