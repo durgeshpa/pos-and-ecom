@@ -2,11 +2,12 @@ import codecs
 import csv
 import re
 import datetime
-
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
 
+from django.http import HttpResponse
 from rest_framework import serializers
 from products.models import Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductImage, ProductHSN
@@ -360,3 +361,104 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return parent_product_list
+
+
+class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
+    parent_product_id_list = serializers.ListField(
+        child=serializers.IntegerField(min_value=1)
+    )
+
+    class Meta:
+        model = ParentProduct
+        fields = ('parent_product_id_list', )
+
+    def validate(self, data):
+
+        if len(data.get('parent_product_id_list')) == 0:
+            raise serializers.ValidationError(_('id is required'))
+
+        for id in data.get('parent_product_id_list'):
+            try:
+                ParentProduct.objects.get(id=id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'parent_product not found for id {id}')
+        return data
+
+    def product_gst(self, obj):
+        if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').exists():
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj,
+                                                                        tax__tax_type='gst').last().tax.tax_percentage)
+        return ''
+
+    def product_cess(self, obj):
+        if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='cess').exists():
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='cess').last().tax.tax_percentage)
+        return ''
+
+
+    def product_surcharge(self, obj):
+        if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='surcharge').exists():
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='surcharge').last().tax.tax_percentage)
+        return ''
+
+    def product_category(self, obj):
+        try:
+            if obj.parent_product_pro_category.exists():
+                cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
+
+    def product_image(self, obj):
+        if obj.parent_product_pro_image.exists():
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                obj.parent_product_pro_image.last().image.url,
+                (obj.parent_product_pro_image.last().image_alt_text or obj.parent_product_pro_image.last().image_name),
+                obj.parent_product_pro_image.last().image.url
+            ))
+        return '-'
+
+    def ptrtype(self, obj):
+        if obj.is_ptr_applicable:
+            return obj.ptr_type_text
+
+    def ptrpercent(self, obj):
+        if obj.is_ptr_applicable:
+            return obj.ptr_percent
+
+    def create(self, validated_data):
+        meta = ParentProduct._meta
+        field_names = [
+            'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
+            'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
+            'product_type', 'is_ptr_applicable', 'ptr_type', 'ptr_percent'
+        ]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for id in validated_data['parent_product_id_list']:
+            obj = ParentProduct.objects.get(id=id)
+
+            row = []
+            for field in field_names:
+                try:
+                    val = getattr(obj, field)
+                    if field == 'ptr_type':
+                        val = getattr(obj, 'ptr_type_text')
+                except:
+                    if field == 'product_image':
+                        if obj.parent_product_pro_image.exists():
+                            val = "{}".format(obj.parent_product_pro_image.last().image.url)
+                        else:
+                            val = '-'
+                    else:
+                        val = eval("self.{}(obj)".format(field))
+                finally:
+                    row.append(val)
+            writer.writerow(row)
+        return response
+
