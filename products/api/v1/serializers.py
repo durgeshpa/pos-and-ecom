@@ -8,11 +8,10 @@ from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework import serializers
-from products.models import Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory,\
+from products.models import Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductImage, ProductHSN
 from categories.models import Category
 from brand.models import Brand
-
 
 VALID_IMAGE_EXTENSIONS = [
     ".jpg",
@@ -141,7 +140,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('id', 'parent_id',  'parent_brand', 'parent_brand_name', 'name', 'product_hsn', 'product_hsn_code', 'brand_case_size',
+        fields = ('id', 'parent_id', 'parent_brand', 'parent_brand_name', 'name', 'product_hsn', 'product_hsn_code',
+                  'brand_case_size',
                   'inner_case_size', 'product_type', 'is_ptr_applicable', 'ptr_percent',
                   'ptr_type', 'status', 'parent_product_pro_image', 'parent_product_pro_category',
                   'parent_product_pro_tax')
@@ -220,10 +220,10 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('file', )
+        fields = ('file',)
 
     def validate(self, data):
-        if not data['file'].name[-4:] in ('.csv'):
+        if not data['file'].name[-4:] in '.csv':
             raise serializers.ValidationError("Sorry! Only .csv file accepted.")
 
         reader = csv.reader(codecs.iterdecode(data['file'], 'utf-8', errors='ignore'))
@@ -238,7 +238,8 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
             if not row[0]:
                 raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Parent Name' can not be empty."))
             elif not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)\*\!\:]*$", row[0]):
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
+                raise serializers.ValidationError(
+                    _(f"Row {row_id + 2} | {VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME']}."))
             if not row[1]:
                 raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Brand' can not be empty."))
             elif not Brand.objects.filter(brand_name=row[1].strip()).exists():
@@ -268,15 +269,18 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
             if not row[7]:
                 raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Brand Case Size' can not be empty."))
             elif not re.match("^\d+$", row[7]):
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Brand Case Size' can only be a numeric value."))
+                raise serializers.ValidationError(
+                    _(f"Row {row_id + 2} | 'Brand Case Size' can only be a numeric value."))
             if not row[8]:
                 raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can not be empty."))
             elif not re.match("^\d+$", row[8]):
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Inner Case Size' can only be a numeric value."))
+                raise serializers.ValidationError(
+                    _(f"Row {row_id + 2} | 'Inner Case Size' can only be a numeric value."))
             if not row[9]:
                 raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Product Type' can not be empty."))
             elif row[9].lower() not in ['b2b', 'b2c', 'both', 'both b2b and b2c']:
-                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Product Type' can only be 'B2B', 'B2C', 'Both B2B and B2C'."))
+                raise serializers.ValidationError(_(f"Row {row_id + 2} | 'Product Type' can only be 'B2B', 'B2C', "
+                                                    f"'Both B2B and B2C'."))
 
         return data
 
@@ -286,6 +290,12 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
         parent_product_list = []
         try:
             for row in reader:
+                if len(row) == 0:
+                    continue
+                if '' in row:
+                    if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and
+                            row[5] == '' and row[6] == '' and row[7] == '' and row[8] == '' and row[9] == ''):
+                        continue
                 parent_product = ParentProduct.objects.create(
                     name=row[0].strip(),
                     parent_brand=Brand.objects.filter(brand_name=row[1].strip()).last(),
