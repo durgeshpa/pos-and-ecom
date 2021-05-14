@@ -1,13 +1,17 @@
 from retailer_to_sp.models import Cart
 from retailer_backend import common_function
 import traceback
-import sys
 
 
 def run(*args):
     print("Started")
     print("")
     carts = Cart.objects.filter(cart_no__isnull=True).order_by('id')
+    if args:
+        carts = carts.filter(created_at__month__gte=int(args[0]),
+                             created_at__year__gte=int(args[1]))
+    print(carts.query)
+    print("")
     count = 0
     for instance in carts:
         try:
@@ -45,4 +49,4 @@ def run(*args):
             count += 1
             break
 
-    print("not generated count" + str(count))
+    print("not generated count " + str(count))
