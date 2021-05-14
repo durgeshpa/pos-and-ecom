@@ -597,7 +597,7 @@ class SellerShopProfile(generics.ListAPIView):
         return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type__in=['r', 'f', 'sp'], status=True)
 
     def get_shops(self):
-        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), manager__in=self.get_manager(), shop__shop_type__shop_type__in=['r', 'f',], status=True)
+        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), manager__in=self.get_manager(), shop__shop_type__shop_type__in=['r', 'f', 'sp'], status=True)
 
     def get_order(self, shops_list):
         return Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop', 'created_at').\
