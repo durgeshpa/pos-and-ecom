@@ -2,14 +2,13 @@ import codecs
 import csv
 import re
 import datetime
-from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
 
 from django.http import HttpResponse
 from rest_framework import serializers
-from products.models import Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
+from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
     ParentProductImage, ProductHSN
 from categories.models import Category
 from brand.models import Brand
@@ -445,3 +444,51 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
             writer.writerow(row)
         return response
 
+
+
+class ActiveDeactivateSelectedProductserializers(serializers.ModelSerializer):
+    is_active = serializers.BooleanField()
+    parent_product_id_list = serializers.ListField(
+        child=serializers.IntegerField()
+    )
+
+    class Meta:
+        model = ParentProduct
+        fields = ('parent_product_id_list', 'is_active',)
+
+
+    def validate(self, data):
+
+        if data.get('is_active') is None:
+            raise serializers.ValidationError('This field is required')
+
+        if len(data.get('parent_product_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one parent_product id must be selected '))
+
+        for id in data.get('parent_product_id_list'):
+            try:
+                ParentProduct.objects.get(id=id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'parent_product not found for id {id}')
+
+        return data
+
+    def update(self, instance, validated_data):
+
+        if validated_data['is_active']:
+            parent_product_status = True
+            product_status = "active"
+        else:
+            parent_product_status = False
+            product_status = "deactivated"
+
+        try:
+            parent_products = ParentProduct.objects.filter(id__in=validated_data['parent_product_id_list'])
+            parent_products.update(status=parent_product_status)
+            for parent_product_obj in parent_products:
+                Product.objects.filter(parent_product=parent_product_obj).update(status=product_status)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data

@@ -1,6 +1,3 @@
-import csv
-from django.http import HttpResponse
-
 from rest_framework.response import Response
 from rest_framework import status, authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView
@@ -9,8 +6,9 @@ from rest_framework.parsers import JSONParser
 from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
 
-from products.models import  ParentProduct, ProductHSN
-from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, ParentProductExportAsCSVSerializers
+from products.models import ParentProduct as ParentProducts, ProductHSN, Product
+from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
+    ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductserializers
 from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
 
@@ -20,7 +18,7 @@ class ParentProduct(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     parser_classes = [MultipartJsonParser, JSONParser]
-    parent_product_list = ParentProduct.objects.all()
+    parent_product_list = ParentProducts.objects.all()
 
     def get(self, request):
 
@@ -77,14 +75,14 @@ class ParentProduct(GenericAPIView):
 
         if not request.POST.get('id'):
             msg = {'is_success': False,
-                   'message': ['Please Provide a id to update parent product'],
+                   'message': 'Please Provide a id to update parent product',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        id = int(request.POST.get('id'))
-        id_instance = self.parent_product_list.filter(id=id).last()
+
+        id_instance = self.parent_product_list.filter(id=int(request.POST.get('id'))).last()
         if id_instance is None:
             msg = {'is_success': False,
-                   'message': ['Please Provide a Valid id to update parent product'],
+                   'message': 'Please Provide a Valid id to update parent product',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -148,3 +146,20 @@ class ParentProductExportAsCSV(GenericAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class ActiveDeactivateSelectedProduct(GenericAPIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    parent_product_list = ParentProducts.objects.all()
+
+    def put(self, request):
+
+        """ PUT API for Activate or Deactivate Selected Parent Product """
+
+        serializer = ActiveDeactivateSelectedProductserializers(instance=
+                            self.parent_product_list.filter(id__in=request.data['parent_product_id_list']),
+                            data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
