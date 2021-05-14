@@ -93,10 +93,10 @@ def get_last_model_invoice(starts_with, field):
         return 0
 
 
-def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=False):
+def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
         address)
-    financial_year = get_financial_year()
+    financial_year = year if year else get_financial_year()
     starts_with = "%s%s%s%s%s" % (
         shop_code, invoice_type, financial_year,
         state_code, warehouse_code)
@@ -118,10 +118,10 @@ def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=
     return "%s%s" % (starts_with, ends_with)
 
 
-def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_invoice=False):
+def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
         address)
-    financial_year = get_financial_year()
+    financial_year = year if year else get_financial_year()
     starts_with = "%s%s%s%s%s" % (
         shop_code_bulk, invoice_type, financial_year,
         state_code, warehouse_code)
@@ -139,10 +139,10 @@ def common_pattern_bulk(model, field, instance_id, address, invoice_type, is_inv
     return "%s%s" % (starts_with, ends_with)
 
 
-def common_pattern_discounted(model, field, instance_id, address, invoice_type, is_invoice=False):
+def common_pattern_discounted(model, field, instance_id, address, invoice_type, is_invoice=False, year=None):
     state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
         address)
-    financial_year = get_financial_year()
+    financial_year = year if year else get_financial_year()
     starts_with = "%s%s%s%s%s" % (
         shop_code_discounted, invoice_type, financial_year,
         state_code, warehouse_code)
@@ -293,13 +293,13 @@ def generate_invoice_number_bulk_order(field, instance_id, address, invoice_amou
         instance.save()
 
 
-def cart_no_pattern(model, field, instance_id, address):
-    return common_pattern(model, field, instance_id, address, "CR")
+def cart_no_pattern(model, field, instance_id, address, year=None):
+    return common_pattern(model, field, instance_id, address, "CR", year)
 
 
-def cart_no_pattern_discounted(model, field, instance_id, address):
-    return common_pattern_discounted(model, field, instance_id, address, "CR")
+def cart_no_pattern_discounted(model, field, instance_id, address, year=None):
+    return common_pattern_discounted(model, field, instance_id, address, "CR", year)
 
 
-def cart_no_pattern_bulk(model, field, instance_id, address):
-    return common_pattern_bulk(model, field, instance_id, address, "CR")
+def cart_no_pattern_bulk(model, field, instance_id, address, year=None):
+    return common_pattern_bulk(model, field, instance_id, address, "CR", year)
