@@ -513,14 +513,15 @@ class SellerShopOrder(generics.ListAPIView):
             annotate(buyer_shop_count=Count('buyer_shop')) \
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
-            .annotate(ordered_amount=Sum(F('order_amount'),
-                                         output_field=FloatField())) \
             .order_by('buyer_shop')
 
     def get_shop_count(self,shops_list,today,last_day):
         return Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
                              created_at__date__gte=last_day).values('buyer_shop').annotate(
-            buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
+            buyer_shop_count=Count('buyer_shop'))\
+            .annotate(ordered_amount=Sum(F('order_amount'),
+                                         output_field=FloatField())
+        ).order_by('buyer_shop')
 
     def list(self, request, *args, **kwargs):
         data = []
@@ -553,8 +554,8 @@ class SellerShopOrder(generics.ListAPIView):
         #     order_obj = order_obj.filter(ordered_by__in = executives_list)
         #     buyer_order_obj = order_obj.filter(ordered_by__in = executives_list)
 
-        buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
-        order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
+        buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['ordered_amount']) for i in buyer_order_obj}
+        order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces']) for i in order_obj}
         no_of_order_total, no_of_ordered_sku_total, no_of_ordered_sku_pieces_total, ordered_amount_total = 0, 0, 0, 0
         for shop in shop_list:
             rt = {
@@ -562,7 +563,7 @@ class SellerShopOrder(generics.ListAPIView):
                 'no_of_order': buyer_order_map[shop['shop']][0] if shop['shop'] in buyer_order_map else 0,
                 'no_of_ordered_sku': order_map[shop['shop']][1] if shop['shop'] in order_map else 0,
                 'no_of_ordered_sku_pieces': order_map[shop['shop']][2] if shop['shop'] in order_map else 0,
-                'ordered_amount': round(order_map[shop['shop']][3],2) if shop['shop'] in order_map else 0,
+                'ordered_amount': round(buyer_order_map[shop['shop']][1],2) if shop['shop'] in buyer_order_map else 0,
                 'calls_made': 0,
                 'delivered_amount': 0,
             }
@@ -571,13 +572,13 @@ class SellerShopOrder(generics.ListAPIView):
             no_of_order_total += buyer_order_map[shop['shop']][0] if shop['shop'] in buyer_order_map else 0
             no_of_ordered_sku_total += order_map[shop['shop']][1] if shop['shop'] in order_map else 0
             no_of_ordered_sku_pieces_total += order_map[shop['shop']][2] if shop['shop'] in order_map else 0
-            ordered_amount_total += round(order_map[shop['shop']][3], 2) if shop['shop'] in order_map else 0
+            ordered_amount_total += round(buyer_order_map[shop['shop']][1],2) if shop['shop'] in buyer_order_map else 0
 
         dt = {
             'no_of_order': no_of_order_total,
             'no_of_ordered_sku': no_of_ordered_sku_total,
             'no_of_ordered_sku_pieces': no_of_ordered_sku_pieces_total,
-            'ordered_amount': ordered_amount_total,
+            'ordered_amount': round(ordered_amount_total, 2),
             'calls_made': 0,
             'delivered_amount': 0,
         }
