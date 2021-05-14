@@ -291,3 +291,15 @@ def generate_invoice_number_bulk_order(field, instance_id, address, invoice_amou
         invoice_no = common_pattern_bulk(RetailerToSPModels.Invoice, field, instance_id, address, "IV", is_invoice=True)
         instance.invoice_no = invoice_no
         instance.save()
+
+
+def cart_no_pattern(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "CR")
+
+
+def cart_no_pattern_discounted(model, field, instance_id, address):
+    return common_pattern_discounted(model, field, instance_id, address, "CR")
+
+
+def cart_no_pattern_bulk(model, field, instance_id, address):
+    return common_pattern_bulk(model, field, instance_id, address, "CR")

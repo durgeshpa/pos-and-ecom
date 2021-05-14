@@ -295,7 +295,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_status', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount', 'offers',
+        fields = ('id', 'cart_no', 'cart_status', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount', 'offers',
                   'total_discount', 'sub_total', 'created_at', 'modified_at')
 
     def rt_cart_list_dt(self, obj):
@@ -500,7 +500,7 @@ class BasicCartListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_status', 'total_amount', 'total_discount', 'sub_total', 'created_at',
+        fields = ('id', 'cart_no', 'cart_status', 'total_amount', 'total_discount', 'sub_total', 'created_at',
                   'modified_at')
 
 
