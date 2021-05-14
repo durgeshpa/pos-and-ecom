@@ -74,6 +74,7 @@ class ParentProduct(GenericAPIView):
     def put(self, request):
 
         """ PUT API for Parent Product Updation with Image Category & Tax """
+
         if not request.POST.get('id'):
             msg = {'is_success': False,
                    'message': ['Please Provide a id to update parent product'],
@@ -97,19 +98,21 @@ class ParentProduct(GenericAPIView):
 
         """ Delete Parent Product with image """
 
-        if not request.GET.get('parent_product_id'):
+        if not request.data.get('parent_product_id'):
             msg = {'is_success': False,
                    'message': 'Please Provide a parent_product_id',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         try:
-            parent_product_id = self.parent_product_list.filter(id=int(request.GET.get('parent_product_id')))
+            for id in request.data.get('parent_product_id'):
+                parent_product_id = self.parent_product_list.get(id=int(id))
+                parent_product_id.delete()
         except ObjectDoesNotExist:
             msg = {'is_success': False,
-                   'message': 'Please Provide a Valid parent_product_id',
+                   'message': f'Please Provide a Valid parent_product_id {id}',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        parent_product_id.delete()
+
         msg = {'is_success': True,
                'message': 'Parent Product were deleted successfully!',
                'data': None
@@ -121,6 +124,9 @@ class ParentProductBulkUpload(CreateAPIView):
     serializer_class = ParentProductBulkUploadSerializers
 
     def post(self, request, *args, **kwargs):
+
+        """ POST API for Bulk Upload Parent Product CSV with Category & Tax """
+
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -132,6 +138,8 @@ class ParentProductBulkUpload(CreateAPIView):
 class ParentProductExportAsCSV(GenericAPIView):
 
     def post(self, request):
+
+        """ POST API for Download Selected Parent Product CSV with Image Category & Tax """
 
         serializer = ParentProductExportAsCSVSerializers(data=request.data)
         if serializer.is_valid():
