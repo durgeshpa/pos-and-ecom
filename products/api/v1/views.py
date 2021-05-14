@@ -1,16 +1,17 @@
-from rest_framework.response import Response
-from rest_framework import status, authentication
-from rest_framework.generics import GenericAPIView, CreateAPIView
-from rest_framework.permissions import AllowAny
-from rest_framework.parsers import JSONParser
 from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
 
-from products.models import ParentProduct as ParentProducts, ProductHSN, Product
-from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
-    ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductserializers
+from rest_framework import status, authentication
+from rest_framework.response import Response
+from rest_framework.generics import GenericAPIView, CreateAPIView
+from rest_framework.permissions import AllowAny
+from rest_framework.parsers import JSONParser
+
+from products.models import ParentProduct as ParentProducts, ProductHSN
 from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
+from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
+    ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductserializers
 
 
 class ParentProduct(GenericAPIView):
@@ -119,6 +120,8 @@ class ParentProduct(GenericAPIView):
 
 
 class ParentProductBulkUpload(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     serializer_class = ParentProductBulkUploadSerializers
 
     def post(self, request, *args, **kwargs):
@@ -134,6 +137,8 @@ class ParentProductBulkUpload(CreateAPIView):
 
 
 class ParentProductExportAsCSV(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
 
     def post(self, request):
 
@@ -147,7 +152,6 @@ class ParentProductExportAsCSV(GenericAPIView):
 
 
 class ActiveDeactivateSelectedProduct(GenericAPIView):
-
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     parent_product_list = ParentProducts.objects.all()
