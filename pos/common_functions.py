@@ -55,11 +55,8 @@ class OffersCls(object):
     @classmethod
     def rule_set_creation(cls, rulename, start_date, expiry_date, discount_qty_amount=None, discount_obj=None,
                           free_product_obj=None, free_product_qty=None):
-        """
-           rule_set Creation for Offer/Coupon
-        """
         if CouponRuleSet.objects.filter(rulename=rulename):
-            ruleset = f"cannot create a Offer with {rulename}, already exists"
+            ruleset = "Offer with same Order Value and Discount Detail already exists"
         else:
             ruleset = CouponRuleSet.objects.create(rulename=rulename, start_date=start_date,
                                                    expiry_date=expiry_date, is_active=True,
@@ -87,9 +84,11 @@ class OffersCls(object):
         """
             rule_set cart mapping for coupon creation
         """
-        Coupon.objects.create(rule_id=rule_id, coupon_name=coupon_name, coupon_type=coupon_type,
-                              shop=shop, start_date=start_date, expiry_date=expiry_date, coupon_code=coupon_code,
-                              is_active=True)
+        coupon = Coupon.objects.create(rule_id=rule_id, coupon_name=coupon_name, coupon_type=coupon_type,
+                                       shop=shop, start_date=start_date, expiry_date=expiry_date,
+                                       coupon_code=coupon_code,
+                                       is_active=True)
+        return coupon
 
 
 def get_response(msg, data=None, success=False, extra_params=None):
