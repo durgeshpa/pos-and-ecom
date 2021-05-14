@@ -382,6 +382,7 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
                 ParentProduct.objects.get(id=id)
             except ObjectDoesNotExist:
                 raise serializers.ValidationError(f'parent_product not found for id {id}')
+
         return data
 
     def product_gst(self, obj):
@@ -412,20 +413,9 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
 
     def product_image(self, obj):
         if obj.parent_product_pro_image.exists():
-            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
-                obj.parent_product_pro_image.last().image.url,
-                (obj.parent_product_pro_image.last().image_alt_text or obj.parent_product_pro_image.last().image_name),
-                obj.parent_product_pro_image.last().image.url
-            ))
-        return '-'
-
-    def ptrtype(self, obj):
-        if obj.is_ptr_applicable:
-            return obj.ptr_type_text
-
-    def ptrpercent(self, obj):
-        if obj.is_ptr_applicable:
-            return obj.ptr_percent
+            return "{}".format(obj.parent_product_pro_image.last().image.url)
+        else:
+            return '-'
 
     def create(self, validated_data):
         meta = ParentProduct._meta
@@ -441,8 +431,7 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
         writer = csv.writer(response)
         writer.writerow(field_names)
         for id in validated_data['parent_product_id_list']:
-            obj = ParentProduct.objects.get(id=id)
-
+            obj = ParentProduct.objects.filter(id=id).last()
             row = []
             for field in field_names:
                 try:
@@ -450,13 +439,7 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
                     if field == 'ptr_type':
                         val = getattr(obj, 'ptr_type_text')
                 except:
-                    if field == 'product_image':
-                        if obj.parent_product_pro_image.exists():
-                            val = "{}".format(obj.parent_product_pro_image.last().image.url)
-                        else:
-                            val = '-'
-                    else:
-                        val = eval("self.{}(obj)".format(field))
+                    val = eval("self.{}(obj)".format(field))
                 finally:
                     row.append(val)
             writer.writerow(row)
