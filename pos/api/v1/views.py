@@ -158,7 +158,7 @@ class CatalogueProductCreation(GenericAPIView):
                                                       'linked_product__product_name', 'created_at',
                                                       'modified_at', 'status', 'retailer_product_image').filter(id=product.id)
                 response_serializer = RetailerProductResponseSerializer(instance=data[0])
-                message = {"is_success": True, "message": "Product has been successfully created!",
+                message = {"is_success": True, "message": "Product created successfully!",
                            "response_data": response_serializer.data}
                 return Response(message, status=status.HTTP_201_CREATED)
             else:

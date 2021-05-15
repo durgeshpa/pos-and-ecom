@@ -270,7 +270,7 @@ class BasicCartOffers(object):
                     final_offer_coupon_id = offer
                     continue
                 # If already applied coupon_id is still applicable, refresh the discount amount/offer
-                if applied_offer and applied_offer['coupon_id'] == coupon['id'] and not auto_apply:
+                if applied_offer and int(applied_offer['coupon_id']) == int(coupon['id']) and not auto_apply:
                     final_offer_applied = offer
                     continue
                 applicable_offers.append(offer)
@@ -366,7 +366,7 @@ class BasicCartOffers(object):
                     continue
                 if offer['coupon_type'] == 'catalog':
                     discounted_price_subtotal = round(
-                        ((offer['product_subtotal'] / float(cart_value)) * float(new_offer['discount_value'])),
+                        ((float(offer['product_subtotal']) / float(cart_value)) * float(new_offer['discount_value'])),
                         2) if new_offer else 0
                     offer.update({'cart_or_brand_level_discount': discounted_price_subtotal})
                     discounted_product_subtotal = round(
@@ -393,7 +393,7 @@ class BasicCartOffers(object):
                 if offer['coupon_type'] == 'cart' and offer['type'] == 'free_product':
                     continue
                 if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
-                    if offer['cart_minimum_value'] > cart_total:
+                    if float(offer['cart_minimum_value']) > cart_total:
                         continue
                     cart_offer = offer
                 new_offers_list.append(offer)
@@ -419,7 +419,7 @@ class BasicCartOffers(object):
             if cart_products:
                 for product_mapping in cart_products:
                     cart_value += product_mapping.selling_price * product_mapping.qty
-            discount_value = round((spot_discount / 100) * float(cart_value), 2) if is_percentage else spot_discount
+            discount_value = round((float(spot_discount) / 100) * float(cart_value), 2) if is_percentage else float(spot_discount)
             if discount_value <= cart_value:
                 offer = BasicCartOffers.get_offer_spot_discount(is_percentage, spot_discount, discount_value)
                 offers = BasicCartOffers.update_cart_offer(cart.offers, cart_value, offer)
@@ -469,13 +469,13 @@ class BasicCartOffers(object):
     @classmethod
     def discount_value(cls, offer, cart_value):
         if not offer['is_percentage']:
-            discount = offer['discount']
+            discount = float(offer['discount'])
         else:
             if float(offer['max_discount']) == 0 or float(offer['max_discount']) > (
                     float(offer['discount']) / 100) * float(cart_value):
                 discount = round((float(offer['discount']) / 100) * float(cart_value), 2)
             else:
-                discount = offer['max_discount']
+                discount = float(offer['max_discount'])
         return discount
 
     @classmethod

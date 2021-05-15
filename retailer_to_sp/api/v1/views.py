@@ -1226,7 +1226,7 @@ class CartCentral(GenericAPIView):
             if not (name and sp and ean):
                 return {'error': "Please provide product_id OR product_name, product_ean_code, selling_price!"}
             linked_pid = self.request.data.get('linked_product_id') if self.request.data.get('linked_product_id') else None
-            mrp, linked = None, 1
+            mrp, linked = sp, 1
             if linked_pid:
                 linked_product = Product.objects.filter(id=linked_pid).last()
                 if not linked_product:
@@ -3211,7 +3211,7 @@ class OrderedItemCentralDashBoard(APIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         order = initial_validation['order']
-        return get_response('Order Details', self.get_serialize_process(order))
+        return get_response('Dashboard', self.get_serialize_process(order))
 
     def get_basic_list_validate(self):
         """
@@ -3308,7 +3308,7 @@ class OrderedItemCentralDashBoard(APIView):
         if 'error' in initial_validation:
             return get_response(initial_validation['error'])
         order = initial_validation['order']
-        return get_response('Order Details', self.get_serialize_process(order))
+        return get_response('Dashboard', self.get_serialize_process(order))
 
     def get_retail_list_validate(self):
         """
