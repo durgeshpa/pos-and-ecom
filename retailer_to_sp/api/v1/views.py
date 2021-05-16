@@ -74,6 +74,7 @@ from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer,
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, UserMappedShop
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es
+from pos import error_code
 from accounts.api.v1.serializers import PosUserSerializer
 from global_config.models import GlobalConfig
 
@@ -850,7 +851,7 @@ class CartCentral(GenericAPIView):
         except:
             return get_response("Active Cart Not Found")
         Cart.objects.filter(id=cart.id).update(cart_status=Cart.DELETED)
-        return get_response('Cancelled Successfully!', self.post_serialize_process_basic(cart))
+        return get_response('Cancelled Successfully!', [], True)
 
     def get_retail_cart(self):
         """
@@ -1146,7 +1147,8 @@ class CartCentral(GenericAPIView):
             # basic validations for inputs
             initial_validation = self.post_basic_validate(cart_id)
             if 'error' in initial_validation:
-                return get_response(initial_validation['error'])
+                e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
+                return get_response(initial_validation['error'], None, False, {'error_code': e_code})
             product = initial_validation['product']
             shop = initial_validation['shop']
             qty = initial_validation['quantity']
@@ -1244,11 +1246,15 @@ class CartCentral(GenericAPIView):
         # Check if existing or new cart
         cart = None
         if cart_id:
-            try:
-                cart = Cart.objects.get(id=cart_id, last_modified_by=self.request.user, seller_shop=shop,
-                                        cart_type='BASIC', cart_status__in=['active', 'pending'])
-            except ObjectDoesNotExist:
-                return {'error': "Cart Not Found!"}
+            cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
+            if not cart:
+                return {'error': "Cart Doesn't Exist!"}
+            elif cart.cart_status == Cart.ORDERED:
+                return {'error': "Order already placed on this cart!", 'error_code': error_code.CART_NOT_ACTIVE}
+            elif cart.cart_status == Cart.DELETED:
+                return {'error': "This cart was deleted!", 'error_code': error_code.CART_NOT_ACTIVE}
+            elif cart.cart_status not in [Cart.ACTIVE, Cart.PENDING]:
+                return {'error': "Active Cart Doesn't Exist!"}
         # Check if selling price is less than equal to mrp if price change
         price_change = self.request.data.get('price_change')
         if price_change in [1, 2]:
@@ -2415,7 +2421,8 @@ class OrderCentral(APIView):
         # basic validations for inputs
         initial_validation = self.post_basic_validate()
         if 'error' in initial_validation:
-            return get_response(initial_validation['error'])
+            e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
+            return get_response(initial_validation['error'], None, False, {'error_code': e_code})
         shop = initial_validation['shop']
         cart = initial_validation['cart']
         payment_method = initial_validation['payment_method']
@@ -2519,9 +2526,14 @@ class OrderCentral(APIView):
             return {'error': "Shop Billing Address Doesn't Exist!"}
         # Check if cart exists
         cart_id = self.request.data.get('cart_id')
-        try:
-            cart = Cart.objects.get(id=cart_id, seller_shop=shop, cart_status__in=['active', 'pending'])
-        except ObjectDoesNotExist:
+        cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
+        if not cart:
+            return {'error': "Cart Doesn't Exist!"}
+        elif cart.cart_status == Cart.ORDERED:
+            return {'error': "Order already placed on this cart!", 'error_code': error_code.CART_NOT_ACTIVE}
+        elif cart.cart_status == Cart.DELETED:
+            return {'error': "This cart was deleted!", 'error_code': error_code.CART_NOT_ACTIVE}
+        elif cart.cart_status not in [Cart.ACTIVE, Cart.PENDING]:
             return {'error': "Active Cart Doesn't Exist!"}
         # Check if products available in cart
         cart_products = CartProductMapping.objects.select_related('retailer_product').filter(cart=cart, product_type=1)

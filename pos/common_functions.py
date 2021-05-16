@@ -5,7 +5,7 @@ from rest_framework import status
 from django.db.models import Q
 from django.urls import reverse
 
-from pos.models import RetailerProduct, UserMappedShop
+from pos.models import RetailerProduct, UserMappedShop, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Order
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
@@ -37,6 +37,14 @@ class RetailerProductCls(object):
         return RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
                                               mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description,
                                               product_ean_code=product_ean_code, status=status)
+
+    @classmethod
+    def upload_images(cls, product_id, images):
+        if RetailerProductImage.objects.filter(product=product_id).exists():
+            RetailerProductImage.objects.filter(product=product_id).delete()
+        if images:
+            for image in images:
+                RetailerProductImage.objects.create(product_id=product_id, image=image)
 
     @classmethod
     def get_sku_type(cls, sku_type):
@@ -91,7 +99,7 @@ class OffersCls(object):
         return coupon
 
 
-def get_response(msg, data=None, success=False, extra_params=None):
+def get_response(msg, data=None, success=False, extra_params=None, status_code=status.HTTP_200_OK):
     """
         General Response For API
     """
@@ -101,10 +109,11 @@ def get_response(msg, data=None, success=False, extra_params=None):
         if data:
             ret = {"is_success": True, "message": msg, "response_data": data}
         else:
+            status_code = status.HTTP_406_NOT_ACCEPTABLE
             ret = {"is_success": False, "message": msg, "response_data": None}
     if extra_params:
         ret.update(extra_params)
-    return Response(ret, status=status.HTTP_200_OK)
+    return Response(ret, status=status_code)
 
 
 def delete_cart_mapping(cart, product, cart_type='retail'):
@@ -150,9 +159,7 @@ def serializer_error(serializer):
             else:
                 result = ''.join('{} : {}'.format(field, error))
             errors.append(result)
-    msg = {'is_success': False,
-           'error_message': errors[0] if len(errors) == 1 else [error for error in errors],
-           'response_data': None}
+    msg = {'is_success': False, 'error_message': errors[0], 'response_data': None}
     return msg
 
 

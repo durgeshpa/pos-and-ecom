@@ -4,9 +4,8 @@ import datetime
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 from django.db.models import Q, Sum
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MinValueValidator
 
-from products.models import ProductImage
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, \
     OrderedProductMapping
@@ -14,223 +13,104 @@ from accounts.api.v1.serializers import PosUserSerializer
 from pos.common_functions import get_invoice_and_link
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
-from shops.models import Shop
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
 from retailer_backend.utils import SmallOffsetPagination
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(
-        max_length=None, use_url=True,
-    )
-
     class Meta:
         model = RetailerProductImage
-        fields = ('image_name', 'image')
+        fields = ('image_name', 'image_alt_text', 'image')
 
 
 class RetailerProductCreateSerializer(serializers.Serializer):
-    shop_id = serializers.IntegerField(required=False)
-    status = serializers.CharField(required=False)
-    linked_product_id = serializers.IntegerField(required=False, allow_null=True, default=None)
+    shop_id = serializers.IntegerField()
     product_name = serializers.CharField(required=True, validators=[ProductNameValidator])
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
-    description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
+    description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='')
     product_ean_code = serializers.CharField(required=True)
-    images = RetailerProductImageSerializer(many=True, required=True)
+    linked_product_id = serializers.IntegerField(required=False, allow_null=True, default=None)
+    images = serializers.ListField(required=False, allow_null=True, child=serializers.ImageField())
+
+    @staticmethod
+    def validate_linked_product_id(value):
+        if value and not Product.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Linked GramFactory Product not found! Please try again")
+        return value
+
+    @staticmethod
+    def validate_images(value):
+        if value and len(value) > 3:
+            raise serializers.ValidationError("Maximum of 3 images can be uploaded for a product")
+        return value
 
     def validate(self, attrs):
-        serializer_list = ['shop_id', "linked_product_id", "product_name", "mrp", "selling_price",
-                           "product_ean_code", "description", "status", "images"]
+        sp, mrp, name, shop_id = attrs['selling_price'], attrs['mrp'], attrs['product_name'], attrs['shop_id']
 
-        for key in self.initial_data.keys():
-            if key not in serializer_list:
-                raise serializers.ValidationError(_(f"{key} is not allowed"))
+        if sp > mrp:
+            raise serializers.ValidationError("Selling Price cannot be greater than MRP")
 
-        # Check, shop_id exists or not
-        shop_id = attrs.get('shop_id')
-        if shop_id:
-            # If user provide shop_id
-            if not Shop.objects.filter(id=shop_id).exists():
-                raise serializers.ValidationError(_("Shop ID not found! Please enter a valid Shop ID!"))
+        if RetailerProduct.objects.filter(shop=shop_id, name=name, mrp=mrp, selling_price=sp).exists():
+            raise serializers.ValidationError("Product {} with same mrp & selling_price already exists.".format(name))
 
-        selling_price = attrs.get('selling_price')
-        mrp = attrs.get('mrp')
-        if selling_price and mrp:
-            # If user provide selling_price and mrp
-            if selling_price > mrp:
-                raise serializers.ValidationError(_("Selling Price cannot be greater than MRP"))
-
-        linked_product_id = attrs.get('linked_product_id')
-        if linked_product_id:
-            # If user provides linked_product_id
-            if not Product.objects.filter(id=linked_product_id).exists():
-                raise serializers.ValidationError(_("Linked Product ID not found! Please enter a valid Product ID"))
-
+        if RetailerProduct.objects.filter(shop=shop_id, mrp=mrp, linked_product_id=attrs['linked_product_id']).exists():
+            raise serializers.ValidationError(
+                "Product {} with same mrp & linked GF product already exists.".format(name))
         return attrs
 
 
-class RetailerProductResponseSerializer(serializers.Serializer):
-    id = serializers.SerializerMethodField()
-    shop = serializers.SerializerMethodField()
-    name = serializers.SerializerMethodField()
-    sku = serializers.SerializerMethodField()
-    mrp = serializers.SerializerMethodField()
-    selling_price = serializers.SerializerMethodField()
-    description = serializers.SerializerMethodField()
-    sku_type = serializers.SerializerMethodField()
-    linked_product = serializers.SerializerMethodField()
-    product_ean_code = serializers.SerializerMethodField()
-    created_at = serializers.SerializerMethodField()
-    modified_at = serializers.SerializerMethodField()
-    status = serializers.SerializerMethodField()
+class RetailerProductResponseSerializer(serializers.ModelSerializer):
     images = serializers.SerializerMethodField()
 
-    def get_id(self, obj):
-        return obj['id']
+    @staticmethod
+    def get_images(obj):
+        return RetailerProductImageSerializer(obj.retailer_product_image, many=True).data
 
-    def get_status(self, obj):
-        return obj['status']
-
-    def get_shop(self, obj):
-        return obj['shop__shop_name']
-
-    def get_name(self, obj):
-        return obj['name']
-
-    def get_sku(self, obj):
-        return obj['sku']
-
-    def get_mrp(self, obj):
-        return obj['mrp']
-
-    def get_selling_price(self, obj):
-        return obj['selling_price']
-
-    def get_description(self, obj):
-        return obj['description']
-
-    def get_sku_type(self, obj):
-        if obj['sku_type'] == 1:
-            return 'CREATED'
-        if obj['sku_type'] == 2:
-            return 'LINKED'
-        if obj['sku_type'] == 3:
-            return 'LINKED_EDITED'
-
-    def get_linked_product(self, obj):
-        if obj['linked_product__product_name']:
-            return obj['linked_product__product_name']
-        return ''
-
-    def get_images(self, obj):
-
-        queryset = RetailerProductImage.objects.filter(product_id=obj['id'])
-        return RetailerProductImageSerializer(queryset, many=True).data
-
-    def get_created_at(self, obj):
-        return obj['created_at']
-
-    def get_product_ean_code(self, obj):
-        return obj['product_ean_code']
-
-    def get_modified_at(self, obj):
-        return obj['modified_at']
-
-
-class RetailerProductImageDeleteSerializer(serializers.Serializer):
-    product_id = serializers.IntegerField(required=True)
-    image_id = serializers.IntegerField(required=True)
-
-    def validate(self, attrs):
-        serializer_list = ['product_id', "image_id"]
-
-        for key in self.initial_data.keys():
-            if key not in serializer_list:
-                raise serializers.ValidationError(_(f"{key} is not allowed"))
-
-        product_id = attrs.get('product_id')
-        if product_id:
-            # If user provides product_id
-            if not RetailerProduct.objects.filter(id=product_id).exists():
-                raise serializers.ValidationError(_("Product ID not found! Please enter a valid Product ID"))
-
-        image_id = attrs.get('image_id')
-        if image_id:
-            # If user provides image_id
-            if not RetailerProductImage.objects.filter(id=image_id).exists():
-                raise serializers.ValidationError(_("Image ID not found! Please enter a valid Product ID"))
-
-        return attrs
+    class Meta:
+        model = RetailerProduct
+        fields = '__all__'
 
 
 class RetailerProductUpdateSerializer(serializers.Serializer):
+    shop_id = serializers.IntegerField()
     product_id = serializers.IntegerField(required=True)
-    shop_id = serializers.IntegerField(required=False)
     product_ean_code = serializers.CharField(required=False)
     product_name = serializers.CharField(required=False, validators=[ProductNameValidator])
     mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
     status = serializers.CharField(required=False)
-    images = serializers.FileField(required=False)
-    linked_product_id = serializers.IntegerField(required=False)
-    image_id = serializers.ListField(required=False)
+    images = serializers.ListField(required=False, allow_null=True, child=serializers.ImageField())
+
+    @staticmethod
+    def validate_images(value):
+        if value and len(value) > 3:
+            raise serializers.ValidationError("Maximum of 3 images can be uploaded for a product")
+        return value
 
     def validate(self, attrs):
-        serializer_list = ['shop_id', 'product_id', 'product_ean_code', 'product_name',
-                           'mrp', 'selling_price', 'description', 'status', 'images',
-                           'linked_product_id', 'image_id']
+        shop_id, pid = attrs['shop_id'], attrs['product_id']
 
-        for key in self.initial_data.keys():
-            if key not in serializer_list:
-                raise serializers.ValidationError(_(f"{key} is not allowed"))
+        product = RetailerProduct.objects.filter(id=pid, shop_id=shop_id).last()
+        if not product:
+            raise serializers.ValidationError("Product not found!")
 
-        product_id = attrs.get('product_id')
-        if product_id:
-            if not RetailerProduct.objects.filter(id=product_id).exists():
-                raise serializers.ValidationError(_("Please enter a valid product_id"))
+        sp = attrs['selling_price'] if attrs['selling_price'] else product.selling_price
+        mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
+        name = attrs['product_name'] if attrs['product_name'] else product.name
 
-            selling_price = attrs.get('selling_price')
-            mrp = attrs.get('mrp')
-            if selling_price and mrp:
-                if selling_price > mrp:
-                    raise serializers.ValidationError(_("Selling Price cannot be greater than MRP"))
+        if sp > mrp:
+            raise serializers.ValidationError("Selling Price cannot be greater than MRP")
 
-        shop_id = attrs.get('shop_id')
-        if shop_id:
-            # If user provide shop_id
-            if not Shop.objects.filter(id=shop_id).exists():
-                raise serializers.ValidationError(_("Shop ID not found! Please enter a valid Shop ID!"))
+        if RetailerProduct.objects.filter(shop=shop_id, name=name, mrp=mrp, selling_price=sp).exclude(id=pid).exists():
+            raise serializers.ValidationError("Product {} with same mrp & selling_price already exists.".format(name))
+
+        if RetailerProduct.objects.filter(shop=shop_id, mrp=mrp, linked_product_id=product.linked_product_id).exclude(
+                id=pid).exists():
+            raise serializers.ValidationError(
+                "Product {} with same mrp & linked GF product already exists.".format(name))
         return attrs
-
-
-class ProductImageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProductImage
-        fields = ('image_name', 'image_alt_text', 'image')
-
-
-class RetailerProductImageSerializer(serializers.ModelSerializer):
-    """
-        Images for RetailerProduct
-    """
-
-    class Meta:
-        model = RetailerProductImage
-        fields = ('image_name', 'image_alt_text', 'image')
-
-
-class ProductDetailSerializer(serializers.ModelSerializer):
-    """
-        Product Detail For GramFactory products
-    """
-    product_pro_image = ProductImageSerializer(many=True)
-
-    class Meta:
-        model = Product
-        fields = ('product_name', 'product_short_description', 'product_mrp', 'product_pro_image')
 
 
 class RetailerProductsSearchSerializer(serializers.ModelSerializer):
