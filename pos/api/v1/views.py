@@ -565,7 +565,7 @@ class CouponOfferCreation(GenericAPIView):
                     "message": "Offer already exists for same quantity of free product. Please check.",
                     "response_data": None}, 406
 
-        rule_name = f"{shop_id}_{retailer_free_product_obj.name}_{free_product_qty}"
+        rule_name = f"{shop_id}_{retailer_free_product_obj.name}_{free_product_qty}_{discount_amount}"
         coupon_code = f"{free_product_qty} {retailer_free_product_obj.name} free on orders above Rs. {discount_amount}"
         coupon_obj = OffersCls.rule_set_creation(rule_name, start_date, expiry_date, discount_amount, None,
                                                  retailer_free_product_obj, free_product_qty)

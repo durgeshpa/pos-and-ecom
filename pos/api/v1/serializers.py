@@ -1003,14 +1003,16 @@ class CouponGetSerializer(serializers.ModelSerializer):
 
     def get_details(self, obj):
         offer_type = self.get_offer_type(obj)
+        rule = obj.rule
         if offer_type == 1:
-            response = DiscountSerializer(obj.rule.discount).data
-            response['order_value'] = obj.rule.cart_qualifying_min_sku_value
+            response = DiscountSerializer(rule.discount).data
+            response['order_value'] = rule.cart_qualifying_min_sku_value
         elif offer_type == 3:
-            response = RetailerFreeProductSerializer(obj.rule.free_product).data
-            response['order_value'] = obj.rule.cart_qualifying_min_sku_value
+            response = RetailerFreeProductSerializer(rule.free_product).data
+            response['order_value'] = rule.cart_qualifying_min_sku_value
+            response['free_product_qty'] = rule.free_product_qty
         else:
-            data = ComboGetSerializer(RuleSetProductMapping.objects.get(rule=obj.rule)).data
+            data = ComboGetSerializer(RuleSetProductMapping.objects.get(rule=rule)).data
             response = dict()
             response['primary_product_qty'] = data['primary_product_qty']
             response['free_product_qty'] = data['free_product_qty']
