@@ -30,8 +30,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='')
     product_ean_code = serializers.CharField(required=True)
-    linked_product_id = serializers.IntegerField(required=False, allow_null=True, default=None)
-    images = serializers.ListField(required=False, allow_null=True, child=serializers.ImageField())
+    linked_product_id = serializers.IntegerField(required=False, default=None)
+    images = serializers.ListField(required=False, default=None, child=serializers.ImageField())
 
     @staticmethod
     def validate_linked_product_id(value):
@@ -75,12 +75,12 @@ class RetailerProductResponseSerializer(serializers.ModelSerializer):
 class RetailerProductUpdateSerializer(serializers.Serializer):
     shop_id = serializers.IntegerField()
     product_id = serializers.IntegerField(required=True)
-    product_ean_code = serializers.CharField(required=False)
-    product_name = serializers.CharField(required=False, validators=[ProductNameValidator])
-    mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
-    selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
-    description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False)
-    status = serializers.CharField(required=False)
+    product_ean_code = serializers.CharField(required=False, default=None)
+    product_name = serializers.CharField(required=False, validators=[ProductNameValidator], default=None)
+    mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=None)
+    selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=None)
+    description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default=None)
+    status = serializers.ChoiceField(choices=[1, 2, 3], required=False, default=None)
     images = serializers.ListField(required=False, allow_null=True, child=serializers.ImageField())
 
     @staticmethod

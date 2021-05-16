@@ -159,8 +159,7 @@ def serializer_error(serializer):
             else:
                 result = ''.join('{} : {}'.format(field, error))
             errors.append(result)
-    msg = {'is_success': False, 'error_message': errors[0], 'response_data': None}
-    return msg
+    return errors[0]
 
 
 def order_search(orders, search_text):

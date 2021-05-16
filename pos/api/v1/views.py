@@ -64,7 +64,7 @@ class PosProductView(GenericAPIView):
         """
         msg = validate_data_format(request)
         if msg:
-            return get_response(msg, [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
             serializer = RetailerProductCreateSerializer(data=self.modify_request_data(shop_id))
@@ -93,15 +93,15 @@ class PosProductView(GenericAPIView):
         """
         msg = validate_data_format(request)
         if msg:
-            return get_response(msg, [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
             serializer = RetailerProductUpdateSerializer(data=self.modify_request_data(shop_id))
             if serializer.is_valid():
                 data = serializer.data
                 product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop_id)
-                name, ean, mrp, sp, linked_pid, description = data['product_name'], data['product_ean_code'], data[
-                    'mrp'], data['selling_price'], data['linked_product_id'], data['description']
+                name, ean, mrp, sp, description = data['product_name'], data['product_ean_code'], data[
+                    'mrp'], data['selling_price'], data['description']
 
                 with transaction.atomic():
                     # Update product
@@ -115,7 +115,7 @@ class PosProductView(GenericAPIView):
                     # Update images
                     RetailerProductCls.upload_images(product.id, images=request.FILES.getlist('images'))
                     serializer = RetailerProductResponseSerializer(product)
-                    return get_response('Product created successfully!', serializer.data)
+                    return get_response('Product updated successfully!', serializer.data)
             else:
                 return get_response(serializer_error(serializer), [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
         else:
@@ -129,7 +129,8 @@ class PosProductView(GenericAPIView):
         sku_type = 1
         if linked_pid:
             linked_product = Product.objects.get(id=linked_pid)
-            sku_type = 2 if (linked_product.product_mrp and linked_product.mrp == format(Decimal(mrp), ".2f")) else 3
+            sku_type = 2 if (
+                        linked_product.product_mrp and linked_product.product_mrp == format(Decimal(mrp), ".2f")) else 3
         return sku_type
 
 
@@ -162,7 +163,7 @@ class CouponOfferCreation(GenericAPIView):
         """
         msg = validate_data_format(request)
         if msg:
-            return get_response(msg, [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
             serializer = OfferCreateSerializer(data=request.data)
@@ -179,7 +180,7 @@ class CouponOfferCreation(GenericAPIView):
         """
         msg = validate_data_format(request)
         if msg:
-            return get_response(msg, [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
             data = request.data
