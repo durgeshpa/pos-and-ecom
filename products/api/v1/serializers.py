@@ -551,6 +551,12 @@ class ProductCappingSerializers(serializers.ModelSerializer):
 
             self.capping_duration_check(data)
 
+        if self.instance:
+            if data.get('end_date'):
+                if self.instance.start_date > data.get('end_date'):
+                    raise serializers.ValidationError("End Date should be greater than Start Date.")
+
+        # check capping quantity is zero or not
         if data.get('capping_qty') == 0:
             raise serializers.ValidationError("Capping qty should be greater than 0.")
 
@@ -584,6 +590,11 @@ class ProductCappingSerializers(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """update a Product Capping """
         try:
+            # non editable fields
+            validated_data.pop('product', None)
+            validated_data.pop('seller_shop', None)
+            validated_data.pop('capping_type', None)
+            validated_data.pop('start_date', None)
             product_capping = super().update(instance, validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
