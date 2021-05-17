@@ -26,11 +26,13 @@ class RetailerProductImageSerializer(serializers.ModelSerializer):
 class RetailerProductCreateSerializer(serializers.Serializer):
     shop_id = serializers.IntegerField()
     product_name = serializers.CharField(required=True, validators=[ProductNameValidator])
-    mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
-    selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
+    mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=True,
+                                   validators=[MinValueValidator(Decimal('0.01'))])
+    selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True,
+                                             validators=[MinValueValidator(Decimal('0.01'))])
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='')
     product_ean_code = serializers.CharField(required=True)
-    linked_product_id = serializers.IntegerField(required=False, default=None)
+    linked_product_id = serializers.IntegerField(required=False, default=None, validators=[MinValueValidator(1)])
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField())
 
     @staticmethod
@@ -46,7 +48,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
-        sp, mrp, name, shop_id = attrs['selling_price'], attrs['mrp'], attrs['product_name'], attrs['shop_id']
+        sp, mrp, name, shop_id, linked_pid = attrs['selling_price'], attrs['mrp'], attrs['product_name'], attrs[
+            'shop_id'], attrs['linked_product_id']
 
         if sp > mrp:
             raise serializers.ValidationError("Selling Price cannot be greater than MRP")
@@ -54,14 +57,19 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         if RetailerProduct.objects.filter(shop=shop_id, name=name, mrp=mrp, selling_price=sp).exists():
             raise serializers.ValidationError("Product {} with same mrp & selling_price already exists.".format(name))
 
-        if RetailerProduct.objects.filter(shop=shop_id, mrp=mrp, linked_product_id=attrs['linked_product_id']).exists():
+        if linked_pid and RetailerProduct.objects.filter(shop=shop_id, mrp=mrp, linked_product_id=linked_pid).exists():
             raise serializers.ValidationError(
                 "Product {} with same mrp & linked GF product already exists.".format(name))
         return attrs
 
 
 class RetailerProductResponseSerializer(serializers.ModelSerializer):
+    linked_product = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_linked_product(obj):
+        return obj.linked_product.product_name if obj.linked_product else ''
 
     @staticmethod
     def get_images(obj):
@@ -74,13 +82,16 @@ class RetailerProductResponseSerializer(serializers.ModelSerializer):
 
 class RetailerProductUpdateSerializer(serializers.Serializer):
     shop_id = serializers.IntegerField()
-    product_id = serializers.IntegerField(required=True)
+    product_id = serializers.IntegerField(required=True, validators=[MinValueValidator(1)])
     product_ean_code = serializers.CharField(required=False, default=None)
     product_name = serializers.CharField(required=False, validators=[ProductNameValidator], default=None)
-    mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=None)
-    selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=None)
-    description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default=None)
-    status = serializers.ChoiceField(choices=[1, 2, 3], required=False, default=None)
+    mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=None,
+                                   validators=[MinValueValidator(Decimal('0.01'))])
+    selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=None,
+                                             validators=[MinValueValidator(Decimal('0.01'))])
+    description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False,
+                                        default=None)
+    status = serializers.ChoiceField(choices=['active', 'deactivated'], required=False, default=None)
     images = serializers.ListField(required=False, allow_null=True, child=serializers.ImageField())
 
     @staticmethod
@@ -106,8 +117,8 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         if RetailerProduct.objects.filter(shop=shop_id, name=name, mrp=mrp, selling_price=sp).exclude(id=pid).exists():
             raise serializers.ValidationError("Product {} with same mrp & selling_price already exists.".format(name))
 
-        if RetailerProduct.objects.filter(shop=shop_id, mrp=mrp, linked_product_id=product.linked_product_id).exclude(
-                id=pid).exists():
+        if product.linked_product_id and RetailerProduct.objects.filter(
+                shop=shop_id, mrp=mrp, linked_product_id=product.linked_product_id).exclude(id=pid).exists():
             raise serializers.ValidationError(
                 "Product {} with same mrp & linked GF product already exists.".format(name))
         return attrs
@@ -697,7 +708,7 @@ class OfferCreateSerializer(serializers.Serializer):
 
 
 class OfferGetSerializer(serializers.Serializer):
-    id = serializers.IntegerField(required=True)
+    id = serializers.IntegerField(required=True, validators=[MinValueValidator(1)])
     shop_id = serializers.IntegerField()
 
     def validate(self, data):
@@ -708,7 +719,7 @@ class OfferGetSerializer(serializers.Serializer):
 
 
 class OfferUpdateSerializer(serializers.Serializer):
-    id = serializers.IntegerField(required=True)
+    id = serializers.IntegerField(required=True, validators=[MinValueValidator(1)])
     start_date = serializers.DateField(required=False)
     end_date = serializers.DateField(required=False)
     is_active = serializers.BooleanField(required=False)

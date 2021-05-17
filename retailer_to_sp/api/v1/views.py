@@ -1148,7 +1148,8 @@ class CartCentral(GenericAPIView):
             initial_validation = self.post_basic_validate(cart_id)
             if 'error' in initial_validation:
                 e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
-                return get_response(initial_validation['error'], None, False, {'error_code': e_code})
+                extra_params = {'error_code': e_code} if e_code else {}
+                return get_response(initial_validation['error'], None, False, extra_params)
             product = initial_validation['product']
             shop = initial_validation['shop']
             qty = initial_validation['quantity']
@@ -2422,7 +2423,8 @@ class OrderCentral(APIView):
         initial_validation = self.post_basic_validate()
         if 'error' in initial_validation:
             e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
-            return get_response(initial_validation['error'], None, False, {'error_code': e_code})
+            extra_params = {'error_code': e_code} if e_code else {}
+            return get_response(initial_validation['error'], None, False, extra_params)
         shop = initial_validation['shop']
         cart = initial_validation['cart']
         payment_method = initial_validation['payment_method']

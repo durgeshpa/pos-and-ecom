@@ -81,6 +81,7 @@ class PosProductView(GenericAPIView):
                     # Upload images
                     RetailerProductCls.upload_images(product.id, self.request.FILES.getlist('images'))
                     serializer = RetailerProductResponseSerializer(product)
+                    data = serializer.data
                     return get_response('Product created successfully!', serializer.data)
             else:
                 return get_response(serializer_error(serializer), [], False, [], status.HTTP_406_NOT_ACCEPTABLE)

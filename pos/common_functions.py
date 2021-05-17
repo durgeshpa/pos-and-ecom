@@ -202,6 +202,6 @@ def validate_data_format(request):
     except Exception as e:
         error_logger.error(e)
         msg = {'is_success': False,
-               'error_message': "Invalid Data Format",
+               'message': "Invalid Data Format",
                'response_data': None}
         return msg
