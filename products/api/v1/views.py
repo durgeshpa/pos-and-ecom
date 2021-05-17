@@ -240,7 +240,7 @@ class ProductCapping(GenericAPIView):
                    'message': 'Please Provide a id to update product capping',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        # if no model exists by this PK, raise a 404 error)
+        # if no data exists by this id, raise a 406 error)
         id_instance = self.product_capping_list.filter(id=int(request.data.get('id'))).last()
         if id_instance is None:
             msg = {'is_success': False,

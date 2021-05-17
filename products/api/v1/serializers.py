@@ -563,27 +563,21 @@ class ProductCappingSerializers(serializers.ModelSerializer):
         return data
 
     def capping_duration_check(self, data):
-        """
-        Duration check according to capping type
-        """
+        """ Capping Duration check according to capping type """
 
-        # if capping type is Daily, & check this condition for Weekly & Monthly as well
+        # if capping type is Daily, & check this condition for Weekly & Monthly as Well
         day_difference = data.get('end_date').date() - data.get('start_date').date()
         if day_difference.days == 0:
             raise serializers.ValidationError("Please enter valid Start Date and End Date.")
 
         # if capping type is Weekly
         elif data.get('capping_type') == 1:
-            if day_difference.days % 7 == 0:
-                pass
-            else:
+            if not day_difference.days % 7 == 0:
                 raise serializers.ValidationError("Please enter valid Start Date and End Date.")
 
         # if capping type is Monthly
         elif data.get('capping_type') == 2:
-            if day_difference.days % 30 == 0:
-                pass
-            else:
+            if not day_difference.days % 30 == 0:
                 raise serializers.ValidationError("Please enter valid Start Date and End Date.")
 
     @transaction.atomic
