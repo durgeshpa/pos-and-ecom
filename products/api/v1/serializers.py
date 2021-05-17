@@ -9,7 +9,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 from rest_framework import serializers
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN
+    ParentProductImage, ProductHSN, ProductCapping
 from categories.models import Category
 from brand.models import Brand
 
@@ -445,8 +445,7 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
         return response
 
 
-
-class ActiveDeactivateSelectedProductserializers(serializers.ModelSerializer):
+class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
     is_active = serializers.BooleanField()
     parent_product_id_list = serializers.ListField(
         child=serializers.IntegerField()
@@ -492,3 +491,102 @@ class ActiveDeactivateSelectedProductserializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return validated_data
+
+
+class ProductCappingSerializers(serializers.ModelSerializer):
+
+    product_name = serializers.SerializerMethodField()
+    product_sku = serializers.SerializerMethodField()
+    seller_shop_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductCapping
+        fields = ('id', 'product', 'product_name', 'product_sku', 'seller_shop', 'seller_shop_name', 'capping_type',
+                  'capping_qty', 'start_date', 'end_date', 'status')
+
+    def get_product_name(self, obj):
+        return obj.product.product_name
+
+    def get_product_sku(self, obj):
+        return obj.product.product_sku
+
+    def get_seller_shop_name(self, obj):
+        return obj.seller_shop.shop_name
+
+
+    def validate(self, data):
+
+        if not self.instance:
+            if data.get('product') is None:
+                raise serializers.ValidationError('product is required')
+            try:
+                Product.objects.get(id=data.get('product'))
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError('{} product not found'.format(data.get('product')))
+
+            if data.get('seller_shop') is None:
+                raise serializers.ValidationError('seller_shop is required')
+
+            """ check capping is active for the selected sku and warehouse """
+            if ProductCapping.objects.filter(seller_shop=data.get('seller_shop'),
+                                             product=data.get('product'),
+                                             status=True).exists():
+                raise serializers.ValidationError(
+                    "Another Capping is Active for the selected SKU or selected Warehouse.")
+
+            if data.get('capping_type') is None:
+                raise serializers.ValidationError('Please select the Capping Type.')
+
+            if data.get('start_date') is None:
+                raise serializers.ValidationError('start_date is required')
+
+            if data.get('end_date') is None:
+                raise serializers.ValidationError('end_date is required')
+
+            if data.get('start_date') > data.get('end_date'):
+                raise serializers.ValidationError("Start Date should be less than End Date.")
+
+            if data.get('capping_qty') is None:
+                raise serializers.ValidationError('capping_qty is required')
+
+            self.capping_duration_check(data)
+
+        if data.get('capping_qty') == 0:
+            raise serializers.ValidationError("Capping qty should be greater than 0.")
+
+        return data
+
+    def capping_duration_check(self, data):
+        """
+        Duration check according to capping type
+        """
+
+        # if capping type is Daily, & check this condition for Weekly & Monthly as well
+        day_difference = data.get('end_date').date() - data.get('start_date').date()
+        if day_difference.days == 0:
+            raise serializers.ValidationError("Please enter valid Start Date and End Date.")
+
+        # if capping type is Weekly
+        elif data.get('capping_type') == 1:
+            if day_difference.days % 7 == 0:
+                pass
+            else:
+                raise serializers.ValidationError("Please enter valid Start Date and End Date.")
+
+        # if capping type is Monthly
+        elif data.get('capping_type') == 2:
+            if day_difference.days % 30 == 0:
+                pass
+            else:
+                raise serializers.ValidationError("Please enter valid Start Date and End Date.")
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """update a Product Capping """
+        try:
+            product_capping = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return product_capping

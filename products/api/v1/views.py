@@ -7,11 +7,12 @@ from rest_framework.generics import GenericAPIView, CreateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import JSONParser
 
-from products.models import ParentProduct as ParentProducts, ProductHSN
+from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping
 from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
-    ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductserializers
+    ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, \
+    ProductCappingSerializers
 
 
 class ParentProduct(GenericAPIView):
@@ -58,7 +59,8 @@ class ParentProduct(GenericAPIView):
             self.parent_product_list = self.parent_product_list.filter(parent_product_pro_category__category__category_name=category)
         parent_product = SmallOffsetPagination().paginate_queryset(self.parent_product_list, request)
         serializer = ParentProductSerializers(parent_product, many=True)
-        return Response(serializer.data)
+        msg = {'is_success': True, 'message': ['Parent Product List'], 'response_data': {'results': [serializer.data]}}
+        return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
 
@@ -67,7 +69,9 @@ class ParentProduct(GenericAPIView):
         serializer = ParentProductSerializers(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            msg = {'is_success': True, 'message': ['Parent Product created successfully!'],
+                   'response_data': {'results': serializer.data}}
+            return Response(msg, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request):
@@ -90,7 +94,9 @@ class ParentProduct(GenericAPIView):
         serializer = ParentProductSerializers(instance=id_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            msg = {'is_success': True, 'message': ['Parent Product Updated'],
+                   'response_data': {'results': [serializer.data]}}
+            return Response(msg, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
@@ -112,11 +118,9 @@ class ParentProduct(GenericAPIView):
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
-        msg = {'is_success': True,
-               'message': 'Parent Product were deleted successfully!',
-               'data': None
-               }
-        return Response(msg, status=status.HTTP_204_NO_CONTENT)
+        msg = {'is_success': True, 'message': ['Parent Product were deleted successfully!'],
+               'response_data': {'results': None}}
+        return Response(msg, status=status.HTTP_200_OK)
 
 
 class ParentProductBulkUpload(CreateAPIView):
@@ -131,8 +135,9 @@ class ParentProductBulkUpload(CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response('Parent Product CSV uploaded successfully !',
-                            status=status.HTTP_201_CREATED)
+            msg = {'is_success': True, 'message': ['Parent Product CSV uploaded successfully !'],
+                   'response_data': {'results': None}}
+            return Response(msg, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -160,10 +165,94 @@ class ActiveDeactivateSelectedProduct(GenericAPIView):
 
         """ PUT API for Activate or Deactivate Selected Parent Product """
 
-        serializer = ActiveDeactivateSelectedProductserializers(instance=
+        serializer = ActiveDeactivateSelectedProductSerializers(instance=
                             self.parent_product_list.filter(id__in=request.data['parent_product_id_list']),
                             data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            msg = {'is_success': True, 'message': ['Parent Product Updated'],
+                   'response_data': {'results': [serializer.data]}}
+            return Response(msg, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductCapping(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    product_capping_list = ProductCapping.objects.all()
+
+    def get(self, request):
+
+        """ GET API to get Parent Product List """
+
+        product_sku = request.GET.get('product_sku')
+        product_name = request.GET.get('product_name')
+        product_capping_status = request.GET.get('status')
+        seller_shop = request.GET.get('seller_shop')
+
+        if request.GET.get('id'):
+
+            """ Get Parent Product when product_id is given in params """
+
+            product_capping_id = int(request.GET.get('id'))
+            if self.product_capping_list.filter(id=product_capping_id).last() is None:
+                msg = {'is_success': False,
+                       'message': ['Please Provide a Valid id'],
+                       'data': None}
+                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+            self.product_capping_list = self.product_capping_list.filter(id=product_capping_id)
+
+        # filter using product_sku, seller_shop, product_capping_status & product_name
+        if product_sku is not None:
+            self.product_capping_list = self.product_capping_list.filter(product__product_sku__icontains=product_sku)
+        if seller_shop is not None:
+            self.product_capping_list = self.product_capping_list.filter(seller_shop_id=seller_shop)
+        if product_capping_status is not None:
+            self.product_capping_list = self.product_capping_list.filter(status=product_capping_status)
+        if product_name is not None:
+            self.product_capping_list = self.product_capping_list.filter(
+                product_id=product_name)
+        parent_product = SmallOffsetPagination().paginate_queryset(self.product_capping_list, request)
+        serializer = ProductCappingSerializers(parent_product, many=True)
+        msg = {'is_success': True, 'message': ['Product Capping List'], 'response_data': {'results': [serializer.data]}}
+        return Response(msg, status=status.HTTP_200_OK)
+
+
+    def post(self, request):
+
+        """ Post API for Product Capping Creation """
+
+        serializer = ProductCappingSerializers(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            msg = {'is_success': True, 'message': ['Product Capping Created'],
+                   'response_data': {'results': [serializer.data]}}
+            return Response(msg, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request):
+
+        """ Post API for Product Capping Updation """
+
+        if not request.data.get('id'):
+            msg = {'is_success': False,
+                   'message': 'Please Provide a id to update product capping',
+                   'data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        # if no model exists by this PK, raise a 404 error)
+        id_instance = self.product_capping_list.filter(id=int(request.data.get('id'))).last()
+        if id_instance is None:
+            msg = {'is_success': False,
+                   'message': 'Please Provide a Valid id to update  product capping',
+                   'data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        serializer = ProductCappingSerializers(instance=id_instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            msg = {'is_success': True, 'message': ['Product Capping Updated'],
+                   'response_data': {'results': [serializer.data]}}
+            return Response(msg, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
