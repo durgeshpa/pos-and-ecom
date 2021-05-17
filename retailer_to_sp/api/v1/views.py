@@ -3265,37 +3265,42 @@ class OrderedItemCentralDashBoard(APIView):
         # filter order, product & user by get modified date
         if filters == 1:  # today
             # filter order, product & user on modified date today
-            orders = orders.filter(modified_at__date=today_date)
-            products = products.filter(modified_at__date=today_date)
-            users = users.filter(modified_at__date=today_date)
+            orders = orders.filter(created_at__date=today_date)
+            products = products.filter(created_at__date=today_date)
+            users = users.filter(created_at__date=today_date)
 
         elif filters == 2:  # yesterday
-            # filter order, product & user on modified date yesterday
             yesterday = today_date - timedelta(days=1)
-            orders = orders.filter(modified_at__date=yesterday)
-            products = products.filter(modified_at__date=yesterday)
-            users = users.filter(modified_at__date=yesterday)
+            orders = orders.filter(created_at__date=yesterday)
+            products = products.filter(created_at__date=yesterday)
+            users = users.filter(created_at__date=yesterday)
 
-        elif filters == 3:  # lastweek
-            # filter order, product & user on modified date lastweek
+        elif filters == 3:  # this week
+            orders = orders.filter(created_at__week=today_date.isocalendar()[1])
+            products = products.filter(created_at__week=today_date.isocalendar()[1])
+            users = users.filter(created_at__week=today_date.isocalendar()[1])
+
+        elif filters == 4:  # last week
             lastweek = today_date - timedelta(weeks=1)
-            orders = orders.filter(modified_at__week=lastweek.isocalendar()[1])
-            products = products.filter(modified_at__week=lastweek.isocalendar()[1])
-            users = users.filter(modified_at__week=lastweek.isocalendar()[1])
+            orders = orders.filter(created_at__week=lastweek.isocalendar()[1])
+            products = products.filter(created_at__week=lastweek.isocalendar()[1])
+            users = users.filter(created_at__week=lastweek.isocalendar()[1])
 
-        elif filters == 4:  # lastmonth
-            # filter order, product & user on modified date lastmonth
+        elif filters == 5:  # this month
+            orders = orders.filter(created_at__month=today_date.month)
+            products = products.filter(created_at__month=today_date.month)
+            users = users.filter(created_at__month=today_date.month)
+
+        elif filters == 6:  # last month
             lastmonth = today_date - timedelta(days=30)
-            orders = orders.filter(modified_at__month=lastmonth.month)
-            products = products.filter(modified_at__month=lastmonth.month)
-            users = users.filter(modified_at__month=lastmonth.month)
+            orders = orders.filter(created_at__month=lastmonth.month)
+            products = products.filter(created_at__month=lastmonth.month)
+            users = users.filter(created_at__month=lastmonth.month)
 
-        elif filters == 5:  # lastyear
-            # filter order, product & user on modified date lastyear
-            lastyear = today_date - timedelta(days=365)
-            orders = orders.filter(modified_at__year=lastyear.year)
-            products = products.filter(modified_at__year=lastyear.year)
-            users = users.filter(modified_at__year=lastyear.year)
+        elif filters == 7:  # this year
+            orders = orders.filter(created_at__year=today_date.year)
+            products = products.filter(created_at__year=today_date.year)
+            users = users.filter(created_at__year=today_date.year)
 
         total_final_amount = 0
         for order in orders:
