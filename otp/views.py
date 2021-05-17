@@ -238,8 +238,8 @@ class SendSmsOTP(CreateAPIView):
                     response['message'] = [
                         VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED'].format(re_request_minutes)]
             else:
-                otp_requests = PhoneOTP.objects.filter(phone_number=ph_no,
-                                                       created_at__gt=current_time - otp_block_interval).count()
+                otp_requests = PhoneOTP.objects.filter(phone_number=ph_no, is_verified=False,
+                                                       created_at__gt=current_time - otp_block_interval,).count()
                 if otp_requests >= getattr(settings, 'OTP_REQUESTS', 3):
                     user.blocked = 1
                     user.save()
