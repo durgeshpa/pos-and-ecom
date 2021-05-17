@@ -1,4 +1,4 @@
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django.utils.crypto import get_random_string
 from django.db.models import Sum
@@ -6,6 +6,7 @@ from django.db.models import Sum
 from shops.models import ParentRetailerMapping
 from .models import OrderedProduct, PickerDashboard, Order, CartProductMapping, Cart
 from pos.offers import BasicCartOffers
+from retailer_backend import common_function
 
 
 # @receiver(post_save, sender=OrderedProduct)
@@ -177,3 +178,15 @@ def remove_offers(sender, instance=None, created=False, **kwargs):
 		# Recheck cart discount according to updated cart value
 		offers_list = BasicCartOffers.basic_cart_offers_check(instance.cart, offers_list, instance.cart.seller_shop.id)
 		Cart.objects.filter(pk=instance.cart.id).update(offers=offers_list)
+
+
+@receiver(pre_save, sender=Cart)
+def create_cart_no(sender, instance=None, created=False, **kwargs):
+	if not instance.cart_no and instance.seller_shop:
+		bill_add_id = instance.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk
+		if instance.cart_type in ['RETAIL', 'BASIC', 'AUTO']:
+			instance.cart_no = common_function.cart_no_pattern(sender, 'cart_no', instance.pk, bill_add_id)
+		elif instance.cart_type == 'BULK':
+			instance.cart_no = common_function.cart_no_pattern_bulk(sender, 'cart_no', instance.pk, bill_add_id)
+		elif instance.cart_type == 'DISCOUNTED':
+			instance.cart_no = common_function.cart_no_pattern_discounted(sender, 'cart_no', instance.pk, bill_add_id)

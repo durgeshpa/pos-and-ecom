@@ -143,6 +143,7 @@ class Cart(models.Model):
         (CLOSED, "Closed"),
         (RESERVED, "Reserved")
     )
+    cart_no = models.CharField(max_length=255, null=True, unique=True)
     order_id = models.CharField(max_length=255, null=True, blank=True)
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_cart',
