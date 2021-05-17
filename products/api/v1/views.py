@@ -255,4 +255,25 @@ class ProductCapping(GenericAPIView):
             return Response(msg, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def delete(self, request):
+
+        """ Delete Product Capping """
+
+        if not request.GET.get('id'):
+            msg = {'is_success': False,
+                   'message': 'Please Provide a id',
+                   'data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        try:
+            product_capping_id = self.product_capping_list.get(id=int(request.GET.get('id')))
+        except ObjectDoesNotExist:
+            msg = {'is_success': False,
+                   'message': f'Please Provide a Valid {id}',
+                   'data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        product_capping_id.delete()
+        msg = {'is_success': True, 'message': ['Product Capping were deleted successfully!'],
+               'response_data': {'results': None}}
+        return Response(msg, status=status.HTTP_200_OK)
+
 
