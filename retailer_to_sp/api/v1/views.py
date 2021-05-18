@@ -458,11 +458,8 @@ class SearchProducts(APIView):
         brand = self.request.GET.get('brands')
         category = self.request.GET.get('categories')
         keyword = self.request.GET.get('keyword', None)
-        if self.request.GET.get('app_type') == '2':
-            filter_list = [
-                {"term": {"status": True}}
-            ]
-        else:
+        filter_list = []
+        if self.request.GET.get('app_type') != '2':
             filter_list = [
                 {"term": {"status": True}},
                 {"term": {"visible": True}},
