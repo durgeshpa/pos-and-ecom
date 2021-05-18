@@ -1063,10 +1063,10 @@ class CreateOrder(APIView):
         elif shop.shop_type.shop_type == 'f':
             if str(shop.shop_type.shop_sub_type) == 'fofo':
                 order_config = GlobalConfig.objects.filter(key='fofo_order_count').last()
-            if str(shop.shop_type.shop_sub_type) == 'foco':
+            elif str(shop.shop_type.shop_sub_type) == 'foco':
                 order_config = GlobalConfig.objects.filter(key='foco_order_count').last()
 
-        if not order_config.value is None:
+        if order_config.value is not None:
             if not Order.objects.filter(created_at__date=datetime.today()).exclude(
                     order_status='CANCELLED').count() < order_config.value:
                 msg = {'is_success': False, 'message': [
@@ -1193,7 +1193,6 @@ class CreateOrder(APIView):
                         return Response(msg, status=status.HTTP_200_OK)
 
                 return Response(msg, status=status.HTTP_200_OK)
-
 
         # if shop mapped with gf
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
