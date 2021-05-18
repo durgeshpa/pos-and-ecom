@@ -290,12 +290,12 @@ class CouponOfferCreation(GenericAPIView):
         try:
             retailer_primary_product_obj = RetailerProduct.objects.get(id=retailer_primary_product, shop=shop_id)
         except ObjectDoesNotExist:
-            return {"is_success": False, "message": "Primary Product Not Found", "response_data": None}, 406
+            return get_response("Primary product not found", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
         retailer_free_product = data['free_product_id']
         try:
             retailer_free_product_obj = RetailerProduct.objects.get(id=retailer_free_product, shop=shop_id)
         except ObjectDoesNotExist:
-            return {"is_success": False, "message": "Free Product Not Found", "response_data": None}, 406
+            return get_response("Free product not found", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
 
         combo_offer_name, start_date, expiry_date, purchased_product_qty, free_product_qty = data['coupon_name'], data[
             'start_date'], data['end_date'], data['primary_product_qty'], data['free_product_qty']
@@ -303,8 +303,7 @@ class CouponOfferCreation(GenericAPIView):
                                                      retailer_primary_product=retailer_primary_product_obj,
                                                      rule__coupon_ruleset__is_active=True)
         if offer:
-            return {"is_success": False, "message": "Offer already exists for this Primary Product",
-                    "response_data": None}, 406
+            return get_response("Offer already exists for this Primary Product", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
 
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
                      f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
@@ -330,15 +329,14 @@ class CouponOfferCreation(GenericAPIView):
         try:
             retailer_free_product_obj = RetailerProduct.objects.get(id=free_product, shop=shop_id)
         except ObjectDoesNotExist:
-            return {"is_success": False, "message": "Free product not found", "response_data": None}, 406
+            return get_response("Free product not found", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
 
         coupon_name, discount_amount, start_date, expiry_date, free_product_qty = data['coupon_name'], data[
             'order_value'], data['start_date'], data['end_date'], data['free_product_qty']
         coupon_rule_discount_amount = Coupon.objects.filter(rule__cart_qualifying_min_sku_value=discount_amount,
                                                             shop=shop_id, rule__coupon_ruleset__is_active=True)
         if coupon_rule_discount_amount:
-            return {"is_success": False, "message": f"Offer already exists for Order Value {discount_amount}",
-                    "response_data": None}, 406
+            return get_response(f"Offer already exists for Order Value {discount_amount}", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
 
         coupon_rule_product_qty = Coupon.objects.filter(rule__free_product=retailer_free_product_obj,
                                                         rule__free_product_qty=free_product_qty,
