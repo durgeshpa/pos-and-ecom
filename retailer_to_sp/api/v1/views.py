@@ -1344,8 +1344,7 @@ class DownloadInvoiceSP(APIView):
             ordered_product = get_object_or_404(OrderedProduct, pk=pk)
             # call pdf generation method to generate pdf and download the pdf
             pdf_generation(request, ordered_product)
-            url = AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name
-            result = requests.get(url)
+            result = requests.get(ordered_product.invoice.invoice_pdf.url)
             file_prefix = PREFIX_INVOICE_FILE_NAME
             # generate pdf file
             response = single_pdf_file(ordered_product, result, file_prefix)
@@ -1361,13 +1360,12 @@ class DownloadInvoiceSP(APIView):
                 # call pdf generation method to generate and save pdf
                 pdf_generation(request, ordered_product)
                 # append the pdf file path
-                file_path_list.append(AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name)
+                file_path_list.append(ordered_product.invoice.invoice_pdf.url)
                 # append created date for pdf file
                 pdf_created_date.append(ordered_product.created_at)
             # condition to check the download file count
             if len(pdf_created_date) == 1:
-                url = AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name
-                result = requests.get(url)
+                result = requests.get(ordered_product.invoice.invoice_pdf.url)
                 file_prefix = PREFIX_INVOICE_FILE_NAME
                 # generate pdf file
                 response = single_pdf_file(ordered_product, result, file_prefix)
