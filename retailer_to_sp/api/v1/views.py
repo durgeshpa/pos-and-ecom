@@ -1073,7 +1073,7 @@ class CreateOrder(APIView):
                     'Because of the current surge in orders, we are not taking any more orders for today. We will '
                     'start taking orders again tomorrow. We regret the inconvenience caused to you'],
                        'response_data': None}
-            return Response(msg, status=status.HTTP_200_OK)
+                return Response(msg, status=status.HTTP_200_OK)
 
         # get billing address
         try:
