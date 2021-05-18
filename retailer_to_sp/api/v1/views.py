@@ -336,7 +336,7 @@ class SearchProducts(APIView):
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 10))
-        body["sort"] = {"created_at": "desc"}
+        # body["sort"] = {"created_at": "desc"}
         p_list = []
         # Raw Output
         if output_type == '1':
