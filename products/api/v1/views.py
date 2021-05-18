@@ -24,13 +24,6 @@ class ParentProduct(GenericAPIView):
 
     def get(self, request):
 
-        """ GET API to get Parent Product List """
-
-        category = request.GET.get('category')
-        brand = request.GET.get('brand')
-        product_status = request.GET.get('status')
-        search_text = request.GET.get('search_text')
-
         if request.GET.get('parent_product_id'):
 
             """ Get Parent Product when product_id is given in params """
@@ -41,25 +34,33 @@ class ParentProduct(GenericAPIView):
                        'message': ['Please Provide a Valid parent_product_id'],
                        'data': None}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            parent_product = self.parent_product_list.filter(id=parent_pro_id)
 
-            self.parent_product_list = self.parent_product_list.filter(id=parent_pro_id)
+        else:
+            """ GET API to get Parent Product List """
 
-        # search using parent_id, category_name & name based on criteria that matches
-        if search_text is not None:
-            self.parent_product_list = self.parent_product_list.filter(Q(name__icontains=search_text)
-                                                                       | Q(parent_id__icontains=search_text)
-                                                                       | Q(parent_product_pro_category__category__category_name__icontains=search_text))
-            
-        # filter using brand_name, category & product_status exact match
-        if brand is not None:
-            self.parent_product_list = self.parent_product_list.filter(parent_brand__brand_name=brand)
-        if product_status is not None:
-            self.parent_product_list = self.parent_product_list.filter(status=product_status)
-        if category is not None:
-            self.parent_product_list = self.parent_product_list.filter(parent_product_pro_category__category__category_name=category)
-        parent_product = SmallOffsetPagination().paginate_queryset(self.parent_product_list, request)
+            category = request.GET.get('category')
+            brand = request.GET.get('brand')
+            product_status = request.GET.get('status')
+            search_text = request.GET.get('search_text')
+
+            # search using parent_id, category_name & name based on criteria that matches
+            if search_text is not None:
+                self.parent_product_list = self.parent_product_list.filter(Q(name__icontains=search_text)
+                                                                           | Q(parent_id__icontains=search_text)
+                                                                           | Q(parent_product_pro_category__category__category_name__icontains=search_text))
+
+            # filter using brand_name, category & product_status exact match
+            if brand is not None:
+                self.parent_product_list = self.parent_product_list.filter(parent_brand__brand_name=brand)
+            if product_status is not None:
+                self.parent_product_list = self.parent_product_list.filter(status=product_status)
+            if category is not None:
+                self.parent_product_list = self.parent_product_list.filter(parent_product_pro_category__category__category_name=category)
+            parent_product = SmallOffsetPagination().paginate_queryset(self.parent_product_list, request)
+
         serializer = ParentProductSerializers(parent_product, many=True)
-        msg = {'is_success': True, 'message': ['Parent Product List'], 'response_data': {'results': [serializer.data]}}
+        msg = {'is_success': True, 'message': ['Parent Product List'], 'response_data': {'results': serializer.data}}
         return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -95,7 +96,7 @@ class ParentProduct(GenericAPIView):
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True, 'message': ['Parent Product Updated'],
-                   'response_data': {'results': [serializer.data]}}
+                   'response_data': {'results': serializer.data}}
             return Response(msg, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -171,7 +172,7 @@ class ActiveDeactivateSelectedProduct(GenericAPIView):
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True, 'message': ['Parent Product Updated'],
-                   'response_data': {'results': [serializer.data]}}
+                   'response_data': {'results': serializer.data}}
             return Response(msg, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -194,9 +195,7 @@ class ProductCapping(GenericAPIView):
                        'data': None}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
             parent_product = self.product_capping_list.filter(id=product_capping_id)
-
         else:
-
             """ GET API to get Parent Product List """
 
             product_sku = request.GET.get('product_sku')
@@ -220,7 +219,6 @@ class ProductCapping(GenericAPIView):
         serializer = ProductCappingSerializers(parent_product, many=True)
         msg = {'is_success': True, 'message': ['Product Capping List'], 'response_data': {'results': serializer.data}}
         return Response(msg, status=status.HTTP_200_OK)
-
 
     def post(self, request):
 
