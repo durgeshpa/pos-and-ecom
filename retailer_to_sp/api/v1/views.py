@@ -1067,7 +1067,7 @@ class CreateOrder(APIView):
                 order_config = GlobalConfig.objects.filter(key='foco_order_count').last()
 
         if order_config.value is not None:
-            if not Order.objects.filter(created_at__date=datetime.today()).exclude(
+            if not Order.objects.filter(buyer_shop__shop_type=shop.shop_type, created_at__date=datetime.today()).exclude(
                     order_status='CANCELLED').count() < order_config.value:
                 msg = {'is_success': False, 'message': [
                     'Because of the current surge in orders, we are not taking any more orders for today. We will '
