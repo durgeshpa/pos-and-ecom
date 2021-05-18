@@ -393,7 +393,7 @@ class SearchProducts(APIView):
             Full catalogue or for a particular parent shop
         """
         shop_id = self.request.GET.get('shop_id') if self.request.GET.get('shop_id') else None
-        shop, parent_shop, cart_products, cart, cart_check  = None, None, None, None, False
+        shop, parent_shop, cart_products, cart, cart_check = None, None, None, None, False
         # check if shop exists
         try:
             shop = Shop.objects.get(id=shop_id, status=True)
@@ -458,11 +458,16 @@ class SearchProducts(APIView):
         brand = self.request.GET.get('brands')
         category = self.request.GET.get('categories')
         keyword = self.request.GET.get('keyword', None)
-        filter_list = [
-            {"term": {"status": True}},
-            {"term": {"visible": True}},
-            {"range": {"available": {"gt": 0}}}
-        ]
+        if self.request.GET.get('app_type') == '2':
+            filter_list = [
+                {"term": {"status": True}}
+            ]
+        else:
+            filter_list = [
+                {"term": {"status": True}},
+                {"term": {"visible": True}},
+                {"range": {"available": {"gt": 0}}}
+            ]
         if product_ids:
             filter_list.append({"ids": {"type": "product", "values": product_ids}})
             query = {"bool": {"filter": filter_list}}
