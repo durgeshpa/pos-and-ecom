@@ -1,0 +1,619 @@
+ERROR|01/Apr/2021 10:00:00|log|95623|123145595056128|Internal Server Error: /pos/api/v1/order/
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 85, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.ProgrammingError: column "selling_price" of relation "retailer_to_sp_orderedproductmapping" does not exist
+LINE 1: ...oduct_id", "retailer_product_id", "product_type", "selling_p...
+                                                             ^
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/exception.py", line 34, in inner
+    response = get_response(request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 126, in _get_response
+    response = self.process_exception_by_middleware(e, request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 124, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/decorators/csrf.py", line 54, in wrapped_view
+    return view_func(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/generic/base.py", line 68, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 483, in dispatch
+    response = self.handle_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 443, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 480, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1339, in post
+    return self.post_basic_order()
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1464, in post_basic_order
+    self.auto_process_order(order, payment_method)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1842, in auto_process_order
+    delivered_qty=product_map['qty'])
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/manager.py", line 82, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/query.py", line 413, in create
+    obj.save(force_insert=True, using=self.db)
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/models.py", line 2280, in save
+    super().save(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/base.py", line 717, in save
+    force_update=force_update, update_fields=update_fields)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/base.py", line 747, in save_base
+    updated = self._save_table(raw, cls, force_insert, force_update, using, update_fields)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/base.py", line 830, in _save_table
+    result = self._do_insert(cls._base_manager, using, fields, update_pk, raw)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/base.py", line 868, in _do_insert
+    using=using, raw=raw)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/manager.py", line 82, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/query.py", line 1133, in _insert
+    return query.get_compiler(using=using).execute_sql(return_id)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/sql/compiler.py", line 1285, in execute_sql
+    cursor.execute(sql, params)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/debug_toolbar/panels/sql/tracking.py", line 186, in execute
+    return self._record(self.cursor.execute, sql, params)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/debug_toolbar/panels/sql/tracking.py", line 124, in _record
+    return method(sql, params)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 100, in execute
+    return super().execute(sql, params)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 68, in execute
+    return self._execute_with_wrappers(sql, params, many=False, executor=self._execute)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 77, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 85, in _execute
+    return self.cursor.execute(sql, params)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/utils.py", line 89, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 85, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: column "selling_price" of relation "retailer_to_sp_orderedproductmapping" does not exist
+LINE 1: ...oduct_id", "retailer_product_id", "product_type", "selling_p...
+                                                             ^
+
+ERROR|01/Apr/2021 10:00:00|basehttp|95623|123145595056128|"POST /pos/api/v1/order/ HTTP/1.1" 500 30340
+ERROR|01/Apr/2021 10:02:53|log|95623|123145595056128|Internal Server Error: /pos/api/v1/order/
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 85, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.ProgrammingError: column "selling_price" of relation "retailer_to_sp_orderedproductmapping" does not exist
+LINE 1: ...oduct_id", "retailer_product_id", "product_type", "selling_p...
+                                                             ^
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/exception.py", line 34, in inner
+    response = get_response(request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 126, in _get_response
+    response = self.process_exception_by_middleware(e, request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 124, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/decorators/csrf.py", line 54, in wrapped_view
+    return view_func(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/generic/base.py", line 68, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 483, in dispatch
+    response = self.handle_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 443, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 480, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1339, in post
+    return self.post_basic_order()
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1464, in post_basic_order
+    self.auto_process_order(order, payment_method)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1842, in auto_process_order
+    delivered_qty=product_map['qty'])
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/manager.py", line 82, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/query.py", line 413, in create
+    obj.save(force_insert=True, using=self.db)
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/models.py", line 2280, in save
+    super().save(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/base.py", line 717, in save
+    force_update=force_update, update_fields=update_fields)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/base.py", line 747, in save_base
+    updated = self._save_table(raw, cls, force_insert, force_update, using, update_fields)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/base.py", line 830, in _save_table
+    result = self._do_insert(cls._base_manager, using, fields, update_pk, raw)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/base.py", line 868, in _do_insert
+    using=using, raw=raw)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/manager.py", line 82, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/query.py", line 1133, in _insert
+    return query.get_compiler(using=using).execute_sql(return_id)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/sql/compiler.py", line 1285, in execute_sql
+    cursor.execute(sql, params)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/debug_toolbar/panels/sql/tracking.py", line 186, in execute
+    return self._record(self.cursor.execute, sql, params)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/debug_toolbar/panels/sql/tracking.py", line 124, in _record
+    return method(sql, params)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 100, in execute
+    return super().execute(sql, params)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 68, in execute
+    return self._execute_with_wrappers(sql, params, many=False, executor=self._execute)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 77, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 85, in _execute
+    return self.cursor.execute(sql, params)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/utils.py", line 89, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/backends/utils.py", line 85, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: column "selling_price" of relation "retailer_to_sp_orderedproductmapping" does not exist
+LINE 1: ...oduct_id", "retailer_product_id", "product_type", "selling_p...
+                                                             ^
+
+ERROR|01/Apr/2021 10:02:53|basehttp|95623|123145595056128|"POST /pos/api/v1/order/ HTTP/1.1" 500 30340
+ERROR|01/Apr/2021 14:41:25|views|1299|123145446187008|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 14:45:23|views|1406|123145388707840|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 14:47:37|views|1483|123145466179584|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 14:50:02|views|1523|123145337176064|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 14:52:22|views|1569|123145558130688|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 14:59:02|views|1714|123145411915776|The 'invoice_pdf' attribute has no file associated with it.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1368, in pdf_generation
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/files.py", line 61, in url
+    self._require_file()
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/files.py", line 38, in _require_file
+    raise ValueError("The '%s' attribute has no file associated with it." % self.field.name)
+ValueError: The 'invoice_pdf' attribute has no file associated with it.
+ERROR|01/Apr/2021 15:01:37|views|1810|123145528446976|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 15:27:06|views|2256|123145558736896|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 15:43:19|views|2599|123145569030144|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 15:46:35|views|2706|123145391243264|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 15:50:49|views|2835|123145373253632|The 'invoice_pdf' attribute has no file associated with it.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/files.py", line 61, in url
+    self._require_file()
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/files.py", line 38, in _require_file
+    raise ValueError("The '%s' attribute has no file associated with it." % self.field.name)
+ValueError: The 'invoice_pdf' attribute has no file associated with it.
+ERROR|01/Apr/2021 15:52:20|views|2885|123145545555968|The 'invoice_pdf' attribute has no file associated with it.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/files.py", line 61, in url
+    self._require_file()
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/files.py", line 38, in _require_file
+    raise ValueError("The '%s' attribute has no file associated with it." % self.field.name)
+ValueError: The 'invoice_pdf' attribute has no file associated with it.
+ERROR|01/Apr/2021 15:54:08|views|2885|123145545555968|The 'invoice_pdf' attribute has no file associated with it.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/files.py", line 61, in url
+    self._require_file()
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/files.py", line 38, in _require_file
+    raise ValueError("The '%s' attribute has no file associated with it." % self.field.name)
+ValueError: The 'invoice_pdf' attribute has no file associated with it.
+ERROR|01/Apr/2021 15:56:46|views|2985|123145543245824|The 'invoice_pdf' attribute has no file associated with it.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1633, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/files.py", line 61, in url
+    self._require_file()
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/files.py", line 38, in _require_file
+    raise ValueError("The '%s' attribute has no file associated with it." % self.field.name)
+ValueError: The 'invoice_pdf' attribute has no file associated with it.
+ERROR|01/Apr/2021 16:07:41|log|3244|123145316966400|Internal Server Error: /pos/api/v1/order/
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 50, in _reraise_errors
+    yield
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 221, in dumps
+    payload = encoder(data)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 69, in dumps
+    **dict(default_kwargs, **kwargs))
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/__init__.py", line 399, in dumps
+    **kw).encode(obj)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 296, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 378, in iterencode
+    return _iterencode(o, 0)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 59, in default
+    return super(JSONEncoder, self).default(o)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 273, in default
+    o.__class__.__name__)
+TypeError: Object of type Request is not JSON serializable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/exception.py", line 34, in inner
+    response = get_response(request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 126, in _get_response
+    response = self.process_exception_by_middleware(e, request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 124, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/decorators/csrf.py", line 54, in wrapped_view
+    return view_func(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/generic/base.py", line 68, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 483, in dispatch
+    response = self.handle_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 443, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 480, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1344, in post
+    return self.post_basic_order()
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1469, in post_basic_order
+    self.auto_process_order(order, payment_method)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1862, in auto_process_order
+    pdf_generation_retailer.delay(self.request, shipment, order)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/task.py", line 427, in delay
+    return self.apply_async(args, kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/task.py", line 570, in apply_async
+    **options
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/base.py", line 756, in send_task
+    amqp.send_task_message(P, name, message, **options)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/amqp.py", line 552, in send_task_message
+    **properties
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/messaging.py", line 169, in publish
+    compression, headers)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/messaging.py", line 252, in _prepare
+    body) = dumps(body, serializer=serializer)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 221, in dumps
+    payload = encoder(data)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/contextlib.py", line 99, in __exit__
+    self.gen.throw(type, value, traceback)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 54, in _reraise_errors
+    reraise(wrapper, wrapper(exc), sys.exc_info()[2])
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/vine/five.py", line 194, in reraise
+    raise value.with_traceback(tb)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 50, in _reraise_errors
+    yield
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 221, in dumps
+    payload = encoder(data)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 69, in dumps
+    **dict(default_kwargs, **kwargs))
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/__init__.py", line 399, in dumps
+    **kw).encode(obj)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 296, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 378, in iterencode
+    return _iterencode(o, 0)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 59, in default
+    return super(JSONEncoder, self).default(o)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 273, in default
+    o.__class__.__name__)
+kombu.exceptions.EncodeError: Object of type Request is not JSON serializable
+ERROR|01/Apr/2021 16:07:41|basehttp|3244|123145316966400|"POST /pos/api/v1/order/ HTTP/1.1" 500 28838
+ERROR|01/Apr/2021 16:14:53|log|3443|123145344077824|Internal Server Error: /pos/api/v1/order/
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 50, in _reraise_errors
+    yield
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 221, in dumps
+    payload = encoder(data)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 69, in dumps
+    **dict(default_kwargs, **kwargs))
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/__init__.py", line 399, in dumps
+    **kw).encode(obj)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 296, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 378, in iterencode
+    return _iterencode(o, 0)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 59, in default
+    return super(JSONEncoder, self).default(o)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 273, in default
+    o.__class__.__name__)
+TypeError: Object of type Request is not JSON serializable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/exception.py", line 34, in inner
+    response = get_response(request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 126, in _get_response
+    response = self.process_exception_by_middleware(e, request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 124, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/decorators/csrf.py", line 54, in wrapped_view
+    return view_func(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/generic/base.py", line 68, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 483, in dispatch
+    response = self.handle_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 443, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 480, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1344, in post
+    return self.post_basic_order()
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1469, in post_basic_order
+    self.auto_process_order(order, payment_method)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1862, in auto_process_order
+    pdf_generation_retailer.delay(self.request, shipment, order)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/task.py", line 427, in delay
+    return self.apply_async(args, kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/task.py", line 570, in apply_async
+    **options
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/base.py", line 756, in send_task
+    amqp.send_task_message(P, name, message, **options)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/amqp.py", line 552, in send_task_message
+    **properties
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/messaging.py", line 169, in publish
+    compression, headers)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/messaging.py", line 252, in _prepare
+    body) = dumps(body, serializer=serializer)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 221, in dumps
+    payload = encoder(data)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/contextlib.py", line 99, in __exit__
+    self.gen.throw(type, value, traceback)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 54, in _reraise_errors
+    reraise(wrapper, wrapper(exc), sys.exc_info()[2])
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/vine/five.py", line 194, in reraise
+    raise value.with_traceback(tb)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 50, in _reraise_errors
+    yield
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 221, in dumps
+    payload = encoder(data)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 69, in dumps
+    **dict(default_kwargs, **kwargs))
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/__init__.py", line 399, in dumps
+    **kw).encode(obj)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 296, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 378, in iterencode
+    return _iterencode(o, 0)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 59, in default
+    return super(JSONEncoder, self).default(o)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 273, in default
+    o.__class__.__name__)
+kombu.exceptions.EncodeError: Object of type Request is not JSON serializable
+ERROR|01/Apr/2021 16:14:53|basehttp|3443|123145344077824|"POST /pos/api/v1/order/ HTTP/1.1" 500 28838
+ERROR|01/Apr/2021 17:41:10|log|5251|123145439006720|Internal Server Error: /pos/api/v1/order/
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 50, in _reraise_errors
+    yield
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 221, in dumps
+    payload = encoder(data)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 69, in dumps
+    **dict(default_kwargs, **kwargs))
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/__init__.py", line 399, in dumps
+    **kw).encode(obj)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 296, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 378, in iterencode
+    return _iterencode(o, 0)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 59, in default
+    return super(JSONEncoder, self).default(o)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 273, in default
+    o.__class__.__name__)
+TypeError: Object of type Request is not JSON serializable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/exception.py", line 34, in inner
+    response = get_response(request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 126, in _get_response
+    response = self.process_exception_by_middleware(e, request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 124, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/decorators/csrf.py", line 54, in wrapped_view
+    return view_func(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/generic/base.py", line 68, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 483, in dispatch
+    response = self.handle_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 443, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 480, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1344, in post
+    return self.post_basic_order()
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1469, in post_basic_order
+    self.auto_process_order(order, payment_method)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1862, in auto_process_order
+    pdf_generation_retailer.delay(self.request, order.id)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/task.py", line 427, in delay
+    return self.apply_async(args, kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/task.py", line 570, in apply_async
+    **options
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/base.py", line 756, in send_task
+    amqp.send_task_message(P, name, message, **options)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/amqp.py", line 552, in send_task_message
+    **properties
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/messaging.py", line 169, in publish
+    compression, headers)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/messaging.py", line 252, in _prepare
+    body) = dumps(body, serializer=serializer)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 221, in dumps
+    payload = encoder(data)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/contextlib.py", line 99, in __exit__
+    self.gen.throw(type, value, traceback)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 54, in _reraise_errors
+    reraise(wrapper, wrapper(exc), sys.exc_info()[2])
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/vine/five.py", line 194, in reraise
+    raise value.with_traceback(tb)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 50, in _reraise_errors
+    yield
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/serialization.py", line 221, in dumps
+    payload = encoder(data)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 69, in dumps
+    **dict(default_kwargs, **kwargs))
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/__init__.py", line 399, in dumps
+    **kw).encode(obj)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 296, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 378, in iterencode
+    return _iterencode(o, 0)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/kombu/utils/json.py", line 59, in default
+    return super(JSONEncoder, self).default(o)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/simplejson/encoder.py", line 273, in default
+    o.__class__.__name__)
+kombu.exceptions.EncodeError: Object of type Request is not JSON serializable
+ERROR|01/Apr/2021 17:41:10|basehttp|5251|123145439006720|"POST /pos/api/v1/order/ HTTP/1.1" 500 28831
+ERROR|01/Apr/2021 17:49:48|views|5558|123145383776256|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1630, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 17:49:57|log|5558|123145383776256|Internal Server Error: /pos/api/v1/order/
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1630, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/exception.py", line 34, in inner
+    response = get_response(request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 126, in _get_response
+    response = self.process_exception_by_middleware(e, request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/core/handlers/base.py", line 124, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/decorators/csrf.py", line 54, in wrapped_view
+    return view_func(*args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/views/generic/base.py", line 68, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 483, in dispatch
+    response = self.handle_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 443, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/rest_framework/views.py", line 480, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1344, in post
+    return self.post_basic_order()
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1469, in post_basic_order
+    self.auto_process_order(order, payment_method)
+  File "/Users/destro/projects/retailer-backend/pos/api/v1/views.py", line 1862, in auto_process_order
+    pdf_generation_retailer(self.request.is_secure(), self.request.get_host(), order.id)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/local.py", line 191, in __call__
+    return self._get_current_object()(*a, **kw)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/celery/app/task.py", line 394, in __call__
+    return self.run(*args, **kwargs)
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1688, in pdf_generation_retailer
+    response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+NameError: name 'request' is not defined
+ERROR|01/Apr/2021 17:49:57|basehttp|5558|123145383776256|"POST /pos/api/v1/order/ HTTP/1.1" 500 27114
+ERROR|01/Apr/2021 17:51:25|views|5558|123145383776256|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1630, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 17:55:28|views|5690|123145442193408|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1630, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+ERROR|01/Apr/2021 17:56:07|views|5690|123145442193408|<django.template.backends.django.Template object at 0x7feea2478c88>
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1630, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/wkhtmltopdf/utils.py", line 325, in render_to_temporary_file
+    content = template.render(context, request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/template/backends/django.py", line 61, in render
+    return self.template.render(context)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/template/base.py", line 169, in render
+    with context.bind_template(self):
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/contextlib.py", line 81, in __enter__
+    return next(self.gen)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/debug_toolbar/panels/templates/panel.py", line 50, in _request_context_bind_template
+    context = processor(self.request)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/template/context_processors.py", line 40, in debug
+    if settings.DEBUG and request.META.get('REMOTE_ADDR') in settings.INTERNAL_IPS:
+AttributeError: 'bool' object has no attribute 'META'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1694, in pdf_generation_retailer
+    response.rendered_content),
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/wkhtmltopdf/views.py", line 80, in rendered_content
+    cover_template=self.resolve_template(self.cover_template)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/wkhtmltopdf/utils.py", line 205, in render_pdf_from_template
+    request=request
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/wkhtmltopdf/utils.py", line 184, in __init__
+    delete=(not debug)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/wkhtmltopdf/utils.py", line 327, in render_to_temporary_file
+    content = loader.render_to_string(template, context)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/template/loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/template/loader.py", line 19, in get_template
+    raise TemplateDoesNotExist(template_name, chain=chain)
+django.template.exceptions.TemplateDoesNotExist: <django.template.backends.django.Template object at 0x7feea2478c88>
+ERROR|01/Apr/2021 17:58:19|views|5750|123145591775232|OrderedProduct has no invoice.
+Traceback (most recent call last):
+  File "/Users/destro/projects/retailer-backend/retailer_to_sp/api/v1/views.py", line 1630, in pdf_generation_retailer
+    if ordered_product.invoice.invoice_pdf.url:
+  File "/Users/destro/opt/anaconda3/envs/benv/lib/python3.6/site-packages/django/db/models/fields/related_descriptors.py", line 414, in __get__
+    self.related.get_accessor_name()
+retailer_to_sp.models.OrderedProduct.invoice.RelatedObjectDoesNotExist: OrderedProduct has no invoice.

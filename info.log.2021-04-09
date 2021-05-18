@@ -1,0 +1,77 @@
+INFO|17/Apr/2021 11:13:59|tasks|20375|4747492864|Query is
+INFO|17/Apr/2021 11:13:59|tasks|20375|4747492864|{'available': 4, 'status': True, 'visible': True}
+INFO|17/Apr/2021 11:14:09|tasks|20375|4747492864|exception ConnectionTimeout caused by - ReadTimeoutError(HTTPSConnectionPool(host='search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com', port=443): Read timed out. (read timeout=10))
+INFO|17/Apr/2021 11:16:07|forms|34004|4642917888|Bulk Bin Update Form has been called.
+INFO|17/Apr/2021 11:16:07|forms|34004|4642917888|Bin Form has been called.
+INFO|17/Apr/2021 11:16:07|forms|34004|4642917888|In Form has been called.
+INFO|17/Apr/2021 11:16:07|forms|34004|4642917888|Put Away Form has been called.
+INFO|17/Apr/2021 11:16:07|forms|34004|4642917888|Put Away Bin Inventory Form has been called.
+INFO|17/Apr/2021 11:16:07|forms|34004|4642917888|Bin Inventory Form has been called.
+INFO|17/Apr/2021 11:16:07|forms|34004|4642917888|Out Form has been called.
+INFO|17/Apr/2021 11:16:07|forms|34004|4642917888|Pickup Form has been called.
+INFO|17/Apr/2021 11:16:12|admin|34004|4642917888|Bin Resource Admin has been called.
+INFO|17/Apr/2021 11:16:12|admin|34004|4642917888|Bin Admin has been called.
+INFO|17/Apr/2021 11:16:12|admin|34004|4642917888|In Admin has been called.
+INFO|17/Apr/2021 11:16:12|admin|34004|4642917888|Put Away Admin has been called.
+INFO|17/Apr/2021 11:16:12|admin|34004|4642917888|Put Away Bin Inventory Admin has been called.
+INFO|17/Apr/2021 11:16:12|admin|34004|4642917888|Inventory Type Admin has been called.
+INFO|17/Apr/2021 11:16:12|admin|34004|4642917888|Bin Inventory Admin has been called.
+INFO|17/Apr/2021 11:16:12|admin|34004|4642917888|Out Admin has been called.
+INFO|17/Apr/2021 11:16:12|admin|34004|4642917888|Pick up Admin has been called.
+INFO|17/Apr/2021 11:16:12|admin|34004|4642917888|Pick up Bin Inventory Admin has been called.
+INFO|17/Apr/2021 11:16:14|forms|34017|4672331264|Bulk Bin Update Form has been called.
+INFO|17/Apr/2021 11:16:14|forms|34017|4672331264|Bin Form has been called.
+INFO|17/Apr/2021 11:16:14|forms|34017|4672331264|In Form has been called.
+INFO|17/Apr/2021 11:16:14|forms|34017|4672331264|Put Away Form has been called.
+INFO|17/Apr/2021 11:16:14|forms|34017|4672331264|Put Away Bin Inventory Form has been called.
+INFO|17/Apr/2021 11:16:14|forms|34017|4672331264|Bin Inventory Form has been called.
+INFO|17/Apr/2021 11:16:14|forms|34017|4672331264|Out Form has been called.
+INFO|17/Apr/2021 11:16:14|forms|34017|4672331264|Pickup Form has been called.
+INFO|17/Apr/2021 11:16:18|admin|34017|4672331264|Bin Resource Admin has been called.
+INFO|17/Apr/2021 11:16:18|admin|34017|4672331264|Bin Admin has been called.
+INFO|17/Apr/2021 11:16:18|admin|34017|4672331264|In Admin has been called.
+INFO|17/Apr/2021 11:16:18|admin|34017|4672331264|Put Away Admin has been called.
+INFO|17/Apr/2021 11:16:18|admin|34017|4672331264|Put Away Bin Inventory Admin has been called.
+INFO|17/Apr/2021 11:16:18|admin|34017|4672331264|Inventory Type Admin has been called.
+INFO|17/Apr/2021 11:16:18|admin|34017|4672331264|Bin Inventory Admin has been called.
+INFO|17/Apr/2021 11:16:18|admin|34017|4672331264|Out Admin has been called.
+INFO|17/Apr/2021 11:16:18|admin|34017|4672331264|Pick up Admin has been called.
+INFO|17/Apr/2021 11:16:18|admin|34017|4672331264|Pick up Bin Inventory Admin has been called.
+INFO|17/Apr/2021 11:17:48|basehttp|34017|123145484636160|"GET /admin/retailer_to_sp/bulkorder/ HTTP/1.1" 200 115167
+INFO|17/Apr/2021 11:17:49|basehttp|34017|123145484636160|"GET /admin/jsi18n/ HTTP/1.1" 200 3185
+INFO|17/Apr/2021 11:17:58|basehttp|34017|123145484636160|"GET /admin/retailer_to_sp/bulkorder/add/ HTTP/1.1" 200 20208
+INFO|17/Apr/2021 11:17:58|basehttp|34017|123145484636160|"GET /admin/jsi18n/ HTTP/1.1" 200 3185
+INFO|17/Apr/2021 11:17:59|basehttp|34017|123145484636160|"GET /offerbannerapi/banner-shop-autocomplete/ HTTP/1.1" 200 1431
+INFO|17/Apr/2021 11:18:02|basehttp|34017|123145484636160|"GET /offerbannerapi/banner-shop-autocomplete/?q=tes%20 HTTP/1.1" 200 46
+INFO|17/Apr/2021 11:18:03|basehttp|34017|123145484636160|"GET /offerbannerapi/banner-shop-autocomplete/?q=tes HTTP/1.1" 200 351
+INFO|17/Apr/2021 11:18:03|basehttp|34017|123145484636160|"GET /offerbannerapi/banner-shop-autocomplete/?q=test%20 HTTP/1.1" 200 351
+INFO|17/Apr/2021 11:18:03|basehttp|34017|123145484636160|"GET /offerbannerapi/banner-shop-autocomplete/?q=test%20so HTTP/1.1" 200 46
+INFO|17/Apr/2021 11:18:04|basehttp|34017|123145484636160|"GET /offerbannerapi/banner-shop-autocomplete/?q=test%20s HTTP/1.1" 200 351
+INFO|17/Apr/2021 11:18:04|basehttp|34017|123145489891328|"GET /offerbannerapi/banner-shop-autocomplete/?q=test%20sp HTTP/1.1" 200 351
+INFO|17/Apr/2021 11:18:07|basehttp|34017|123145484636160|"GET /admin/retailer_to_sp/cart/buyer-parent-autocomplete/?forward=%7B%7D HTTP/1.1" 200 2387
+INFO|17/Apr/2021 11:18:09|basehttp|34017|123145484636160|"GET /admin/retailer_to_sp/cart/buyer-parent-autocomplete/?q=pa&forward=%7B%7D HTTP/1.1" 200 2239
+INFO|17/Apr/2021 11:18:09|basehttp|34017|123145489891328|"GET /admin/retailer_to_sp/cart/buyer-parent-autocomplete/?q=p&forward=%7B%7D HTTP/1.1" 200 2449
+INFO|17/Apr/2021 11:18:10|basehttp|34017|123145484636160|"GET /admin/retailer_to_sp/cart/buyer-parent-autocomplete/?q=pal%20sho&forward=%7B%7D HTTP/1.1" 200 406
+INFO|17/Apr/2021 11:18:10|basehttp|34017|123145489891328|"GET /admin/retailer_to_sp/cart/buyer-parent-autocomplete/?q=pal%20shop&forward=%7B%7D HTTP/1.1" 200 406
+INFO|17/Apr/2021 11:18:13|basehttp|34017|123145484636160|"GET /retailer/sp/bulk-shipping-address-autocomplete/?forward=%7B%22buyer_shop%22%3A%225%22%7D HTTP/1.1" 200 759
+INFO|17/Apr/2021 11:18:15|basehttp|34017|123145484636160|"GET /retailer/sp/bulk-billing-address-autocomplete/?forward=%7B%22buyer_shop%22%3A%225%22%7D HTTP/1.1" 200 391
+INFO|17/Apr/2021 11:18:24|models|34017|123145484636160|[retailer_to_sp:models.py:BulkOrder]--Unavailable-SKUs:[], Available_Qty_of_Ordered_SKUs:[14]
+INFO|17/Apr/2021 11:18:25|models|34017|123145484636160|Post save for Bulk Order called
+INFO|17/Apr/2021 11:18:27|models|34017|123145484636160|reserved_bulk_order:{"shop_id": 1393, "transaction_id": "BOR2106080000009", "products": {"3165": 3}, "transaction_type": "reserved"}
+INFO|17/Apr/2021 11:18:27|common_functions|34017|123145484636160|Warehouse Inventory Update Started| Warehouse-1393, SKU-HPCHPCTOY00000001, Inventory Type-normal, Inventory State-reserved, Quantity-3, Transaction type-reserved, Transaction ID-BOR2106080000009
+INFO|17/Apr/2021 11:18:27|views|34017|123145484636160|Post save called for Warehouse Inventory
+INFO|17/Apr/2021 11:18:27|views|34017|123145484636160|Inside if condition of post save Warehouse Inventory
+INFO|17/Apr/2021 11:18:29|common_functions|34017|123145484636160|Warehouse Inventory Update| Done
+INFO|17/Apr/2021 11:18:29|models|34017|123145484636160|reserved_bulk_order_success
+INFO|17/Apr/2021 11:18:29|models|34017|123145484636160|ordered_bulk_order:{"shop_id": 1393, "transaction_id": "BOR2106080000009", "transaction_type": "ordered", "order_status": "ordered"}
+INFO|17/Apr/2021 11:18:29|common_functions|34017|123145484636160|Warehouse Inventory Update Started| Warehouse-1393, SKU-HPCHPCTOY00000001, Inventory Type-normal, Inventory State-reserved, Quantity--3, Transaction type-ordered, Transaction ID-BOR2106080000009
+INFO|17/Apr/2021 11:18:30|views|34017|123145484636160|Post save called for Warehouse Inventory
+INFO|17/Apr/2021 11:18:30|views|34017|123145484636160|Inside if condition of post save Warehouse Inventory
+INFO|17/Apr/2021 11:18:31|common_functions|34017|123145484636160|Warehouse Inventory Update| Done
+INFO|17/Apr/2021 11:18:31|common_functions|34017|123145484636160|Warehouse Inventory Update Started| Warehouse-1393, SKU-HPCHPCTOY00000001, Inventory Type-normal, Inventory State-ordered, Quantity-3, Transaction type-ordered, Transaction ID-BOR2106080000009
+INFO|17/Apr/2021 11:18:31|views|34017|123145484636160|Post save called for Warehouse Inventory
+INFO|17/Apr/2021 11:18:31|views|34017|123145484636160|Inside if condition of post save Warehouse Inventory
+INFO|17/Apr/2021 11:18:32|common_functions|34017|123145484636160|Warehouse Inventory Update| Done
+INFO|17/Apr/2021 11:18:33|models|34017|123145484636160|ordered_bulk_order_success
+INFO|17/Apr/2021 11:18:33|basehttp|34017|123145484636160|"POST /admin/retailer_to_sp/bulkorder/add/ HTTP/1.1" 302 0
+INFO|17/Apr/2021 11:18:33|basehttp|34017|123145484636160|"GET /admin/ HTTP/1.1" 200 107100
