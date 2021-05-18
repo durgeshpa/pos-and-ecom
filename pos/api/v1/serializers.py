@@ -727,7 +727,7 @@ class OfferUpdateSerializer(serializers.Serializer):
     shop_id = serializers.IntegerField()
 
     def validate(self, data):
-        if data.get('start_date') and data.get('expiry_date'):
+        if data.get('start_date') and data.get('end_date'):
             date_validation(data)
         return data
 
