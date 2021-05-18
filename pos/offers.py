@@ -270,7 +270,7 @@ class BasicCartOffers(object):
                     final_offer_coupon_id = offer
                     continue
                 # If already applied coupon_id is still applicable, refresh the discount amount/offer
-                if applied_offer and int(applied_offer['coupon_id']) == int(coupon['id']) and not auto_apply:
+                if applied_offer and 'coupon_id' in applied_offer and int(applied_offer['coupon_id']) == int(coupon['id']) and not auto_apply:
                     final_offer_applied = offer
                     continue
                 applicable_offers.append(offer)
@@ -346,8 +346,6 @@ class BasicCartOffers(object):
             'coupon_type': 'cart',
             'type': 'discount',
             'sub_type': 'spot_discount',
-            'coupon_id': '',
-            'coupon_code': '',
             'is_percentage': is_percentage,
             'discount': discount,
             'discount_value': discount_value,

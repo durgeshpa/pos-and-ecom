@@ -261,7 +261,7 @@ class CouponOfferCreation(GenericAPIView):
             discount_obj = DiscountValue.objects.create(discount_value=discount_value,
                                                         max_discount=data['max_discount'], is_percentage=True)
             rule_set_name_with_shop_id = f"{shop_id}_{discount_value}% off on orders above Rs. {discount_amount}"
-            if discount_obj.max_discount and discount_obj.max_discount > 0:
+            if discount_obj.max_discount and float(discount_obj.max_discount) > 0:
                 coupon_code = f"{discount_value}% off upto Rs. {discount_obj.max_discount} on orders above Rs. {discount_amount}"
             else:
                 coupon_code = f"{discount_value}% off on orders above Rs. {discount_amount}"
