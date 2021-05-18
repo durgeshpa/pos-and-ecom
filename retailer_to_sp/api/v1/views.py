@@ -1067,13 +1067,18 @@ class CreateOrder(APIView):
                 order_config = GlobalConfig.objects.filter(key='foco_order_count').last()
 
         if order_config.value is not None:
-            if not Order.objects.filter(created_at__date=datetime.today()).exclude(
-                    order_status='CANCELLED').count() < order_config.value:
-                msg = {'is_success': False, 'message': [
-                    'Because of the current surge in orders, we are not taking any more orders for today. We will '
-                    'start taking orders again tomorrow. We regret the inconvenience caused to you'],
-                       'response_data': None}
-                return Response(msg, status=status.HTTP_200_OK)
+            msg = {'is_success': False, 'message': [
+                'Because of the current surge in orders, we are not taking any more orders for today. We will '
+                'start taking orders again tomorrow. We regret the inconvenience caused to you'],
+                   'response_data': None}
+            if shop.shop_type.shop_type == 'r':
+                if not Order.objects.filter(buyer_shop__shop_type=shop.shop_type, created_at__date=datetime.today()).exclude(
+                        order_status='CANCELLED').count() < order_config.value:
+                    return Response(msg, status=status.HTTP_200_OK)
+            if shop.shop_type.shop_type == 'f':
+                if not Order.objects.filter(buyer_shop__shop_type__shop_sub_type=shop.shop_type.shop_sub_type, created_at__date=datetime.today()).exclude(
+                        order_status='CANCELLED').count() < order_config.value:
+                    return Response(msg, status=status.HTTP_200_OK)
 
         # get billing address
         try:
