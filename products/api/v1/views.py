@@ -192,8 +192,7 @@ class ProductCapping(GenericAPIView):
 
         if request.GET.get('id'):
 
-            """ Get Parent Product when product_id is given in params """
-
+            """ Get Parent Product when id is given in params """
             product_capping_id = int(request.GET.get('id'))
             if self.product_capping_list.filter(id=product_capping_id).last() is None:
                 msg = {'is_success': False,
@@ -240,13 +239,15 @@ class ProductCapping(GenericAPIView):
                    'message': 'Please Provide a id to update product capping',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        # if no data exists by this id, raise a 406 error)
-        id_instance = self.product_capping_list.filter(id=int(request.data.get('id'))).last()
-        if id_instance is None:
+        id = int(request.data.get('id'))
+        try:
+            id_instance = self.product_capping_list.get(id=id)
+        except ObjectDoesNotExist:
             msg = {'is_success': False,
-                   'message': 'Please Provide a Valid id to update  product capping',
+                   'message': f'product capping id "{id}" not found, Please Provide a Valid id',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
         serializer = ProductCappingSerializers(instance=id_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -259,21 +260,25 @@ class ProductCapping(GenericAPIView):
 
         """ Delete Product Capping """
 
-        if not request.GET.get('id'):
+        if not request.data.get('product_capping_id'):
             msg = {'is_success': False,
-                   'message': 'Please Provide a id',
+                   'message': 'Please Provide a product_capping_id',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         try:
-            product_capping_id = self.product_capping_list.get(id=int(request.GET.get('id')))
+            for id in request.data.get('product_capping_id'):
+                product_capping_id = self.product_capping_list.get(id=int(id))
+                product_capping_id.delete()
         except ObjectDoesNotExist:
             msg = {'is_success': False,
-                   'message': f'Please Provide a Valid {id}',
+                   'message': f'{id} not found',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        product_capping_id.delete()
+
         msg = {'is_success': True, 'message': ['Product Capping were deleted successfully!'],
                'response_data': {'results': None}}
         return Response(msg, status=status.HTTP_200_OK)
+
+
 
 
