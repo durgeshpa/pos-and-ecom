@@ -240,7 +240,7 @@ class CouponOfferCreation(GenericAPIView):
        """
         coupon = Coupon.objects.filter(shop=shop_id).order_by('-created_at')
         if request.GET.get('search_text'):
-            coupon = coupon.filter(coupon_code__icontains=request.GET.get('search_text'))
+            coupon = coupon.filter(coupon_name__icontains=request.GET.get('search_text'))
         objects = self.pagination_class().paginate_queryset(coupon, self.request)
         data = CouponListSerializer(objects, many=True).data
         for coupon in data:
