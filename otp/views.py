@@ -190,7 +190,8 @@ class SendSmsOTP(CreateAPIView):
         account_type = 'GramFactory POS' if app_type == '2' else (
             'PepperTap Rewards' if app_type == '1' else 'GramFactory')
         sms_body = "Your OTP {} {} is {}.".format(action_text, account_type, otp)
-        message = SendVoiceSms(phone=ph_no, body=sms_body)
+        sms_body_old = "OTP for your GramFactory account is %s" % otp
+        message = SendVoiceSms(phone=ph_no, body=sms_body_old)
         message.send()
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
@@ -211,7 +212,9 @@ class SendSmsOTP(CreateAPIView):
         expires_in = int(getattr(settings, 'OTP_EXPIRES_IN', 300) / 60)
         sms_body = "Use {} as your OTP {} {}. Request time is {}, {} IST. The OTP expires within {} minutes.".format(
             otp, action_text, account_type, date, time, expires_in)
-        message = SendSms(phone=ph_no, body=sms_body)
+        sms_body_old = "%s is your One Time Password for GramFactory Account. Request time is %s, %s IST." % (
+                        otp, date, time)
+        message = SendSms(phone=ph_no, body=sms_body_old)
         message.send()
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
@@ -239,7 +242,7 @@ class SendSmsOTP(CreateAPIView):
                         VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED'].format(re_request_minutes)]
             else:
                 otp_requests = PhoneOTP.objects.filter(phone_number=ph_no, is_verified=False,
-                                                       created_at__gt=current_time - otp_block_interval,).count()
+                                                       created_at__gt=current_time - otp_block_interval, ).count()
                 if otp_requests >= getattr(settings, 'OTP_REQUESTS', 3):
                     user.blocked = 1
                     user.save()
