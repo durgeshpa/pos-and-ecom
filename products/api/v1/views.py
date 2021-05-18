@@ -232,11 +232,11 @@ class ProductCapping(GenericAPIView):
 
     def put(self, request):
 
-        """ Post API for Product Capping Updation """
+        """ Put API for Product Capping Updation """
 
         if not request.data.get('id'):
             msg = {'is_success': False,
-                   'message': 'Please Provide a id to update product capping',
+                   'message': 'Please Provide id to update product capping',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         id = int(request.data.get('id'))

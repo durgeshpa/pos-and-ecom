@@ -513,7 +513,6 @@ class ProductCappingSerializers(serializers.ModelSerializer):
     def get_seller_shop_name(self, obj):
         return obj.seller_shop.shop_name
 
-
     def validate(self, data):
 
         if not self.instance:
@@ -542,8 +541,6 @@ class ProductCappingSerializers(serializers.ModelSerializer):
             if data.get('capping_qty') is None:
                 raise serializers.ValidationError('capping_qty is required')
 
-            self.capping_duration_check(data)
-
         if self.instance:
             if data.get('end_date'):
                 if self.instance.start_date > data.get('end_date'):
@@ -553,25 +550,42 @@ class ProductCappingSerializers(serializers.ModelSerializer):
         if data.get('capping_qty') == 0:
             raise serializers.ValidationError("Capping qty should be greater than 0.")
 
+        self.capping_duration_check(data)
+
         return data
 
     def capping_duration_check(self, data):
         """ Capping Duration check according to capping type """
-
-        # if capping type is Daily, & check this condition for Weekly & Monthly as Well
-        day_difference = data.get('end_date').date() - data.get('start_date').date()
-        if day_difference.days == 0:
-            raise serializers.ValidationError("Please enter valid Start Date and End Date.")
-
-        # if capping type is Weekly
-        elif data.get('capping_type') == 1:
-            if not day_difference.days % 7 == 0:
+        if self.instance:
+            # if capping type is Daily, & check this condition for Weekly & Monthly as Well
+            day_difference = data.get('end_date').date() - self.instance.start_date.date()
+            if day_difference.days == 0:
                 raise serializers.ValidationError("Please enter valid Start Date and End Date.")
 
-        # if capping type is Monthly
-        elif data.get('capping_type') == 2:
-            if not day_difference.days % 30 == 0:
+            # if capping type is Weekly
+            if self.instance.capping_type == 1:
+                if not day_difference.days % 7 == 0:
+                    raise serializers.ValidationError("Please enter valid End Date.")
+
+            # if capping type is Monthly
+            elif self.instance.capping_type == 2:
+                if not day_difference.days % 30 == 0:
+                    raise serializers.ValidationError("Please enter valid End Date.")
+        else:
+            # if capping type is Daily, & check this condition for Weekly & Monthly as Well
+            day_difference = data.get('end_date').date() - data.get('start_date').date()
+            if day_difference.days == 0:
                 raise serializers.ValidationError("Please enter valid Start Date and End Date.")
+
+            # if capping type is Weekly
+            if data.get('capping_type') == 1:
+                if not day_difference.days % 7 == 0:
+                    raise serializers.ValidationError("Please enter valid Start Date and End Date.")
+
+            # if capping type is Monthly
+            elif data.get('capping_type') == 2:
+                if not day_difference.days % 30 == 0:
+                    raise serializers.ValidationError("Please enter valid Start Date and End Date.")
 
     @transaction.atomic
     def update(self, instance, validated_data):
