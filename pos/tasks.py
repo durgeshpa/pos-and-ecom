@@ -67,6 +67,7 @@ def update_es(products, shop_id):
             'brand': brand,
             'category': category,
             'ean': product.product_ean_code,
-            'status': product.status
+            'status': product.status,
+            'created_at': product.created_at
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
