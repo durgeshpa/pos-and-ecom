@@ -271,7 +271,7 @@ class ProductCapping(GenericAPIView):
                 product_capping_id.delete()
         except ObjectDoesNotExist:
             msg = {'is_success': False,
-                   'message': f'{id} not found',
+                   'message': f'id {id} not found',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
