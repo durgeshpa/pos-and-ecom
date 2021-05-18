@@ -517,13 +517,6 @@ class ProductCappingSerializers(serializers.ModelSerializer):
     def validate(self, data):
 
         if not self.instance:
-            if data.get('product') is None:
-                raise serializers.ValidationError('product is required')
-            try:
-                Product.objects.get(id=data.get('product'))
-            except ObjectDoesNotExist:
-                raise serializers.ValidationError('{} product not found'.format(data.get('product')))
-
             if data.get('seller_shop') is None:
                 raise serializers.ValidationError('seller_shop is required')
 
