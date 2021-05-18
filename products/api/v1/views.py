@@ -183,38 +183,42 @@ class ProductCapping(GenericAPIView):
 
     def get(self, request):
 
-        """ GET API to get Parent Product List """
-
-        product_sku = request.GET.get('product_sku')
-        product_name = request.GET.get('product_name')
-        product_capping_status = request.GET.get('status')
-        seller_shop = request.GET.get('seller_shop')
-
         if request.GET.get('id'):
 
             """ Get Parent Product when id is given in params """
+
             product_capping_id = int(request.GET.get('id'))
             if self.product_capping_list.filter(id=product_capping_id).last() is None:
                 msg = {'is_success': False,
                        'message': ['Please Provide a Valid id'],
                        'data': None}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            parent_product = self.product_capping_list.filter(id=product_capping_id)
 
-            self.product_capping_list = self.product_capping_list.filter(id=product_capping_id)
+        else:
 
-        # filter using product_sku, seller_shop, product_capping_status & product_name
-        if product_sku is not None:
-            self.product_capping_list = self.product_capping_list.filter(product__product_sku__icontains=product_sku)
-        if seller_shop is not None:
-            self.product_capping_list = self.product_capping_list.filter(seller_shop_id=seller_shop)
-        if product_capping_status is not None:
-            self.product_capping_list = self.product_capping_list.filter(status=product_capping_status)
-        if product_name is not None:
-            self.product_capping_list = self.product_capping_list.filter(
-                product_id=product_name)
-        parent_product = SmallOffsetPagination().paginate_queryset(self.product_capping_list, request)
+            """ GET API to get Parent Product List """
+
+            product_sku = request.GET.get('product_sku')
+            product_name = request.GET.get('product_name')
+            product_capping_status = request.GET.get('status')
+            seller_shop = request.GET.get('seller_shop')
+
+            # filter using product_sku, seller_shop, product_capping_status & product_name
+            if product_sku is not None:
+                self.product_capping_list = self.product_capping_list.filter(product__product_sku__icontains=product_sku)
+            if seller_shop is not None:
+                self.product_capping_list = self.product_capping_list.filter(seller_shop_id=seller_shop)
+            if product_capping_status is not None:
+                self.product_capping_list = self.product_capping_list.filter(status=product_capping_status)
+            if product_name is not None:
+                self.product_capping_list = self.product_capping_list.filter(
+                    product_id=product_name)
+
+            parent_product = SmallOffsetPagination().paginate_queryset(self.product_capping_list, request)
+
         serializer = ProductCappingSerializers(parent_product, many=True)
-        msg = {'is_success': True, 'message': ['Product Capping List'], 'response_data': {'results': [serializer.data]}}
+        msg = {'is_success': True, 'message': ['Product Capping List'], 'response_data': {'results': serializer.data}}
         return Response(msg, status=status.HTTP_200_OK)
 
 
@@ -239,12 +243,12 @@ class ProductCapping(GenericAPIView):
                    'message': 'Please Provide id to update product capping',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        id = int(request.data.get('id'))
+        cap_product_id = int(request.data.get('id'))
         try:
-            id_instance = self.product_capping_list.get(id=id)
+            id_instance = self.product_capping_list.get(id=cap_product_id)
         except ObjectDoesNotExist:
             msg = {'is_success': False,
-                   'message': f'product capping id "{id}" not found, Please Provide a Valid id',
+                   'message': f'product capping id "{cap_product_id}" not found, Please Provide a Valid id',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -266,12 +270,12 @@ class ProductCapping(GenericAPIView):
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         try:
-            for id in request.data.get('product_capping_id'):
-                product_capping_id = self.product_capping_list.get(id=int(id))
+            for cap_product_id in request.data.get('product_capping_id'):
+                product_capping_id = self.product_capping_list.get(id=int(cap_product_id))
                 product_capping_id.delete()
         except ObjectDoesNotExist:
             msg = {'is_success': False,
-                   'message': f'id {id} not found',
+                   'message': f'id {cap_product_id} not found',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
