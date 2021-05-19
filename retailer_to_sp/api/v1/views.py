@@ -340,7 +340,8 @@ class SearchProducts(APIView):
         p_list = []
         # Raw Output
         if output_type == '1':
-            body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images"]}
+            body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
+                                            "description"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -349,7 +350,8 @@ class SearchProducts(APIView):
                 error_logger.error(e)
         # Processed Output
         else:
-            body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images"]}
+            body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
+                                            "description"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -431,6 +433,7 @@ class SearchProducts(APIView):
                                             "visible", "mrp", "ean"]}
             products_list = es_search(index='all_products', body=body)
             for p in products_list['hits']['hits']:
+                p["_source"]["description"] = p["_source"]["name"]
                 p_list.append(p["_source"])
             return p_list
         # Active Store
