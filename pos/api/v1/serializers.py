@@ -581,21 +581,21 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
     buyer = PosUserSerializer()
 
     def get_order_total(self, obj):
-        return obj.order_amount + self.get_discount_amount(obj)
+        return round(obj.order_amount + self.get_discount_amount(obj), 2)
 
     def get_discount_amount(self, obj):
         discount = 0
         offers = self.get_cart_offers(obj)
         for offer in offers:
             discount += float(offer['discount_value'])
-        return discount
+        return round(discount, 2)
 
     def get_current_amount(self, obj):
-        return obj.order_amount - self.get_refunded_amount(obj) - self.get_refund_amount(obj)
+        return round(obj.order_amount - self.get_refunded_amount(obj) - self.get_refund_amount(obj), 2)
 
     def get_refunded_amount(self, obj):
         amt = obj.rt_return_order.filter(status='completed').aggregate(amt=Sum('refund_amount'))
-        return amt['amt'] if amt['amt'] else 0
+        return amt['amt'] if round(amt['amt'], 2) else 0
 
     def get_cart_offers(self, obj):
         """
@@ -612,14 +612,14 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         """
             order amount
         """
-        return obj.order_amount
+        return round(obj.order_amount, 2)
 
     def get_refund_amount(self, obj):
         """
             refund amount
         """
         ongoing_return = obj.rt_return_order.filter(status='created').last()
-        return ongoing_return.refund_amount if ongoing_return else 0
+        return round(ongoing_return.refund_amount, 2) if ongoing_return else 0
 
     class Meta:
         model = Order
