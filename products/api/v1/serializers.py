@@ -12,6 +12,7 @@ from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct
     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
 from categories.models import Category
 from brand.models import Brand
+from shops.models import Shop
 
 VALID_IMAGE_EXTENSIONS = [
     ".jpg",
@@ -25,15 +26,31 @@ def valid_image_extension(image, extension_list=VALID_IMAGE_EXTENSIONS):
     return any([image.endswith(e) for e in extension_list])
 
 
+class BrandSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = ('id', 'brand_name')
+
+
+class ProductHSNSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = ProductHSN
+        fields = ('id', 'product_hsn_code')
+
+
+class CategorySerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = Category
+        fields = ('id', 'category_name')
+
+
 class ParentProductCategorySerializers(serializers.ModelSerializer):
-    category_name = serializers.SerializerMethodField()
+    category = CategorySerializers()
 
     class Meta:
         model = ParentProductCategory
-        fields = ('id', 'parent_product', 'category', 'category_name')
-
-    def get_category_name(self, obj):
-        return obj.category.category_name
+        fields = ('id', 'parent_product', 'category',)
 
 
 class ParentProductImageSerializers(serializers.ModelSerializer):
@@ -46,46 +63,29 @@ class ParentProductImageSerializers(serializers.ModelSerializer):
         fields = ('id', 'image_name', 'image',)
 
 
+class TaxSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = Tax
+        fields = ('id', 'tax_name', 'tax_type', 'tax_percentage')
+
+
 class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
-    tax_name = serializers.SerializerMethodField()
-    tax_type = serializers.SerializerMethodField()
-    tax_percentage = serializers.SerializerMethodField()
+    tax = TaxSerializers()
 
     class Meta:
         model = ParentProductTaxMapping
-        fields = ('id', 'parent_product', 'tax', 'tax_name', 'tax_type', 'tax_percentage')
-
-    def get_tax_name(self, obj):
-        return obj.tax.tax_name
-
-    def get_tax_type(self, obj):
-        return obj.tax.tax_type
-
-    def get_tax_percentage(self, obj):
-        return obj.tax.tax_percentage
+        fields = ('id', 'parent_product', 'tax')
 
 
 class ParentProductSerializers(serializers.ModelSerializer):
     """Handles creating, reading and updating parent product items."""
+    parent_brand = BrandSerializers()
+    product_hsn = ProductHSNSerializers()
     parent_product_pro_image = ParentProductImageSerializers(many=True)
     parent_product_pro_category = ParentProductCategorySerializers(many=True)
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
-    parent_brand_name = serializers.SerializerMethodField()
-    product_hsn_code = serializers.SerializerMethodField()
-    parent_id = serializers.SerializerMethodField()
-    id = serializers.SerializerMethodField()
-
-    def get_id(self, obj):
-        return obj.id
-
-    def get_parent_id(self, obj):
-        return obj.parent_id
-
-    def get_parent_brand_name(self, obj):
-        return obj.parent_brand.brand_name
-
-    def get_product_hsn_code(self, obj):
-        return obj.product_hsn.product_hsn_code
+    parent_id = serializers.CharField(required=False)
 
     def validate(self, data):
         """
@@ -140,21 +140,20 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('id', 'parent_id', 'parent_brand', 'parent_brand_name', 'name', 'product_hsn', 'product_hsn_code',
-                  'brand_case_size',
-                  'inner_case_size', 'product_type', 'is_ptr_applicable', 'ptr_percent',
-                  'ptr_type', 'status', 'parent_product_pro_image', 'parent_product_pro_category',
-                  'parent_product_pro_tax')
+        fields = ('id', 'parent_id', 'name', 'brand_case_size', 'inner_case_size', 'product_type', 'is_ptr_applicable',
+                  'ptr_percent', 'ptr_type', 'status', 'product_hsn', 'parent_brand', 'parent_product_pro_image',
+                  'parent_product_pro_category', 'parent_product_pro_tax')
 
-    def clear_existing_parent_cat(self, parent_product):
+
+    def clear_existing_images(self, parent_product):
         for pro_image in parent_product.parent_product_pro_image.all():
             pro_image.delete()
 
-    def clear_existing_parent_tax(self, parent_product):
+    def clear_existing_parent_cat(self, parent_product):
         for pro_cat in parent_product.parent_product_pro_category.all():
             pro_cat.delete()
 
-    def clear_existing_images(self, parent_product):
+    def clear_existing_parent_tax(self, parent_product):
         for pro_tax in parent_product.parent_product_pro_tax.all():
             pro_tax.delete()
 
@@ -493,24 +492,25 @@ class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
         return validated_data
 
 
+class ProductSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ('id', 'product_name', 'product_sku',)
+
+
+class ShopSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name',)
+
+
 class ProductCappingSerializers(serializers.ModelSerializer):
-    product_name = serializers.SerializerMethodField()
-    product_sku = serializers.SerializerMethodField()
-    seller_shop_name = serializers.SerializerMethodField()
+    product = ProductSerializers()
+    seller_shop = ShopSerializers()
 
     class Meta:
         model = ProductCapping
-        fields = ('id', 'product', 'product_name', 'product_sku', 'seller_shop', 'seller_shop_name', 'capping_type',
-                  'capping_qty', 'start_date', 'end_date', 'status')
-
-    def get_product_name(self, obj):
-        return obj.product.product_name
-
-    def get_product_sku(self, obj):
-        return obj.product.product_sku
-
-    def get_seller_shop_name(self, obj):
-        return obj.seller_shop.shop_name
+        fields = ('id', 'product', 'seller_shop', 'capping_type', 'capping_qty', 'start_date', 'end_date', 'status')
 
     def validate(self, data):
 

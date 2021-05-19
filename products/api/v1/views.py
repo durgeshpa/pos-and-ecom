@@ -7,61 +7,42 @@ from rest_framework.generics import GenericAPIView, CreateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import JSONParser
 
-from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping
+from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings
 from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers
+from .common_function import validate_id, get_response
 
 
 class ParentProduct(GenericAPIView):
 
-    authentication_classes = ()
-    permission_classes = ()
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     parser_classes = [MultipartJsonParser, JSONParser]
-    parent_product_list = ParentProducts.objects.all()
+    queryset = ParentProducts.objects.prefetch_related('parent_brand', 'product_hsn', 'parent_product_pro_image',
+                                                       'parent_product_pro_category', 'parent_product_pro_tax',
+                                                       'parent_product_pro_category__category',
+                                                       'parent_product_pro_tax__tax')
     serializer_class = ParentProductSerializers
 
     def get(self, request):
+        """ Get Parent Product when product_id is given in params """
 
-        if request.GET.get('parent_product_id'):
-
-            """ Get Parent Product when product_id is given in params """
-
-            parent_pro_id = int(request.GET.get('parent_product_id'))
-            if self.parent_product_list.filter(id=parent_pro_id).last() is None:
-                msg = {'is_success': False,
-                       'message': ['Please Provide a Valid parent_product_id'],
-                       'data': None}
-                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-            parent_product = self.parent_product_list.filter(id=parent_pro_id)
-
+        if request.GET.get('id'):
+            """ Get Parent Product when id is given in params """
+            # validations for input id
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            parent_product = id_validation['data']
         else:
             """ GET API to get Parent Product List """
+            self.queryset = self.get_parent_product_list()
+            parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
-            category = request.GET.get('category')
-            brand = request.GET.get('brand')
-            product_status = request.GET.get('status')
-            search_text = request.GET.get('search_text')
-
-            # search using parent_id, name & category_name based on criteria that matches
-            if search_text is not None:
-                self.parent_product_list = self.parent_product_list.filter(Q(name__icontains=search_text)
-                         | Q(parent_product_pro_category__category__category_name__icontains=search_text)
-                                                                   | Q(parent_id__icontains=search_text))
-
-            # filter using brand_name, category & product_status exact match
-            if brand is not None:
-                self.parent_product_list = self.parent_product_list.filter(parent_brand__brand_name=brand)
-            if product_status is not None:
-                self.parent_product_list = self.parent_product_list.filter(status=product_status)
-            if category is not None:
-                self.parent_product_list = self.parent_product_list.filter(
-                    parent_product_pro_category__category__category_name=category)
-            parent_product = SmallOffsetPagination().paginate_queryset(self.parent_product_list, request)
-
-        serializer = ParentProductSerializers(parent_product, many=True)
+        serializer = self.serializer_class(parent_product, many=True)
         msg = {'is_success': True, 'message': ['Parent Product List'], 'response_data': {'results': serializer.data}}
         return Response(msg, status=status.HTTP_200_OK)
 
@@ -69,12 +50,10 @@ class ParentProduct(GenericAPIView):
 
         """ POST API for Parent Product Creation with Image Category & Tax """
 
-        serializer = ParentProductSerializers(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            msg = {'is_success': True, 'message': ['Parent Product created successfully!'],
-                   'response_data': {'results': serializer.data}}
-            return Response(msg, status=status.HTTP_201_CREATED)
+            return get_response('Parent Product created successfully!', serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request):
@@ -87,19 +66,17 @@ class ParentProduct(GenericAPIView):
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
-        id_instance = self.parent_product_list.filter(id=int(request.POST.get('id'))).last()
+        id_instance = self.queryset.filter(id=int(request.POST.get('id'))).last()
         if id_instance is None:
             msg = {'is_success': False,
                    'message': 'Please Provide a Valid id to update parent product',
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
-        serializer = ParentProductSerializers(instance=id_instance, data=request.data, partial=True)
+        serializer = self.serializer_class(instance=id_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            msg = {'is_success': True, 'message': ['Parent Product Updated'],
-                   'response_data': {'results': serializer.data}}
-            return Response(msg, status=status.HTTP_200_OK)
+            return get_response('Parent Product Updated', serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
@@ -107,23 +84,39 @@ class ParentProduct(GenericAPIView):
         """ Delete Parent Product with image """
 
         if not request.data.get('parent_product_id'):
-            msg = {'is_success': False,
-                   'message': 'Please Provide a parent_product_id',
-                   'data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            return get_response('Please Provide a parent_product_id', False)
         try:
             for id in request.data.get('parent_product_id'):
-                parent_product_id = self.parent_product_list.get(id=int(id))
+                parent_product_id = self.queryset.get(id=int(id))
                 parent_product_id.delete()
         except ObjectDoesNotExist:
-            msg = {'is_success': False,
-                   'message': f'Please Provide a Valid parent_product_id {id}',
-                   'data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            return get_response(f'Please Provide a Valid parent_product_id {id}', False)
+        return get_response('Parent Product were deleted successfully!', [], True)
 
-        msg = {'is_success': True, 'message': ['Parent Product were deleted successfully!'],
-               'response_data': {'results': None}}
-        return Response(msg, status=status.HTTP_200_OK)
+    def get_parent_product_list(self):
+
+        category = self.request.GET.get('category')
+        brand = self.request.GET.get('brand')
+        product_status = self.request.GET.get('status')
+        search_text = self.request.GET.get('search_text')
+
+        # search using parent_id, name & category_name based on criteria that matches
+        if search_text:
+            self.queryset = self.queryset.filter(Q(name__icontains=search_text)
+                                                 | Q(
+                parent_product_pro_category__category__category_name__icontains=search_text)
+                                                 | Q(parent_id__icontains=search_text))
+
+        # filter using brand_name, category & product_status exact match
+        if brand is not None:
+            self.queryset = self.queryset.filter(parent_brand__brand_name=brand)
+        if product_status is not None:
+            self.queryset = self.queryset.filter(status=product_status)
+        if category is not None:
+            self.queryset = self.queryset.filter(
+                parent_product_pro_category__category__category_name=category)
+
+        return self.queryset
 
 
 class ParentProductBulkUpload(CreateAPIView):
@@ -182,24 +175,21 @@ class ActiveDeactivateSelectedProduct(GenericAPIView):
 class ProductCapping(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    product_capping_list = ProductCapping.objects.all()
+    queryset = ProductCappings.objects.select_related('product', 'seller_shop', 'buyer_shop')
+    serializer_class = ProductCappingSerializers
 
     def get(self, request):
 
         if request.GET.get('id'):
-
             """ Get Parent Product when id is given in params """
+            # validations for input id
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            parent_product = id_validation['data']
 
-            product_capping_id = int(request.GET.get('id'))
-            if self.product_capping_list.filter(id=product_capping_id).last() is None:
-                msg = {'is_success': False,
-                       'message': ['Please Provide a Valid id'],
-                       'data': None}
-                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-            parent_product = self.product_capping_list.filter(id=product_capping_id)
         else:
             """ GET API to get Parent Product List """
-
             product_sku = request.GET.get('product_sku')
             product_name = request.GET.get('product_name')
             product_capping_status = request.GET.get('status')
@@ -207,18 +197,18 @@ class ProductCapping(GenericAPIView):
 
             # filter using product_sku, seller_shop, product_capping_status & product_name
             if product_sku is not None:
-                self.product_capping_list = self.product_capping_list.filter(product__product_sku__icontains=product_sku)
+                self.queryset = self.queryset.filter(product__product_sku__icontains=product_sku)
             if seller_shop is not None:
-                self.product_capping_list = self.product_capping_list.filter(seller_shop_id=seller_shop)
+                self.queryset = self.queryset.filter(seller_shop_id=seller_shop)
             if product_capping_status is not None:
-                self.product_capping_list = self.product_capping_list.filter(status=product_capping_status)
+                self.queryset = self.queryset.filter(status=product_capping_status)
             if product_name is not None:
-                self.product_capping_list = self.product_capping_list.filter(
+                self.queryset = self.queryset.filter(
                     product_id=product_name)
 
-            parent_product = SmallOffsetPagination().paginate_queryset(self.product_capping_list, request)
+            parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
-        serializer = ProductCappingSerializers(parent_product, many=True)
+        serializer = self.serializer_class(parent_product, many=True)
         msg = {'is_success': True, 'message': ['Product Capping List'], 'response_data': {'results': serializer.data}}
         return Response(msg, status=status.HTTP_200_OK)
 
@@ -226,7 +216,7 @@ class ProductCapping(GenericAPIView):
 
         """ Post API for Product Capping Creation """
 
-        serializer = ProductCappingSerializers(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True, 'message': ['Product Capping Created'],
@@ -252,7 +242,7 @@ class ProductCapping(GenericAPIView):
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
-        serializer = ProductCappingSerializers(instance=id_instance, data=request.data, partial=True)
+        serializer = self.serializer_class(instance=id_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True, 'message': ['Product Capping Updated'],
@@ -282,3 +272,7 @@ class ProductCapping(GenericAPIView):
         msg = {'is_success': True, 'message': ['Product Capping were deleted successfully!'],
                'response_data': {'results': None}}
         return Response(msg, status=status.HTTP_200_OK)
+
+
+
+
