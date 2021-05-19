@@ -259,7 +259,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     def m_slab_price(self, obj):
         product_price = obj.get_current_shop_price(self.context.get('parent_mapping_id'),
                                                    self.context.get('buyer_shop_id'))
-        serializer = SlabProductPriceSerializer(product_price)
+        serializer = SlabProductPriceSerializer(product_price, context=self.context)
         return serializer.data
 
     def product_price_dt(self, obj):
@@ -578,7 +578,7 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
         product_price = obj.get_cart_product_price(self.context.get('parent_mapping_id'),
                                                    self.context.get('buyer_shop_id'))
         self.context['qty'] = obj.qty
-        serializer = SlabProductPriceSerializer(product_price)
+        serializer = SlabProductPriceSerializer(product_price, context=self.context)
         return serializer.data
 
     def no_pieces_dt(self, obj):

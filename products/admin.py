@@ -1504,13 +1504,13 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     inlines = [PriceSlabAdmin]
     form = ProductPriceSlabForm
     list_display = ['product', 'product_mrp', 'is_ptr_applicable', 'ptr_type', 'ptr_percent',
-                    'seller_shop', 'approval_status', 'slab1_details', 'slab2_details'
+                    'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status', 'slab1_details', 'slab2_details'
                     ]
     autocomplete_fields = ['product']
     list_filter = [ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch, ProductCategoryFilter, 'approval_status']
     fieldsets = (
         ('Basic', {
-            'fields': ('product', 'mrp', 'seller_shop', 'approval_status',),
+            'fields': ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',),
             'classes': ('required',)
         }),
     )
@@ -1528,7 +1528,7 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         if obj is None:
             fieldsets = (
                             ('Basic', {
-                                'fields': ('product', 'mrp', 'seller_shop', 'approval_status',),
+                                'fields': ('product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status',),
                                 'classes': ('required',)})
                             ,
                             ('Slab Price Applicable', {
@@ -1546,8 +1546,8 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             return self.readonly_fields
         if not request.user.is_superuser:
             return self.readonly_fields + (
-                'product', 'mrp', 'seller_shop', 'approval_status')
-        return self.readonly_fields + ( 'product', 'mrp', 'seller_shop')
+                'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode', 'approval_status')
+        return self.readonly_fields + ( 'product', 'mrp', 'seller_shop', 'buyer_shop', 'city', 'pincode')
 
 
     def slab1_details(self, obj):
@@ -1579,9 +1579,20 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
             product.save()
 
     def disapprove_product_price(self, request, queryset):
+        failed_counter = 0
+        success_counter = 0
         for product in queryset:
-            product.approval_status = ProductPrice.DEACTIVATED
-            product.save()
+            if product.buyer_shop or product.pincode or product.city:
+                product.approval_status = ProductPrice.DEACTIVATED
+                product.save()
+                success_counter+=1
+            else:
+                failed_counter+=1
+        if success_counter>0:
+            self.message_user(request, '{} prices were deactivated.'.format(success_counter), level=messages.SUCCESS)
+        if failed_counter>0:
+            self.message_user(request, '{} warehouse level prices were not deactivated.'.format(failed_counter), level=messages.ERROR)
+
 
     approve_product_price.short_description = "Approve Selected Products Prices"
     approve_product_price.allowed_permissions = ('change',)
@@ -1662,7 +1673,7 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
         response['Content-Disposition'] = 'attachment; filename=slab_product_prices.csv'
         return response
 
-    actions = [export_as_csv,]
+    actions = [export_as_csv, disapprove_product_price]
     change_list_template = 'admin/products/products-slab-price-change-list.html'
 
 

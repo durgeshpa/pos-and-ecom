@@ -356,8 +356,7 @@ class Product(models.Model):
                     Q(city_id=buyer_shop_dt.get('city_id')) | Q(city_id=None),
                     Q(pincode_id=buyer_shop_dt.get('pincode_link')) | Q(pincode_id=None),
                     Q(buyer_shop_id=buyer_shop_id) | Q(buyer_shop_id=None),
-                    approval_status=ProductPrice.APPROVED,
-                    start_date__lte=today, end_date__gte=today)\
+                    approval_status=ProductPrice.APPROVED)\
             .order_by('start_date')
         if product_price.count() > 1:
             product_price = product_price.filter(
@@ -556,8 +555,8 @@ class ProductPrice(models.Model):
                     product=self.product,
                     seller_shop=self.seller_shop,
                     buyer_shop=self.buyer_shop,
-                    city=self.city,
-                    pincode=self.pincode,
+                    city_id=self.city_id,
+                    pincode_id=self.pincode_id,
                     approval_status=ProductPrice.APPROVED
                 )
             elif self.pincode:

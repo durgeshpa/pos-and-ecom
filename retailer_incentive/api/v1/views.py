@@ -15,6 +15,8 @@ from shops.models import ShopUserMapping, Shop, ParentRetailerMapping
 from retailer_incentive.common_function import get_user_id_from_token, get_total_sales, shop_scheme_not_mapped
 from accounts.models import User
 
+from retailer_backend.utils import SmallOffsetPagination
+
 logger = logging.getLogger('dashboard-api')
 
 today = datetime.date.today()
@@ -150,7 +152,8 @@ class SalesManagerLogin(APIView):
             if user.user_type == 7:  # 'Sales Manager'
                 executive_list = ShopUserMapping.objects.filter(manager__in=self.get_manager(), status=True).order_by(
                     'employee').distinct('employee')
-                executive_serializer = self.serializer_class(executive_list, many=True)
+                executive_list_paginate = SmallOffsetPagination().paginate_queryset(executive_list, request)
+                executive_serializer = self.serializer_class(executive_list_paginate, many=True)
                 if executive_serializer.data:
                     message = [SUCCESS_MESSAGES["2001"]]
                 else:
@@ -295,6 +298,7 @@ class IncentiveDashBoard(APIView):
                                        'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
                                        }
                     scheme_data_list.append(scheme_data)
+            scheme_data_list = SmallOffsetPagination().paginate_queryset(scheme_data_list, self.request)
             return scheme_data_list
 
 
