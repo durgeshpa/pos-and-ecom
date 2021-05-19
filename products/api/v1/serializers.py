@@ -9,7 +9,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 from rest_framework import serializers
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping
+    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
 from categories.models import Category
 from brand.models import Brand
 
@@ -369,7 +369,7 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('parent_product_id_list', )
+        fields = ('parent_product_id_list',)
 
     def validate(self, data):
 
@@ -392,13 +392,14 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
 
     def product_cess(self, obj):
         if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='cess').exists():
-            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='cess').last().tax.tax_percentage)
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj,
+                                                                        tax__tax_type='cess').last().tax.tax_percentage)
         return ''
-
 
     def product_surcharge(self, obj):
         if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='surcharge').exists():
-            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='surcharge').last().tax.tax_percentage)
+            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj,
+                                                                        tax__tax_type='surcharge').last().tax.tax_percentage)
         return ''
 
     def product_category(self, obj):
@@ -455,7 +456,6 @@ class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
         model = ParentProduct
         fields = ('parent_product_id_list', 'is_active',)
 
-
     def validate(self, data):
 
         if data.get('is_active') is None:
@@ -494,7 +494,6 @@ class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
 
 
 class ProductCappingSerializers(serializers.ModelSerializer):
-
     product_name = serializers.SerializerMethodField()
     product_sku = serializers.SerializerMethodField()
     seller_shop_name = serializers.SerializerMethodField()
@@ -602,3 +601,10 @@ class ProductCappingSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return product_capping
+
+
+class ProductVendorMappingSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = ProductVendorMapping
+        fields = ('vendor', 'product', 'product_price', 'product_price_pack',
+                  'product_mrp', 'case_size', 'status')

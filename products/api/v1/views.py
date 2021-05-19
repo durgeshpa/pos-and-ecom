@@ -12,15 +12,16 @@ from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, \
-    ProductCappingSerializers
+    ProductCappingSerializers, ProductVendorMappingSerializers
 
 
 class ParentProduct(GenericAPIView):
 
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
+    authentication_classes = ()
+    permission_classes = ()
     parser_classes = [MultipartJsonParser, JSONParser]
     parent_product_list = ParentProducts.objects.all()
+    serializer_class = ParentProductSerializers
 
     def get(self, request):
 
@@ -281,7 +282,3 @@ class ProductCapping(GenericAPIView):
         msg = {'is_success': True, 'message': ['Product Capping were deleted successfully!'],
                'response_data': {'results': None}}
         return Response(msg, status=status.HTTP_200_OK)
-
-
-
-
