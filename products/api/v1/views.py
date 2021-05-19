@@ -38,13 +38,12 @@ class ParentProduct(GenericAPIView):
                 return get_response(id_validation['error'])
             parent_product = id_validation['data']
         else:
-            """ GET API to get Parent Product List """
+            """ GET API for Parent Product List """
             self.queryset = self.get_parent_product_list()
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(parent_product, many=True)
-        msg = {'is_success': True, 'message': ['Parent Product List'], 'response_data': {'results': serializer.data}}
-        return Response(msg, status=status.HTTP_200_OK)
+        return get_response('Parent Product List!', serializer.data)
 
     def post(self, request):
 
@@ -61,10 +60,7 @@ class ParentProduct(GenericAPIView):
         """ PUT API for Parent Product Updation with Image Category & Tax """
 
         if not request.POST.get('id'):
-            msg = {'is_success': False,
-                   'message': 'Please Provide a id to update parent product',
-                   'data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            return get_response('Please Provide a id to update parent product', False)
 
         # validations for input id
         id_instance = validate_id(self.queryset, int(request.POST.get('id')))
@@ -129,9 +125,7 @@ class ParentProductBulkUpload(CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            msg = {'is_success': True, 'message': ['Parent Product CSV uploaded successfully !'],
-                   'response_data': {'results': None}}
-            return Response(msg, status=status.HTTP_201_CREATED)
+            return get_response('Parent Product CSV uploaded successfully !', serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -164,9 +158,7 @@ class ActiveDeactivateSelectedProduct(GenericAPIView):
                             data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            msg = {'is_success': True, 'message': ['Parent Product Updated'],
-                   'response_data': {'results': serializer.data}}
-            return Response(msg, status=status.HTTP_200_OK)
+            return get_response('Parent Product Updated', serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -192,8 +184,7 @@ class ProductCapping(GenericAPIView):
             product_capping = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_capping, many=True)
-        msg = {'is_success': True, 'message': ['Product Capping List'], 'response_data': {'results': serializer.data}}
-        return Response(msg, status=status.HTTP_200_OK)
+        return get_response('Product Capping List', serializer.data)
 
     def post(self, request):
 
@@ -202,9 +193,7 @@ class ProductCapping(GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            msg = {'is_success': True, 'message': ['Product Capping Created'],
-                   'response_data': {'results': [serializer.data]}}
-            return Response(msg, status=status.HTTP_201_CREATED)
+            return get_response('Product Capping Created', serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request):
@@ -212,25 +201,17 @@ class ProductCapping(GenericAPIView):
         """ Put API for Product Capping Updation """
 
         if not request.data.get('id'):
-            msg = {'is_success': False,
-                   'message': 'Please Provide id to update product capping',
-                   'data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            return get_response('Please Provide id to update product capping', False)
         cap_product_id = int(request.data.get('id'))
         try:
-            id_instance = self.product_capping_list.get(id=cap_product_id)
+            id_instance = self.queryset.get(id=cap_product_id)
         except ObjectDoesNotExist:
-            msg = {'is_success': False,
-                   'message': f'product capping id "{cap_product_id}" not found, Please Provide a Valid id',
-                   'data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            return get_response(f'id {cap_product_id} not found', False)
 
         serializer = self.serializer_class(instance=id_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            msg = {'is_success': True, 'message': ['Product Capping Updated'],
-                   'response_data': {'results': [serializer.data]}}
-            return Response(msg, status=status.HTTP_200_OK)
+            return get_response('Product Capping Updated', serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
@@ -238,23 +219,14 @@ class ProductCapping(GenericAPIView):
         """ Delete Product Capping """
 
         if not request.data.get('product_capping_id'):
-            msg = {'is_success': False,
-                   'message': 'Please Provide a product_capping_id',
-                   'data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            return get_response('Please Provide a product_capping_id', False)
         try:
             for cap_product_id in request.data.get('product_capping_id'):
-                product_capping_id = self.product_capping_list.get(id=int(cap_product_id))
+                product_capping_id = self.queryset.get(id=int(cap_product_id))
                 product_capping_id.delete()
         except ObjectDoesNotExist:
-            msg = {'is_success': False,
-                   'message': f'id {cap_product_id} not found',
-                   'data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-
-        msg = {'is_success': True, 'message': ['Product Capping were deleted successfully!'],
-               'response_data': {'results': None}}
-        return Response(msg, status=status.HTTP_200_OK)
+            return get_response(f'id {cap_product_id} not found', False)
+        return get_response('Product Capping were deleted successfully!', [], True)
 
     def get_product_capping(self):
         product_sku = self.request.GET.get('product_sku')
