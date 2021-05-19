@@ -4,7 +4,6 @@ import datetime
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 from django.db.models import Q, Sum
-from django.core.validators import MinValueValidator
 
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, \
@@ -26,14 +25,12 @@ class RetailerProductImageSerializer(serializers.ModelSerializer):
 class RetailerProductCreateSerializer(serializers.Serializer):
     shop_id = serializers.IntegerField()
     product_name = serializers.CharField(required=True, validators=[ProductNameValidator], max_length=255)
-    mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=True,
-                                   validators=[MinValueValidator(Decimal('0.01'))])
-    selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True,
-                                             validators=[MinValueValidator(Decimal('0.01'))])
+    mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=True, min_value=0.01)
+    selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=True, min_value=0.01)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='',
                                         max_length=255)
     product_ean_code = serializers.CharField(required=True, max_length=255)
-    linked_product_id = serializers.IntegerField(required=False, default=None, validators=[MinValueValidator(1)])
+    linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1)
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
 
     @staticmethod
@@ -77,13 +74,12 @@ class RetailerProductResponseSerializer(serializers.ModelSerializer):
 
 class RetailerProductUpdateSerializer(serializers.Serializer):
     shop_id = serializers.IntegerField()
-    product_id = serializers.IntegerField(required=True, validators=[MinValueValidator(1)])
+    product_id = serializers.IntegerField(required=True, min_value=1)
     product_ean_code = serializers.CharField(required=False, default=None, max_length=255)
     product_name = serializers.CharField(required=False, validators=[ProductNameValidator], default=None, max_length=255)
-    mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=None,
-                                   validators=[MinValueValidator(Decimal('0.01'))])
+    mrp = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=None, min_value=0.01)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=None,
-                                             validators=[MinValueValidator(Decimal('0.01'))])
+                                             min_value=0.01)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False,
                                         default=None, max_length=255)
     status = serializers.ChoiceField(choices=['active', 'deactivated'], required=False, default=None)
@@ -697,7 +693,7 @@ class OfferCreateSerializer(serializers.Serializer):
 
 
 class OfferGetSerializer(serializers.Serializer):
-    id = serializers.IntegerField(required=True, validators=[MinValueValidator(1)])
+    id = serializers.IntegerField(required=True, min_value=1)
     shop_id = serializers.IntegerField()
 
     def validate(self, data):
@@ -708,7 +704,7 @@ class OfferGetSerializer(serializers.Serializer):
 
 
 class OfferUpdateSerializer(serializers.Serializer):
-    id = serializers.IntegerField(required=True, validators=[MinValueValidator(1)])
+    id = serializers.IntegerField(required=True, min_value=1)
     start_date = serializers.DateField(required=False)
     end_date = serializers.DateField(required=False)
     is_active = serializers.BooleanField(required=False)
@@ -773,13 +769,10 @@ class DiscountSerializer(serializers.ModelSerializer):
 
 class CouponOfferSerializer(serializers.Serializer):
     coupon_name = serializers.CharField(required=True, max_length=255)
-    order_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=2,
-                                           validators=[MinValueValidator(Decimal('0.01'))])
+    order_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=2, min_value=0.01)
     is_percentage = serializers.BooleanField(default=0)
-    discount_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=2,
-                                              validators=[MinValueValidator(Decimal('0.01'))])
-    max_discount = serializers.DecimalField(max_digits=12, decimal_places=2, default=0,
-                                            validators=[MinValueValidator(Decimal('0.00'))])
+    discount_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=2, min_value=0.01)
+    max_discount = serializers.DecimalField(max_digits=12, decimal_places=2, default=0, min_value=0)
 
     def validate(self, data):
         coupon_name_validation(data.get('coupon_name'))
@@ -789,14 +782,12 @@ class CouponOfferSerializer(serializers.Serializer):
 
 class ComboOfferSerializer(serializers.Serializer):
     coupon_name = serializers.CharField(required=True, max_length=255)
-    primary_product_id = serializers.IntegerField(required=True)
+    primary_product_id = serializers.IntegerField(required=True, min_value=1)
     primary_product_name = serializers.SerializerMethodField()
-    primary_product_qty = serializers.IntegerField(required=True, validators=[MinValueValidator(1)],
-                                                   max_digits=10)
-    free_product_id = serializers.IntegerField(required=True)
+    primary_product_qty = serializers.IntegerField(required=True, min_value=1, max_value=9999999999)
+    free_product_id = serializers.IntegerField(required=True, min_value=1)
     free_product_name = serializers.SerializerMethodField()
-    free_product_qty = serializers.IntegerField(required=True, validators=[MinValueValidator(1)],
-                                                max_digits=10)
+    free_product_qty = serializers.IntegerField(required=True, min_value=1, max_value=9999999999)
 
     def validate(self, data):
         validate_retailer_product(data.get('primary_product_id'), 'Primary')
@@ -817,12 +808,10 @@ class ComboOfferSerializer(serializers.Serializer):
 
 class FreeProductOfferSerializer(serializers.Serializer):
     coupon_name = serializers.CharField(required=True, max_length=255)
-    order_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=2,
-                                           validators=[MinValueValidator(Decimal('0.01'))])
-    free_product_id = serializers.IntegerField(required=True)
+    order_value = serializers.DecimalField(required=True, max_digits=12, decimal_places=2, min_value=0.01)
+    free_product_id = serializers.IntegerField(required=True, min_value=1)
     free_product_name = serializers.SerializerMethodField()
-    free_product_qty = serializers.IntegerField(required=True, validators=[MinValueValidator(1)],
-                                                max_digits=10)
+    free_product_qty = serializers.IntegerField(required=True, min_value=1, max_value=9999999999)
 
     def validate(self, data):
         validate_retailer_product(data.get('free_product_id'), 'Free')
@@ -836,7 +825,7 @@ class FreeProductOfferSerializer(serializers.Serializer):
 
 
 class FreeProductOfferUpdateSerializer(serializers.Serializer):
-    id = serializers.IntegerField(required=True)
+    id = serializers.IntegerField(required=True, min_value=1)
     coupon_name = serializers.CharField(required=False, max_length=255)
 
     def validate(self, data):
@@ -846,7 +835,7 @@ class FreeProductOfferUpdateSerializer(serializers.Serializer):
 
 
 class CouponOfferUpdateSerializer(serializers.Serializer):
-    id = serializers.IntegerField(required=True)
+    id = serializers.IntegerField(required=True, min_value=1)
     coupon_name = serializers.CharField(required=False, max_length=255)
 
     def validate(self, data):
@@ -856,7 +845,7 @@ class CouponOfferUpdateSerializer(serializers.Serializer):
 
 
 class ComboOfferUpdateSerializer(serializers.Serializer):
-    id = serializers.IntegerField(required=True)
+    id = serializers.IntegerField(required=True, min_value=1)
     coupon_name = serializers.CharField(required=False, max_length=255)
 
     def validate(self, data):
