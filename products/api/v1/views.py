@@ -103,9 +103,8 @@ class ParentProduct(GenericAPIView):
         # search using parent_id, name & category_name based on criteria that matches
         if search_text:
             self.queryset = self.queryset.filter(Q(name__icontains=search_text)
-                                                 | Q(
-                parent_product_pro_category__category__category_name__icontains=search_text)
-                                                 | Q(parent_id__icontains=search_text))
+                                 | Q(parent_product_pro_category__category__category_name__icontains=search_text)
+                                 | Q(parent_id__icontains=search_text))
 
         # filter using brand_name, category & product_status exact match
         if brand is not None:
@@ -186,29 +185,14 @@ class ProductCapping(GenericAPIView):
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            parent_product = id_validation['data']
+            product_capping = id_validation['data']
 
         else:
             """ GET API to get Parent Product List """
-            product_sku = request.GET.get('product_sku')
-            product_name = request.GET.get('product_name')
-            product_capping_status = request.GET.get('status')
-            seller_shop = request.GET.get('seller_shop')
+            self.queryset = self.get_product_capping()
+            product_capping = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
-            # filter using product_sku, seller_shop, product_capping_status & product_name
-            if product_sku is not None:
-                self.queryset = self.queryset.filter(product__product_sku__icontains=product_sku)
-            if seller_shop is not None:
-                self.queryset = self.queryset.filter(seller_shop_id=seller_shop)
-            if product_capping_status is not None:
-                self.queryset = self.queryset.filter(status=product_capping_status)
-            if product_name is not None:
-                self.queryset = self.queryset.filter(
-                    product_id=product_name)
-
-            parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-
-        serializer = self.serializer_class(parent_product, many=True)
+        serializer = self.serializer_class(product_capping, many=True)
         msg = {'is_success': True, 'message': ['Product Capping List'], 'response_data': {'results': serializer.data}}
         return Response(msg, status=status.HTTP_200_OK)
 
@@ -274,5 +258,21 @@ class ProductCapping(GenericAPIView):
         return Response(msg, status=status.HTTP_200_OK)
 
 
+    def get_product_capping(self):
+        product_sku = self.request.GET.get('product_sku')
+        product_name = self.request.GET.get('product_name')
+        product_capping_status = self.request.GET.get('status')
+        seller_shop = self.request.GET.get('seller_shop')
 
+        # filter using product_sku, seller_shop, product_capping_status & product_name
+        if product_sku is not None:
+            self.queryset = self.queryset.filter(product__product_sku__icontains=product_sku)
+        if seller_shop is not None:
+            self.queryset = self.queryset.filter(seller_shop_id=seller_shop)
+        if product_capping_status is not None:
+            self.queryset = self.queryset.filter(status=product_capping_status)
+        if product_name is not None:
+            self.queryset = self.queryset.filter(
+                product_id=product_name)
 
+        return self.queryset
