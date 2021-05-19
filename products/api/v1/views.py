@@ -66,14 +66,13 @@ class ParentProduct(GenericAPIView):
                    'data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
-        id_instance = self.queryset.filter(id=int(request.POST.get('id'))).last()
-        if id_instance is None:
-            msg = {'is_success': False,
-                   'message': 'Please Provide a Valid id to update parent product',
-                   'data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.POST.get('id')))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        parent_product_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=id_instance, data=request.data, partial=True)
+        serializer = self.serializer_class(instance=parent_product_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return get_response('Parent Product Updated', serializer.data)
@@ -256,7 +255,6 @@ class ProductCapping(GenericAPIView):
         msg = {'is_success': True, 'message': ['Product Capping were deleted successfully!'],
                'response_data': {'results': None}}
         return Response(msg, status=status.HTTP_200_OK)
-
 
     def get_product_capping(self):
         product_sku = self.request.GET.get('product_sku')
