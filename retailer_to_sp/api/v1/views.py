@@ -3525,14 +3525,18 @@ class OrderReturns(APIView):
             return {'error': 'Provide a valid return reason'}
         # Check return item details
         ordered_product = OrderedProduct.objects.get(order=order)
-        all_products = ordered_product.rt_order_product_order_product_mapping.filter(product_type=1).values_list(
-            'retailer_product_id', flat=True)
+        all_products = ordered_product.rt_order_product_order_product_mapping.filter(product_type=1)
         given_products = []
         for item in return_items:
             given_products += [item['product_id']]
-        for pid in all_products:
-            if pid not in given_products:
-                return {'error': 'Please provide details for all purchased products'}
+        for prod in all_products:
+            if prod.retailer_product_id not in given_products:
+                return_items.append({
+                    "product_id": int(prod.retailer_product_id),
+                    "qty": 0,
+                    "new_sp": float(prod.selling_price)
+                })
+                # return {'error': 'Please provide details for all purchased products'}
         return_details = []
         for return_product in return_items:
             product_validate = self.validate_product(ordered_product, return_product, order.order_status)
