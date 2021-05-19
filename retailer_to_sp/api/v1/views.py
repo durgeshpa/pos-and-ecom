@@ -3566,7 +3566,7 @@ class OrderReturns(APIView):
         # refund_amount_provided = self.request.data.get('refund_amount')
         # if refund_amount_provided and refund_amount_provided <= refund_amount:
         #     refund_amount = refund_amount_provided
-        order_return.refund_amount = refund_amount
+        order_return.refund_amount = refund_amount if refund_amount > 0 else 0
         # order_return.offers = [order_offer] if order_offer else []
         order_return.save()
 
@@ -3963,7 +3963,7 @@ class OrderReturnComplete(APIView):
             order_number = order.order_no
             order_status = order.order_status
             phone_number = order.buyer.phone_number
-            refund_amount = order.rt_return_order.all()[0].refund_amount
+            refund_amount = order_return.refund_amount
             whatsapp_order_refund.delay(order_number, order_status, phone_number, refund_amount)
             return get_response("Return Completed Successfully!", OrderReturnCheckoutSerializer(order).data)
 
