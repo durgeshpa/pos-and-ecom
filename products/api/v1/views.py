@@ -14,7 +14,7 @@ from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers
-from products.common_function import get_response
+from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id
 from products.services import parent_product_search
 
@@ -61,7 +61,7 @@ class ParentProduct(GenericAPIView):
         if serializer.is_valid():
             serializer.save()
             return get_response('Parent Product created successfully!', serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return get_response(serializer_error(serializer), False)
 
     def put(self, request):
 
@@ -80,7 +80,7 @@ class ParentProduct(GenericAPIView):
         if serializer.is_valid():
             serializer.save()
             return get_response('Parent Product Updated', serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return get_response(serializer_error(serializer), False)
 
     def delete(self, request):
 
@@ -130,7 +130,7 @@ class ParentProductBulkUpload(CreateAPIView):
         if serializer.is_valid():
             serializer.save()
             return get_response('Parent Product CSV uploaded successfully !', serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return get_response(serializer_error(serializer), False)
 
 
 class ParentProductExportAsCSV(GenericAPIView):
@@ -145,7 +145,7 @@ class ParentProductExportAsCSV(GenericAPIView):
         if serializer.is_valid():
             response = serializer.save()
             return response
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return get_response(serializer_error(serializer), False)
 
 
 class ActiveDeactivateSelectedProduct(GenericAPIView):
@@ -163,7 +163,7 @@ class ActiveDeactivateSelectedProduct(GenericAPIView):
         if serializer.is_valid():
             serializer.save()
             return get_response('Parent Product Updated', serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return get_response(serializer_error(serializer), False)
 
 
 class ProductCapping(GenericAPIView):
@@ -198,7 +198,7 @@ class ProductCapping(GenericAPIView):
         if serializer.is_valid():
             serializer.save()
             return get_response('Product Capping Created', serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return get_response(serializer_error(serializer), False)
 
     def put(self, request):
 
@@ -216,7 +216,7 @@ class ProductCapping(GenericAPIView):
         if serializer.is_valid():
             serializer.save()
             return get_response('Product Capping Updated', serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return get_response(serializer_error(serializer), False)
 
     def delete(self, request):
 

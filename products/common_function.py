@@ -1,5 +1,3 @@
-import logging
-
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -7,12 +5,6 @@ from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn
 from categories.models import Category
-
-# Logger
-info_logger = logging.getLogger('file-info')
-error_logger = logging.getLogger('file-error')
-debug_logger = logging.getLogger('file-debug')
-cron_logger = logging.getLogger('cron_log')
 
 
 class ParentProductCls(object):
@@ -58,7 +50,7 @@ class ParentProductCls(object):
         """
         if ParentProductTaxMapping.objects.filter(parent_product=parent_product).exists():
             ParentProductTaxMapping.objects.filter(parent_product=parent_product).delete()
-            
+
         for tax_data in parent_product_pro_tax:
             tax = Tax.objects.filter(id=tax_data['tax']).last()
             ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
@@ -80,3 +72,16 @@ def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
     return Response(result, status=status_code)
 
 
+def serializer_error(serializer):
+    """
+        Serializer Error Method
+    """
+    errors = []
+    for field in serializer.errors:
+        for error in serializer.errors[field]:
+            if 'non_field_errors' in field:
+                result = error
+            else:
+                result = ''.join('{} : {}'.format(field, error))
+            errors.append(result)
+    return errors[0]
