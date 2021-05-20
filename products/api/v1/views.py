@@ -24,8 +24,11 @@ logger = logging.getLogger(__name__)
 
 class ParentProduct(GenericAPIView):
     """
-        List Parent Product, Create a new Parent Product
-        Delete Selected Parent Product, Update Parent Product.
+        Get Parent Product
+        Add Parent Product
+        Search Parent Product
+        List Parent Product,
+        Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -37,16 +40,16 @@ class ParentProduct(GenericAPIView):
     serializer_class = ParentProductSerializers
 
     def get(self, request):
+        """ GET API for Parent Product with Image Category & Tax """
 
         if request.GET.get('id'):
-            """ Get Parent Product when id is given in params """
-            # validations for input id
+            """ Get Parent Product for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
             parent_product = id_validation['data']
         else:
-            """ GET API for Parent Product List """
+            """ GET Parent Product List """
             self.queryset = self.get_parent_product_list()
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
@@ -54,13 +57,12 @@ class ParentProduct(GenericAPIView):
         return get_response('Parent Product List!', serializer.data)
 
     def post(self, request):
-
         """ POST API for Parent Product Creation with Image Category & Tax """
 
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return get_response('Parent Product created successfully!', serializer.data)
+            return get_response('parent product created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):

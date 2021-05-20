@@ -88,32 +88,37 @@ class ParentProductSerializers(serializers.ModelSerializer):
             if 'error' in is_ptr_applicable:
                 raise serializers.ValidationError(is_ptr_applicable['error'])
 
-        if not self.initial_data['parent_brand']:
+        if not 'parent_brand' in self.initial_data or not self.initial_data['parent_brand']:
             raise serializers.ValidationError(_('parent_brand is required'))
+
+        if not 'product_hsn' in self.initial_data or not self.initial_data['product_hsn']:
+            raise serializers.ValidationError(_('product_hsn is required'))
+
+        if len(self.initial_data.getlist('parent_product_pro_image')) == 0:
+            raise serializers.ValidationError(_('parent_product_image is required'))
+
+        if len(self.initial_data.getlist('parent_product_pro_category')) == 0:
+            raise serializers.ValidationError(_('parent_product_category is required'))
+
+        if len(self.initial_data.getlist('parent_product_pro_tax')) == 0:
+            raise serializers.ValidationError(_('parent_product_pro_tax is required'))
+
         parent_brand_val = get_validate_parent_brand(self.initial_data['parent_brand'])
         if 'error' in parent_brand_val:
             raise serializers.ValidationError(parent_brand_val['error'])
 
-        if not self.initial_data['product_hsn']:
-            raise serializers.ValidationError(_('product_hsn is required'))
         product_hsn_val = get_validate_product_hsn(self.initial_data['product_hsn'])
         if 'error' in product_hsn_val:
             raise serializers.ValidationError(_(f'{product_hsn_val["error"]}'))
 
-        if len(self.initial_data.getlist('parent_product_pro_image')) == 0:
-            raise serializers.ValidationError(_('parent_product_image is required'))
         image_val = get_validate_images(self.initial_data.getlist('parent_product_pro_image'))
         if 'error' in image_val:
             raise serializers.ValidationError(_(image_val["error"]))
 
-        if len(self.initial_data.getlist('parent_product_pro_category')) == 0:
-            raise serializers.ValidationError(_('parent_product_category is required'))
         category_val = get_validate_category(self.initial_data['parent_product_pro_category'])
         if 'error' in category_val:
             raise serializers.ValidationError(_(category_val["error"]))
 
-        if len(self.initial_data.getlist('parent_product_pro_tax')) == 0:
-            raise serializers.ValidationError(_('parent_product_pro_tax is required'))
         tax_val = get_validate_tax(self.initial_data['parent_product_pro_tax'])
         if 'error' in tax_val:
             raise serializers.ValidationError(_(tax_val["error"]))
@@ -142,7 +147,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        ParentProductCls.upload_parent_product_images(parent_product, self.initial_data.getlist('parent_product_pro_image'))
+        ParentProductCls.upload_parent_product_images(parent_product,
+                                                      self.initial_data.getlist('parent_product_pro_image'))
         ParentProductCls.create_parent_product_category(parent_product, self.initial_data['parent_product_pro_category'])
         ParentProductCls.create_parent_product_tax(parent_product, self.initial_data['parent_product_pro_tax'])
 
@@ -162,7 +168,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        ParentProductCls.upload_parent_product_images(parent_product, self.initial_data.getlist('parent_product_pro_image'))
+        ParentProductCls.upload_parent_product_images(parent_product,
+                                                      self.initial_data.getlist('parent_product_pro_image'))
         ParentProductCls.create_parent_product_category(parent_product, self.initial_data['parent_product_pro_category'])
         ParentProductCls.create_parent_product_tax(parent_product, self.initial_data['parent_product_pro_tax'])
 
@@ -460,8 +467,8 @@ class ShopSerializers(serializers.ModelSerializer):
 
 
 class ProductCappingSerializers(serializers.ModelSerializer):
-    product = ProductSerializers()
-    seller_shop = ShopSerializers()
+    product = ProductSerializers(read_only=True)
+    seller_shop = ShopSerializers(read_only=True)
 
     class Meta:
         model = ProductCapping
@@ -470,7 +477,10 @@ class ProductCappingSerializers(serializers.ModelSerializer):
     def validate(self, data):
 
         if not self.instance:
-            if data.get('seller_shop') is None:
+            if self.initial_data['product'] is None:
+                raise serializers.ValidationError('product is required')
+
+            if self.initial_data['seller_shop'] is None:
                 raise serializers.ValidationError('seller_shop is required')
 
             """ check capping is active for the selected sku and warehouse """
