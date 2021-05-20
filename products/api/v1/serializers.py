@@ -14,8 +14,9 @@ from categories.models import Category
 from brand.models import Brand
 from shops.models import Shop
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, \
-    get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation
-from products.common_function import ParentProductCls
+    get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation, \
+    get_validate_product, get_validate_seller_shop, check_active_capping
+from products.common_function import ParentProductCls, ProductCls
 
 
 class BrandSerializers(serializers.ModelSerializer):
@@ -476,39 +477,24 @@ class ProductCappingSerializers(serializers.ModelSerializer):
 
     def validate(self, data):
 
-        if not self.instance:
-            if self.initial_data['product'] is None:
-                raise serializers.ValidationError('product is required')
+        if self.initial_data['product'] is None:
+            raise serializers.ValidationError('product is required')
 
-            if self.initial_data['seller_shop'] is None:
-                raise serializers.ValidationError('seller_shop is required')
+        product_val = get_validate_product(self.initial_data['product'])
+        if 'error' in product_val:
+            raise serializers.ValidationError(product_val['error'])
 
-            """ check capping is active for the selected sku and warehouse """
-            if ProductCapping.objects.filter(seller_shop=data.get('seller_shop'),
-                                             product=data.get('product'),
-                                             status=True).exists():
-                raise serializers.ValidationError(
-                    "Another Capping is Active for the selected SKU or selected Warehouse.")
+        if self.initial_data['seller_shop'] is None:
+            raise serializers.ValidationError('seller_shop is required')
 
-            if data.get('capping_type') is None:
-                raise serializers.ValidationError('Please select the Capping Type.')
+        seller_shop_val = get_validate_seller_shop(self.initial_data['seller_shop'])
+        if 'error' in seller_shop_val:
+            raise serializers.ValidationError(seller_shop_val['error'])
 
-            if data.get('start_date') is None:
-                raise serializers.ValidationError('start_date is required')
-
-            if data.get('end_date') is None:
-                raise serializers.ValidationError('end_date is required')
-
-            if data.get('start_date') > data.get('end_date'):
-                raise serializers.ValidationError("Start Date should be less than End Date.")
-
-            if data.get('capping_qty') is None:
-                raise serializers.ValidationError('capping_qty is required')
-
-        if self.instance:
-            if data.get('end_date'):
-                if self.instance.start_date > data.get('end_date'):
-                    raise serializers.ValidationError("End Date should be greater than Start Date.")
+        """ check capping is active for the selected sku and warehouse """
+        active_capping = check_active_capping(self.initial_data['seller_shop'], self.initial_data['product'])
+        if 'error' in active_capping:
+            raise serializers.ValidationError(active_capping['error'])
 
         # check capping quantity is zero or not
         if data.get('capping_qty') == 0:
@@ -520,46 +506,38 @@ class ProductCappingSerializers(serializers.ModelSerializer):
 
     def capping_duration_check(self, data):
         """ Capping Duration check according to capping type """
-        if self.instance:
-            # if capping type is Daily, & check this condition for Weekly & Monthly as Well
-            day_difference = data.get('end_date').date() - self.instance.start_date.date()
-            if day_difference.days == 0:
+
+        # if capping type is Daily, & check this condition for Weekly & Monthly as Well
+        day_difference = data.get('end_date').date() - data.get('start_date').date()
+        if day_difference.days == 0:
+            raise serializers.ValidationError("Please enter valid Start Date and End Date.")
+
+        # if capping type is Weekly
+        if data.get('capping_type') == 1:
+            if not day_difference.days % 7 == 0:
                 raise serializers.ValidationError("Please enter valid Start Date and End Date.")
 
-            # if capping type is Weekly
-            if self.instance.capping_type == 1:
-                if not day_difference.days % 7 == 0:
-                    raise serializers.ValidationError("Please enter valid End Date.")
-
-            # if capping type is Monthly
-            elif self.instance.capping_type == 2:
-                if not day_difference.days % 30 == 0:
-                    raise serializers.ValidationError("Please enter valid End Date.")
-        else:
-            # if capping type is Daily, & check this condition for Weekly & Monthly as Well
-            day_difference = data.get('end_date').date() - data.get('start_date').date()
-            if day_difference.days == 0:
+        # if capping type is Monthly
+        elif data.get('capping_type') == 2:
+            if not day_difference.days % 30 == 0:
                 raise serializers.ValidationError("Please enter valid Start Date and End Date.")
 
-            # if capping type is Weekly
-            if data.get('capping_type') == 1:
-                if not day_difference.days % 7 == 0:
-                    raise serializers.ValidationError("Please enter valid Start Date and End Date.")
+    @transaction.atomic
+    def create(self, validated_data):
+        """ create product capping """
+        try:
+            product_capping = ProductCls.create_product_capping(self.initial_data['product'],
+                                                                self.initial_data['seller_shop'], **validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
 
-            # if capping type is Monthly
-            elif data.get('capping_type') == 2:
-                if not day_difference.days % 30 == 0:
-                    raise serializers.ValidationError("Please enter valid Start Date and End Date.")
+        return product_capping
 
     @transaction.atomic
     def update(self, instance, validated_data):
         """update a Product Capping """
         try:
-            # non editable fields
-            validated_data.pop('product', None)
-            validated_data.pop('seller_shop', None)
-            validated_data.pop('capping_type', None)
-            validated_data.pop('start_date', None)
             product_capping = super().update(instance, validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}

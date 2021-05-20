@@ -3,6 +3,7 @@ from brand.models import Brand
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
 from categories.models import Category
+from shops.models import Shop
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ def valid_image_extension(image, extension_list=VALID_IMAGE_EXTENSIONS):
 def validate_id(queryset, id):
     """ validation only ids that belong to a selected related model """
     if not queryset.filter(id=id).exists():
-        return {'error': 'Please Provide a Valid id'}
+        return {'error': 'please provide a valid id'}
     return {'data': queryset.filter(id=id)}
 
 
@@ -34,7 +35,7 @@ def get_validate_parent_brand(parent_brand):
         parent_brand_obj = Brand.objects.get(id=parent_brand)
     except Exception as e:
         logger.error(e)
-        return {'error': 'Please Provide a Valid parent_brand id'}
+        return {'error': 'please provide a valid parent_brand id'}
     return {'parent_brand': parent_brand_obj}
 
 
@@ -44,7 +45,7 @@ def get_validate_product_hsn(product_hsn):
         product_hsn = ProductHSN.objects.get(id=product_hsn)
     except Exception as e:
         logger.error(e)
-        return {'error': 'Please Provide a Valid parent_brand id'}
+        return {'error': 'please provide a valid parent_brand id'}
     return {'product_hsn': product_hsn}
 
 
@@ -92,6 +93,7 @@ def get_validate_images(parent_product_pro_image):
 
 
 def is_ptr_applicable_validation(data):
+    """ id is_ptr_applicable check ptr_type & ptr_percent"""
     if not data.get('ptr_type'):
         return {'error': 'Invalid PTR Type'}
     elif not data.get('ptr_percent'):
@@ -99,6 +101,31 @@ def is_ptr_applicable_validation(data):
     return data
 
 
+def get_validate_product(product):
+    """ validate product id that belong to a Product model"""
+    try:
+        product = Product.objects.get(id=product)
+    except Exception as e:
+        logger.error(e)
+        return {'error': 'please provide a valid product id'}
+    return {'product': product}
 
 
+def get_validate_seller_shop(seller_shop):
+    """ validate seller_shop id that belong to a Shop model also
+        checking shop_type 'sp' should be selected """
+    try:
+        seller_shop = Shop.objects.get(id=seller_shop, shop_type__shop_type='sp')
+    except Exception as e:
+        logger.error(e)
+        return {'error': 'please provide a valid seller_shop id'}
+    return {'seller_shop': seller_shop}
 
+
+def check_active_capping(seller_shop, product):
+    """ check capping is active for the selected sku and warehouse """
+    if ProductCapping.objects.filter(seller_shop=seller_shop,
+                                     product=product,
+                                     status=True).exists():
+        return {'error': 'Another Capping is Active for the selected SKU or selected Warehouse.'}
+    return {'seller_shop': seller_shop, 'product': product}

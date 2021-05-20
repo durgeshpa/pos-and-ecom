@@ -3,7 +3,8 @@ from rest_framework.response import Response
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
-from products.common_validators import get_validate_parent_brand, get_validate_product_hsn
+from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
+    get_validate_seller_shop
 from categories.models import Category
 
 
@@ -54,6 +55,18 @@ class ParentProductCls(object):
         for tax_data in parent_product_pro_tax:
             tax = Tax.objects.filter(id=tax_data['tax']).last()
             ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
+
+
+class ProductCls(object):
+    @classmethod
+    def create_product_capping(cls, product, seller_shop, **validated_data):
+        """
+            Create Product Capping
+        """
+        product_obj = get_validate_product(product)
+        seller_shop_obj = get_validate_seller_shop(seller_shop)
+        return ProductCapping.objects.create(product=product_obj['product'],
+                                             seller_shop=seller_shop_obj['seller_shop'], **validated_data)
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
