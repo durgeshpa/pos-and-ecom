@@ -3554,13 +3554,18 @@ class OrderReturns(APIView):
                     "new_sp": float(prod.selling_price)
                 })
                 # return {'error': 'Please provide details for all purchased products'}
+        modified = 0
         return_details = []
         for return_product in return_items:
             product_validate = self.validate_product(ordered_product, return_product, order.order_status)
             if 'error' in product_validate:
                 return product_validate
             else:
+                if product_validate['return_qty'] > 0 or product_validate['price_change']:
+                    modified = 1
                 return_details.append(product_validate)
+        if not modified:
+            return {'error': 'Please provide Return Info for at least one item'}
         return {'order': order, 'return_reason': return_reason, 'return_items': return_details,
                 'ordered_product': ordered_product}
 
