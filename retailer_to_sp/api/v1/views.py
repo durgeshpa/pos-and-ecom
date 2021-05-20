@@ -1556,7 +1556,7 @@ class CartCheckout(APIView):
                 offers = BasicCartOffers.apply_spot_discount(cart, spot_discount, self.request.data.get('is_percentage'))
             else:
                 # Get offers available now and apply coupon if applicable
-                offers = BasicCartOffers.refresh_offers(cart, False, self.request.data.get('coupon_id'))
+                offers = BasicCartOffers.refresh_offers(cart, False, self.request.data.get('coupon_id'), 1)
             if 'error' in offers:
                 return get_response(offers['error'])
             return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(cart))
@@ -1574,7 +1574,7 @@ class CartCheckout(APIView):
         auto_apply = self.request.GET.get('auto_apply')
         with transaction.atomic():
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
-            offers = BasicCartOffers.refresh_offers(cart, auto_apply)
+            offers = BasicCartOffers.refresh_offers(cart, auto_apply, None, 1)
             if 'error' in offers:
                 return get_response(offers['error'])
             return get_response("Cart Checkout", self.serialize(cart, offers['total_offers'], offers['spot_discount']))

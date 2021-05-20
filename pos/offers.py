@@ -12,7 +12,7 @@ es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-sou
 class BasicCartOffers(object):
 
     @classmethod
-    def refresh_offers(cls, cart, auto_apply=False, coupon_id=None):
+    def refresh_offers(cls, cart, auto_apply=False, coupon_id=None, checkout=1):
         """
             Refresh All Cart Offers
             Combo On all products
@@ -24,7 +24,7 @@ class BasicCartOffers(object):
             for product_mapping in cart_products:
                 cart_value += product_mapping.selling_price * product_mapping.qty
             # Add/Remove/Update combo offers on all products
-            offers_list = BasicCartOffers.refresh_combo(cart, cart_products)
+            offers_list = BasicCartOffers.refresh_combo(cart, cart_products) if not checkout else cart.offers
             # Check already applied cart offer
             offers_list = BasicCartOffers.refresh_basic_cart_offers(cart, float(cart_value),
                                                                     offers_list, auto_apply, coupon_id)
