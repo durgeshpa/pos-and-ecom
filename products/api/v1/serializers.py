@@ -14,7 +14,8 @@ from categories.models import Category
 from brand.models import Brand
 from shops.models import Shop
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, \
-    get_validate_images, get_validate_category, get_validate_tax
+    get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation
+from products.common_function import ParentProductCls
 
 
 class BrandSerializers(serializers.ModelSerializer):
@@ -83,10 +84,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
             is_ptr_applicable validation.
         """
         if data.get('is_ptr_applicable'):
-            if not data.get('ptr_type'):
-                raise serializers.ValidationError(_('Invalid PTR Type'))
-            elif not data.get('ptr_percent'):
-                raise serializers.ValidationError(_('Invalid PTR Percentage'))
+            is_ptr_applicable = is_ptr_applicable_validation(data)
+            if 'error' in is_ptr_applicable:
+                raise serializers.ValidationError(is_ptr_applicable['error'])
 
         if not self.initial_data['parent_brand']:
             raise serializers.ValidationError(_('parent_brand is required'))
@@ -104,19 +104,19 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(_('parent_product_image is required'))
         image_val = get_validate_images(self.initial_data.getlist('parent_product_pro_image'))
         if 'error' in image_val:
-            raise serializers.ValidationError(_(f'{image_val["error"]}'))
+            raise serializers.ValidationError(_(image_val["error"]))
 
         if len(self.initial_data.getlist('parent_product_pro_category')) == 0:
             raise serializers.ValidationError(_('parent_product_category is required'))
         category_val = get_validate_category(self.initial_data['parent_product_pro_category'])
         if 'error' in category_val:
-            raise serializers.ValidationError(_(f'{category_val["error"]}'))
+            raise serializers.ValidationError(_(category_val["error"]))
 
         if len(self.initial_data.getlist('parent_product_pro_tax')) == 0:
             raise serializers.ValidationError(_('parent_product_pro_tax is required'))
         tax_val = get_validate_tax(self.initial_data['parent_product_pro_tax'])
         if 'error' in tax_val:
-            raise serializers.ValidationError(_(f'{tax_val["error"]}'))
+            raise serializers.ValidationError(_(tax_val["error"]))
 
         return data
 
@@ -125,19 +125,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
         fields = ('id', 'parent_id', 'name', 'brand_case_size', 'inner_case_size', 'product_type', 'is_ptr_applicable',
                   'ptr_percent', 'ptr_type', 'status', 'product_hsn', 'parent_brand', 'parent_product_pro_image',
                   'parent_product_pro_category', 'parent_product_pro_tax')
-
-
-    def clear_existing_images(self, parent_product):
-        for pro_image in parent_product.parent_product_pro_image.all():
-            pro_image.delete()
-
-    def clear_existing_parent_cat(self, parent_product):
-        for pro_cat in parent_product.parent_product_pro_category.all():
-            pro_cat.delete()
-
-    def clear_existing_parent_tax(self, parent_product):
-        for pro_tax in parent_product.parent_product_pro_tax.all():
-            pro_tax.delete()
 
     @transaction.atomic
     def create(self, validated_data):
@@ -148,23 +135,16 @@ class ParentProductSerializers(serializers.ModelSerializer):
         validated_data.pop('parent_product_pro_tax', None)
 
         try:
-            parent_brand = get_validate_parent_brand(self.initial_data['parent_brand'])
-            product_hsn = get_validate_product_hsn(self.initial_data['product_hsn'])
-            parent_product = ParentProduct.objects.create(product_hsn=product_hsn,
-                                                          parent_brand=parent_brand, **validated_data)
+            # create parent product
+            parent_product = ParentProductCls.create_parent_product(self.initial_data['parent_brand'],
+                                                                    self.initial_data['product_hsn'], **validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        for image_data in self.initial_data.getlist('parent_product_pro_image'):
-            ParentProductImage.objects.create(image=image_data, image_name=image_data.name.rsplit(".", 1)[0],
-                                              parent_product=parent_product)
-        for product_category in self.initial_data['parent_product_pro_category']:
-            category = Category.objects.filter(id=product_category['category']).last()
-            ParentProductCategory.objects.create(parent_product=parent_product, category=category)
-        for tax_data in self.initial_data['parent_product_pro_tax']:
-            tax = Tax.objects.filter(id=tax_data['tax']).last()
-            ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
+        ParentProductCls.upload_parent_product_images(parent_product, self.initial_data.getlist('parent_product_pro_image'))
+        ParentProductCls.create_parent_product_category(parent_product, self.initial_data['parent_product_pro_category'])
+        ParentProductCls.create_parent_product_tax(parent_product, self.initial_data['parent_product_pro_tax'])
 
         return parent_product
 
@@ -176,26 +156,15 @@ class ParentProductSerializers(serializers.ModelSerializer):
         validated_data.pop('parent_product_pro_category', None)
         validated_data.pop('parent_product_pro_tax', None)
         try:
+            # update parent product
             parent_product = super().update(instance, validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        self.clear_existing_images(parent_product)
-        self.clear_existing_parent_cat(parent_product)
-        self.clear_existing_parent_tax(parent_product)
-
-        for image_data in self.initial_data.getlist('parent_product_pro_image'):
-            ParentProductImage.objects.create(image=image_data, image_name=image_data.name.rsplit(".", 1)[0],
-                                              parent_product=parent_product)
-
-        for product_category in self.initial_data['parent_product_pro_category']:
-            category = Category.objects.filter(id=product_category['category']).last()
-            ParentProductCategory.objects.create(parent_product=parent_product, category=category)
-
-        for tax_data in self.initial_data['parent_product_pro_tax']:
-            tax = Tax.objects.filter(id=tax_data['tax']).last()
-            ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
+        ParentProductCls.upload_parent_product_images(parent_product, self.initial_data.getlist('parent_product_pro_image'))
+        ParentProductCls.create_parent_product_category(parent_product, self.initial_data['parent_product_pro_category'])
+        ParentProductCls.create_parent_product_tax(parent_product, self.initial_data['parent_product_pro_tax'])
 
         return parent_product
 

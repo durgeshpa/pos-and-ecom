@@ -1,4 +1,5 @@
-from django.db.models import Q
+import logging
+
 from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework import status, authentication
@@ -17,9 +18,15 @@ from products.common_function import get_response
 from products.common_validators import validate_id
 from products.services import parent_product_search
 
+# Get an instance of a logger
+logger = logging.getLogger(__name__)
+
 
 class ParentProduct(GenericAPIView):
-
+    """
+        List Parent Product, Create a new Parent Product
+        Delete Selected Parent Product, Update Parent Product.
+    """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     parser_classes = [MultipartJsonParser, JSONParser]
@@ -30,7 +37,6 @@ class ParentProduct(GenericAPIView):
     serializer_class = ParentProductSerializers
 
     def get(self, request):
-        """ Get Parent Product when product_id is given in params """
 
         if request.GET.get('id'):
             """ Get Parent Product when id is given in params """
