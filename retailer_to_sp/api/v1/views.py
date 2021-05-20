@@ -335,7 +335,7 @@ class SearchProducts(APIView):
             Modify Es results for response based on output_type - Raw OR Processed
         """
         body["from"] = int(self.request.GET.get('offset', 0))
-        body["size"] = int(self.request.GET.get('pro_count', 10))
+        body["size"] = int(self.request.GET.get('pro_count', 50))
         body["sort"] = {"created_at": "desc"}
         p_list = []
         # Raw Output
@@ -440,7 +440,7 @@ class SearchProducts(APIView):
             Modify Es results for response based on shop
         """
         body["from"] = int(self.request.GET.get('offset', 0))
-        body["size"] = int(self.request.GET.get('pro_count', 10))
+        body["size"] = int(self.request.GET.get('pro_count', 100))
         p_list = []
         # No Shop Id OR Store Inactive
         if not parent_shop:
