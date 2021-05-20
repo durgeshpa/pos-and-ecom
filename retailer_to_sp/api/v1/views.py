@@ -473,8 +473,11 @@ class SearchProducts(APIView):
             Search query for gf normal search
         """
         product_ids = self.request.GET.get('product_ids')
+        product_ids = product_ids.split(',')
         brand = self.request.GET.get('brands')
+        brand = brand.split(',')
         category = self.request.GET.get('categories')
+        category = category.split(',')
         keyword = self.request.GET.get('keyword', None)
         filter_list = []
         if self.request.GET.get('app_type') != '2':
