@@ -965,11 +965,10 @@ class CartCentral(GenericAPIView):
         if not type(shop_id) == int:
             return {'error': "Shop Doesn't Exist!"}
         search_text = self.request.GET.get('search_text')
-        carts = Cart.objects.filter(seller_shop_id=shop_id, cart_status__in=['active', 'pending']). \
-            order_by('-modified_at')
+        carts = Cart.objects.prefetch_related('rt_cart_list').filter(seller_shop_id=shop_id,
+                                                                     cart_status__in=['active', 'pending']).order_by('-modified_at')
         if search_text:
-            carts = carts.filter(Q(buyer__phone_number__icontains=search_text) |
-                                 Q(id__icontains=search_text))
+            carts = carts.filter(Q(cart_no__icontains=search_text))
 
         objects = self.pagination_class().paginate_queryset(carts, self.request)
         open_orders = BasicCartListSerializer(objects, many=True)
@@ -1644,7 +1643,7 @@ class CartCheckout(APIView):
             Checkout serializer
             Payment Info plus Offers
         """
-        serializer = CheckoutSerializer(Cart.objects.get(pk=cart.id))
+        serializer = CheckoutSerializer(Cart.objects.prefetch_related('rt_cart_list').get(pk=cart.id))
         response = serializer.data
         if offers:
             response['available_offers'] = offers

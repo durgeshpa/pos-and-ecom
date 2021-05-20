@@ -342,8 +342,8 @@ class BasicCartListSerializer(serializers.ModelSerializer):
         List of active/pending carts
     """
     total_amount = serializers.SerializerMethodField('total_amount_dt')
-    total_discount = serializers.SerializerMethodField()
-    sub_total = serializers.SerializerMethodField('sub_total_dt')
+    # total_discount = serializers.SerializerMethodField()
+    # sub_total = serializers.SerializerMethodField('sub_total_dt')
 
     def total_amount_dt(self, obj):
         """
@@ -376,8 +376,7 @@ class BasicCartListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_no', 'cart_status', 'total_amount', 'total_discount', 'sub_total', 'created_at',
-                  'modified_at')
+        fields = ('id', 'cart_no', 'cart_status', 'total_amount')
 
 
 class OrderedDashBoardSerializer(serializers.Serializer):
@@ -454,11 +453,11 @@ class BasicOrderSerializer(serializers.ModelSerializer):
     """
         Pos Order detail
     """
-    buyer = PosUserSerializer()
-    total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
-    refunded_amount = serializers.SerializerMethodField('refunded_amount_dt')
+    # buyer = PosUserSerializer()
+    # total_discount_amount = serializers.SerializerMethodField('total_discount_amount_dt')
+    # refunded_amount = serializers.SerializerMethodField('refunded_amount_dt')
     products = serializers.SerializerMethodField()
-    invoice = serializers.SerializerMethodField('invoice_dt')
+    # invoice = serializers.SerializerMethodField('invoice_dt')
     ongoing_return = serializers.SerializerMethodField('ongoing_return_dt')
 
     def ongoing_return_dt(self, obj):
@@ -564,8 +563,9 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id', 'order_no', 'order_status', 'order_amount', 'total_discount_amount', 'refunded_amount', 'buyer',
-                  'products', 'invoice', 'created_at', 'modified_at', 'ongoing_return')
+        # fields = ('id', 'order_no', 'order_status', 'order_amount', 'total_discount_amount', 'refunded_amount', 'buyer',
+        #           'products', 'invoice', 'created_at', 'modified_at', 'ongoing_return')
+        fields = ('id', 'order_no', 'products', 'ongoing_return')
 
 
 class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
