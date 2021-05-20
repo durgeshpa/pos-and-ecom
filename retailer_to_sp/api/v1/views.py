@@ -368,16 +368,24 @@ class SearchProducts(APIView):
             Search GramFactory Catalogue
         """
         search_type = self.request.GET.get('search_type', '2')
-        is_store_active = False
-        # Exact Search
-        if search_type == '1':
-            results = self.gf_exact_search()
-        # Normal Search
-        elif search_type == '2':
-            results, is_store_active = self.gf_normal_search()
+        app_type = self.request.GET.get('app_type', '0')
+        if app_type != '2':
+            # Normal Search
+            if search_type == '2':
+                results, is_store_active = self.gf_normal_search()
+            else:
+                return get_response(["Please Provide A Valid Search Type"])
+            return get_response(['Products Found'] if results else ['No Products Found'], results, False, {'is_store_active': is_store_active})
         else:
-            return get_response("Please Provide A Valid Search Type")
-        return get_response('Products Found' if results else 'No Products Found', results, False, {'is_store_active': is_store_active})
+            # Exact Search
+            if search_type == '1':
+                results = self.gf_exact_search()
+            # Normal Search
+            elif search_type == '2':
+                results = self.gf_pos_normal_search()
+            else:
+                return get_response("Please Provide A Valid Search Type")
+            return get_response('Products Found' if results else 'No Products Found', results)
 
     def gf_exact_search(self):
         """
@@ -419,6 +427,13 @@ class SearchProducts(APIView):
         query = self.search_query()
         body = {'query': query, }
         return self.process_gf(body, shop, parent_shop, cart_check, cart, cart_products), is_store_active
+
+    def gf_pos_normal_search(self):
+        """
+            Search GramFactory Catalogue By Name
+        """
+        body = {'query': self.search_query(), }
+        return self.process_gf(body)
 
     def process_gf(self, body, shop=None, parent_shop=None, cart_check=False, cart=None, cart_products=None):
         """
@@ -867,7 +882,7 @@ class CartCentral(GenericAPIView):
         # basic validations for inputs
         initial_validation = self.get_retail_validate()
         if 'error' in initial_validation:
-            return get_response(initial_validation['error'])
+            return get_response([initial_validation['error']])
         buyer_shop = initial_validation['buyer_shop']
         seller_shop = initial_validation['seller_shop']
         shop_type = initial_validation['shop_type']
@@ -888,13 +903,13 @@ class CartCentral(GenericAPIView):
                 self.update_cart_qty(cart, cart_products)
                 # Check if products are present in cart
                 if cart.rt_cart_list.count() <= 0:
-                    return get_response('Sorry no product added to this cart yet')
+                    return get_response(['Sorry no product added to this cart yet'])
                 # Delete products without MRP
                 self.delete_products_without_mrp(cart)
                 # Process response - Product images, MRP check, Serialize - Search and Pagination
-                return get_response('Cart', self.get_serialize_process_sp(cart, seller_shop, buyer_shop))
+                return get_response(['Cart'], self.get_serialize_process_sp(cart, seller_shop, buyer_shop))
             else:
-                return get_response('Sorry no product added to this cart yet')
+                return get_response(['Sorry no product added to this cart yet'])
         # If Seller Shop is gf type
         elif shop_type == 'gf':
             # Check if cart exists
@@ -903,14 +918,14 @@ class CartCentral(GenericAPIView):
                                                      cart_status__in=['active', 'pending']).last()
                 # Check if products are present in cart
                 if cart.rt_cart_list.count() <= 0:
-                    return get_response('Sorry no product added to this cart yet')
+                    return get_response(['Sorry no product added to this cart yet'])
                 else:
                     # Process response - Serialize
-                    return get_response('Cart', self.get_serialize_process_gf(cart, seller_shop))
+                    return get_response(['Cart'], self.get_serialize_process_gf(cart, seller_shop))
             else:
-                return get_response('Sorry no product added to this cart yet')
+                return get_response(['Sorry no product added to this cart yet'])
         else:
-            return get_response('Sorry shop is not associated with any GramFactory or any SP')
+            return get_response(['Sorry shop is not associated with any GramFactory or any SP'])
 
     def get_basic_cart(self):
         """
@@ -1102,7 +1117,7 @@ class CartCentral(GenericAPIView):
         # basic validations for inputs
         initial_validation = self.post_retail_validate()
         if 'error' in initial_validation:
-            return get_response(initial_validation['error'])
+            return get_response([initial_validation['error']])
         buyer_shop = initial_validation['buyer_shop']
         seller_shop = initial_validation['seller_shop']
         product = initial_validation['product']
@@ -1116,15 +1131,15 @@ class CartCentral(GenericAPIView):
             # check for product capping
             proceed = self.retail_capping_check(product, seller_shop, buyer_shop, qty, cart)
             if not proceed['is_success']:
-                return get_response(proceed['message'], proceed['data'])
+                return get_response([proceed['message']], proceed['data'])
             elif proceed['quantity_check']:
                 # check for product available quantity and add to cart
                 cart_map = self.retail_quantity_check(seller_shop, product, cart, qty)
             # Check if products are present in cart
             if cart.rt_cart_list.count() <= 0:
-                return get_response('Sorry no product added to this cart yet')
+                return get_response(['Sorry no product added to this cart yet'])
             # process and return response
-            return get_response('Added To Cart', self.post_serialize_process_sp(cart, seller_shop, buyer_shop, product))
+            return get_response(['Added To Cart'], self.post_serialize_process_sp(cart, seller_shop, buyer_shop, product))
         # If Seller Shop is gf type
         elif shop_type == 'gf':
             # Update or create cart for user
@@ -1138,11 +1153,11 @@ class CartCentral(GenericAPIView):
                 cart_mapping.save()
             # Check if products are present in cart
             if cart.rt_cart_list.count() <= 0:
-                return get_response('Sorry no product added to this cart yet')
+                return get_response(['Sorry no product added to this cart yet'])
             # process and return response
-            return get_response('Added To Cart', self.post_serialize_process_gf(cart, seller_shop))
+            return get_response(['Added To Cart'], self.post_serialize_process_gf(cart, seller_shop))
         else:
-            return get_response('Sorry shop is not associated with any Gramfactory or any SP')
+            return get_response(['Sorry shop is not associated with any Gramfactory or any SP'])
 
     def basic_add_to_cart(self, cart_id=None):
         """
@@ -2277,19 +2292,19 @@ class OrderCentral(APIView):
         """
             Cancel retailer order
         """
-        return get_response("Sorry! Order cannot be cancelled from the APP")
+        return get_response(["Sorry! Order cannot be cancelled from the APP"])
         try:
             order = Order.objects.get(buyer_shop__shop_owner=self.request.user, pk=pk)
         except ObjectDoesNotExist:
-            return get_response('Order is not associated with the current user')
+            return get_response(['Order is not associated with the current user'])
         if order.order_status == 'CANCELLED':
-            return get_response("This order is already cancelled!")
+            return get_response(["This order is already cancelled!"])
         if order.order_status == Order.COMPLETED:
-            return get_response('Sorry! This order cannot be cancelled')
+            return get_response(['Sorry! This order cannot be cancelled'])
         order.order_status = Order.CANCELLED
         order.last_modified_by = self.request.user
         order.save()
-        return get_response("Order Cancelled Successfully!", [], True)
+        return get_response(["Order Cancelled Successfully!"], [], True)
 
     def post(self, request):
         """
@@ -2324,16 +2339,16 @@ class OrderCentral(APIView):
         # basic validations for inputs
         initial_validation = self.get_retail_validate()
         if 'error' in initial_validation:
-            return get_response(initial_validation['error'])
+            return get_response([initial_validation['error']])
         parent_mapping = initial_validation['parent_mapping']
         shop_type = initial_validation['shop_type']
         order = initial_validation['order']
         if shop_type == 'sp':
-            return get_response('Order', self.get_serialize_process_sp(order, parent_mapping))
+            return get_response(['Order'], self.get_serialize_process_sp(order, parent_mapping))
         elif shop_type == 'gf':
-            return get_response('Order', self.get_serialize_process_gf(order, parent_mapping))
+            return get_response(['Order'], self.get_serialize_process_gf(order, parent_mapping))
         else:
-            return get_response('Sorry shop is not associated with any GramFactory or any SP')
+            return get_response(['Sorry shop is not associated with any GramFactory or any SP'])
 
     def get_basic_order(self):
         """
@@ -2355,7 +2370,7 @@ class OrderCentral(APIView):
         # basic validations for inputs
         initial_validation = self.post_retail_validate()
         if 'error' in initial_validation:
-            return get_response(initial_validation['error'])
+            return get_response([initial_validation['error']])
         parent_mapping = initial_validation['parent_mapping']
         shop_type = initial_validation['shop_type']
         billing_address = initial_validation['billing_add']
@@ -2377,11 +2392,11 @@ class OrderCentral(APIView):
                     # Check products mrp and update cart mapping accordingly to ordered
                     cart_resp = self.update_cart_retail_sp(cart, parent_mapping)
                     if not cart_resp['is_success']:
-                        return get_response(cart_resp['message'])
+                        return get_response([cart_resp['message']])
                     # Check capping
                     order_capping_check = self.retail_capping_check(cart, parent_mapping)
                     if not order_capping_check['is_success']:
-                        return get_response(order_capping_check['message'])
+                        return get_response([order_capping_check['message']])
                     # Get Order Reserved data and process order
                     order_reserve_obj = self.get_reserve_retail_sp(cart, parent_mapping)
                     if order_reserve_obj:
@@ -2390,13 +2405,13 @@ class OrderCentral(APIView):
                         # Release blocking
                         if self.update_ordered_reserve_sp(cart, parent_mapping, order) is False:
                             order.delete()
-                            return get_response('No item in this cart.')
+                            return get_response(['No item in this cart.'])
                         # Serialize and return response
-                        return get_response('Ordered Successfully!',
+                        return get_response(['Ordered Successfully!'],
                                             self.post_serialize_process_sp(order, parent_mapping))
                     # Order reserve not found
                     else:
-                        return get_response('Sorry! your session has timed out.')
+                        return get_response(['Sorry! your session has timed out.'])
         # If Seller Shop is sp Type
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             # Check If Cart Exists
@@ -2412,13 +2427,13 @@ class OrderCentral(APIView):
                     # Update reserve to ordered
                     self.update_ordered_reserve_gf(cart)
                     # Serialize and return response
-                    return get_response('Ordered Successfully!', self.post_serialize_process_gf(order, parent_mapping))
+                    return get_response(['Ordered Successfully!'], self.post_serialize_process_gf(order, parent_mapping))
                 else:
-                    return get_response('Available Quantity Is None')
+                    return get_response(['Available Quantity Is None'])
         # Shop type neither sp nor gf
         else:
-            return get_response('Sorry shop is not associated with any GramFactory or any SP')
-        return get_response('Some error occurred')
+            return get_response(['Sorry shop is not associated with any GramFactory or any SP'])
+        return get_response(['Some error occurred'])
 
     def post_basic_order(self):
         """
@@ -3099,7 +3114,7 @@ class OrderListCentral(GenericAPIView):
         # basic validations for inputs
         initial_validation = self.get_retail_validate()
         if 'error' in initial_validation:
-            return get_response(initial_validation['error'])
+            return get_response([initial_validation['error']])
         parent_mapping = initial_validation['parent_mapping']
         shop_type = initial_validation['shop_type']
         search_text = self.request.GET.get('search_text')
@@ -3111,16 +3126,16 @@ class OrderListCentral(GenericAPIView):
             if search_text:
                 qs = qs.filter(Q(order_no__icontains=search_text) | Q(ordered_cart__id__icontains=search_text) |
                                Q(buyer__phone_number__icontains=search_text))
-            return get_response('Order', self.get_serialize_process_sp(qs, parent_mapping))
+            return get_response(['Order'], self.get_serialize_process_sp(qs, parent_mapping))
         elif shop_type == 'gf':
             qs = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
             if order_status:
                 qs = qs.filter(order_status=order_status)
             if search_text:
                 qs = qs.filter(Q(order_no__icontains=search_text) | Q(ordered_cart__id__icontains=search_text))
-            return get_response('Order', self.get_serialize_process_gf(qs, parent_mapping))
+            return get_response(['Order'], self.get_serialize_process_gf(qs, parent_mapping))
         else:
-            return get_response('Sorry shop is not associated with any GramFactory or any SP')
+            return get_response(['Sorry shop is not associated with any GramFactory or any SP'])
 
     def get_retail_validate(self):
         """
