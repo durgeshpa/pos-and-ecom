@@ -390,7 +390,7 @@ class BasicCartOffers(object):
             for offer in offers_list:
                 if offer['coupon_type'] == 'cart' and offer['type'] == 'free_product':
                     continue
-                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount':
+                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['sub_type'] == 'set_discount':
                     if float(offer['cart_minimum_value']) > cart_total:
                         continue
                     cart_offer = offer
