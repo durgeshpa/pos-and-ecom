@@ -13,7 +13,9 @@ from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers
-from .common_function import validate_id, get_response
+from products.common_function import get_response
+from products.common_validators import validate_id
+from products.services import parent_product_search
 
 
 class ParentProduct(GenericAPIView):
@@ -97,10 +99,7 @@ class ParentProduct(GenericAPIView):
 
         # search using parent_id, name & category_name based on criteria that matches
         if search_text:
-            self.queryset = self.queryset.filter(Q(name__icontains=search_text)
-                                 | Q(parent_product_pro_category__category__category_name__icontains=search_text)
-                                 | Q(parent_id__icontains=search_text))
-
+            self.queryset = parent_product_search(self.queryset, search_text)
         # filter using brand_name, category & product_status exact match
         if brand is not None:
             self.queryset = self.queryset.filter(parent_brand__brand_name=brand)
@@ -109,7 +108,6 @@ class ParentProduct(GenericAPIView):
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__category_name=category)
-
         return self.queryset
 
 
