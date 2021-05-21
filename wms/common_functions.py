@@ -2193,7 +2193,7 @@ def get_inventory_in_stock(warehouse, parent_product):
     Return cumulative inventory available of all the child products for given parent and warehouse
     """
     inventory_type_normal = InventoryType.objects.filter(inventory_type='normal').last()
-    child_products = parent_product.product_parent_product
+    child_products = parent_product.product_parent_product.all()
     child_product_ids = [p.id for p in child_products]
     stock_dict = get_stock(warehouse, inventory_type_normal, child_product_ids)
     total_inventory = sum(stock_dict.values()) if stock_dict.values() else 0

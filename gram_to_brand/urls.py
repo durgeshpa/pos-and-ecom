@@ -38,5 +38,6 @@ urlpatterns = [
     url(r'^approve/(?P<pk>\d+)/$', ApproveView.as_view(), name='approve-account', ),
     url(r'^dis-approve/(?P<pk>\d+)/$', DisapproveView.as_view(), name='dis-approve-account', ),
     url(r'^merged_barcode/(?P<pk>\d+)/$', MergedBarcode.as_view(), name='batch_barcodes', ),
+    # url(r'^demands/$', PendingDemands.as_view(), name='pending-demands'),
 
 ]

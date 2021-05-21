@@ -1,5 +1,6 @@
 {% extends "admin/change_form.html" %}
 {% load static %}
+
 {% block submit_buttons_bottom %}
     <div class="js-inline-admin-formset inline-group" data-inline-type="tabular" data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
        <div class="tabular inline-related last-related">
@@ -20,39 +21,25 @@
        </div>
     </div>
 
+
     {% if request.user.is_superuser %}
         {{ block.super }}
         <div class="submit-row">
                 <textarea rows="4" name="message" cols="50"></textarea>
                 <input type="submit" value="Approve" name="_approve">
-                <input type="submit" value="Dis-approve" style="background:#ba2121" name="_disapprove">
-                <input type="submit" class="default" value="Send for Approval" name="_approval_await">
-                <input type="submit" class="default" value="Close" style="background:#ba2121" name="_close">
         </div>
     {% else %}
         {%  if perms.gram_to_brand.can_approve_and_disapprove %}
+        {{ block.super }}
+
         <div class="submit-row">
                 <textarea rows="4" name="message" cols="50"></textarea>
                 <input type="submit" value="Approve" name="_approve">
-                <input type="submit" value="Dis-approve" style="background:#ba2121" name="_disapprove">
-
-                <script type="text/javascript" >
-                 if( $("select[id$='cart_product']").has('option').length > 0 ) {
-                    $("select[id$='cart_product']").attr('disabled', true);
-                 }
-                 $( "form" ).submit(function( event ) {
-                  $("select[id$='cart_product']").attr('disabled', false);
-                 });
-                 $("input[id$='no_of_cases']").prop('readonly', true).css('border','none');
-                 $("input[id$='no_of_pieces']").prop('readonly', true).css('border','none');
-                 $("input[id$='price']").prop('readonly', true).css('border','none');
-                </script>
         </div>
         {%  elif perms.gram_to_brand.can_create_po %}
         {{ block.super }}
         <div class="submit-row">
                 <input type="submit" class="default" value="Send for Approval" name="_approval_await">
-                <input type="submit" class="default" value="Close" style="background:#ba2121" name="_close">
         </div>
         {% else %}
             {{ block.super }}

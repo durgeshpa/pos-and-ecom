@@ -1,5 +1,9 @@
+import csv
 import math
 import datetime
+from io import StringIO
+
+import django_filters
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.db.models import F, Sum, Count, Subquery
@@ -7,6 +11,10 @@ from django.views.generic import View, ListView, UpdateView
 from django.urls import reverse_lazy
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, get_list_or_404
+from django_filters.views import FilterView
+from django_tables2 import SingleTableView, tables
+from django_tables2.export import ExportMixin
+import django_tables2 as tables
 
 
 from rest_framework.response import Response
@@ -25,6 +33,10 @@ from addresses.models import Address, State
 from brand.models import Brand
 from brand.models import Vendor
 from products.models import ProductVendorMapping, ParentProduct
+
+from global_config.views import get_config
+from retailer_backend.common_function import send_mail
+from retailer_backend.messages import SUCCESS_MESSAGES
 
 import logging
 logger = logging.getLogger(__name__)
@@ -525,6 +537,7 @@ class ApproveView(UpdateView):
     def form_valid(self, form):
         cart_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
         cart_obj.is_approve = True
+        cart_obj.approved_by = self.request.user
         cart_obj.save()
         return super(ApproveView, self).form_valid(form)
 
@@ -576,3 +589,43 @@ class GetMessage(APIView):
             "is_success": is_success,
             "po_status": po_obj.po_status if po_obj else ''
         })
+
+
+def mail_warehouse_for_approved_po():
+
+    try:
+        sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
+        recipient_list = get_config("ARS_MAIL_WAREHOUSE_RECIEVER", "deepti@gramfactory.com")
+        today = datetime.datetime.today().date()
+        subject = SUCCESS_MESSAGES['ARS_MAIL_WAREHOUSE_SUBJECT'].format(today)
+        body = SUCCESS_MESSAGES['ARS_MAIL_WAREHOUSE_BODY'].format(today)
+        f = StringIO()
+        writer = csv.writer(f)
+        filename = 'PO_approved-{}.csv'.format(today)
+        columns = ['PO Number', 'Brand', 'Supplier State', 'Supplier Name', 'PO Creation Date', 'PO Status',
+                   'PO Delivery Date']
+        writer.writerow(columns)
+        po_to_send_mail_for = Cart.objects.filter(po_status=Cart.OPEN, cart_type=Cart.CART_TYPE_CHOICE.AUTO,
+                                                          created_at__date=today)
+        for po in po_to_send_mail_for:
+            writer.writerow([po.po_no, po.brand, po.supplier_state, po.supplier_name, po.created_at,
+                            po.po_status, po.po_delivery_date])
+        attachment = {'name' : filename, 'type' : 'text/csv', 'value' : writer.getvalue()}
+        send_mail(sender, recipient_list, subject, body, [attachment])
+        po_to_send_mail_for.update(is_warehouse_notified=True)
+    except Exception as e:
+        info_logger.error("Exception|mail_warehouse_for_approved_po|{}".format(e))
+
+
+def mail_to_vendor_on_po_approval(po_instance):
+    """
+    Send mail to vendor once po is approved.
+    """
+    pass
+    # sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
+    # recipient_list = [po_instance.email]
+    # today = datetime.datetime.today().date()
+    # subject = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_SUBJECT'].format(today)
+    # body = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_BODY'].format(today)
+    # attachment_list = []
+    # send_mail(sender, recipient_list, subject, body, attachment_list)

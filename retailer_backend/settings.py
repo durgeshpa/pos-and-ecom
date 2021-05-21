@@ -137,7 +137,8 @@ INSTALLED_APPS = [
     'global_config',
     'whc',
     'redash_report',
-    'retailer_incentive'
+    'retailer_incentive',
+    'ars'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -369,7 +370,7 @@ order_gram_to_brand_group = 'gram_to_brand_order_group'
 grn_gram_to_brand_group = 'grn_brand_to_gram_group'
 BLOCKING_TIME_IN_MINUTS = config('BLOCKING_TIME_IN_MINUTS')
 
-WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
+WKHTMLTOPDF_CMD = '/usr/bin/wkhtmltopdf'
 WKHTMLTOPDF_CMD_OPTIONS = {
     'quiet': True,
 }

@@ -73,7 +73,6 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
         instance.order_id = order_id_pattern_r_gram(instance.pk)
         instance.save()
 
-
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='rtg_cart_product_mapping', on_delete=models.CASCADE)
