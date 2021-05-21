@@ -77,6 +77,9 @@ from pos.tasks import update_es
 from pos import error_code
 from accounts.api.v1.serializers import PosUserSerializer
 from global_config.models import GlobalConfig
+from elasticsearch import Elasticsearch
+
+es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
 User = get_user_model()
 
@@ -5253,6 +5256,9 @@ class RefreshEsRetailer(APIView):
             shop = Shop.objects.get(id=shop_id, shop_type__shop_type='f')
         except ObjectDoesNotExist:
             return get_response("Shop Not Found")
+        from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
+        index = "{}-{}".format(es_prefix, 'rp-{}'.format(shop_id))
+        es.indices.delete(index=index, ignore=[400, 404])
         info_logger.info('RefreshEsRetailer | shop {}, Started'.format(shop_id))
         all_products = RetailerProduct.objects.filter(shop=shop)
         try:
