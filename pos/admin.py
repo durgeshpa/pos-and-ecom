@@ -52,6 +52,9 @@ class RetailerProductAdmin(admin.ModelAdmin):
             return self.readonly_fields + ('linked_product',)
         return self.readonly_fields
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     change_list_template = 'admin/pos/pos_change_list.html'
 
     def get_urls(self):
