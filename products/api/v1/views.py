@@ -8,7 +8,8 @@ from rest_framework.generics import GenericAPIView, CreateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import JSONParser
 
-from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, ParentProductImage
+from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
+    ParentProductImage, ProductVendorMapping
 from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
@@ -37,7 +38,7 @@ class ParentProduct(GenericAPIView):
     #                      queryset=ParentProductImage.objects.only('image', 'image_name'),)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn').prefetch_related(
         'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax',
-        'parent_product_pro_category__category', 'parent_product_pro_tax__tax').\
+        'parent_product_pro_category__category', 'parent_product_pro_tax__tax'). \
         only('id', 'parent_id', 'name', 'brand_case_size', 'inner_case_size', 'product_type', 'is_ptr_applicable',
              'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
              'product_hsn__product_hsn_code', ).order_by('-id')
@@ -159,8 +160,9 @@ class ActiveDeactivateSelectedProduct(GenericAPIView):
         """ PUT API for Activate or Deactivate Selected Parent Product """
 
         serializer = ActiveDeactivateSelectedProductSerializers(instance=
-                            self.parent_product_list.filter(id__in=request.data['parent_product_id_list']),
-                            data=request.data, partial=True)
+                                                                self.parent_product_list.filter(
+                                                                    id__in=request.data['parent_product_id_list']),
+                                                                data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return get_response('parent product updated successfully!', serializer.data)
@@ -182,6 +184,7 @@ class ProductCapping(GenericAPIView):
             List Product Capping
             Update Product Capping
     """
+
     def get(self, request):
 
         if request.GET.get('id'):
@@ -260,3 +263,27 @@ class ProductCapping(GenericAPIView):
                 product_id=product_name)
 
         return self.queryset
+
+
+class ProductVendorMapping(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ProductVendorMapping.objects.select_related('vendor', 'product').only('vendor', 'product', 'product_price',
+                                                                                     'product_price_pack', 'product_mrp', 'case_size', 'status').order_by('-id')
+    serializer_class = ProductVendorMappingSerializers
+
+    def get(self, request):
+        """ GET API for Product Vendor Mapping """
+
+        if request.GET.get('id'):
+            """ Get Product Vendor Mapping for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            parent_product = id_validation['data']
+        else:
+            """ GET Product Vendor Mapping  List """
+            parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(parent_product, many=True)
+        return get_response('product vendor list!', serializer.data)
