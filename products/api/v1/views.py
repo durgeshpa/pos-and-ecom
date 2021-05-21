@@ -2,8 +2,7 @@ import logging
 
 from django.core.exceptions import ObjectDoesNotExist
 
-from rest_framework import status, authentication
-from rest_framework.response import Response
+from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import JSONParser
@@ -36,7 +35,7 @@ class ParentProduct(GenericAPIView):
     queryset = ParentProducts.objects.prefetch_related('parent_brand', 'product_hsn', 'parent_product_pro_image',
                                                        'parent_product_pro_category', 'parent_product_pro_tax',
                                                        'parent_product_pro_category__category',
-                                                       'parent_product_pro_tax__tax')
+                                                       'parent_product_pro_tax__tax').order_by('-id')
     serializer_class = ParentProductSerializers
 
     def get(self, request):

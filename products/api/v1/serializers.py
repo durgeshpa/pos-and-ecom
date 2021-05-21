@@ -20,12 +20,14 @@ from products.common_function import ParentProductCls, ProductCls
 
 
 class BrandSerializers(serializers.ModelSerializer):
+
     class Meta:
         model = Brand
         fields = ('id', 'brand_name')
 
 
 class ProductHSNSerializers(serializers.ModelSerializer):
+
     class Meta:
         model = ProductHSN
         fields = ('id', 'product_hsn_code')
@@ -39,7 +41,7 @@ class CategorySerializers(serializers.ModelSerializer):
 
 
 class ParentProductCategorySerializers(serializers.ModelSerializer):
-    category = CategorySerializers()
+    category = CategorySerializers(read_only=True)
 
     class Meta:
         model = ParentProductCategory
@@ -64,7 +66,7 @@ class TaxSerializers(serializers.ModelSerializer):
 
 
 class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
-    tax = TaxSerializers()
+    tax = TaxSerializers(read_only=True)
 
     class Meta:
         model = ParentProductTaxMapping
@@ -73,12 +75,15 @@ class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
 
 class ParentProductSerializers(serializers.ModelSerializer):
     """Handles creating, reading and updating parent product items."""
+    # parent_brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
+    # product_hsn = serializers.PrimaryKeyRelatedField(queryset=ProductHSN.objects.all())
     parent_brand = BrandSerializers(read_only=True)
     product_hsn = ProductHSNSerializers(read_only=True)
     parent_product_pro_image = ParentProductImageSerializers(many=True)
     parent_product_pro_category = ParentProductCategorySerializers(many=True)
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
-    parent_id = serializers.CharField(required=False)
+    parent_id = serializers.CharField(read_only=True)
+
 
     def validate(self, data):
         """
@@ -141,7 +146,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
         validated_data.pop('parent_product_pro_tax', None)
 
         try:
-            # create parent product
             parent_product = ParentProductCls.create_parent_product(self.initial_data['parent_brand'],
                                                                     self.initial_data['product_hsn'], **validated_data)
         except Exception as e:
@@ -157,14 +161,18 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        """update a Parent Product with image category & tax using parent product id"""
-
+        """
+            This method is used to update an instance of the Parent Product's attribute.
+        """
         validated_data.pop('parent_product_pro_image', None)
         validated_data.pop('parent_product_pro_category', None)
         validated_data.pop('parent_product_pro_tax', None)
         try:
-            # update parent product
-            parent_product = super().update(instance, validated_data)
+            # call super to save modified instance along with the validated data
+            parent_product_obj = super().update(instance, validated_data)
+            parent_product = ParentProductCls.update_parent_product(self.initial_data['parent_brand'],
+                                                                    self.initial_data['product_hsn'],
+                                                                    parent_product_obj)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)

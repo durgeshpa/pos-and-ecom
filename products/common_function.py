@@ -15,45 +15,60 @@ class ParentProductCls(object):
         """
             Create Parent Product
         """
-        parent_brand = get_validate_parent_brand(parent_brand)
-        product_hsn = get_validate_product_hsn(product_hsn)
-        return ParentProduct.objects.create(product_hsn=product_hsn['product_hsn'],
-                                            parent_brand=parent_brand['parent_brand'], **validated_data)
+        parent_brand_obj = get_validate_parent_brand(parent_brand)
+        product_hsn_obj = get_validate_product_hsn(product_hsn)
+        return ParentProduct.objects.create(parent_brand=parent_brand_obj['parent_brand'],
+                                            product_hsn=product_hsn_obj['product_hsn'], **validated_data)
+
+    @classmethod
+    def update_parent_product(cls, parent_brand, product_hsn, parent_product):
+        """
+            Update Parent Product
+        """
+        parent_brand_obj = get_validate_parent_brand(parent_brand)
+        product_hsn_obj = get_validate_product_hsn(product_hsn)
+        parent_product.parent_brand = parent_brand_obj['parent_brand']
+        parent_product.product_hsn = product_hsn_obj['product_hsn']
+        parent_product.save()
+        return parent_product
 
     @classmethod
     def upload_parent_product_images(cls, parent_product, parent_product_pro_image):
         """
-            Delete Existing Images of specific ParentProduct if any & Create Parent Product Images
+            Delete Existing Images of specific ParentProduct if any
+            Create Parent Product Images
         """
         if ParentProductImage.objects.filter(parent_product=parent_product).exists():
             ParentProductImage.objects.filter(parent_product=parent_product).delete()
 
-        for image_data in parent_product_pro_image:
-            ParentProductImage.objects.create(image=image_data, image_name=image_data.name.rsplit(".", 1)[0],
+        for image in parent_product_pro_image:
+            ParentProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
                                               parent_product=parent_product)
 
     @classmethod
-    def create_parent_product_category(cls, parent_product, parent_product_pro_image):
+    def create_parent_product_category(cls, parent_product, parent_product_pro_category):
         """
-             Delete Existing Category of specific ParentProduct if any & Create Parent Product Categories
+             Delete Existing Category of specific ParentProduct if any
+             Create Parent Product Categories
         """
         if ParentProductCategory.objects.filter(parent_product=parent_product).exists():
             ParentProductCategory.objects.filter(parent_product=parent_product).delete()
 
-        for product_category in parent_product_pro_image:
-            category = Category.objects.filter(id=product_category['category']).last()
+        for product_category in parent_product_pro_category:
+            category = Category.objects.get(id=product_category['category'])
             ParentProductCategory.objects.create(parent_product=parent_product, category=category)
 
     @classmethod
     def create_parent_product_tax(cls, parent_product, parent_product_pro_tax):
         """
-            Delete Existing Tax of specific ParentProduct if any & Create Parent Product Tax
+            Delete Existing Tax of specific ParentProduct if any
+            Create Parent Product Tax
         """
         if ParentProductTaxMapping.objects.filter(parent_product=parent_product).exists():
             ParentProductTaxMapping.objects.filter(parent_product=parent_product).delete()
 
         for tax_data in parent_product_pro_tax:
-            tax = Tax.objects.filter(id=tax_data['tax']).last()
+            tax = Tax.objects.get(id=tax_data['tax'])
             ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
 
 
