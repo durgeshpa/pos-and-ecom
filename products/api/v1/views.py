@@ -1,13 +1,14 @@
 import logging
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Prefetch
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import JSONParser
 
-from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings
+from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, ParentProductImage
 from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
@@ -32,10 +33,14 @@ class ParentProduct(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     parser_classes = [MultipartJsonParser, JSONParser]
-    queryset = ParentProducts.objects.prefetch_related('parent_brand', 'product_hsn', 'parent_product_pro_image',
-                                                       'parent_product_pro_category', 'parent_product_pro_tax',
-                                                       'parent_product_pro_category__category',
-                                                       'parent_product_pro_tax__tax').order_by('-id')
+    # prefetch = Prefetch('parent_product_pro_image',
+    #                      queryset=ParentProductImage.objects.only('image', 'image_name'),)
+    queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn').prefetch_related(
+        'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax',
+        'parent_product_pro_category__category', 'parent_product_pro_tax__tax').\
+        only('id', 'parent_id', 'name', 'brand_case_size', 'inner_case_size', 'product_type', 'is_ptr_applicable',
+             'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
+             'product_hsn__product_hsn_code', ).order_by('-id')
     serializer_class = ParentProductSerializers
 
     def get(self, request):
@@ -165,7 +170,10 @@ class ActiveDeactivateSelectedProduct(GenericAPIView):
 class ProductCapping(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ProductCappings.objects.select_related('product', 'seller_shop', 'buyer_shop').order_by('-id')
+    queryset = ProductCappings.objects.select_related('product', 'seller_shop').order_by('-id')
+    # queryset = ProductCappings.objects.prefetch_related('product', 'seller_shop').
+    # only('id', 'product__product_name', 'seller_shop__shop_name','capping_type', 'capping_qty',
+    # 'start_date', 'end_date', 'status').order_by('-id')
     serializer_class = ProductCappingSerializers
     """
             Get Product Capping

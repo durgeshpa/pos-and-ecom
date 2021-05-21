@@ -129,3 +129,11 @@ def check_active_capping(seller_shop, product):
                                      status=True).exists():
         return {'error': 'Another Capping is Active for the selected SKU or selected Warehouse.'}
     return {'seller_shop': seller_shop, 'product': product}
+
+
+def validate_tax_type(parent_product, tax_type):
+    parent_product = ParentProductTaxMapping.objects.filter(parent_product=parent_product, tax__tax_type=tax_type)
+    if parent_product.exists():
+        return "{} %".format(parent_product.last().tax.tax_percentage)
+    return ''
+

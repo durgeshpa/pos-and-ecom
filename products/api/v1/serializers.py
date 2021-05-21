@@ -15,7 +15,7 @@ from brand.models import Brand
 from shops.models import Shop
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, \
     get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation, \
-    get_validate_product, get_validate_seller_shop, check_active_capping
+    get_validate_product, get_validate_seller_shop, check_active_capping, validate_tax_type
 from products.common_function import ParentProductCls, ProductCls
 
 
@@ -23,7 +23,7 @@ class BrandSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Brand
-        fields = ('id', 'brand_name')
+        fields = ('id', 'brand_name', 'brand_code')
 
 
 class ProductHSNSerializers(serializers.ModelSerializer):
@@ -355,22 +355,16 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
         return data
 
     def product_gst(self, obj):
-        if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='gst').exists():
-            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj,
-                                                                        tax__tax_type='gst').last().tax.tax_percentage)
-        return ''
+        product_gst = validate_tax_type(obj, 'gst')
+        return product_gst
 
     def product_cess(self, obj):
-        if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='cess').exists():
-            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj,
-                                                                        tax__tax_type='cess').last().tax.tax_percentage)
-        return ''
+        product_cess = validate_tax_type(obj, 'cess')
+        return product_cess
 
     def product_surcharge(self, obj):
-        if ParentProductTaxMapping.objects.filter(parent_product=obj, tax__tax_type='surcharge').exists():
-            return "{} %".format(ParentProductTaxMapping.objects.filter(parent_product=obj,
-                                                                        tax__tax_type='surcharge').last().tax.tax_percentage)
-        return ''
+        product_surcharge = validate_tax_type(obj, 'surcharge')
+        return product_surcharge
 
     def product_category(self, obj):
         try:
@@ -432,7 +426,7 @@ class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError('This field is required')
 
         if len(data.get('parent_product_id_list')) == 0:
-            raise serializers.ValidationError(_('Atleast one parent_product id must be selected '))
+            raise serializers.ValidationError(_('atleast one parent_product id must be selected '))
 
         for id in data.get('parent_product_id_list'):
             try:

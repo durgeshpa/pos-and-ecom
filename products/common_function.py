@@ -38,8 +38,9 @@ class ParentProductCls(object):
             Delete Existing Images of specific ParentProduct if any
             Create Parent Product Images
         """
-        if ParentProductImage.objects.filter(parent_product=parent_product).exists():
-            ParentProductImage.objects.filter(parent_product=parent_product).delete()
+        parent_image = ParentProductImage.objects.filter(parent_product=parent_product)
+        if parent_image.exists():
+            parent_image.delete()
 
         for image in parent_product_pro_image:
             ParentProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
@@ -51,8 +52,9 @@ class ParentProductCls(object):
              Delete Existing Category of specific ParentProduct if any
              Create Parent Product Categories
         """
-        if ParentProductCategory.objects.filter(parent_product=parent_product).exists():
-            ParentProductCategory.objects.filter(parent_product=parent_product).delete()
+        parent_cat = ParentProductCategory.objects.filter(parent_product=parent_product)
+        if parent_cat.exists():
+            parent_cat.delete()
 
         for product_category in parent_product_pro_category:
             category = Category.objects.get(id=product_category['category'])
@@ -64,8 +66,9 @@ class ParentProductCls(object):
             Delete Existing Tax of specific ParentProduct if any
             Create Parent Product Tax
         """
-        if ParentProductTaxMapping.objects.filter(parent_product=parent_product).exists():
-            ParentProductTaxMapping.objects.filter(parent_product=parent_product).delete()
+        parent_tax = ParentProductTaxMapping.objects.filter(parent_product=parent_product)
+        if parent_tax.exists():
+            parent_tax.delete()
 
         for tax_data in parent_product_pro_tax:
             tax = Tax.objects.get(id=tax_data['tax'])
