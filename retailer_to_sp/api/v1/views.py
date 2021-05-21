@@ -473,11 +473,8 @@ class SearchProducts(APIView):
             Search query for gf normal search
         """
         product_ids = self.request.GET.get('product_ids')
-        product_ids = product_ids.split(',')
         brand = self.request.GET.get('brands')
-        brand = brand.split(',')
         category = self.request.GET.get('categories')
-        category = category.split(',')
         keyword = self.request.GET.get('keyword', None)
         filter_list = []
         if self.request.GET.get('app_type') != '2':
@@ -487,6 +484,7 @@ class SearchProducts(APIView):
                 {"range": {"available": {"gt": 0}}}
             ]
         if product_ids:
+            product_ids = product_ids.split(',')
             filter_list.append({"ids": {"type": "product", "values": product_ids}})
             query = {"bool": {"filter": filter_list}}
             return query
@@ -494,6 +492,7 @@ class SearchProducts(APIView):
         if not (category or brand or keyword):
             return query
         if brand:
+            brand = brand.split(',')
             brand_name = "{} -> {}".format(Brand.objects.filter(id__in=list(brand)).last(), keyword)
             filter_list.append({"match": {
                 "brand": {"query": brand_name, "fuzziness": "AUTO", "operator": "and"}
@@ -502,6 +501,7 @@ class SearchProducts(APIView):
             q = {"multi_match": {"query":keyword,"fields":["name^5", "category", "brand"],"type":"cross_fields"}}
             query["bool"]["must"] = [q]
         if category:
+            category = category.split(',')
             category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
             filter_list.append({"match": {"category": {"query": category_filter, "operator": "and"}}})
         return query
