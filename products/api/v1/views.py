@@ -53,7 +53,7 @@ class ParentProduct(GenericAPIView):
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(parent_product, many=True)
-        return get_response('Parent Product List!', serializer.data)
+        return get_response('parent product list!', serializer.data)
 
     def post(self, request):
         """ POST API for Parent Product Creation with Image Category & Tax """
@@ -65,11 +65,10 @@ class ParentProduct(GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
-
         """ PUT API for Parent Product Updation with Image Category & Tax """
 
         if not request.POST.get('id'):
-            return get_response('Please Provide a id to update parent product', False)
+            return get_response('please provide id to update parent product', False)
 
         # validations for input id
         id_instance = validate_id(self.queryset, int(request.POST.get('id')))
@@ -80,22 +79,21 @@ class ParentProduct(GenericAPIView):
         serializer = self.serializer_class(instance=parent_product_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return get_response('Parent Product Updated', serializer.data)
+            return get_response('parent product updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def delete(self, request):
-
         """ Delete Parent Product with image """
 
         if not request.data.get('parent_product_id'):
-            return get_response('Please Provide a parent_product_id', False)
+            return get_response('please provide parent_product_id', False)
         try:
             for id in request.data.get('parent_product_id'):
                 parent_product_id = self.queryset.get(id=int(id))
                 parent_product_id.delete()
         except ObjectDoesNotExist:
-            return get_response(f'Please Provide a Valid parent_product_id {id}', False)
-        return get_response('Parent Product were deleted successfully!', [], True)
+            return get_response(f'please provide a valid parent_product_id {id}', False)
+        return get_response('parent product were deleted successfully!', True)
 
     def get_parent_product_list(self):
 
@@ -124,13 +122,12 @@ class ParentProductBulkUpload(CreateAPIView):
     serializer_class = ParentProductBulkUploadSerializers
 
     def post(self, request, *args, **kwargs):
-
         """ POST API for Bulk Upload Parent Product CSV with Category & Tax """
 
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return get_response('Parent Product CSV uploaded successfully !', serializer.data)
+            return get_response('parent product CSV uploaded successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
 
@@ -139,7 +136,6 @@ class ParentProductExportAsCSV(GenericAPIView):
     permission_classes = (AllowAny,)
 
     def post(self, request):
-
         """ POST API for Download Selected Parent Product CSV with Image Category & Tax """
 
         serializer = ParentProductExportAsCSVSerializers(data=request.data)
@@ -155,7 +151,6 @@ class ActiveDeactivateSelectedProduct(GenericAPIView):
     parent_product_list = ParentProducts.objects.all()
 
     def put(self, request):
-
         """ PUT API for Activate or Deactivate Selected Parent Product """
 
         serializer = ActiveDeactivateSelectedProductSerializers(instance=
@@ -163,16 +158,22 @@ class ActiveDeactivateSelectedProduct(GenericAPIView):
                             data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return get_response('Parent Product Updated', serializer.data)
+            return get_response('parent product updated successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
 
 class ProductCapping(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ProductCappings.objects.select_related('product', 'seller_shop', 'buyer_shop')
+    queryset = ProductCappings.objects.select_related('product', 'seller_shop', 'buyer_shop').order_by('-id')
     serializer_class = ProductCappingSerializers
-
+    """
+            Get Product Capping
+            Add Product Capping
+            Search Product Capping
+            List Product Capping
+            Update Product Capping
+    """
     def get(self, request):
 
         if request.GET.get('id'):
@@ -206,7 +207,7 @@ class ProductCapping(GenericAPIView):
         """ Put API for Product Capping Updation """
 
         if not request.data.get('id'):
-            return get_response('Please Provide id to update product capping', False)
+            return get_response('please provide id to update product capping', False)
         cap_product_id = int(request.data.get('id'))
         try:
             id_instance = self.queryset.get(id=cap_product_id)
@@ -216,7 +217,7 @@ class ProductCapping(GenericAPIView):
         serializer = self.serializer_class(instance=id_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return get_response('Product Capping Updated', serializer.data)
+            return get_response('product capping updated successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def delete(self, request):
@@ -224,14 +225,14 @@ class ProductCapping(GenericAPIView):
         """ Delete Product Capping """
 
         if not request.data.get('product_capping_id'):
-            return get_response('Please Provide a product_capping_id', False)
+            return get_response('please provide a product_capping_id', False)
         try:
             for cap_product_id in request.data.get('product_capping_id'):
                 product_capping_id = self.queryset.get(id=int(cap_product_id))
                 product_capping_id.delete()
         except ObjectDoesNotExist:
             return get_response(f'id {cap_product_id} not found', False)
-        return get_response('Product Capping were deleted successfully!', [], True)
+        return get_response('product capping were deleted successfully!', [], True)
 
     def get_product_capping(self):
         product_sku = self.request.GET.get('product_sku')
