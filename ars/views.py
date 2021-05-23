@@ -107,10 +107,12 @@ def get_demand_by_parent_product(warehouse, parent_product):
                                 - Current Inventory - Pending Putaway Inventory - Inventory in Process
     """
     daily_average = get_daily_average(warehouse, parent_product)
+    if daily_average <= 0:
+        return 0
     current_inventory = get_current_inventory(warehouse, parent_product)
     max_inventory_in_days = get_config('ARS_MAX_INVENTORY_IN_DAYS', 7)
     demand = (daily_average * max_inventory_in_days) - current_inventory
-    return math.ceil(demand) if demand else 0
+    return math.ceil(demand) if demand > 0 else 0
 
 
 def get_current_inventory(warehouse, parent_product):

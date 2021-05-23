@@ -1,6 +1,7 @@
 import csv
 import datetime
 import logging
+import math
 from io import StringIO
 
 from django.contrib import admin
@@ -10,6 +11,7 @@ from django.utils import timezone
 from ars.filters import WarehouseFilter, ParentProductFilter
 from ars.models import ProductDemand
 from ars.views import get_demand_by_parent_product, get_current_inventory
+from global_config.views import get_config
 
 info_logger = logging.getLogger('file-info')
 
@@ -32,10 +34,11 @@ class ProductDemandAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-    def queryset(self, request):
+    def get_queryset(self, request):
         """Returns queryset"""
-        return self.queryset.filter(created_at__date=datetime.datetime.today().date())\
-                           .distinct('warehouse', 'parent_product').order_by('-created_at')
+        qs = super(ProductDemandAdmin, self).get_queryset(request)
+        latest_date = ProductDemand.objects.latest('created_at').created_at.date()
+        return qs.filter(created_at__date=latest_date).order_by('-created_at')
 
     def parent_id(self, obj):
         """Returns parent product's parent id"""
@@ -57,7 +60,12 @@ class ProductDemandAdmin(admin.ModelAdmin):
         return get_current_inventory(obj.warehouse, obj.parent_product)
 
     def current_demand(self, obj):
-        return get_demand_by_parent_product(obj.warehouse, obj.parent_product)
+        if obj.average_daily_sales <= 0:
+            return 0
+        current_inventory = get_current_inventory(obj.warehouse, obj.parent_product)
+        max_inventory_in_days = get_config('ARS_MAX_INVENTORY_IN_DAYS', 7)
+        demand = (obj.average_daily_sales * max_inventory_in_days) - current_inventory
+        return math.ceil(demand) if demand > 0 else 0
 
     def has_add_permission(self, request):
         """Disabling user to add demand"""

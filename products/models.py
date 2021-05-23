@@ -885,7 +885,8 @@ class ProductVendorMapping(models.Model):
            
         ProductVendorMapping.objects.filter(product=self.product,vendor=self.vendor,status=True).update(status=False)
         if self.is_default:
-            ProductVendorMapping.objects.filter(product=self.product, status=True, is_default=True)\
+            ProductVendorMapping.objects.filter(product__parent_product=self.product.parent_product,
+                                                status=True, is_default=True)\
                 .update(is_default=False)
         self.status = True
         super().save(*args, **kwargs)
