@@ -66,7 +66,7 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel,
                                  whatsapp_order_refund)
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
-from pos.common_functions import get_shop_id_from_token, get_response, api_response, create_user_shop_mapping, \
+from pos.common_functions import get_shop_id_from_token, api_response, create_user_shop_mapping, \
     delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP, RetailerProductCls, validate_data_format
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
@@ -3797,7 +3797,7 @@ class OrderReturnsCheckout(APIView):
     #     """
     #     initial_validation = self.post_validate()
     #     if 'error' in initial_validation:
-    #         return get_response(initial_validation['error'])
+    #         return api_response(initial_validation['error'])
     #     order = initial_validation['order']
     #     order_return = initial_validation['order_return']
     #     # initial order amount
@@ -3826,8 +3826,8 @@ class OrderReturnsCheckout(APIView):
     #             offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw,
     #                                                             self.request.data.get('coupon_id'))
     #         if 'error' in offers:
-    #             return get_response(offers['error'])
-    #         return get_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(order))
+    #             return api_response(offers['error'])
+    #         return api_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(order))
 
     def post_validate(self):
         """
@@ -3885,8 +3885,8 @@ class OrderReturnsCheckout(APIView):
         # with transaction.atomic():
         #     offers = BasicCartOffers.refresh_returns_offers(order, current_amount, order_return, refund_amount_raw)
         #     if 'error' in offers:
-        #         return get_response(offers['error'])
-        #     return get_response("Return Checkout", self.serialize(order, offers['total_offers'], offers['spot_discount']))
+        #         return api_response(offers['error'])
+        #     return api_response("Return Checkout", self.serialize(order, offers['total_offers'], offers['spot_discount']))
         return api_response("Return Checkout", self.serialize(order), status.HTTP_200_OK, True)
 
     def get_validate(self):
@@ -3921,13 +3921,13 @@ class OrderReturnsCheckout(APIView):
     #     # Check shop
     #     shop_id = get_shop_id_from_token(self.request)
     #     if not type(shop_id) == int:
-    #         return get_response("Shop Doesn't Exist!")
+    #         return api_response("Shop Doesn't Exist!")
     #     # check order
     #     order_id = self.request.GET.get('order_id')
     #     try:
     #         order = Order.objects.get(pk=order_id, seller_shop_id=shop_id)
     #     except ObjectDoesNotExist:
-    #         return get_response("Order Does Not Exist")
+    #         return api_response("Order Does Not Exist")
     #     # check if return created
     #     try:
     #         order_return = OrderReturn.objects.get(order=order)
@@ -3944,7 +3944,7 @@ class OrderReturnsCheckout(APIView):
     #     order_return.offers = []
     #     order_return.refund_amount = refund_amount
     #     order_return.save()
-    #     return get_response("Deleted Successfully", [], True)
+    #     return api_response("Deleted Successfully", [], True)
 
     def serialize(self, order, offers=None, spot_discount=None):
         """
