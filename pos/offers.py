@@ -120,7 +120,7 @@ class BasicCartOffers(object):
             offer['free_item_mrp'] = float(free_product.mrp)
             offer['free_item_qty_added'] = free_item_qty
             offer['display_text'] = str(free_item_qty) + ' ' + free_product.name + ' worth Rs.' + str(
-                round(float(free_product.mrp) * float(qty), 2)) + ' Free'
+                round(float(free_product.mrp) * float(free_item_qty), 2)) + ' Free'
         else:
             # Next applicable combo offer on product
             offer = BasicCartOffers.get_offer_next(coupon, product_total, qty)
