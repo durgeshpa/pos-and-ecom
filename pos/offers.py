@@ -31,7 +31,7 @@ class BasicCartOffers(object):
             Cart.objects.filter(pk=cart.id).update(offers=offers_list['offers_list'])
             return offers_list
         else:
-            return {'error': 'No Products In Cart Yet!'}
+            return {'error': 'No Products In Cart Yet!', 'code': 200}
 
     @classmethod
     def refresh_combo(cls, cart, cart_products):
@@ -424,9 +424,9 @@ class BasicCartOffers(object):
                 Cart.objects.filter(pk=cart.id).update(offers=offers)
                 return {'applied': True, 'offers_list': offers}
             else:
-                return {'error': 'Please Provide Spot Discount Less Than Cart Value'}
+                return {'error': 'Please Provide Spot Discount Less Than Cart Value', 'code': 406}
         else:
-            return {'error': 'No Products In Cart Yet!'}
+            return {'error': 'No Products In Cart Yet!', 'code': 200}
 
     @classmethod
     def apply_spot_discount_returns(cls, spot_discount, is_percentage, current_amount, order_return,
@@ -442,7 +442,7 @@ class BasicCartOffers(object):
             order_return.save()
             return {'applied': True}
         else:
-            return {'error' : "Please provide spot discount less than current amount"}
+            return {'error': "Please provide spot discount less than current amount", 'code': 406}
 
     @classmethod
     def refresh_returns_offers(cls, order, current_amount, order_return, refund_amount_raw, coupon_id=None):

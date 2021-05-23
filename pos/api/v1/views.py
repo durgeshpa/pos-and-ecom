@@ -17,7 +17,7 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 
 from pos.models import RetailerProduct
 from pos.utils import MultipartJsonParser
-from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, get_response, get_shop_id_from_token,
+from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, get_shop_id_from_token,
                                   validate_data_format)
 
 from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
@@ -81,12 +81,11 @@ class PosProductView(GenericAPIView):
                     # Upload images
                     RetailerProductCls.upload_images(product.id, self.request.FILES.getlist('images'))
                     serializer = RetailerProductResponseSerializer(product)
-                    data = serializer.data
-                    return get_response('Product created successfully!', serializer.data)
+                    return api_response('Product created successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
-                return get_response(serializer_error(serializer), [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+                return api_response(serializer_error(serializer))
         else:
-            return get_response("Shop Doesn't Exist", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Shop Doesn't Exist")
 
     def put(self, request, *args, **kwargs):
         """
@@ -116,11 +115,11 @@ class PosProductView(GenericAPIView):
                     # Update images
                     RetailerProductCls.upload_images(product.id, images=request.FILES.getlist('images'))
                     serializer = RetailerProductResponseSerializer(product)
-                    return get_response('Product updated successfully!', serializer.data)
+                    return api_response('Product updated successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
-                return get_response(serializer_error(serializer), [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+                return api_response(serializer_error(serializer))
         else:
-            return get_response("Shop Doesn't Exist", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Shop Doesn't Exist")
 
     @staticmethod
     def get_sku_type(mrp, linked_pid=None):
@@ -152,11 +151,11 @@ class CouponOfferCreation(GenericAPIView):
                 if serializer.is_valid():
                     return self.get_offer(coupon_id)
                 else:
-                    return get_response(serializer_error(serializer), [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+                    return api_response(serializer_error(serializer))
             else:
                 return self.get_offers_list(request, shop_id)
         else:
-            return get_response("Shop Doesn't Exist", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Shop Doesn't Exist")
 
     def post(self, request, *args, **kwargs):
         """
@@ -171,9 +170,9 @@ class CouponOfferCreation(GenericAPIView):
             if serializer.is_valid():
                 return self.create_offer(serializer.data, shop_id)
             else:
-                return get_response(serializer_error(serializer), [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+                return api_response(serializer_error(serializer))
         else:
-            return get_response("Shop Doesn't Exist", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Shop Doesn't Exist")
 
     def put(self, request, *args, **kwargs):
         """
@@ -190,9 +189,9 @@ class CouponOfferCreation(GenericAPIView):
             if serializer.is_valid():
                 return self.update_offer(serializer.data, shop_id)
             else:
-                return get_response(serializer_error(serializer), [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+                return api_response(serializer_error(serializer))
         else:
-            return get_response("Shop Doesn't Exist", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Shop Doesn't Exist")
 
     def create_offer(self, data, shop_id):
         offer_type = data['offer_type']
@@ -208,7 +207,7 @@ class CouponOfferCreation(GenericAPIView):
                 else:
                     return self.create_free_product_offer(data, shop_id)
         else:
-            return get_response(serializer_error(serializer), [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response(serializer_error(serializer))
 
     def update_offer(self, data, shop_id):
         offer_type = data['offer_type']
@@ -224,7 +223,7 @@ class CouponOfferCreation(GenericAPIView):
                 else:
                     return self.update_free_product_offer(data, shop_id)
         else:
-            return get_response(serializer_error(serializer), [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response(serializer_error(serializer))
 
     @staticmethod
     def get_offer(coupon_id):
@@ -273,12 +272,12 @@ class CouponOfferCreation(GenericAPIView):
         coupon_obj = OffersCls.rule_set_creation(rule_set_name_with_shop_id, start_date, expiry_date, discount_amount,
                                                  discount_obj)
         if type(coupon_obj) == str:
-            return get_response(coupon_obj, [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response(coupon_obj)
         else:
             coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', data['coupon_name'], coupon_code, shop,
                                                      start_date, expiry_date)
             data['id'] = coupon.id
-            return get_response("Coupon Offer created successfully!", data)
+            return api_response("Coupon Offer created successfully!", data, status.HTTP_200_OK, True)
 
     @staticmethod
     def create_combo_offer(data, shop_id):
@@ -290,12 +289,12 @@ class CouponOfferCreation(GenericAPIView):
         try:
             retailer_primary_product_obj = RetailerProduct.objects.get(id=retailer_primary_product, shop=shop_id)
         except ObjectDoesNotExist:
-            return get_response("Primary product not found", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Primary product not found")
         retailer_free_product = data['free_product_id']
         try:
             retailer_free_product_obj = RetailerProduct.objects.get(id=retailer_free_product, shop=shop_id)
         except ObjectDoesNotExist:
-            return get_response("Free product not found", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Free product not found")
 
         combo_offer_name, start_date, expiry_date, purchased_product_qty, free_product_qty = data['coupon_name'], data[
             'start_date'], data['end_date'], data['primary_product_qty'], data['free_product_qty']
@@ -303,14 +302,14 @@ class CouponOfferCreation(GenericAPIView):
                                                      retailer_primary_product=retailer_primary_product_obj,
                                                      rule__coupon_ruleset__is_active=True)
         if offer:
-            return get_response("Offer already exists for this Primary Product", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Offer already exists for this Primary Product")
 
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
                      f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
         combo_rule_name = f"{shop_id}_{combo_code}"
         coupon_obj = OffersCls.rule_set_creation(combo_rule_name, start_date, expiry_date)
         if type(coupon_obj) == str:
-            return get_response(coupon_obj, [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response(coupon_obj)
 
         OffersCls.rule_set_product_mapping(coupon_obj.id, retailer_primary_product_obj, purchased_product_qty,
                                            retailer_free_product_obj, free_product_qty, combo_offer_name, start_date,
@@ -318,7 +317,7 @@ class CouponOfferCreation(GenericAPIView):
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name, combo_code, shop,
                                                  start_date, expiry_date)
         data['id'] = coupon.id
-        return get_response("Combo Offer created successfully!", data)
+        return api_response("Combo Offer created successfully!", data, status.HTTP_200_OK, True)
 
     @staticmethod
     def create_free_product_offer(data, shop_id):
@@ -329,49 +328,43 @@ class CouponOfferCreation(GenericAPIView):
         try:
             retailer_free_product_obj = RetailerProduct.objects.get(id=free_product, shop=shop_id)
         except ObjectDoesNotExist:
-            return get_response("Free product not found", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Free product not found")
 
         coupon_name, discount_amount, start_date, expiry_date, free_product_qty = data['coupon_name'], data[
             'order_value'], data['start_date'], data['end_date'], data['free_product_qty']
         coupon_rule_discount_amount = Coupon.objects.filter(rule__cart_qualifying_min_sku_value=discount_amount,
                                                             shop=shop_id, rule__coupon_ruleset__is_active=True)
         if coupon_rule_discount_amount:
-            return get_response(f"Offer already exists for Order Value {discount_amount}", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response(f"Offer already exists for Order Value {discount_amount}")
 
         coupon_rule_product_qty = Coupon.objects.filter(rule__free_product=retailer_free_product_obj,
                                                         rule__free_product_qty=free_product_qty,
                                                         shop=shop_id, rule__coupon_ruleset__is_active=True)
         if coupon_rule_product_qty:
-            return get_response("Offer already exists for same quantity of free product. Please check.", [], False, [],
-                                status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Offer already exists for same quantity of free product. Please check.")
 
         rule_name = f"{shop_id}_{retailer_free_product_obj.name}_{free_product_qty}_{discount_amount}"
         coupon_code = f"{free_product_qty} {retailer_free_product_obj.name} free on orders above Rs. {discount_amount}"
         coupon_obj = OffersCls.rule_set_creation(rule_name, start_date, expiry_date, discount_amount, None,
                                                  retailer_free_product_obj, free_product_qty)
         if type(coupon_obj) == str:
-            return get_response(coupon_obj, [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response(coupon_obj)
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_code, shop, start_date,
                                                  expiry_date)
         data['id'] = coupon.id
-        return get_response("Free Product Offer Created Successfully!", data)
+        return api_response("Free Product Offer Created Successfully!", data, status.HTTP_200_OK, True)
 
     @staticmethod
     def update_coupon(data, shop_id):
         try:
             coupon = Coupon.objects.get(id=data['id'], shop=shop_id)
         except ObjectDoesNotExist:
-            return get_response("Coupon Id Invalid", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Coupon Id Invalid")
         try:
             rule = CouponRuleSet.objects.get(id=coupon.rule.id)
         except ObjectDoesNotExist:
             error_logger.error("Coupon RuleSet not found for coupon id {}".format(coupon.id))
-            return get_response("Coupon RuleSet not found", [], False, [], status.HTTP_500_INTERNAL_SERVER_ERROR)
-        try:
-            discount = DiscountValue.objects.get(id=rule.discount.id)
-        except ObjectDoesNotExist:
-            error_logger.error("Discount obj not found for coupon id {}".format(coupon.id))
-            return get_response("Discount Obj Not Found", [], False, [], status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return api_response("Coupon RuleSet not found")
 
         coupon.coupon_name = data['coupon_name'] if 'coupon_name' in data else coupon.coupon_name
         if 'start_date' in data:
@@ -381,27 +374,25 @@ class CouponOfferCreation(GenericAPIView):
         if 'is_active' in data:
             rule.is_active = coupon.is_active = data['is_active']
         rule.save()
-        discount.save()
         coupon.save()
-        return get_response("Coupon Offer Updated Successfully!", None, True)
+        return api_response("Coupon Offer Updated Successfully!", None, status.HTTP_200_OK, True)
 
     @staticmethod
     def update_combo(data, shop_id):
         try:
             coupon = Coupon.objects.get(id=data['id'], shop=shop_id)
         except ObjectDoesNotExist:
-            return get_response("Coupon Id Invalid", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Coupon Id Invalid")
         try:
             rule = CouponRuleSet.objects.get(id=coupon.rule.id)
         except ObjectDoesNotExist:
             error_logger.error("Coupon RuleSet not found for coupon id {}".format(coupon.id))
-            return get_response("Coupon RuleSet not found", [], False, [], status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return api_response("Coupon RuleSet not found")
         try:
             rule_set_product_mapping = RuleSetProductMapping.objects.get(rule=coupon.rule)
         except ObjectDoesNotExist:
             error_logger.error("Product RuleSet not found for coupon id {}".format(coupon.id))
-            return get_response("Product mapping Not Found with Offer", [], False, [],
-                                status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return api_response("Product mapping Not Found with Offer")
 
         if 'coupon_name' in data:
             coupon.coupon_name = rule_set_product_mapping.combo_offer_name = data['coupon_name']
@@ -414,19 +405,19 @@ class CouponOfferCreation(GenericAPIView):
         rule.save()
         rule_set_product_mapping.save()
         coupon.save()
-        return get_response("Combo Offer Updated Successfully!", None, True)
+        return api_response("Combo Offer Updated Successfully!", None, status.HTTP_200_OK, True)
 
     @staticmethod
     def update_free_product_offer(data, shop_id):
         try:
             coupon = Coupon.objects.get(id=data['id'], shop=shop_id)
         except ObjectDoesNotExist:
-            return get_response("Coupon Id Invalid", [], False, [], status.HTTP_406_NOT_ACCEPTABLE)
+            return api_response("Coupon Id Invalid")
         try:
             rule = CouponRuleSet.objects.get(id=coupon.rule.id)
         except ObjectDoesNotExist:
             error_logger.error("Coupon RuleSet not found for coupon id {}".format(coupon.id))
-            return get_response("Coupon RuleSet not found", [], False, [], status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return api_response("Coupon RuleSet not found")
 
         coupon.coupon_name = data['coupon_name'] if 'coupon_name' in data else coupon.coupon_name
         if 'start_date' in data:
@@ -437,4 +428,4 @@ class CouponOfferCreation(GenericAPIView):
             rule.is_active = coupon.is_active = data['is_active']
         rule.save()
         coupon.save()
-        return get_response("Free Product Offer Updated Successfully!", None, True)
+        return api_response("Free Product Offer Updated Successfully!", None, status.HTTP_200_OK, True)

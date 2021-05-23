@@ -116,6 +116,33 @@ def get_response(msg, data=None, success=False, extra_params=None, status_code=s
     return Response(ret, status=status_code)
 
 
+def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
+    ret = {"is_success": success, "message": msg, "response_data": data}
+    if extra_params:
+        ret.update(extra_params)
+    return Response(ret, status=status_code)
+
+
+def get_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
+    """
+        General Response For API
+    """
+    ret = {"is_success": success, "message": msg, "response_data": data}
+    if extra_params:
+        ret.update(extra_params)
+    return Response(ret, status=status_code)
+    if success:
+        ret = {"is_success": True, "message": msg, "response_data": data}
+    else:
+        if data:
+            ret = {"is_success": True, "message": msg, "response_data": data}
+        else:
+            status_code = status.HTTP_406_NOT_ACCEPTABLE
+            ret = {"is_success": False, "message": msg, "response_data": None}
+    if extra_params:
+        ret.update(extra_params)
+
+
 def delete_cart_mapping(cart, product, cart_type='retail'):
     """
         Delete Cart items
