@@ -119,6 +119,8 @@ class BasicCartOffers(object):
             offer['free_item_name'] = free_product.name
             offer['free_item_mrp'] = float(free_product.mrp)
             offer['free_item_qty_added'] = free_item_qty
+            offer['display_text'] = str(free_item_qty) + ' ' + free_product.name + ' worth Rs.' + str(
+                round(float(free_product.mrp) * float(qty), 2)) + ' Free'
         else:
             # Next applicable combo offer on product
             offer = BasicCartOffers.get_offer_next(coupon, product_total, qty)
@@ -177,8 +179,7 @@ class BasicCartOffers(object):
         ret.update({
             'free_item_id': coupon['free_product'],
             'item_qty': coupon['purchased_product_qty'],
-            'free_item_qty': coupon['free_product_qty'],
-            'display_text': 'Combo Offer Applied'
+            'free_item_qty': coupon['free_product_qty']
         })
         return ret
 
@@ -270,7 +271,8 @@ class BasicCartOffers(object):
                     final_offer_coupon_id = offer
                     continue
                 # If already applied coupon_id is still applicable, refresh the discount amount/offer
-                if applied_offer and 'coupon_id' in applied_offer and int(applied_offer['coupon_id']) == int(coupon['id']) and not auto_apply:
+                if applied_offer and 'coupon_id' in applied_offer and int(applied_offer['coupon_id']) == int(
+                        coupon['id']) and not auto_apply:
                     final_offer_applied = offer
                     continue
                 applicable_offers.append(offer)
@@ -390,7 +392,8 @@ class BasicCartOffers(object):
             for offer in offers_list:
                 if offer['coupon_type'] == 'cart' and offer['type'] == 'free_product':
                     continue
-                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['sub_type'] == 'set_discount':
+                if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer[
+                    'sub_type'] == 'set_discount':
                     if float(offer['cart_minimum_value']) > cart_total:
                         continue
                     cart_offer = offer
@@ -417,7 +420,8 @@ class BasicCartOffers(object):
             if cart_products:
                 for product_mapping in cart_products:
                     cart_value += product_mapping.selling_price * product_mapping.qty
-            discount_value = round((float(spot_discount) / 100) * float(cart_value), 2) if is_percentage else float(spot_discount)
+            discount_value = round((float(spot_discount) / 100) * float(cart_value), 2) if is_percentage else float(
+                spot_discount)
             if discount_value <= cart_value:
                 offer = BasicCartOffers.get_offer_spot_discount(is_percentage, spot_discount, discount_value)
                 offers = BasicCartOffers.update_cart_offer(cart.offers, cart_value, offer)
@@ -483,8 +487,8 @@ class BasicCartOffers(object):
         """
         date = datetime.now()
         body = {
-            "from":0,
-            "size":1,
+            "from": 0,
+            "size": 1,
             "query": {"bool": {"filter": [{"term": {"active": True}},
                                           {"term": {"coupon_type": 'cart_free_product'}},
                                           {"range": {"start_date": {"lte": date}}},
