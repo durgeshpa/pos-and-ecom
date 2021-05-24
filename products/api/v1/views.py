@@ -20,7 +20,9 @@ from products.common_validators import validate_id
 from products.services import parent_product_search
 
 # Get an instance of a logger
-logger = logging.getLogger(__name__)
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 class ParentProduct(GenericAPIView):
@@ -47,6 +49,7 @@ class ParentProduct(GenericAPIView):
     def get(self, request):
         """ GET API for Parent Product with Image Category & Tax """
 
+        info_logger.info("Parent Product GET api called.")
         if request.GET.get('id'):
             """ Get Parent Product for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -64,6 +67,7 @@ class ParentProduct(GenericAPIView):
     def post(self, request):
         """ POST API for Parent Product Creation with Image Category & Tax """
 
+        info_logger.info("Parent Product POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -73,6 +77,7 @@ class ParentProduct(GenericAPIView):
     def put(self, request):
         """ PUT API for Parent Product Updation with Image Category & Tax """
 
+        info_logger.info("Parent Product PUT api called.")
         if not request.POST.get('id'):
             return get_response('please provide id to update parent product', False)
 
@@ -91,6 +96,7 @@ class ParentProduct(GenericAPIView):
     def delete(self, request):
         """ Delete Parent Product with image """
 
+        info_logger.info("Parent Product DELETE api called.")
         if not request.data.get('parent_product_id'):
             return get_response('please provide parent_product_id', False)
         try:
@@ -130,6 +136,7 @@ class ParentProductBulkUpload(CreateAPIView):
     def post(self, request, *args, **kwargs):
         """ POST API for Bulk Upload Parent Product CSV with Category & Tax """
 
+        info_logger.info("Parent Product Bulk Upload POST api called.")
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -144,6 +151,7 @@ class ParentProductExportAsCSV(CreateAPIView):
     def post(self, request):
         """ POST API for Download Selected Parent Product CSV with Image Category & Tax """
 
+        info_logger.info("Parent Product ExportAsCSV POST api called.")
         serializer = ParentProductExportAsCSVSerializers(data=request.data)
         if serializer.is_valid():
             response = serializer.save()
@@ -159,6 +167,7 @@ class ActiveDeactivateSelectedProduct(UpdateAPIView):
     def put(self, request):
         """ PUT API for Activate or Deactivate Selected Parent Product """
 
+        info_logger.info("Parent Product ActiveDeactivateSelectedProduct PUT api called.")
         serializer = ActiveDeactivateSelectedProductSerializers(instance=
                                                                 self.parent_product_list.filter(
                                                                     id__in=request.data['parent_product_id_list']),
@@ -182,7 +191,9 @@ class ProductCapping(GenericAPIView):
         Update Product Capping
     """
     def get(self, request):
+        """ GET API for Product Capping List"""
 
+        info_logger.info("Product Capping GET api called.")
         if request.GET.get('id'):
             """ Get Parent Product when id is given in params """
             # validations for input id
@@ -202,6 +213,7 @@ class ProductCapping(GenericAPIView):
 
         """ Post API for Product Capping Creation """
 
+        info_logger.info("Product Capping POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -212,6 +224,7 @@ class ProductCapping(GenericAPIView):
 
         """ Put API for Product Capping Updation """
 
+        info_logger.info("Product Capping PUT api called.")
         if not request.data.get('id'):
             return get_response('please provide id to update product capping', False)
         cap_product_id = int(request.data.get('id'))
@@ -230,6 +243,7 @@ class ProductCapping(GenericAPIView):
 
         """ Delete Product Capping """
 
+        info_logger.info("Product Capping DELETE api called.")
         if not request.data.get('product_capping_id'):
             return get_response('please provide a product_capping_id', False)
         try:
@@ -269,6 +283,7 @@ class ProductVendorMapping(GenericAPIView):
     def get(self, request):
         """ GET API for Product Vendor Mapping """
 
+        info_logger.info("Product Vendor Mapping GET api called.")
         if request.GET.get('id'):
             """ Get Product Vendor Mapping for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -286,6 +301,7 @@ class ProductVendorMapping(GenericAPIView):
     def post(self, request):
         """ POST API for Product Vendor Mapping """
 
+        info_logger.info("Product Vendor Mapping POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -295,6 +311,7 @@ class ProductVendorMapping(GenericAPIView):
     def put(self, request):
         """ PUT API for Product Vendor Mapping Updation """
 
+        info_logger.info("Product Vendor Mapping PUT api called.")
         if not request.data.get('id'):
             return get_response('please provide id to update product vendor mapping', False)
 
