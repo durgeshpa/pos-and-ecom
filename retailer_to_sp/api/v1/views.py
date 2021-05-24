@@ -2546,7 +2546,8 @@ class OrderCentral(APIView):
             self.update_cart_basic(cart)
             order = self.create_basic_order(cart, shop)
             self.auto_process_order(order, payment_method)
-            return api_response('Ordered Successfully!', None, status.HTTP_200_OK, True)
+            return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,
+                                status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
@@ -3786,7 +3787,8 @@ class OrderReturns(APIView):
             previous_returns = ReturnItems.objects.filter(return_id__status='completed',
                                                           ordered_product=ordered_product_map)
             previous_ret_qty = previous_returns.aggregate(qty=Sum('return_qty'))['qty']
-            order_sp = previous_returns.last().new_sp
+            if previous_returns.exists():
+                order_sp = previous_returns.last().new_sp
         # New total return quantity should be greater than equal to sum of previous return qty
         # if qty < previous_ret_qty:
         #     return {'error': "{} quantity of product {} have already been returned.".format(previous_ret_qty,
