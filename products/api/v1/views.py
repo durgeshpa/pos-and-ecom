@@ -362,9 +362,8 @@ class ChildProduct(GenericAPIView):
     permission_classes = (AllowAny,)
 
     queryset = (ChildProduct.objects.prefetch_related('parent_product', 'parent_product__parent_brand',
-                                                      'child_product_pro_image',
-                                                      'parent_product__product_hsn',
                                                       'parent_product__parent_product_pro_image',
+                                                      'child_product_pro_image', 'parent_product__product_hsn',
                                                       'parent_product__parent_product_pro_category',
                                                       'parent_product__parent_product_pro_tax',
                                                       'parent_product__parent_product_pro_category__category',
