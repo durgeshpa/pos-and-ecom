@@ -10,7 +10,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
+    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage
 from categories.models import Category
 from brand.models import Brand, Vendor
 from shops.models import Shop
@@ -50,6 +50,16 @@ class ParentProductCategorySerializers(serializers.ModelSerializer):
     class Meta:
         model = ParentProductCategory
         fields = ('id', 'parent_product', 'category',)
+
+
+class ParentProductImageSerializers(serializers.ModelSerializer):
+    image = serializers.ImageField(
+        max_length=None, use_url=True,
+    )
+
+    class Meta:
+        model = ChildProductImage
+        fields = ('id', 'image_name', 'image',)
 
 
 class ParentProductImageSerializers(serializers.ModelSerializer):
@@ -611,3 +621,15 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         return product_vendor_map
+
+
+class ChildProductSerializers(serializers.ModelSerializer):
+    """ Handles creating, reading and updating child product items."""
+    parent_product = ParentProductSerializers(read_only=True)
+    child_product_pro_image = ChildProductImage()
+
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp',
+                  'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image',
+                  'child_product_pro_image', 'parent_product',)
