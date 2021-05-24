@@ -1274,7 +1274,7 @@ class CartCentral(GenericAPIView):
                 return {'error': "Please provide product_id OR product_name, product_ean_code, selling_price!"}
             linked_pid = self.request.data.get('linked_product_id') if self.request.data.get(
                 'linked_product_id') else None
-            mrp, linked = sp, 1
+            mrp, linked = 0, 1
             if linked_pid:
                 linked_product = Product.objects.filter(id=linked_pid).last()
                 if not linked_product:
