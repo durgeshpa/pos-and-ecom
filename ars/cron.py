@@ -7,6 +7,7 @@ from services.models import CronRunLog
 
 cron_logger = logging.getLogger('cron_log')
 
+
 def run_ars_cron():
     cron_name = CronRunLog.CRON_CHOICE.ARS_CRON
     if CronRunLog.objects.filter(cron_name=cron_name,
@@ -28,6 +29,9 @@ def run_ars_cron():
 
 
 def generate_po_cron():
+    """
+    Cron to create the PurchaseOrders from the demand generated in the system.
+    """
     cron_name = CronRunLog.CRON_CHOICE.PO_CREATION_CRON
     if CronRunLog.objects.filter(cron_name=cron_name,
                                  status=CronRunLog.CRON_STATUS_CHOICES.STARTED).exists():
@@ -47,5 +51,3 @@ def generate_po_cron():
     cron_logger.info("{} completed, cron log entry-{}".format(cron_name, cron_log_entry.id))
     cron_log_entry.save()
 
-
-def populate_product_data_cron():

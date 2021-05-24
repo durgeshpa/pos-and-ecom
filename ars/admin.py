@@ -57,9 +57,15 @@ class ProductDemandAdmin(admin.ModelAdmin):
         return obj.active_child_product.product_name if obj.active_child_product else None
 
     def system_inventory(self, obj):
+        """
+        Returns the current inventory in the system for a parent product for specific warehouse
+        """
         return get_current_inventory(obj.warehouse, obj.parent_product)
 
     def current_demand(self, obj):
+        """
+        Returns the current demand for a parent product for specific warehouse
+        """
         if obj.average_daily_sales <= 0:
             return 0
         current_inventory = get_current_inventory(obj.warehouse, obj.parent_product)

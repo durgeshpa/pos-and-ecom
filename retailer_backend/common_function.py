@@ -3,6 +3,7 @@ import itertools
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
 
+from common.constants import BULK_CREATE_NO_OF_RECORDS
 from shops.models import Shop,ParentRetailerMapping
 from addresses.models import Address
 from rest_framework import status
@@ -279,7 +280,7 @@ def generate_invoice_number_bulk_order(field, instance_id, address, invoice_amou
         instance.save()
 
 
-def bulk_create(model, generator, batch_size=5000):
+def bulk_create(model, generator, batch_size=BULK_CREATE_NO_OF_RECORDS):
     """
     Uses islice to call bulk_create on batches of
     Model objects from a generator.

@@ -42,6 +42,16 @@ def validate_image(image):
 
 # Create your models here.
 class Vendor(models.Model):
+
+    ORDERING_DAY_CHOICES = Choices(
+            (1, 'Monday', 'Monday'),
+            (2, 'Tuesday', 'Tuesday'),
+            (3, 'Wednesday', 'Wednesday'),
+            (4, 'Thursday', 'Thursday'),
+            (5, 'Friday', 'Friday'),
+            (6, 'Saturday', 'Saturday'),
+            (7, 'Sunday', 'Sunday'),
+        )
     company_name = models.CharField(max_length=255, null=True)
     vendor_name = models.CharField(max_length=255, null=True)
     contact_person_name = models.CharField(max_length=255,null=True,blank=True)
@@ -65,18 +75,7 @@ class Vendor(models.Model):
     cancelled_cheque = models.FileField(upload_to='vendor/cancelled_cheque', null=True)
     list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi',null=True,blank=True)
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
-    #vendor_products_csv = models.FileField(upload_to='vendor/vendor_products_csv', null=True,blank=True)
     vendor_products_brand = ArrayField(models.PositiveIntegerField(),null=True, blank=True,editable=False)
-
-    ORDERING_DAY_CHOICES = Choices(
-            (1, 'Monday', 'Monday'),
-            (2, 'Tuesday', 'Tuesday'),
-            (3, 'Wednesday', 'Wednesday'),
-            (4, 'Thursday', 'Thursday'),
-            (5, 'Friday', 'Friday'),
-            (6, 'Saturday', 'Saturday'),
-            (7, 'Sunday', 'Sunday'),
-        )
     ordering_days = MultiSelectField(max_length=50, choices=ORDERING_DAY_CHOICES, null=True, blank=True)
     lead_time = models.PositiveSmallIntegerField(verbose_name='Lead Time(In Days)', null=True, blank=True)
 

@@ -85,6 +85,7 @@ class Cart(BaseCart):
         (CLOSE, "Closed"),
         (PENDING_APPROVAL, "Pending for approval"),
     )
+    CART_TYPE_CHOICE = Choices((1, 'MANUAL', 'Manual'),(2, 'AUTO', 'Auto'))
 
     brand = models.ForeignKey(Brand, related_name='brand_order', on_delete=models.CASCADE)
     supplier_state = models.ForeignKey(State, related_name='state_cart', null=True, blank=True,
@@ -114,10 +115,9 @@ class Cart(BaseCart):
     is_vendor_notified = models.BooleanField(default=False, blank=True)
     is_warehouse_notified = models.BooleanField(default=False, blank=True)
     po_delivery_date = models.DateField(null=True)
-    CART_TYPE_CHOICE = Choices((1, 'MANUAL', 'Manual'),(2, 'AUTO', 'Auto'))
     cart_type = models.PositiveSmallIntegerField(choices=CART_TYPE_CHOICE, default=CART_TYPE_CHOICE.MANUAL)
     approved_by = models.ForeignKey(get_user_model(), related_name='user_approved_carts', null=True, blank=True,
-                                     on_delete=models.CASCADE)
+                                    on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

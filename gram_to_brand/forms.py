@@ -136,7 +136,6 @@ class POGenerationForm(forms.ModelForm):
         """
         raise ValidationError("Row {}  -  {}: {}  -  {}".format(str(row_id + 1), title, value, error))
 
-    # change_form_template = 'admin/gram_to_brand/cart/change_form.html'
 
 
 class POGenerationAccountForm(forms.ModelForm):

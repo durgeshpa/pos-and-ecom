@@ -8,9 +8,6 @@ from dal import autocomplete
 from django.db import transaction
 from django.db.models import Sum, Count, F, Q
 
-# Create your views here.
-from django.http import HttpResponse
-
 from accounts.models import User
 from addresses.models import Address
 from ars.models import ProductDemand, VendorDemand, VendorDemandProducts
@@ -29,6 +26,11 @@ info_logger = logging.getLogger('file-info')
 
 
 def product_demand_data_generator(warehouse_list, parent_product_list):
+    """
+    Generates data to be populated into ProductDemand table.
+    This function calculates the daily average, current inventory,
+    current demand for all the parent products for all the given warehouses and stores this in ProductDemand table.
+    """
     for warehouse in warehouse_list:
         for product in parent_product_list:
             active_child_product = get_child_product_with_latest_grn(product)
@@ -49,10 +51,16 @@ def product_demand_data_generator(warehouse_list, parent_product_list):
 
 
 def populate_daily_average():
-    warehouse_ids = get_config('ARS_WAREHOUSES', '600, 1393').split(",")
+    """
+    Generate and saves the daily sales average for all the active parent products in the system.
+    """
+    warehouse_ids_as_string = get_config('ARS_WAREHOUSES')
+    if warehouse_ids_as_string is None or len(warehouse_ids_as_string) == 0:
+        return
+    warehouse_ids = warehouse_ids_as_string.split(",")
     warehouse_list = [(Shop.objects.filter(id=id).last() if Shop.objects.filter(id=id).last() else None) for id in warehouse_ids]
     parent_product_list = ParentProduct.objects.filter(status=True)
-    bulk_create(ProductDemand, product_demand_data_generator(warehouse_list, parent_product_list), 5000)
+    bulk_create(ProductDemand, product_demand_data_generator(warehouse_list, parent_product_list))
 
 def get_daily_average(warehouse, parent_product):
     """
@@ -215,8 +223,12 @@ def get_child_product_with_latest_grn(parent_product):
 
     return child_product_with_latest_grn
 
-def mail_category_manager_for_po_approval():
 
+def mail_category_manager_for_po_approval():
+    """
+    Generates and send mail to category managers the summary of all the PO's which are generated today through ARS
+    and are pending for approval.
+    """
     try:
         sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
         recipient_list = get_config("ARS_MAIL_PO_ARROVAL_RECIEVER", "consultant1@gramfactory.com")
@@ -242,6 +254,9 @@ def mail_category_manager_for_po_approval():
 
 
 def create_po():
+    """
+    Creates PurchaseOrder for all the demands created.
+    """
     try:
         for demand in VendorDemand.objects.filter(Q(status=VendorDemand.STATUS_CHOICE.DEMAND_CREATED)):
             create_po_from_demand(demand)
@@ -251,7 +266,9 @@ def create_po():
 
 @transaction.atomic
 def create_po_from_demand(demand):
-
+    """
+    Creates PurchaseOrder for any given demand.
+    """
     info_logger.info("create_po_from_demand|Started|Brand-{}, Vendor-{}, Warehouse-{}"
                      .format(demand.brand, demand.vendor, demand.warehouse))
 
@@ -341,7 +358,11 @@ def create_po_from_demand(demand):
 
 
 class WareHouseComplete(autocomplete.Select2QuerySetView):
+
     def get_queryset(self, *args, **kwargs):
+        """
+        Returns queryset for Shop model where shop_name matches the given string to support autocomplete.
+        """
         if not self.request.user.is_authenticated:
             return Shop.objects.none()
 
@@ -351,8 +372,12 @@ class WareHouseComplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
 
+
 class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
+        """
+        Returns queryset for ParentProduct model where parent_id or name matches the given string  to support autocomplete.
+        """
         if not self.request.user.is_authenticated:
             return ParentProduct.objects.none()
 
