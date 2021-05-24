@@ -1522,10 +1522,37 @@ class CartCentral(GenericAPIView):
         return serializer.data
 
 
-class CartUserView(APIView):
+class UserView(APIView):
     """
         User Details
     """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        """
+            Get Customer Details - POS Shop
+            :param request: phone_number
+        """
+        # Check shop
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return api_response("Shop Doesn't Exist!")
+        # check phone_number
+        phone_no = self.request.GET.get('phone_number')
+        if not phone_no:
+            return api_response("Please enter phone number")
+        if not re.match(r'^[6-9]\d{9}$', phone_no):
+            return api_response("Please enter a valid phone number")
+
+        data, msg = [], 'Customer Does Not Exists'
+        customer = User.objects.filter(phone_number=phone_no).last()
+        if customer:
+            data, msg = PosUserSerializer(customer).data, 'Customer Detail Success'
+        return api_response(msg, data, status.HTTP_200_OK, True)
+
+
+class CartUserView(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -1581,28 +1608,6 @@ class CartUserView(APIView):
         if not re.match(r'^[6-9]\d{9}$', phone_no):
             return api_response("Please provide a valid phone number")
         return {'cart': cart}
-
-    def get(self, request):
-        """
-            Get Customer Details - POS Shop
-            :param request: phone_number
-        """
-        # Check shop
-        shop_id = get_shop_id_from_token(self.request)
-        if not type(shop_id) == int:
-            return api_response("Shop Doesn't Exist!")
-        # check phone_number
-        phone_no = self.request.GET.get('phone_number')
-        if not phone_no:
-            return api_response("Please enter phone number")
-        if not re.match(r'^[6-9]\d{9}$', phone_no):
-            return api_response("Please enter a valid phone number")
-
-        data, msg = [], 'Customer Does Not Exists'
-        customer = User.objects.filter(phone_number=phone_no).last()
-        if customer:
-            data, msg = PosUserSerializer(customer).data, 'Customer Detail Success'
-        return api_response(msg, data, status.HTTP_200_OK, True)
 
 
 class CartCheckout(APIView):

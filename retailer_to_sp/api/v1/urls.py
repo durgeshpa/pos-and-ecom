@@ -7,7 +7,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     OrderedProductViewSet, OrderedProductMappingView, DeliveryBoyTrips, RetailerShopsList, FeedbackData,
                     SellerOrderList, DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
-                    AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView
+                    AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView
                     )
 
 router = routers.DefaultRouter()
@@ -22,6 +22,7 @@ urlpatterns = [
     url('^cart/$', CartCentral.as_view(), name='add_to_cart'),
     url('^cart/(?P<pk>\d+)/$', CartCentral.as_view()),
     url('^cart/user/(?P<pk>\d+)/$', CartUserView.as_view()),
+    url('^user/$', UserView.as_view()),
     # CART CHECKOUT
     url('^cart/checkout/$', CartCheckout.as_view()),
     # ORDER
