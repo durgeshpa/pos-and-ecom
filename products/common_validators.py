@@ -1,5 +1,5 @@
 import logging
-from brand.models import Brand
+from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
 from categories.models import Category
@@ -109,6 +109,16 @@ def get_validate_product(product):
         logger.error(e)
         return {'error': 'please provide a valid product id'}
     return {'product': product}
+
+
+def get_validate_vendor(vendor):
+    """ validate vendor id that belong to a Vendor model"""
+    try:
+        vendor = Vendor.objects.get(id=vendor)
+    except Exception as e:
+        logger.error(e)
+        return {'error': 'please provide a valid vendor id'}
+    return {'vendor': vendor}
 
 
 def get_validate_seller_shop(seller_shop):

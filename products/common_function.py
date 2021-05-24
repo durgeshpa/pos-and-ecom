@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
-    get_validate_seller_shop
+    get_validate_seller_shop, get_validate_vendor
 from categories.models import Category
 
 
@@ -85,6 +85,28 @@ class ProductCls(object):
         seller_shop_obj = get_validate_seller_shop(seller_shop)
         return ProductCapping.objects.create(product=product_obj['product'],
                                              seller_shop=seller_shop_obj['seller_shop'], **validated_data)
+
+    @classmethod
+    def create_product_vendor_mapping(cls, product, vendor, **validated_data):
+        """
+            Create Product Vendor Mapping
+        """
+        product_obj = get_validate_product(product)
+        vendor_obj = get_validate_vendor(vendor)
+        return ProductVendorMapping.objects.create(product=product_obj['product'],
+                                                   vendor=vendor_obj['vendor'], **validated_data)
+
+    @classmethod
+    def update_product_vendor_mapping(cls, product, vendor,  product_vendor_map):
+        """
+            Update Product Vendor Mapping
+        """
+        product_obj = get_validate_product(product)
+        vendor_obj = get_validate_vendor(vendor)
+        product_vendor_map.product = product_obj['product']
+        product_vendor_map.vendor = vendor_obj['vendor']
+        product_vendor_map.save()
+        return product_vendor_map
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):

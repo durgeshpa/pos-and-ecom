@@ -4,7 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch
 
 from rest_framework import authentication
-from rest_framework.generics import GenericAPIView, CreateAPIView
+from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import JSONParser
 
@@ -137,7 +137,7 @@ class ParentProductBulkUpload(CreateAPIView):
         return get_response(serializer_error(serializer), False)
 
 
-class ParentProductExportAsCSV(GenericAPIView):
+class ParentProductExportAsCSV(CreateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
 
@@ -151,7 +151,7 @@ class ParentProductExportAsCSV(GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
 
-class ActiveDeactivateSelectedProduct(GenericAPIView):
+class ActiveDeactivateSelectedProduct(UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     parent_product_list = ParentProducts.objects.all()
@@ -173,18 +173,14 @@ class ProductCapping(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = ProductCappings.objects.select_related('product', 'seller_shop').order_by('-id')
-    # queryset = ProductCappings.objects.prefetch_related('product', 'seller_shop').
-    # only('id', 'product__product_name', 'seller_shop__shop_name','capping_type', 'capping_qty',
-    # 'start_date', 'end_date', 'status').order_by('-id')
     serializer_class = ProductCappingSerializers
     """
-            Get Product Capping
-            Add Product Capping
-            Search Product Capping
-            List Product Capping
-            Update Product Capping
+        Get Product Capping
+        Add Product Capping
+        Search Product Capping
+        List Product Capping
+        Update Product Capping
     """
-
     def get(self, request):
 
         if request.GET.get('id'):
@@ -194,7 +190,6 @@ class ProductCapping(GenericAPIView):
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
             product_capping = id_validation['data']
-
         else:
             """ GET API to get Parent Product List """
             self.queryset = self.get_product_capping()
@@ -268,8 +263,7 @@ class ProductCapping(GenericAPIView):
 class ProductVendorMapping(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ProductVendorMapping.objects.select_related('vendor', 'product').only('vendor', 'product', 'product_price',
-                                                                                     'product_price_pack', 'product_mrp', 'case_size', 'status').order_by('-id')
+    queryset = ProductVendorMapping.objects.select_related('vendor', 'product')
     serializer_class = ProductVendorMappingSerializers
 
     def get(self, request):
@@ -280,10 +274,56 @@ class ProductVendorMapping(GenericAPIView):
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            parent_product = id_validation['data']
+            product_vendor_map = id_validation['data']
         else:
             """ GET Product Vendor Mapping  List """
-            parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            self.queryset = self.get_product_vendor_map_list()
+            product_vendor_map = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
-        serializer = self.serializer_class(parent_product, many=True)
+        serializer = self.serializer_class(product_vendor_map, many=True)
         return get_response('product vendor list!', serializer.data)
+
+    def post(self, request):
+        """ POST API for Product Vendor Mapping """
+
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('product vendor mapping created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Product Vendor Mapping Updation """
+
+        if not request.data.get('id'):
+            return get_response('please provide id to update product vendor mapping', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.data.get('id')))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        parent_product_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=parent_product_instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('product vendor mapping updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def get_product_vendor_map_list(self):
+
+        vendor_id = self.request.GET.get('vendor_id')
+        product_id = self.request.GET.get('product_id')
+        product_status = self.request.GET.get('product_status')
+        status = self.request.GET.get('status')
+
+        # filter using vendor_name, product_id, product_status & status exact match
+        if product_id is not None:
+            self.queryset = self.queryset.filter(product_id=product_id)
+        if vendor_id is not None:
+            self.queryset = self.queryset.filter(vendor_id=vendor_id)
+        if status is not None:
+            self.queryset = self.queryset.filter(status=status)
+        if product_status is not None:
+            self.queryset = self.queryset.filter(product__status=product_status)
+        return self.queryset
