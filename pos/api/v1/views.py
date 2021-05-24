@@ -3,6 +3,7 @@ import logging
 import json
 
 from django.db import transaction
+from django.http import QueryDict
 from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework import status, authentication
@@ -53,7 +54,7 @@ class PosProductView(GenericAPIView):
         """
         data = data
         data['shop_id'] = shop_id
-        data['images'] = self.request.FILES.getlist('images')
+        data.setlist('images', self.request.FILES.getlist('images'))
         return data
 
     def post(self, request, *args, **kwargs):
@@ -62,11 +63,13 @@ class PosProductView(GenericAPIView):
         """
         try:
             data = json.loads(self.request.data["data"])
+            q_data = QueryDict('', mutable=True)
+            q_data.update(data)
         except (KeyError, ValueError):
             return api_response("Invalid Data Format")
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
-            serializer = RetailerProductCreateSerializer(data=self.modify_request_data(shop_id, data))
+            serializer = RetailerProductCreateSerializer(data=self.modify_request_data(shop_id, q_data))
             if serializer.is_valid():
                 data = serializer.data
                 name, ean, mrp, sp, linked_pid, description = data['product_name'], data['product_ean_code'], data[
@@ -92,11 +95,13 @@ class PosProductView(GenericAPIView):
         """
         try:
             data = json.loads(self.request.data["data"])
+            q_data = QueryDict('', mutable=True)
+            q_data.update(data)
         except (KeyError, ValueError):
             return api_response("Invalid Data Format")
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
-            serializer = RetailerProductUpdateSerializer(data=self.modify_request_data(shop_id, data))
+            serializer = RetailerProductUpdateSerializer(data=self.modify_request_data(shop_id, q_data))
             if serializer.is_valid():
                 data = serializer.data
                 product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop_id)
