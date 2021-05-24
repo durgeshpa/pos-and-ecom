@@ -1,10 +1,10 @@
 from decimal import Decimal
 import logging
+import json
 
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
 
-from rest_framework.parsers import JSONParser
 from rest_framework import status, authentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
@@ -16,7 +16,6 @@ from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 
 from pos.models import RetailerProduct
-from pos.utils import MultipartJsonParser
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, get_shop_id_from_token,
                                   validate_data_format)
 
@@ -47,27 +46,27 @@ OFFER_UPDATE_SERIALIZERS_MAP = {
 class PosProductView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    parser_classes = [MultipartJsonParser, JSONParser]
 
-    def modify_request_data(self, shop_id):
+    def modify_request_data(self, shop_id, data):
         """
             Add shop id and images
         """
-        data = self.request.data
+        data = data
         data['shop_id'] = shop_id
-        data.setlist('images', self.request.FILES.getlist('images'))
+        data['images'] = self.request.FILES.getlist('images')
         return data
 
     def post(self, request, *args, **kwargs):
         """
             Create Product
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        try:
+            data = json.loads(self.request.data["data"])
+        except (KeyError, ValueError):
+            return api_response("Invalid Data Format")
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
-            serializer = RetailerProductCreateSerializer(data=self.modify_request_data(shop_id))
+            serializer = RetailerProductCreateSerializer(data=self.modify_request_data(shop_id, data))
             if serializer.is_valid():
                 data = serializer.data
                 name, ean, mrp, sp, linked_pid, description = data['product_name'], data['product_ean_code'], data[
@@ -91,12 +90,13 @@ class PosProductView(GenericAPIView):
         """
             Update product
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        try:
+            data = json.loads(self.request.data["data"])
+        except (KeyError, ValueError):
+            return api_response("Invalid Data Format")
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
-            serializer = RetailerProductUpdateSerializer(data=self.modify_request_data(shop_id))
+            serializer = RetailerProductUpdateSerializer(data=self.modify_request_data(shop_id, data))
             if serializer.is_valid():
                 data = serializer.data
                 product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop_id)
@@ -107,13 +107,16 @@ class PosProductView(GenericAPIView):
                     # Update product
                     product.product_ean_code = ean if ean else product.product_ean_code
                     product.mrp = mrp if mrp else product.mrp
-                    product.sku_type = self.get_sku_type(product.mrp, product.linked_product_id)
+                    product.sku_type = self.get_sku_type(product.mrp, product.linked_product.id if product.linked_product else None)
                     product.selling_price = sp if sp else product.selling_price
                     product.status = data['status'] if data['status'] else product.status
-                    product.description = description if description in self.request.data else product.description
+                    if not product.linked_product:
+                        product.name = name if name else product.name
+                        product.description = description if description else product.description
                     product.save()
-                    # Update images
-                    RetailerProductCls.upload_images(product.id, images=request.FILES.getlist('images'))
+                    if 'images' in request.data:
+                        # Update images
+                        RetailerProductCls.upload_images(product.id, images=request.FILES.getlist('images'))
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product updated successfully!', serializer.data, status.HTTP_200_OK, True)
             else:

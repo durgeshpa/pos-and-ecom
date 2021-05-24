@@ -70,6 +70,7 @@ def update_es(products, shop_id):
             'status': product.status,
             'created_at': product.created_at,
             'modified_at': product.modified_at,
-            'description': product.description if product.description else ""
+            'description': product.description if product.description else "",
+            'linked_product_id': product.linked_product.id if product.linked_product else ''
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)
