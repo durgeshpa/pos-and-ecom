@@ -289,6 +289,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
     total_discount = serializers.SerializerMethodField()
     total_amount = serializers.SerializerMethodField()
     amount_payable = serializers.SerializerMethodField()
+    buyer = PosUserSerializer()
 
     def get_total_amount(self, obj):
         """
@@ -320,7 +321,7 @@ class CheckoutSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'total_amount', 'total_discount', 'amount_payable')
+        fields = ('id', 'total_amount', 'total_discount', 'amount_payable', 'buyer')
 
 
 class BasicOrderListSerializer(serializers.ModelSerializer):

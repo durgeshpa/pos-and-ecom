@@ -10,6 +10,7 @@ from retailer_to_sp.models import CartProductMapping, Order
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
 from shops.models import Shop
+from accounts.models import User
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -212,3 +213,14 @@ def validate_data_format(request):
                'message': "Invalid Data Format",
                'response_data': None}
         return msg
+
+
+def update_pos_customer(ph_no, shop_id, email, name, is_whatsapp):
+    customer, created = User.objects.get_or_create(phone_number=ph_no)
+    if created:
+        create_user_shop_mapping(customer, shop_id)
+    customer.email = email if email else customer.email
+    customer.first_name = name if name else customer.first_name
+    customer.is_whatsapp = True if is_whatsapp else False
+    customer.save()
+    return customer

@@ -67,7 +67,8 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  whatsapp_order_refund)
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
 from pos.common_functions import get_shop_id_from_token, api_response, create_user_shop_mapping, \
-    delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP, RetailerProductCls, validate_data_format
+    delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP, RetailerProductCls, validate_data_format, \
+    update_pos_customer
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer
@@ -925,7 +926,8 @@ class CartCentral(GenericAPIView):
                 # Delete products without MRP
                 self.delete_products_without_mrp(cart)
                 # Process response - Product images, MRP check, Serialize - Search and Pagination
-                return api_response(['Cart'], self.get_serialize_process_sp(cart, seller_shop, buyer_shop), status.HTTP_200_OK, True)
+                return api_response(['Cart'], self.get_serialize_process_sp(cart, seller_shop, buyer_shop),
+                                    status.HTTP_200_OK, True)
             else:
                 return api_response(['Sorry no product added to this cart yet'], None, status.HTTP_200_OK)
         # If Seller Shop is gf type
@@ -939,7 +941,8 @@ class CartCentral(GenericAPIView):
                     return api_response(['Sorry no product added to this cart yet'], None, status.HTTP_200_OK)
                 else:
                     # Process response - Serialize
-                    return api_response(['Cart'], self.get_serialize_process_gf(cart, seller_shop), status.HTTP_200_OK, True)
+                    return api_response(['Cart'], self.get_serialize_process_gf(cart, seller_shop), status.HTTP_200_OK,
+                                        True)
             else:
                 return api_response(['Sorry no product added to this cart yet'], None, status.HTTP_200_OK)
         else:
@@ -1178,7 +1181,8 @@ class CartCentral(GenericAPIView):
             if cart.rt_cart_list.count() <= 0:
                 return api_response(['Sorry no product added to this cart yet'], None, status.HTTP_200_OK)
             # process and return response
-            return api_response(['Added To Cart'], self.post_serialize_process_gf(cart, seller_shop), status.HTTP_200_OK, True)
+            return api_response(['Added To Cart'], self.post_serialize_process_gf(cart, seller_shop),
+                                status.HTTP_200_OK, True)
         else:
             return api_response(['Sorry shop is not associated with any Gramfactory or any SP'])
 
@@ -1193,7 +1197,8 @@ class CartCentral(GenericAPIView):
             if 'error' in initial_validation:
                 e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
                 extra_params = {'error_code': e_code} if e_code else {}
-                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
+                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False,
+                                    extra_params)
             product = initial_validation['product']
             shop = initial_validation['shop']
             qty = initial_validation['quantity']
@@ -1517,12 +1522,65 @@ class CartCentral(GenericAPIView):
         return serializer.data
 
 
-class UserView(APIView):
+class CartUserView(APIView):
     """
         User Details
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
+
+    def put(self, request, pk):
+        """
+            Update buyer in cart
+        """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        cart_type = request.data.get('cart_type', '1')
+        if cart_type == '2':
+            # Input validation
+            initial_validation = self.put_basic_validate(pk)
+            if 'error' in initial_validation:
+                e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
+                extra_params = {'error_code': e_code} if e_code else {}
+                return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False,
+                                    extra_params)
+            cart = initial_validation['cart']
+            customer = update_pos_customer(self.request.data.get('phone_number'), cart.seller_shop.id,
+                                           self.request.data.get('email'), self.request.data.get('name'),
+                                           self.request.data.get('is_whatsapp'))
+            cart.buyer = customer
+            cart.last_modified_by = self.request.user
+            cart.save()
+            return api_response('Customer Detail Success', PosUserSerializer(customer).data, status.HTTP_200_OK, True)
+        else:
+            return api_response('Provide a valid cart_type')
+
+    def put_basic_validate(self, cart_id):
+        """
+            Add To Cart
+            Input validation for add to cart for cart type 'basic'
+        """
+        # Check shop token
+        shop_id = get_shop_id_from_token(self.request)
+        if not type(shop_id) == int:
+            return {'error': "Shop Doesn't Exist!"}
+        # Check cart
+        cart = Cart.objects.filter(id=cart_id, seller_shop_id=shop_id).last()
+        if not cart:
+            return {'error': "Cart Doesn't Exist!"}
+        elif cart.cart_status == Cart.ORDERED:
+            return {'error': "Order already placed on this cart!", 'error_code': error_code.CART_NOT_ACTIVE}
+        elif cart.cart_status == Cart.DELETED:
+            return {'error': "This cart was deleted!", 'error_code': error_code.CART_NOT_ACTIVE}
+        elif cart.cart_status not in [Cart.ACTIVE, Cart.PENDING]:
+            return {'error': "Active Cart Doesn't Exist!"}
+        phone_no = self.request.data.get('phone_number')
+        if not phone_no:
+            return api_response("Please provide phone number")
+        if not re.match(r'^[6-9]\d{9}$', phone_no):
+            return api_response("Please provide a valid phone number")
+        return {'cart': cart}
 
     def get(self, request):
         """
@@ -2374,9 +2432,11 @@ class OrderCentral(APIView):
         shop_type = initial_validation['shop_type']
         order = initial_validation['order']
         if shop_type == 'sp':
-            return api_response(['Order'], self.get_serialize_process_sp(order, parent_mapping), status.HTTP_200_OK, True)
+            return api_response(['Order'], self.get_serialize_process_sp(order, parent_mapping), status.HTTP_200_OK,
+                                True)
         elif shop_type == 'gf':
-            return api_response(['Order'], self.get_serialize_process_gf(order, parent_mapping), status.HTTP_200_OK, True)
+            return api_response(['Order'], self.get_serialize_process_gf(order, parent_mapping), status.HTTP_200_OK,
+                                True)
         else:
             return api_response(['Sorry shop is not associated with any GramFactory or any SP'])
 
@@ -2438,7 +2498,8 @@ class OrderCentral(APIView):
                             return api_response(['No item in this cart.'], None, status.HTTP_200_OK)
                         # Serialize and return response
                         return api_response(['Ordered Successfully!'],
-                                            self.post_serialize_process_sp(order, parent_mapping), status.HTTP_200_OK, True)
+                                            self.post_serialize_process_sp(order, parent_mapping), status.HTTP_200_OK,
+                                            True)
                     # Order reserve not found
                     else:
                         return api_response(['Sorry! your session has timed out.'], None, status.HTTP_200_OK)
@@ -2668,15 +2729,9 @@ class OrderCentral(APIView):
             For basic cart
         """
         # Check Customer - Update Or Create
-        ph_no, name, email, is_whatsapp = self.request.data.get('phone_number'), self.request.data.get('name'), \
-                                          self.request.data.get('email'), self.request.data.get('is_whatsapp')
-        customer, created = User.objects.get_or_create(phone_number=ph_no)
-        if created:
-            create_user_shop_mapping(customer, cart.seller_shop.id)
-            customer.email = email if email else customer.email
-            customer.first_name = name if name else customer.first_name
-            customer.is_whatsapp = True if is_whatsapp else False
-            customer.save()
+        customer = update_pos_customer(self.request.data.get('phone_number'), cart.seller_shop.id,
+                                       self.request.data.get('email'), self.request.data.get('name'),
+                                       self.request.data.get('is_whatsapp'))
         # Update customer as buyer in cart
         cart.buyer = customer
         cart.cart_status = 'ordered'
@@ -3543,7 +3598,8 @@ class OrderReturns(APIView):
             order_return.free_qty_map = free_qty_product_map
             order_return.save()
         return api_response("Order Return", BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
-                                                                                 'invoice': 1}).data, status.HTTP_200_OK, True)
+                                                                                 'invoice': 1}).data,
+                            status.HTTP_200_OK, True)
 
     def post_validate(self):
         """
