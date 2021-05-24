@@ -314,6 +314,8 @@ class SearchProducts(APIView):
         # Exact Search
         if search_type == '1':
             results = self.rp_gf_exact_search(shop_id)
+        elif search_type == '2':
+            results = self.rp_gf_normal_search(shop_id)
         else:
             return api_response("Provide a valid search type")
         if results:
@@ -339,13 +341,31 @@ class SearchProducts(APIView):
                 response['products'] = gf_results
         return response
 
+    def rp_gf_normal_search(self, shop_id):
+        """
+            Keyword Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
+        """
+        response = {}
+        # search retailer products first
+        rp_results = self.rp_normal_search(shop_id)
+        if rp_results:
+            response['product_type'] = 'shop_catalogue'
+            response['products'] = rp_results
+        # search GramFactory products if retailer products not found
+        else:
+            gf_results = self.gf_pos_normal_search()
+            if gf_results:
+                response['product_type'] = 'gf_catalogue'
+                response['products'] = gf_results
+        return response
+
     def process_rp(self, output_type, body, shop_id):
         """
             Modify Es results for response based on output_type - Raw OR Processed
         """
         body["from"] = int(self.request.GET.get('offset', 0))
         body["size"] = int(self.request.GET.get('pro_count', 50))
-        body["sort"] = {"created_at": "desc"}
+        body["sort"] = {"modified_at": "desc"}
         p_list = []
         # Raw Output
         if output_type == '1':
@@ -3791,9 +3811,8 @@ class OrderReturns(APIView):
         if order_status == 'partially_refunded':
             previous_returns = ReturnItems.objects.filter(return_id__status='completed',
                                                           ordered_product=ordered_product_map)
-            previous_ret_qty = previous_returns.aggregate(qty=Sum('return_qty'))['qty']
-            previous_ret_qty = previous_ret_qty if previous_ret_qty else 0
             if previous_returns.exists():
+                previous_ret_qty = previous_returns.aggregate(qty=Sum('return_qty'))['qty']
                 order_sp = previous_returns.last().new_sp
         # New total return quantity should be greater than equal to sum of previous return qty
         # if qty < previous_ret_qty:

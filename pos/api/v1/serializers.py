@@ -40,11 +40,14 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
-        sp, mrp, name, shop_id, linked_pid = attrs['selling_price'], attrs['mrp'], attrs['product_name'], attrs[
-            'shop_id'], attrs['linked_product_id']
+        sp, mrp, name, shop_id, linked_pid, ean = attrs['selling_price'], attrs['mrp'], attrs['product_name'], attrs[
+            'shop_id'], attrs['linked_product_id'], attrs['ean']
 
         if sp > mrp:
             raise serializers.ValidationError("Selling Price cannot be greater than MRP")
+
+        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
+            raise serializers.ValidationError("Product {} with same mrp & ean code already exists.".format(name))
 
         if RetailerProduct.objects.filter(shop=shop_id, name=name, mrp=mrp, selling_price=sp).exists():
             raise serializers.ValidationError("Product {} with same mrp & selling_price already exists.".format(name))
@@ -95,9 +98,13 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         sp = attrs['selling_price'] if attrs['selling_price'] else product.selling_price
         mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         name = attrs['product_name'] if attrs['product_name'] else product.name
+        ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
 
         if sp > mrp:
             raise serializers.ValidationError("Selling Price cannot be greater than MRP")
+
+        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
+            raise serializers.ValidationError("Product {} with same mrp & ean code already exists.".format(name))
 
         if RetailerProduct.objects.filter(shop=shop_id, name=name, mrp=mrp, selling_price=sp).exclude(id=pid).exists():
             raise serializers.ValidationError("Product {} with same mrp & selling_price already exists.".format(name))
