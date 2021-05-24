@@ -170,9 +170,9 @@ class ActiveDeactivateSelectedProduct(UpdateAPIView):
 
         info_logger.info("Parent Product ActiveDeactivateSelectedProduct PUT api called.")
         serializer = ActiveDeactivateSelectedProductSerializers(instance=
-                                                                self.parent_product_list.filter(
-                                                                    id__in=request.data['parent_product_id_list']),
-                                                                data=request.data, partial=True)
+        self.parent_product_list.filter(
+            id__in=request.data['parent_product_id_list']),
+            data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return get_response('parent product updated successfully!', serializer.data)
@@ -191,6 +191,7 @@ class ProductCapping(GenericAPIView):
         List Product Capping
         Update Product Capping
     """
+
     def get(self, request):
         """ GET API for Product Capping List"""
 
@@ -360,14 +361,20 @@ class ChildProduct(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
 
-    queryset = (ChildProduct.objects.prefetch_related('parent_product', 'parent_product__parent_brand', 'child_product_pro_image',
-            'parent_product__product_hsn', 'parent_product__parent_product_pro_image', 'parent_product__parent_product_pro_category',
-            'parent_product__parent_product_pro_tax', 'parent_product__parent_product_pro_category__category',
-            'parent_product__parent_product_pro_tax__tax').only('id', 'status','product_mrp', 'reason_for_child_sku','weight_value', 'weight_unit',
-            'use_parent_image', 'product_sku', 'product_name', 'product_ean_code', 'parent_product__parent_id', 'parent_product__name', 'parent_product__brand_case_size',
-            'parent_product__inner_case_size', 'parent_product__product_type', 'parent_product__is_ptr_applicable',
-            'parent_product__ptr_percent', 'parent_product__ptr_type', 'parent_product__status', 'parent_product__parent_brand__brand_name',
-            'parent_product__parent_brand__brand_code', 'parent_product__product_hsn__product_hsn_code', ).order_by('-id'))
+    queryset = (ChildProduct.objects.prefetch_related('parent_product', 'parent_product__parent_brand',
+                                                      'child_product_pro_image',
+                                                      'parent_product__product_hsn',
+                                                      'parent_product__parent_product_pro_image',
+                                                      'parent_product__parent_product_pro_category',
+                                                      'parent_product__parent_product_pro_tax',
+                                                      'parent_product__parent_product_pro_category__category',
+                                                      'parent_product__parent_product_pro_tax__tax').only(
+        'id', 'status', 'product_mrp', 'reason_for_child_sku', 'weight_value', 'weight_unit', 'use_parent_image',
+        'product_sku', 'product_name', 'product_ean_code', 'parent_product__parent_id', 'parent_product__name',
+        'parent_product__brand_case_size', 'parent_product__inner_case_size', 'parent_product__product_type',
+        'parent_product__is_ptr_applicable', 'parent_product__status', 'parent_product__parent_brand__brand_name',
+        'parent_product__ptr_percent', 'parent_product__parent_brand__brand_code', 'parent_product__ptr_type',
+        'parent_product__product_hsn__product_hsn_code', ).order_by('-id'))
     serializer_class = ChildProductSerializers
 
     def get(self, request):
