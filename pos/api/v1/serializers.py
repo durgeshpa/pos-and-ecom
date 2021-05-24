@@ -41,7 +41,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         sp, mrp, name, shop_id, linked_pid, ean = attrs['selling_price'], attrs['mrp'], attrs['product_name'], attrs[
-            'shop_id'], attrs['linked_product_id'], attrs['ean']
+            'shop_id'], attrs['linked_product_id'], attrs['product_ean_code']
 
         if sp > mrp:
             raise serializers.ValidationError("Selling Price cannot be greater than MRP")
