@@ -3792,6 +3792,7 @@ class OrderReturns(APIView):
             previous_returns = ReturnItems.objects.filter(return_id__status='completed',
                                                           ordered_product=ordered_product_map)
             previous_ret_qty = previous_returns.aggregate(qty=Sum('return_qty'))['qty']
+            previous_ret_qty = previous_ret_qty if previous_ret_qty else 0
             if previous_returns.exists():
                 order_sp = previous_returns.last().new_sp
         # New total return quantity should be greater than equal to sum of previous return qty
