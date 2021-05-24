@@ -135,9 +135,16 @@ class PutAwayViewSet(APIView):
             put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
                                                                     inventory_type=type_normal).order_by('created_at')
             if put_away.exists():
-                serializer = PutAwaySerializer(put_away.last(), fields=(
+                put_away_last = put_away.last()
+                put_away_serializer = PutAwaySerializer(put_away_last, fields=(
                     'is_success', 'product_sku', 'batch_id', 'product_name', 'inventory_type', 'putaway_quantity', 'max_putaway_qty'))
-                msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
+                data = put_away_serializer.data
+                bin_inventory = BinInventory.objects.filter(warehouse=warehouse, sku=put_away_last.sku,
+                                                            inventory_type__inventory_type='normal')
+                if bin_inventory.exists():
+                    bin_inventory_serializer = BinInventorySerializer(bin_inventory, many=True)
+                    data['sku_bin_inventory'] = bin_inventory_serializer.data
+                msg = {'is_success': True, 'message': 'OK', 'data': data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False, 'message': 'Batch id does not exist.', 'data': None}

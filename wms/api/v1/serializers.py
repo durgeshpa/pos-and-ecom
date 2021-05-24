@@ -148,12 +148,14 @@ class BinSerializer(DynamicFieldsModelSerializer):
 
 
 class BinInventorySerializer(serializers.ModelSerializer):
-    inventory_type = serializers.SerializerMethodField()
+    # inventory_type = serializers.SerializerMethodField()
     bin_id = serializers.SerializerMethodField()
 
     class Meta:
         model = BinInventory
-        fields = ('bin_id', 'batch_id', 'inventory_type', 'quantity')
+        fields = ('bin_id', 'batch_id', 'quantity',
+                  # 'inventory_type'
+                  )
 
     @staticmethod
     def get_inventory_type(obj):
