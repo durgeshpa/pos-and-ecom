@@ -2,7 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage
+     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
@@ -86,18 +86,28 @@ class ProductCls(object):
         return Product.objects.create(parent_product=parent_product_obj['parent_product'], **validated_data)
 
     @classmethod
-    def upload_child_product_images(cls, child_product, child_product_pro_image):
+    def upload_child_product_images(cls, child_product, product_pro_image):
         """
            Delete Existing Images of specific ParentProduct if any
            Create Parent Product Images
         """
-        child_pro_image = ChildProductImage.objects.filter(product=child_product)
+        child_pro_image = ProductImage.objects.filter(product=child_product)
         if child_pro_image.exists():
             child_pro_image.delete()
 
-        for image in child_product_pro_image:
-            ChildProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
-                                             product=child_product)
+        for image in product_pro_image:
+            ProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
+                                        product=child_product)
+
+    @classmethod
+    def update_child_product(cls, parent_product, child_product):
+        """
+            Update Parent Product
+        """
+        parent_product_obj = get_validate_parent_product(parent_product)
+        child_product.parent_product = parent_product_obj['parent_product']
+        child_product.save()
+        return child_product
 
     @classmethod
     def create_product_capping(cls, product, seller_shop, **validated_data):

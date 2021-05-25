@@ -363,7 +363,7 @@ class ChildProduct(GenericAPIView):
     parser_classes = [MultipartJsonParser, JSONParser]
     queryset = (ChildProduct.objects.prefetch_related('parent_product', 'parent_product__parent_brand',
                                                       'parent_product__parent_product_pro_image',
-                                                      'child_product_pro_image', 'parent_product__product_hsn',
+                                                      'product_pro_image', 'parent_product__product_hsn',
                                                       'parent_product__parent_product_pro_category',
                                                       'parent_product__parent_product_pro_tax',
                                                       'parent_product__parent_product_pro_category__category',
@@ -397,13 +397,31 @@ class ChildProduct(GenericAPIView):
     def post(self, request):
         """ POST API for Child Product """
 
-        info_logger.info("Product Child Product POST api called.")
+        info_logger.info("Child Product POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return get_response('child product created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+    def put(self, request):
+        """ PUT API for Child Product Updation with Image """
+
+        info_logger.info("Child Product PUT api called.")
+        if not request.POST.get('id'):
+            return get_response('please provide id to update child product', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(request.POST.get('id')))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        parent_product_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=parent_product_instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('child product updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
 
     def get_child_product_list(self):
 
