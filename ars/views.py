@@ -7,7 +7,6 @@ from io import StringIO
 from dal import autocomplete
 from django.db import transaction
 from django.db.models import Sum, Count, F, Q
-from django.http import HttpResponse
 
 from accounts.models import User
 from addresses.models import Address
@@ -24,22 +23,6 @@ from wms.common_functions import get_inventory_in_stock
 from wms.models import Putaway
 
 info_logger = logging.getLogger('file-info')
-
-
-def daily_average_sales(request):
-    populate_daily_average()
-    return HttpResponse('done')
-
-
-def create_ars_po(request):
-    create_po()
-    mail_category_manager_for_po_approval()
-    return HttpResponse('done')
-
-
-def start_ars(request):
-    initiate_ars()
-    return HttpResponse('done')
 
 
 def product_demand_data_generator(warehouse_list, parent_product_list):
