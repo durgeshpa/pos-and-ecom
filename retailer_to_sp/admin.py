@@ -2,10 +2,10 @@
 import csv
 import logging
 import datetime
-
-# django imports
+from operator import or_
 from functools import reduce
 
+# django imports
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
 from dal_admin_filters import AutocompleteFilter
 from django.contrib import messages, admin
@@ -1299,8 +1299,7 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
     #         return self.readonly_fields + ['shipped_qty','damaged_qty','expired_qty']
     #     return self.readonly_fields
 
-from operator import or_
-from django.db.models import Q
+
 class ShipmentAdmin(NestedModelAdmin):
     has_invoice_no = True
     inlines = [ShipmentProductMappingAdmin]
