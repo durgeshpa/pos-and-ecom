@@ -69,7 +69,7 @@ class ProductDemandAdmin(admin.ModelAdmin):
         if obj.average_daily_sales <= 0:
             return 0
         current_inventory = get_current_inventory(obj.warehouse, obj.parent_product)
-        max_inventory_in_days = get_config('ARS_MAX_INVENTORY_IN_DAYS', 7)
+        max_inventory_in_days = obj.parent_product.max_inventory
         demand = (obj.average_daily_sales * max_inventory_in_days) - current_inventory
         return math.ceil(demand) if demand > 0 else 0
 
