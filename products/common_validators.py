@@ -101,6 +101,16 @@ def is_ptr_applicable_validation(data):
     return data
 
 
+def get_validate_parent_product(product):
+    """ validate parent product id that belong to a ParentProduct model"""
+    try:
+        parent_product = ParentProduct.objects.get(id=product)
+    except Exception as e:
+        logger.error(e)
+        return {'error': 'please provide a valid parent product id'}
+    return {'parent_product': parent_product}
+
+
 def get_validate_product(product):
     """ validate product id that belong to a Product model"""
     try:

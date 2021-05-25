@@ -10,13 +10,13 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage
+    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductPrice
 from categories.models import Category
 from brand.models import Brand, Vendor
 from shops.models import Shop
-from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, \
-    get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation, \
-    get_validate_product, get_validate_seller_shop, check_active_capping, validate_tax_type, get_validate_vendor
+from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
+    get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
+    get_validate_seller_shop, check_active_capping, validate_tax_type, get_validate_vendor
 from products.common_function import ParentProductCls, ProductCls
 
 
@@ -62,7 +62,7 @@ class ParentProductImageSerializers(serializers.ModelSerializer):
         fields = ('id', 'image_name', 'image',)
 
 
-class ParentProductImageSerializers(serializers.ModelSerializer):
+class ChildProductImageSerializers(serializers.ModelSerializer):
     image = serializers.ImageField(
         max_length=None, use_url=True,
     )
@@ -626,10 +626,61 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
 class ChildProductSerializers(serializers.ModelSerializer):
     """ Handles creating, reading and updating child product items."""
     parent_product = ParentProductSerializers(read_only=True)
-    child_product_pro_image = ChildProductImage()
+    product_sku = serializers.CharField(required=False)
+    child_product_pro_image = ChildProductImageSerializers(many=True)
 
     class Meta:
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp',
                   'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image',
                   'child_product_pro_image', 'parent_product',)
+
+    def validate(self, data):
+        if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
+            raise serializers.ValidationError('parent_product is required')
+
+        parent_product_val = get_validate_parent_product(self.initial_data['parent_product'])
+        if 'error' in parent_product_val:
+            raise serializers.ValidationError(parent_product_val['error'])
+
+        if self.initial_data['use_parent_image']:
+            if parent_product_val['parent_product'] and not parent_product_val['parent_product'].\
+                    parent_product_pro_image.exists():
+                raise serializers.ValidationError(
+                    _(f"Parent Product Image Not Available. Please Upload Child Product Image(s)."))
+        elif len(self.initial_data.getlist('child_product_pro_image')) == 0:
+            if parent_product_val['parent_product'] and parent_product_val['parent_product'].parent_product_pro_image.\
+                    exists():
+                data['use_parent_image'] = True
+            else:
+                raise serializers.ValidationError(
+                    _(f"Parent Product Image Not Available. Please Upload Child Product Image(s)."))
+
+        if len(self.initial_data.getlist('child_product_pro_image')) > 0:
+            image_val = get_validate_images(self.initial_data.getlist('child_product_pro_image'))
+            if 'error' in image_val:
+                raise serializers.ValidationError(_(image_val["error"]))
+
+        if 'status' in self.initial_data and self.initial_data['status'] == 'active':
+            error = True
+            if 'id' in self.initial_data and ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
+                                                                         product_id=self.initial_data['id']).exists():
+                error = False
+            if error:
+                raise serializers.ValidationError("Product cannot be made active until an active Product Price exists")
+
+        return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """create a new Child Product with image category & tax"""
+        validated_data.pop('child_product_pro_image', None)
+        try:
+            child_product = ProductCls.create_child_product(self.initial_data['parent_product'], **validated_data)
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+        if len(self.initial_data.getlist('child_product_pro_image')) > 0:
+            ProductCls.upload_child_product_images(child_product, self.initial_data.getlist('child_product_pro_image'))
+
+        return child_product

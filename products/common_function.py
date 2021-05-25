@@ -2,9 +2,9 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
+     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
-    get_validate_seller_shop, get_validate_vendor
+    get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
 
 
@@ -76,6 +76,29 @@ class ParentProductCls(object):
 
 
 class ProductCls(object):
+
+    @classmethod
+    def create_child_product(cls, parent_product,  **validated_data):
+        """
+           Create Child Product
+        """
+        parent_product_obj = get_validate_parent_product(parent_product)
+        return Product.objects.create(parent_product=parent_product_obj['parent_product'], **validated_data)
+
+    @classmethod
+    def upload_child_product_images(cls, child_product, child_product_pro_image):
+        """
+           Delete Existing Images of specific ParentProduct if any
+           Create Parent Product Images
+        """
+        child_pro_image = ChildProductImage.objects.filter(product=child_product)
+        if child_pro_image.exists():
+            child_pro_image.delete()
+
+        for image in child_product_pro_image:
+            ChildProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
+                                             product=child_product)
+
     @classmethod
     def create_product_capping(cls, product, seller_shop, **validated_data):
         """

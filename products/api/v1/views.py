@@ -360,7 +360,7 @@ class ChildProduct(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-
+    parser_classes = [MultipartJsonParser, JSONParser]
     queryset = (ChildProduct.objects.prefetch_related('parent_product', 'parent_product__parent_brand',
                                                       'parent_product__parent_product_pro_image',
                                                       'child_product_pro_image', 'parent_product__product_hsn',
@@ -379,7 +379,7 @@ class ChildProduct(GenericAPIView):
     def get(self, request):
         """ GET API for Child Product with Image Category & Tax """
 
-        info_logger.info("Parent Product GET api called.")
+        info_logger.info("Child Product GET api called.")
         if request.GET.get('id'):
             """ Get Child Product for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
@@ -393,6 +393,17 @@ class ChildProduct(GenericAPIView):
 
         serializer = self.serializer_class(child_product, many=True)
         return get_response('parent product list!', serializer.data)
+
+    def post(self, request):
+        """ POST API for Child Product """
+
+        info_logger.info("Product Child Product POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('child product created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
 
     def get_child_product_list(self):
 
