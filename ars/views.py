@@ -137,7 +137,7 @@ def get_demand_by_parent_product(warehouse, parent_product):
     if daily_average <= 0:
         return 0
     current_inventory = get_current_inventory(warehouse, parent_product)
-    max_inventory_in_days = get_config('ARS_MAX_INVENTORY_IN_DAYS', 7)
+    max_inventory_in_days = parent_product.max_inventory
     demand = (daily_average * max_inventory_in_days) - current_inventory
     return math.ceil(demand) if demand > 0 else 0
 
@@ -194,7 +194,7 @@ def initiate_ars():
                 is_eligible_to_raise_demand = True
                 demand = get_demand_by_parent_product(warehouse, parent_product)
                 daily_average = get_daily_average(warehouse, parent_product)
-                max_inventory_in_days = get_config('ARS_MAX_INVENTORY_IN_DAYS', 7)
+                max_inventory_in_days = parent_product.max_inventory
                 if parent_product.is_lead_time_applicable:
                     max_inventory_in_days = max_inventory_in_days + item.vendor.lead_time
 
