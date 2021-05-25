@@ -53,24 +53,6 @@ class PosProductView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
 
-    def modify_request_data(self, shop_id, data):
-        """
-            Add shop id and images
-        """
-        data = data
-        data['shop_id'] = shop_id
-        image_files = self.request.data.getlist('images')
-        image_urls = self.request.data.getlist('image_urls')
-        for image in image_urls:
-            response = requests.get(image)
-            image = BytesIO(response.content)
-            image = InMemoryUploadedFile(image, 'ImageField', "gmfact_image.jpeg", 'image/jpeg',
-                                         sys.getsizeof(image),
-                                         None)
-            image_files.append(image)
-        data.setlist('images', image_files)
-        return data
-
     def post(self, request, *args, **kwargs):
         """
             Create Product
@@ -190,7 +172,6 @@ class PosProductView(GenericAPIView):
         p_data['shop_id'] = shop_id
         p_data.setlist('images', self.request.FILES.getlist('images'))
         p_data.setlist('image_ids', image_ids)
-        print(p_data)
         return p_data
 
     @staticmethod
