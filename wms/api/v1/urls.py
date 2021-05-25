@@ -13,6 +13,6 @@ urlpatterns = [
     url(r'^pick-complete/$', PickupComplete.as_view(), name='pickup-complete'),
     url(r'^check-bins/$', CheckBinID.as_view(), name='check-bins'),
     url(r'^decode-barcode/$', DecodeBarcode.as_view(), name='decode-barcode'),
-    url(r'^pickup-remarks/$', PickupRemarksList.as_view(), name='pickup-remarks'),
+    url(r'^pickup-remarks/$', PickupRemarksList.as_view(), name='pickup-remarks')
 
 ]
