@@ -76,7 +76,7 @@ class PosProductView(GenericAPIView):
                     'mrp'], data['selling_price'], data['linked_product_id'], data['description']
                 with transaction.atomic():
                     # Decide sku_type 3 = using GF product changed mrp, 2 = using GF product same mrp, 1 = new product
-                    sku_type = self.get_sku_type(mrp, linked_pid)
+                    sku_type = self.get_sku_type(mrp, name, ean, linked_pid)
                     # Create product
                     product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, sku_type,
                                                                          description, ean)
@@ -112,12 +112,12 @@ class PosProductView(GenericAPIView):
                     # Update product
                     product.product_ean_code = ean if ean else product.product_ean_code
                     product.mrp = mrp if mrp else product.mrp
-                    product.sku_type = self.get_sku_type(product.mrp, product.linked_product.id if product.linked_product else None)
+                    product.name = name if name else product.name
+                    product.sku_type = self.get_sku_type(product.mrp, product.name, product.product_ean_code,
+                                                         product.linked_product.id if product.linked_product else None)
                     product.selling_price = sp if sp else product.selling_price
                     product.status = data['status'] if data['status'] else product.status
-                    if not product.linked_product:
-                        product.name = name if name else product.name
-                        product.description = description if description else product.description
+                    product.description = description if description else product.description
                     product.save()
                     if 'images' in request.data:
                         # Update images
@@ -130,15 +130,17 @@ class PosProductView(GenericAPIView):
             return api_response("Shop Doesn't Exist")
 
     @staticmethod
-    def get_sku_type(mrp, linked_pid=None):
+    def get_sku_type(mrp, name, ean, linked_pid=None):
         """
-            sku_type 3 = using GF product changed mrp, 2 = using GF product same mrp, 1 = new product
+            sku_type 3 = using GF product changed detail, 2 = using GF product same detail, 1 = new product
         """
+        linked_product = Product.objects.get(id=linked_pid)
         sku_type = 1
-        if linked_pid:
-            linked_product = Product.objects.get(id=linked_pid)
-            sku_type = 2 if (
-                        linked_product.product_mrp and linked_product.product_mrp == format(Decimal(mrp), ".2f")) else 3
+        if linked_product:
+            sku_type = 2
+            if Decimal(mrp) != linked_product.product_mrp or name != linked_product.product_name or \
+                    ean != linked_product.product_ean_code:
+                sku_type = 3
         return sku_type
 
 
