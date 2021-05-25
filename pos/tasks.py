@@ -43,6 +43,7 @@ def update_es(products, shop_id):
         product_img = product.retailer_product_image.all()
         product_images = [
             {
+                "image_id": p_i.id,
                 "image_name": p_i.image_name,
                 "image_alt": p_i.image_alt_text,
                 "image_url": p_i.image.url
