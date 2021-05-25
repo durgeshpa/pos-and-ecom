@@ -1,10 +1,15 @@
 from decimal import Decimal
 import logging
 import json
+import sys
+import requests
+from io import BytesIO
 
 from django.db import transaction
 from django.http import QueryDict
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.core.validators import URLValidator
 
 from rest_framework import status, authentication
 from rest_framework.generics import GenericAPIView
@@ -24,7 +29,7 @@ from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdate
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
                           ComboOfferSerializer, CouponOfferUpdateSerializer, ComboOfferUpdateSerializer,
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
-                          OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer)
+                          OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer)
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -54,22 +59,28 @@ class PosProductView(GenericAPIView):
         """
         data = data
         data['shop_id'] = shop_id
-        data.setlist('images', self.request.FILES.getlist('images'))
+        image_files = self.request.data.getlist('images')
+        image_urls = self.request.data.getlist('image_urls')
+        for image in image_urls:
+            response = requests.get(image)
+            image = BytesIO(response.content)
+            image = InMemoryUploadedFile(image, 'ImageField', "gmfact_image.jpeg", 'image/jpeg',
+                                         sys.getsizeof(image),
+                                         None)
+            image_files.append(image)
+        data.setlist('images', image_files)
         return data
 
     def post(self, request, *args, **kwargs):
         """
             Create Product
         """
-        try:
-            data = json.loads(self.request.data["data"])
-            q_data = QueryDict('', mutable=True)
-            q_data.update(data)
-        except (KeyError, ValueError):
-            return api_response("Invalid Data Format")
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
-            serializer = RetailerProductCreateSerializer(data=self.modify_request_data(shop_id, q_data))
+            modified_data = self.validate_create(shop_id)
+            if 'error' in modified_data:
+                return api_response(modified_data['error'])
+            serializer = RetailerProductCreateSerializer(data=modified_data)
             if serializer.is_valid():
                 data = serializer.data
                 name, ean, mrp, sp, linked_pid, description = data['product_name'], data['product_ean_code'], data[
@@ -81,7 +92,7 @@ class PosProductView(GenericAPIView):
                     product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, sku_type,
                                                                          description, ean)
                     # Upload images
-                    RetailerProductCls.upload_images(product.id, self.request.FILES.getlist('images'))
+                    RetailerProductCls.create_images(product, modified_data.getlist('images'))
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product created successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
@@ -93,15 +104,12 @@ class PosProductView(GenericAPIView):
         """
             Update product
         """
-        try:
-            data = json.loads(self.request.data["data"])
-            q_data = QueryDict('', mutable=True)
-            q_data.update(data)
-        except (KeyError, ValueError):
-            return api_response("Invalid Data Format")
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
-            serializer = RetailerProductUpdateSerializer(data=self.modify_request_data(shop_id, q_data))
+            modified_data = self.validate_update(shop_id)
+            if 'error' in modified_data:
+                return api_response(modified_data['error'])
+            serializer = RetailerProductUpdateSerializer(data=modified_data)
             if serializer.is_valid():
                 data = serializer.data
                 product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop_id)
@@ -121,7 +129,7 @@ class PosProductView(GenericAPIView):
                     product.save()
                     if 'images' in request.data:
                         # Update images
-                        RetailerProductCls.upload_images(product.id, images=request.FILES.getlist('images'))
+                        RetailerProductCls.update_images(product, modified_data.getlist('images'), modified_data.getlist('image_ids'))
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product updated successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
@@ -129,14 +137,70 @@ class PosProductView(GenericAPIView):
         else:
             return api_response("Shop Doesn't Exist")
 
+    def validate_create(self, shop_id):
+        # Validate product data
+        try:
+            data = json.loads(self.request.data["data"])
+            p_data = QueryDict('', mutable=True)
+            p_data.update(data)
+        except (KeyError, ValueError):
+            return {'error': "Invalid Data Format"}
+        # Image urls
+        try:
+            validate = URLValidator()
+            for image_url in self.request.data.getlist('image_urls'):
+                validate(image_url)
+        except ValidationError:
+            return {"error": "Invalid Image Url / Urls"}
+        # Update product data with shop id and images
+        p_data['shop_id'] = shop_id
+        image_files = self.request.FILES.getlist('images')
+        image_urls = self.request.data.getlist('image_urls')
+        for image_url in image_urls:
+            try:
+                response = requests.get(image_url)
+                image = BytesIO(response.content)
+                image = InMemoryUploadedFile(image, 'ImageField', "gmfact_image.jpeg", 'image/jpeg',
+                                             sys.getsizeof(image),
+                                             None)
+                serializer = ImageFileSerializer(data={'image': image})
+                if serializer.is_valid():
+                    image_files.append(image)
+            except:
+                pass
+        p_data.setlist('images', image_files)
+        return p_data
+
+    def validate_update(self, shop_id):
+        # Validate product data
+        try:
+            data = json.loads(self.request.data["data"])
+            p_data = QueryDict('', mutable=True)
+            p_data.update(data)
+        except (KeyError, ValueError):
+            return {'error': "Invalid Data Format"}
+        # Image Ids
+        image_ids = []
+        try:
+            for image_id in self.request.data.getlist('image_ids'):
+                image_ids.append(int(image_id))
+        except TypeError:
+            return {"error": "Invalid Image Id / Ids. Ensure Digit Values"}
+        # Update product data with shop id and images
+        p_data['shop_id'] = shop_id
+        p_data.setlist('images', self.request.FILES.getlist('images'))
+        p_data.setlist('image_ids', image_ids)
+        print(p_data)
+        return p_data
+
     @staticmethod
     def get_sku_type(mrp, name, ean, linked_pid=None):
         """
             sku_type 3 = using GF product changed detail, 2 = using GF product same detail, 1 = new product
         """
-        linked_product = Product.objects.get(id=linked_pid)
         sku_type = 1
-        if linked_product:
+        if linked_pid:
+            linked_product = Product.objects.get(id=linked_pid)
             sku_type = 2
             if Decimal(mrp) != linked_product.product_mrp or name != linked_product.product_name or \
                     ean != linked_product.product_ean_code:

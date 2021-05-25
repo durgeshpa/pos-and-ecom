@@ -19,7 +19,11 @@ from retailer_backend.utils import SmallOffsetPagination
 class RetailerProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetailerProductImage
-        fields = ('image_name', 'image_alt_text', 'image')
+        fields = ('id', 'image_name', 'image_alt_text', 'image')
+
+
+class ImageFileSerializer(serializers.Serializer):
+    image = serializers.ImageField()
 
 
 class RetailerProductCreateSerializer(serializers.Serializer):

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
 from django.urls import reverse
+import datetime
 
 from pos.models import RetailerProduct, UserMappedShop, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Order
@@ -40,12 +41,22 @@ class RetailerProductCls(object):
                                               product_ean_code=product_ean_code, status=status)
 
     @classmethod
-    def upload_images(cls, product_id, images):
-        if RetailerProductImage.objects.filter(product=product_id).exists():
-            RetailerProductImage.objects.filter(product=product_id).delete()
+    def create_images(cls, product, images):
+        if images:
+            count = 0
+            for image in images:
+                if image.name == 'gmfact_image.jpeg':
+                    count += 1
+                    image.name = str(product.sku) + '_' + str(count) + '_' + image.name
+                RetailerProductImage.objects.create(product=product, image=image)
+
+    @classmethod
+    def update_images(cls, product, images, image_ids):
+        RetailerProductImage.objects.filter(product=product).exclude(id__in=image_ids).delete()
         if images:
             for image in images:
-                RetailerProductImage.objects.create(product_id=product_id, image=image)
+                image.name = str(product.sku) + '_' + image.name
+                RetailerProductImage.objects.create(product=product, image=image)
 
     @classmethod
     def get_sku_type(cls, sku_type):
