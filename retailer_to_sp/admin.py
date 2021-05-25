@@ -4,6 +4,8 @@ import logging
 import datetime
 
 # django imports
+from functools import reduce
+
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
 from dal_admin_filters import AutocompleteFilter
 from django.contrib import messages, admin
@@ -244,11 +246,11 @@ class InvoiceSearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            invoice_no = self.value()
+            invoice_no = self.value().split(',')
             if invoice_no is None:
                 return
             return queryset.filter(
-                Q(invoice__invoice_no__icontains=invoice_no)
+                Q(invoice__invoice_no__in=invoice_no)
             )
 
 class OrderInvoiceSearch(InputFilter):
@@ -269,11 +271,11 @@ class ShipmentOrderIdSearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            order_id = self.value()
+            order_id = self.value().split(',')
             if order_id is None:
                 return
             return queryset.filter(
-                Q(order__order_no__icontains=order_id)
+                Q(order__order_no__in=order_id)
             )
 
 
@@ -1297,7 +1299,8 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
     #         return self.readonly_fields + ['shipped_qty','damaged_qty','expired_qty']
     #     return self.readonly_fields
 
-
+from operator import or_
+from django.db.models import Q
 class ShipmentAdmin(NestedModelAdmin):
     has_invoice_no = True
     inlines = [ShipmentProductMappingAdmin]
@@ -1326,6 +1329,28 @@ class ShipmentAdmin(NestedModelAdmin):
                        'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     list_per_page = FIFTY
     ordering = ['-created_at']
+
+    def get_search_results(self, request, queryset, search_term):
+        """
+        request:-request object
+        queryset:-queryset object
+        search_term:- search strings
+
+        """
+
+        queryset, use_distinct = super(ShipmentAdmin, self).get_search_results(
+            request, queryset, search_term)
+        if queryset:
+            return queryset, use_distinct
+        else:
+            search_words = search_term.split(',')
+            if search_words:
+                q_objects = [Q(**{field + '__icontains': word})
+                             for field in self.search_fields
+                             for word in search_words]
+                queryset |= self.model.objects.filter(reduce(or_, q_objects))
+
+            return queryset, use_distinct
 
     def has_delete_permission(self, request, obj=None):
         return False
