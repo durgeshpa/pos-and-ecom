@@ -816,34 +816,3 @@ class DecodeBarcode(APIView):
         msg = {'is_success': True, 'message': '', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
 
-
-class ProductBinInventory(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = BinInventorySerializer
-
-    def get(self, request, *args, **kwargs):
-        """
-            Bin Inventory List For a product in a warehouse
-        """
-        try:
-            warehouse = request.user.shop_employee.all().last().shop_id
-        except Exception as e:
-            error_logger.error(e)
-            return Response({'is_success': False, 'message': 'User is not mapped with associated Warehouse.',
-                             'data': None}, status=status.HTTP_200_OK)
-        try:
-            product = Product.objects.get(product_sku=request.GET.get('product_sku'))
-        except Exception as e:
-            error_logger.error(e)
-            return Response({'is_success': False, 'message': 'Product Not Found.', 'data': None},
-                            status=status.HTTP_200_OK)
-
-        bin_inventory = BinInventory.objects.filter(warehouse=warehouse, sku=product)
-        if bin_inventory.exists():
-            serializer = BinInventorySerializer(bin_inventory, many=True)
-            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
-            return Response(msg, status=status.HTTP_200_OK)
-        else:
-            msg = {'is_success': False, 'message': 'Bin inventory does not exist for this product.', 'data': None}
-            return Response(msg, status=status.HTTP_200_OK)
