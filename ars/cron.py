@@ -2,7 +2,7 @@ import logging
 
 from django.utils import timezone
 
-from ars.views import initiate_ars, create_po, mail_category_manager_for_po_approval
+from ars.views import initiate_ars, create_po, mail_category_manager_for_po_approval, populate_daily_average
 from services.models import CronRunLog
 
 cron_logger = logging.getLogger('cron_log')
@@ -50,4 +50,8 @@ def generate_po_cron():
     cron_log_entry.completed_at = timezone.now()
     cron_logger.info("{} completed, cron log entry-{}".format(cron_name, cron_log_entry.id))
     cron_log_entry.save()
+
+
+def daily_average_sales_cron():
+    populate_daily_average()
 
