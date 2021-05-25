@@ -7,6 +7,7 @@ from io import StringIO
 from dal import autocomplete
 from django.db import transaction
 from django.db.models import Sum, Count, F, Q
+from django.http import HttpResponse
 
 from accounts.models import User
 from addresses.models import Address
@@ -23,6 +24,22 @@ from wms.common_functions import get_inventory_in_stock
 from wms.models import Putaway
 
 info_logger = logging.getLogger('file-info')
+
+
+def daily_average_sales(request):
+    populate_daily_average()
+    return HttpResponse('done')
+
+
+def create_ars_po(request):
+    create_po()
+    mail_category_manager_for_po_approval()
+    return HttpResponse('done')
+
+
+def start_ars(request):
+    initiate_ars()
+    return HttpResponse('done')
 
 
 def product_demand_data_generator(warehouse_list, parent_product_list):
@@ -43,10 +60,12 @@ def product_demand_data_generator(warehouse_list, parent_product_list):
             inventory_in_process = get_inventory_in_process(warehouse, product)
             putaway_inventory = get_inventory_pending_for_putaway(warehouse, product)
             demand = (rolling_avg * product.max_inventory) - current_inventory - inventory_in_process - putaway_inventory
+            demand = math.ceil(demand) if demand > 0 else 0
             product_demand = ProductDemand(warehouse=warehouse, parent_product=product,
                                            active_child_product=active_child_product,
                                            average_daily_sales=rolling_avg, current_inventory=current_inventory,
                                            demand=demand)
+            info_logger.info('product_demand_data_generator|product demand {}'.format(product_demand))
             yield product_demand
 
 

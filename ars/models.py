@@ -24,6 +24,9 @@ class ProductDemand(BaseTimestampModel):
     current_inventory = models.PositiveIntegerField(default=0)
     demand = models.PositiveIntegerField(default=0)
 
+    def __str__(self):
+        return "%s - %s - %s"%(self.warehouse, self.parent_product, self.demand)
+
 
 class VendorDemand(BaseTimestampModel):
     STATUS_CHOICE = Choices((1, 'DEMAND_CREATED', 'Demand Created'),
