@@ -49,9 +49,6 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
             raise serializers.ValidationError("Product {} with same mrp & ean code already exists.".format(name))
 
-        if RetailerProduct.objects.filter(shop=shop_id, name=name, mrp=mrp, selling_price=sp).exists():
-            raise serializers.ValidationError("Product {} with same mrp & selling_price already exists.".format(name))
-
         if linked_pid and RetailerProduct.objects.filter(shop=shop_id, mrp=mrp, linked_product_id=linked_pid).exists():
             raise serializers.ValidationError(
                 "Product {} with same mrp & linked GF product already exists.".format(name))
@@ -100,14 +97,11 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         name = attrs['product_name'] if attrs['product_name'] else product.name
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
 
-        if sp > mrp:
+        if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
             raise serializers.ValidationError("Selling Price cannot be greater than MRP")
 
         if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
             raise serializers.ValidationError("Product {} with same mrp & ean code already exists.".format(name))
-
-        if RetailerProduct.objects.filter(shop=shop_id, name=name, mrp=mrp, selling_price=sp).exclude(id=pid).exists():
-            raise serializers.ValidationError("Product {} with same mrp & selling_price already exists.".format(name))
 
         if product.linked_product_id and RetailerProduct.objects.filter(
                 shop=shop_id, mrp=mrp, linked_product_id=product.linked_product_id).exclude(id=pid).exists():
