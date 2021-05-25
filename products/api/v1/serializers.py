@@ -10,7 +10,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice
+    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductSourceMapping
 from categories.models import Category
 from brand.models import Brand, Vendor
 from shops.models import Shop
@@ -76,6 +76,12 @@ class TaxSerializers(serializers.ModelSerializer):
     class Meta:
         model = Tax
         fields = ('id', 'tax_name', 'tax_type', 'tax_percentage')
+
+
+class ProductSourceMappingSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = ProductSourceMapping
+        fields = ('source_sku', 'status')
 
 
 class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
@@ -632,7 +638,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp',
-                  'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image',
+                  'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'repackaging_type',
                   'product_pro_image', 'parent_product',)
 
     def validate(self, data):
