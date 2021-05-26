@@ -119,7 +119,7 @@ def populate_daily_average():
                                                po_status__in=[Cart.OPEN, Cart.APPROVAL_AWAITED],
                                                cart_list__cart_product__parent_product_id__in=master_data.keys())\
                                        .values('gf_billing_address__shop_name','cart_list__cart_product__parent_product')\
-                                       .annotate(no_of_pieces=Sum('cart_list__cart_product__no_of_pieces'))
+                                       .annotate(no_of_pieces=Sum('cart_list__no_of_pieces'))
 
     for item in inventory_in_process:
         if parent_retailer_mapping_dict.get(item['gf_billing_address__shop_name']):
@@ -164,11 +164,11 @@ def get_inventory_in_process(warehouse, parent_product):
                                                         parent__shop_type__shop_type='gf')
     gf_shop = shop_mapping.last().parent
     inventory_in_process = Cart.objects.filter(gf_billing_address__shop_name=gf_shop,
-                                               po_status__in=[Cart.OPEN, Cart.APPROVAL_AWAITED],
+                                               po_status__in=[Cart.OPEN, Cart.PENDING_APPROVAL],
                                                cart_list__cart_product__parent_product=parent_product)\
                                        .values('cart_list__cart_product__parent_product')\
-                                       .annotate(no_of_pieces=Sum('cart_list__cart_product__no_of_pieces')).last()
-    return inventory_in_process['no_of_pieces'] if inventory_in_process else 0
+                                       .annotate(no_of_pieces=Sum('cart_list__no_of_pieces'))
+    return inventory_in_process[0]['no_of_pieces'] if inventory_in_process.exists() else 0
 
 
 def get_inventory_pending_for_putaway(warehouse, parent_product):
@@ -224,6 +224,7 @@ def get_total_products_ordered(warehouse, parent_product, starting_from_date):
 
 def ars(request):
     initiate_ars()
+    create_po()
     return HttpResponse('done')
 
 def initiate_ars():
@@ -254,9 +255,11 @@ def initiate_ars():
                 brand_product_dict[brand] = {'vendor':item.vendor, 'warehouse':warehouse, 'products':{}}
             if parent_product not in brand_product_dict[brand]['products'].keys():
 
-                is_eligible_to_raise_demand = True
+                is_eligible_to_raise_demand = False
                 demand = get_demand_by_parent_product(warehouse, parent_product)
                 daily_average = get_daily_average(warehouse, parent_product)
+                if daily_average == 0:
+                    continue
                 max_inventory_in_days = parent_product.max_inventory
                 if parent_product.is_lead_time_applicable:
                     max_inventory_in_days = max_inventory_in_days + item.vendor.lead_time
@@ -265,20 +268,23 @@ def initiate_ars():
                 min_inventory_in_days = max_inventory_in_days * min_inventory_factor / 100
                 max_inventory = max_inventory_in_days * daily_average
                 min_inventory = min_inventory_in_days * daily_average
-                if demand < (max_inventory - min_inventory):
-                    is_eligible_to_raise_demand = False
+                if demand >= (max_inventory - min_inventory):
+                    is_eligible_to_raise_demand = True
 
                 if is_eligible_to_raise_demand:
                     brand_product_dict[brand]['products'] = {parent_product : demand}
 
     for brand, product_demand_dict in brand_product_dict.items():
-        po = VendorDemand.objects.create(brand=brand, vendor=product_demand_dict['vendor'],
-                                         warehouse=product_demand_dict['warehouse'])
-        for product, demand in product_demand_dict['products'].items():
-            VendorDemandProducts.objects.create(po=po, product=product, demand=demand)
+        with transaction.atomic():
+            if len(product_demand_dict['products']) > 0:
+                po = VendorDemand.objects.create(brand=brand, vendor=product_demand_dict['vendor'],
+                                                 warehouse=product_demand_dict['warehouse'],
+                                                 status=VendorDemand.STATUS_CHOICE.DEMAND_CREATED)
+                for product, demand in product_demand_dict['products'].items():
+                    VendorDemandProducts.objects.create(po=po, product=product, demand=demand)
 
-        info_logger.info("initiate_ars|Demand generated| brand-{}, vendor-{}, warehouse-{} "
-                         .format(brand, product_demand_dict['vendor'], product_demand_dict['warehouse']))
+                info_logger.info("initiate_ars|Demand generated| brand-{}, vendor-{}, warehouse-{} "
+                                 .format(brand, product_demand_dict['vendor'], product_demand_dict['warehouse']))
 
 
 def get_child_product_with_latest_grn(warehouse_id, parent_product_id):
@@ -376,12 +382,13 @@ def create_po_from_demand(demand):
                                         gf_billing_address=bill_address,
                                         po_raised_by=system_user, last_modified_by=system_user,
                                         cart_type=Cart.CART_TYPE_CHOICE.AUTO,
-                                        po_status=Cart.APPROVAL_AWAITED,
+                                        po_status=Cart.PENDING_APPROVAL,
+                                        po_validity_date=datetime.date.today() + datetime.timedelta(days=15),
                                         po_delivery_date=datetime.datetime.today() +
                                                          datetime.timedelta(days=demand.vendor.lead_time))
 
     info_logger.info("create_po_from_demand|Cart created | Cart ID-{}".format(cart_instance.id))
-    for demand_product in VendorDemandProducts.objects.filter(demand=demand):
+    for demand_product in VendorDemandProducts.objects.filter(po=demand):
 
         info_logger.info("create_po_from_demand|Parent Product-{}, Demand-{}"
                          .format(demand_product.product, demand_product.demand))
@@ -406,16 +413,16 @@ def create_po_from_demand(demand):
             taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
             taxes = str(sum(taxes))
 
-            no_of_cases = demand / product_case_size
+            no_of_cases = demand_product.demand / product_case_size
             no_of_pieces = no_of_cases * product_case_size
 
-            CartProductMapping.objects.create(cart=cart_instance, cart_parent_product=demand_product.parent_product,
+            CartProductMapping.objects.create(cart=cart_instance, cart_parent_product=demand_product.product,
                                           cart_product=product, _tax_percentage=taxes,
                                           inner_case_size=product_inner_case_size,
                                           case_size=product_case_size,
                                           number_of_cases=no_of_cases,
                                           no_of_pieces=no_of_pieces,
-                                          vendor_product=vendor_mapping,
+                                          vendor_product=vendor_mapping.last(),
                                           price=vendor_product_price)
 
             info_logger.info("create_po_from_demand| Product added in PO | Child Product-{}, no_of_pieces-{}"
@@ -428,8 +435,8 @@ def create_po_from_demand(demand):
             demand.save()
             raise Exception('Vendor Product Mapping does not exist| vendor-{}, parent product-{}, product-{}'
                             .format(demand.vendor, demand_product.parent_product, product))
-    demand.status = VendorDemand.STATUS_CHOICE.CREATED
-    demand.po_no = cart_instance.po_no
+    demand.status = VendorDemand.STATUS_CHOICE.DEMAND_CREATED
+    demand.po = cart_instance
     demand.save()
     return cart_instance
 

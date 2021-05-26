@@ -43,6 +43,4 @@ class VendorDemand(BaseTimestampModel):
 class VendorDemandProducts(BaseTimestampModel):
     po = models.ForeignKey(VendorDemand, related_name='ars_po_demands', on_delete=models.CASCADE)
     product = models.ForeignKey(ParentProduct, related_name='ars_product_demands', on_delete=models.CASCADE)
-    max_inventory = models.PositiveSmallIntegerField()
-    min_inventory = models.PositiveSmallIntegerField()
     demand = models.PositiveSmallIntegerField()

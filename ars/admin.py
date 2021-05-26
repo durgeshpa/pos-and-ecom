@@ -10,8 +10,7 @@ from django.utils import timezone
 
 from ars.filters import WarehouseFilter, ParentProductFilter
 from ars.models import ProductDemand
-from ars.views import get_demand_by_parent_product, get_current_inventory
-from global_config.views import get_config
+from ars.views import  get_current_inventory
 
 info_logger = logging.getLogger('file-info')
 
