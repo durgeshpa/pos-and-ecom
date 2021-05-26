@@ -222,6 +222,10 @@ def get_total_products_ordered(warehouse, parent_product, starting_from_date):
     no_of_pieces_ordered = query.last()['ordered_pieces'] if query.exists() else 0
     return no_of_pieces_ordered
 
+def ars(request):
+    initiate_ars()
+    return HttpResponse('done')
+
 def initiate_ars():
     """
     Initiates the process of ARS.
@@ -229,18 +233,21 @@ def initiate_ars():
     In case of multiple brands for a vendor separate PO will be created for each brand.
     Only products for which vendor is default vendor the PO will be created
     """
-    info_logger.info("initiate_ars|Started| Day of Week {} ".datetime.date.isoweekday())
+    info_logger.info("initiate_ars|Started| Day of Week {} ".format(datetime.date.today().isoweekday()))
     product_vendor_mappings = ProductVendorMapping.objects.filter(
                                                             product__parent_product__is_ars_applicable=True,
-                                                            vendors__ordering_days__contains=datetime.date.isoweekday(),
+                                                            vendor__ordering_days__contains=datetime.date.today().isoweekday(),
                                                             is_default=True)
     brand_product_dict = {}
     for item in product_vendor_mappings:
         parent_product = item.product.parent_product
         brand = parent_product.parent_brand
 
-        warehouse_ids = get_config('ARS_WAREHOUSES', '600, 1393')
-        warehouse_list = [Shop.objects.filter(id=id).last() if Shop.objects.filter(id=id).last() else None for id in warehouse_ids]
+        warehouse_ids_as_string = get_config('ARS_WAREHOUSES')
+        if warehouse_ids_as_string is None or len(warehouse_ids_as_string) == 0:
+            return
+        warehouse_ids = warehouse_ids_as_string.split(",")
+        warehouse_list = Shop.objects.filter(id__in=warehouse_ids)
 
         for warehouse in warehouse_list:
             if brand_product_dict.get(brand) is None:
@@ -263,13 +270,10 @@ def initiate_ars():
 
                 if is_eligible_to_raise_demand:
                     brand_product_dict[brand]['products'] = {parent_product : demand}
-        else:
-            info_logger.info("create_po_from_demand|No valid warehouse configured")
-
 
     for brand, product_demand_dict in brand_product_dict.items():
         po = VendorDemand.objects.create(brand=brand, vendor=product_demand_dict['vendor'],
-                                   warehouse=product_demand_dict['warehouse'])
+                                         warehouse=product_demand_dict['warehouse'])
         for product, demand in product_demand_dict['products'].items():
             VendorDemandProducts.objects.create(po=po, product=product, demand=demand)
 

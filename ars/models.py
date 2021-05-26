@@ -33,6 +33,7 @@ class VendorDemand(BaseTimestampModel):
                             (2, 'PO_CREATED', 'PO Created'),
                             (3, 'FAILED', 'Failed'), (4, 'MAIL_SENT_FOR_APPROVAL', 'Mail sent for approval'),
                             )
+    warehouse = models.ForeignKey(Shop, related_name='ars_shop_demands', on_delete=models.CASCADE)
     brand = models.ForeignKey(Brand, related_name='ars_brand_demands', on_delete=models.CASCADE)
     vendor = models.ForeignKey(Vendor, related_name='ars_vendor_demands', on_delete=models.CASCADE)
     status = models.PositiveSmallIntegerField(choices=STATUS_CHOICE, null=True)
