@@ -51,8 +51,7 @@ class RetailerProductCls(object):
                 RetailerProductImage.objects.create(product=product, image=image)
 
     @classmethod
-    def update_images(cls, product, images, image_ids):
-        RetailerProductImage.objects.filter(product=product).exclude(id__in=image_ids).delete()
+    def update_images(cls, product, images):
         if images:
             for image in images:
                 image.name = str(product.sku) + '_' + image.name

@@ -21,7 +21,7 @@ from products.models import Product
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
 
-from pos.models import RetailerProduct
+from pos.models import RetailerProduct, RetailerProductImage
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, get_shop_id_from_token,
                                   validate_data_format)
 
@@ -118,8 +118,10 @@ class PosProductView(GenericAPIView):
                     product.status = data['status'] if data['status'] else product.status
                     product.description = description if description else product.description
                     # Update images
+                    if 'image_ids' in modified_data:
+                        RetailerProductImage.objects.filter(product=product).exclude(id__in=modified_data['image_ids']).delete()
                     if 'images' in modified_data:
-                        RetailerProductCls.update_images(product, modified_data['images'], modified_data['image_ids'])
+                        RetailerProductCls.update_images(product, modified_data['images'])
                     product.save()
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product updated successfully!', serializer.data, status.HTTP_200_OK, True)
