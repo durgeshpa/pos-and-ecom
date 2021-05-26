@@ -30,17 +30,17 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     update_shop_retailer_product_es(instance.shop.id, instance.id)
 
 
-@receiver(post_save, sender=RetailerProductImage)
-def update_elasticsearch_image(sender, instance=None, created=False, **kwargs):
-    """
-        Update elastic data on RetailerProduct update
-    """
-    update_shop_retailer_product_es(instance.product.shop.id, instance.product.id)
-
-
-@receiver(post_delete, sender=RetailerProductImage)
-def update_elasticsearch_image(sender, instance=None, created=False, **kwargs):
-    """
-        Update elastic data on RetailerProduct update
-    """
-    update_shop_retailer_product_es(instance.product.shop.id, instance.product.id)
+# @receiver(post_save, sender=RetailerProductImage)
+# def update_elasticsearch_image(sender, instance=None, created=False, **kwargs):
+#     """
+#         Update elastic data on RetailerProduct update
+#     """
+#     update_shop_retailer_product_es(instance.product.shop.id, instance.product.id)
+#
+#
+# @receiver(post_delete, sender=RetailerProductImage)
+# def update_elasticsearch_image(sender, instance=None, created=False, **kwargs):
+#     """
+#         Update elastic data on RetailerProduct update
+#     """
+#     update_shop_retailer_product_es(instance.product.shop.id, instance.product.id)

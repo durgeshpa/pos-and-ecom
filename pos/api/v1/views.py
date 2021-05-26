@@ -80,6 +80,7 @@ class PosProductView(GenericAPIView):
                     # Upload images
                     if 'images' in modified_data:
                         RetailerProductCls.create_images(product, modified_data['images'])
+                    product.save()
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product created successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
@@ -116,10 +117,10 @@ class PosProductView(GenericAPIView):
                     product.selling_price = sp if sp else product.selling_price
                     product.status = data['status'] if data['status'] else product.status
                     product.description = description if description else product.description
-                    product.save()
                     # Update images
                     if 'images' in modified_data:
                         RetailerProductCls.update_images(product, modified_data['images'], modified_data['image_ids'])
+                    product.save()
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product updated successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
