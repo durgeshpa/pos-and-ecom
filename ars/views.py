@@ -81,7 +81,11 @@ def populate_daily_average():
     master_data = {}
     for item in inventory_data:
         if master_data.get(item.sku.parent_product_id) is None:
-            master_data[item.sku.parent_product_id] = {warehouse_id: {'qty': 0, 'max_inventory': item.sku.parent_product.max_inventory} for warehouse_id in warehouse_list}
+            master_data[item.sku.parent_product_id] = {warehouse_id: {'qty': 0,
+                                                                      'ordered_pieces': 0,
+                                                                      'in_process_inventory': 0,
+                                                                      'pending_putaway': 0,
+                                                                      'max_inventory': item.sku.parent_product.max_inventory} for warehouse_id in warehouse_list}
         if item.inventory_state.inventory_state == 'total_available':
             master_data[item.sku.parent_product_id][item.warehouse_id]['qty'] += item.quantity
         elif item.inventory_state.inventory_state in ('reserved', 'ordered', 'to_be_picked'):
