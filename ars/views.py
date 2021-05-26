@@ -54,9 +54,6 @@ def product_demand_data_generator(master_data):
             info_logger.info('product_demand_data_generator|product demand {}'.format(product_demand))
             yield product_demand
 
-def daily_average(request):
-    populate_daily_average()
-    return HttpResponse('done')
 
 def populate_daily_average():
     """
@@ -223,8 +220,7 @@ def get_total_products_ordered(warehouse, parent_product, starting_from_date):
     return no_of_pieces_ordered
 
 def ars(request):
-    initiate_ars()
-    create_po()
+    mail_category_manager_for_po_approval()
     return HttpResponse('done')
 
 def initiate_ars():
@@ -312,8 +308,8 @@ def mail_category_manager_for_po_approval():
     and are pending for approval.
     """
     try:
-        sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
-        recipient_list = get_config("ARS_MAIL_PO_ARROVAL_RECIEVER", "consultant1@gramfactory.com")
+        sender = get_config("ARS_MAIL_SENDER")
+        recipient_list = get_config("ARS_MAIL_PO_ARROVAL_RECIEVER")
         today = datetime.datetime.today().date()
         subject = SUCCESS_MESSAGES['ARS_MAIL_PO_APPROVAL_SUBJECT'].format(today)
         body = SUCCESS_MESSAGES['ARS_MAIL_PO_APPROVAL_BODY'].format(today)
@@ -323,12 +319,12 @@ def mail_category_manager_for_po_approval():
         columns = ['PO Number', 'Brand', 'Supplier State', 'Supplier Name', 'PO Creation Date', 'PO Status',
                    'PO Delivery Date']
         writer.writerow(columns)
-        po_to_send_mail_for = VendorDemand.objects.filter(status=VendorDemand.STATUS_CHOICE.CREATED,
+        po_to_send_mail_for = VendorDemand.objects.filter(status=VendorDemand.STATUS_CHOICE.PO_CREATED,
                                                           created_at__date=today)
         for item in po_to_send_mail_for:
             writer.writerow([item.po.po_no, item.brand, item.vendor.state, item.vendor.vendor_name, item.created_at,
                             'Pending Approval', item.po.po_delivery_date])
-        attachment = {'name' : filename, 'type' : 'text/csv', 'value' : writer.getvalue()}
+        attachment = {'name' : filename, 'type' : 'text/csv', 'value' : f.getvalue()}
         send_mail(sender, recipient_list, subject, body, [attachment])
         po_to_send_mail_for.update(status=VendorDemand.STATUS_CHOICE.MAIL_SENT)
     except Exception as e:

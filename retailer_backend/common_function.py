@@ -304,9 +304,8 @@ def send_mail(sender, recipient_list, subject, body, attachment_list=None):
     email = EmailMessage()
     email.subject = subject
     email.body = body
-    sender = sender
-    email.from_email = sender.value
+    email.from_email = sender
     email.to = recipient_list
     for attachment in attachment_list:
-        email.attach(attachment.name, attachment.value, attachment.type)
+        email.attach(attachment['name'], attachment['value'], attachment['type'])
     email.send()
