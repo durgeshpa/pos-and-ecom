@@ -68,8 +68,9 @@ class PosProductView(GenericAPIView):
                 name, ean, mrp, sp, linked_pid, description = data['product_name'], data['product_ean_code'], data[
                     'mrp'], data['selling_price'], data['linked_product_id'], data['description']
                 with transaction.atomic():
-                    # Decide sku_type 3 = using GF product changed mrp, 2 = using GF product same mrp, 1 = new product
-                    sku_type = self.get_sku_type(mrp, name, ean, linked_pid)
+                    # Decide sku_type 2 = using GF product, 1 = new product
+                    sku_type = 2 if linked_pid else 1
+                    # sku_type = self.get_sku_type(mrp, name, ean, linked_pid)
                     # Create product
                     product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, sku_type,
                                                                          description, ean)
@@ -103,8 +104,8 @@ class PosProductView(GenericAPIView):
                     product.product_ean_code = ean if ean else product.product_ean_code
                     product.mrp = mrp if mrp else product.mrp
                     product.name = name if name else product.name
-                    product.sku_type = self.get_sku_type(product.mrp, product.name, product.product_ean_code,
-                                                         product.linked_product.id if product.linked_product else None)
+                    # product.sku_type = self.get_sku_type(product.mrp, product.name, product.product_ean_code,
+                    #                                      product.linked_product.id if product.linked_product else None)
                     product.selling_price = sp if sp else product.selling_price
                     product.status = data['status'] if data['status'] else product.status
                     product.description = description if description else product.description

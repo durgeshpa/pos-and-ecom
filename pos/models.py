@@ -17,7 +17,7 @@ class RetailerProduct(models.Model):
     PRODUCT_ORIGINS = (
         (1, 'CREATED'),
         (2, 'LINKED'),
-        (3, 'LINKED_EDITED'),
+        # (3, 'LINKED_EDITED'),
     )
     STATUS_CHOICES = (
         ('active', 'Active'),

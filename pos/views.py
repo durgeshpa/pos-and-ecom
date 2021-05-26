@@ -89,16 +89,17 @@ def bulk_update_products(request, form ,shop_id, uploaded_data_by_user_list):
             product = RetailerProduct.objects.get(id=product_id)
             linked_product_id = product.linked_product_id
             if linked_product_id:
-                if 'mrp' in actual_input_data_list:
-                    # If MRP in actual_input_data_list
-                    linked_product = Product.objects.filter(id=linked_product_id)
-                    if format(decimal.Decimal(product_mrp), ".2f") == str(
-                            linked_product.values()[0].get('mrp')):
-                        # If Input_MRP == Product_MRP, Update the product with [SKU Type : Linked]
-                        product.sku_type = 2
-                    else:
-                        # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
-                        product.sku_type = 3
+                product.sku_type = 2
+                # if 'mrp' in actual_input_data_list:
+                #     # If MRP in actual_input_data_list
+                #     linked_product = Product.objects.filter(id=linked_product_id)
+                #     if format(decimal.Decimal(product_mrp), ".2f") == str(
+                #             linked_product.values()[0].get('mrp')):
+                #         # If Input_MRP == Product_MRP, Update the product with [SKU Type : Linked]
+                #         product.sku_type = 2
+                #     else:
+                #         # If Input_MRP != Product_MRP, Update the product with [SKU Type : Linked Edited]
+                #         product.sku_type = 3
             if 'mrp' in actual_input_data_list:
                 # If MRP in actual_input_data_list
                 product.mrp = product_mrp
