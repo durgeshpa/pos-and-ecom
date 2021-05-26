@@ -1379,6 +1379,7 @@ class DownloadTripPdf(APIView):
         trip_no = trip.dispatch_no
         delivery_boy = trip.delivery_boy
         trip_date = trip.created_at
+        no_of_crates = trip.no_of_crates
         no_of_orders = trip.rt_invoice_trip.all().count()
         amount = 0
         invoices = trip.rt_invoice_trip.all()
@@ -1405,6 +1406,7 @@ class DownloadTripPdf(APIView):
             "delivery_boy": delivery_boy,
             "trip_date": trip_date,
             "no_of_orders": no_of_orders,
+            "no_of_crates": no_of_crates,
             "total_invoice_amount": total_invoice_amount,
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
