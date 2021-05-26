@@ -403,7 +403,7 @@ CRONJOBS = [
     ('30 21 * * *', 'retailer_incentive.cron.update_scheme_status_cron'),
     ('*/10 * * * *', 'ars.cron.run_ars_cron'),
     ('*/6 * * * *', 'ars.cron.generate_po_cron'),
-    ('0 3 * * *', 'ars.cron.daily_average_sales_cron')
+    ('0 8 * * *', 'ars.cron.daily_average_sales_cron')
 
 
 ]

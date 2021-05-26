@@ -76,8 +76,8 @@ class Vendor(models.Model):
     list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi',null=True,blank=True)
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
     vendor_products_brand = ArrayField(models.PositiveIntegerField(),null=True, blank=True,editable=False)
-    ordering_days = MultiSelectField(max_length=50, choices=ORDERING_DAY_CHOICES, null=True, blank=True)
-    lead_time = models.PositiveSmallIntegerField(verbose_name='Lead Time(In Days)', null=True, blank=True)
+    ordering_days = MultiSelectField(max_length=50, choices=ORDERING_DAY_CHOICES, null=True)
+    lead_time = models.PositiveSmallIntegerField(verbose_name='Lead Time(In Days)')
 
     def __str__(self):
         return self.vendor_name
