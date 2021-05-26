@@ -57,6 +57,7 @@ class Vendor(models.Model):
     contact_person_name = models.CharField(max_length=255,null=True,blank=True)
     telephone_no = models.CharField(max_length=15,null=True,blank=True)
     mobile = models.CharField(max_length=10, null=True)
+    email_id = models.EmailField(max_length=254, null=True)
     designation = models.CharField(max_length=255, null=True)
     address_line1 = models.CharField(max_length=255, validators=[AddressNameValidator], null=True)
     state = models.ForeignKey(State, related_name='vendor_state_address', on_delete=models.CASCADE, null=True)
