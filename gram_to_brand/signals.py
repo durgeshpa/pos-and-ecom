@@ -173,7 +173,7 @@ def mail_to_vendor(sender, instance=None, created=False, update_fields=None, **k
     """
         Send mail to vendor on po approval
     """
-    if instance.is_approved and not instance.is_vendor_notified:
+    if instance.cart_type==Cart.CART_TYPE_CHOICE.AUTO and instance.is_approve and not instance.is_vendor_notified:
        mail_to_vendor_on_po_approval(instance)
        instance.is_vendor_notified = True
        instance.save()
