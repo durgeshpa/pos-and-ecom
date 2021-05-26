@@ -219,9 +219,6 @@ def get_total_products_ordered(warehouse, parent_product, starting_from_date):
     no_of_pieces_ordered = query.last()['ordered_pieces'] if query.exists() else 0
     return no_of_pieces_ordered
 
-def ars(request):
-    mail_category_manager_for_po_approval()
-    return HttpResponse('done')
 
 def initiate_ars():
     """
@@ -328,7 +325,7 @@ def mail_category_manager_for_po_approval():
                                 'Pending Approval', item.po.po_delivery_date])
             attachment = {'name' : filename, 'type' : 'text/csv', 'value' : f.getvalue()}
             send_mail(sender, recipient_list, subject, body, [attachment])
-            po_to_send_mail_for.update(status=VendorDemand.STATUS_CHOICE.MAIL_SENT)
+            po_to_send_mail_for.update(status=VendorDemand.STATUS_CHOICE.MAIL_SENT_FOR_APPROVAL)
     except Exception as e:
         info_logger.error("Exception|mail_category_manager_for_po_approval|{}".format(e))
 

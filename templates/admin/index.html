@@ -78,14 +78,6 @@
                 {% endif %}
 
                 {% endif %}
-                {% if app.name == "gram_to_brand" %}
-                   {% if model.name == "PO Generations" %}
-                   <tr>
-                 <th scope="row"><a href="/admin/gram_to_brand/demands/">Pending Demands</a></th>
-                   </tr>
-                {% endif %}
-
-                {% endif %}
                 {% if app.name == "B2C Franchise Management" %}
                    {% if user.is_superuser == False %}
                         {% if model.name == "Bins" %}
