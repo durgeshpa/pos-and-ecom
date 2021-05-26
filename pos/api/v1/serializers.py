@@ -34,7 +34,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='',
                                         max_length=255)
     product_ean_code = serializers.CharField(required=True, max_length=100)
-    linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1)
+    linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1, allow_null=True)
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=5)
 
     @staticmethod
