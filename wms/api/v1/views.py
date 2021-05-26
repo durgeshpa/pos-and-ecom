@@ -341,20 +341,22 @@ class PickupList(APIView):
         if pickuptype == 1:
             orders = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
                                           Q(picker_order__picking_status__in=['picking_assigned', 'picking_complete']),
-                                          Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete'])).order_by(
+                                          Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete']),
+                                          created_at__date=date,).order_by(
                 '-created_at')
             if orders:
                 data_found = 1
                 serializer = OrderSerializer(orders, many=True)
                 picking_complete = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
                                                         Q(picker_order__picking_status__in=['picking_complete']),
-                                                        Q(order_status__in=['picking_complete']),
+                                                        Q(order_status__in=['picking_complete']),created_at__date=date,
                                                         ).order_by(
                     '-created_at').count()
                 picking_assigned = orders.count()
         elif pickuptype == 2:
             repacks = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
                                           Q(picker_repacks__picking_status__in=['picking_assigned', 'picking_complete']),
+                                                 created_at__date=date,
                                           ).order_by(
                 '-created_at')
             if repacks:
@@ -362,6 +364,7 @@ class PickupList(APIView):
                 serializer = RepackagingSerializer(repacks, many=True)
                 picking_complete = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
                                                         Q(picker_repacks__picking_status__in=['picking_complete']),
+                                                              created_at__date=date,
                                                               ).order_by('-created_at').count()
                 picking_assigned = repacks.count()
 
