@@ -114,7 +114,8 @@ class CartAdmin(admin.ModelAdmin):
                                                created_by=request.user) if request.POST.get('message') else None
         flag, obj.po_status, is_approved = self.po_status_request(request, obj)
         obj.po_message = get_po_msg
-        obj.po_raised_by = request.user
+        if obj.po_raised_by is None:
+            obj.po_raised_by = request.user
         obj.last_modified_by = request.user
         if is_approved:
             obj.approved_by = request.user
@@ -151,6 +152,8 @@ class CartAdmin(admin.ModelAdmin):
             status = obj.PENDING_APPROVAL
         elif "_close" in request.POST:
             status = obj.PARTIAL_DELIVERED_CLOSE
+        elif status is None:
+            status = obj.OPEN
         return flag, status, is_approved
 
     class Media:
