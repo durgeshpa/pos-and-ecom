@@ -1087,7 +1087,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         ]
         return urls
 
-class ShipmentReschedulingAdmin(NestedTabularInline):
+
+class ShipmentReschedulingAdminNested(NestedTabularInline):
     model = ShipmentRescheduling
     form = ShipmentReschedulingForm
     fields = ['rescheduling_reason', 'rescheduling_date']
@@ -1098,7 +1099,7 @@ class ShipmentReschedulingAdmin(NestedTabularInline):
 
 
 @admin.register(ShipmentRescheduling)
-class ShipmentReschedulingAdmin1(admin.ModelAdmin):
+class ShipmentReschedulingAdmin(admin.ModelAdmin):
     model = ShipmentRescheduling
     list_display = ('shipment', 'order', 'trip', 'rescheduling_reason', 'rescheduling_date', 'created_by')
     list_per_page = 20
@@ -1139,7 +1140,7 @@ class OrderedProductAdmin(NestedModelAdmin):
     change_list_template = 'admin/retailer_to_sp/OrderedProduct/change_list.html'
     actions = ['download_bulk_invoice']
     list_per_page = FIFTY
-    inlines = [ShipmentReschedulingAdmin, OrderedProductMappingAdmin,]
+    inlines = [ShipmentReschedulingAdminNested, OrderedProductMappingAdmin,]
     list_display = (
         'invoice_no', 'order', 'created_at', 'shipment_address', 'invoice_city',
         'invoice_amount', 'payment_mode', 'shipment_status', 'download_invoice'
