@@ -56,6 +56,8 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         if linked_pid and RetailerProduct.objects.filter(shop=shop_id, mrp=mrp, linked_product_id=linked_pid).exists():
             raise serializers.ValidationError(
                 "Product {} with same mrp & linked GF product already exists.".format(name))
+        if not attrs['product_ean_code'].isdigit():
+            raise serializers.ValidationError("Product Ean Code should be a number")
         return attrs
 
 
@@ -120,6 +122,9 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
                 shop=shop_id, mrp=mrp, linked_product_id=product.linked_product_id).exclude(id=pid).exists():
             raise serializers.ValidationError(
                 "Product {} with same mrp & linked GF product already exists.".format(name))
+        if 'product_ean_code' in attrs and attrs['product_ean_code']:
+            if not attrs['product_ean_code'].isdigit():
+                raise serializers.ValidationError("Product Ean Code should be a number")
         return attrs
 
 
