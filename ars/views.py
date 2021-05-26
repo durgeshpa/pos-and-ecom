@@ -430,7 +430,7 @@ def create_po_from_demand(demand):
     return cart_instance
 
 
-class WareHouseComplete(autocomplete.Select2QuerySetView):
+class ARSWareHouseComplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self, *args, **kwargs):
         """
@@ -446,7 +446,7 @@ class WareHouseComplete(autocomplete.Select2QuerySetView):
         return qs
 
 
-class ParentProductAutocomplete(autocomplete.Select2QuerySetView):
+class ARSParentProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         """
         Returns queryset for ParentProduct model where parent_id or name matches the given string  to support autocomplete.

@@ -9,10 +9,10 @@ from shops.models import Shop
 class WarehouseFilter(AutocompleteFilter):
     title = 'Warehouse'
     field_name = 'warehouse'
-    autocomplete_url = 'warehouse-autocomplete'
+    autocomplete_url = 'ars-warehouse-autocomplete'
 
 class ParentProductFilter(AutocompleteFilter):
     title = 'Parent Product ID/Name'
     field_name = 'parent_product'
-    autocomplete_url = 'parent-product-autocomplete'
+    autocomplete_url = 'ars-parent-product-autocomplete'
 
