@@ -2325,6 +2325,9 @@ class RescheduleReason(generics.ListCreateAPIView):
         return Response(msg, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
+        if ShipmentRescheduling.objects.filter(shipment=request.data.get('shipment')).exists():
+            msg = {'is_success': False, 'message': ['This shipment was already rescheduled'], 'response_data': None}
+            return Response(msg, status=status.HTTP_200_OK)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)
@@ -2340,7 +2343,8 @@ class RescheduleReason(generics.ListCreateAPIView):
         return Response(msg, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
-        return serializer.save(created_by=self.request.user)
+        shipment = OrderedProduct.objects.get(pk=self.request.data.get('shipment'))
+        return serializer.save(created_by=self.request.user, trip=shipment.trip)
 
     def update_shipment(self, id):
         shipment = OrderedProduct.objects.get(pk=id)

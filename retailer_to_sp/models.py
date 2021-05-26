@@ -1106,6 +1106,19 @@ class Order(models.Model):
         except:
             return "-"
 
+    @property
+    def trip_id(self):
+        trips = []
+        for s in self.shipments():
+            if s.trip:
+                trips += [s.trip.dispatch_no]
+            elif s.shipment_status == 'RESCHEDULED':
+                rescheduling = s.rescheduling_shipment.select_related('trip').all()
+                for reschedule in rescheduling:
+                    if reschedule.trip:
+                        trips += [reschedule.trip.dispatch_no]
+        return format_html_join("", "{}<br><br>", ((t,) for t in trips))
+
 
 class Trip(models.Model):
     READY = 'READY'
@@ -2188,6 +2201,10 @@ class ShipmentRescheduling(models.Model):
     shipment = models.ForeignKey(
         OrderedProduct, related_name='rescheduling_shipment',
         blank=False, null=True, on_delete=models.DO_NOTHING
+    )
+    trip = models.ForeignKey(
+        Trip, related_name="rescheduling_shipment_trip",
+        null=True, blank=False, on_delete=models.DO_NOTHING,
     )
     rescheduling_reason = models.CharField(
         max_length=50, choices=RESCHEDULING_REASON,

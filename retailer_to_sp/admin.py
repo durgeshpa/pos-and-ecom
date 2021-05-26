@@ -979,7 +979,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     list_display = (
                     'order_no', 'download_pick_list', 'invoice_no', 'seller_shop','buyer_shop_id', 'buyer_shop_type', 'buyer_shop_with_mobile',
                     'pincode', 'city', 'total_final_amount', 'order_status', 'created_at',
-                    'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
+                    'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status', 'trip_id',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy',
                     'pickup_completed_at', 'picking_completion_time' #'damaged_amount',
@@ -1097,6 +1097,26 @@ class ShipmentReschedulingAdmin(NestedTabularInline):
         return False
 
 
+@admin.register(ShipmentRescheduling)
+class ShipmentReschedulingAdmin1(admin.ModelAdmin):
+    model = ShipmentRescheduling
+    list_display = ('shipment', 'order', 'trip', 'rescheduling_reason', 'rescheduling_date', 'created_by')
+    list_per_page = 20
+    search_fields = ('shipment__order__order_no', 'shipment__invoice__invoice_no', 'trip__dispatch_no')
+
+    def order(self, obj):
+        return obj.shipment.order
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 class OrderedProductMappingAdmin(NestedTabularInline):
     model = OrderedProductMapping
     form = OrderedProductMappingRescheduleForm
@@ -1177,7 +1197,8 @@ class OrderedProductAdmin(NestedModelAdmin):
                          for formset in formsets}
         if (not form_instance.rescheduling_shipment.exists()) and ('ShipmentReschedulingFormFormSet' in formsets_dict and
             [i for i in formsets_dict['ShipmentReschedulingFormFormSet'].cleaned_data if i]):
-            reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
+            reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'],
+                                      formsets_dict['ShipmentReschedulingFormFormSet'])
         elif form_instance.shipment_status in complete_shipment_status:
             update_shipment_status_verified(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             #create_credit_note(form.instance)

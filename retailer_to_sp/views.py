@@ -1439,8 +1439,13 @@ def commercial_shipment_details(request, pk):
     )
 
 
-def reshedule_update_shipment(shipment, shipment_proudcts_formset):
+def reshedule_update_shipment(shipment, shipment_proudcts_formset, shipment_reschedule_formset):
     with transaction.atomic():
+        for inline_form in shipment_reschedule_formset:
+            instance = getattr(inline_form, 'instance', None)
+            instance.trip = shipment.trip
+            instance.save()
+
         shipment.shipment_status = OrderedProduct.RESCHEDULED
         shipment.trip = None
         shipment.save()
