@@ -105,11 +105,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
         """
             is_ptr_applicable validation.
         """
-        if data.get('is_ptr_applicable'):
-            is_ptr_applicable = is_ptr_applicable_validation(data)
-            if 'error' in is_ptr_applicable:
-                raise serializers.ValidationError(is_ptr_applicable['error'])
-
         if not 'parent_brand' in self.initial_data or not self.initial_data['parent_brand']:
             raise serializers.ValidationError(_('parent_brand is required'))
 
@@ -124,6 +119,11 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
         if len(self.initial_data.getlist('parent_product_pro_tax')) == 0:
             raise serializers.ValidationError(_('parent_product_pro_tax is required'))
+
+        if data.get('is_ptr_applicable'):
+            is_ptr_applicable = is_ptr_applicable_validation(data)
+            if 'error' in is_ptr_applicable:
+                raise serializers.ValidationError(is_ptr_applicable['error'])
 
         parent_brand_val = get_validate_parent_brand(self.initial_data['parent_brand'])
         if 'error' in parent_brand_val:
@@ -157,9 +157,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         """create a new Parent Product with image category & tax"""
 
-        validated_data.pop('parent_product_pro_image', None)
-        validated_data.pop('parent_product_pro_category', None)
-        validated_data.pop('parent_product_pro_tax', None)
+        validated_data.pop('parent_product_pro_image')
+        validated_data.pop('parent_product_pro_category')
+        validated_data.pop('parent_product_pro_tax')
 
         try:
             parent_product = ParentProductCls.create_parent_product(self.initial_data['parent_brand'],
@@ -168,19 +168,14 @@ class ParentProductSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        ParentProductCls.upload_parent_product_images(parent_product,
-                                                      self.initial_data.getlist('parent_product_pro_image'))
-        ParentProductCls.create_parent_product_category(parent_product,
-                                                        self.initial_data['parent_product_pro_category'])
-        ParentProductCls.create_parent_product_tax(parent_product, self.initial_data['parent_product_pro_tax'])
+        self.create_parent_tax_image_cat(parent_product)
 
         return parent_product
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        """
-            This method is used to update an instance of the Parent Product's attribute.
-        """
+        """ This method is used to update an instance of the Parent Product's attribute. """
+
         validated_data.pop('parent_product_pro_image', None)
         validated_data.pop('parent_product_pro_category', None)
         validated_data.pop('parent_product_pro_tax', None)
@@ -194,13 +189,16 @@ class ParentProductSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
+        self.create_parent_tax_image_cat(parent_product)
+
+        return parent_product
+
+    def create_parent_tax_image_cat(self, parent_product):
         ParentProductCls.upload_parent_product_images(parent_product,
                                                       self.initial_data.getlist('parent_product_pro_image'))
         ParentProductCls.create_parent_product_category(parent_product,
                                                         self.initial_data['parent_product_pro_category'])
         ParentProductCls.create_parent_product_tax(parent_product, self.initial_data['parent_product_pro_tax'])
-
-        return parent_product
 
 
 class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
