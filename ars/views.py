@@ -308,25 +308,27 @@ def mail_category_manager_for_po_approval():
     and are pending for approval.
     """
     try:
-        sender = get_config("ARS_MAIL_SENDER")
-        recipient_list = get_config("ARS_MAIL_PO_ARROVAL_RECIEVER")
+
         today = datetime.datetime.today().date()
-        subject = SUCCESS_MESSAGES['ARS_MAIL_PO_APPROVAL_SUBJECT'].format(today)
-        body = SUCCESS_MESSAGES['ARS_MAIL_PO_APPROVAL_BODY'].format(today)
-        f = StringIO()
-        writer = csv.writer(f)
-        filename = 'PO_pending_for_approval-{}.csv'.format(today)
-        columns = ['PO Number', 'Brand', 'Supplier State', 'Supplier Name', 'PO Creation Date', 'PO Status',
-                   'PO Delivery Date']
-        writer.writerow(columns)
         po_to_send_mail_for = VendorDemand.objects.filter(status=VendorDemand.STATUS_CHOICE.PO_CREATED,
                                                           created_at__date=today)
-        for item in po_to_send_mail_for:
-            writer.writerow([item.po.po_no, item.brand, item.vendor.state, item.vendor.vendor_name, item.created_at,
-                            'Pending Approval', item.po.po_delivery_date])
-        attachment = {'name' : filename, 'type' : 'text/csv', 'value' : f.getvalue()}
-        send_mail(sender, recipient_list, subject, body, [attachment])
-        po_to_send_mail_for.update(status=VendorDemand.STATUS_CHOICE.MAIL_SENT)
+        if po_to_send_mail_for.count() > 0:
+            sender = get_config("ARS_MAIL_SENDER")
+            recipient_list = get_config("ARS_MAIL_PO_ARROVAL_RECIEVER")
+            subject = SUCCESS_MESSAGES['ARS_MAIL_PO_APPROVAL_SUBJECT'].format(today)
+            body = SUCCESS_MESSAGES['ARS_MAIL_PO_APPROVAL_BODY'].format(today)
+            f = StringIO()
+            writer = csv.writer(f)
+            filename = 'PO_pending_for_approval-{}.csv'.format(today)
+            columns = ['PO Number', 'Brand', 'Supplier State', 'Supplier Name', 'PO Creation Date', 'PO Status',
+                       'PO Delivery Date']
+            writer.writerow(columns)
+            for item in po_to_send_mail_for:
+                writer.writerow([item.po.po_no, item.brand, item.vendor.state, item.vendor.vendor_name, item.created_at,
+                                'Pending Approval', item.po.po_delivery_date])
+            attachment = {'name' : filename, 'type' : 'text/csv', 'value' : f.getvalue()}
+            send_mail(sender, recipient_list, subject, body, [attachment])
+            po_to_send_mail_for.update(status=VendorDemand.STATUS_CHOICE.MAIL_SENT)
     except Exception as e:
         info_logger.error("Exception|mail_category_manager_for_po_approval|{}".format(e))
 
