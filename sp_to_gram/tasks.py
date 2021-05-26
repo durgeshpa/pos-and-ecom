@@ -2,6 +2,7 @@ import sys
 import os
 import datetime
 import json
+import itertools
 from celery.task import task
 from celery.contrib import rdb
 import requests
@@ -173,7 +174,9 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			visible = visible.visible
 		else:
 			visible=True
-			
+		ean = product.product_ean_code
+		if ean and type(ean) == str:
+			ean = "".join(itertools.takewhile(str.isdigit, ean))
 		product_details = {
 			"sku": product.product_sku,
 			"parent_id": product.parent_product.parent_id,
@@ -196,7 +199,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			"sub_total": sub_total,
 			"available": available_qty,
 			"visible":visible,
-			"ean":product.product_ean_code,
+			"ean":ean,
 			"price_details" : price_details
 		}
 		yield(product_details)
