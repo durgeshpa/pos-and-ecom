@@ -176,7 +176,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_no', 'cart_status', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount', 'offers',
+        fields = ('id', 'cart_no', 'cart_status', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount',
                   'total_discount', 'sub_total', 'created_at', 'modified_at')
 
     def rt_cart_list_dt(self, obj):
@@ -209,7 +209,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
                     'mrp': offer['free_item_mrp'],
                     'name': offer['free_item_name'],
                     'qty': offer['free_item_qty'],
-                    'coupon_code': offer['coupon_code']
+                    'display_text': 'FREE on orders above ' + str(offer['cart_minimum_value'])
                 }
 
         for cart_product in cart_products:
@@ -219,8 +219,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
                     'id': offer['free_item_id'],
                     'mrp': offer['free_item_mrp'],
                     'name': offer['free_item_name'],
-                    'qty': offer['free_item_qty_added'],
-                    'coupon_code': offer['coupon_code']
+                    'qty': offer['free_item_qty_added']
                 }
                 cart_product['free_product'] = free_product
 
@@ -493,7 +492,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                     'mrp': offer['free_item_mrp'],
                     'name': offer['free_item_name'],
                     'qty': offer['free_item_qty'],
-                    'coupon_code': offer['coupon_code']
+                    'display_text': 'FREE on orders above ' + str(offer['cart_minimum_value'])
                 }
 
         all_returns = obj.rt_return_order.prefetch_related('rt_return_list').filter(order=obj)
@@ -539,8 +538,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                     'already_returned_qty': return_item_map[offer['item_id']] if offer[
                                                                                      'item_id'] in return_item_map else 0,
                     'return_qty': return_item_ongoing[offer['item_id']] if offer[
-                                                                               'item_id'] in return_item_ongoing else 0,
-                    'coupon_code': offer['coupon_code']
+                                                                               'item_id'] in return_item_ongoing else 0
                 }
                 product['free_product'] = free_product
 
