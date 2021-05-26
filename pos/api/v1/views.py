@@ -57,6 +57,9 @@ class PosProductView(GenericAPIView):
         """
             Create Product
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
             modified_data = self.validate_create(shop_id)
@@ -75,7 +78,8 @@ class PosProductView(GenericAPIView):
                     product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, sku_type,
                                                                          description, ean)
                     # Upload images
-                    RetailerProductCls.create_images(product, modified_data.getlist('images'))
+                    if 'images' in modified_data:
+                        RetailerProductCls.create_images(product, modified_data['images'])
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product created successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
@@ -87,6 +91,9 @@ class PosProductView(GenericAPIView):
         """
             Update product
         """
+        msg = validate_data_format(request)
+        if msg:
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
             modified_data = self.validate_update(shop_id)
@@ -110,9 +117,9 @@ class PosProductView(GenericAPIView):
                     product.status = data['status'] if data['status'] else product.status
                     product.description = description if description else product.description
                     product.save()
-                    if 'images' in request.data:
-                        # Update images
-                        RetailerProductCls.update_images(product, modified_data.getlist('images'), modified_data.getlist('image_ids'))
+                    # Update images
+                    if 'images' in modified_data:
+                        RetailerProductCls.update_images(product, modified_data['images'], modified_data['image_ids'])
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product updated successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
@@ -123,56 +130,43 @@ class PosProductView(GenericAPIView):
     def validate_create(self, shop_id):
         # Validate product data
         try:
-            data = json.loads(self.request.data["data"])
-            p_data = QueryDict('', mutable=True)
-            p_data.update(data)
-        except (KeyError, ValueError):
+            p_data = json.loads(self.request.data["data"])
+        except:
             return {'error': "Invalid Data Format"}
-        # Image urls
-        try:
-            validate = URLValidator()
-            for image_url in self.request.data.getlist('image_urls'):
-                validate(image_url)
-        except ValidationError:
-            return {"error": "Invalid Image Url / Urls"}
-        # Update product data with shop id and images
-        p_data['shop_id'] = shop_id
         image_files = self.request.FILES.getlist('images')
-        image_urls = self.request.data.getlist('image_urls')
-        for image_url in image_urls:
+        if 'image_urls' in p_data:
             try:
-                response = requests.get(image_url)
-                image = BytesIO(response.content)
-                image = InMemoryUploadedFile(image, 'ImageField', "gmfact_image.jpeg", 'image/jpeg',
-                                             sys.getsizeof(image),
-                                             None)
-                serializer = ImageFileSerializer(data={'image': image})
-                if serializer.is_valid():
-                    image_files.append(image)
-            except:
-                pass
-        p_data.setlist('images', image_files)
+                validate = URLValidator()
+                for image_url in p_data['image_urls']:
+                    validate(image_url)
+            except ValidationError:
+                return {"error": "Invalid Image Url / Urls"}
+            for image_url in p_data['image_urls']:
+                try:
+                    response = requests.get(image_url)
+                    image = BytesIO(response.content)
+                    image = InMemoryUploadedFile(image, 'ImageField', "gmfact_image.jpeg", 'image/jpeg',
+                                                 sys.getsizeof(image),
+                                                 None)
+                    serializer = ImageFileSerializer(data={'image': image})
+                    if serializer.is_valid():
+                        image_files.append(image)
+                except:
+                    pass
+        p_data['images'] = image_files
+        p_data['shop_id'] = shop_id
         return p_data
 
     def validate_update(self, shop_id):
         # Validate product data
         try:
-            data = json.loads(self.request.data["data"])
-            p_data = QueryDict('', mutable=True)
-            p_data.update(data)
+            p_data = json.loads(self.request.data["data"])
         except (KeyError, ValueError):
             return {'error': "Invalid Data Format"}
-        # Image Ids
-        image_ids = []
-        try:
-            for image_id in self.request.data.getlist('image_ids'):
-                image_ids.append(int(image_id))
-        except TypeError:
-            return {"error": "Invalid Image Id / Ids. Ensure Digit Values"}
         # Update product data with shop id and images
         p_data['shop_id'] = shop_id
-        p_data.setlist('images', self.request.FILES.getlist('images'))
-        p_data.setlist('image_ids', image_ids)
+        if self.request.FILES.getlist('images'):
+            p_data['images'] = self.request.FILES.getlist('images')
         return p_data
 
     @staticmethod

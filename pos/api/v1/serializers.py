@@ -35,7 +35,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
                                         max_length=255)
     product_ean_code = serializers.CharField(required=True, max_length=100)
     linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1)
-    images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
+    images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=5)
 
     @staticmethod
     def validate_linked_product_id(value):
@@ -87,7 +87,8 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False,
                                         default=None, max_length=255)
     status = serializers.ChoiceField(choices=['active', 'deactivated'], required=False, default=None)
-    images = serializers.ListField(required=False, allow_null=True, child=serializers.ImageField(), max_length=3)
+    images = serializers.ListField(required=False, allow_null=True, child=serializers.ImageField())
+    image_ids = serializers.ListField(required=False, default=None, child=serializers.IntegerField())
 
     def validate(self, attrs):
         shop_id, pid = attrs['shop_id'], attrs['product_id']
@@ -100,6 +101,14 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
         name = attrs['product_name'] if attrs['product_name'] else product.name
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
+
+        image_count = 0
+        if 'images' in attrs:
+            image_count = len(attrs['images'])
+        if 'image_ids' in attrs:
+            image_count += len(attrs['image_ids'])
+        if image_count > 5:
+            raise serializers.ValidationError("images : Ensure this field has no more than 5 elements.")
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
             raise serializers.ValidationError("Selling Price cannot be greater than MRP")
