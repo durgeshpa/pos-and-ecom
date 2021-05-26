@@ -2384,11 +2384,11 @@ class OrderCentral(APIView):
                 return api_response('Order Not Found To Cancel!')
             # check input status validity
             allowed_updates = [Order.CANCELLED]
-            status = self.request.data.get('status')
-            if status not in allowed_updates:
+            order_status = self.request.data.get('status')
+            if order_status not in allowed_updates:
                 return api_response("Please Provide A Valid Status To Update Order")
             # cancel order
-            order.order_status = status
+            order.order_status = order_status
             order.last_modified_by = self.request.user
             order.save()
             # cancel shipment
