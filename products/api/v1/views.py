@@ -1,7 +1,6 @@
 import logging
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Prefetch
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
@@ -36,8 +35,7 @@ class ParentProduct(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     parser_classes = [MultipartJsonParser, JSONParser]
-    # prefetch = Prefetch('parent_product_pro_image',
-    #                      queryset=ParentProductImage.objects.only('image', 'image_name'),)
+
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn').prefetch_related(
         'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax',
         'parent_product_pro_category__category', 'parent_product_pro_tax__tax'). \
@@ -46,7 +44,7 @@ class ParentProduct(GenericAPIView):
              'product_hsn__product_hsn_code', ).order_by('-id')
     serializer_class = ParentProductSerializers
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         """ GET API for Parent Product with Image Category & Tax """
 
         info_logger.info("Parent Product GET api called.")
