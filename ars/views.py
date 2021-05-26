@@ -437,6 +437,7 @@ def create_po_from_demand(demand):
                             .format(demand.vendor, demand_product.parent_product, product))
     demand.status = VendorDemand.STATUS_CHOICE.DEMAND_CREATED
     demand.po = cart_instance
+    demand.status = VendorDemand.STATUS_CHOICE.PO_CREATED
     demand.save()
     return cart_instance
 
