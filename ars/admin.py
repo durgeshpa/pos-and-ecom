@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from ars.filters import WarehouseFilter, ParentProductFilter
 from ars.models import ProductDemand
-from ars.views import  get_current_inventory
+from ars.views import get_current_inventory, get_child_product_with_latest_grn
 
 info_logger = logging.getLogger('file-info')
 
@@ -48,7 +48,8 @@ class ProductDemandAdmin(admin.ModelAdmin):
 
     def child_product_sku(self, obj):
         """Returns child product's SKU"""
-        return obj.active_child_product.product_sku if obj.active_child_product else None
+        return get_child_product_with_latest_grn(33877, obj.parent_product)
+        # return obj.active_child_product.product_sku if obj.active_child_product else None
 
     def child_product_name(self, obj):
         """Returns child product's name"""

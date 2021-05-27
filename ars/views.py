@@ -228,20 +228,23 @@ def initiate_ars():
     Only products for which vendor is default vendor the PO will be created
     """
     info_logger.info("initiate_ars|Started| Day of Week {} ".format(datetime.date.today().isoweekday()))
+
+    min_inventory_factor = get_config('ARS_MIN_INVENTORY_FACTOR', 70)
+    warehouse_ids_as_string = get_config('ARS_WAREHOUSES')
+    if warehouse_ids_as_string is None or len(warehouse_ids_as_string) == 0:
+        return
+    warehouse_ids = warehouse_ids_as_string.split(",")
+    warehouse_list = Shop.objects.filter(id__in=warehouse_ids)
+
     product_vendor_mappings = ProductVendorMapping.objects.filter(
                                                             product__parent_product__is_ars_applicable=True,
                                                             vendor__ordering_days__contains=datetime.date.today().isoweekday(),
                                                             is_default=True, status=True)
+
     brand_product_dict = {}
     for item in product_vendor_mappings:
         parent_product = item.product.parent_product
         brand = parent_product.parent_brand
-
-        warehouse_ids_as_string = get_config('ARS_WAREHOUSES')
-        if warehouse_ids_as_string is None or len(warehouse_ids_as_string) == 0:
-            return
-        warehouse_ids = warehouse_ids_as_string.split(",")
-        warehouse_list = Shop.objects.filter(id__in=warehouse_ids)
 
         for warehouse in warehouse_list:
             if brand_product_dict.get(brand) is None:
@@ -249,15 +252,17 @@ def initiate_ars():
             if parent_product not in brand_product_dict[brand]['products'].keys():
 
                 is_eligible_to_raise_demand = False
-                demand = get_demand_by_parent_product(warehouse, parent_product)
                 daily_average = get_daily_average(warehouse, parent_product)
-                if daily_average == 0:
+                if daily_average <= 0:
                     continue
+                current_inventory = get_current_inventory(warehouse, parent_product)
                 max_inventory_in_days = parent_product.max_inventory
+                demand = (daily_average * max_inventory_in_days) - current_inventory
+                if demand <= 0:
+                    continue
                 if parent_product.is_lead_time_applicable:
                     max_inventory_in_days = max_inventory_in_days + item.vendor.lead_time
 
-                min_inventory_factor = get_config('ARS_MIN_INVENTORY_FACTOR', 70)
                 min_inventory_in_days = max_inventory_in_days * min_inventory_factor / 100
                 max_inventory = max_inventory_in_days * daily_average
                 min_inventory = min_inventory_in_days * daily_average
@@ -271,7 +276,9 @@ def initiate_ars():
         with transaction.atomic():
             if len(product_demand_dict['products']) > 0:
 
-                existing_demand_raised = VendorDemand.objects.filter(brand=brand, vendor=item.vendor, warehouse=warehouse,
+                existing_demand_raised = VendorDemand.objects.filter(brand=brand,
+                                                                     vendor=product_demand_dict['vendor'],
+                                                                     warehouse=product_demand_dict['warehouse'],
                                                                      status=VendorDemand.STATUS_CHOICE.DEMAND_CREATED)
                 if existing_demand_raised.exists():
                     continue
@@ -430,11 +437,11 @@ def create_po_from_demand(demand):
         else:
             info_logger.info("create_po_from_demand|Vendor Product Mapping does not exist | "
                              "vendor-{}, parent product-{}, product-{}"
-                            .format(demand.vendor, demand_product.parent_product, product))
+                            .format(demand.vendor, demand_product.product, product))
             demand.status = VendorDemand.STATUS_CHOICE.FAILED
             demand.save()
             raise Exception('Vendor Product Mapping does not exist| vendor-{}, parent product-{}, product-{}'
-                            .format(demand.vendor, demand_product.parent_product, product))
+                            .format(demand.vendor, demand_product.product, product))
     demand.status = VendorDemand.STATUS_CHOICE.DEMAND_CREATED
     demand.po = cart_instance
     demand.status = VendorDemand.STATUS_CHOICE.PO_CREATED
