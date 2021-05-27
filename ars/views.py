@@ -270,6 +270,11 @@ def initiate_ars():
     for brand, product_demand_dict in brand_product_dict.items():
         with transaction.atomic():
             if len(product_demand_dict['products']) > 0:
+
+                existing_demand_raised = VendorDemand.objects.filter(brand=brand, vendor=item.vendor, warehouse=warehouse,
+                                                                     status=VendorDemand.STATUS_CHOICE.DEMAND_CREATED)
+                if existing_demand_raised.exists():
+                    continue
                 po = VendorDemand.objects.create(brand=brand, vendor=product_demand_dict['vendor'],
                                                  warehouse=product_demand_dict['warehouse'],
                                                  status=VendorDemand.STATUS_CHOICE.DEMAND_CREATED)
