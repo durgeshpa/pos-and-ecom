@@ -101,7 +101,7 @@ def populate_daily_average():
     # Get total no of pieces ordered starting from starting_avg_from date
     total_products_ordered = Order.objects.filter(seller_shop__id__in=warehouse_list,
                                                   ordered_cart__rt_cart_list__cart_product__parent_product_id__in=master_data.keys(),
-                                                  created_at__gte=starting_avg_from) \
+                                                  created_at__gte=starting_avg_from).order_by() \
                                           .values('seller_shop', 'ordered_cart__rt_cart_list__cart_product__parent_product') \
                                           .annotate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))
     for item in total_products_ordered:
