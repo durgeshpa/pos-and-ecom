@@ -105,9 +105,9 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
 
         image_count = 0
-        if 'images' in attrs:
+        if 'images' in attrs and attrs['images']:
             image_count = len(attrs['images'])
-        if 'image_ids' in attrs:
+        if 'image_ids' in attrs and attrs['image_ids']:
             image_count += len(attrs['image_ids'])
         if image_count > 5:
             raise serializers.ValidationError("images : Ensure this field has no more than 5 elements.")
