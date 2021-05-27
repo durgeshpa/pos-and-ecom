@@ -3643,7 +3643,7 @@ class OrderReturns(APIView):
         try:
             order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop_id=shop_id,
                                                                           order_status__in=['ordered',
-                                                                                            'partially_returned'])
+                                                                                            Order.PARTIALLY_RETURNED])
         except ObjectDoesNotExist:
             return {'error': "Order Not Valid For Return"}
         # check return reason is valid
@@ -3694,7 +3694,7 @@ class OrderReturns(APIView):
         # discount = order_offer['discount_value'] if order_offer else 0
         # refund_amount = round(float(order.total_final_amount) - float(new_cart_value) + discount, 2)
         previous_refund = 0
-        if order.order_status == 'partially_returned':
+        if order.order_status == Order.PARTIALLY_RETURNED:
             previous_returns = order.rt_return_order.filter(status='completed')
             for ret in previous_returns:
                 previous_refund += ret.refund_amount if ret.refund_amount > 0 else 0
@@ -3810,7 +3810,7 @@ class OrderReturns(APIView):
         # Last selling price, previous returns account
         order_sp = ordered_product_map.selling_price
         previous_ret_qty = 0
-        if order_status == 'partially_returned':
+        if order_status == Order.PARTIALLY_RETURNED:
             previous_returns = ReturnItems.objects.filter(return_id__status='completed',
                                                           ordered_product=ordered_product_map)
             if previous_returns.exists():
@@ -3988,7 +3988,7 @@ class OrderReturnsCheckout(APIView):
         try:
             order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop_id=shop_id,
                                                                           order_status__in=['ordered',
-                                                                                            'partially_returned'])
+                                                                                            Order.PARTIALLY_RETURNED])
         except ObjectDoesNotExist:
             return {'error': "Order Does Not Exist / Still Open / Already Returned"}
         # check if return created
@@ -4061,7 +4061,7 @@ class OrderReturnComplete(APIView):
         order_id = self.request.data.get('order_id')
         try:
             order = Order.objects.get(pk=order_id, seller_shop_id=shop_id,
-                                      order_status__in=['ordered', 'partially_returned'])
+                                      order_status__in=['ordered', Order.PARTIALLY_RETURNED])
         except ObjectDoesNotExist:
             return api_response("Order Does Not Exist / Still Open / Already Returned")
         # check if return created

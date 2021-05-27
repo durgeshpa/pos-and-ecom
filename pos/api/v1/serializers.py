@@ -485,7 +485,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
 
     def refunded_amount_dt(self, obj):
         previous_refund = 0
-        if obj.order_status == 'partially_returned':
+        if obj.order_status == Order.PARTIALLY_RETURNED:
             previous_returns = obj.rt_return_order.filter(status='completed')
             for ret in previous_returns:
                 previous_refund += ret.refund_amount if ret.refund_amount > 0 else 0
@@ -617,7 +617,7 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
 
     def get_refunded_amount(self, obj):
         previous_refund = 0
-        if obj.order_status == 'partially_returned':
+        if obj.order_status == Order.PARTIALLY_RETURNED:
             previous_returns = obj.rt_return_order.filter(status='completed')
             for ret in previous_returns:
                 previous_refund += ret.refund_amount if ret.refund_amount > 0 else 0
