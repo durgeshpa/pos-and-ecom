@@ -10,7 +10,9 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductSourceMapping
+    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, \
+    ProductSourceMapping, \
+    ProductHSN
 from categories.models import Category
 from brand.models import Brand, Vendor
 from shops.models import Shop
@@ -708,3 +710,17 @@ class ChildProductSerializers(serializers.ModelSerializer):
             ProductCls.upload_child_product_images(child_product, self.initial_data.getlist('product_pro_image'))
 
         return child_product
+
+
+def only_int(value):
+    if value.isdigit() is False:
+        raise serializers.ValidationError('HSN can only be a numeric value.')
+
+
+class ProductHSNSerializers(serializers.ModelSerializer):
+    """ Handles creating """
+    product_hsn_code = serializers.CharField(max_length=8, min_length=6, validators=[only_int])
+
+    class Meta:
+        model = ProductHSN
+        fields = ['id', 'product_hsn_code', ]

@@ -12,11 +12,11 @@ from products.models import ParentProduct as ParentProducts, ProductHSN, Product
 from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
-    ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, \
+    ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id
-from products.services import parent_product_search, child_product_search
+from products.services import parent_product_search, child_product_search, product_hsn_search
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -24,7 +24,7 @@ error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
 
 
-class ParentProduct(GenericAPIView):
+class ParentProductView(GenericAPIView):
     """
         Get Parent Product
         Add Parent Product
@@ -44,7 +44,7 @@ class ParentProduct(GenericAPIView):
              'product_hsn__product_hsn_code', ).order_by('-id')
     serializer_class = ParentProductSerializers
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request):
         """ GET API for Parent Product with Image Category & Tax """
 
         info_logger.info("Parent Product GET api called.")
@@ -56,10 +56,11 @@ class ParentProduct(GenericAPIView):
             parent_product = id_validation['data']
         else:
             """ GET Parent Product List """
-            self.queryset = self.get_parent_product_list()
-            if request.GET.get('offset') and request.GET.get('offset') is not None:
+            self.queryset = self.search_filter_parent_product()
+            if request.GET.get('offset') and request.GET.get('limit') is not None:
                 parent_product = SmallOffsetPagination().paginate_queryset(self.queryset[int(request.GET.get('offset')):
-                                                                                         int(request.GET.get('limit'))], request)
+                                                                                         int(request.GET.get('limit'))],
+                                                                           request)
             else:
                 parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
@@ -95,7 +96,7 @@ class ParentProduct(GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
     def delete(self, request):
-        """ Delete Parent Product with image """
+        """ Delete Bulk Parent Product with image """
 
         info_logger.info("Parent Product DELETE api called.")
         if not request.data.get('parent_product_id'):
@@ -109,7 +110,7 @@ class ParentProduct(GenericAPIView):
             return get_response(f'please provide a valid parent_product_id {id}', False)
         return get_response('parent product were deleted successfully!', True)
 
-    def get_parent_product_list(self):
+    def search_filter_parent_product(self):
 
         category = self.request.GET.get('category')
         brand = self.request.GET.get('brand')
@@ -130,7 +131,7 @@ class ParentProduct(GenericAPIView):
         return self.queryset
 
 
-class ParentProductBulkUpload(CreateAPIView):
+class ParentProductBulkUploadView(CreateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     serializer_class = ParentProductBulkUploadSerializers
@@ -146,7 +147,7 @@ class ParentProductBulkUpload(CreateAPIView):
         return get_response(serializer_error(serializer), False)
 
 
-class ParentProductExportAsCSV(CreateAPIView):
+class ParentProductExportAsCSVView(CreateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
 
@@ -161,7 +162,7 @@ class ParentProductExportAsCSV(CreateAPIView):
         return get_response(serializer_error(serializer), False)
 
 
-class ActiveDeactivateSelectedProduct(UpdateAPIView):
+class ActiveDeactivateSelectedProductView(UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     parent_product_list = ParentProducts.objects.all()
@@ -179,7 +180,7 @@ class ActiveDeactivateSelectedProduct(UpdateAPIView):
         return get_response(serializer_error(serializer), False)
 
 
-class ProductCapping(GenericAPIView):
+class ProductCappingView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = ProductCappings.objects.select_related('product', 'seller_shop').order_by('-id')
@@ -278,7 +279,7 @@ class ProductCapping(GenericAPIView):
         return self.queryset
 
 
-class ProductVendorMapping(GenericAPIView):
+class ProductVendorMappingView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     queryset = ProductVendorMapping.objects.select_related('vendor', 'product')
@@ -296,7 +297,7 @@ class ProductVendorMapping(GenericAPIView):
             product_vendor_map = id_validation['data']
         else:
             """ GET Product Vendor Mapping  List """
-            self.queryset = self.get_product_vendor_map_list()
+            self.queryset = self.search_filter_product_vendor_map()
             product_vendor_map = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_vendor_map, many=True)
@@ -331,7 +332,7 @@ class ProductVendorMapping(GenericAPIView):
             return get_response('product vendor mapping updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    def get_product_vendor_map_list(self):
+    def search_filter_product_vendor_map(self):
 
         vendor_id = self.request.GET.get('vendor_id')
         product_id = self.request.GET.get('product_id')
@@ -350,7 +351,7 @@ class ProductVendorMapping(GenericAPIView):
         return self.queryset
 
 
-class ChildProduct(GenericAPIView):
+class ChildProductView(GenericAPIView):
     """
         Get Child Product
         Add Child Product
@@ -361,19 +362,19 @@ class ChildProduct(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
     parser_classes = [MultipartJsonParser, JSONParser]
-    queryset = (ChildProduct.objects.prefetch_related('parent_product', 'parent_product__parent_brand',
-                                                      'parent_product__parent_product_pro_image',
-                                                      'product_pro_image', 'parent_product__product_hsn',
-                                                      'parent_product__parent_product_pro_category',
-                                                      'parent_product__parent_product_pro_tax',
-                                                      'parent_product__parent_product_pro_category__category',
-                                                      'parent_product__parent_product_pro_tax__tax').only(
+    queryset = ChildProduct.objects.prefetch_related('parent_product', 'parent_product__parent_brand',
+                                                     'parent_product__parent_product_pro_image',
+                                                     'product_pro_image', 'parent_product__product_hsn',
+                                                     'parent_product__parent_product_pro_category',
+                                                     'parent_product__parent_product_pro_tax',
+                                                     'parent_product__parent_product_pro_category__category',
+                                                     'parent_product__parent_product_pro_tax__tax').only(
         'id', 'status', 'product_mrp', 'reason_for_child_sku', 'weight_value', 'weight_unit', 'use_parent_image',
         'product_sku', 'product_name', 'product_ean_code', 'parent_product__parent_id', 'parent_product__name',
         'parent_product__brand_case_size', 'parent_product__inner_case_size', 'parent_product__product_type',
         'parent_product__is_ptr_applicable', 'parent_product__status', 'parent_product__parent_brand__brand_name',
         'parent_product__ptr_percent', 'parent_product__parent_brand__brand_code', 'parent_product__ptr_type',
-        'parent_product__product_hsn__product_hsn_code', ).order_by('-id'))
+        'parent_product__product_hsn__product_hsn_code', ).order_by('-id')
     serializer_class = ChildProductSerializers
 
     def get(self, request):
@@ -388,7 +389,7 @@ class ChildProduct(GenericAPIView):
             child_product = id_validation['data']
         else:
             """ GET Child Product List """
-            self.queryset = self.get_child_product_list()
+            self.queryset = self.search_filter_product_list()
             child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(child_product, many=True)
@@ -423,7 +424,7 @@ class ChildProduct(GenericAPIView):
             return get_response('child product updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    def get_child_product_list(self):
+    def search_filter_product_list(self):
 
         category = self.request.GET.get('category')
         brand = self.request.GET.get('brand')
@@ -444,4 +445,46 @@ class ChildProduct(GenericAPIView):
         if category is not None:
             self.queryset = self.queryset.filter(
                 parent_product__parent_product_pro_category__category__category_name__icontains=category)
+        return self.queryset
+
+
+class ProductHSNView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ProductHSN.objects.all()
+    serializer_class = ProductHSNSerializers
+
+    def get(self, request):
+        """ GET API for Product HSN """
+
+        info_logger.info("Product HSN GET api called.")
+        if request.GET.get('id'):
+            """ Get Product HSN for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            product_hsn = id_validation['data']
+        else:
+            """ GET Product HSN List """
+            self.queryset = self.search_filter_product_hsn()
+            product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(product_hsn, many=True)
+        return get_response('product hsn list!', serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        """ POST API for ProductHSN Creation """
+
+        info_logger.info("ProductHSN POST api called.")
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('product HSN created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_product_hsn(self):
+        search_text = self.request.GET.get('search_text')
+        # search using product_hsn_code based on criteria that matches
+        if search_text:
+            self.queryset = product_hsn_search(self.queryset, search_text)
         return self.queryset
