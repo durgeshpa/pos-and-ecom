@@ -3323,6 +3323,7 @@ class OrderListCentral(GenericAPIView):
            Get Order
            Cart type basic
         """
+        order = order.order_by('-modified_at')
         objects = self.pagination_class().paginate_queryset(order, self.request)
         return BasicOrderListSerializer(objects, many=True).data
 
