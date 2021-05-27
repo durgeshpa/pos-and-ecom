@@ -3384,7 +3384,7 @@ class OrderedItemCentralDashBoard(APIView):
         today_date = datetime.today()
 
         # get total orders for shop_id
-        orders = Order.objects.filter(seller_shop=shop_id)
+        orders = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop_id).exclude(order_status=Order.CANCELLED)
         # get total products for shop_id
         products = RetailerProduct.objects.filter(shop=shop_id)
         # get total users registered with shop_id
@@ -3437,8 +3437,13 @@ class OrderedItemCentralDashBoard(APIView):
 
         total_final_amount = 0
         for order in orders:
-            # total final amount calculation
-            total_final_amount += order.order_amount
+            order_amt = order.order_amount
+            returns = order.rt_return_order.all()
+            if returns:
+                for ret in returns:
+                    if ret.status == 'completed':
+                        order_amt -= ret.refund_amount if ret.refund_amount > 0 else 0
+            total_final_amount += order_amt
 
         # counts of order for shop_id with total_final_amount, users, & products
         order_count = orders.count()
