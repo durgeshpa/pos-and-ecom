@@ -42,7 +42,7 @@ class CouponRuleSet(models.Model):
     cart_qualifying_min_sku_item = models.PositiveIntegerField(default=0, blank=True, null=True)
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     start_date = models.DateField()
     expiry_date = models.DateField()
 
@@ -70,7 +70,7 @@ class Coupon(models.Model):
     #no_of_times_used = models.PositiveIntegerField(default=0, null=True, blank=True)
     is_active = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     start_date = models.DateField()
     expiry_date = models.DateField()
     is_automate = models.BooleanField(default=True, db_index=True)
@@ -112,7 +112,7 @@ class CusotmerCouponUsage(models.Model):
                                 null=True, blank=True)
     times_used = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.coupon.coupon_name
@@ -133,7 +133,7 @@ class RuleSetProductMapping(models.Model):
     free_product_qty = models.PositiveIntegerField(blank=True, null=True)
     max_qty_per_use = models.PositiveIntegerField(default=0, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=False, db_index=True)
     start_date = models.DateField()
     expiry_date = models.DateField()
@@ -150,7 +150,7 @@ class RuleSetBrandMapping(models.Model):
     rule = models.ForeignKey(CouponRuleSet, related_name='brand_ruleset', on_delete=models.CASCADE)
     brand = models.ForeignKey(Brand, related_name='brand_coupon', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 # class RuleSetCategoryMapping(models.Model):
 #     rule = models.ForeignKey(CouponRuleSet, related_name ='category_ruleset', on_delete=models.CASCADE)
