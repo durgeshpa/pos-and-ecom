@@ -175,8 +175,8 @@ def get_inventory_pending_for_putaway(warehouse, parent_product):
     pending_putaway = Putaway.objects.filter(~Q(quantity=F('putaway_quantity')), warehouse=warehouse,
                                                  sku__parent_product=parent_product)\
                                          .values('sku__parent_product')\
-                                         .annotate(pending_qty=Sum(F('quantity')-F('putaway_quantity'))).last()
-    return pending_putaway['pending_qty'] if pending_putaway else 0
+                                         .annotate(pending_qty=Sum(F('quantity')-F('putaway_quantity')))
+    return pending_putaway[0]['pending_qty'] if pending_putaway.exists() else 0
 
 
 def get_demand_by_parent_product(warehouse, parent_product):
@@ -213,10 +213,10 @@ def get_total_products_ordered(warehouse, parent_product, starting_from_date):
     """
     query = Order.objects.filter(seller_shop=warehouse,
                                                 ordered_cart__rt_cart_list__cart_product__parent_product=parent_product,
-                                                created_at__gte=starting_from_date)\
+                                                created_at__gte=starting_from_date).order_by()\
                                          .values('ordered_cart__rt_cart_list__cart_product__parent_product')\
                                          .annotate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))
-    no_of_pieces_ordered = query.last()['ordered_pieces'] if query.exists() else 0
+    no_of_pieces_ordered = query[0]['ordered_pieces'] if query.exists() else 0
     return no_of_pieces_ordered
 
 
