@@ -267,7 +267,7 @@ class SearchProducts(APIView):
         if results:
             return api_response('Products Found', results, status.HTTP_200_OK, True)
         else:
-            return api_response('No Products Found', None, status.HTTP_200_OK, True)
+            return api_response('No Products Found', None, status.HTTP_200_OK)
 
     def rp_exact_search(self, shop_id):
         """
@@ -321,7 +321,7 @@ class SearchProducts(APIView):
         if results:
             return api_response('Products Found', results, status.HTTP_200_OK, True)
         else:
-            return api_response('No Products Found', None, status.HTTP_200_OK, True)
+            return api_response('No Products Found', None, status.HTTP_200_OK)
 
     def rp_gf_exact_search(self, shop_id):
         """
@@ -420,7 +420,7 @@ class SearchProducts(APIView):
             if results:
                 return api_response('Products Found', results, status.HTTP_200_OK, True)
             else:
-                return api_response('No Products Found', None, status.HTTP_200_OK, True)
+                return api_response('No Products Found', None, status.HTTP_200_OK)
 
     def gf_exact_search(self):
         """
