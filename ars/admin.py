@@ -25,8 +25,7 @@ class ProductDemandAdmin(admin.ModelAdmin):
                     'child_product_name', 'average_daily_sales', 'system_inventory', 'current_demand')
 
     list_filter = [WarehouseFilter,ParentProductFilter,]
-    date_hierarchy = 'created_at'
-    search_fields = ['child_product_sku']
+    search_fields = ['parent_product__name', 'parent_product__id',]
     actions = ['export_as_csv']
 
 
@@ -92,7 +91,7 @@ class ProductDemandAdmin(admin.ModelAdmin):
         for obj in queryset:
             try:
                 writer.writerow([obj.warehouse, self.parent_id(obj), self.parent_name(obj), self.child_product_sku(obj),
-                                 self.child_product_name(obj), obj.average_daily_sales, obj.current_inventory,
+                                 self.child_product_name(obj), obj.average_daily_sales, self.system_inventory(obj),
                                  obj.demand])
 
             except Exception as exc:

@@ -7,7 +7,7 @@ from model_utils import Choices
 
 from addresses.models import City,State
 from retailer_backend.validators import ( AddressNameValidator, PinCodeValidator)
-from django.core.validators import RegexValidator
+from django.core.validators import RegexValidator, MaxValueValidator
 from retailer_backend.validators import CapitalAlphabets
 from django.dispatch import receiver
 from django.db.models.signals import post_save
@@ -78,7 +78,7 @@ class Vendor(models.Model):
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
     vendor_products_brand = ArrayField(models.PositiveIntegerField(),null=True, blank=True,editable=False)
     ordering_days = MultiSelectField(max_length=50, choices=ORDERING_DAY_CHOICES, null=True)
-    lead_time = models.PositiveSmallIntegerField(verbose_name='Lead Time(In Days)')
+    lead_time = models.PositiveSmallIntegerField(verbose_name='Lead Time(In Days)', validators=[MaxValueValidator(999)])
 
     def __str__(self):
         return self.vendor_name

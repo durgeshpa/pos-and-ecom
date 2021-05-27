@@ -6,7 +6,7 @@ import urllib.request
 
 from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -147,7 +147,8 @@ class ParentProduct(models.Model):
     PTR_TYPE_CHOICES = Choices((1, 'MARK_UP', 'Mark Up'),(2, 'MARK_DOWN', 'Mark Down'))
     ptr_type = models.SmallIntegerField(choices=PTR_TYPE_CHOICES, null=True, blank=True)
     is_ars_applicable = models.BooleanField(verbose_name='Is ARS Applicable', default=False)
-    max_inventory = models.PositiveSmallIntegerField(verbose_name='Max Inventory(In Days)')
+    max_inventory = models.PositiveSmallIntegerField(verbose_name='Max Inventory(In Days)',
+                                                     validators=[MinValueValidator(1), MaxValueValidator(999)])
     is_lead_time_applicable = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

@@ -231,7 +231,7 @@ def initiate_ars():
     product_vendor_mappings = ProductVendorMapping.objects.filter(
                                                             product__parent_product__is_ars_applicable=True,
                                                             vendor__ordering_days__contains=datetime.date.today().isoweekday(),
-                                                            is_default=True)
+                                                            is_default=True, status=True)
     brand_product_dict = {}
     for item in product_vendor_mappings:
         parent_product = item.product.parent_product
