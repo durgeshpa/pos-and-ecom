@@ -267,7 +267,7 @@ class SearchProducts(APIView):
         if results:
             return api_response('Products Found', results, status.HTTP_200_OK, True)
         else:
-            return api_response('No Products Found', None, status.HTTP_200_OK)
+            return api_response('No Products Found', None, status.HTTP_200_OK, True)
 
     def rp_exact_search(self, shop_id):
         """
@@ -321,7 +321,7 @@ class SearchProducts(APIView):
         if results:
             return api_response('Products Found', results, status.HTTP_200_OK, True)
         else:
-            return api_response('No Products Found', None, status.HTTP_200_OK)
+            return api_response('No Products Found', None, status.HTTP_200_OK, True)
 
     def rp_gf_exact_search(self, shop_id):
         """
@@ -420,7 +420,7 @@ class SearchProducts(APIView):
             if results:
                 return api_response('Products Found', results, status.HTTP_200_OK, True)
             else:
-                return api_response('No Products Found', None, status.HTTP_200_OK)
+                return api_response('No Products Found', None, status.HTTP_200_OK, True)
 
     def gf_exact_search(self):
         """
@@ -1014,7 +1014,7 @@ class CartCentral(GenericAPIView):
             open_orders = BasicCartListSerializer(objects, many=True)
             return api_response("Open Orders", open_orders.data, status.HTTP_200_OK, True)
         else:
-            return api_response("No Open Orders Found", None, status.HTTP_200_OK)
+            return api_response("No Open Orders Found", None, status.HTTP_200_OK, True)
 
     def get_retail_validate(self):
         """
@@ -1239,8 +1239,8 @@ class CartCentral(GenericAPIView):
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = int(qty)
                 cart_mapping.save()
-            if cart.rt_cart_list.count() <= 0:
-                return api_response('No product added to this cart yet', None, status.HTTP_200_OK)
+            # if cart.rt_cart_list.count() <= 0:
+            #     return api_response('No product added to this cart yet', None, status.HTTP_200_OK)
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
