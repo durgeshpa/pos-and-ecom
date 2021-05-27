@@ -290,7 +290,7 @@ class CouponOfferCreation(GenericAPIView):
         """
           Get Offers List
        """
-        coupon = Coupon.objects.filter(shop=shop_id)
+        coupon = Coupon.objects.select_related('rule').filter(shop=shop_id)
         if request.GET.get('search_text'):
             coupon = coupon.filter(coupon_name__icontains=request.GET.get('search_text'))
         coupon = coupon.order_by('-updated_at')

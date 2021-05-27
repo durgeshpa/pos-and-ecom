@@ -3277,7 +3277,7 @@ class OrderListCentral(GenericAPIView):
         # Search, Paginate, Return Orders
         search_text = self.request.GET.get('search_text')
         order_status = self.request.GET.get('order_status')
-        qs = Order.objects.filter(seller_shop_id=shop_id)
+        qs = Order.objects.select_related('buyer').filter(seller_shop_id=shop_id)
         if order_status:
             order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
             qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
