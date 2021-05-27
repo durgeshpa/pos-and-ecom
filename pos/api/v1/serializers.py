@@ -484,8 +484,12 @@ class BasicOrderSerializer(serializers.ModelSerializer):
         return OrderReturnSerializer(ongoing_ret).data if ongoing_ret else {}
 
     def refunded_amount_dt(self, obj):
-        amt = obj.rt_return_order.filter(status='completed').aggregate(amt=Sum('refund_amount'))
-        return round(amt['amt']) if amt['amt'] else 0
+        previous_refund = 0
+        if obj.order_status == 'partially_returned':
+            previous_returns = obj.rt_return_order.filter(status='completed')
+            for ret in previous_returns:
+                previous_refund += ret.refund_amount if ret.refund_amount > 0 else 0
+        return round(previous_refund, 2)
 
     def get_products(self, obj):
         """
@@ -612,8 +616,12 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
         return round(obj.order_amount - self.get_refunded_amount(obj) - self.get_refund_amount(obj), 2)
 
     def get_refunded_amount(self, obj):
-        amt = obj.rt_return_order.filter(status='completed').aggregate(amt=Sum('refund_amount'))
-        return round(amt['amt'], 2) if amt['amt'] else 0
+        previous_refund = 0
+        if obj.order_status == 'partially_returned':
+            previous_returns = obj.rt_return_order.filter(status='completed')
+            for ret in previous_returns:
+                previous_refund += ret.refund_amount if ret.refund_amount > 0 else 0
+        return round(previous_refund, 2)
 
     def get_cart_offers(self, obj):
         """

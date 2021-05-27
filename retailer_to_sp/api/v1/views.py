@@ -3695,8 +3695,10 @@ class OrderReturns(APIView):
         # refund_amount = round(float(order.total_final_amount) - float(new_cart_value) + discount, 2)
         previous_refund = 0
         if order.order_status == 'partially_returned':
-            previous_refund = order.rt_return_order.filter(status='completed').aggregate(amt=Sum('refund_amount'))[
-                'amt']
+            previous_returns = order.rt_return_order.filter(status='completed')
+            for ret in previous_returns:
+                previous_refund += ret.refund_amount if ret.refund_amount > 0 else 0
+
         refund_amount = round(float(order.order_amount) - previous_refund - float(new_cart_value), 2)
         # refund_amount_provided = self.request.data.get('refund_amount')
         # if refund_amount_provided and refund_amount_provided <= refund_amount:
