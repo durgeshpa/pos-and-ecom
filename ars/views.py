@@ -26,7 +26,7 @@ from wms.models import Putaway, WarehouseInventory, InventoryState, InventoryTyp
 info_logger = logging.getLogger('file-info')
 
 
-def product_demand_data_generator(master_data):
+def product_demand_data_generator(master_data, retailer_parent_mapping_dict):
     """
     Generates data to be populated into ProductDemand table.
     This function calculates the daily average, current inventory,
@@ -34,9 +34,9 @@ def product_demand_data_generator(master_data):
     """
     for parent_product_id, item in master_data.items():
         for warehouse_id, data in item.items():
-            if data.get('parent_shop') is None:
+            if retailer_parent_mapping_dict.get(warehouse_id) is None:
                 continue
-            active_child_product = get_child_product_with_latest_grn(data['parent_shop'], parent_product_id)
+            active_child_product = get_child_product_with_latest_grn(retailer_parent_mapping_dict[warehouse_id], parent_product_id)
             if active_child_product is None:
                 continue
 
@@ -123,7 +123,6 @@ def populate_daily_average():
         if parent_retailer_mapping_dict.get(item['gf_billing_address__shop_name']):
             retailer_id = parent_retailer_mapping_dict[item['gf_billing_address__shop_name']]
             master_data[item['cart_list__cart_product__parent_product']][retailer_id]['in_process_inventory'] = item['no_of_pieces']
-            master_data[item['cart_list__cart_product__parent_product']][retailer_id]['parent_shop'] = item['gf_billing_address__shop_name']
 
     # Get total no of pieces pending for putaway currently.
     pending_putaway = Putaway.objects.filter(~Q(quantity=F('putaway_quantity')), warehouse__id__in=warehouse_list,
@@ -133,7 +132,8 @@ def populate_daily_average():
     for item in pending_putaway:
         master_data[item['sku__parent_product']][item['warehouse']]['pending_putaway'] = item['pending_qty']
 
-    bulk_create(ProductDemand, product_demand_data_generator(master_data))
+    inv_parent_retailer_mapping_dict = {v: k for k, v in parent_retailer_mapping_dict.items()}
+    bulk_create(ProductDemand, product_demand_data_generator(master_data, inv_parent_retailer_mapping_dict))
 
 def get_daily_average(warehouse, parent_product):
     """

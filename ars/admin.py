@@ -35,8 +35,9 @@ class ProductDemandAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Returns queryset"""
         qs = super(ProductDemandAdmin, self).get_queryset(request)
-        latest_date = ProductDemand.objects.latest('created_at').created_at.date()
-        return qs.filter(created_at__date=latest_date).order_by('-created_at')
+        # latest_date = ProductDemand.objects.latest('created_at').created_at.date()
+        # return qs.filter(created_at__date=latest_date).order_by('-created_at', 'parent_product')
+        return qs.order_by('-created_at', 'parent_product_id').distinct('created_at', 'parent_product')
 
     def parent_id(self, obj):
         """Returns parent product's parent id"""
