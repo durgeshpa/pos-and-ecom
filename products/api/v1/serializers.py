@@ -21,12 +21,6 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
 from products.common_function import ParentProductCls, ProductCls
 
 
-class ProductSerializers(serializers.ModelSerializer):
-    class Meta:
-        model = Product
-        fields = ('id', 'product_name', 'product_sku', 'status')
-
-
 class BrandSerializers(serializers.ModelSerializer):
     class Meta:
         model = Brand
@@ -97,6 +91,13 @@ class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
     class Meta:
         model = ParentProductTaxMapping
         fields = ('id', 'parent_product', 'tax')
+
+
+class ProductSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = Product
+        fields = ('id', 'product_name', 'product_sku', 'status',)
 
 
 class ParentProductSerializers(serializers.ModelSerializer):
@@ -643,7 +644,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp',
                   'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'repackaging_type',
-                  'product_pro_image', 'parent_product',)
+                  'product_pro_image', 'parent_product')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:

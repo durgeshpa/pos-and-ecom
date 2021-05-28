@@ -368,7 +368,7 @@ class ChildProductView(GenericAPIView):
                                                      'parent_product__parent_product_pro_category',
                                                      'parent_product__parent_product_pro_tax',
                                                      'parent_product__parent_product_pro_category__category',
-                                                     'parent_product__parent_product_pro_tax__tax').only(
+                                                     'parent_product__parent_product_pro_tax__tax',).only(
         'id', 'status', 'product_mrp', 'reason_for_child_sku', 'weight_value', 'weight_unit', 'use_parent_image',
         'product_sku', 'product_name', 'product_ean_code', 'parent_product__parent_id', 'parent_product__name',
         'parent_product__brand_case_size', 'parent_product__inner_case_size', 'parent_product__product_type',
@@ -393,7 +393,7 @@ class ChildProductView(GenericAPIView):
             child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(child_product, many=True)
-        return get_response('parent product list!', serializer.data)
+        return get_response('child product list!', serializer.data)
 
     def post(self, request):
         """ POST API for Child Product """
