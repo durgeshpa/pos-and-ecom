@@ -361,6 +361,7 @@ class BasicCartListSerializer(serializers.ModelSerializer):
         List of active/pending carts
     """
     total_amount = serializers.SerializerMethodField('total_amount_dt')
+    buyer = PosUserSerializer()
     # total_discount = serializers.SerializerMethodField()
     # sub_total = serializers.SerializerMethodField('sub_total_dt')
 
@@ -395,7 +396,7 @@ class BasicCartListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_no', 'cart_status', 'total_amount')
+        fields = ('id', 'cart_no', 'cart_status', 'total_amount', 'buyer')
 
 
 class OrderedDashBoardSerializer(serializers.Serializer):
