@@ -1333,7 +1333,7 @@ class CartCentral(GenericAPIView):
             selling_price = self.request.data.get('selling_price')
             if not selling_price:
                 return {'error': "Please provide selling price to change price"}
-            if Decimal(selling_price) > product.mrp:
+            if product.mrp and Decimal(selling_price) > product.mrp:
                 return {'error': "Selling Price cannot be greater than MRP"}
         # activate product in cart
         if product.status != 'active':

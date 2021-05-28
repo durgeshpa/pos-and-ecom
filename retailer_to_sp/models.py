@@ -857,8 +857,8 @@ class Order(models.Model):
     PICKING_COMPLETE = 'picking_complete'
     PICKING_ASSIGNED = 'PICKING_ASSIGNED'
     PICKUP_CREATED = 'PICKUP_CREATED'
-    PARTIALLY_RETURNED = 'partially_refunded'
-    FULLY_RETURNED = 'fully_refunded'
+    PARTIALLY_RETURNED = 'partially_returned'
+    FULLY_RETURNED = 'fully_returned'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),  # 1
@@ -887,8 +887,8 @@ class Order(models.Model):
         (PICKING_COMPLETE, 'Picking Complete'),
         (PICKING_ASSIGNED, 'Picking Assigned'),
         (PICKUP_CREATED, 'Pickup Created'),
-        (PARTIALLY_RETURNED, 'Partially Refunded'),
-        (FULLY_RETURNED, 'Fully Refunded')
+        (PARTIALLY_RETURNED, 'Partially Returned'),
+        (FULLY_RETURNED, 'Fully Returned')
     )
 
     CASH_NOT_AVAILABLE = 'cna'
