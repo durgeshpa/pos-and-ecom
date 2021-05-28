@@ -401,7 +401,7 @@ def create_po_from_demand(demand):
                                                          datetime.timedelta(days=demand.vendor.lead_time))
 
     info_logger.info("create_po_from_demand|Cart created | Cart ID-{}".format(cart_instance.id))
-    for demand_product in VendorDemandProducts.objects.filter(po=demand):
+    for demand_product in VendorDemandProducts.objects.filter(demand=demand):
 
         info_logger.info("create_po_from_demand|Parent Product-{}, Demand-{}"
                          .format(demand_product.product, demand_product.quantity))
