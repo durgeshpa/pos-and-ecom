@@ -19,7 +19,7 @@ class BaseTimestampModel(models.Model):
 class ProductDemand(BaseTimestampModel):
     warehouse = models.ForeignKey(Shop, related_name='warehouse_demands', on_delete=models.DO_NOTHING)
     parent_product = models.ForeignKey(ParentProduct, related_name='product_demands', on_delete=models.DO_NOTHING)
-    active_child_product = models.ForeignKey(Product, related_name='product_demands', on_delete=models.DO_NOTHING)
+    active_child_product = models.ForeignKey(Product, related_name='child_product_demands', on_delete=models.DO_NOTHING)
     average_daily_sales = models.FloatField(default=0)
     current_inventory = models.PositiveIntegerField(default=0)
     demand = models.PositiveIntegerField(default=0)
@@ -42,6 +42,7 @@ class VendorDemand(BaseTimestampModel):
 
 
 class VendorDemandProducts(BaseTimestampModel):
-    demand = models.ForeignKey(VendorDemand, related_name='ars_po_demands', on_delete=models.CASCADE)
+    po = models.ForeignKey(VendorDemand, related_name='ars_po_demands', on_delete=models.CASCADE)
+    demand = models.ForeignKey(VendorDemand, related_name='ars_demand_products', on_delete=models.CASCADE)
     product = models.ForeignKey(ParentProduct, related_name='ars_product_demands', on_delete=models.CASCADE)
     quantity = models.PositiveSmallIntegerField()
