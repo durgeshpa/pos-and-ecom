@@ -39,6 +39,7 @@ def product_demand_data_generator(master_data):
             active_child_product = get_child_product_with_latest_grn(data['parent_shop'], parent_product_id)
             if active_child_product is None:
                 continue
+
             rolling_avg = data['ordered_pieces']/data['visible_days'] if data.get('visible_days') else 0
             if rolling_avg is None or rolling_avg == 0:
                 continue
@@ -244,13 +245,16 @@ def initiate_ars():
     brand_product_dict = {}
     for item in product_vendor_mappings:
         parent_product = item.product.parent_product
-        brand = parent_product.parent_brand
+        brand = parent_product.parent_brand_id
 
         for warehouse in warehouse_list:
             if brand_product_dict.get(brand) is None:
-                brand_product_dict[brand] = {'vendor':item.vendor, 'warehouse':warehouse, 'products':{}}
-            if parent_product not in brand_product_dict[brand]['products'].keys():
-
+                brand_product_dict[brand] = {warehouse.id: {item.vendor_id: {}}}
+            elif brand_product_dict[brand].get(warehouse.id) is None:
+                brand_product_dict[brand][warehouse.id] = {item.vendor_id: {}}
+            elif brand_product_dict[brand][warehouse.id].get(item.vendor_id) is None:
+                brand_product_dict[brand][warehouse.id][item.vendor_id] = {}
+            if parent_product not in brand_product_dict[brand][warehouse.id][item.vendor_id].keys():
                 is_eligible_to_raise_demand = False
                 daily_average = get_daily_average(warehouse, parent_product)
                 if daily_average <= 0:
@@ -270,26 +274,28 @@ def initiate_ars():
                     is_eligible_to_raise_demand = True
 
                 if is_eligible_to_raise_demand:
-                    brand_product_dict[brand]['products'] = {parent_product : demand}
+                    brand_product_dict[brand][warehouse.id][item.vendor_id] = {parent_product.id : demand}
 
-    for brand, product_demand_dict in brand_product_dict.items():
-        with transaction.atomic():
-            if len(product_demand_dict['products']) > 0:
+    for brand, warehouse_demand_dict in brand_product_dict.items():
+        for wh, vendor_demand_dict in warehouse_demand_dict.items():
+            for vendor, product_demand_dict in vendor_demand_dict.items():
+                with transaction.atomic():
+                    if len(product_demand_dict) > 0:
 
-                existing_demand_raised = VendorDemand.objects.filter(brand=brand,
-                                                                     vendor=product_demand_dict['vendor'],
-                                                                     warehouse=product_demand_dict['warehouse'],
-                                                                     status=VendorDemand.STATUS_CHOICE.DEMAND_CREATED)
-                if existing_demand_raised.exists():
-                    continue
-                po = VendorDemand.objects.create(brand=brand, vendor=product_demand_dict['vendor'],
-                                                 warehouse=product_demand_dict['warehouse'],
-                                                 status=VendorDemand.STATUS_CHOICE.DEMAND_CREATED)
-                for product, demand in product_demand_dict['products'].items():
-                    VendorDemandProducts.objects.create(po=po, product=product, demand=demand)
+                        existing_demand_raised = VendorDemand.objects.filter(brand_id=brand,
+                                                                             vendor_id=vendor,
+                                                                             warehouse_id=wh,
+                                                                             status=VendorDemand.STATUS_CHOICE.DEMAND_CREATED)
+                        if existing_demand_raised.exists():
+                            continue
+                        po = VendorDemand.objects.create(brand_id=brand, vendor_id=vendor,
+                                                         warehouse_id=wh,
+                                                         status=VendorDemand.STATUS_CHOICE.DEMAND_CREATED)
+                        for product, demand in product_demand_dict.items():
+                            VendorDemandProducts.objects.create(demand=po, product_id=product, quantity=demand)
 
-                info_logger.info("initiate_ars|Demand generated| brand-{}, vendor-{}, warehouse-{} "
-                                 .format(brand, product_demand_dict['vendor'], product_demand_dict['warehouse']))
+                        info_logger.info("initiate_ars|Demand generated| brand-{}, vendor-{}, warehouse-{} "
+                                         .format(brand, vendor, wh))
 
 
 def get_child_product_with_latest_grn(warehouse_id, parent_product_id):
@@ -346,11 +352,11 @@ def create_po():
     """
     Creates PurchaseOrder for all the demands created.
     """
-    try:
-        for demand in VendorDemand.objects.filter(Q(status=VendorDemand.STATUS_CHOICE.DEMAND_CREATED)):
+    for demand in VendorDemand.objects.filter(Q(status=VendorDemand.STATUS_CHOICE.DEMAND_CREATED)):
+        try:
             create_po_from_demand(demand)
-    except Exception as e:
-        info_logger.info("Exception | create_po | e-{}".format(e))
+        except Exception as e:
+            info_logger.info("Exception | create_po | demand-{}, e-{}".format(demand, e))
 
 
 @transaction.atomic
@@ -398,15 +404,15 @@ def create_po_from_demand(demand):
     for demand_product in VendorDemandProducts.objects.filter(po=demand):
 
         info_logger.info("create_po_from_demand|Parent Product-{}, Demand-{}"
-                         .format(demand_product.product, demand_product.demand))
+                         .format(demand_product.product, demand_product.quantity))
         parent_retailer_mapping = ParentRetailerMapping.objects.filter(retailer=demand.warehouse).last()
+
         product = get_child_product_with_latest_grn(parent_retailer_mapping.parent_id, demand_product.product_id)
 
         info_logger.info("create_po_from_demand|Parent Product-{}, Child Product to be added in PO-{}"
                          .format(demand_product.product, product))
 
-        vendor_mapping = ProductVendorMapping.objects.filter(product=product, vendor=demand.vendor,
-                                                             status=True, is_default=True)
+        vendor_mapping = ProductVendorMapping.objects.filter(product=product, vendor=demand.vendor, status=True)
         if vendor_mapping.exists():
             if vendor_mapping.last().product_price:
                 vendor_product_price = vendor_mapping.last().product_price
@@ -420,7 +426,7 @@ def create_po_from_demand(demand):
             taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
             taxes = str(sum(taxes))
 
-            no_of_cases = demand_product.demand / product_case_size
+            no_of_cases = demand_product.quantity / product_case_size
             no_of_pieces = no_of_cases * product_case_size
 
             CartProductMapping.objects.create(cart=cart_instance, cart_parent_product=demand_product.product,
@@ -439,6 +445,7 @@ def create_po_from_demand(demand):
                              "vendor-{}, parent product-{}, product-{}"
                             .format(demand.vendor, demand_product.product, product))
             demand.status = VendorDemand.STATUS_CHOICE.FAILED
+            demand.comment = 'Vendor Product Mapping does not exist'
             demand.save()
             raise Exception('Vendor Product Mapping does not exist| vendor-{}, parent product-{}, product-{}'
                             .format(demand.vendor, demand_product.product, product))

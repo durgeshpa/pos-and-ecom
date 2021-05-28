@@ -38,9 +38,10 @@ class VendorDemand(BaseTimestampModel):
     vendor = models.ForeignKey(Vendor, related_name='ars_vendor_demands', on_delete=models.CASCADE)
     status = models.PositiveSmallIntegerField(choices=STATUS_CHOICE, null=True)
     po = models.ForeignKey(Cart, related_name='ars_po_demands', null=True, on_delete=models.DO_NOTHING)
+    comment = models.TextField(null=True)
 
 
 class VendorDemandProducts(BaseTimestampModel):
-    po = models.ForeignKey(VendorDemand, related_name='ars_po_demands', on_delete=models.CASCADE)
+    demand = models.ForeignKey(VendorDemand, related_name='ars_po_demands', on_delete=models.CASCADE)
     product = models.ForeignKey(ParentProduct, related_name='ars_product_demands', on_delete=models.CASCADE)
-    demand = models.PositiveSmallIntegerField()
+    quantity = models.PositiveSmallIntegerField()
