@@ -25,7 +25,7 @@ class ProductDemandAdmin(admin.ModelAdmin):
                     'child_product_name', 'average_daily_sales', 'system_inventory', 'current_demand')
 
     list_filter = [WarehouseFilter,ParentProductFilter,]
-    search_fields = ['parent_product__name', 'parent_product__id',]
+    search_fields = ['parent_product__name']
     actions = ['export_as_csv']
 
 
