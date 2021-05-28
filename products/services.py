@@ -18,3 +18,9 @@ def child_product_search(queryset, search_text):
 def product_hsn_search(queryset, search_text):
     queryset = queryset.filter(product_hsn_code__icontains=search_text)
     return queryset
+
+
+# search using tax_name & tax_type based on criteria that matches
+def tax_search(queryset, search_text):
+    queryset = queryset.filter(Q(tax_name__icontains=search_text) | Q(tax_type__icontains=search_text))
+    return queryset

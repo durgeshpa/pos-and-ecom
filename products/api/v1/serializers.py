@@ -10,9 +10,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, \
-    ProductSourceMapping, \
-    ProductHSN
+    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, \
+    ProductSourceMapping
 from categories.models import Category
 from brand.models import Brand, Vendor
 from shops.models import Shop
@@ -20,6 +19,12 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
     get_validate_seller_shop, check_active_capping, validate_tax_type, get_validate_vendor
 from products.common_function import ParentProductCls, ProductCls
+
+
+class ProductSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ('id', 'product_name', 'product_sku', 'status')
 
 
 class BrandSerializers(serializers.ModelSerializer):
@@ -102,6 +107,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_pro_category = ParentProductCategorySerializers(many=True)
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
     parent_id = serializers.CharField(read_only=True)
+    product_parent_product = ProductSerializers(many=True, required=False)
 
     def validate(self, data):
         """
@@ -153,7 +159,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         model = ParentProduct
         fields = ('id', 'parent_id', 'name', 'brand_case_size', 'inner_case_size', 'product_type', 'is_ptr_applicable',
                   'ptr_percent', 'ptr_type', 'status', 'product_hsn', 'parent_brand', 'parent_product_pro_image',
-                  'parent_product_pro_category', 'parent_product_pro_tax')
+                  'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product')
 
     @transaction.atomic
     def create(self, validated_data):
@@ -162,6 +168,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         validated_data.pop('parent_product_pro_image')
         validated_data.pop('parent_product_pro_category')
         validated_data.pop('parent_product_pro_tax')
+        validated_data.pop('product_parent_product', None)
 
         try:
             parent_product = ParentProductCls.create_parent_product(self.initial_data['parent_brand'],
@@ -181,6 +188,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
         validated_data.pop('parent_product_pro_image', None)
         validated_data.pop('parent_product_pro_category', None)
         validated_data.pop('parent_product_pro_tax', None)
+        validated_data.pop('product_parent_product', None)
+
         try:
             # call super to save modified instance along with the validated data
             parent_product_obj = super().update(instance, validated_data)
@@ -195,6 +204,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
         return parent_product
 
+    # crete parent product image, tax & category
     def create_parent_tax_image_cat(self, parent_product):
         ParentProductCls.upload_parent_product_images(parent_product,
                                                       self.initial_data.getlist('parent_product_pro_image'))
@@ -475,12 +485,6 @@ class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
         return validated_data
 
 
-class ProductSerializers(serializers.ModelSerializer):
-    class Meta:
-        model = Product
-        fields = ('id', 'product_name', 'product_sku', 'status')
-
-
 class ShopSerializers(serializers.ModelSerializer):
     class Meta:
         model = Shop
@@ -718,9 +722,16 @@ def only_int(value):
 
 
 class ProductHSNSerializers(serializers.ModelSerializer):
-    """ Handles creating """
+    """ Handles Get & creating """
     product_hsn_code = serializers.CharField(max_length=8, min_length=6, validators=[only_int])
 
     class Meta:
         model = ProductHSN
         fields = ['id', 'product_hsn_code', ]
+
+
+class TaxSerializers(serializers.ModelSerializer):
+    """ Handles Get & creating """
+
+    class Meta:
+        model = Tax

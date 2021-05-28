@@ -8,15 +8,15 @@ from rest_framework.permissions import AllowAny
 from rest_framework.parsers import JSONParser
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
-    ParentProductImage, ProductVendorMapping, Product as ChildProduct
+    ParentProductImage, ProductVendorMapping, Product as ChildProduct, Tax
 from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, ProductHSNSerializers, \
-    ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers
+    ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id
-from products.services import parent_product_search, child_product_search, product_hsn_search
+from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -37,7 +37,7 @@ class ParentProductView(GenericAPIView):
     parser_classes = [MultipartJsonParser, JSONParser]
 
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn').prefetch_related(
-        'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax',
+        'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
         'parent_product_pro_category__category', 'parent_product_pro_tax__tax'). \
         only('id', 'parent_id', 'name', 'brand_case_size', 'inner_case_size', 'product_type', 'is_ptr_applicable',
              'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
@@ -89,7 +89,7 @@ class ParentProductView(GenericAPIView):
             return get_response(id_instance['error'])
         parent_product_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=parent_product_instance, data=request.data, partial=True)
+        serializer = self.serializer_class(instance=parent_product_instance, data=request.data)
         if serializer.is_valid():
             serializer.save()
             return get_response('parent product updated!', serializer.data)
@@ -487,4 +487,46 @@ class ProductHSNView(GenericAPIView):
         # search using product_hsn_code based on criteria that matches
         if search_text:
             self.queryset = product_hsn_search(self.queryset, search_text)
+        return self.queryset
+
+
+class TaxView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Tax.objects.all()
+    serializer_class = TaxSerializers
+
+    def get(self, request):
+        """ GET API for Tax """
+
+        info_logger.info("Tax GET api called.")
+        if request.GET.get('id'):
+            """ Get Tax for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            product_hsn = id_validation['data']
+        else:
+            """ GET Tax List """
+            self.queryset = self.search_filter_product_hsn()
+            product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+
+        serializer = self.serializer_class(product_hsn, many=True)
+        return get_response('product hsn list!', serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        """ POST API for Tax Creation """
+
+        info_logger.info("Tax POST api called.")
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return get_response('product HSN created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_product_hsn(self):
+        search_text = self.request.GET.get('search_text')
+        # search using product_hsn_code based on criteria that matches
+        if search_text:
+            self.queryset = tax_search(self.queryset, search_text)
         return self.queryset
