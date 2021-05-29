@@ -1496,9 +1496,9 @@ def set_parent_data_sample_excel_file(request, *args):
         row.append('Yes' if product['parent_product__is_ptr_applicable'] else 'No')
         row.append(get_ptr_type_text(product['parent_product__ptr_type']))
         row.append(product['parent_product__ptr_percent'])
-        row.append(product['parent_product__is_ars_applicable'])
+        row.append('Yes' if product['parent_product__is_ars_applicable'] else 'No')
         row.append(product['parent_product__max_inventory'])
-        row.append(product['parent_product__is_lead_time_applicable'])
+        row.append('Yes' if product['parent_product__is_lead_time_applicable'] else 'No')
         row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)

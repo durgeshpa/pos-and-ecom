@@ -205,13 +205,13 @@ class UploadMasterData(object):
                                     (ptr_percent=None if not row['is_ptr_applicable'].lower() == 'yes' else row['ptr_percent'])
                             if col == 'is_ars_applicable':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update \
-                                    (max_inventory=row['is_ars_applicable'])
+                                    (is_ars_applicable=True if row['is_ars_applicable'].lower() == 'yes' else False )
                             if col == 'max_inventory_in_days':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update \
                                     (max_inventory=row['max_inventory_in_days'])
                             if col == 'is_lead_time_applicable':
                                 ParentProduct.objects.filter(parent_id=row['parent_id']).update \
-                                    (max_inventory=row['is_lead_time_applicable'])
+                                    (is_lead_time_applicable=True if row['is_lead_time_applicable'].lower() == 'yes' else False)
                     except Exception as e:
                         parent_data.append(str(row_num) + ' ' + str(e))
                 else:
