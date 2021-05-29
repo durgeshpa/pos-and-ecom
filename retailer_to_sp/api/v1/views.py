@@ -2326,7 +2326,8 @@ class RescheduleReason(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         if ShipmentRescheduling.objects.filter(shipment=request.data.get('shipment')).exists():
-            msg = {'is_success': False, 'message': ['This shipment was already rescheduled'], 'response_data': None}
+            msg = {'is_success': False, 'message': ['A shipment cannot be rescheduled more than once. '
+                                                    'This shipment has already been rescheduled once!'], 'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
