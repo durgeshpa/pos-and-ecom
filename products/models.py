@@ -22,6 +22,7 @@ from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
 from categories.models import Category
 from coupon.models import Coupon
+from global_config.views import get_config
 from retailer_backend.validators import *
 from shops.models import Shop
 
@@ -161,6 +162,13 @@ class ParentProduct(models.Model):
 
     def save(self, *args, **kwargs):
         self.parent_slug = slugify(self.name)
+
+        if self.max_inventory is None:
+            if self.is_ars_applicable:
+                self.max_inventory = get_config('ARS_MAX_INVENTORY_IN_DAYS')
+            else:
+                self.max_inventory = get_config('NON_ARS_MAX_INVENTORY_IN_DAYS')
+
         super(ParentProduct, self).save(*args, **kwargs)
 
     class Meta:

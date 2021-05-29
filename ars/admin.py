@@ -49,8 +49,7 @@ class ProductDemandAdmin(admin.ModelAdmin):
 
     def child_product_sku(self, obj):
         """Returns child product's SKU"""
-        return get_child_product_with_latest_grn(33877, obj.parent_product)
-        # return obj.active_child_product.product_sku if obj.active_child_product else None
+        return obj.active_child_product.product_sku if obj.active_child_product else None
 
     def child_product_name(self, obj):
         """Returns child product's name"""
