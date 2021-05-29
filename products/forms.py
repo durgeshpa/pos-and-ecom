@@ -854,18 +854,21 @@ class UploadMasterDataAdminForm(forms.Form):
                             raise ValidationError(_(f"Row {row_num} | {row['sub_category_name']} | "
                                                     f"'Sub_Category_Name' doesn't exist in the system "))
                 if 'max_inventory_in_days' in header_list and 'max_inventory_in_days' in row.keys():
-                    if row['max_inventory_in_days'] != '' or not re.match("^\d+$", str(row['max_inventory_in_days'])) or  row['max_inventory_in_days'] < 1\
+                    if row['max_inventory_in_days'] != '':
+                        if not re.match("^\d+$", str(row['max_inventory_in_days'])) or  row['max_inventory_in_days'] < 1\
                                 or  row['max_inventory_in_days'] > 999:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['max_inventory_in_days']} |'Max Inventory In Days' is invalid."))
 
                 if 'is_ars_applicable' in header_list and 'is_ars_applicable' in row.keys():
-                    if row['is_ars_applicable'] != '' and str(row['is_ptr_applicable']).lower() not in ['yes', 'no']:
+                    if row['is_ars_applicable'] != '' :
+                        if str(row['is_ars_applicable']).lower() not in ['yes', 'no']:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['is_ars_applicable']} |"
                                                     f"'is_ars_applicable' can only be 'Yes' or 'No' "))
                 if 'is_lead_time_applicable' in header_list and 'is_lead_time_applicable' in row.keys():
-                    if row['is_lead_time_applicable'] != '' and str(row['is_lead_time_applicable']).lower() not in ['yes', 'no']:
+                    if row['is_lead_time_applicable'] != '':
+                        if str(row['is_lead_time_applicable']).lower() not in ['yes', 'no']:
                             raise ValidationError(
                                 _(f"Row {row_num} | {row['is_lead_time_applicable']} |"
                                                     f"'is_lead_time_applicable' can only be 'Yes' or 'No' "))
