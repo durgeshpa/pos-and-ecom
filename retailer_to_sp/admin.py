@@ -1099,6 +1099,9 @@ class ShipmentReschedulingAdminNested(NestedTabularInline):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(ShipmentRescheduling)
 class ShipmentReschedulingAdmin(admin.ModelAdmin):
@@ -1150,16 +1153,23 @@ class OrderedProductAdmin(NestedModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check'
+        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
+        'previous_trip'
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     readonly_fields = (
-        'order', 'invoice_no', 'trip', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
+        'order', 'invoice_no', 'trip', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'previous_trip'
     )
     form = OrderedProductReschedule
     ordering = ['-created_at']
     classes = ['table_inline', ]
+
+    def previous_trip(self, obj):
+        if obj and obj.rescheduling_shipment.all().exists():
+            return obj.rescheduling_shipment.last().trip
+        return '-'
+
     def download_invoice(self, obj):
         if obj.shipment_status == 'SHIPMENT_CREATED':
             return format_html("-")
