@@ -6,7 +6,7 @@ from mptt.models import TreeForeignKey
 from django.core.exceptions import ValidationError
 from retailer_backend.validators import CapitalAlphabets
 from django.utils.translation import ugettext_lazy as _
-
+from django.contrib.auth import get_user_model
 # Create your models here.
 class Category(models.Model):
     """
@@ -18,10 +18,20 @@ class Category(models.Model):
     category_parent = models.ForeignKey('self', related_name='cat_parent', blank=True, null=True, on_delete=models.CASCADE)
     category_sku_part = models.CharField(max_length=3,unique=True,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
     category_image = models.FileField(upload_to='category_img_file',null=True,blank=True)
-    category_image_png = models.FileField(upload_to='category_img_file',null=True,blank=True)
+    # category_image_png = models.FileField(upload_to='category_img_file',null=True,blank=True)
     is_created = models.DateTimeField(auto_now_add=True)
     is_modified = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        get_user_model(), related_name='category_created_by',
+        null=True,
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), related_name='category_updated_by',
+        null=True,
+        on_delete=models.DO_NOTHING,
+    )
 
     def __str__(self):
         full_path = [self.category_name]

@@ -417,7 +417,7 @@ class ParentProductForm(forms.ModelForm):
     class Meta:
         model = ParentProduct
         fields = ('parent_brand', 'name', 'product_hsn',
-                  'brand_case_size', 'inner_case_size',
+                  'inner_case_size',
                   'product_type', 'is_ptr_applicable', 'ptr_percent', 'ptr_type')
 
     def __init__(self, *args, **kwargs):
@@ -797,12 +797,12 @@ class UploadMasterDataAdminForm(forms.Form):
                         if not Tax.objects.filter(tax_name=row['tax_3(surcharge)']).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['tax_3(surcharge)']} "
                                                     f"| Invalid Tax(Surcharge)!"))
-                if 'brand_case_size' in header_list and 'brand_case_size' in row.keys():
-                        if row['brand_case_size'] != '':
-                            if not re.match("^\d+$", str(row['brand_case_size'])):
-                                raise ValidationError(
-                                    _(
-                                        f"Row {row_num} | {row['brand_case_size']} |'Brand Case Size' can only be a numeric value."))
+                # if 'brand_case_size' in header_list and 'brand_case_size' in row.keys():
+                #         if row['brand_case_size'] != '':
+                #             if not re.match("^\d+$", str(row['brand_case_size'])):
+                #                 raise ValidationError(
+                #                     _(
+                #                         f"Row {row_num} | {row['brand_case_size']} |'Brand Case Size' can only be a numeric value."))
                 if 'inner_case_size' in header_list and 'inner_case_size' in row.keys():
                     if row['inner_case_size'] != '':
                         if not re.match("^\d+$", str(row['inner_case_size'])):
@@ -1118,7 +1118,7 @@ class UploadMasterDataAdminForm(forms.Form):
         if upload_master_data == "master_data":
             required_header_list = ['sku_id', 'sku_name', 'parent_id', 'parent_name', 'ean', 'mrp', 'hsn',
                                     'weight_unit', 'weight_value','tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
-                                    'brand_case_size', 'inner_case_size',  'brand_id', 'brand_name', 'sub_brand_id',
+                                    'inner_case_size',  'brand_id', 'brand_name', 'sub_brand_id',
                                     'sub_brand_name','category_id', 'category_name', 'sub_category_id', 'sub_category_name',
                                     'status', 'repackaging_type', 'source_sku_id', 'source_sku_name', 'raw_material',
                                     'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
@@ -1167,7 +1167,7 @@ class UploadMasterDataAdminForm(forms.Form):
             self.check_headers(excel_file_headers, required_header_list)
             
         if upload_master_data == "parent_data":
-            required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)', 'brand_case_size',
+            required_header_list = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                                     'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                                     'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
                                     'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent']

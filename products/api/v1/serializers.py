@@ -158,7 +158,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('id', 'parent_id', 'name', 'brand_case_size', 'inner_case_size', 'product_type', 'is_ptr_applicable',
+        fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable',
                   'ptr_percent', 'ptr_type', 'status', 'product_hsn', 'parent_brand', 'parent_product_pro_image',
                   'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product')
 
@@ -637,6 +637,7 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
 class ChildProductSerializers(serializers.ModelSerializer):
     """ Handles creating, reading and updating child product items."""
     parent_product = ParentProductSerializers(read_only=True)
+    product_vendor_mapping = ProductVendorMappingSerializers(many=True)
     product_sku = serializers.CharField(required=False)
     product_pro_image = ProductImageSerializers(many=True)
 
@@ -644,7 +645,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp',
                   'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'repackaging_type',
-                  'product_pro_image', 'parent_product')
+                  'product_pro_image', 'parent_product', 'product_vendor_mapping')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:

@@ -18,7 +18,7 @@ from categories.models import Category
 from django.contrib.postgres.fields import JSONField
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import Case, CharField, Value, When, F
-
+from django.contrib.auth import get_user_model
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
     ("unpaid", "Un-Paid"),
@@ -97,6 +97,16 @@ class Brand(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     active_status = models.CharField(max_length=20,choices=CHOICES,default='active')
+    created_by = models.ForeignKey(
+        get_user_model(), related_name='brand_created_by',
+        null=True,
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), related_name='brand_updated_by',
+        null=True,
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
         full_path = [self.brand_name]

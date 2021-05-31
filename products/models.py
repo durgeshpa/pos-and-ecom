@@ -121,6 +121,16 @@ class ProductHSN(models.Model):
     product_hsn_code = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        get_user_model(), related_name='product_hsn_created_by',
+        null=True,
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), related_name='product_hsn_updated_by',
+        null=True,
+        on_delete=models.DO_NOTHING
+    )
 
     def __str__(self):
         return self.product_hsn_code
@@ -132,7 +142,7 @@ class ParentProduct(models.Model):
     parent_brand = models.ForeignKey(Brand, related_name='parent_brand_product', blank=False, on_delete=models.CASCADE)
     # category = models.ForeignKey(Category, related_name='category_parent_category', on_delete=models.CASCADE)
     product_hsn = models.ForeignKey(ProductHSN, related_name='parent_hsn', blank=False, on_delete=models.CASCADE)
-    brand_case_size = models.PositiveIntegerField(blank=False)
+    # brand_case_size = models.PositiveIntegerField(blank=False)
     inner_case_size = models.PositiveIntegerField(blank=False, default=1)
     PRODUCT_TYPE_CHOICES = (
         ('b2b', 'B2B'),
@@ -146,6 +156,16 @@ class ParentProduct(models.Model):
                                       validators=[PercentageValidator])
     PTR_TYPE_CHOICES = Choices((1, 'MARK_UP', 'Mark Up'),(2, 'MARK_DOWN', 'Mark Down'))
     ptr_type = models.SmallIntegerField(choices=PTR_TYPE_CHOICES, null=True, blank=True)
+    created_by = models.ForeignKey(
+        get_user_model(), related_name='parent_product_created_by',
+        null=True,
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), related_name='parent_product_updated_by',
+        null=True,
+        on_delete=models.DO_NOTHING
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -175,7 +195,7 @@ class ParentProductCategory(models.Model):
     category = models.ForeignKey(Category, related_name='parent_category_pro_category', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+    # status = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = _("Parent Product Category")
@@ -254,8 +274,17 @@ class Product(models.Model):
         ('packing_material', 'Packing Material')
     )
     repackaging_type = models.CharField(max_length=20, choices=REPACKAGING_TYPES, default='none')
-    moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
-
+    # moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
+    created_by = models.ForeignKey(
+        get_user_model(), related_name='child_product_created_by',
+        null=True,
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), related_name='child_product_updated_by',
+        null=True,
+        on_delete=models.DO_NOTHING
+    )
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
         super(Product, self).save(*args, **kwargs)
@@ -294,9 +323,9 @@ class Product(models.Model):
             return self.product_pro_tax.filter(tax__tax_type='surcharge').last().tax.tax_percentage
         return ''
 
-    @property
-    def product_case_size(self):
-        return self.parent_product.brand_case_size if self.parent_product else '1'
+    # @property
+    # def product_case_size(self):
+    #     return self.parent_product.brand_case_size if self.parent_product else '1'
 
     @property
     def parent_name(self):
@@ -733,7 +762,16 @@ class Tax(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
-
+    created_by = models.ForeignKey(
+        get_user_model(), related_name='tax_created_by',
+        null=True,
+        on_delete=models.DO_NOTHING
+    )
+    updated_by = models.ForeignKey(
+        get_user_model(), related_name='tax_updated_by',
+        null=True,
+        on_delete=models.DO_NOTHING
+    )
     def __str__(self):
         return self.tax_name
 
@@ -778,7 +816,7 @@ class ParentProductTaxMapping(models.Model):
     tax = models.ForeignKey(Tax, related_name='parent_tax_pro_tax', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+    # status = models.BooleanField(default=True)
 
     def __str__(self):
         return "{}-{}".format(self.parent_product, self.tax.tax_name)
