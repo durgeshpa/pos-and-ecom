@@ -44,6 +44,7 @@ from retailer_backend import messages
 from rest_framework.viewsets import GenericViewSet
 from rest_framework.decorators import action
 from rest_framework import mixins, viewsets
+from retailer_backend.utils import SmallOffsetPagination
 
 
 logger = logging.getLogger('shop-api')
@@ -434,7 +435,7 @@ class TeamListView(generics.ListAPIView):
                 'no_of_ordered_sku': no_of_ordered_sku_total,
             }
         data_total.append(dt)
-
+        data = SmallOffsetPagination().paginate_queryset(data, self.request)
         msg = {'is_success': True, 'message': [""],'response_data': data,'response_data_total':data_total}
         return Response(msg,status=status.HTTP_200_OK)
 
@@ -583,6 +584,7 @@ class SellerShopOrder(generics.ListAPIView):
             'delivered_amount': 0,
         }
         data_total.append(dt)
+        data = SmallOffsetPagination().paginate_queryset(data, self.request)
         msg = {'is_success': True, 'message': [""],'response_data': data, 'response_data_total':data_total}
         return Response(msg,status=status.HTTP_200_OK)
 
@@ -667,6 +669,7 @@ class SellerShopProfile(generics.ListAPIView):
                 'last_calls_made': '',
             }
             data.append(rt)
+        data = SmallOffsetPagination().paginate_queryset(data, self.request)
         msg = {'is_success': True, 'message': [""],'response_data': data}
         return Response(msg,status=status.HTTP_200_OK)
 
@@ -953,8 +956,9 @@ class ExecutiveReport(viewsets.ModelViewSet):
                 'employee').distinct('employee')
             executive_report_serializer = self.serializer_class(feedback_executive, many=True,
                                                                 context={'report': self.request.GET['report']})
+            data = SmallOffsetPagination().paginate_queryset(executive_report_serializer.data, self.request)
             return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
-                             "data": executive_report_serializer.data,
+                             "data": data,
                              'is_success': True}, status=status.HTTP_200_OK)
         except Exception as error:
             logger.exception(error)
