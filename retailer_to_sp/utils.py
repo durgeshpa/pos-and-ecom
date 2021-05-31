@@ -281,7 +281,7 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
         'Seller Shop Name', 'Buyer Shop ID',
         'Buyer Shop Name', 'Buyer Shop Type', 'Buyer Shop SubType', 'Mobie No.(Buyer Shop)', 'City(Buyer Shop)',
         'Pincode(Buyer Shop)', 'Order MRP Amount', 'Order Amount',
-        'Order Paid Amount', 'Invoice No', 'Invoice Amount', 'Shipment Status',
+        'Order Paid Amount', 'Invoice No', 'Invoice Amount', 'Shipment Status', 'Trip Id',
         'Shipment Return Reason', 'Shipment Created At', 'Shipment Delivered At',
         'Shipment Paid Amount', 'Picking Status', 'Picklist ID', 'Picker Boy', 'Picking Completed At',
         'Picking Completion Time'])
@@ -312,6 +312,8 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
                 'rt_order_order_product__invoice__invoice_no',
                 'invoice_amount',
                 'rt_order_order_product__shipment_status',
+                'rt_order_order_product__rescheduling_shipment__trip__dispatch_no',
+                'rt_order_order_product__trip__dispatch_no',
                 'rt_order_order_product__return_reason',
                 'rt_order_order_product__invoice__created_at',
                 'rt_order_order_product__trip__completed_at',
@@ -331,6 +333,13 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
             total_final_amount = round(total_final_amount)
         else:
             total_final_amount = order.get('order_amount')
+
+        trip = order.get('rt_order_order_product__trip__dispatch_no')
+        trip_str = trip if trip else ''
+        shipment_reschedule = order.get('rt_order_order_product__rescheduling_shipment__trip__dispatch_no')
+        if shipment_reschedule:
+            trip_str = trip_str + ', ' + shipment_reschedule if trip_str else shipment_reschedule
+
         writer.writerow([
             order.get('order_no'),
             order_status_dict.get(order.get('order_status'),
@@ -352,6 +361,7 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
             order.get('invoice_amount'),
             shipment_status_dict.get(order.get('rt_order_order_product__shipment_status'),
                                      order.get('rt_order_order_product__shipment_status')),
+            trip_str,
             return_reason_dict.get(order.get('rt_order_order_product__return_reason'),
                                    order.get('rt_order_order_product__return_reason')),
             order.get('rt_order_order_product__invoice__created_at'),
