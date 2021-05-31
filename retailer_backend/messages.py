@@ -58,7 +58,7 @@ SUCCESS_MESSAGES = {
     'ARS_MAIL_VENDOR_SUBJECT': 'PO Raised | Brand - {} | PO Number - {}',
     'ARS_MAIL_VENDOR_BODY': 'PFA the copy of PO generated',
     'ARS_MAIL_WAREHOUSE_SUBJECT': 'Summary of Auto PO’s approved and placed on {}',
-    'ARS_MAIL_WAREHOUSE_BODY': 'PFA the list of Auto PO’s approved and placed on {}. '
+    'ARS_MAIL_WAREHOUSE_BODY': 'PFA the list of Auto PO’s approved on {}. '
                                'Please note the delivery dates of the respective POs in the CSV attached. '
                                'The same details can also be checked by going to Home -> Gram_To_Brand -> PO Generation',
     "2001": "Ok",

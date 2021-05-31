@@ -119,6 +119,7 @@ class Cart(BaseCart):
     approved_by = models.ForeignKey(get_user_model(), related_name='user_approved_carts', null=True, blank=True,
                                     on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
+    approved_at = models.DateTimeField(null=False)
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
