@@ -594,8 +594,9 @@ class GetMessage(APIView):
 def mail_warehouse_for_approved_po():
 
     try:
-        sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
-        recipient_list = get_config("ARS_MAIL_WAREHOUSE_RECIEVER", "deepti@gramfactory.com")
+        info_logger.info("mail_warehouse_for_approved_po|STARTED")
+        sender = get_config("ARS_MAIL_SENDER")
+        recipient_list = get_config("ARS_MAIL_WAREHOUSE_RECIEVER")
         today = datetime.datetime.today().date()
         subject = SUCCESS_MESSAGES['ARS_MAIL_WAREHOUSE_SUBJECT'].format(today)
         body = SUCCESS_MESSAGES['ARS_MAIL_WAREHOUSE_BODY'].format(today)
@@ -606,13 +607,14 @@ def mail_warehouse_for_approved_po():
                    'PO Delivery Date']
         writer.writerow(columns)
         po_to_send_mail_for = Cart.objects.filter(po_status=Cart.OPEN, cart_type=Cart.CART_TYPE_CHOICE.AUTO,
-                                                          created_at__date=today)
+                                                  created_at__date=today)
         for po in po_to_send_mail_for:
             writer.writerow([po.po_no, po.brand, po.supplier_state, po.supplier_name, po.created_at,
                             po.po_status, po.po_delivery_date])
-        attachment = {'name' : filename, 'type' : 'text/csv', 'value' : writer.getvalue()}
+        attachment = {'name' : filename, 'type' : 'text/csv', 'value' : f.getvalue()}
         send_mail(sender, recipient_list, subject, body, [attachment])
         po_to_send_mail_for.update(is_warehouse_notified=True)
+        info_logger.info("mail_warehouse_for_approved_po|COMPLETED")
     except Exception as e:
         info_logger.error("Exception|mail_warehouse_for_approved_po|{}".format(e))
 
