@@ -143,12 +143,12 @@ def get_daily_average(warehouse, parent_product):
     """
     rolling_avg_days = get_config('ROLLING_AVG_DAYS', 30)
     starting_avg_from = datetime.datetime.today().date() - datetime.timedelta(days=rolling_avg_days)
-    query = WarehouseInventoryHistoric.objects.filter(warehouse=warehouse,
+    avg_days = WarehouseInventoryHistoric.objects.filter(warehouse=warehouse,
                                                          sku__parent_product=parent_product, visible=True,
-                                                         archived_at__gte=starting_avg_from)\
-                                                 .values('sku__parent_product')\
-                                                 .annotate(days=Count('sku__parent_product', distinct=True))
-    avg_days = query.last()['days'] if query.exists() else 0
+                                                         archived_at__gte=starting_avg_from) \
+                                              .values('sku__parent_product', 'archived_at__date')\
+                                              .distinct('sku__parent_product__id', 'archived_at__date').count()
+    # avg_days = query.last()['days'] if query.exists() else 0
     products_ordered = get_total_products_ordered(warehouse, parent_product, starting_avg_from)
     rolling_avg = products_ordered/avg_days if avg_days else 0
     return math.ceil(rolling_avg)
@@ -312,7 +312,7 @@ def get_child_product_with_latest_grn(warehouse_id, parent_product_id):
         for p in products:
             if p.created_at != created_at:
                 break
-            if p.product_mrp > child_product_with_latest_grn.product_mrp:
+            if p.product.product_mrp > child_product_with_latest_grn.product.product_mrp:
                 child_product_with_latest_grn = p
     return child_product_with_latest_grn
 
