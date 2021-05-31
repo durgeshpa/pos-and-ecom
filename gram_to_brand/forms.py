@@ -166,13 +166,14 @@ class POGenerationAccountForm(forms.ModelForm):
             forward=('supplier_state',)
         )
     )
+    delivery_term = forms.CharField(widget=forms.Textarea(attrs={'rows': 2, 'cols': 33}), required=True)
     class Meta:
         model = Cart
         fields = ('brand', 'supplier_state', 'supplier_name', 'gf_shipping_address', 'gf_billing_address',
                   'po_validity_date', 'payment_term', 'delivery_term', 'po_status', 'cart_product_mapping_csv')
 
     class Media:
-        js = ('/static/admin/js/po_generation_acc_form.js',)
+        js = ('/static/admin/js/po_generation_form.js',)
 
     change_form_template = 'admin/gram_to_brand/acc-cart/change_form.html'
 
