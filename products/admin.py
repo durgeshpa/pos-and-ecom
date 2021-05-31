@@ -1313,9 +1313,9 @@ class BulkProductTaxUpdateAdmin(admin.ModelAdmin):
 
 class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     form = BulkUploadForGSTChangeForm
-    list_display = ('created_at', 'updated_by', 'file',)
-    fields = ('download_sample_file', 'file', 'updated_by')
-    readonly_fields = ('updated_by', 'download_sample_file', )
+    list_display = ('file',)
+    fields = ('download_sample_file', 'file', )
+    readonly_fields = ('download_sample_file', )
 
     def get_urls(self):
         urls = super().get_urls()
@@ -1343,9 +1343,9 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
 
 
 class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
-    list_display = ('created_at', 'updated_by', 'file',)
-    fields = ('file', 'updated_by')
-    readonly_fields = ('updated_by', 'file',)
+    list_display = ( 'file',)
+    fields = ('file',)
+    readonly_fields = ('file',)
 
     change_list_template = 'admin/products/product_attributes_change_list.html'
 

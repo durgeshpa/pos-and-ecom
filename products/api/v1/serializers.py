@@ -9,9 +9,8 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework import serializers
 
-from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, \
-    ProductSourceMapping
+from products.models import Product, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage, \
+    ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, Tax, ProductSourceMapping
 from categories.models import Category
 from brand.models import Brand, Vendor
 from shops.models import Shop
