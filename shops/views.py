@@ -635,10 +635,13 @@ class BeatUserMappingCsvSample(View):
             writer.writerow(['Sales Executive (Number - Name)', 'Shop Name', 'Shop ID ', 'Contact Number', 'Address',
                              'Pin Code', 'Category', 'Date (dd/mm/yyyy)'])
             for shop in shops:
-                writer.writerow([shop.employee, shop.shop.shop_name, shop.shop.pk,
-                                 shop.shop.shipping_address.address_contact_number,
-                                 shop.shop.shipping_address.address_line1, shop.shop.shipping_address.pincode, '',
-                                 ''])
+                try:
+                    writer.writerow([shop.employee, shop.shop.shop_name, shop.shop.pk,
+                                     shop.shop.shipping_address.address_contact_number,
+                                     shop.shop.shipping_address.address_line1, shop.shop.shipping_address.pincode, '',
+                                     ''])
+                except:
+                    pass
             f.seek(0)
             response = HttpResponse(f, content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
