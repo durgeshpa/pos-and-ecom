@@ -94,10 +94,15 @@ def populate_daily_average():
     historic_data = WarehouseInventoryHistoric.objects.filter(warehouse__id__in=warehouse_list, visible=True,
                                                               sku__parent_product_id__in=master_data.keys(),
                                                               archived_at__gte=starting_avg_from) \
-                                                      .values('warehouse', 'sku__parent_product') \
+                                                      .values('warehouse', 'sku__parent_product', 'archived_at__date') \
                                                       .annotate(days=Count('sku__parent_product', distinct=True))
+
+
     for item in historic_data:
-        master_data[item['sku__parent_product']][item['warehouse']]['visible_days'] = item['days']
+        if master_data[item['sku__parent_product']][item['warehouse']].get('visible_days') is None:
+            master_data[item['sku__parent_product']][item['warehouse']]['visible_days'] = 0
+
+        master_data[item['sku__parent_product']][item['warehouse']]['visible_days'] += item['days']
 
     # Get total no of pieces ordered starting from starting_avg_from date
     total_products_ordered = Order.objects.filter(seller_shop__id__in=warehouse_list,
@@ -105,6 +110,8 @@ def populate_daily_average():
                                                   created_at__gte=starting_avg_from).order_by() \
                                           .values('seller_shop', 'ordered_cart__rt_cart_list__cart_product__parent_product') \
                                           .annotate(ordered_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))
+
+
     for item in total_products_ordered:
         master_data[item['ordered_cart__rt_cart_list__cart_product__parent_product']][item['seller_shop']]['ordered_pieces'] = item['ordered_pieces']
 
