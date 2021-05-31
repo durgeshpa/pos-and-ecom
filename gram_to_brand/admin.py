@@ -119,6 +119,7 @@ class CartAdmin(admin.ModelAdmin):
         obj.last_modified_by = request.user
         if is_approved:
             obj.approved_by = request.user
+            obj.approved_at = datetime.datetime.now()
         obj.save()
         if flag:
             self.log_entry(request.user.pk, obj)
