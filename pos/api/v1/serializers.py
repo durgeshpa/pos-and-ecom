@@ -350,10 +350,14 @@ class BasicOrderListSerializer(serializers.ModelSerializer):
     order_status = serializers.CharField(source='get_order_status_display')
     order_no = serializers.CharField()
     order_amount = serializers.ReadOnlyField()
+    created_at = serializers.SerializerMethodField()
+
+    def get_created_at(self, obj):
+        return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
     class Meta:
         model = Order
-        fields = ('id', 'order_status', 'order_amount', 'order_no', 'buyer')
+        fields = ('id', 'order_status', 'order_amount', 'order_no', 'buyer', 'created_at')
 
 
 class BasicCartListSerializer(serializers.ModelSerializer):
@@ -362,8 +366,12 @@ class BasicCartListSerializer(serializers.ModelSerializer):
     """
     total_amount = serializers.SerializerMethodField('total_amount_dt')
     buyer = PosUserSerializer()
+    created_at = serializers.SerializerMethodField()
     # total_discount = serializers.SerializerMethodField()
     # sub_total = serializers.SerializerMethodField('sub_total_dt')
+
+    def get_created_at(self, obj):
+        return obj.created_at.strftime("%b %d, %Y %-I:%M %p")
 
     def total_amount_dt(self, obj):
         """
@@ -396,7 +404,7 @@ class BasicCartListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id', 'cart_no', 'cart_status', 'total_amount', 'buyer')
+        fields = ('id', 'cart_no', 'cart_status', 'total_amount', 'buyer', 'created_at')
 
 
 class OrderedDashBoardSerializer(serializers.Serializer):
