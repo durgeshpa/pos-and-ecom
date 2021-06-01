@@ -111,7 +111,7 @@ class Cart(BaseCart):
     delivery_term = models.TextField(null=True, blank=True)
     po_amount = models.FloatField(default=0)
     cart_product_mapping_csv = models.FileField(upload_to='gram/brand/cart_product_mapping_csv', null=True, blank=True)
-    is_approve = models.BooleanField(default=False, blank=True)
+    is_approve = models.BooleanField(default=False, blank=True, null=True)
     is_vendor_notified = models.BooleanField(default=False, blank=True)
     is_warehouse_notified = models.BooleanField(default=False, blank=True)
     po_delivery_date = models.DateField(null=True)
