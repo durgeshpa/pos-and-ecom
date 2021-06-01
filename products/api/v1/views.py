@@ -41,7 +41,7 @@ class ParentProductView(GenericAPIView):
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn').prefetch_related(
         'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
         'parent_product_pro_category__category', 'parent_product_pro_tax__tax'). \
-        only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable',
+        only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
              'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
              'product_hsn__product_hsn_code', ).order_by('-id')
     serializer_class = ParentProductSerializers
