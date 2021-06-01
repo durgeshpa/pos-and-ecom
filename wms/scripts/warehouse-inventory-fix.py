@@ -14,21 +14,22 @@ stage_ordered = InventoryState.objects.only('id').get(inventory_state='ordered')
 stage_total_available = InventoryState.objects.only('id').get(inventory_state='total_available').id
 stage_to_be_picked = InventoryState.objects.only('id').get(inventory_state='to_be_picked').id
 stage_picked = InventoryState.objects.only('id').get(inventory_state='picked').id
-start_time = '2020-08-29 01:01:06.067349'
+
 
 def run():
     for w in warehouse_list:
-        # match_total_available_and_to_be_picked(w)
+        match_total_available_and_to_be_picked(w)
         # fix_ordered_data(w)
-        match_picked_inventory(w)
+        # match_picked_inventory(w)
 
 
 def match_picked_inventory(warehouse):
      picked_qty_dict = Pickup.objects.filter(warehouse=warehouse, status='picking_complete',
                                              pickup_type_id__in=
-                                             Order.objects.filter(order_status__in=['pickup_created',
-                                                                                    'picking_assigned',
-                                                                                    'picking_complete'])
+                                             Order.objects.filter(order_status__in=['par_ship_created',
+                                                                                    'full_ship_created',
+                                                                                    'picking_complete',
+                                                                                    'ready_to_dispatch'])
                                                           .values_list('order_no', flat=True))\
                                      .values('sku_id').annotate(picked_qty=Sum('pickup_quantity'))
      for item in picked_qty_dict:
@@ -38,8 +39,8 @@ def match_picked_inventory(warehouse):
         if warehouse_inventory is not None and warehouse_inventory.quantity != item['picked_qty']:
             print("{} Picked Qty-{}, warehouse picked Qty-{}"
                   .format(item['sku_id'], item['picked_qty'], warehouse_inventory.quantity))
-            # warehouse_inventory.quantity = item['picked_qty']
-            # warehouse_inventory.save()
+            warehouse_inventory.quantity = item['picked_qty']
+            warehouse_inventory.save()
 
 
 def match_total_available_and_to_be_picked(warehouse):
