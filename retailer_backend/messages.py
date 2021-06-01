@@ -51,6 +51,16 @@ SUCCESS_MESSAGES = {
     'AUDIT_ENDED_BIN': 'Audit completed for BIN {}',
     'SCHEME_SLAB_ADD_MORE':'Buy worth ₹{} more to earn ₹{} incentive at {}%',''
     'SCHEME_SLAB_HIGHEST':'You are already in the highest incentive slab earning margin at 2%. Buy more to earn more incentive',
+    'ARS_MAIL_PO_APPROVAL_SUBJECT':'Summary of Auto PO’s generated on {}',
+    'ARS_MAIL_PO_APPROVAL_BODY':'PFA the list of Auto PO’s generated on {}. '
+                                'Please note that these PO’s will not be placed until approved '
+                                'by concerned category managers by going to Seller Panel.',
+    'ARS_MAIL_VENDOR_SUBJECT': 'PO Raised | Brand - {} | PO Number - {}',
+    'ARS_MAIL_VENDOR_BODY': 'PFA the copy of PO generated',
+    'ARS_MAIL_WAREHOUSE_SUBJECT': 'Summary of Auto PO’s approved and placed on {}',
+    'ARS_MAIL_WAREHOUSE_BODY': 'PFA the list of Auto PO’s approved on {}. '
+                               'Please note the delivery dates of the respective POs in the CSV attached. '
+                               'The same details can also be checked by going to Home -> Gram_To_Brand -> PO Generation',
     "2001": "Ok",
     "2002": "Executive Feedback saved successfully.",
 }

@@ -1,5 +1,10 @@
+import csv
 import math
 import datetime
+from io import StringIO
+
+import django_filters
+from decouple import config
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.db.models import F, Sum, Count, Subquery
@@ -7,6 +12,11 @@ from django.views.generic import View, ListView, UpdateView
 from django.urls import reverse_lazy
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, get_list_or_404
+from django_filters.views import FilterView
+from django_tables2 import SingleTableView, tables
+from django_tables2.export import ExportMixin
+import django_tables2 as tables
+
 
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -25,22 +35,13 @@ from brand.models import Brand
 from brand.models import Vendor
 from products.models import ProductVendorMapping, ParentProduct
 
-from django.db.models import Sum
-from django.db import transaction
-
 from global_config.views import get_config
-from shops.models import Shop
-from wms.models import InventoryType, InventoryState
-
-from wms.views import update_putaway
-from wms.common_functions import PutawayCommonFunctions,CommonBinInventoryFunctions,updating_tables_on_putaway
+from retailer_backend.common_function import send_mail
+from retailer_backend.messages import SUCCESS_MESSAGES
 
 import logging
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
-
-from accounts.models import User
-from whc.models import AutoOrderProcessing
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -537,6 +538,7 @@ class ApproveView(UpdateView):
     def form_valid(self, form):
         cart_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
         cart_obj.is_approve = True
+        cart_obj.approved_by = self.request.user
         cart_obj.save()
         return super(ApproveView, self).form_valid(form)
 
@@ -589,96 +591,51 @@ class GetMessage(APIView):
             "po_status": po_obj.po_status if po_obj else ''
         })
 
-#
-# def auto_put_away(warehouse, batch_id, put_away_quantity, grn_id):
-#
-#     virtual_bin_ids = get_config('virtual_bins')
-#     if not virtual_bin_ids:
-#         return
-#     bin_ids = eval(virtual_bin_ids)
-#     user_id = get_config('wh_consolidation_user')
-#     if user_id is None:
-#         info_logger.info("process_auto_put_away|user is not defined ")
-#         return
-#     user = User.objects.filter(pk=user_id).last()
-#     if user is None:
-#         info_logger.info("process_auto_put_away|no User found with id -{}".format(user_id))
-#         return
-#     warehouse_id = user.shop_employee.all().last().shop_id
-#     if warehouse_id is None:
-#         info_logger.info("process_auto_put_away|User-{} is not mapped with associated Warehouse-{}".format(user_id,warehouse))
-#         return
-#
-#     inventory_type = 'normal'
-#     type_normal = InventoryType.objects.filter(inventory_type=inventory_type).last()
-#     put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
-#                                                             inventory_type=type_normal).order_by('created_at')
-#
-#     ids = [i.id for i in put_away]
-#     value = put_away_quantity
-#     updated_putaway_value = put_away.aggregate(total=Sum('putaway_quantity'))['total'] if \
-#         put_away.aggregate(total=Sum('putaway_quantity'))['total'] else 0
-#     try:
-#         updated_putaway_value = put_away.aggregate(total=Sum('quantity'))['total'] if updated_putaway_value > \
-#                                                                                       put_away.aggregate(
-#                                                                                           total=Sum(
-#                                                                                               'quantity'))[
-#                                                                                           'total'] else updated_putaway_value
-#         if updated_putaway_value + put_away_quantity > put_away.aggregate(total=Sum('quantity'))['total']:
-#             info_logger.info('Put away quantity is exceeded for batch_id {} Can"t add more items'.format(batch_id))
-#             return
-#
-#         if updated_putaway_value == put_away.aggregate(total=Sum('quantity'))['total']:
-#             value = 0
-#             info_logger.info('Complete, for batch_id {} Can"t add more items'.format(batch_id))
-#             return
-#     except Exception as e:
-#         info_logger.error(e)
-#         return
-#     sh = Shop.objects.filter(id=int(warehouse.id)).last()
-#     state_total_available = InventoryState.objects.filter(inventory_state='total_available').last()
-#
-#     if sh.shop_type.shop_type == 'sp':
-#         info_logger.info("process_auto_put_away |STARTED")
-#         try:
-#             with transaction.atomic():
-#                 for bin_id in bin_ids:
-#                     # Get the Bin Inventory for concerned SKU and Bin excluding the current batch id
-#                     bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(sku=batch_id[:17], bin__bin_id=bin_id).exclude(
-#                                                                                           batch_id=batch_id)
-#
-#                     if bin_inventory.exists():
-#                         qs = bin_inventory.filter(inventory_type=type_normal) \
-#                             .aggregate(available=Sum('quantity'), to_be_picked=Sum('to_be_picked_qty'))
-#                         total = qs['available'] + qs['to_be_picked']
-#
-#                         # if inventory is more than zero, putaway won't be allowed,check for another bin_id
-#                         if total > 0:
-#                             info_logger.info('This product with sku {} and batch_id {} can not be placed in the bin'
-#                                                   .format(batch_id[:17], batch_id))
-#                             # check for another bin_id
-#                             continue
-#                         else:
-#                             # breaking for loop continue with same bin_id
-#                             break
-#
-#                 pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=batch_id, warehouse=warehouse)
-#                 put_away_status = False
-#
-#                 while len(ids):
-#                     put_away_done = update_putaway(ids[0], batch_id, warehouse, value, user)
-#                     value = put_away_done
-#                     put_away_status = True
-#                     ids.remove(ids[0])
-#
-#                 updating_tables_on_putaway(sh, bin_id, put_away, batch_id, type_normal, state_total_available, 't', put_away_quantity,
-#                                            put_away_status, pu)
-#
-#                 obj = AutoOrderProcessing.objects.get(grn=grn_id)
-#                 if obj.state == 0:
-#                     AutoOrderProcessing.objects.filter(grn=grn_id).update(state=AutoOrderProcessing.ORDER_PROCESSING_STATUS.PUTAWAY)
-#             info_logger.info("process_auto_put_away |COMPLETED. quantity has been updated in put away")
-#         except Exception as e:
-#             info_logger.info(
-#                 "Something Went wrong while updating quantity for put away " + str(e))
 
+def mail_warehouse_for_approved_po():
+
+    try:
+        info_logger.info("mail_warehouse_for_approved_po|STARTED")
+
+        today = datetime.datetime.today().date()
+        po_to_send_mail_for = Cart.objects.filter(po_status=Cart.OPEN, cart_type=Cart.CART_TYPE_CHOICE.AUTO,
+                                                  approved_at__date=today)
+        if po_to_send_mail_for.count() > 0:
+            sender = get_config("ARS_MAIL_SENDER")
+
+            recipient_list = get_config("MAIL_DEV")
+            if config('OS_ENV') and config('OS_ENV') in ['Production']:
+                recipient_list = get_config("ARS_MAIL_WAREHOUSE_RECIEVER")
+            subject = SUCCESS_MESSAGES['ARS_MAIL_WAREHOUSE_SUBJECT'].format(today)
+            body = SUCCESS_MESSAGES['ARS_MAIL_WAREHOUSE_BODY'].format(today)
+            f = StringIO()
+            writer = csv.writer(f)
+            filename = 'PO_approved-{}.csv'.format(today)
+            columns = ['PO Number', 'Brand', 'Supplier State', 'Supplier Name', 'PO Creation Date', 'PO Status',
+                       'PO Delivery Date']
+            writer.writerow(columns)
+            po_to_send_mail_for = Cart.objects.filter(po_status=Cart.OPEN, cart_type=Cart.CART_TYPE_CHOICE.AUTO,
+                                                      created_at__date=today)
+            for po in po_to_send_mail_for:
+                writer.writerow([po.po_no, po.brand, po.supplier_state, po.supplier_name, po.created_at,
+                                po.po_status, po.po_delivery_date])
+            attachment = {'name' : filename, 'type' : 'text/csv', 'value' : f.getvalue()}
+            send_mail(sender, recipient_list, subject, body, [attachment])
+            po_to_send_mail_for.update(is_warehouse_notified=True)
+        info_logger.info("mail_warehouse_for_approved_po|COMPLETED")
+    except Exception as e:
+        info_logger.error("Exception|mail_warehouse_for_approved_po|{}".format(e))
+
+
+def mail_to_vendor_on_po_approval(po_instance):
+    """
+    Send mail to vendor once po is approved.
+    """
+    pass
+    # sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
+    # recipient_list = [po_instance.email]
+    # today = datetime.datetime.today().date()
+    # subject = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_SUBJECT'].format(today)
+    # body = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_BODY'].format(today)
+    # attachment_list = []
+    # send_mail(sender, recipient_list, subject, body, attachment_list)

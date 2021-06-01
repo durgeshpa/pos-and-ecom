@@ -136,20 +136,110 @@ class POGenerationForm(forms.ModelForm):
         """
         raise ValidationError("Row {}  -  {}: {}  -  {}".format(str(row_id + 1), title, value, error))
 
-    change_form_template = 'admin/gram_to_brand/cart/change_form.html'
 
 
 class POGenerationAccountForm(forms.ModelForm):
+    brand = forms.ModelChoiceField(disabled=True,
+        queryset=Brand.objects.filter(active_status='active'),
+        widget=autocomplete.ModelSelect2(url='brand-autocomplete', )
+    )
+    supplier_state = forms.ModelChoiceField(disabled=True,
+        queryset=State.objects.all(),
+        widget=autocomplete.ModelSelect2(url='state-autocomplete', )
+    )
+    supplier_name = forms.ModelChoiceField(disabled=True,
+        queryset=Vendor.objects.all(),
+        widget=autocomplete.ModelSelect2(url='supplier-autocomplete',
+                                         forward=('supplier_state', 'brand'))
+    )
+    gf_shipping_address = forms.ModelChoiceField(disabled=True,
+        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
+        widget=autocomplete.ModelSelect2(
+            url='shipping-address-autocomplete',
+            forward=('supplier_name', 'supplier_state',)
+        )
+    )
+    gf_billing_address = forms.ModelChoiceField(disabled=True,
+        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
+        widget=autocomplete.ModelSelect2(
+            url='billing-address-autocomplete',
+            forward=('supplier_state',)
+        )
+    )
+    delivery_term = forms.CharField(widget=forms.Textarea(attrs={'rows': 2, 'cols': 33}), required=True)
     class Meta:
         model = Cart
         fields = ('brand', 'supplier_state', 'supplier_name', 'gf_shipping_address', 'gf_billing_address',
-                  'po_validity_date', 'payment_term', 'delivery_term', 'po_status')
+                  'po_validity_date', 'payment_term', 'delivery_term', 'po_status', 'cart_product_mapping_csv')
 
     class Media:
-        js = ('/static/admin/js/po_generation_acc_form.js',)
+        js = ('/static/admin/js/po_generation_form.js',)
 
     change_form_template = 'admin/gram_to_brand/acc-cart/change_form.html'
 
+
+    def __init__(self, *args, **kwargs):
+        super(POGenerationAccountForm, self).__init__(*args, **kwargs)
+        self.fields['cart_product_mapping_csv'].help_text = self.instance.products_sample_file
+
+    def clean_cart_product_mapping_csv(self):
+        """
+            Validate products data to be uploaded in cart
+        """
+        if 'cart_product_mapping_csv' in self.changed_data and self.cleaned_data['cart_product_mapping_csv']:
+            if self.cleaned_data['cart_product_mapping_csv'].name[-4:] != '.csv':
+                raise forms.ValidationError("Sorry! Only csv file accepted")
+            reader = csv.reader(
+                codecs.iterdecode(self.cleaned_data['cart_product_mapping_csv'], 'utf-8', errors='ignore'))
+            titles = next(reader)
+            for row_id, row in enumerate(reader):
+                # Input Format Validation
+                if not row[0]:
+                    self.error_csv(row_id, titles[0], row[0], VALIDATION_ERROR_MESSAGES['EMPTY'] % "Parent Product ID")
+                if not row[2]:
+                    self.error_csv(row_id, titles[0], row[0], VALIDATION_ERROR_MESSAGES['EMPTY'] % "Product ID")
+                if not row[7] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[7]):
+                    self.error_csv(row_id, titles[0], row[0], VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID'] % "MRP")
+                if not row[5] or not re.match("^[\d\,]*$", row[5]):
+                    self.error_csv(row_id, titles[0], row[0],
+                                   VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID'] % "Case Size")
+                if not row[6] or not re.match("^[\d\,]*$", row[6]):
+                    self.error_csv(row_id, titles[0], row[0],
+                                   VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID'] % "No Of Cases")
+                if row[8].lower() not in ["per piece", "per pack"]:
+                    self.error_csv(row_id, titles[0], row[0],
+                                   VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID_STRING'] % "Gram To Brand Price Unit")
+                if not row[9] or not re.match("[0-9]*([1-9][0-9]*(\.[0-9]*)?|\.[0-9]*[1-9][0-9]*)", row[9]):
+                    self.error_csv(row_id, titles[0], row[0],
+                                   VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID'] % "Brand To Gram Price")
+                # Input Value Validation
+                try:
+                    parent_product = ParentProduct.objects.get(parent_id=row[0])
+                except ObjectDoesNotExist:
+                    self.error_csv(row_id, titles[0], row[0], VALIDATION_ERROR_MESSAGES['INVALID_PARENT_ID'])
+                try:
+                    product = Product.objects.get(pk=row[2], parent_product=parent_product)
+                except ObjectDoesNotExist:
+                    self.error_csv(row_id, titles[2], row[2], VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_ID'])
+                # if product.status == 'deactivated':
+                #     self.error_csv(row_id, titles[4], row[4], VALIDATION_ERROR_MESSAGES['DEACTIVATE'] % "Product")
+                if float(product.product_mrp) != float(row[7]):
+                    self.error_csv(row_id, titles[7], row[7], VALIDATION_ERROR_MESSAGES['NOT_VALID'] % "MRP")
+                vendor = ProductVendorMapping.objects.filter(product=row[2], vendor_id=self.initial['supplier_name'],
+                                                             status=True).last()
+                if not vendor:
+                    self.error_csv(row_id, titles[4], row[4], VALIDATION_ERROR_MESSAGES['VENDOR_NOT_MAPPED'] % "Vendor")
+                if vendor.case_size != int(row[5]):
+                    self.error_csv(row_id, titles[5], row[5], VALIDATION_ERROR_MESSAGES['NOT_VALID'] % "Case Size")
+
+        return self.cleaned_data['cart_product_mapping_csv']
+
+
+    def error_csv(self, row_id, title, value, error):
+        """
+            Raise Validation Error In Product Upload Csv
+        """
+        raise ValidationError("Row {}  -  {}: {}  -  {}".format(str(row_id + 1), title, value, error))
 
 class CartProductMappingForm(forms.ModelForm):
     cart_parent_product = forms.ModelChoiceField(

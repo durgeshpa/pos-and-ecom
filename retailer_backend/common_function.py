@@ -1,5 +1,9 @@
+import itertools
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import EmailMessage
+
+from common.constants import BULK_CREATE_NO_OF_RECORDS
 from shops.models import Shop,ParentRetailerMapping
 from addresses.models import Address
 from rest_framework import status
@@ -274,3 +278,34 @@ def generate_invoice_number_bulk_order(field, instance_id, address, invoice_amou
         invoice_no = common_pattern_bulk(RetailerToSPModels.Invoice, field, instance_id, address, "IV", is_invoice=True)
         instance.invoice_no=invoice_no
         instance.save()
+
+
+def bulk_create(model, generator, batch_size=BULK_CREATE_NO_OF_RECORDS):
+    """
+    Uses islice to call bulk_create on batches of
+    Model objects from a generator.
+    """
+    while True:
+        items = list(itertools.islice(generator, batch_size))
+        if not items:
+            break
+        model.objects.bulk_create(items)
+
+
+def send_mail(sender, recipient_list, subject, body, attachment_list=None):
+    """
+    Parameters:
+        sender : valid email address as string
+        recipient_list : list of valid email addresses
+        subject : email subject as string
+        body : email body as string
+        attachment_list : list of file attachments
+    """
+    email = EmailMessage()
+    email.subject = subject
+    email.body = body
+    email.from_email = sender
+    email.to = recipient_list
+    for attachment in attachment_list:
+        email.attach(attachment['name'], attachment['value'], attachment['type'])
+    email.send()
