@@ -119,7 +119,8 @@ class PosProductView(GenericAPIView):
                     product.description = description if description else product.description
                     # Update images
                     if 'image_ids' in modified_data:
-                        RetailerProductImage.objects.filter(product=product).exclude(id__in=modified_data['image_ids']).delete()
+                        RetailerProductImage.objects.filter(product=product).exclude(
+                            id__in=modified_data['image_ids']).delete()
                     if 'images' in modified_data:
                         RetailerProductCls.update_images(product, modified_data['images'])
                     product.save()
@@ -310,18 +311,21 @@ class CouponOfferCreation(GenericAPIView):
         shop = Shop.objects.filter(id=shop_id).last()
         start_date, expiry_date, discount_value, discount_amount = data['start_date'], data['end_date'], data[
             'discount_value'], data['order_value']
+        discount_value_str = str(discount_value).rstrip('0').rstrip('.')
+        discount_amount_str = str(discount_amount).rstrip('0').rstrip('.')
         if data['is_percentage']:
             discount_obj = DiscountValue.objects.create(discount_value=discount_value,
                                                         max_discount=data['max_discount'], is_percentage=True)
-            rule_set_name_with_shop_id = f"{shop_id}_{discount_value}% off on orders above Rs. {discount_amount}"
             if discount_obj.max_discount and float(discount_obj.max_discount) > 0:
-                coupon_code = f"{discount_value}% off upto Rs. {discount_obj.max_discount} on orders above Rs. {discount_amount}"
+                max_discount_str = str(discount_obj.max_discount).rstrip('0').rstrip('.')
+                coupon_code = discount_value_str + "% off upto ₹" + max_discount_str + " on orders above ₹" + discount_amount_str
             else:
-                coupon_code = f"{discount_value}% off on orders above Rs. {discount_amount}"
+                coupon_code = discount_value_str + "% off on orders above ₹" + discount_amount_str
+            rule_set_name_with_shop_id = str(shop_id) + "_" + coupon_code
         else:
             discount_obj = DiscountValue.objects.create(discount_value=discount_value, is_percentage=False)
-            rule_set_name_with_shop_id = f"{shop_id}_Rs. {discount_value} off on orders above Rs. {discount_amount}"
-            coupon_code = f"Rs. {discount_value} off on orders above Rs. {discount_amount}"
+            coupon_code = "₹" + discount_value_str + " off on orders above ₹" + discount_amount_str
+            rule_set_name_with_shop_id = str(shop_id) + "_" + coupon_code
 
         coupon_obj = OffersCls.rule_set_creation(rule_set_name_with_shop_id, start_date, expiry_date, discount_amount,
                                                  discount_obj)
@@ -360,7 +364,7 @@ class CouponOfferCreation(GenericAPIView):
 
         combo_code = f"Buy {purchased_product_qty} {retailer_primary_product_obj.name}" \
                      f" + Get {free_product_qty} {retailer_free_product_obj.name} Free"
-        combo_rule_name = f"{shop_id}_{combo_code}"
+        combo_rule_name = str(shop_id) + "_" + combo_code
         coupon_obj = OffersCls.rule_set_creation(combo_rule_name, start_date, expiry_date)
         if type(coupon_obj) == str:
             return api_response(coupon_obj)
@@ -397,8 +401,10 @@ class CouponOfferCreation(GenericAPIView):
         if coupon_rule_product_qty:
             return api_response("Offer already exists for same quantity of free product. Please check.")
 
-        rule_name = f"{shop_id}_{retailer_free_product_obj.name}_{free_product_qty}_{discount_amount}"
-        coupon_code = f"{free_product_qty} {retailer_free_product_obj.name} free on orders above Rs. {discount_amount}"
+        discount_amount_str = str(discount_amount).rstrip('0').rstrip('.')
+        coupon_code = str(free_product_qty) + " " + str(
+            retailer_free_product_obj.name) + " free on orders above ₹" + discount_amount_str
+        rule_name = str(shop_id) + "_" + coupon_code
         coupon_obj = OffersCls.rule_set_creation(rule_name, start_date, expiry_date, discount_amount, None,
                                                  retailer_free_product_obj, free_product_qty)
         if type(coupon_obj) == str:

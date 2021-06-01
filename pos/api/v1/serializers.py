@@ -223,7 +223,7 @@ class BasicCartSerializer(serializers.ModelSerializer):
                     'mrp': offer['free_item_mrp'],
                     'name': offer['free_item_name'],
                     'qty': offer['free_item_qty'],
-                    'display_text': 'FREE on orders above Rs. ' + str(offer['cart_minimum_value'])
+                    'display_text': 'FREE on orders above ₹' + str(offer['cart_minimum_value']).rstrip('0').rstrip('.')
                 }
 
         for cart_product in cart_products:
@@ -511,7 +511,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                     'mrp': offer['free_item_mrp'],
                     'name': offer['free_item_name'],
                     'qty': offer['free_item_qty'],
-                    'display_text': 'FREE on orders above Rs. ' + str(offer['cart_minimum_value'])
+                    'display_text': 'FREE on orders above ₹' + str(offer['cart_minimum_value']).rstrip('0').rstrip('.')
                 }
 
         all_returns = obj.rt_return_order.prefetch_related('rt_return_list').filter(order=obj)

@@ -980,11 +980,9 @@ class CartCentral(GenericAPIView):
         cart = initial_validation['cart']
         # Refresh cart prices
         self.refresh_cart_prices(cart)
-        # Refresh - add/remove/update combo and cart level offers
-        offers = BasicCartOffers.refresh_offers(cart)
-        if 'error' in offers:
-            return api_response(offers['error'], None, offers['code'])
-        return api_response('Cart', self.get_serialize_process_basic(cart), status.HTTP_200_OK, True)
+        # Refresh - add/remove/update combo, get nearest cart offer over cart value
+        next_offer = BasicCartOffers.refresh_offers_cart(cart)
+        return api_response('Cart', self.get_serialize_process_basic(cart, next_offer), status.HTTP_200_OK, True)
 
     @staticmethod
     def refresh_cart_prices(cart):
@@ -1143,16 +1141,17 @@ class CartCentral(GenericAPIView):
                                                        'delivery_message': self.delivery_message()})
         return serializer.data
 
-    def get_serialize_process_basic(self, cart):
+    def get_serialize_process_basic(self, cart, next_offer):
         """
            Get Cart
            Cart type basic
            Serialize
         """
-        serializer = BasicCartSerializer(Cart.objects.prefetch_related('rt_cart_list').get(id=cart.id),
-                                         context={'search_text': self.request.GET.get('search_text', ''),
-                                                  'request': self.request})
-        return serializer.data
+        cart = Cart.objects.prefetch_related('rt_cart_list').get(id=cart.id)
+        data = BasicCartSerializer(cart, context={'search_text': self.request.GET.get('search_text', ''),
+                                                  'request': self.request}).data
+        data['next_offer'] = next_offer
+        return data
 
     def retail_add_to_cart(self):
         """
@@ -1240,8 +1239,6 @@ class CartCentral(GenericAPIView):
                 cart_mapping.qty = qty
                 cart_mapping.no_of_pieces = int(qty)
                 cart_mapping.save()
-            # if cart.rt_cart_list.count() <= 0:
-            #     return api_response('No product added to this cart yet', None, status.HTTP_200_OK)
             # serialize and return response
             return api_response('Added To Cart', self.post_serialize_process_basic(cart), status.HTTP_200_OK, True)
 
@@ -1539,8 +1536,11 @@ class CartCentral(GenericAPIView):
             Add To Cart
             Serialize basic cart
         """
-        serializer = BasicCartSerializer(Cart.objects.prefetch_related('rt_cart_list').get(id=cart.id))
-        return serializer.data
+        cart = Cart.objects.prefetch_related('rt_cart_list').get(id=cart.id)
+        data = BasicCartSerializer(cart).data
+        # Get nearest cart offer over cart value
+        data['next_offer'] = BasicCartOffers.get_cart_nearest_offer(cart, cart.rt_cart_list.all())
+        return data
 
 
 class UserView(APIView):
@@ -1664,7 +1664,7 @@ class CartCheckout(APIView):
                                                              self.request.data.get('is_percentage'))
             else:
                 # Get offers available now and apply coupon if applicable
-                offers = BasicCartOffers.refresh_offers(cart, False, self.request.data.get('coupon_id'), 1)
+                offers = BasicCartOffers.refresh_offers_checkout(cart, False, self.request.data.get('coupon_id'))
             if 'error' in offers:
                 return api_response(offers['error'], None, offers['code'])
             if offers['applied']:
@@ -1685,11 +1685,8 @@ class CartCheckout(APIView):
         auto_apply = self.request.GET.get('auto_apply')
         with transaction.atomic():
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
-            offers = BasicCartOffers.refresh_offers(cart, auto_apply, None, 1)
-            if 'error' in offers:
-                return api_response(offers['error'], None, offers['code'])
-            return api_response("Cart Checkout", self.serialize(cart, offers['total_offers'], offers['spot_discount']),
-                                status.HTTP_200_OK, True)
+            offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
+            return api_response("Cart Checkout", self.serialize(cart, offers), status.HTTP_200_OK, True)
 
     def delete(self, request):
         """
@@ -1750,7 +1747,7 @@ class CartCheckout(APIView):
             return {'error': "Cart Does Not Exist / Already Closed"}
         return {'cart': cart}
 
-    def serialize(self, cart, offers=None, spot_discount=None):
+    def serialize(self, cart, offers=None):
         """
             Checkout serializer
             Payment Info plus Offers
@@ -1758,9 +1755,9 @@ class CartCheckout(APIView):
         serializer = CheckoutSerializer(Cart.objects.prefetch_related('rt_cart_list').get(pk=cart.id))
         response = serializer.data
         if offers:
-            response['available_offers'] = offers
-        if spot_discount:
-            response['spot_discount'] = spot_discount
+            response['available_offers'] = offers['total_offers']
+            if offers['spot_discount']:
+                response['spot_discount'] = offers['spot_discount']
         return response
 
 

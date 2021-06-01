@@ -12,7 +12,24 @@ es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-sou
 class BasicCartOffers(object):
 
     @classmethod
-    def refresh_offers(cls, cart, auto_apply=False, coupon_id=None, checkout=1):
+    def refresh_offers_cart(cls, cart):
+        """
+            Refresh Combo On all products
+            Get nearest cart offer
+        """
+        cart_products = cart.rt_cart_list.all()
+        cart_value = 0
+        offer = ''
+        if cart_products:
+            # Add/Remove/Update combo offers on all products
+            offers_list = BasicCartOffers.refresh_combo(cart, cart_products)
+            Cart.objects.filter(pk=cart.id).update(offers=offers_list)
+            # Get nearest cart offer over cart value
+            offer = BasicCartOffers.get_cart_nearest_offer(cart, cart_products)
+        return offer
+
+    @classmethod
+    def refresh_offers_checkout(cls, cart, auto_apply=False, coupon_id=None):
         """
             Refresh All Cart Offers
             Combo On all products
@@ -20,18 +37,16 @@ class BasicCartOffers(object):
         """
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
+        offers_list = []
         if cart_products:
             for product_mapping in cart_products:
                 cart_value += product_mapping.selling_price * product_mapping.qty
-            # Add/Remove/Update combo offers on all products
-            offers_list = BasicCartOffers.refresh_combo(cart, cart_products) if not checkout else cart.offers
+            offers_list = cart.offers
             # Check already applied cart offer
             offers_list = BasicCartOffers.refresh_basic_cart_offers(cart, float(cart_value),
                                                                     offers_list, auto_apply, coupon_id)
             Cart.objects.filter(pk=cart.id).update(offers=offers_list['offers_list'])
-            return offers_list
-        else:
-            return {'error': 'No Products In Cart Yet!', 'code': 200}
+        return offers_list
 
     @classmethod
     def refresh_combo(cls, cart, cart_products):
@@ -62,6 +77,24 @@ class BasicCartOffers(object):
                 offers_list = BasicCartOffers.basic_combo_offers(int(product_map.qty), float(product_map.selling_price),
                                                                  product_map.retailer_product.id, coupon, offers_list)
         return offers_list
+
+    @classmethod
+    def get_cart_nearest_offer(cls, cart, cart_products):
+        """
+            Get nearest offer applicable over order value
+        """
+        cart_value = 0
+        for product_mapping in cart_products:
+            cart_value += product_mapping.selling_price * product_mapping.qty
+        offer = ''
+        coupons = BasicCartOffers.get_cart_nearest_coupon(cart.seller_shop.id, float(cart_value))
+        if coupons:
+            offer = 'Shop for ₹' + str(coupons[0]['cart_minimum_value']).rstrip('0').rstrip('.') + ' and get additional '
+            if coupons[0]['is_percentage']:
+                offer += str(coupons[0]['discount']).rstrip('0').rstrip('.') + '% Off.'
+            else:
+                offer += '₹' + str(coupons[0]['discount']).rstrip('0').rstrip('.') + ' Off.'
+        return offer
 
     @classmethod
     def get_basic_combo_coupons(cls, purchased_product_ids, shop_id, size=1, source=None):
@@ -119,8 +152,8 @@ class BasicCartOffers(object):
             offer['free_item_name'] = free_product.name
             offer['free_item_mrp'] = float(free_product.mrp)
             offer['free_item_qty_added'] = free_item_qty
-            offer['display_text'] = str(free_item_qty) + ' ' + free_product.name + ' worth Rs.' + str(
-                round(float(free_product.mrp) * float(free_item_qty), 2)) + ' Free'
+            offer['display_text'] = str(free_item_qty) + ' ' + free_product.name + ' worth ₹' + str(
+                round(float(free_product.mrp) * float(free_item_qty), 2)).rstrip('0').rstrip('.') + ' Free'
         else:
             # Next applicable combo offer on product
             offer = BasicCartOffers.get_offer_next(coupon, product_total, qty)
@@ -204,13 +237,13 @@ class BasicCartOffers(object):
             Refresh cart level discount
         """
         # Get coupons available on cart from es
-        c_list = BasicCartOffers.get_basic_cart_coupons(cart.seller_shop.id)
+        c_list = BasicCartOffers.get_basic_cart_coupons(cart.seller_shop.id, cart_value)
         # Check already applied coupon, Auto apply if required
         offers_list = BasicCartOffers.basic_cart_offers(c_list, cart_value, offers_list, auto_apply, coupon_id)
         return offers_list
 
     @classmethod
-    def get_basic_cart_coupons(cls, shop_id):
+    def get_basic_cart_coupons(cls, shop_id, cart_value):
         """
             Get coupons available on carts of shop
         """
@@ -221,9 +254,39 @@ class BasicCartOffers(object):
             "query": {"bool": {"filter": [{"term": {"active": True}},
                                           {"term": {"coupon_type": 'cart'}},
                                           {"range": {"start_date": {"lte": date}}},
-                                          {"range": {"end_date": {"gte": date}}}]
+                                          {"range": {"end_date": {"gte": date}}},
+                                          {"range": {"cart_minimum_value": {"lte": cart_value}}}]
                                }
                       }
+        }
+        c_list = []
+        try:
+            coupons_list = es.search(index=create_es_index("rc-{}".format(shop_id)), body=body)
+            for c in coupons_list['hits']['hits']:
+                c_list.append(c["_source"])
+        except:
+            pass
+        return c_list
+
+    @classmethod
+    def get_cart_nearest_coupon(cls, shop_id, cart_value):
+        """
+            Get nearest coupon available over cart value
+        """
+        date = datetime.now()
+        body = {
+            "from": 0,
+            "size": 1,
+            "query": {"bool": {"filter": [{"term": {"active": True}},
+                                          {"term": {"coupon_type": 'cart'}},
+                                          {"range": {"start_date": {"lte": date}}},
+                                          {"range": {"end_date": {"gte": date}}},
+                                          {"range": {"cart_minimum_value": {"gt": cart_value}}}]
+                               }
+                      },
+            "sort": [
+                {"cart_minimum_value": "asc"},
+            ]
         }
         c_list = []
         try:

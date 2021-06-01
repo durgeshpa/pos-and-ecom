@@ -15,9 +15,9 @@ from accounts.models import User
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
-    2: Order.CANCELLED,
-    3: Order.PARTIALLY_RETURNED,
-    4: Order.FULLY_RETURNED
+    2: Order.PARTIALLY_RETURNED,
+    3: Order.FULLY_RETURNED,
+    4: Order.CANCELLED
 }
 
 # Logger
