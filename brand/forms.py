@@ -1,13 +1,7 @@
 from django import forms
-from django.core.validators import validate_email
-from multi_email_field.forms import MultiEmailField
 
-from .models import Vendor, Brand, BrandPosition
+from .models import Vendor, BrandPosition
 from django.urls import reverse
-import datetime, csv, codecs, re
-from django.core.exceptions import ValidationError
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
-from products.models import Product, ProductVendorMapping
 from addresses.models import City, State
 from dal import autocomplete
 from shops.models import Shop
