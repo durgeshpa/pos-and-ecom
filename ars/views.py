@@ -41,7 +41,7 @@ def product_demand_data_generator(master_data, retailer_parent_mapping_dict):
             if active_child_product is None:
                 continue
 
-            rolling_avg = data['ordered_pieces']/data['visible_days'] if data.get('visible_days') else 0
+            rolling_avg = math.ceil(data['ordered_pieces']/data['visible_days']) if data.get('visible_days') else 0
             if rolling_avg is None or rolling_avg == 0:
                 continue
             current_inventory = data['qty'] if data['qty'] > 0 else 0
@@ -122,7 +122,7 @@ def populate_daily_average():
                                                         parent__shop_type__shop_type='gf').values('parent_id', 'retailer_id')
     parent_retailer_mapping_dict = {mapping['parent_id']:mapping['retailer_id'] for mapping in parent_retailer_mappings}
     inventory_in_process = Cart.objects.filter(gf_billing_address__shop_name__id__in=parent_retailer_mapping_dict.keys(),
-                                               po_status__in=[Cart.OPEN, Cart.APPROVAL_AWAITED],
+                                               po_status__in=[Cart.OPEN, Cart.PENDING_APPROVAL],
                                                cart_list__cart_product__parent_product_id__in=master_data.keys())\
                                        .values('gf_billing_address__shop_name','cart_list__cart_product__parent_product')\
                                        .annotate(no_of_pieces=Sum('cart_list__no_of_pieces'))
