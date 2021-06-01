@@ -18,6 +18,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
     get_validate_seller_shop, check_active_capping, validate_tax_type, get_validate_vendor
 from products.common_function import ParentProductCls, ProductCls
+from accounts.models import User
 
 
 class BrandSerializers(serializers.ModelSerializer):
@@ -98,10 +99,16 @@ class ProductSerializers(serializers.ModelSerializer):
         model = Product
         fields = ('id', 'product_name', 'product_sku', 'status',)
 
+class UserSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'phone_number',)
 
 class ParentProductSerializers(serializers.ModelSerializer):
     """Handles creating, reading and updating parent product items."""
     parent_brand = BrandSerializers(read_only=True)
+    updated_by = UserSerializers(read_only=True)
     product_hsn = ProductHSNSerializers(read_only=True)
     parent_product_pro_image = ParentProductImageSerializers(many=True)
     parent_product_pro_category = ParentProductCategorySerializers(many=True)
