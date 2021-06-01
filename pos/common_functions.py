@@ -58,6 +58,12 @@ class RetailerProductCls(object):
                 RetailerProductImage.objects.create(product=product, image=image)
 
     @classmethod
+    def update_price(cls, product_id, selling_price):
+        product = RetailerProduct.objects.filter(id=product_id).last()
+        product.selling_price = selling_price
+        product.save()
+
+    @classmethod
     def get_sku_type(cls, sku_type):
         """
             Get SKU_TYPE

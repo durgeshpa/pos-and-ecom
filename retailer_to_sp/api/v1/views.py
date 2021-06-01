@@ -1507,8 +1507,7 @@ class CartCentral(GenericAPIView):
         if price_change in [1, 2]:
             selling_price = self.request.data.get('selling_price')
             if price_change == 1 and selling_price:
-                RetailerProduct.objects.filter(id=product.id).update(selling_price=selling_price)
-
+                RetailerProductCls.update_price(product.id, selling_price)
         return selling_price if selling_price else product.selling_price
 
     def post_serialize_process_sp(self, cart, seller_shop='', buyer_shop='', product=''):
