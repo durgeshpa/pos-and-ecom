@@ -42,7 +42,7 @@ class ProductHSNSerializers(serializers.ModelSerializer):
 class CategorySerializers(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ('id', 'category_name')
+        fields = ('category_name', )
 
 
 class ParentProductCategorySerializers(serializers.ModelSerializer):
@@ -50,7 +50,7 @@ class ParentProductCategorySerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProductCategory
-        fields = ('id', 'parent_product', 'category',)
+        fields = ('id', 'category',)
 
 
 class ParentProductImageSerializers(serializers.ModelSerializer):
@@ -76,7 +76,7 @@ class ProductImageSerializers(serializers.ModelSerializer):
 class TaxSerializers(serializers.ModelSerializer):
     class Meta:
         model = Tax
-        fields = ('id', 'tax_name', 'tax_type', 'tax_percentage')
+        fields = ('tax_name', 'tax_type', 'tax_percentage')
 
 
 class ProductSourceMappingSerializers(serializers.ModelSerializer):
@@ -90,7 +90,7 @@ class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProductTaxMapping
-        fields = ('id', 'parent_product', 'tax')
+        fields = ('id', 'tax')
 
 
 class ProductSerializers(serializers.ModelSerializer):
@@ -99,11 +99,13 @@ class ProductSerializers(serializers.ModelSerializer):
         model = Product
         fields = ('id', 'product_name', 'product_sku', 'status',)
 
+
 class UserSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = User
         fields = ('id', 'first_name', 'phone_number',)
+
 
 class ParentProductSerializers(serializers.ModelSerializer):
     """Handles creating, reading and updating parent product items."""
