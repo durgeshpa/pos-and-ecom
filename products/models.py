@@ -258,7 +258,7 @@ class Product(models.Model):
         return "{}-{}".format(self.product_name, self.product_sku)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['-id']
         verbose_name = 'Child Product'
         verbose_name_plural = 'Child Products'
 

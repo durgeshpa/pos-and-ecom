@@ -33,7 +33,6 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     parser_classes = [MultipartJsonParser, JSONParser]
 
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn').prefetch_related(
