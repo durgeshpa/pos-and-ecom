@@ -1,6 +1,8 @@
 import logging
-
+import json
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.core.validators import URLValidator
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
@@ -33,6 +35,7 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     parser_classes = [MultipartJsonParser, JSONParser]
 
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn').prefetch_related(
@@ -56,12 +59,12 @@ class ParentProductView(GenericAPIView):
         else:
             """ GET Parent Product List """
             self.queryset = self.search_filter_parent_product()
-            if request.GET.get('offset') and request.GET.get('limit') is not None:
-                parent_product = SmallOffsetPagination().paginate_queryset(self.queryset[int(request.GET.get('offset')):
-                                                                                         int(request.GET.get('limit'))],
-                                                                           request)
-            else:
-                parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            # if request.GET.get('offset') and request.GET.get('limit') is not None:
+            #     parent_product = SmallOffsetPagination().paginate_queryset(self.queryset[int(request.GET.get('offset')):
+            #                                                                              int(request.GET.get('limit'))],
+            #                                                                request)
+            # else:
+            parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
         return get_response('parent product list!', serializer.data)
 
@@ -71,7 +74,7 @@ class ParentProductView(GenericAPIView):
         info_logger.info("Parent Product POST api called.")
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(created_by=request.user)
             return get_response('parent product created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
@@ -90,7 +93,7 @@ class ParentProductView(GenericAPIView):
 
         serializer = self.serializer_class(instance=parent_product_instance, data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(updated_by=request.user)
             return get_response('parent product updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
@@ -128,6 +131,16 @@ class ParentProductView(GenericAPIView):
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__category_name=category)
         return self.queryset
+
+    def validate_data_format(self):
+        # Validate product data
+        try:
+            data = json.loads(self.request.data["data"], )
+        except (KeyError, ValueError):
+            return {'error': "Invalid Data Format"}
+        image_files = self.request.FILES.getlist('parent_product_pro_image')
+        data['parent_product_pro_image'] = image_files
+        return data
 
 
 class ParentProductBulkUploadView(CreateAPIView):

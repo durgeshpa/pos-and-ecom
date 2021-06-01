@@ -159,7 +159,56 @@ class ParentProductSerializers(serializers.ModelSerializer):
         model = ParentProduct
         fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable',
                   'ptr_percent', 'ptr_type', 'status', 'product_hsn', 'parent_brand', 'parent_product_pro_image',
-                  'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product')
+                  'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product', 'updated_by')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        data = {
+                "basic":
+                    {
+                        "id" : representation['id'],
+                        "parent_id": representation['parent_id'],
+                        "name": representation['name'],
+                        "parent_id": representation['parent_id'],
+                        "status": representation['status'],
+                        "product_type": representation['product_type'],
+                        "parent_product_pro_tax": representation['parent_product_pro_tax'],
+                        "parent_product_pro_category": representation['parent_product_pro_category'],
+                        "parent_brand": representation['parent_brand'],
+                    },
+                "additional":
+                    {
+                        "is_ptr_applicable": representation['is_ptr_applicable'],
+                        "ptr_percent": representation['ptr_percent'],
+                        "ptr_type": representation['ptr_type'],
+                        "parent_product_pro_image": representation['parent_product_pro_image'],
+                        "product_hsn": representation['product_hsn'],
+                    },
+                "detail_page_1":
+                    {
+                        "name": representation['name'],
+                        "parent_brand": representation['parent_brand'],
+                        "product_hsn": representation['product_hsn'],
+                        "inner_case_size": representation['inner_case_size'],
+                        "product_type": representation['product_type'],
+                        "is_ptr_applicable": representation['is_ptr_applicable'],
+                        "ptr_percent": representation['ptr_percent'],
+                        "ptr_type": representation['ptr_type'],
+                        "parent_product_pro_category": representation['parent_product_pro_category'],
+                        "parent_product_pro_tax": representation['parent_product_pro_tax'],
+                        "parent_product_pro_image": representation['parent_product_pro_image'],
+                    },
+                "detail_page_2":
+                    {
+                        "product_parent_product": representation['product_parent_product'],
+                    },
+                "detail_page_log":
+                    {
+                        "updated_by": representation['updated_by']
+                    }
+                }
+        return data
+
 
     @transaction.atomic
     def create(self, validated_data):

@@ -595,7 +595,7 @@ class ParentProductAdmin(admin.ModelAdmin):
         if obj.parent_product_pro_image.exists():
             return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
                 obj.parent_product_pro_image.last().image.url,
-                (obj.parent_product_pro_image.last().image_alt_text or obj.parent_product_pro_image.last().image_name),
+                (obj.parent_product_pro_image.last().image_name),
                 obj.parent_product_pro_image.last().image.url
             ))
         return '-'
