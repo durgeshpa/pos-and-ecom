@@ -5,6 +5,7 @@ import math
 from io import StringIO
 
 from dal import autocomplete
+from decouple import config
 from django.db import transaction
 from django.db.models import Sum, Count, F, Q
 from django.http import HttpResponse
@@ -336,7 +337,9 @@ def mail_category_manager_for_po_approval():
                                                           created_at__date=today)
         if po_to_send_mail_for.count() > 0:
             sender = get_config("ARS_MAIL_SENDER")
-            recipient_list = get_config("ARS_MAIL_PO_ARROVAL_RECIEVER")
+            recipient_list = get_config("MAIL_DEV")
+            if config('OS_ENV') and config('OS_ENV') in ['Production']:
+                recipient_list = get_config("ARS_MAIL_PO_ARROVAL_RECIEVER")
             subject = SUCCESS_MESSAGES['ARS_MAIL_PO_APPROVAL_SUBJECT'].format(today)
             body = SUCCESS_MESSAGES['ARS_MAIL_PO_APPROVAL_BODY'].format(today)
             f = StringIO()

@@ -4,6 +4,7 @@ import datetime
 from io import StringIO
 
 import django_filters
+from decouple import config
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.db.models import F, Sum, Count, Subquery
@@ -601,7 +602,10 @@ def mail_warehouse_for_approved_po():
                                                   approved_at__date=today)
         if po_to_send_mail_for.count() > 0:
             sender = get_config("ARS_MAIL_SENDER")
-            recipient_list = get_config("ARS_MAIL_WAREHOUSE_RECIEVER")
+
+            recipient_list = get_config("MAIL_DEV")
+            if config('OS_ENV') and config('OS_ENV') in ['Production']:
+                recipient_list = get_config("ARS_MAIL_WAREHOUSE_RECIEVER")
             subject = SUCCESS_MESSAGES['ARS_MAIL_WAREHOUSE_SUBJECT'].format(today)
             body = SUCCESS_MESSAGES['ARS_MAIL_WAREHOUSE_BODY'].format(today)
             f = StringIO()

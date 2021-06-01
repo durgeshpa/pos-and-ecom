@@ -9,16 +9,11 @@ from addresses.models import City,State
 from retailer_backend.validators import ( AddressNameValidator, PinCodeValidator)
 from django.core.validators import RegexValidator, MaxValueValidator
 from retailer_backend.validators import CapitalAlphabets
-from django.dispatch import receiver
-from django.db.models.signals import post_save
-import datetime, csv, codecs, re
-from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from shops.models import Shop
 from categories.models import Category
-from django.contrib.postgres.fields import JSONField
 from django.contrib.postgres.fields import ArrayField
-from django.db.models import Case, CharField, Value, When, F
+
 
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
@@ -57,7 +52,7 @@ class Vendor(models.Model):
     contact_person_name = models.CharField(max_length=255,null=True,blank=True)
     telephone_no = models.CharField(max_length=15,null=True,blank=True)
     mobile = models.CharField(max_length=10, null=True)
-    email_id = models.EmailField(max_length=254, null=True)
+    email_id = models.TextField(null=True, blank=True)
     designation = models.CharField(max_length=255, null=True)
     address_line1 = models.CharField(max_length=255, validators=[AddressNameValidator], null=True)
     state = models.ForeignKey(State, related_name='vendor_state_address', on_delete=models.CASCADE, null=True)
