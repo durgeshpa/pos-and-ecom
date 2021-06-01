@@ -614,8 +614,6 @@ def mail_warehouse_for_approved_po():
             columns = ['PO Number', 'Brand', 'Supplier State', 'Supplier Name', 'PO Creation Date', 'PO Status',
                        'PO Delivery Date']
             writer.writerow(columns)
-            po_to_send_mail_for = Cart.objects.filter(po_status=Cart.OPEN, cart_type=Cart.CART_TYPE_CHOICE.AUTO,
-                                                      created_at__date=today)
             for po in po_to_send_mail_for:
                 writer.writerow([po.po_no, po.brand, po.supplier_state, po.supplier_name, po.created_at,
                                 po.po_status, po.po_delivery_date])
