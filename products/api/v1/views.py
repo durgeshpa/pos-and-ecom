@@ -1,5 +1,5 @@
 import logging
-import json
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
@@ -16,10 +16,11 @@ from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, ProductHSNSerializers, \
-    ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers
+    ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, CategorySerializers
 from products.common_function import get_response, serializer_error
-from products.common_validators import validate_id
+from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search
+from categories.models import Category
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -32,15 +33,41 @@ class BrandView(GenericAPIView):
         Get Brand
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = Brand.objects.all()
     serializer_class = BrandSerializers
 
     def get(self, request):
-        brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        if request.GET.get('id'):
+            """ Get Parent Product for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            brand = id_validation['data']
+        else:
+            brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(brand, many=True)
         return get_response('brand list!', serializer.data)
 
+
+class CategoryView(GenericAPIView):
+    """
+        Get Brand
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializers
+
+    def get(self, request):
+        if request.GET.get('id'):
+            """ Get Parent Product for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            category = id_validation['data']
+        else:
+            category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        return get_response('category list!', serializer.data)
 
 class ParentProductView(GenericAPIView):
     """
@@ -51,16 +78,13 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-    parser_classes = [MultipartJsonParser, JSONParser]
-
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn').prefetch_related(
         'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
         'parent_product_pro_category__category', 'product_parent_product__product_vendor_mapping',
         'parent_product_pro_tax__tax', 'product_parent_product__product_vendor_mapping__vendor'). \
         only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
              'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
-             'product_hsn__product_hsn_code', ).order_by('-id')
+             'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable', 'max_inventory').order_by('-id')
     serializer_class = ParentProductSerializers
 
     def get(self, request):
@@ -84,7 +108,12 @@ class ParentProductView(GenericAPIView):
         """ POST API for Parent Product Creation with Image Category & Tax """
 
         info_logger.info("Parent Product POST api called.")
-        serializer = self.serializer_class(data=request.data)
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             return get_response('parent product created successfully!', serializer.data)
@@ -94,16 +123,21 @@ class ParentProductView(GenericAPIView):
         """ PUT API for Parent Product Updation with Image Category & Tax """
 
         info_logger.info("Parent Product PUT api called.")
-        if not request.POST.get('id'):
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if not modified_data['id']:
             return get_response('please provide id to update parent product', False)
 
         # validations for input id
-        id_instance = validate_id(self.queryset, int(request.POST.get('id')))
+        id_instance = validate_id(self.queryset, int(modified_data['id']))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
         parent_product_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=parent_product_instance, data=request.data)
+        serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             return get_response('parent product updated!', serializer.data)
@@ -136,12 +170,12 @@ class ParentProductView(GenericAPIView):
             self.queryset = parent_product_search(self.queryset, search_text)
         # filter using brand_name, category & product_status exact match
         if brand is not None:
-            self.queryset = self.queryset.filter(parent_brand__brand_name=brand)
+            self.queryset = self.queryset.filter(parent_brand__id=brand)
         if product_status is not None:
             self.queryset = self.queryset.filter(status=product_status)
         if category is not None:
             self.queryset = self.queryset.filter(
-                parent_product_pro_category__category__category_name=category)
+                parent_product_pro_category__category__id=category)
         return self.queryset
 
     def validate_data_format(self):
@@ -530,14 +564,14 @@ class TaxView(GenericAPIView):
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            product_hsn = id_validation['data']
+            product_tax = id_validation['data']
         else:
             """ GET Tax List """
             self.queryset = self.search_filter_product_hsn()
-            product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
-        serializer = self.serializer_class(product_hsn, many=True)
-        return get_response('product hsn list!', serializer.data)
+        serializer = self.serializer_class(product_tax, many=True)
+        return get_response('product tax list!', serializer.data)
 
     def post(self, request, *args, **kwargs):
         """ POST API for Tax Creation """
