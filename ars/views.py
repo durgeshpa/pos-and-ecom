@@ -42,8 +42,6 @@ def product_demand_data_generator(master_data, retailer_parent_mapping_dict):
                 continue
 
             rolling_avg = math.ceil(data['ordered_pieces']/data['visible_days']) if data.get('visible_days') else 0
-            if rolling_avg is None or rolling_avg == 0:
-                continue
             current_inventory = data['qty'] if data['qty'] > 0 else 0
             inventory_in_process = data['in_process_inventory'] if data.get('in_process_inventory') else 0
             putaway_inventory = data['pending_putaway'] if data.get('pending_putaway') else 0
@@ -282,7 +280,7 @@ def initiate_ars():
                     is_eligible_to_raise_demand = True
 
                 if is_eligible_to_raise_demand:
-                    brand_product_dict[brand][warehouse.id][item.vendor_id] = {parent_product.id : demand}
+                    brand_product_dict[brand][warehouse.id][item.vendor_id][parent_product.id] = demand
 
     for brand, warehouse_demand_dict in brand_product_dict.items():
         for wh, vendor_demand_dict in warehouse_demand_dict.items():
