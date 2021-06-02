@@ -1147,9 +1147,7 @@ def product_csv_upload(request):
                             )
                 error = ''
             except Exception as e:
-                import traceback
                 error_logger.error(e)
-                traceback.print_exc()
                 msg = ''
             return render(request, 'admin/products/child-product-upload.html', {
                 'form': form,
