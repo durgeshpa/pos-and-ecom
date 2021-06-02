@@ -2337,7 +2337,7 @@ class RescheduleReason(generics.ListCreateAPIView):
                 item.save()
             self.update_shipment(request.data.get('shipment'))
             update_trip_status(request.data.get('trip'))
-            msg = {'is_success': True, 'message': ['Reschedule successfully done.'], 'response_data': serializer.data}
+            msg = {'is_success': False, 'message': ['Reschedule successfully done.'], 'response_data': serializer.data}
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
