@@ -62,7 +62,7 @@ def get_shop_scheme_mapping_based(shop_id, month):
                     continue
                 start_end_date_list += [start_end_date]
                 scheme_shop_mapping_list.append(scheme)
-
+        return scheme_shop_mapping_list
     else:
         var_priority = 'scheme_priority'
         shop_scheme_mapping_qs = IncentiveDashboardDetails.objects.filter(shop_id=shop_id,

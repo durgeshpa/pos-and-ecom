@@ -337,7 +337,7 @@ class BeatPlanningAdminForm(forms.ModelForm):
                 widget=autocomplete.ModelSelect2(url='admin:user-autocomplete',))
         else:
             self.fields['executive'] = forms.ModelChoiceField(queryset=ShopUserMapping.objects.filter(
-                manager=shop_mapping_object).distinct('employee_id'), widget=autocomplete.ModelSelect2())
+                manager=shop_mapping_object, status=True).distinct('employee_id'), widget=autocomplete.ModelSelect2())
 
 
 class BeatUserMappingCsvViewForm(forms.Form):

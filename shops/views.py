@@ -586,6 +586,8 @@ class BeatUserMappingCsvSample(View):
     """
     This class is used to download the sample beat csv file for individual executive
     """
+    def get_manager(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
 
     def get(self, request, *args, **kwargs):
         """
@@ -601,13 +603,14 @@ class BeatUserMappingCsvSample(View):
                 employee=request.GET['shop_user_mapping']).values_list('employee').last()
 
             # get the shop queryset assigned with executive
-            shops = ShopUserMapping.objects.filter(employee=query_set).all()
+            shops = ShopUserMapping.objects.filter(employee=query_set, status=True,
+                                                   shop__shop_user__shop__approval_status=2).distinct('shop')
         else:
             query_set = ShopUserMapping.objects.filter(
                 id=request.GET['shop_user_mapping']).values_list('employee').last()
 
             # get the shop queryset assigned with executive
-            shops = ShopUserMapping.objects.filter(employee=query_set[0]).all()
+            shops = ShopUserMapping.objects.filter(employee=query_set[0], manager__in=self.get_manager(), status=True, shop__shop_user__shop__approval_status=2).distinct('shop')
 
         try:
             # name of the csv file
@@ -632,12 +635,12 @@ class BeatUserMappingCsvSample(View):
             writer.writerow(['Sales Executive (Number - Name)', 'Shop Name', 'Shop ID ', 'Contact Number', 'Address',
                              'Pin Code', 'Category', 'Date (dd/mm/yyyy)'])
             for shop in shops:
-                if shop.shop.approval_status == 2:
+                try:
                     writer.writerow([shop.employee, shop.shop.shop_name, shop.shop.pk,
                                      shop.shop.shipping_address.address_contact_number,
                                      shop.shop.shipping_address.address_line1, shop.shop.shipping_address.pincode, '',
                                      ''])
-                else:
+                except:
                     pass
             f.seek(0)
             response = HttpResponse(f, content_type='text/csv')
