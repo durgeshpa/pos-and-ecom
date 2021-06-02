@@ -76,11 +76,6 @@ class ParentProductView(GenericAPIView):
         else:
             """ GET Parent Product List """
             self.queryset = self.search_filter_parent_product()
-            # if request.GET.get('offset') and request.GET.get('limit') is not None:
-            #     parent_product = SmallOffsetPagination().paginate_queryset(self.queryset[int(request.GET.get('offset')):
-            #                                                                              int(request.GET.get('limit'))],
-            #                                                                request)
-            # else:
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
         return get_response('parent product list!', serializer.data)
