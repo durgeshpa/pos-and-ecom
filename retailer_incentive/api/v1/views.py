@@ -238,10 +238,9 @@ class IncentiveDashBoard(APIView):
                                                                  employee=user.shop_employee.instance,
                                                                  status=True).order_by('shop').distinct('shop')
         if shop_mapping_object:
-            shop_mapping_object_paginate = SmallOffsetPagination().paginate_queryset(shop_mapping_object, self.request)
             scheme_shop_mapping_list = []
             scheme_data_list = []
-            for shop_scheme in shop_mapping_object_paginate:
+            for shop_scheme in shop_mapping_object:
                 scheme_shop_mapping = get_shop_scheme_mapping_based(shop_scheme.shop_id, month)
                 if scheme_shop_mapping:
                     for scheme_sh_map in scheme_shop_mapping:
@@ -299,6 +298,7 @@ class IncentiveDashBoard(APIView):
                                        'end_date': str(scheme_shop_map.end_date.strftime("%Y-%m-%d"))
                                        }
                     scheme_data_list.append(scheme_data)
+            scheme_data_list = SmallOffsetPagination().paginate_queryset(scheme_data_list, self.request)
             return scheme_data_list
 
 

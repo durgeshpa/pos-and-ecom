@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.db import models, transaction
 from django.db.models import Sum
+from model_utils import Choices
 
 from products.models import Product, ProductVendorMapping, ParentProduct
 from products.utils import vendor_product_mapping
@@ -70,6 +71,7 @@ class Cart(BaseCart):
     CANCELED = "CNCL"
     PARTIAL_RETURN = 'PARR'
     CLOSE = "CLS"
+    PENDING_APPROVAL = 'PDA'
     ORDER_STATUS = (
         (OPEN, "Open"),
         (APPROVAL_AWAITED, "Waiting For Finance Approval"),
@@ -81,7 +83,9 @@ class Cart(BaseCart):
         (DELIVERED, "Completely delivered and Closed"),
         (CANCELED, "Canceled"),
         (CLOSE, "Closed"),
+        (PENDING_APPROVAL, "Pending for approval"),
     )
+    CART_TYPE_CHOICE = Choices((1, 'MANUAL', 'Manual'),(2, 'AUTO', 'Auto'))
 
     brand = models.ForeignKey(Brand, related_name='brand_order', on_delete=models.CASCADE)
     supplier_state = models.ForeignKey(State, related_name='state_cart', null=True, blank=True,
@@ -107,8 +111,15 @@ class Cart(BaseCart):
     delivery_term = models.TextField(null=True, blank=True)
     po_amount = models.FloatField(default=0)
     cart_product_mapping_csv = models.FileField(upload_to='gram/brand/cart_product_mapping_csv', null=True, blank=True)
-    is_approve = models.BooleanField(null=True, blank=True)
+    is_approve = models.BooleanField(default=False, blank=True, null=True)
+    is_vendor_notified = models.BooleanField(default=False, blank=True)
+    is_warehouse_notified = models.BooleanField(default=False, blank=True)
+    po_delivery_date = models.DateField(null=True)
+    cart_type = models.PositiveSmallIntegerField(choices=CART_TYPE_CHOICE, default=CART_TYPE_CHOICE.MANUAL)
+    approved_by = models.ForeignKey(get_user_model(), related_name='user_approved_carts', null=True, blank=True,
+                                    on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
+    approved_at = models.DateTimeField(null=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:

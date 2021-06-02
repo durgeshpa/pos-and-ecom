@@ -14,6 +14,7 @@ from wms.common_functions import InCommonFunctions
 from global_config.views import get_config
 
 from .models import BrandNote, GRNOrderProductMapping, GRNOrder, Cart, Order
+from .views import mail_to_vendor_on_po_approval
 
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
@@ -165,3 +166,14 @@ def generate_po_no(sender, instance=None, created=False, update_fields=None, **k
         order, created = Order.objects.get_or_create(ordered_cart=instance)
         order.order_no = instance.po_no
         order.save()
+
+
+@receiver(post_save, sender=Cart)
+def mail_to_vendor(sender, instance=None, created=False, update_fields=None, **kwargs):
+    """
+        Send mail to vendor on po approval
+    """
+    if instance.cart_type==Cart.CART_TYPE_CHOICE.AUTO and instance.is_approve and not instance.is_vendor_notified:
+       mail_to_vendor_on_po_approval(instance)
+       instance.is_vendor_notified = True
+       instance.save()

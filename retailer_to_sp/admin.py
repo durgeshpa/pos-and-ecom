@@ -2,6 +2,8 @@
 import csv
 import logging
 import datetime
+from operator import or_
+from functools import reduce
 
 # django imports
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
@@ -244,11 +246,11 @@ class InvoiceSearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            invoice_no = self.value()
+            invoice_no = self.value().split(',')
             if invoice_no is None:
                 return
             return queryset.filter(
-                Q(invoice__invoice_no__icontains=invoice_no)
+                Q(invoice__invoice_no__in=invoice_no)
             )
 
 class OrderInvoiceSearch(InputFilter):
@@ -269,11 +271,11 @@ class ShipmentOrderIdSearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            order_id = self.value()
+            order_id = self.value().split(',')
             if order_id is None:
                 return
             return queryset.filter(
-                Q(order__order_no__icontains=order_id)
+                Q(order__order_no__in=order_id)
             )
 
 
@@ -979,7 +981,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     list_display = (
                     'order_no', 'download_pick_list', 'invoice_no', 'seller_shop','buyer_shop_id', 'buyer_shop_type', 'buyer_shop_with_mobile',
                     'pincode', 'city', 'total_final_amount', 'order_status', 'created_at',
-                    'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
+                    'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status', 'trip_id',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picklist_refreshed_at', 'picker_boy',
                     'pickup_completed_at', 'picking_completion_time' #'damaged_amount',
@@ -1087,13 +1089,37 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         ]
         return urls
 
-class ShipmentReschedulingAdmin(NestedTabularInline):
+
+class ShipmentReschedulingAdminNested(NestedTabularInline):
     model = ShipmentRescheduling
     form = ShipmentReschedulingForm
     fields = ['rescheduling_reason', 'rescheduling_date']
     max_num = 1
 
     def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ShipmentRescheduling)
+class ShipmentReschedulingAdmin(admin.ModelAdmin):
+    model = ShipmentRescheduling
+    list_display = ('shipment', 'order', 'trip', 'rescheduling_reason', 'rescheduling_date', 'created_by')
+    list_per_page = 20
+    search_fields = ('shipment__order__order_no', 'shipment__invoice__invoice_no', 'trip__dispatch_no')
+
+    def order(self, obj):
+        return obj.shipment.order
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
 
@@ -1119,7 +1145,7 @@ class OrderedProductAdmin(NestedModelAdmin):
     change_list_template = 'admin/retailer_to_sp/OrderedProduct/change_list.html'
     actions = ['download_bulk_invoice']
     list_per_page = FIFTY
-    inlines = [ShipmentReschedulingAdmin, OrderedProductMappingAdmin,]
+    inlines = [ShipmentReschedulingAdminNested, OrderedProductMappingAdmin,]
     list_display = (
         'invoice_no', 'order', 'created_at', 'shipment_address', 'invoice_city',
         'invoice_amount', 'payment_mode', 'shipment_status', 'download_invoice'
@@ -1127,16 +1153,23 @@ class OrderedProductAdmin(NestedModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check'
+        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check',
+        'previous_trip'
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     readonly_fields = (
-        'order', 'invoice_no', 'trip', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
+        'order', 'invoice_no', 'trip', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'previous_trip'
     )
     form = OrderedProductReschedule
     ordering = ['-created_at']
     classes = ['table_inline', ]
+
+    def previous_trip(self, obj):
+        if obj and obj.rescheduling_shipment.all().exists():
+            return obj.rescheduling_shipment.last().trip
+        return '-'
+
     def download_invoice(self, obj):
         if obj.shipment_status == 'SHIPMENT_CREATED':
             return format_html("-")
@@ -1177,7 +1210,8 @@ class OrderedProductAdmin(NestedModelAdmin):
                          for formset in formsets}
         if (not form_instance.rescheduling_shipment.exists()) and ('ShipmentReschedulingFormFormSet' in formsets_dict and
             [i for i in formsets_dict['ShipmentReschedulingFormFormSet'].cleaned_data if i]):
-            reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
+            reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'],
+                                      formsets_dict['ShipmentReschedulingFormFormSet'])
         elif form_instance.shipment_status in complete_shipment_status:
             update_shipment_status_verified(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             #create_credit_note(form.instance)
@@ -1326,6 +1360,28 @@ class ShipmentAdmin(NestedModelAdmin):
                        'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     list_per_page = FIFTY
     ordering = ['-created_at']
+
+    def get_search_results(self, request, queryset, search_term):
+        """
+        request:-request object
+        queryset:-queryset object
+        search_term:- search strings
+
+        """
+
+        queryset, use_distinct = super(ShipmentAdmin, self).get_search_results(
+            request, queryset, search_term)
+        if queryset:
+            return queryset, use_distinct
+        else:
+            search_words = search_term.split(',')
+            if search_words:
+                q_objects = [Q(**{field + '__icontains': word})
+                             for field in self.search_fields
+                             for word in search_words]
+                queryset |= self.model.objects.filter(reduce(or_, q_objects))
+
+            return queryset, use_distinct
 
     def has_delete_permission(self, request, obj=None):
         return False
