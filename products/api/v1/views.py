@@ -11,9 +11,10 @@ from rest_framework.parsers import JSONParser
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
     ParentProductImage, ProductVendorMapping, Product as ChildProduct, Tax
+from brand.models import Brand
 from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
-from .serializers import ParentProductSerializers, ParentProductBulkUploadSerializers, \
+from .serializers import ParentProductSerializers, BrandSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers
 from products.common_function import get_response, serializer_error
@@ -24,6 +25,21 @@ from products.services import parent_product_search, child_product_search, produ
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+
+
+class BrandView(GenericAPIView):
+    """
+        Get Brand
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Brand.objects.all()
+    serializer_class = BrandSerializers
+
+    def get(self, request):
+        brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(brand, many=True)
+        return get_response('brand list!', serializer.data)
 
 
 class ParentProductView(GenericAPIView):
@@ -40,7 +56,8 @@ class ParentProductView(GenericAPIView):
 
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn').prefetch_related(
         'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
-        'parent_product_pro_category__category', 'parent_product_pro_tax__tax'). \
+        'parent_product_pro_category__category', 'product_parent_product__product_vendor_mapping',
+        'parent_product_pro_tax__tax', 'product_parent_product__product_vendor_mapping__vendor'). \
         only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
              'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
              'product_hsn__product_hsn_code', ).order_by('-id')

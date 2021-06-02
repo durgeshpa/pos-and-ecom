@@ -30,7 +30,7 @@ class BrandSerializers(serializers.ModelSerializer):
 class VendorSerializers(serializers.ModelSerializer):
     class Meta:
         model = Vendor
-        fields = ('id', 'vendor_name')
+        fields = ('id', 'vendor_name', 'mobile')
 
 
 class ProductHSNSerializers(serializers.ModelSerializer):
@@ -93,11 +93,19 @@ class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
         fields = ('id', 'tax')
 
 
-class ProductSerializers(serializers.ModelSerializer):
+class ChildProductVendorMappingSerializers(serializers.ModelSerializer):
+    vendor = VendorSerializers(read_only=True)
 
     class Meta:
+        model = ProductVendorMapping
+        fields = ('id', 'vendor',)
+
+
+class ProductSerializers(serializers.ModelSerializer):
+    product_vendor_mapping = ChildProductVendorMappingSerializers(many=True)
+    class Meta:
         model = Product
-        fields = ('id', 'product_name', 'product_sku', 'status',)
+        fields = ('id', 'product_name', 'product_vendor_mapping')
 
 
 class UserSerializers(serializers.ModelSerializer):
@@ -217,7 +225,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
                     }
                 }
         return data
-
 
     @transaction.atomic
     def create(self, validated_data):
