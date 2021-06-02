@@ -1,6 +1,8 @@
 import datetime
 import json
 
+from django.db.models import Sum
+
 today = datetime.datetime.today()
 from django.core.exceptions import ObjectDoesNotExist
 

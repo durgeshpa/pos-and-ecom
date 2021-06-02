@@ -1,13 +1,11 @@
 from django import forms
-from .models import Vendor, Brand, BrandPosition
+
+from .models import Vendor, BrandPosition
 from django.urls import reverse
-import datetime, csv, codecs, re
-from django.core.exceptions import ValidationError
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
-from products.models import Product, ProductVendorMapping
 from addresses.models import City, State
 from dal import autocomplete
 from shops.models import Shop
+
 
 class VendorForm(forms.ModelForm):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
@@ -23,7 +21,7 @@ class VendorForm(forms.ModelForm):
     class Meta:
         model = Vendor
         fields = '__all__'
-        # exclude = ('vendor_products_csv',)
+        exclude = ('email_id',)
 
     def __init__(self, *args, **kwargs):
         super(VendorForm, self).__init__(*args, **kwargs)
@@ -37,6 +35,9 @@ class VendorForm(forms.ModelForm):
             'data-cities-url': reverse('admin:ajax_load_cities'),
             'style':'width: 25%'
             }
+
+
+
 
 class BrandForm(forms.ModelForm):
     shop = forms.ModelChoiceField(

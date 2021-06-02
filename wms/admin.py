@@ -434,7 +434,7 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Bin Inventory Admin has been called.")
     form = PutAwayBinInventoryForm
     list_display = ('warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_id', 'bin_id', 'inventory_type',
-                    'putaway_quantity', 'putaway_status', 'created_at', 'modified_at')
+                    'putaway_quantity', 'putaway_status', 'sku_bin_inventory', 'created_at', 'modified_at')
     actions = ['download_bulk_put_away_bin_inventory_csv', 'bulk_approval_for_putaway']
     readonly_fields = ['warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway', 'inventory_type', 'putaway_quantity']
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin__bin_id')
@@ -442,6 +442,13 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
         Warehouse, BatchIdFilter, SKUFilter, BinIdFilter, ('putaway_type', DropdownFilter), 'putaway_status',
         ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter)]
     list_per_page = 50
+
+    @staticmethod
+    def sku_bin_inventory(obj):
+        ret_url = '/admin/wms/bininventory/?warehouse__id__exact=%s&sku=%s' % (obj.warehouse.id, obj.sku.product_sku)
+        onclick = 'window.open("%s", "_blank", "toolbar=yes,scrollbars=yes,resizable=yes,top=100,left=300,width=800,' \
+                  'height=500");' % ret_url
+        return format_html("<a href='#' onclick='%s'>View Sku Bin Inventory</a>" % onclick)
 
     def download_bulk_put_away_bin_inventory_csv(self, request, queryset):
         """

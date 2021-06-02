@@ -36,3 +36,6 @@ ZIP_FORMAT = '.zip'
 
 # Time Format
 TIME_FORMAT = "%d%m%y_%H%M"
+
+#Default number of records for Bulk Create
+BULK_CREATE_NO_OF_RECORDS = 500

@@ -29,6 +29,8 @@ from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
+
+from retailer_backend.common_function import bulk_create
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, upload_shop_stock
 from django.db.models.signals import post_save
 from django.db.models import Sum
@@ -1352,6 +1354,31 @@ def shipment_out_inventory_change(shipment_list, final_status):
         else:
             pass
 
+def warehouse_data_generator(data, archive_entry):
+    for row in data:
+        yield WarehouseInventoryHistoric(archive_entry=archive_entry,
+                                                    warehouse=row.warehouse,
+                                                    sku=row.sku,
+                                                    inventory_type=row.inventory_type,
+                                                    inventory_state=row.inventory_state,
+                                                    quantity=row.quantity,
+                                                    in_stock=row.in_stock,
+                                                    visible=row.visible,
+                                                    created_at=row.created_at,
+                                                    modified_at=row.modified_at)
+
+def bin_data_generator(data, archive_entry):
+    for row in data:
+        yield BinInventoryHistoric(archive_entry=archive_entry,
+                                              warehouse=row.warehouse,
+                                              sku=row.sku,
+                                              bin=row.bin,
+                                              batch_id=row.batch_id,
+                                              inventory_type=row.inventory_type,
+                                              quantity=row.quantity,
+                                              in_stock=row.in_stock,
+                                              created_at=row.created_at,
+                                              modified_at=row.modified_at)
 
 def archive_inventory_cron():
     info_logger.info("WMS : Archiving warehouse inventory data started at {}".format(datetime.now()))
@@ -1359,37 +1386,12 @@ def archive_inventory_cron():
     archive_entry = InventoryArchiveMaster.objects.create(archive_date=today,
                                                           inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.WAREHOUSE)
     warehouse_inventory_list = WarehouseInventory.objects.all()
-
-    # info_logger.info("WMS : Archiving warehouse inventory : total items {}".format(warehouse_inventory_list.count()))
-    for inventory in warehouse_inventory_list:
-        historic_entry = WarehouseInventoryHistoric(archive_entry=archive_entry,
-                                                    warehouse=inventory.warehouse,
-                                                    sku=inventory.sku,
-                                                    inventory_type=inventory.inventory_type,
-                                                    inventory_state=inventory.inventory_state,
-                                                    quantity=inventory.quantity,
-                                                    in_stock=inventory.in_stock,
-                                                    created_at=inventory.created_at,
-                                                    modified_at=inventory.modified_at)
-        historic_entry.save()
+    bulk_create(WarehouseInventoryHistoric, warehouse_data_generator(warehouse_inventory_list, archive_entry))
     info_logger.info("WMS : Archiving bin inventory data started at {}".format(datetime.now()))
     archive_entry = InventoryArchiveMaster.objects.create(archive_date=today,
                                                           inventory_type=InventoryArchiveMaster.ARCHIVE_INVENTORY_CHOICES.BIN)
     bin_inventory_list = BinInventory.objects.all()
-    # info_logger.info("WMS : Archiving bin inventory : total items {}".format(bin_inventory_list.count()))
-    for inventory in bin_inventory_list:
-        historic_entry = BinInventoryHistoric(archive_entry=archive_entry,
-                                              warehouse=inventory.warehouse,
-                                              sku=inventory.sku,
-                                              bin=inventory.bin,
-                                              batch_id=inventory.batch_id,
-                                              inventory_type=inventory.inventory_type,
-                                              quantity=inventory.quantity,
-                                              in_stock=inventory.in_stock,
-                                              created_at=inventory.created_at,
-                                              modified_at=inventory.modified_at)
-        historic_entry.save()
-
+    bulk_create(BinInventoryHistoric, bin_data_generator(bin_inventory_list, archive_entry))
     info_logger.info("WMS : Archiving inventory data ended at {}".format(datetime.now()))
 
 

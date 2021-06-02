@@ -328,6 +328,7 @@ class WarehouseInventoryHistoric(models.Model):
     inventory_state = models.ForeignKey(InventoryState, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     in_stock = models.BooleanField()
+    visible = models.BooleanField(default=False)
     created_at = models.DateTimeField()
     modified_at = models.DateTimeField()
     archived_at = models.DateTimeField(auto_now_add=True)
@@ -360,7 +361,10 @@ class CronRunLog(models.Model):
                           ('HDPOS_USERS_FETCH_CRON', 'Fetch Registered Customers on Hdpos'),
                           ('MARKETING_REWARDS_NOTIFY', 'Notify users about rewards'),
                           ('AUTO_ORDER_PROCESSING_CRON', 'Auto Order Processing'),
-                          ('SCHEME_EXPIRY_CRON', 'Deactivate expired schemes and mappings'),)
+                          ('SCHEME_EXPIRY_CRON', 'Deactivate expired schemes and mappings'),
+                          ('ARS_CRON', 'ARS Cron'),
+                          ('PO_CREATION_CRON', 'PO creation Cron'),)
+
     CRON_STATUS_CHOICES = Choices((0, 'STARTED', 'Started'),
                                   (1, 'ABORTED', 'Aborted'),
                                   (2, 'COMPLETED', 'Completed'))
