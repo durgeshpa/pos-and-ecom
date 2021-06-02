@@ -14,11 +14,11 @@ import datetime, csv, codecs, re
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from shops.models import Shop
-from categories.models import Category
+from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category
 from django.contrib.postgres.fields import JSONField
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import Case, CharField, Value, When, F
-
+from django.contrib.auth import get_user_model
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
     ("unpaid", "Un-Paid"),
@@ -86,7 +86,7 @@ class Vendor(models.Model):
     #     return brand.id
 
 
-class Brand(models.Model):
+class Brand(BaseTimestampUserStatusModel):
     brand_name = models.CharField(max_length=20)
     brand_slug = models.SlugField(blank=True, null=True)
     brand_logo = models.FileField(validators=[validate_image], blank=False,null=True)
@@ -94,10 +94,11 @@ class Brand(models.Model):
     brand_description = models.TextField(null=True, blank=True)
     brand_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three character for SKU")
     categories = models.ManyToManyField(Category, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    active_status = models.CharField(max_length=20,choices=CHOICES,default='active')
-
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='brand_updated_by',
+        on_delete=models.DO_NOTHING
+    )
     def __str__(self):
         full_path = [self.brand_name]
         k = self.brand_parent

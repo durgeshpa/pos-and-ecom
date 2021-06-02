@@ -595,7 +595,7 @@ class ParentProductAdmin(admin.ModelAdmin):
         if obj.parent_product_pro_image.exists():
             return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
                 obj.parent_product_pro_image.last().image.url,
-                (obj.parent_product_pro_image.last().image_alt_text or obj.parent_product_pro_image.last().image_name),
+                (obj.parent_product_pro_image.last().image_name),
                 obj.parent_product_pro_image.last().image.url
             ))
         return '-'
@@ -1006,8 +1006,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
         'product_brand', 'product_category', 'product_ean_code', 'product_hsn', 'product_gst',
-        'product_mrp',  'is_ptr_applicable', 'ptr_type', 'ptr_percent',  'products_image', 'status',
-        'moving_average_buying_price'
+        'product_mrp',  'is_ptr_applicable', 'ptr_type', 'ptr_percent',  'products_image', 'status'
     ]
 
     search_fields = ['product_name', 'id']
@@ -1314,9 +1313,9 @@ class BulkProductTaxUpdateAdmin(admin.ModelAdmin):
 
 class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
     form = BulkUploadForGSTChangeForm
-    list_display = ('created_at', 'updated_by', 'file',)
-    fields = ('download_sample_file', 'file', 'updated_by')
-    readonly_fields = ('updated_by', 'download_sample_file', )
+    list_display = ('file',)
+    fields = ('download_sample_file', 'file', )
+    readonly_fields = ('download_sample_file', )
 
     def get_urls(self):
         urls = super().get_urls()
@@ -1344,9 +1343,9 @@ class BulkUploadForGSTChangeAdmin(admin.ModelAdmin):
 
 
 class BulkUploadForProductAttributesAdmin(admin.ModelAdmin):
-    list_display = ('created_at', 'updated_by', 'file',)
-    fields = ('file', 'updated_by')
-    readonly_fields = ('updated_by', 'file',)
+    list_display = ( 'file',)
+    fields = ('file',)
+    readonly_fields = ('file',)
 
     change_list_template = 'admin/products/product_attributes_change_list.html'
 

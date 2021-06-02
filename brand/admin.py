@@ -82,9 +82,9 @@ class BrandPositionAdmin(NonSortableParentAdmin):
 class BrandAdmin( admin.ModelAdmin, ExportCsvMixin):
     resource_class = BrandResource
     actions = ["export_as_csv"]
-    fields = ('brand_name','brand_slug','brand_logo','brand_parent','brand_description','brand_code','categories','active_status')
-    list_display = ('id','brand_name','brand_logo','brand_code','active_status')
-    list_filter = (BrandSearch,BrandCodeSearch,'active_status', )
+    fields = ('brand_name','brand_slug','brand_logo','brand_parent','brand_description','brand_code','categories',)
+    list_display = ('id','brand_name','brand_logo','brand_code')
+    list_filter = (BrandSearch,BrandCodeSearch, )
     search_fields= ('brand_name','brand_code')
     filter_horizontal = ('categories',)
     prepopulated_fields = {'brand_slug': ('brand_name',)}
