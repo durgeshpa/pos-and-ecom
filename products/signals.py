@@ -394,7 +394,7 @@ def update_packing_material_cost(sender, instance=None, created=False, **kwargs)
     if created:
         if instance.packing_sku.moving_average_buying_price:
             pack_m_cost = (
-                                  instance.packing_sku.moving_average_buying_price / instance.packing_sku.weight_value) * instance.packing_sku_weight_per_unit_sku
+                                  float(instance.packing_sku.moving_average_buying_price) / float(instance.packing_sku.weight_value)) * float(instance.packing_sku_weight_per_unit_sku)
 
             DestinationRepackagingCostMapping.objects.filter(destination=instance.sku).update(
                 primary_pm_cost=round(Decimal(pack_m_cost), 2)
@@ -412,7 +412,7 @@ def update_raw_material_cost_save(sender, instance=None, created=False, **kwargs
             if source_sku.moving_average_buying_price:
                 count += 1
                 total_raw_material += (
-                                              source_sku.moving_average_buying_price / source_sku.weight_value) * instance.destination_sku.weight_value
+                                              float(source_sku.moving_average_buying_price) / float(source_sku.weight_value)) * float(instance.destination_sku.weight_value)
         raw_m_cost = total_raw_material / count if count > 0 else 0
         DestinationRepackagingCostMapping.objects.filter(destination=instance.destination_sku). \
             update(raw_material=round(Decimal(raw_m_cost), 2))
@@ -428,7 +428,7 @@ def update_raw_material_cost_delete(sender, instance=None, created=False, **kwar
         if source_sku.moving_average_buying_price:
             count += 1
             total_raw_material += (
-                                          source_sku.moving_average_buying_price / source_sku.weight_value) * instance.destination_sku.weight_value
+                                          float(source_sku.moving_average_buying_price) / float(source_sku.weight_value)) * float(instance.destination_sku.weight_value)
     raw_m_cost = total_raw_material / count if count > 0 else 0
     DestinationRepackagingCostMapping.objects.filter(destination=instance.destination_sku). \
         update(raw_material=round(Decimal(raw_m_cost), 2))
