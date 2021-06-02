@@ -504,9 +504,13 @@ class BasicOrderSerializer(serializers.ModelSerializer):
         """
             Get ordered products details
         """
+        changed_products = self.context.get('changed_products', None)
+        return_summary = 1 if changed_products else 0
         qs = OrderedProductMapping.objects.filter(ordered_product__order=obj, product_type=1)
+        if changed_products:
+            qs = qs.filter(retailer_product__id__in=changed_products)
         products = BasicOrderProductDetailSerializer(qs, many=True).data
-        # car offers - map free product to purchased
+        # cart offers - map free product to purchased
         product_offer_map = {}
         cart_free_product = {}
         for offer in obj.ordered_cart.offers:
@@ -539,8 +543,7 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                             return_item_map[combo['item_id']] = combo['free_item_return_qty']
 
         for product in products:
-            product['already_returned_qty'] = 0
-            product['return_qty'] = 0
+            product['already_returned_qty'], product['return_qty'] = 0, 0
             rt_return_ordered_product = product.pop('rt_return_ordered_product', None)
             if rt_return_ordered_product:
                 for return_item in rt_return_ordered_product:
@@ -554,28 +557,47 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                             product['new_sp'] = return_item['new_sp']
                     else:
                         product['new_sp'] = return_item['new_sp']
+            product['display_text'] = ''
             # map purchased product with free product
             if product['retailer_product']['id'] in product_offer_map:
-                offer = product_offer_map[product['retailer_product']['id']]
-                free_product = {
-                    'id': offer['free_item_id'],
-                    'mrp': offer['free_item_mrp'],
-                    'name': offer['free_item_name'],
-                    'qty': offer['free_item_qty_added'],
-                    'already_returned_qty': return_item_map[offer['item_id']] if offer[
-                                                                                     'item_id'] in return_item_map else 0,
-                    'return_qty': return_item_ongoing[offer['item_id']] if offer[
-                                                                               'item_id'] in return_item_ongoing else 0
-                }
-                product['free_product'] = free_product
+                free_prod_info = self.get_free_product_text(product_offer_map, return_item_ongoing, return_item_map, return_summary, product)
+                if free_prod_info:
+                    product.update(free_prod_info)
 
         if cart_free_product:
-            cart_free_product['already_returned_qty'] = return_item_map[
-                'free_product'] if 'free_product' in return_item_map else 0
-            cart_free_product['return_qty'] = return_item_ongoing[
-                'free_product'] if 'free_product' in return_item_ongoing else 0
-            products.append(cart_free_product)
+            return_qty = return_item_ongoing['free_product'] if 'free_product' in return_item_ongoing else 0
+            if (return_summary and return_qty) or not return_summary:
+                cart_free_product['already_returned_qty'] = return_item_map[
+                    'free_product'] if 'free_product' in return_item_map else 0
+                cart_free_product['return_qty'] = return_qty
+                products.append(cart_free_product)
         return products
+
+    @staticmethod
+    def get_free_product_text(product_offer_map, return_item_ongoing, return_item_map, return_summary, product):
+        offer = product_offer_map[product['retailer_product']['id']]
+        free_return_qty = return_item_ongoing[offer['item_id']] if offer['item_id'] in return_item_ongoing else 0
+        free_already_return_qty = return_item_map[offer['item_id']] if offer['item_id'] in return_item_map else 0
+        original_qty = offer['free_item_qty_added']
+        display_text = str(offer['free_item_name']) + ' (MRP ₹' + str(offer['free_item_mrp']) + ') | ' \
+                       + 'Original qty: ' + str(original_qty)
+        if free_already_return_qty:
+            display_text += ' | Already returned qty: ' + str(free_already_return_qty)
+        if return_summary:
+            if not free_return_qty:
+                return None
+            else:
+                display_text += ' | Return qty: ' + str(free_return_qty)
+        display_text += ' | Offer: Buy ' + str(offer['item_qty']) + ' Get ' + str(offer['free_item_qty'])
+        free_product = {
+            'id': offer['free_item_id'],
+            'mrp': offer['free_item_mrp'],
+            'name': offer['free_item_name'],
+            'qty': offer['free_item_qty_added'],
+            'already_returned_qty': free_already_return_qty,
+            'return_qty': free_return_qty
+        }
+        return {'free_product': free_product, 'display_text': display_text}
 
     def total_discount_amount_dt(self, obj):
         """

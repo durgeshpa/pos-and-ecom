@@ -3574,6 +3574,7 @@ class OrderReturns(APIView):
         return_reason = initial_validation['return_reason']
         ordered_product = initial_validation['ordered_product']
         with transaction.atomic():
+            changed_products = []
             # map all products to combo offers in cart
             product_combo_map, cart_free_product = self.get_combo_offers(order)
             # initiate / update return for order
@@ -3592,6 +3593,7 @@ class OrderReturns(APIView):
                 price_change = return_product['price_change']
                 # if return quantity of product is greater than zero
                 if return_qty > 0 or price_change:
+                    changed_products += [product_id]
                     self.return_item(order_return, ordered_product_map, return_qty, changed_sp)
                     if product_id in product_combo_map and return_qty > 0:
                         existing_prod_qty = ordered_product_map.shipped_qty - previous_ret_qty
@@ -3627,7 +3629,8 @@ class OrderReturns(APIView):
             order_return.free_qty_map = free_qty_product_map
             order_return.save()
         return api_response("Order Return", BasicOrderSerializer(order, context={'current_url': self.request.get_host(),
-                                                                                 'invoice': 1}).data,
+                                                                                 'invoice': 1,
+                                                                                 'changed_products': changed_products}).data,
                             status.HTTP_200_OK, True)
 
     def post_validate(self):
