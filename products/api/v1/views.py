@@ -564,14 +564,14 @@ class TaxView(GenericAPIView):
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            product_hsn = id_validation['data']
+            product_tax = id_validation['data']
         else:
             """ GET Tax List """
             self.queryset = self.search_filter_product_hsn()
-            product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+            product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
-        serializer = self.serializer_class(product_hsn, many=True)
-        return get_response('product hsn list!', serializer.data)
+        serializer = self.serializer_class(product_tax, many=True)
+        return get_response('product tax list!', serializer.data)
 
     def post(self, request, *args, **kwargs):
         """ POST API for Tax Creation """

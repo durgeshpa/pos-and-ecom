@@ -77,7 +77,7 @@ class ProductImageSerializers(serializers.ModelSerializer):
 class TaxSerializers(serializers.ModelSerializer):
     class Meta:
         model = Tax
-        fields = ('tax_name', 'tax_type', 'tax_percentage')
+        fields = ('id', 'tax_name', 'tax_type', 'tax_percentage')
 
 
 class ProductSourceMappingSerializers(serializers.ModelSerializer):
@@ -804,9 +804,3 @@ class ProductHSNSerializers(serializers.ModelSerializer):
         model = ProductHSN
         fields = ['id', 'product_hsn_code', ]
 
-
-class TaxSerializers(serializers.ModelSerializer):
-    """ Handles Get & creating """
-
-    class Meta:
-        model = Tax
