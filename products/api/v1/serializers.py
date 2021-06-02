@@ -19,6 +19,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_seller_shop, check_active_capping, validate_tax_type, get_validate_vendor
 from products.common_function import ParentProductCls, ProductCls
 from accounts.models import User
+from global_config.views import get_config
 
 
 class BrandSerializers(serializers.ModelSerializer):
@@ -120,11 +121,12 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_brand = BrandSerializers(read_only=True)
     updated_by = UserSerializers(read_only=True)
     product_hsn = ProductHSNSerializers(read_only=True)
-    parent_product_pro_image = ParentProductImageSerializers(many=True)
+    parent_product_pro_image = ParentProductImageSerializers(many=True, read_only=True)
     parent_product_pro_category = ParentProductCategorySerializers(many=True)
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
     parent_id = serializers.CharField(read_only=True)
     product_parent_product = ChildProductSerializers(many=True, required=False)
+    max_inventory = serializers.IntegerField(allow_null=True, max_value=999)
 
     def validate(self, data):
         """
@@ -136,13 +138,13 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if not 'product_hsn' in self.initial_data or not self.initial_data['product_hsn']:
             raise serializers.ValidationError(_('product_hsn is required'))
 
-        if len(self.initial_data.getlist('parent_product_pro_image')) == 0:
+        if not 'parent_product_pro_image' in self.initial_data or not self.initial_data['parent_product_pro_image']:
             raise serializers.ValidationError(_('parent_product_image is required'))
 
-        if len(self.initial_data.getlist('parent_product_pro_category')) == 0:
+        if not 'parent_product_pro_category' in self.initial_data or not self.initial_data['parent_product_pro_category']:
             raise serializers.ValidationError(_('parent_product_category is required'))
 
-        if len(self.initial_data.getlist('parent_product_pro_tax')) == 0:
+        if not 'parent_product_pro_tax' in self.initial_data or not self.initial_data['parent_product_pro_tax']:
             raise serializers.ValidationError(_('parent_product_pro_tax is required'))
 
         if data.get('is_ptr_applicable'):
@@ -158,7 +160,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if 'error' in product_hsn_val:
             raise serializers.ValidationError(_(f'{product_hsn_val["error"]}'))
 
-        image_val = get_validate_images(self.initial_data.getlist('parent_product_pro_image'))
+        image_val = get_validate_images(self.initial_data['parent_product_pro_image'])
         if 'error' in image_val:
             raise serializers.ValidationError(_(image_val["error"]))
 
@@ -175,8 +177,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
     class Meta:
         model = ParentProduct
         fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable',
-                  'ptr_percent', 'ptr_type', 'status', 'product_hsn', 'parent_brand', 'parent_product_pro_image',
-                  'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product', 'updated_by')
+                  'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'status',
+                  'is_lead_time_applicable', 'product_hsn', 'parent_brand', 'parent_product_pro_image', 'parent_product_pro_category',
+                  'parent_product_pro_tax', 'product_parent_product', 'updated_by')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -198,6 +201,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
                         "is_ptr_applicable": representation['is_ptr_applicable'],
                         "ptr_percent": representation['ptr_percent'],
                         "ptr_type": representation['ptr_type'],
+                        "is_ars_applicable": representation['is_ars_applicable'],
+                        "max_inventory": representation['max_inventory'],
+                        "is_lead_time_applicable": representation['is_lead_time_applicable'],
                         "parent_product_pro_image": representation['parent_product_pro_image'],
                         "product_hsn": representation['product_hsn'],
                     },
@@ -211,6 +217,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
                         "is_ptr_applicable": representation['is_ptr_applicable'],
                         "ptr_percent": representation['ptr_percent'],
                         "ptr_type": representation['ptr_type'],
+                        "is_ars_applicable": representation['is_ars_applicable'],
+                        "max_inventory": representation['max_inventory'],
+                        "is_lead_time_applicable": representation['is_lead_time_applicable'],
                         "parent_product_pro_category": representation['parent_product_pro_category'],
                         "parent_product_pro_tax": representation['parent_product_pro_tax'],
                         "parent_product_pro_image": representation['parent_product_pro_image'],
@@ -230,9 +239,9 @@ class ParentProductSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         """create a new Parent Product with image category & tax"""
 
-        validated_data.pop('parent_product_pro_image')
-        validated_data.pop('parent_product_pro_category')
-        validated_data.pop('parent_product_pro_tax')
+        validated_data.pop('parent_product_pro_image', None)
+        validated_data.pop('parent_product_pro_category', None)
+        validated_data.pop('parent_product_pro_tax', None)
         validated_data.pop('product_parent_product', None)
 
         try:
@@ -272,7 +281,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
     # crete parent product image, tax & category
     def create_parent_tax_image_cat(self, parent_product):
         ParentProductCls.upload_parent_product_images(parent_product,
-                                                      self.initial_data.getlist('parent_product_pro_image'))
+                                                      self.initial_data['parent_product_pro_image'])
         ParentProductCls.create_parent_product_category(parent_product,
                                                         self.initial_data['parent_product_pro_category'])
         ParentProductCls.create_parent_product_tax(parent_product, self.initial_data['parent_product_pro_tax'])

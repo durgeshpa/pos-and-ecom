@@ -1,4 +1,5 @@
 import logging
+import json
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
@@ -157,3 +158,12 @@ def validate_tax_type(parent_product, tax_type):
         return "{} %".format(parent_product.last().tax.tax_percentage)
     return ''
 
+
+def validate_data_format(request):
+    # Validate product data
+    try:
+        data = json.loads(request.data["data"], )
+    except (KeyError, ValueError):
+        return {'error': "Invalid Data Format"}
+    data['parent_product_pro_image'] = request.FILES.getlist('parent_product_pro_image')
+    return data

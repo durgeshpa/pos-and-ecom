@@ -1,5 +1,5 @@
 import logging
-import json
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
@@ -18,7 +18,7 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers
 from products.common_function import get_response, serializer_error
-from products.common_validators import validate_id
+from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search
 
 # Get an instance of a logger
@@ -52,7 +52,6 @@ class ParentProductView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    parser_classes = [MultipartJsonParser, JSONParser]
 
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn').prefetch_related(
         'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
@@ -60,7 +59,7 @@ class ParentProductView(GenericAPIView):
         'parent_product_pro_tax__tax', 'product_parent_product__product_vendor_mapping__vendor'). \
         only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
              'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
-             'product_hsn__product_hsn_code', ).order_by('-id')
+             'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable', 'max_inventory').order_by('-id')
     serializer_class = ParentProductSerializers
 
     def get(self, request):
@@ -84,7 +83,12 @@ class ParentProductView(GenericAPIView):
         """ POST API for Parent Product Creation with Image Category & Tax """
 
         info_logger.info("Parent Product POST api called.")
-        serializer = self.serializer_class(data=request.data)
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             return get_response('parent product created successfully!', serializer.data)
@@ -94,16 +98,21 @@ class ParentProductView(GenericAPIView):
         """ PUT API for Parent Product Updation with Image Category & Tax """
 
         info_logger.info("Parent Product PUT api called.")
-        if not request.POST.get('id'):
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if not modified_data['id']:
             return get_response('please provide id to update parent product', False)
 
         # validations for input id
-        id_instance = validate_id(self.queryset, int(request.POST.get('id')))
+        id_instance = validate_id(self.queryset, int(modified_data['id']))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
         parent_product_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=parent_product_instance, data=request.data)
+        serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
             return get_response('parent product updated!', serializer.data)
