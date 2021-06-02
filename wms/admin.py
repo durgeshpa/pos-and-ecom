@@ -348,7 +348,7 @@ class InAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     def quantity_display(self, obj):
-        return obj.quantity if obj.sku.repackaging_type != 'packing_material' else '-'
+        return obj.quantity
 
     quantity_display.short_description = "Quantity"
 
@@ -608,7 +608,7 @@ class OutAdmin(admin.ModelAdmin):
         pass
 
     def quantity_display(self, obj):
-        return obj.quantity if obj.sku.repackaging_type != 'packing_material' else '-'
+        return obj.quantity
 
     quantity_display.short_description = "Quantity"
 
@@ -805,7 +805,7 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     def quantity_display(self, obj):
-        return obj.quantity if obj.sku.repackaging_type != 'packing_material' else '-'
+        return obj.quantity
 
     quantity_display.short_description = "Quantity"
 
@@ -827,7 +827,7 @@ class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     def quantity_display(self, obj):
-        return obj.quantity if obj.sku.repackaging_type != 'packing_material' else '-'
+        return obj.quantity
 
     quantity_display.short_description = "Quantity"
 
@@ -846,7 +846,7 @@ class StockCorrectionChangeAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     def quantity_display(self, obj):
-        return obj.quantity if obj.stock_sku.repackaging_type != 'packing_material' else '-'
+        return obj.quantity
 
     quantity_display.short_description = "Quantity"
 

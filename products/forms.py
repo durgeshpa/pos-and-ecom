@@ -516,6 +516,7 @@ class ProductForm(forms.ModelForm):
             attrs={"onChange": 'getDefaultChildDetails()'}
         )
     )
+    weight_value = forms.DecimalField(min_value=0.01)
     product_special_cess = forms.FloatField(required=False, min_value=0)
 
     class Meta:
