@@ -707,10 +707,18 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
         return product_vendor_map
 
 
+class ParentProductListSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = ParentProduct
+        fields = ('id', 'parent_id', 'name',)
+
+
 class ChildProductSerializers(serializers.ModelSerializer):
     """ Handles creating, reading and updating child product items."""
-    parent_product = ParentProductSerializers(read_only=True)
-    product_vendor_mapping = ProductVendorMappingSerializers(many=True)
+    parent_product = ParentProductListSerializers(read_only=True)
+    updated_by = UserSerializers(read_only=True)
+    product_vendor_mapping = ChildProductVendorMappingSerializers(many=True)
     product_sku = serializers.CharField(required=False)
     product_pro_image = ProductImageSerializers(many=True)
 
@@ -718,7 +726,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
         model = Product
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp',
                   'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'repackaging_type',
-                  'product_pro_image', 'parent_product', 'product_vendor_mapping')
+                  'product_pro_image', 'parent_product', 'product_vendor_mapping', 'updated_by')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:

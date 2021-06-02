@@ -7,12 +7,11 @@ from django.core.validators import URLValidator
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
-from rest_framework.parsers import JSONParser
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
     ParentProductImage, ProductVendorMapping, Product as ChildProduct, Tax
 from brand.models import Brand
-from products.utils import MultipartJsonParser
+
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, ProductHSNSerializers, \
@@ -69,6 +68,7 @@ class CategoryView(GenericAPIView):
         serializer = self.serializer_class(category, many=True)
         return get_response('category list!', serializer.data)
 
+
 class ParentProductView(GenericAPIView):
     """
         Get Parent Product
@@ -78,7 +78,7 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn').prefetch_related(
+    queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
         'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
         'parent_product_pro_category__category', 'product_parent_product__product_vendor_mapping',
         'parent_product_pro_tax__tax', 'product_parent_product__product_vendor_mapping__vendor'). \
@@ -419,21 +419,9 @@ class ChildProductView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    parser_classes = [MultipartJsonParser, JSONParser]
-    queryset = ChildProduct.objects.prefetch_related('parent_product', 'parent_product__parent_brand',
-                                                     'parent_product__parent_product_pro_image',
-                                                     'product_pro_image', 'parent_product__product_hsn',
-                                                     'parent_product__parent_product_pro_category',
-                                                     'parent_product__parent_product_pro_tax',
-                                                     'parent_product__parent_product_pro_category__category',
-                                                     'parent_product__parent_product_pro_tax__tax',
-                                                     'product_vendor_mapping', 'product_vendor_mapping__vendor').only(
-        'id', 'status', 'product_mrp', 'reason_for_child_sku', 'weight_value', 'weight_unit', 'use_parent_image',
-        'product_sku', 'product_name', 'product_ean_code', 'parent_product__parent_id', 'parent_product__name',
-        'parent_product__inner_case_size', 'parent_product__product_type',
-        'parent_product__is_ptr_applicable', 'parent_product__status', 'parent_product__parent_brand__brand_name',
-        'parent_product__ptr_percent', 'parent_product__parent_brand__brand_code', 'parent_product__ptr_type',
-        'parent_product__product_hsn__product_hsn_code',).order_by('-id')
+    queryset = ChildProduct.objects.select_related('parent_product', 'updated_by').prefetch_related('product_pro_image', 'product_vendor_mapping',
+        'product_vendor_mapping__vendor', ).only('id', 'status', 'product_mrp', 'reason_for_child_sku', 'weight_value', 'weight_unit', 'use_parent_image',
+        'product_sku', 'product_name', 'product_ean_code', 'repackaging_type', 'parent_product__parent_id', 'parent_product__name', 'updated_by',).order_by('-id')
     serializer_class = ChildProductSerializers
 
     def get(self, request):
