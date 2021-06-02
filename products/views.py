@@ -1077,6 +1077,8 @@ def product_csv_upload(request):
             return render(request, 'admin/products/child-product-upload.html', {'form': form})
 
         if form.is_valid():
+            error = 'Something Went Wrong!'
+            msg = 'Child Product CSV uploaded successfully !'
             upload_file = form.cleaned_data.get('file')
             reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
             first_row = next(reader)
@@ -1093,21 +1095,21 @@ def product_csv_upload(request):
                 elif 'offer' in reason:
                     return 'offer'
             try:
-                for row_id, row in enumerate(reader):
-                    if len(row) == 0:
-                        continue
-                    if '' in row:
-                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                with transaction.atomic():
+                    for row_id, row in enumerate(reader):
+                        if len(row) == 0:
                             continue
-                    source_map = []
-                    if row[7] == 'destination':
-                        for pro in row[8].split(','):
-                            pro = pro.strip()
-                            if pro is not '' and pro not in source_map and \
-                                    Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
-                                source_map.append(pro)
+                        if '' in row:
+                            if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                                continue
+                        source_map = []
+                        if row[7] == 'destination':
+                            for pro in row[8].split(','):
+                                pro = pro.strip()
+                                if pro is not '' and pro not in source_map and \
+                                        Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                                    source_map.append(pro)
 
-                    with transaction.atomic():
                         product = Product.objects.create(
                             parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
                             reason_for_child_sku=reason_for_child_sku_mapper(row[1]),
@@ -1143,12 +1145,16 @@ def product_csv_upload(request):
                                 packing_sku=Product.objects.get(product_sku=row[16]),
                                 packing_sku_weight_per_unit_sku=row[17]
                             )
-
+                error = ''
             except Exception as e:
-                print(e)
+                import traceback
+                error_logger.error(e)
+                traceback.print_exc()
+                msg = ''
             return render(request, 'admin/products/child-product-upload.html', {
                 'form': form,
-                'success': 'Child Product CSV uploaded successfully !',
+                'success': msg,
+                'error': error
             })
     else:
         form = UploadChildProductAdminForm()

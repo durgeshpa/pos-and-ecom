@@ -86,7 +86,7 @@ def update_destination_pack_cost(product_type, product_id):
                 if source_sku.moving_average_buying_price:
                     count += 1
                     total_raw_material += (
-                                                      source_sku.moving_average_buying_price / source_sku.weight_value) * destination_sku.weight_value
+                                                      float(source_sku.moving_average_buying_price) / float(source_sku.weight_value)) * float(destination_sku.weight_value)
             raw_m_cost = total_raw_material / count if count > 0 else 0
             DestinationRepackagingCostMapping.objects.filter(destination=destination_sku). \
                 update(raw_material=round(Decimal(raw_m_cost), 2))
@@ -97,7 +97,7 @@ def update_destination_pack_cost(product_type, product_id):
             pack_product = mapping.packing_sku
             destination_product = mapping.sku
             pack_m_cost = (
-                                      pack_product.moving_average_buying_price / pack_product.weight_value) * mapping.packing_sku_weight_per_unit_sku
+                                      float(pack_product.moving_average_buying_price) / float(pack_product.weight_value)) * float(mapping.packing_sku_weight_per_unit_sku)
             DestinationRepackagingCostMapping.objects.filter(destination=destination_product).update(
                 primary_pm_cost=round(Decimal(pack_m_cost), 2))
 
