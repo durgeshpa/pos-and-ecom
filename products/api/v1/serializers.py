@@ -101,7 +101,7 @@ class ChildProductVendorMappingSerializers(serializers.ModelSerializer):
         fields = ('id', 'vendor',)
 
 
-class ProductSerializers(serializers.ModelSerializer):
+class ChildProductSerializers(serializers.ModelSerializer):
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True)
     class Meta:
         model = Product
@@ -124,7 +124,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_pro_category = ParentProductCategorySerializers(many=True)
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
     parent_id = serializers.CharField(read_only=True)
-    product_parent_product = ProductSerializers(many=True, required=False)
+    product_parent_product = ChildProductSerializers(many=True, required=False)
 
     def validate(self, data):
         """
@@ -557,7 +557,7 @@ class ShopSerializers(serializers.ModelSerializer):
 
 
 class ProductCappingSerializers(serializers.ModelSerializer):
-    product = ProductSerializers(read_only=True)
+    product = ChildProductSerializers(read_only=True)
     seller_shop = ShopSerializers(read_only=True)
 
     class Meta:
@@ -636,7 +636,7 @@ class ProductCappingSerializers(serializers.ModelSerializer):
 
 
 class ProductVendorMappingSerializers(serializers.ModelSerializer):
-    product = ProductSerializers(read_only=True)
+    product = ChildProductSerializers(read_only=True)
     vendor = VendorSerializers(read_only=True)
 
     def validate(self, data):
