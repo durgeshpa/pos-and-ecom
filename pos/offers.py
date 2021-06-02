@@ -23,6 +23,7 @@ class BasicCartOffers(object):
         if cart_products:
             # Add/Remove/Update combo offers on all products
             offers_list = BasicCartOffers.refresh_combo(cart, cart_products)
+            offers_list = BasicCartOffers.basic_cart_offers_check(cart, offers_list, cart.seller_shop.id)
             Cart.objects.filter(pk=cart.id).update(offers=offers_list)
             # Get nearest cart offer over cart value
             offer = BasicCartOffers.get_cart_nearest_offer(cart, cart_products)
