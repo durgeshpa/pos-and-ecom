@@ -43,7 +43,7 @@ class ProductHSNSerializers(serializers.ModelSerializer):
 class CategorySerializers(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ('category_name', )
+        fields = ('id', 'category_name',)
 
 
 class ParentProductCategorySerializers(serializers.ModelSerializer):

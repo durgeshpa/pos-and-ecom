@@ -16,10 +16,11 @@ from products.utils import MultipartJsonParser
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, ProductHSNSerializers, \
-    ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers
+    ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, CategorySerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search
+from categories.models import Category
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -37,10 +38,38 @@ class BrandView(GenericAPIView):
     serializer_class = BrandSerializers
 
     def get(self, request):
-        brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        if request.GET.get('id'):
+            """ Get Parent Product for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            brand = id_validation['data']
+        else:
+            brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(brand, many=True)
         return get_response('brand list!', serializer.data)
 
+
+class CategoryView(GenericAPIView):
+    """
+        Get Brand
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializers
+
+    def get(self, request):
+        if request.GET.get('id'):
+            """ Get Parent Product for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            category = id_validation['data']
+        else:
+            category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        return get_response('category list!', serializer.data)
 
 class ParentProductView(GenericAPIView):
     """
@@ -145,12 +174,12 @@ class ParentProductView(GenericAPIView):
             self.queryset = parent_product_search(self.queryset, search_text)
         # filter using brand_name, category & product_status exact match
         if brand is not None:
-            self.queryset = self.queryset.filter(parent_brand__brand_name=brand)
+            self.queryset = self.queryset.filter(parent_brand__id=brand)
         if product_status is not None:
             self.queryset = self.queryset.filter(status=product_status)
         if category is not None:
             self.queryset = self.queryset.filter(
-                parent_product_pro_category__category__category_name=category)
+                parent_product_pro_category__category__id=category)
         return self.queryset
 
     def validate_data_format(self):
