@@ -1,10 +1,10 @@
-import decimal
 
 import requests
 import jsonpickle
 import logging
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
+
 from products.models import *
 from num2words import num2words
 from barCodeGenerator import barcodeGen
@@ -54,7 +54,6 @@ from common.common_utils import create_file_name, create_merge_pdf_name, merge_p
 from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
 from wms.views import shipment_out_inventory_change, shipment_reschedule_inventory_change
-from global_config.models import GlobalConfig
 
 logger = logging.getLogger('django')
 

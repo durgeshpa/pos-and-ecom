@@ -98,10 +98,15 @@ class ProductTable(tables.Table):
     earliest_expiry_date = tables.Column()
     audit_blocked = tables.Column()
     visibility = tables.Column()
+    repackaging_type = tables.Column()
     normal = tables.Column()
     damaged = tables.Column()
     expired = tables.Column()
     missing = tables.Column()
+    normal_weight = tables.Column()
+    damaged_weight = tables.Column()
+    expired_weight = tables.Column()
+    missing_weight = tables.Column()
 
 
 class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
@@ -221,21 +226,32 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     'product_price_slab2': product_price_slab2,
                     'product_price2': product_price2,
                     'earliest_expiry_date': earliest_expiry_date.date(),
+                    'repackaging_type': myproduct.sku.repackaging_type,
                     'normal': 0,
                     'damaged': 0,
                     'expired': 0,
                     'missing': 0,
+                    'normal_weight': 0,
+                    'damaged_weight': 0,
+                    'expired_weight': 0,
+                    'missing_weight': 0,
                     'visibility': False,
                     'audit_blocked': audit_blocked,
                 }
             else:
                 product_temp = product_list[myproduct.sku.product_sku]
             if myproduct.inventory_state.inventory_state == 'total_available':
-                product_temp[myproduct.inventory_type.inventory_type] += myproduct.quantity
+                if myproduct.sku.repackaging_type != 'packing_material':
+                    product_temp[myproduct.inventory_type.inventory_type] += myproduct.quantity
+                else:
+                    product_temp[myproduct.inventory_type.inventory_type + '_weight'] += myproduct.weight
                 if myproduct.inventory_type == inventory_type_normal:
                     product_temp['visibility'] = myproduct.visible
             elif myproduct.inventory_state.inventory_state in ('reserved', 'ordered', 'to_be_picked'):
-                product_temp[myproduct.inventory_type.inventory_type] -= myproduct.quantity
+                if myproduct.sku.repackaging_type != 'packing_material':
+                    product_temp[myproduct.inventory_type.inventory_type] -= myproduct.quantity
+                else:
+                    product_temp[myproduct.inventory_type.inventory_type + '_weight'] += myproduct.weight
 
             product_list[myproduct.sku.product_sku] = product_temp
         product_list_new = []

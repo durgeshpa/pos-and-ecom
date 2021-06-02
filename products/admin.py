@@ -62,7 +62,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     packing_material_inventory_sample_upload)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
-from wms.models import Out
+from wms.models import Out, WarehouseInventory, BinInventory
 
 info_logger = logging.getLogger('file-info')
 
@@ -268,8 +268,8 @@ class ExportProductVendor:
 
 class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
   
-    actions = ["export_as_csv_product_vendormapping", ]
-    fields = ('vendor', 'product', 'product_price','product_price_pack','product_mrp','case_size')
+    actions = ["export_as_csv_product_vendormapping",]
+    fields = ('vendor', 'product', 'product_price','product_price_pack','product_mrp','case_size', 'is_default')
 
     list_display = ('vendor', 'product','product_price','product_price_pack', 'mrp','case_size','created_at','status','product_status')
     list_filter = [VendorFilter,ProductFilter,'product__status','status']
@@ -1082,6 +1082,8 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.repackaging_type != 'none':
+            if obj.repackaging_type == 'packing_material':
+                return self.readonly_fields + ('repackaging_type', 'weight_value', 'weight_unit', )
             return self.readonly_fields + ('repackaging_type',)
         return self.readonly_fields
 
@@ -1093,6 +1095,22 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
             self.inlines.remove(DestinationRepackagingCostMappingAdmin)
             self.inlines.remove(ProductPackingMappingAdmin)
         return super(ProductAdmin, self).get_form(request, obj, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        if 'repackaging_type' in form.changed_data and form.cleaned_data['repackaging_type'] == 'packing_material':
+            self.update_weight_inventory(obj)
+        super(ProductAdmin, self).save_model(request, obj, form, change)
+
+    @staticmethod
+    def update_weight_inventory(obj):
+        warehouse_inv = WarehouseInventory.objects.filter(sku=obj)
+        for inv in warehouse_inv:
+            inv.weight = inv.quantity * obj.weight_value
+            inv.save()
+        bin_inv = BinInventory.objects.filter(sku=obj)
+        for inv in bin_inv:
+            inv.weight = inv.quantity * obj.weight_value
+            inv.save()
 
 
 class MRPSearch(InputFilter):

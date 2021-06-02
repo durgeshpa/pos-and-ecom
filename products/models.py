@@ -6,7 +6,7 @@ import urllib.request
 
 from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -22,6 +22,7 @@ from addresses.models import Address, Area, City, Country, Pincode, State
 from brand.models import Brand, Vendor
 from categories.models import Category
 from coupon.models import Coupon
+from global_config.views import get_config
 from retailer_backend.validators import *
 from shops.models import Shop
 
@@ -146,6 +147,10 @@ class ParentProduct(models.Model):
                                       validators=[PercentageValidator])
     PTR_TYPE_CHOICES = Choices((1, 'MARK_UP', 'Mark Up'),(2, 'MARK_DOWN', 'Mark Down'))
     ptr_type = models.SmallIntegerField(choices=PTR_TYPE_CHOICES, null=True, blank=True)
+    is_ars_applicable = models.BooleanField(verbose_name='Is ARS Applicable', default=False)
+    max_inventory = models.PositiveSmallIntegerField(verbose_name='Max Inventory(In Days)',
+                                                     validators=[MinValueValidator(1), MaxValueValidator(999)])
+    is_lead_time_applicable = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -157,6 +162,13 @@ class ParentProduct(models.Model):
 
     def save(self, *args, **kwargs):
         self.parent_slug = slugify(self.name)
+
+        if self.max_inventory is None:
+            if self.is_ars_applicable:
+                self.max_inventory = get_config('ARS_MAX_INVENTORY_IN_DAYS')
+            else:
+                self.max_inventory = get_config('NON_ARS_MAX_INVENTORY_IN_DAYS')
+
         super(ParentProduct, self).save(*args, **kwargs)
 
     class Meta:
@@ -859,6 +871,7 @@ class ProductVendorMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
 
     def save_vendor(self,vendor):
         if vendor.vendor_products_brand is None:
@@ -880,6 +893,9 @@ class ProductVendorMapping(models.Model):
             self.brand_to_gram_price_unit = "Per Pack"
            
         ProductVendorMapping.objects.filter(product=self.product,vendor=self.vendor,status=True).update(status=False)
+        if self.is_default:
+            ProductVendorMapping.objects.filter(product__parent_product=self.product.parent_product, is_default=True)\
+                                        .update(is_default=False)
         self.status = True
         super().save(*args, **kwargs)
         self.save_vendor(vendor=self.vendor)

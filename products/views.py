@@ -1077,6 +1077,8 @@ def product_csv_upload(request):
             return render(request, 'admin/products/child-product-upload.html', {'form': form})
 
         if form.is_valid():
+            error = 'Something Went Wrong!'
+            msg = 'Child Product CSV uploaded successfully !'
             upload_file = form.cleaned_data.get('file')
             reader = csv.reader(codecs.iterdecode(upload_file, 'utf-8', errors='ignore'))
             first_row = next(reader)
@@ -1093,21 +1095,21 @@ def product_csv_upload(request):
                 elif 'offer' in reason:
                     return 'offer'
             try:
-                for row_id, row in enumerate(reader):
-                    if len(row) == 0:
-                        continue
-                    if '' in row:
-                        if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                with transaction.atomic():
+                    for row_id, row in enumerate(reader):
+                        if len(row) == 0:
                             continue
-                    source_map = []
-                    if row[7] == 'destination':
-                        for pro in row[8].split(','):
-                            pro = pro.strip()
-                            if pro is not '' and pro not in source_map and \
-                                    Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
-                                source_map.append(pro)
+                        if '' in row:
+                            if (row[0] == '' and row[1] == '' and row[2] == '' and row[3] == '' and row[4] == '' and row[5] == '' and row[6] == ''):
+                                continue
+                        source_map = []
+                        if row[7] == 'destination':
+                            for pro in row[8].split(','):
+                                pro = pro.strip()
+                                if pro is not '' and pro not in source_map and \
+                                        Product.objects.filter(product_sku=pro, repackaging_type='source').exists():
+                                    source_map.append(pro)
 
-                    with transaction.atomic():
                         product = Product.objects.create(
                             parent_product=ParentProduct.objects.filter(parent_id=row[0]).last(),
                             reason_for_child_sku=reason_for_child_sku_mapper(row[1]),
@@ -1143,12 +1145,14 @@ def product_csv_upload(request):
                                 packing_sku=Product.objects.get(product_sku=row[16]),
                                 packing_sku_weight_per_unit_sku=row[17]
                             )
-
+                error = ''
             except Exception as e:
-                print(e)
+                error_logger.error(e)
+                msg = ''
             return render(request, 'admin/products/child-product-upload.html', {
                 'form': form,
-                'success': 'Child Product CSV uploaded successfully !',
+                'success': msg,
+                'error': error
             })
     else:
         form = UploadChildProductAdminForm()
@@ -1414,7 +1418,8 @@ def set_parent_data_sample_excel_file(request, *args):
     columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)', 'brand_case_size',
                'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
                'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
-               'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent']
+               'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
+               'is_lead_time_applicable']
     mandatory_columns = ['parent_id', 'parent_name', 'status']
 
     for col_num, column_title in enumerate(columns, 1):
@@ -1442,7 +1447,10 @@ def set_parent_data_sample_excel_file(request, *args):
                                                            'parent_product__status',
                                                            'parent_product__is_ptr_applicable',
                                                            'parent_product__ptr_type',
-                                                           'parent_product__ptr_percent').filter(
+                                                           'parent_product__ptr_percent',
+                                                           'parent_product__is_ars_applicable',
+                                                           'parent_product__max_inventory',
+                                                           'parent_product__is_lead_time_applicable').filter(
                                                             category=int(category_id))
     for product in parent_products:
         row = []
@@ -1492,6 +1500,9 @@ def set_parent_data_sample_excel_file(request, *args):
         row.append('Yes' if product['parent_product__is_ptr_applicable'] else 'No')
         row.append(get_ptr_type_text(product['parent_product__ptr_type']))
         row.append(product['parent_product__ptr_percent'])
+        row.append('Yes' if product['parent_product__is_ars_applicable'] else 'No')
+        row.append(product['parent_product__max_inventory'])
+        row.append('Yes' if product['parent_product__is_lead_time_applicable'] else 'No')
         row_num += 1
         for col_num, cell_value in enumerate(row, 1):
             cell = worksheet.cell(row=row_num, column=col_num)
