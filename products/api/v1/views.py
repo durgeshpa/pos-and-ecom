@@ -446,7 +446,12 @@ class ChildProductView(GenericAPIView):
         """ POST API for Child Product """
 
         info_logger.info("Child Product POST api called.")
-        serializer = self.serializer_class(data=request.data)
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
         if serializer.is_valid():
             serializer.save()
             return get_response('child product created successfully!', serializer.data)
@@ -456,16 +461,21 @@ class ChildProductView(GenericAPIView):
         """ PUT API for Child Product Updation with Image """
 
         info_logger.info("Child Product PUT api called.")
-        if not request.POST.get('id'):
+
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if not modified_data['id']:
             return get_response('please provide id to update child product', False)
 
         # validations for input id
-        id_instance = validate_id(self.queryset, int(request.POST.get('id')))
+        id_instance = validate_id(self.queryset, int(modified_data['id']))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
         parent_product_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=parent_product_instance, data=request.data, partial=True)
+        serializer = self.serializer_class(instance=parent_product_instance, data=modified_data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return get_response('child product updated!', serializer.data)
