@@ -10,8 +10,8 @@ from django.contrib.auth import get_user_model
 # Create your models here.
 
 class BaseTimeModel(models.Model):
-    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True)
-    updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True)
+    created_at = models.DateTimeField(verbose_name="Created at", auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(verbose_name="Updated at", auto_now=True, null=True, blank=True)
 
     class Meta:
         abstract = True
