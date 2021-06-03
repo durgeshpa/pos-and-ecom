@@ -795,7 +795,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
                     },
                 "detail_page_2":
                     {
-                        "parent_product": representation['parent_product'],
+                        "product_vendor_mapping": representation['product_vendor_mapping'],
                     },
                 "detail_page_log":
                     {
