@@ -165,5 +165,8 @@ def validate_data_format(request):
         data = json.loads(request.data["data"])
     except (KeyError, ValueError):
         return {'error': "Invalid Data Format"}
-    data['parent_product_pro_image'] = request.FILES.getlist('parent_product_pro_image')
+    if request.FILES.getlist('parent_product_pro_image'):
+        data['parent_product_pro_image'] = request.FILES.getlist('parent_product_pro_image')
+    elif request.FILES.getlist('product_pro_image'):
+        data['product_pro_image'] = request.FILES.getlist('product_pro_image')
     return data

@@ -115,8 +115,6 @@ class PackageSize(models.Model):
         verbose_name = _("Package Size")
         verbose_name_plural = _("Package Sizes")
 
-
-
 class ProductHSN(BaseTimestampUserStatusModel):
     product_hsn_code = models.CharField(max_length=255)
     updated_by = models.ForeignKey(
@@ -225,7 +223,7 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
     parent_product.parent_id = "P%s%s%s"%(cat_sku_code, brand_sku_code, last_sku_increment)
     parent_product.save()
 
-class Product(models.Model):
+class Product(BaseTimestampUserStatusModel):
     product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255, blank=True)
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
@@ -698,7 +696,6 @@ class ProductCategoryHistory(models.Model):
 class ProductImage(BaseTimeModel):
     product = models.ForeignKey(Product,related_name='product_pro_image',on_delete=models.CASCADE)
     image_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    image_alt_text = models.CharField(max_length=255,null=True,blank=True,validators=[NameValidator])
     image = models.ImageField(upload_to='product_image')
     status = models.BooleanField(default=True)
 
