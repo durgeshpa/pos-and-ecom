@@ -698,7 +698,6 @@ class ProductCategoryHistory(models.Model):
 class ProductImage(BaseTimeModel):
     product = models.ForeignKey(Product,related_name='product_pro_image',on_delete=models.CASCADE)
     image_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    image_alt_text = models.CharField(max_length=255,null=True,blank=True,validators=[NameValidator])
     image = models.ImageField(upload_to='product_image')
     status = models.BooleanField(default=True)
 

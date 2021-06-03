@@ -764,6 +764,50 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
         return data
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        data = {
+                "basic":
+                    {
+                        "id" : representation['id'],
+                        "parent_id": representation['parent_id'],
+                        "product_name": representation['product_name'],
+                        "product_sku": representation['product_sku'],
+                        "status": representation['status'],
+                        "product_ean_code": representation['product_ean_code'],
+                    },
+                "additional":
+                    {
+
+                    },
+                "detail_page_1":
+                    {
+                        "name": representation['name'],
+                        "parent_brand": representation['parent_brand'],
+                        "product_hsn": representation['product_hsn'],
+                        "inner_case_size": representation['inner_case_size'],
+                        "product_type": representation['product_type'],
+                        "is_ptr_applicable": representation['is_ptr_applicable'],
+                        "ptr_percent": representation['ptr_percent'],
+                        "ptr_type": representation['ptr_type'],
+                        "is_ars_applicable": representation['is_ars_applicable'],
+                        "max_inventory": representation['max_inventory'],
+                        "is_lead_time_applicable": representation['is_lead_time_applicable'],
+                        "parent_product_pro_category": representation['parent_product_pro_category'],
+                        "parent_product_pro_tax": representation['parent_product_pro_tax'],
+                        "parent_product_pro_image": representation['parent_product_pro_image'],
+                    },
+                "detail_page_2":
+                    {
+                        "product_parent_product": representation['product_parent_product'],
+                    },
+                "detail_page_log":
+                    {
+                        "updated_by": representation['updated_by']
+                    }
+                }
+        return data
+
     @transaction.atomic
     def create(self, validated_data):
         """create a new Child Product with image category & tax"""
