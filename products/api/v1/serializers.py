@@ -189,7 +189,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
                         "id" : representation['id'],
                         "parent_id": representation['parent_id'],
                         "name": representation['name'],
-                        "parent_id": representation['parent_id'],
                         "status": representation['status'],
                         "product_type": representation['product_type'],
                         "parent_product_pro_tax": representation['parent_product_pro_tax'],
@@ -707,18 +706,9 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
         return product_vendor_map
 
 
-class ParentProductListSerializers(serializers.ModelSerializer):
-    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
-    parent_brand = BrandSerializers(read_only=True)
-    product_hsn = ProductHSNSerializers(read_only=True)
-    class Meta:
-        model = ParentProduct
-        fields = ('parent_id', 'name',  'product_type', 'product_hsn', 'parent_brand', 'parent_product_pro_tax',)
-
-
 class ChildProductSerializers(serializers.ModelSerializer):
     """ Handles creating, reading and updating child product items."""
-    parent_product = ParentProductListSerializers(read_only=True)
+    parent_product = ParentProductSerializers(read_only=True)
     updated_by = UserSerializers(read_only=True)
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
@@ -772,22 +762,23 @@ class ChildProductSerializers(serializers.ModelSerializer):
                 "basic":
                     {
                         "id" : representation['id'],
+                        "parent_product": representation['parent_product']['basic'],
                         "product_name": representation['product_name'],
                         "product_sku": representation['product_sku'],
                         "status": representation['status'],
                         "product_ean_code": representation['product_ean_code'],
-                        "parent_product": representation['parent_product'],
                     },
                 "additional":
                     {
+                        "parent_product": representation['parent_product']['additional'],
                         "weight_value": representation['weight_value'],
                         "weight_unit": representation['weight_unit'],
                         "product_special_cess": representation['product_special_cess'],
+                        "product_pro_image": representation['product_pro_image'],
                     },
                 "detail_page_1":
                     {
                         "id" : representation['id'],
-                        "parent_product": representation['parent_product'],
                         "product_name": representation['product_name'],
                         "product_sku": representation['product_sku'],
                         "status": representation['status'],
@@ -800,10 +791,11 @@ class ChildProductSerializers(serializers.ModelSerializer):
                         "repackaging_type": representation['repackaging_type'],
                         "product_special_cess": representation['product_special_cess'],
                         "product_pro_image": representation['product_pro_image'],
+                        "parent_product_id": representation['parent_product']['basic']['parent_id'],
                     },
                 "detail_page_2":
                     {
-
+                        "parent_product": representation['parent_product'],
                     },
                 "detail_page_log":
                     {

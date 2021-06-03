@@ -407,8 +407,8 @@ class ChildProductView(GenericAPIView):
     queryset = ChildProduct.objects.select_related('updated_by').prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product',
               'parent_product__parent_product_pro_image', 'parent_product__parent_product_pro_category', 'parent_product__parent_product_pro_tax',
               'parent_product__parent_product_pro_category__category', 'parent_product__product_parent_product__product_vendor_mapping',
-              'parent_product__parent_product_pro_tax__tax', 'parent_product__parent_brand', 'parent_product__product_hsn',
-              'product_vendor_mapping__vendor').order_by('-id')
+              'parent_product__parent_product_pro_tax__tax', 'parent_product__parent_brand', 'parent_product__product_hsn','parent_product__product_parent_product__product_vendor_mapping',
+              'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_vendor_mapping__vendor').order_by('-id')
     serializer_class = ChildProductSerializers
 
     def get(self, request):
@@ -462,7 +462,7 @@ class ChildProductView(GenericAPIView):
             return get_response(id_instance['error'])
         parent_product_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=parent_product_instance, data=modified_data, partial=True)
+        serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save()
             return get_response('child product updated!', serializer.data)
