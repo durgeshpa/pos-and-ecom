@@ -741,7 +741,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     _(f"Parent Product Image Not Available. Please Upload Child Product Image(s)."))
 
-        if len(self.initial_data['product_pro_image']) > 0:
+        if self.initial_data['product_pro_image']:
             image_val = get_validate_images(self.initial_data['product_pro_image'])
             if 'error' in image_val:
                 raise serializers.ValidationError(_(image_val["error"]))
@@ -762,11 +762,11 @@ class ChildProductSerializers(serializers.ModelSerializer):
                 "basic":
                     {
                         "id" : representation['id'],
-                        "parent_product": representation['parent_product']['basic'],
                         "product_name": representation['product_name'],
                         "product_sku": representation['product_sku'],
                         "status": representation['status'],
                         "product_ean_code": representation['product_ean_code'],
+                        "parent_product": representation['parent_product']['basic'],
                     },
                 "additional":
                     {
@@ -791,11 +791,22 @@ class ChildProductSerializers(serializers.ModelSerializer):
                         "repackaging_type": representation['repackaging_type'],
                         "product_special_cess": representation['product_special_cess'],
                         "product_pro_image": representation['product_pro_image'],
-                        "parent_product_id": representation['parent_product']['basic']['parent_id'],
+                        "parent_product": {
+                            "id": representation['parent_product']['basic']['id'],
+                            "parent_id": representation['parent_product']['basic']['parent_id'],
+                            "name": representation['parent_product']['basic']['name'],
+
+                            }
                     },
                 "detail_page_2":
                     {
                         "product_vendor_mapping": representation['product_vendor_mapping'],
+                        "parent_product": {
+                            "id": representation['parent_product']['basic']['id'],
+                            "parent_id": representation['parent_product']['basic']['parent_id'],
+                            "name": representation['parent_product']['basic']['name'],
+
+                        }
                     },
                 "detail_page_log":
                     {
@@ -813,7 +824,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-        if len(self.initial_data['product_pro_image']) > 0:
+        if self.initial_data['product_pro_image']:
             ProductCls.upload_child_product_images(child_product, self.initial_data['product_pro_image'])
 
         return child_product
@@ -833,7 +844,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        if len(self.initial_data['product_pro_image']) > 0:
+        if self.initial_data['product_pro_image']:
             ProductCls.upload_child_product_images(child_product, self.initial_data['product_pro_image'])
 
         return child_product
