@@ -83,7 +83,7 @@ class TaxSerializers(serializers.ModelSerializer):
 class ProductSourceMappingSerializers(serializers.ModelSerializer):
     class Meta:
         model = ProductSourceMapping
-        fields = ('source_sku', 'status')
+        fields = ('destination_sku', 'source_sku', 'status')
 
 
 class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
@@ -708,25 +708,27 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
 
 
 class ParentProductListSerializers(serializers.ModelSerializer):
-
+    parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
+    parent_brand = BrandSerializers(read_only=True)
+    product_hsn = ProductHSNSerializers(read_only=True)
     class Meta:
         model = ParentProduct
-        fields = ('id', 'parent_id', 'name',)
+        fields = ('parent_id', 'name',  'product_type', 'product_hsn', 'parent_brand', 'parent_product_pro_tax',)
 
 
 class ChildProductSerializers(serializers.ModelSerializer):
     """ Handles creating, reading and updating child product items."""
     parent_product = ParentProductListSerializers(read_only=True)
     updated_by = UserSerializers(read_only=True)
-    product_vendor_mapping = ChildProductVendorMappingSerializers(many=True)
+    product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
-    product_pro_image = ProductImageSerializers(many=True)
+    product_pro_image = ProductImageSerializers(many=True, read_only=True)
 
     class Meta:
         model = Product
-        fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp',
+        fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'product_special_cess',
                   'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'repackaging_type',
-                  'product_pro_image', 'parent_product', 'product_vendor_mapping', 'updated_by')
+                  'product_pro_image', 'parent_product', 'product_vendor_mapping', 'updated_by',)
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
@@ -741,7 +743,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
                     parent_product_pro_image.exists():
                 raise serializers.ValidationError(
                     _(f"Parent Product Image Not Available. Please Upload Child Product Image(s)."))
-        elif len(self.initial_data.getlist('product_pro_image')) == 0:
+        elif not 'product_pro_image' in self.initial_data or not self.initial_data['product_pro_image']:
             if parent_product_val['parent_product'] and parent_product_val['parent_product'].parent_product_pro_image. \
                     exists():
                 data['use_parent_image'] = True
@@ -749,8 +751,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     _(f"Parent Product Image Not Available. Please Upload Child Product Image(s)."))
 
-        if len(self.initial_data.getlist('product_pro_image')) > 0:
-            image_val = get_validate_images(self.initial_data.getlist('product_pro_image'))
+        if len(self.initial_data['product_pro_image']) > 0:
+            image_val = get_validate_images(self.initial_data['product_pro_image'])
             if 'error' in image_val:
                 raise serializers.ValidationError(_(image_val["error"]))
 
@@ -770,36 +772,38 @@ class ChildProductSerializers(serializers.ModelSerializer):
                 "basic":
                     {
                         "id" : representation['id'],
-                        "parent_id": representation['parent_id'],
                         "product_name": representation['product_name'],
                         "product_sku": representation['product_sku'],
                         "status": representation['status'],
                         "product_ean_code": representation['product_ean_code'],
+                        "parent_product": representation['parent_product'],
                     },
                 "additional":
                     {
-
+                        "weight_value": representation['weight_value'],
+                        "weight_unit": representation['weight_unit'],
+                        "product_special_cess": representation['product_special_cess'],
                     },
                 "detail_page_1":
                     {
-                        "name": representation['name'],
-                        "parent_brand": representation['parent_brand'],
-                        "product_hsn": representation['product_hsn'],
-                        "inner_case_size": representation['inner_case_size'],
-                        "product_type": representation['product_type'],
-                        "is_ptr_applicable": representation['is_ptr_applicable'],
-                        "ptr_percent": representation['ptr_percent'],
-                        "ptr_type": representation['ptr_type'],
-                        "is_ars_applicable": representation['is_ars_applicable'],
-                        "max_inventory": representation['max_inventory'],
-                        "is_lead_time_applicable": representation['is_lead_time_applicable'],
-                        "parent_product_pro_category": representation['parent_product_pro_category'],
-                        "parent_product_pro_tax": representation['parent_product_pro_tax'],
-                        "parent_product_pro_image": representation['parent_product_pro_image'],
+                        "id" : representation['id'],
+                        "parent_product": representation['parent_product'],
+                        "product_name": representation['product_name'],
+                        "product_sku": representation['product_sku'],
+                        "status": representation['status'],
+                        "product_ean_code": representation['product_ean_code'],
+                        "product_mrp": representation['product_mrp'],
+                        "weight_value": representation['weight_value'],
+                        "weight_unit": representation['weight_unit'],
+                        "reason_for_child_sku": representation['reason_for_child_sku'],
+                        "use_parent_image": representation['use_parent_image'],
+                        "repackaging_type": representation['repackaging_type'],
+                        "product_special_cess": representation['product_special_cess'],
+                        "product_pro_image": representation['product_pro_image'],
                     },
                 "detail_page_2":
                     {
-                        "product_parent_product": representation['product_parent_product'],
+
                     },
                 "detail_page_log":
                     {
@@ -817,8 +821,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
-        if len(self.initial_data.getlist('product_pro_image')) > 0:
-            ProductCls.upload_child_product_images(child_product, self.initial_data.getlist('child_product_pro_image'))
+        if len(self.initial_data['product_pro_image']) > 0:
+            ProductCls.upload_child_product_images(child_product, self.initial_data['product_pro_image'])
 
         return child_product
 
@@ -837,8 +841,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        if len(self.initial_data.getlist('product_pro_image')) > 0:
-            ProductCls.upload_child_product_images(child_product, self.initial_data.getlist('product_pro_image'))
+        if len(self.initial_data['product_pro_image']) > 0:
+            ProductCls.upload_child_product_images(child_product, self.initial_data['product_pro_image'])
 
         return child_product
 

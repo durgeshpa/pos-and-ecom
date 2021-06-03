@@ -143,21 +143,6 @@ class ParentProductView(GenericAPIView):
             return get_response('parent product updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    def delete(self, request):
-        """ Delete Bulk Parent Product with image """
-
-        info_logger.info("Parent Product DELETE api called.")
-        if not request.data.get('parent_product_id'):
-            return get_response('please provide parent_product_id', False)
-        try:
-            for id in request.data.get('parent_product_id'):
-                parent_product_id = self.queryset.get(id=int(id))
-                parent_product_id.delete()
-        except ObjectDoesNotExist as e:
-            error_logger.error(e)
-            return get_response(f'please provide a valid parent_product_id {id}', False)
-        return get_response('parent product were deleted successfully!', True)
-
     def search_filter_parent_product(self):
 
         category = self.request.GET.get('category')
@@ -419,9 +404,11 @@ class ChildProductView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ChildProduct.objects.select_related('parent_product', 'updated_by').prefetch_related('product_pro_image', 'product_vendor_mapping',
-        'product_vendor_mapping__vendor', ).only('id', 'status', 'product_mrp', 'reason_for_child_sku', 'weight_value', 'weight_unit', 'use_parent_image',
-        'product_sku', 'product_name', 'product_ean_code', 'repackaging_type', 'parent_product__parent_id', 'parent_product__name', 'updated_by',).order_by('-id')
+    queryset = ChildProduct.objects.select_related('updated_by').prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product',
+              'parent_product__parent_product_pro_image', 'parent_product__parent_product_pro_category', 'parent_product__parent_product_pro_tax',
+              'parent_product__parent_product_pro_category__category', 'parent_product__product_parent_product__product_vendor_mapping',
+              'parent_product__parent_product_pro_tax__tax', 'parent_product__parent_brand', 'parent_product__product_hsn',
+              'product_vendor_mapping__vendor').order_by('-id')
     serializer_class = ChildProductSerializers
 
     def get(self, request):
@@ -494,14 +481,14 @@ class ChildProductView(GenericAPIView):
             self.queryset = child_product_search(self.queryset, search_text)
         # filter using brand_name, category & product_status exact match
         if brand is not None:
-            self.queryset = self.queryset.filter(parent_product__parent_brand__brand_name__icontains=brand)
+            self.queryset = self.queryset.filter(parent_product__parent_brand__id=brand)
         if parent_product_id is not None:
             self.queryset = self.queryset.filter(parent_product=parent_product_id)
         if product_status is not None:
             self.queryset = self.queryset.filter(status=product_status)
         if category is not None:
             self.queryset = self.queryset.filter(
-                parent_product__parent_product_pro_category__category__category_name__icontains=category)
+                parent_product__parent_product_pro_category__category__id=category)
         return self.queryset
 
 
