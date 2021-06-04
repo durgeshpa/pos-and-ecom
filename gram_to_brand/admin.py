@@ -187,8 +187,8 @@ class CartAdmin(admin.ModelAdmin):
         defaults = {}
         if request.user.is_superuser:
             defaults['form'] = POGenerationForm
-        elif obj is not None and obj.cart_type == Cart.CART_TYPE_CHOICE.AUTO and \
-                request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
+        elif obj is not None and obj.status == 'PDA' \
+                and request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
             defaults['form'] = POGenerationAccountForm
         else:
             defaults['form'] = POGenerationForm
