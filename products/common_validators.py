@@ -1,11 +1,17 @@
 import logging
 import json
+import sys
+import requests
+from io import BytesIO
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
+
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
 from categories.models import Category
 from shops.models import Shop
-
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
 
@@ -163,10 +169,11 @@ def validate_data_format(request):
     # Validate product data
     try:
         data = json.loads(request.data["data"])
-    except (KeyError, ValueError):
-        return {'error': "Invalid Data Format"}
-    if request.FILES.getlist('parent_product_pro_image'):
-        data['parent_product_pro_image'] = request.FILES.getlist('parent_product_pro_image')
-    elif request.FILES.getlist('product_pro_image'):
+    except Exception as e:
+        return {'error': "Invalid Data Format",}
+
+    if request.FILES.getlist('product_pro_image'):
         data['product_pro_image'] = request.FILES.getlist('product_pro_image')
+
+
     return data

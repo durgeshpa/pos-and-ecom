@@ -33,18 +33,23 @@ class ParentProductCls(object):
         return parent_product
 
     @classmethod
-    def upload_parent_product_images(cls, parent_product, parent_product_pro_image):
+    def upload_parent_product_images(cls, parent_product,  parent_product_pro_image, product_pro_image):
         """
             Delete Existing Images of specific ParentProduct if any
             Create Parent Product Images
         """
-        parent_image = ParentProductImage.objects.filter(parent_product=parent_product)
-        if parent_image.exists():
-            parent_image.delete()
+        if parent_product_pro_image:
+            for image in parent_product_pro_image:
+                parent_image = ParentProductImage.objects.filter(parent_product=parent_product).exclude(id=image['id'])
+        else:
+            parent_image = ParentProductImage.objects.filter(parent_product=parent_product)
 
-        for image in parent_product_pro_image:
-            ParentProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
-                                              parent_product=parent_product)
+        if parent_image.exists():
+                parent_image.delete()
+        if product_pro_image:
+            for image in product_pro_image:
+                ParentProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
+                                                  parent_product=parent_product)
 
     @classmethod
     def create_parent_product_category(cls, parent_product, parent_product_pro_category):
@@ -140,6 +145,33 @@ class ProductCls(object):
         product_vendor_map.vendor = vendor_obj['vendor']
         product_vendor_map.save()
         return product_vendor_map
+
+    @classmethod
+    def create_source_product_mapping(cls, parent_product, parent_product_pro_tax):
+        """
+            Create Parent Product Tax
+        """
+        for tax_data in parent_product_pro_tax:
+            tax = Tax.objects.get(id=tax_data['tax'])
+            ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
+
+    @classmethod
+    def packing_material_product_mapping(cls, parent_product, parent_product_pro_tax):
+        """
+            Create Parent Product Tax
+        """
+        for tax_data in parent_product_pro_tax:
+            tax = Tax.objects.get(id=tax_data['tax'])
+            ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
+
+    @classmethod
+    def create_destination_product_mapping(cls, parent_product, parent_product_pro_tax):
+        """
+            Create Parent Product Tax
+        """
+        for tax_data in parent_product_pro_tax:
+            tax = Tax.objects.get(id=tax_data['tax'])
+            ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
