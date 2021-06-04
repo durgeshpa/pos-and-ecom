@@ -156,22 +156,22 @@ class ProductCls(object):
             ProductSourceMapping.objects.create(destination_sku=parent_product, source_sku=pro_sku)
 
     @classmethod
-    def packing_material_product_mapping(cls, parent_product, parent_product_pro_tax):
+    def packing_material_product_mapping(cls, child_product, packing_material_rt):
         """
             Create Packing Material Product Mapping
         """
         for tax_data in parent_product_pro_tax:
             tax = Tax.objects.get(id=tax_data['tax'])
-            ProductPackingMapping.objects.create(child_product=child_product, tax=tax)
+            ProductPackingMapping.objects.create(sku_id=child_product, tax=tax)
 
     @classmethod
-    def create_destination_product_mapping(cls, child_product, parent_product_pro_tax):
+    def create_destination_product_mapping(cls, child_product, destination_product_repackaging):
         """
             Create Destination Product Mapping
         """
         for tax_data in parent_product_pro_tax:
             tax = Tax.objects.get(id=tax_data['tax'])
-            DestinationRepackagingCostMapping.objects.create(parent_product=child_product, tax=tax)
+            DestinationRepackagingCostMapping.objects.create(destination=child_product, tax=tax)
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):

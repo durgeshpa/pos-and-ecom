@@ -675,7 +675,7 @@ class ProductPackingMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ProductPackingMapping
-        fields = ('packing_sku', 'packing_sku_weight_per_unit_sku')
+        fields = ('packing_sku', 'packing_sku_weight_per_unit_sku', 'sku_id')
 
 
 class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
