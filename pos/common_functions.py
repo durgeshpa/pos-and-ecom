@@ -235,8 +235,8 @@ def update_pos_customer(ph_no, shop_id, email, name, is_whatsapp):
     customer, created = User.objects.get_or_create(phone_number=ph_no)
     if created:
         create_user_shop_mapping(customer, shop_id)
-    customer.email = email if email else customer.email
-    customer.first_name = name if name else customer.first_name
+    customer.email = email if email and not customer.email else customer.email
+    customer.first_name = name if name and not customer.first_name else customer.first_name
     customer.is_whatsapp = True if is_whatsapp else False
     customer.save()
     return customer
