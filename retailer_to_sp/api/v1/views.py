@@ -921,7 +921,7 @@ class CartCentral(GenericAPIView):
         # basic validations for inputs
         initial_validation = self.get_retail_validate()
         if 'error' in initial_validation:
-            return api_response([initial_validation['error']])
+            return api_response([initial_validation['error']], None, status.HTTP_200_OK)
         buyer_shop = initial_validation['buyer_shop']
         seller_shop = initial_validation['seller_shop']
         shop_type = initial_validation['shop_type']
@@ -966,7 +966,7 @@ class CartCentral(GenericAPIView):
             else:
                 return api_response(['Sorry no product added to this cart yet'], None, status.HTTP_200_OK)
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'])
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
 
     def get_basic_cart(self):
         """
@@ -1161,7 +1161,7 @@ class CartCentral(GenericAPIView):
         # basic validations for inputs
         initial_validation = self.post_retail_validate()
         if 'error' in initial_validation:
-            return api_response([initial_validation['error']])
+            return api_response([initial_validation['error']], None, status.HTTP_200_OK)
         buyer_shop = initial_validation['buyer_shop']
         seller_shop = initial_validation['seller_shop']
         product = initial_validation['product']
@@ -1204,7 +1204,7 @@ class CartCentral(GenericAPIView):
             return api_response(['Added To Cart'], self.post_serialize_process_gf(cart, seller_shop),
                                 status.HTTP_200_OK, True)
         else:
-            return api_response(['Sorry shop is not associated with any Gramfactory or any SP'])
+            return api_response(['Sorry shop is not associated with any Gramfactory or any SP'], None, status.HTTP_200_OK)
 
     def basic_add_to_cart(self, cart_id=None):
         """
@@ -2449,7 +2449,7 @@ class OrderCentral(APIView):
         # basic validations for inputs
         initial_validation = self.get_retail_validate()
         if 'error' in initial_validation:
-            return api_response([initial_validation['error']])
+            return api_response([initial_validation['error']], None, status.HTTP_200_OK)
         parent_mapping = initial_validation['parent_mapping']
         shop_type = initial_validation['shop_type']
         order = initial_validation['order']
@@ -2460,7 +2460,7 @@ class OrderCentral(APIView):
             return api_response(['Order'], self.get_serialize_process_gf(order, parent_mapping), status.HTTP_200_OK,
                                 True)
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'])
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
 
     def get_basic_order(self):
         """
@@ -2482,7 +2482,7 @@ class OrderCentral(APIView):
         # basic validations for inputs
         initial_validation = self.post_retail_validate()
         if 'error' in initial_validation:
-            return api_response([initial_validation['error']])
+            return api_response([initial_validation['error']], None, status.HTTP_200_OK)
         parent_mapping = initial_validation['parent_mapping']
         shop_type = initial_validation['shop_type']
         billing_address = initial_validation['billing_add']
@@ -2546,7 +2546,7 @@ class OrderCentral(APIView):
                     return api_response(['Available Quantity Is None'], None, status.HTTP_200_OK)
         # Shop type neither sp nor gf
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'])
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
 
     def post_basic_order(self):
         """
@@ -3222,7 +3222,7 @@ class OrderListCentral(GenericAPIView):
         # basic validations for inputs
         initial_validation = self.get_retail_validate()
         if 'error' in initial_validation:
-            return api_response([initial_validation['error']])
+            return api_response([initial_validation['error']], None, status.HTTP_200_OK)
         parent_mapping = initial_validation['parent_mapping']
         shop_type = initial_validation['shop_type']
         search_text = self.request.GET.get('search_text')
@@ -3243,7 +3243,7 @@ class OrderListCentral(GenericAPIView):
                 qs = qs.filter(Q(order_no__icontains=search_text) | Q(ordered_cart__id__icontains=search_text))
             return api_response(['Order'], self.get_serialize_process_gf(qs, parent_mapping), status.HTTP_200_OK, True)
         else:
-            return api_response(['Sorry shop is not associated with any GramFactory or any SP'])
+            return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
 
     def get_retail_validate(self):
         """
