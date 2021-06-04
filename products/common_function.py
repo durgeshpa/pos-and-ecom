@@ -2,7 +2,8 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage
+     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
+    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
@@ -146,31 +147,31 @@ class ProductCls(object):
         return product_vendor_map
 
     @classmethod
-    def create_source_product_mapping(cls, parent_product, parent_product_pro_tax):
+    def create_source_product_mapping(cls, child_product, source_sku):
         """
-            Create Parent Product Tax
+            Create Source Product Mapping
         """
-        for tax_data in parent_product_pro_tax:
-            tax = Tax.objects.get(id=tax_data['tax'])
-            ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
+        for source_sku_data in source_sku:
+            pro_sku = Product.objects.get(id=source_sku_data['source_sku'])
+            ProductSourceMapping.objects.create(destination_sku=parent_product, source_sku=pro_sku)
 
     @classmethod
     def packing_material_product_mapping(cls, parent_product, parent_product_pro_tax):
         """
-            Create Parent Product Tax
+            Create Packing Material Product Mapping
         """
         for tax_data in parent_product_pro_tax:
             tax = Tax.objects.get(id=tax_data['tax'])
-            ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
+            ProductPackingMapping.objects.create(child_product=child_product, tax=tax)
 
     @classmethod
-    def create_destination_product_mapping(cls, parent_product, parent_product_pro_tax):
+    def create_destination_product_mapping(cls, child_product, parent_product_pro_tax):
         """
-            Create Parent Product Tax
+            Create Destination Product Mapping
         """
         for tax_data in parent_product_pro_tax:
             tax = Tax.objects.get(id=tax_data['tax'])
-            ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
+            DestinationRepackagingCostMapping.objects.create(parent_product=child_product, tax=tax)
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
