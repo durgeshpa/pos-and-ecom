@@ -83,7 +83,7 @@ class CartAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs
         if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return qs.exclude(po_status='OPEN')
+            return qs
         return qs.filter(
             Q(gf_shipping_address__shop_name__related_users=request.user) |
             Q(gf_shipping_address__shop_name__shop_owner=request.user)
@@ -187,7 +187,7 @@ class CartAdmin(admin.ModelAdmin):
         defaults = {}
         if request.user.is_superuser:
             defaults['form'] = POGenerationForm
-        elif obj is not None and obj.status == 'PDA' \
+        elif obj is not None and obj.po_status == 'PDA' \
                 and request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
             defaults['form'] = POGenerationAccountForm
         else:
