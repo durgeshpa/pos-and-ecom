@@ -1269,7 +1269,7 @@ class CartCentral(GenericAPIView):
         if is_blocked_for_audit:
             return {'error': ERROR_MESSAGES['4019'].format(product)}
         # Check if product is packing material
-        if is_product_not_eligible(product):
+        if is_product_not_eligible(product.id):
             return {'error': "Product Is Not Eligible To Order"}
         return {'product': product, 'buyer_shop': parent_mapping.retailer, 'seller_shop': parent_mapping.parent,
                 'quantity': qty, 'shop_type': parent_mapping.parent.shop_type.shop_type}
