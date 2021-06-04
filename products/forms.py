@@ -528,12 +528,13 @@ class ProductForm(forms.ModelForm):
 
     def clean(self):
         if 'status' in self.cleaned_data and self.cleaned_data['status'] == 'active':
-            error = True
-            if self.instance.id and ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
-                                                                product_id=self.instance.id).exists():
-                error = False
-            if error:
-                raise forms.ValidationError("Product cannot be made active until an active Product Price exists")
+            if 'repackaging_type' in self.cleaned_data and self.cleaned_data['repackaging_type'] != 'packing_material':
+                error = True
+                if self.instance.id and ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
+                                                                    product_id=self.instance.id).exists():
+                    error = False
+                if error:
+                    raise forms.ValidationError("Product cannot be made active until an active Product Price exists")
         return self.cleaned_data
 
 

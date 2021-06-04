@@ -1083,7 +1083,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.repackaging_type != 'none':
             if obj.repackaging_type == 'packing_material':
-                return self.readonly_fields + ('repackaging_type', 'weight_value', 'weight_unit', )
+                return self.readonly_fields + ('repackaging_type', 'weight_value', 'weight_unit', 'status')
             return self.readonly_fields + ('repackaging_type',)
         return self.readonly_fields
 
@@ -1099,6 +1099,8 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     def save_model(self, request, obj, form, change):
         if 'repackaging_type' in form.changed_data and form.cleaned_data['repackaging_type'] == 'packing_material':
             self.update_weight_inventory(obj)
+        if 'repackaging_type' in form.cleaned_data and form.cleaned_data['repackaging_type'] == 'packing_material':
+            obj.status = 'pending_approval'
         super(ProductAdmin, self).save_model(request, obj, form, change)
 
     @staticmethod
