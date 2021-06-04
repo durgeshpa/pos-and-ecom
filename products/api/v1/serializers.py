@@ -755,6 +755,12 @@ class ChildProductSerializers(serializers.ModelSerializer):
         if self.initial_data['product_pro_image']:
             ProductCls.upload_child_product_images(child_product, self.initial_data['product_pro_image'])
 
+        if self.initial_data['repackaging_type'] == 'destination':
+            ProductCls.create_source_product_mapping(child_product, self.initial_data['source_product_pro'])
+            ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_material_rt'])
+            ProductCls.create_destination_product_mapping(child_product,
+                                                          self.initial_data['destination_product_repackaging'])
+
         return child_product
 
     @transaction.atomic
