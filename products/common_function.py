@@ -38,14 +38,13 @@ class ParentProductCls(object):
             Delete Existing Images of specific ParentProduct if any
             Create Parent Product Images
         """
+        ids = []
         if parent_product_pro_image:
             for image in parent_product_pro_image:
-                parent_image = ParentProductImage.objects.filter(parent_product=parent_product).exclude(id=image['id'])
-        else:
-            parent_image = ParentProductImage.objects.filter(parent_product=parent_product)
+                ids.append(image['id'])
 
-        if parent_image.exists():
-                parent_image.delete()
+        parent_image = ParentProductImage.objects.filter(parent_product=parent_product).exclude(
+                            id__in=ids).delete()
         if product_pro_image:
             for image in product_pro_image:
                 ParentProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],

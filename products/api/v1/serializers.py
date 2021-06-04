@@ -232,6 +232,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
     def create_parent_tax_image_cat(self, parent_product):
         parent_product_pro_image = None
         product_pro_image = None
+
         if 'parent_product_pro_image' in self.initial_data and self.initial_data['parent_product_pro_image']:
             parent_product_pro_image = self.initial_data['parent_product_pro_image']
         if 'product_pro_image' in self.initial_data and self.initial_data['product_pro_image']:
