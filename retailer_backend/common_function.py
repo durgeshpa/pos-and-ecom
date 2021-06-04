@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-from django.core.exceptions import ObjectDoesNotExist
-from shops.models import Shop, ParentRetailerMapping
-=======
 import itertools
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -9,7 +5,6 @@ from django.core.mail import EmailMessage
 
 from common.constants import BULK_CREATE_NO_OF_RECORDS
 from shops.models import Shop,ParentRetailerMapping
->>>>>>> feb5337855551d90f0a763d074768749543b86b9
 from addresses.models import Address
 from rest_framework import status
 from addresses.models import InvoiceCityMapping
