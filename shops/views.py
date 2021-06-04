@@ -98,10 +98,15 @@ class ProductTable(tables.Table):
     earliest_expiry_date = tables.Column()
     audit_blocked = tables.Column()
     visibility = tables.Column()
+    repackaging_type = tables.Column()
     normal = tables.Column()
     damaged = tables.Column()
     expired = tables.Column()
     missing = tables.Column()
+    normal_weight = tables.Column()
+    damaged_weight = tables.Column()
+    expired_weight = tables.Column()
+    missing_weight = tables.Column()
 
 
 class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
@@ -221,21 +226,32 @@ class ShopMappedProduct(ExportMixin, SingleTableView, FilterView):
                     'product_price_slab2': product_price_slab2,
                     'product_price2': product_price2,
                     'earliest_expiry_date': earliest_expiry_date.date(),
+                    'repackaging_type': myproduct.sku.repackaging_type,
                     'normal': 0,
                     'damaged': 0,
                     'expired': 0,
                     'missing': 0,
+                    'normal_weight': 0,
+                    'damaged_weight': 0,
+                    'expired_weight': 0,
+                    'missing_weight': 0,
                     'visibility': False,
                     'audit_blocked': audit_blocked,
                 }
             else:
                 product_temp = product_list[myproduct.sku.product_sku]
             if myproduct.inventory_state.inventory_state == 'total_available':
-                product_temp[myproduct.inventory_type.inventory_type] += myproduct.quantity
+                if myproduct.sku.repackaging_type != 'packing_material':
+                    product_temp[myproduct.inventory_type.inventory_type] += myproduct.quantity
+                else:
+                    product_temp[myproduct.inventory_type.inventory_type + '_weight'] += myproduct.weight
                 if myproduct.inventory_type == inventory_type_normal:
                     product_temp['visibility'] = myproduct.visible
             elif myproduct.inventory_state.inventory_state in ('reserved', 'ordered', 'to_be_picked'):
-                product_temp[myproduct.inventory_type.inventory_type] -= myproduct.quantity
+                if myproduct.sku.repackaging_type != 'packing_material':
+                    product_temp[myproduct.inventory_type.inventory_type] -= myproduct.quantity
+                else:
+                    product_temp[myproduct.inventory_type.inventory_type + '_weight'] += myproduct.weight
 
             product_list[myproduct.sku.product_sku] = product_temp
         product_list_new = []
@@ -586,6 +602,8 @@ class BeatUserMappingCsvSample(View):
     """
     This class is used to download the sample beat csv file for individual executive
     """
+    def get_manager(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
 
     def get(self, request, *args, **kwargs):
         """
@@ -601,13 +619,14 @@ class BeatUserMappingCsvSample(View):
                 employee=request.GET['shop_user_mapping']).values_list('employee').last()
 
             # get the shop queryset assigned with executive
-            shops = ShopUserMapping.objects.filter(employee=query_set).all()
+            shops = ShopUserMapping.objects.filter(employee=query_set, status=True,
+                                                   shop__shop_user__shop__approval_status=2).distinct('shop')
         else:
             query_set = ShopUserMapping.objects.filter(
                 id=request.GET['shop_user_mapping']).values_list('employee').last()
 
             # get the shop queryset assigned with executive
-            shops = ShopUserMapping.objects.filter(employee=query_set[0]).all()
+            shops = ShopUserMapping.objects.filter(employee=query_set[0], manager__in=self.get_manager(), status=True, shop__shop_user__shop__approval_status=2).distinct('shop')
 
         try:
             # name of the csv file
@@ -632,12 +651,12 @@ class BeatUserMappingCsvSample(View):
             writer.writerow(['Sales Executive (Number - Name)', 'Shop Name', 'Shop ID ', 'Contact Number', 'Address',
                              'Pin Code', 'Category', 'Date (dd/mm/yyyy)'])
             for shop in shops:
-                if shop.shop.approval_status == 2:
+                try:
                     writer.writerow([shop.employee, shop.shop.shop_name, shop.shop.pk,
                                      shop.shop.shipping_address.address_contact_number,
                                      shop.shop.shipping_address.address_line1, shop.shop.shipping_address.pincode, '',
                                      ''])
-                else:
+                except:
                     pass
             f.seek(0)
             response = HttpResponse(f, content_type='text/csv')

@@ -146,13 +146,24 @@ class BinSerializer(DynamicFieldsModelSerializer):
         model = Bin
         fields = ('id','warehouse', 'bin_id', 'bin_type', 'is_active', 'bin_barcode','bin_barcode_txt', 'created_at', 'modified_at')
 
+
 class BinInventorySerializer(serializers.ModelSerializer):
-    bin = BinSerializer()
-    sku = ProductSerializer()
+    # inventory_type = serializers.SerializerMethodField()
+    bin_id = serializers.SerializerMethodField()
 
     class Meta:
         model = BinInventory
-        fields = ('id', 'bin', 'batch_id', 'sku',)
+        fields = ('bin_id', 'batch_id', 'quantity',
+                  # 'inventory_type'
+                  )
+
+    @staticmethod
+    def get_inventory_type(obj):
+        return obj.inventory_type.inventory_type
+
+    @staticmethod
+    def get_bin_id(obj):
+        return obj.bin.bin_id
 
 
 class PickupBinInventorySerializer(serializers.ModelSerializer):

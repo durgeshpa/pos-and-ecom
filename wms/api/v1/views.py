@@ -9,7 +9,7 @@ from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, Inventor
     PickupBinInventory, StockMovementCSVUpload, In
 from products.models import Product
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer, \
-    PickupBinInventorySerializer, RepackagingSerializer
+    PickupBinInventorySerializer, RepackagingSerializer, BinInventorySerializer
 from wms.views import PickupInventoryManagement, update_putaway
 from rest_framework.response import Response
 from rest_framework import status
@@ -135,9 +135,16 @@ class PutAwayViewSet(APIView):
             put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id, warehouse=warehouse,
                                                                     inventory_type=type_normal).order_by('created_at')
             if put_away.exists():
-                serializer = PutAwaySerializer(put_away.last(), fields=(
+                put_away_last = put_away.last()
+                put_away_serializer = PutAwaySerializer(put_away_last, fields=(
                     'is_success', 'product_sku', 'batch_id', 'product_name', 'inventory_type', 'putaway_quantity', 'max_putaway_qty'))
-                msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
+                data = put_away_serializer.data
+                bin_inventory = BinInventory.objects.filter(warehouse=warehouse, sku=put_away_last.sku,
+                                                            inventory_type__inventory_type='normal')
+                if bin_inventory.exists():
+                    bin_inventory_serializer = BinInventorySerializer(bin_inventory, many=True)
+                    data['sku_bin_inventory'] = bin_inventory_serializer.data
+                msg = {'is_success': True, 'message': 'OK', 'data': data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False, 'message': 'Batch id does not exist.', 'data': None}
@@ -334,8 +341,11 @@ class PickupList(APIView):
         if pickuptype == 1:
             orders = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
                                           Q(picker_order__picking_status__in=['picking_assigned', 'picking_complete']),
-                                          Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete'])).order_by(
-                '-created_at')
+                                          Q(order_status__in=['PICKING_ASSIGNED', 'picking_complete']),
+                                          Q(
+                                              picker_order__picker_assigned_date__startswith=date.date())
+                                          ).order_by(
+                'created_at')
             if orders:
                 data_found = 1
                 serializer = OrderSerializer(orders, many=True)
@@ -344,20 +354,20 @@ class PickupList(APIView):
                                                         Q(order_status__in=['picking_complete']),
                                                         Q(
                                                             picker_order__picker_assigned_date__startswith=date.date())).order_by(
-                    '-created_at').count()
+                    'created_at').count()
                 picking_assigned = orders.count()
         elif pickuptype == 2:
             repacks = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
                                           Q(picker_repacks__picking_status__in=['picking_assigned', 'picking_complete']),
                                           Q(picker_repacks__picker_assigned_date__startswith=date.date())).order_by(
-                '-created_at')
+                'created_at')
             if repacks:
                 data_found = 1
                 serializer = RepackagingSerializer(repacks, many=True)
                 picking_complete = Repackaging.objects.filter(Q(picker_repacks__picker_boy__phone_number=picker_boy),
                                                         Q(picker_repacks__picking_status__in=['picking_complete']),
                                                         Q(picker_repacks__picker_assigned_date__startswith=date.date())
-                                                              ).order_by('-created_at').count()
+                                                              ).order_by('created_at').count()
                 picking_assigned = repacks.count()
 
         if data_found:
@@ -808,3 +818,4 @@ class DecodeBarcode(APIView):
                 data.append(data_item)
         msg = {'is_success': True, 'message': '', 'data': data}
         return Response(msg, status=status.HTTP_200_OK)
+

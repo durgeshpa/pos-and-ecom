@@ -2616,12 +2616,6 @@ class OrderCentral(APIView):
             Place Order
             Input validation for cart type 'retail'
         """
-        # Check day order count
-        order_config = GlobalConfig.objects.filter(key='order_count').last()
-        if not Order.objects.filter(created_at__date=datetime.today()).exclude(
-                order_status='CANCELLED').count() < order_config.value:
-            return {'error': 'Because of the current surge in orders, we are not taking any more orders for today. We'
-                             ' will start taking orders again tomorrow. We regret the inconvenience caused to you'}
         # Check if buyer shop exists
         shop_id = self.request.data.get('shop_id')
         if not Shop.objects.filter(id=shop_id).exists():
@@ -2642,6 +2636,23 @@ class OrderCentral(APIView):
             shipping_address = Address.objects.get(id=shipping_address_id)
         except ObjectDoesNotExist:
             return {'error': "Shipping address not found"}
+        # Check day order count
+        b_shop = parent_mapping.retailer
+        b_shop_type, b_shop_sub_type = b_shop.shop_type.shop_type, b_shop.shop_type.shop_sub_type
+        config_key = None
+        if b_shop_type == 'r':
+            config_key = 'retailer_order_count'
+        elif b_shop_type == 'f' and str(b_shop_sub_type) in ['fofo', 'foco']:
+            config_key = str(b_shop_sub_type) + '_order_count'
+        order_config = GlobalConfig.objects.filter(key=config_key).last()
+        if order_config.value is not None:
+            qs = Order.objects.filter(buyer_shop__shop_type=b_shop.shop_type, created_at__date=datetime.today()
+                                      ).exclude(order_status='CANCELLED')
+            if (b_shop_type == 'r' and not qs.count() < order_config.value) or (b_shop_type == 'f' and qs.filter(
+                    buyer_shop__shop_type__shop_sub_type=b_shop_sub_type).count() < order_config.value):
+                return {'error': 'Because of the current surge in orders, we are not taking any more orders for today. '
+                                 'We will start taking orders again tomorrow. We regret the inconvenience caused to you'}
+
         return {'parent_mapping': parent_mapping, 'shop_type': parent_mapping.parent.shop_type.shop_type,
                 'billing_add': billing_address, 'shipping_add': shipping_address}
 
@@ -2730,6 +2741,7 @@ class OrderCentral(APIView):
             return {'is_success': False, 'message': "Some products in cart aren’t available anymore, please update cart"
                                                     " and remove product from cart upon revisiting it"}
         else:
+            cart.offers = cart.offers_applied()
             cart.cart_status = 'ordered'
             cart.buyer_shop = parent_mapping.retailer
             cart.seller_shop = parent_mapping.parent
@@ -4211,8 +4223,7 @@ class DownloadInvoiceSP(APIView):
             ordered_product = get_object_or_404(OrderedProduct, pk=pk)
             # call pdf generation method to generate pdf and download the pdf
             pdf_generation(request, ordered_product)
-            url = AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name
-            result = requests.get(url)
+            result = requests.get(ordered_product.invoice.invoice_pdf.url)
             file_prefix = PREFIX_INVOICE_FILE_NAME
             # generate pdf file
             response = single_pdf_file(ordered_product, result, file_prefix)
@@ -4228,13 +4239,12 @@ class DownloadInvoiceSP(APIView):
                 # call pdf generation method to generate and save pdf
                 pdf_generation(request, ordered_product)
                 # append the pdf file path
-                file_path_list.append(AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name)
+                file_path_list.append(ordered_product.invoice.invoice_pdf.url)
                 # append created date for pdf file
                 pdf_created_date.append(ordered_product.created_at)
             # condition to check the download file count
             if len(pdf_created_date) == 1:
-                url = AWS_MEDIA_URL + ordered_product.invoice.invoice_pdf.name
-                result = requests.get(url)
+                result = requests.get(ordered_product.invoice.invoice_pdf.url)
                 file_prefix = PREFIX_INVOICE_FILE_NAME
                 # generate pdf file
                 response = single_pdf_file(ordered_product, result, file_prefix)
@@ -5287,6 +5297,9 @@ class RescheduleReason(generics.ListCreateAPIView):
         return Response(msg, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
+        if ShipmentRescheduling.objects.filter(shipment=request.data.get('shipment')).exists():
+            msg = {'is_success': False, 'message': ['A shipment cannot be rescheduled more than once.'], 'response_data': None}
+            return Response(msg, status=status.HTTP_200_OK)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)
@@ -5296,13 +5309,14 @@ class RescheduleReason(generics.ListCreateAPIView):
                 item.save()
             self.update_shipment(request.data.get('shipment'))
             update_trip_status(request.data.get('trip'))
-            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+            msg = {'is_success': True, 'message': ['Reschedule successfully done.'], 'response_data': [serializer.data]}
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
-        return serializer.save(created_by=self.request.user)
+        shipment = OrderedProduct.objects.get(pk=self.request.data.get('shipment'))
+        return serializer.save(created_by=self.request.user, trip=shipment.trip)
 
     def update_shipment(self, id):
         shipment = OrderedProduct.objects.get(pk=id)

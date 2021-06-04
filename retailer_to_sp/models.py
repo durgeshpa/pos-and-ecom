@@ -14,7 +14,7 @@ from django.contrib.postgres.fields import JSONField
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
-from django.utils.html import format_html_join
+from django.utils.html import format_html_join, format_html
 
 from celery.task import task
 from accounts.middlewares import get_current_user
@@ -1142,6 +1142,20 @@ class Order(models.Model):
         except:
             return "-"
 
+    @property
+    def trip_id(self):
+        trips = []
+        curr_trip = ''
+        for s in self.shipments():
+            if s.trip:
+                curr_trip = '<b>' + s.trip.dispatch_no + '</b><br>'
+            rescheduling = s.rescheduling_shipment.select_related('trip').all()
+            if rescheduling.exists():
+                for reschedule in rescheduling:
+                    if reschedule.trip:
+                        trips += [reschedule.trip.dispatch_no]
+        return format_html("<b>{}</b>".format(curr_trip)) + format_html_join("", "{}<br>", ((t,) for t in trips))
+
 
 class Trip(models.Model):
     READY = 'READY'
@@ -2259,6 +2273,10 @@ class ShipmentRescheduling(models.Model):
     shipment = models.ForeignKey(
         OrderedProduct, related_name='rescheduling_shipment',
         blank=False, null=True, on_delete=models.DO_NOTHING
+    )
+    trip = models.ForeignKey(
+        Trip, related_name="rescheduling_shipment_trip",
+        null=True, blank=False, on_delete=models.DO_NOTHING,
     )
     rescheduling_reason = models.CharField(
         max_length=50, choices=RESCHEDULING_REASON,

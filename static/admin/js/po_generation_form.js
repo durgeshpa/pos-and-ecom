@@ -123,29 +123,10 @@ function calculateColumn(index) {
                 dataType: 'json',
                 url: host+'admin/gram_to_brand/cart/message-list/',
                 success: function(response) {
-                    // Po buttons visiblity code
-                    if (response['po_status']== 'PDLV') {
-                        $(':input[name="_close"]').prop('disabled', false);
-                        $(':input[name="_disapprove"]').prop('disabled', true);
-                        $(':input[name="_approve"]').prop('disabled', true);
-                        $(':input[name="_approval_await"]').prop('disabled', true);
-                    }else if(response['po_status']== 'WAIT') {
-                        $(':input[name="_disapprove"]').prop('disabled', false);
+                    if(response['po_status']== 'PDA') {
                         $(':input[name="_approve"]').prop('disabled', false);
-                        $(':input[name="_close"]').prop('disabled', true);
-                        $(':input[name="_approval_await"]').prop('disabled', true);
-
-                    }else if(response['po_status']== 'OPEN' || response['po_status']== 'WAIT'){
-                        $(':input[name="_approval_await"]').prop('disabled', false);
-                        $(':input[name="_close"]').prop('disabled', true);
-                        $(':input[name="_disapprove"]').prop('disabled', true);
-                        $(':input[name="_approve"]').prop('disabled', true);
-
                     }else{
-                        $(':input[name="_close"]').prop('disabled', true);
-                        $(':input[name="_disapprove"]').prop('disabled', true);
                         $(':input[name="_approve"]').prop('disabled', true);
-                        $(':input[name="_approval_await"]').prop('disabled', true);
                     }
 
                     $("#loading").hide();
@@ -165,15 +146,6 @@ function calculateColumn(index) {
             var c = confirm("Are you sure?");
             return c;
         });
-
-        $('.submit-row').on('click','input[name="_disapprove"]', function(e){
-            console.log("inside disapprove")
-            if ($('textarea[name="message"]').val().trim()=='') {
-                alert("Please enter some message");
-                event.preventDefault();
-            }
-        });
-
     });
 
 

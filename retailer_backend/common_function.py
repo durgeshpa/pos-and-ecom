@@ -1,5 +1,15 @@
+<<<<<<< HEAD
 from django.core.exceptions import ObjectDoesNotExist
 from shops.models import Shop, ParentRetailerMapping
+=======
+import itertools
+
+from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import EmailMessage
+
+from common.constants import BULK_CREATE_NO_OF_RECORDS
+from shops.models import Shop,ParentRetailerMapping
+>>>>>>> feb5337855551d90f0a763d074768749543b86b9
 from addresses.models import Address
 from rest_framework import status
 from addresses.models import InvoiceCityMapping
@@ -303,3 +313,34 @@ def cart_no_pattern_discounted(model, field, instance_id, address, year=None):
 
 def cart_no_pattern_bulk(model, field, instance_id, address, year=None):
     return common_pattern_bulk(model, field, instance_id, address, "CR", year)
+
+
+def bulk_create(model, generator, batch_size=BULK_CREATE_NO_OF_RECORDS):
+    """
+    Uses islice to call bulk_create on batches of
+    Model objects from a generator.
+    """
+    while True:
+        items = list(itertools.islice(generator, batch_size))
+        if not items:
+            break
+        model.objects.bulk_create(items)
+
+
+def send_mail(sender, recipient_list, subject, body, attachment_list=None):
+    """
+    Parameters:
+        sender : valid email address as string
+        recipient_list : list of valid email addresses
+        subject : email subject as string
+        body : email body as string
+        attachment_list : list of file attachments
+    """
+    email = EmailMessage()
+    email.subject = subject
+    email.body = body
+    email.from_email = sender
+    email.to = recipient_list
+    for attachment in attachment_list:
+        email.attach(attachment['name'], attachment['value'], attachment['type'])
+    email.send()

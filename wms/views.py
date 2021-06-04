@@ -29,6 +29,8 @@ from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
+
+from retailer_backend.common_function import bulk_create
 from sp_to_gram.tasks import update_shop_product_es, update_product_es, upload_shop_stock
 from django.db.models.signals import post_save
 from django.db.models import Sum
@@ -1377,18 +1379,6 @@ def bin_data_generator(data, archive_entry):
                                               in_stock=row.in_stock,
                                               created_at=row.created_at,
                                               modified_at=row.modified_at)
-
-def bulk_create(model, generator, batch_size=5000):
-    """
-    Uses islice to call bulk_create on batches of
-    Model objects from a generator.
-    """
-    while True:
-        items = list(itertools.islice(generator, batch_size))
-        if not items:
-            break
-        model.objects.bulk_create(items)
-
 
 def archive_inventory_cron():
     info_logger.info("WMS : Archiving warehouse inventory data started at {}".format(datetime.now()))

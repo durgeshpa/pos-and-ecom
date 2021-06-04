@@ -72,6 +72,13 @@
     yl.getValueFromField = function(field) {
         var strategy = getForwardStrategy(field);
         var serializedField = $(field).serializeArray();
+        if (serializedField == false) {
+            if ($(field).prop('disabled') == true) {
+                $(field).prop('disabled', false);
+                serializedField = $(field).serializeArray();
+                $(field).prop('disabled', true);
+            }
+        }
 
         var getSerializedFieldElementAt = function (index) {
             // Return serializedField[index]

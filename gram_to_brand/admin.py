@@ -53,7 +53,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 
     class Media:
         js = (
-            '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/po_generation_form.js'
         )
 
@@ -83,11 +83,11 @@ class CartAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs
         if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return qs.exclude(po_status='OPEN')
+            return qs.filter(po_status='PDA')
         return qs.filter(
             Q(gf_shipping_address__shop_name__related_users=request.user) |
             Q(gf_shipping_address__shop_name__shop_owner=request.user)
-        )
+        ).exclude(po_status='PDA')
 
     def download_purchase_order(self, obj):
         return format_html("<a href= '%s' >Download PO</a>" % (reverse('admin:download_purchase_order', args=[obj.pk])))
@@ -97,25 +97,29 @@ class CartAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
 
         def po_edit_link(obj):
-            if request.user.is_superuser:
-                return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk, obj.po_no))
-            if request.user.has_perm('gram_to_brand.can_create_po') and obj.po_status == obj.APPROVAL_AWAITED:
-                return format_html("%s" % obj.po_no)
+            # if request.user.is_superuser:
+            #     return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk, obj.po_no))
+            # if request.user.has_perm('gram_to_brand.can_create_po'):
+            #     return format_html("%s" % obj.po_no)
             return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk, obj.po_no))
 
         po_edit_link.short_description = 'Po No'
 
         return [po_edit_link, 'brand', 'supplier_state', 'supplier_name', 'po_creation_date', 'po_validity_date',
-                'po_raised_by', 'po_status', 'download_purchase_order']
+                'po_raised_by', 'po_status', 'po_delivery_date', 'approved_by', 'download_purchase_order']
 
     def save_formset(self, request, form, formset, change):
         obj = form.instance
         get_po_msg = Po_Message.objects.create(message=request.POST.get('message'),
                                                created_by=request.user) if request.POST.get('message') else None
-        flag, obj.po_status = self.po_status_request(request, obj)
+        flag, obj.po_status, is_approved = self.po_status_request(request, obj)
         obj.po_message = get_po_msg
-        obj.po_raised_by = request.user
+        if obj.po_raised_by is None:
+            obj.po_raised_by = request.user
         obj.last_modified_by = request.user
+        if is_approved:
+            obj.approved_by = request.user
+            obj.approved_at = datetime.datetime.now()
         obj.save()
         if flag:
             self.log_entry(request.user.pk, obj)
@@ -138,18 +142,20 @@ class CartAdmin(admin.ModelAdmin):
     @staticmethod
     def po_status_request(request, obj):
         flag = True
+        is_approved = False
+        status = obj.po_status
         if "_approve" in request.POST:
-            status = obj.FINANCE_APPROVED
+            status = obj.OPEN
+            is_approved = True
         elif "_disapprove" in request.POST:
             status = obj.DISAPPROVED
         elif "_approval_await" in request.POST:
-            status = obj.APPROVAL_AWAITED
+            status = obj.PENDING_APPROVAL
         elif "_close" in request.POST:
             status = obj.PARTIAL_DELIVERED_CLOSE
-        else:
+        elif status is None:
             status = obj.OPEN
-            flag = False
-        return flag, status
+        return flag, status, is_approved
 
     class Media:
         js = (
@@ -175,11 +181,6 @@ class CartAdmin(admin.ModelAdmin):
     }
 
     def get_readonly_fields(self, request, obj=None):
-        if request.user.is_superuser:
-            return 'po_status',
-        elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return 'brand', 'supplier_state', 'supplier_name', 'gf_shipping_address', 'gf_billing_address', \
-                   'po_validity_date', 'payment_term', 'delivery_term', 'po_status',
         return 'po_status',
 
     def get_form(self, request, obj=None, **kwargs):
