@@ -38,7 +38,7 @@ class BrandView(GenericAPIView):
 
     def get(self, request):
         if request.GET.get('id'):
-            """ Get Parent Product for specific ID """
+            """ Get Brand for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
@@ -59,7 +59,7 @@ class CategoryView(GenericAPIView):
 
     def get(self, request):
         if request.GET.get('id'):
-            """ Get Parent Product for specific ID """
+            """ Get Category for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
@@ -164,17 +164,7 @@ class ParentProductView(GenericAPIView):
             self.queryset = self.queryset.filter(
                 parent_product_pro_category__category__id=category)
         return self.queryset
-
-    def validate_data_format(self):
-        # Validate product data
-        try:
-            data = json.loads(self.request.data["data"], )
-        except (KeyError, ValueError):
-            return {'error': "Invalid Data Format"}
-        image_files = self.request.FILES.getlist('parent_product_pro_image')
-        data['parent_product_pro_image'] = image_files
-        return data
-
+    
 
 class ParentProductBulkUploadView(CreateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -427,11 +417,14 @@ class ChildProductView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = ChildProduct.objects.select_related('updated_by').prefetch_related('product_pro_image', 'product_vendor_mapping', 'parent_product',
-              'parent_product__parent_product_pro_image', 'parent_product__parent_product_pro_category', 'parent_product__parent_product_pro_tax',
-              'parent_product__parent_product_pro_category__category', 'parent_product__product_parent_product__product_vendor_mapping', 'source_product_pro','packing_material_rt', 'destination_product_repackaging',
-              'parent_product__parent_product_pro_tax__tax', 'parent_product__parent_brand', 'parent_product__product_hsn','parent_product__product_parent_product__product_vendor_mapping',
-              'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_vendor_mapping__vendor').order_by('-id')
+    queryset = ChildProduct.objects.select_related('updated_by').prefetch_related('product_pro_image',
+                'product_vendor_mapping', 'parent_product', 'parent_product__parent_product_pro_image',
+                'parent_product__parent_product_pro_category', 'parent_product__parent_product_pro_tax',
+                'parent_product__parent_product_pro_category__category', 'destination_product_repackaging',
+                'parent_product__product_parent_product__product_vendor_mapping', 'source_product_pro',
+                'packing_material_rt', 'parent_product__parent_product_pro_tax__tax', 'parent_product__parent_brand',
+                'parent_product__product_hsn','parent_product__product_parent_product__product_vendor_mapping',
+                'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_vendor_mapping__vendor').order_by('-id')
     serializer_class = ChildProductSerializers
 
     def get(self, request):

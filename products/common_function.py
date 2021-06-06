@@ -152,26 +152,26 @@ class ProductCls(object):
             Create Source Product Mapping
         """
         for source_sku_data in source_sku:
-            pro_sku = Product.objects.get(id=source_sku_data['source_sku'])
-            ProductSourceMapping.objects.create(destination_sku=child_product, source_sku=pro_sku)
+            pro_source_sku = Product.objects.get(id=source_sku_data['source_sku'])
+            ProductSourceMapping.objects.create(destination_sku=child_product, source_sku=pro_source_sku)
 
     @classmethod
     def packing_material_product_mapping(cls, child_product, packing_material_rt):
         """
             Create Packing Material Product Mapping
         """
-
-        ProductPackingMapping.objects.create(sku_id=child_product, packing_sku=packing_material_rt['packing_sku'],
-                packing_sku_weight_per_unit_sku=packing_material_rt['packing_sku_weight_per_unit_sku'])
+        for source_sku_data in packing_material_rt:
+            pro_packing_sku = Product.objects.get(id=source_sku_data['packing_sku'])
+            ProductPackingMapping.objects.create(sku_id=child_product, packing_sku=pro_packing_sku,
+                packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
 
     @classmethod
     def create_destination_product_mapping(cls, child_product, destination_product_repackaging):
         """
             Create Destination Product Mapping
         """
-        for prod_data in destination_product_repackaging:
-            DestinationRepackagingCostMapping.objects.create(destination=child_product,
-                        raw_material=destination_product_repackaging['raw_material'])
+        for pro_des_data in destination_product_repackaging:
+            DestinationRepackagingCostMapping.objects.create(destination=child_product, raw_material=pro_des_data['raw_material'])
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):

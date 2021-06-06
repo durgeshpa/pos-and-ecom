@@ -103,13 +103,13 @@ class ChildProductVendorMappingSerializers(serializers.ModelSerializer):
 
 class ChildProductSerializers(serializers.ModelSerializer):
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True)
+
     class Meta:
         model = Product
         fields = ('id', 'product_name', 'product_vendor_mapping')
 
 
 class UserSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = User
         fields = ('id', 'first_name', 'phone_number',)
@@ -127,7 +127,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_id = serializers.CharField(read_only=True)
     product_parent_product = ChildProductSerializers(many=True, required=False)
     max_inventory = serializers.IntegerField(allow_null=True, max_value=999)
-
 
     def validate(self, data):
         """
@@ -147,7 +146,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if not 'product_hsn' in self.initial_data or not self.initial_data['product_hsn']:
             raise serializers.ValidationError(_('product_hsn is required'))
 
-        if not 'parent_product_pro_category' in self.initial_data or not self.initial_data['parent_product_pro_category']:
+        if not 'parent_product_pro_category' in self.initial_data or not self.initial_data[
+            'parent_product_pro_category']:
             raise serializers.ValidationError(_('parent_product_category is required'))
 
         if not 'parent_product_pro_tax' in self.initial_data or not self.initial_data['parent_product_pro_tax']:
@@ -166,7 +166,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if 'error' in product_hsn_val:
             raise serializers.ValidationError(_(f'{product_hsn_val["error"]}'))
 
-
         category_val = get_validate_category(self.initial_data['parent_product_pro_category'])
         if 'error' in category_val:
             raise serializers.ValidationError(_(category_val["error"]))
@@ -179,9 +178,12 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ParentProduct
-        fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'status', 'product_hsn', 'parent_brand', 'parent_product_pro_tax',
-                  'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable', 'max_inventory',
-                  'is_lead_time_applicable', 'parent_product_pro_image', 'updated_by',  'product_parent_product', 'product_pro_image'
+        fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'status', 'product_hsn', 'parent_brand',
+                  'parent_product_pro_tax',
+                  'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable',
+                  'max_inventory',
+                  'is_lead_time_applicable', 'parent_product_pro_image', 'updated_by', 'product_parent_product',
+                  'product_pro_image'
                   )
 
     @transaction.atomic
@@ -236,7 +238,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if 'parent_product_pro_image' in self.initial_data and self.initial_data['parent_product_pro_image']:
             parent_product_pro_image = self.initial_data['parent_product_pro_image']
         if 'product_pro_image' in self.initial_data and self.initial_data['product_pro_image']:
-            product_pro_image =  self.initial_data['product_pro_image']
+            product_pro_image = self.initial_data['product_pro_image']
 
         ParentProductCls.upload_parent_product_images(parent_product, parent_product_pro_image, product_pro_image)
         ParentProductCls.create_parent_product_category(parent_product,
@@ -665,25 +667,22 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
 
 
 class ProductSourceMappingSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = ProductSourceMapping
         fields = ('source_sku', 'destination_sku', 'status')
 
 
 class ProductPackingMappingSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = ProductPackingMapping
         fields = ('packing_sku', 'packing_sku_weight_per_unit_sku', 'sku_id')
 
 
 class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = DestinationRepackagingCostMapping
         fields = ('raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour', 'primary_pm_cost',
-                  'secondary_pm_cost', 'final_fg_cost', 'conversion_cost')
+                  'secondary_pm_cost')
 
 
 class ChildProductSerializers(serializers.ModelSerializer):
@@ -699,10 +698,10 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'product_special_cess',
-                  'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'repackaging_type',
-                  'product_pro_image', 'parent_product', 'product_vendor_mapping', 'updated_by', 'source_product_pro',
-                  'packing_material_rt', 'destination_product_repackaging')
+        fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp',
+                  'product_special_cess', 'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image',
+                  'repackaging_type', 'product_pro_image', 'parent_product', 'product_vendor_mapping',
+                  'updated_by', 'source_product_pro', 'packing_material_rt', 'destination_product_repackaging')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
@@ -758,8 +757,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
         if self.initial_data['repackaging_type'] == 'destination':
             ProductCls.create_source_product_mapping(child_product, self.initial_data['source_product_pro'])
             ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_material_rt'])
-            ProductCls.create_destination_product_mapping(child_product,
-                                                          self.initial_data['destination_product_repackaging'])
+            ProductCls.create_destination_product_mapping(child_product, self.initial_data['destination_product_repackaging'])
 
         return child_product
 
@@ -784,10 +782,11 @@ class ChildProductSerializers(serializers.ModelSerializer):
         if self.initial_data['product_pro_image']:
             ProductCls.upload_child_product_images(child_product, self.initial_data['product_pro_image'])
 
-        if self.initial_data['repackaging_type']=='destination':
+        if self.initial_data['repackaging_type'] == 'destination':
             ProductCls.create_source_product_mapping(child_product, self.initial_data['source_product_pro'])
             ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_material_rt'])
-            ProductCls.create_destination_product_mapping(child_product, self.initial_data['destination_product_repackaging'])
+            ProductCls.create_destination_product_mapping(child_product,
+                                                          self.initial_data['destination_product_repackaging'])
 
         return child_product
 
@@ -804,4 +803,3 @@ class ProductHSNSerializers(serializers.ModelSerializer):
     class Meta:
         model = ProductHSN
         fields = ['id', 'product_hsn_code', ]
-
