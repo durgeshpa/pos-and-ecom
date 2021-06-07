@@ -66,7 +66,7 @@ class Profile(models.Model):
     """
         Mlm User Profile
     """
-    user = models.OneToOneField(MLMUser, on_delete=models.CASCADE)
+    user = models.OneToOneField(MLMUser, on_delete=models.CASCADE, null=True, blank=True)
     profile_user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     image = models.ImageField(upload_to='profile_pics', blank=True)
 
@@ -165,7 +165,7 @@ class RewardLog(models.Model):
         ('indirect_reward', 'Indirect Reward'),
         ('purchase_reward', 'Purchase Reward')
     )
-    user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(MLMUser, on_delete=models.CASCADE, null=True, blank=True)
     reward_user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=TRANSACTION_CHOICES)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
