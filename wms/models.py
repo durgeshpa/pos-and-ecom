@@ -538,7 +538,7 @@ class PosInventoryState(models.Model):
 
 class PosInventory(models.Model):
     product = models.ForeignKey(RetailerProduct, on_delete=models.DO_NOTHING)
-    quantity = models.IntegerField()
+    quantity = models.IntegerField(default=0)
     inventory_state = models.ForeignKey(PosInventoryState, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

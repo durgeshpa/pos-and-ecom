@@ -98,7 +98,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
                                              min_value=0.01)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False,
                                         default=None, max_length=255)
-    stock_qty = serializers.IntegerField(required=False, min_value=0, default=0)
+    stock_qty = serializers.IntegerField(required=False, default=0)
     status = serializers.ChoiceField(choices=['active', 'deactivated'], required=False, default=None)
     images = serializers.ListField(required=False, allow_null=True, child=serializers.ImageField())
     image_ids = serializers.ListField(required=False, default=None, child=serializers.IntegerField())

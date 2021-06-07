@@ -131,7 +131,7 @@ class PosInventoryCls(object):
     @classmethod
     def update_stock_inventory(cls, product, stock_qty, user):
         inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
-        pos_inv = PosInventory.objects.get(product=product, inventory_state=inv_available)
+        pos_inv, _ = PosInventory.objects.get_or_create(product=product, inventory_state=inv_available)
         if stock_qty == pos_inv.quantity:
             return
         qty_change = stock_qty - pos_inv.quantity
