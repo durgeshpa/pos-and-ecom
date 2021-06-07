@@ -10,10 +10,10 @@ from pos.forms import RetailerProductsForm
 from marketing.filters import UserFilter
 from coupon.admin import CouponCodeFilter, CouponNameFilter, RuleNameFilter, DateRangeFilter
 from .proxy_models import RetailerOrderedProduct, RetailerCoupon, RetailerCouponRuleSet, \
-    RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart
-from retailer_to_sp.admin import CartProductMappingAdmin, SellerShopFilter, OrderIDFilter, \
-    PhoneNumberFilter, ProductNameFilter, SellerShopFilter, SKUFilter, ChoiceDropdownFilter, \
-    OrderNoSearch, ChoiceDropdownFilter, DateTimeRangeFilter, RelatedDropdownFilter
+    RetailerRuleSetProductMapping, RetailerOrderedProductMapping, RetailerCart, InventoryPos, InventoryChangePos,\
+    InventoryStatePos
+from retailer_to_sp.admin import CartProductMappingAdmin, OrderIDFilter, \
+    SellerShopFilter
 from common.constants import FIFTY
 
 
@@ -295,6 +295,58 @@ class RetailerOrderProductAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
+
+@admin.register(InventoryStatePos)
+class PosInventoryStateAdmin(admin.ModelAdmin):
+    list_display = ('id', 'inventory_state', )
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(InventoryPos)
+class PosInventoryAdmin(admin.ModelAdmin):
+    list_display = ('shop', 'product', 'quantity', 'inventory_state', 'created_at', 'modified_at')
+    search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
+                     'inventory_state__inventory_state')
+
+    @staticmethod
+    def shop(obj):
+        return obj.product.shop
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(InventoryChangePos)
+class PosInventoryChangeAdmin(admin.ModelAdmin):
+    list_display = ('shop', 'product', 'quantity', 'transaction_type', 'transaction_id', 'initial_state', 'final_state',
+                    'changed_by', 'created_at')
+    search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
+                     'transaction_type', 'transaction_id')
+
+    @staticmethod
+    def shop(obj):
+        return obj.product.shop
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)

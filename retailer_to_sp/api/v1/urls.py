@@ -7,7 +7,7 @@ from .views import (ProductsList, SearchProducts, CartCentral, CartCheckout, Ord
                     OrderedProductViewSet, OrderedProductMappingView, DeliveryBoyTrips, RetailerShopsList, FeedbackData,
                     SellerOrderList, DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
                     ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted,
-                    AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView
+                    AutoSuggest, RefreshEs, RefreshEsRetailer, CartUserView, UserView, PosUserShopsList, PosShopUsersList
                     )
 
 router = routers.DefaultRouter()
@@ -35,6 +35,11 @@ urlpatterns = [
     url('^return/$', OrderReturns.as_view()),
     url('^return/checkout/$', OrderReturnsCheckout.as_view()),
     url('^return/complete/$', OrderReturnComplete.as_view()),
+    # Shops List
+    url('^pos-user-shops/$', PosUserShopsList.as_view()),
+    url('^retailer-shops/$', RetailerShopsList.as_view(), name='retailer_shops'),
+    # Shop Users
+    url('^pos-shop-users/$', PosShopUsersList.as_view()),
     # Products ES Refresh
     url('^refresh-es/$', RefreshEs.as_view()),
     url('^refresh-es-retailer/$', RefreshEsRetailer.as_view()),
@@ -54,7 +59,6 @@ urlpatterns = [
         name='shipment-delivry-bulk-update'),
     url('^feedback/$', FeedbackData.as_view(), name='feed_back'),
     url('^feedback/(?P<ship_id>\d+)/list/$', FeedbackData.as_view(), name='feed_back_list'),
-    url('^retailer-shops/$', RetailerShopsList.as_view(), name='retailer_shops'),
     url('^seller-order-list/$', SellerOrderList.as_view(), name='seller-order-list'),
     url('^reschedule-reason/$', RescheduleReason.as_view(), name='reschedule-reason'),
     url('^return-reason/$', ReturnReason.as_view(), name='return-reason'),

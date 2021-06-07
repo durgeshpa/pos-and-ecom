@@ -14,6 +14,8 @@ from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
 from retailer_backend.utils import SmallOffsetPagination
+from shops.models import Shop
+from wms.models import PosInventory, PosInventoryState
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -34,6 +36,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False, default='',
                                         max_length=255)
     product_ean_code = serializers.CharField(required=True, max_length=100)
+    stock_qty = serializers.IntegerField(min_value=0, default=0)
     linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1, allow_null=True)
     images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=5)
 
@@ -64,6 +67,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
 class RetailerProductResponseSerializer(serializers.ModelSerializer):
     linked_product = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
+    stock_qty = serializers.SerializerMethodField()
 
     @staticmethod
     def get_linked_product(obj):
@@ -72,6 +76,12 @@ class RetailerProductResponseSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_images(obj):
         return RetailerProductImageSerializer(obj.retailer_product_image, many=True).data
+
+    @staticmethod
+    def get_stock_qty(obj):
+        inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        pos_inv = PosInventory.objects.filter(product=obj, inventory_state=inv_available).last()
+        return pos_inv.quantity if pos_inv else 0
 
     class Meta:
         model = RetailerProduct
@@ -88,6 +98,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
                                              min_value=0.01)
     description = serializers.CharField(allow_blank=True, validators=[ProductNameValidator], required=False,
                                         default=None, max_length=255)
+    stock_qty = serializers.IntegerField(required=False, default=0)
     status = serializers.ChoiceField(choices=['active', 'deactivated'], required=False, default=None)
     images = serializers.ListField(required=False, allow_null=True, child=serializers.ImageField())
     image_ids = serializers.ListField(required=False, default=None, child=serializers.IntegerField())
@@ -985,3 +996,9 @@ class CouponListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Coupon
         fields = ('id', 'offer_type', 'coupon_name', 'coupon_code', 'details', 'is_active')
+
+
+class PosShopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name')

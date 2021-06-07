@@ -1,17 +1,18 @@
 import logging
 import json
+
 from rest_framework.response import Response
 from rest_framework import status
-from django.db.models import Q
 from django.urls import reverse
-import datetime
 
-from pos.models import RetailerProduct, UserMappedShop, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Order
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
 from shops.models import Shop
 from accounts.models import User
+from wms.models import PosInventory, PosInventoryChange, PosInventoryState
+
+from pos.models import RetailerProduct, UserMappedShop, RetailerProductImage
 
 ORDER_STATUS_MAP = {
     1: Order.ORDERED,
@@ -116,21 +117,29 @@ class OffersCls(object):
         return coupon
 
 
-def get_response(msg, data=None, success=False, extra_params=None, status_code=status.HTTP_200_OK):
-    """
-        General Response For API
-    """
-    if success:
-        ret = {"is_success": True, "message": msg, "response_data": data}
-    else:
-        if data:
-            ret = {"is_success": True, "message": msg, "response_data": data}
-        else:
-            status_code = status.HTTP_406_NOT_ACCEPTABLE
-            ret = {"is_success": False, "message": msg, "response_data": None}
-    if extra_params:
-        ret.update(extra_params)
-    return Response(ret, status=status_code)
+class PosInventoryCls(object):
+
+    @classmethod
+    def create_inventory(cls, product, stock_qty, user):
+        inv_new = PosInventoryState.objects.get(inventory_state=PosInventoryState.NEW)
+        inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        PosInventory.objects.create(product=product, quantity=stock_qty, inventory_state=inv_available)
+        PosInventoryChange.objects.create(product=product, quantity=stock_qty,
+                                          transaction_type=PosInventoryChange.STOCK_ADD, transaction_id=product.sku,
+                                          initial_state=inv_new, final_state=inv_available, changed_by=user)
+
+    @classmethod
+    def update_stock_inventory(cls, product, stock_qty, user):
+        inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        pos_inv, created = PosInventory.objects.get_or_create(product=product, inventory_state=inv_available)
+        if not created and stock_qty == pos_inv.quantity:
+            return
+        qty_change = stock_qty - pos_inv.quantity
+        pos_inv.quantity = stock_qty
+        pos_inv.save()
+        PosInventoryChange.objects.create(product=product, quantity=qty_change,
+                                          transaction_type=PosInventoryChange.STOCK_UPDATE, transaction_id=product.sku,
+                                          initial_state=inv_available, final_state=inv_available, changed_by=user)
 
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):
@@ -178,22 +187,9 @@ def serializer_error(serializer):
     errors = []
     for field in serializer.errors:
         for error in serializer.errors[field]:
-            if 'non_field_errors' in field:
-                result = error
-            else:
-                result = ''.join('{} : {}'.format(field, error))
+            result = error if 'non_field_errors' in field else ''.join('{} : {}'.format(field, error))
             errors.append(result)
     return errors[0]
-
-
-def order_search(orders, search_text):
-    """
-        Order Listing Based On Search
-    """
-    order = orders.filter(Q(order_no__icontains=search_text) |
-                          Q(buyer__first_name__icontains=search_text) |
-                          Q(buyer__phone_number__icontains=search_text))
-    return order
 
 
 def create_user_shop_mapping(user, shop_id):
@@ -220,8 +216,6 @@ def validate_data_format(request):
         Convert python data(request.data) in to a JSON string,
     """
     try:
-        # Checking if Entered Data is in the Right Format except images
-        # the result is a JSON string, which is valid Data
         json.dumps(request.data, default=lambda skip_image: 'images')
     except Exception as e:
         error_logger.error(e)

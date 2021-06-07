@@ -67,11 +67,12 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  whatsapp_order_refund)
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
 from pos.common_functions import get_shop_id_from_token, api_response, create_user_shop_mapping, \
-    delete_cart_mapping, get_invoice_and_link, order_search, ORDER_STATUS_MAP, RetailerProductCls, validate_data_format, \
+    delete_cart_mapping, get_invoice_and_link, ORDER_STATUS_MAP, RetailerProductCls, validate_data_format, \
     update_pos_customer
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
-    BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer
+    BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
+    PosShopSerializer
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, UserMappedShop
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es
@@ -370,7 +371,7 @@ class SearchProducts(APIView):
         # Raw Output
         if output_type == '1':
             body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
-                                            "description", "linked_product_id"]}
+                                            "description", "linked_product_id", "stock_qty"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -380,7 +381,7 @@ class SearchProducts(APIView):
         # Processed Output
         else:
             body["_source"] = {"includes": ["id", "name", "ptr", "mrp", "margin", "ean", "status", "product_images",
-                                            "description", "linked_product_id"]}
+                                            "description", "linked_product_id", "stock_qty"]}
             try:
                 products_list = es_search(index='rp-{}'.format(shop_id), body=body)
                 for p in products_list['hits']['hits']:
@@ -3291,7 +3292,9 @@ class OrderListCentral(GenericAPIView):
             order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
             qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
         if search_text:
-            qs = order_search(qs, search_text)
+            qs = qs.filter(Q(order_no__icontains=search_text) |
+                           Q(buyer__first_name__icontains=search_text) |
+                           Q(buyer__phone_number__icontains=search_text))
         return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True)
 
     def get_basic_validate(self):
@@ -5404,3 +5407,40 @@ class RefreshEsRetailer(APIView):
             info_logger.info(e)
         info_logger.info('RefreshEsRetailer | shop {}, Ended'.format(shop_id))
         return api_response("Shop data updated on ES", None, status.HTTP_200_OK, True)
+
+
+class PosUserShopsList(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        shops = Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f', status=True,
+                                    approval_status=Shop.APPROVED).distinct('id')
+        request_shops = self.pagination_class().paginate_queryset(shops, self.request)
+        data = PosShopSerializer(request_shops, many=True).data
+        if data:
+            return api_response("Shops Mapped", data, status.HTTP_200_OK, True)
+        else:
+            return api_response("No Shops Mapped", None, status.HTTP_200_OK)
+
+
+class PosShopUsersList(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+
+    def get(self, request, *args, **kwargs):
+        shop_id = request.GET.get('shop_id')
+        user = request.user
+        if not Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f', status=True,
+                                   approval_status=Shop.APPROVED, id=shop_id).exists():
+            return api_response("Shop not Mapped/Approved for this user")
+        data = dict()
+        shop = Shop.objects.get(pk=shop_id, shop_type__shop_type='f')
+        data['shop_owner'] = PosUserSerializer(shop.shop_owner).data
+        related_users = shop.related_users.filter(is_staff=False)
+        request_users = self.pagination_class().paginate_queryset(related_users, self.request)
+        data['related_users'] = PosUserSerializer(request_users, many=True).data
+        return api_response("Shop Users", data, status.HTTP_200_OK, True)

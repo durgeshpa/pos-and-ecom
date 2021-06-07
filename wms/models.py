@@ -21,6 +21,7 @@ from django.db.models import Sum, Q
 from django.contrib.auth import get_user_model
 from django.db.models import query, manager
 from django.utils import timezone
+from pos.models import RetailerProduct
 
 BIN_TYPE_CHOICES = (
     ('PA', 'Pallet'),
@@ -518,5 +519,47 @@ class ExpiredInventoryMovement(models.Model):
     quantity = models.PositiveIntegerField(null=True, blank=True)
     expiry_date = models.DateField()
     status = models.PositiveSmallIntegerField(choices=STATUS_CHOICE, default=STATUS_CHOICE.OPEN)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
+class PosInventoryState(models.Model):
+    NEW, AVAILABLE, ORDERED = 'new', 'available', 'ordered'
+    POS_INVENTORY_STATES = (
+        (NEW, 'New'),
+        (AVAILABLE, 'Available'),
+        (ORDERED, 'Ordered')
+    )
+    inventory_state = models.CharField(max_length=20, choices=POS_INVENTORY_STATES, unique=True)
+
+    def __str__(self):
+        return self.inventory_state
+
+
+class PosInventory(models.Model):
+    product = models.ForeignKey(RetailerProduct, on_delete=models.DO_NOTHING)
+    quantity = models.IntegerField(default=0)
+    inventory_state = models.ForeignKey(PosInventoryState, on_delete=models.DO_NOTHING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
+class PosInventoryChange(models.Model):
+    ORDERED, CANCELLED, RETURN, STOCK_ADD, STOCK_UPDATE = 'ordered', 'order_cancelled', 'order_return', 'stock_add', \
+                                                          'stock_update'
+    transaction_type = (
+        (ORDERED, "Ordered"),
+        (CANCELLED, 'Order Cancelled'),
+        (RETURN, 'Order Return'),
+        (STOCK_ADD, 'Stock Add'),
+        (STOCK_UPDATE, 'Stock Update'),
+    )
+    product = models.ForeignKey(RetailerProduct, on_delete=models.DO_NOTHING)
+    quantity = models.IntegerField()
+    transaction_type = models.CharField(max_length=25, choices=transaction_type)
+    transaction_id = models.CharField(max_length=25)
+    initial_state = models.ForeignKey(PosInventoryState, related_name='pos_inv_initial_state', on_delete=models.DO_NOTHING)
+    final_state = models.ForeignKey(PosInventoryState, related_name='pos_inv_final_state', on_delete=models.DO_NOTHING)
+    changed_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
