@@ -1,4 +1,5 @@
 import logging
+import datetime
 
 from django.db import models
 from django.db.models.signals import post_save
@@ -43,7 +44,7 @@ class CouponRuleSet(models.Model):
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    start_date = models.DateField()
+    start_date = models.DateField(default=datetime.date.today)
     expiry_date = models.DateField()
 
     def __str__(self):
@@ -71,8 +72,8 @@ class Coupon(models.Model):
     is_active = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    start_date = models.DateField()
-    expiry_date = models.DateField()
+    start_date = models.DateField(default=datetime.date.today)
+    expiry_date = models.DateField(default=datetime.date.today)
     is_automate = models.BooleanField(default=True, db_index=True)
     shop = models.ForeignKey(Shop, related_name='retailer_shop_coupon', on_delete=models.CASCADE, null=True,
                              blank=True)
@@ -135,8 +136,8 @@ class RuleSetProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=False, db_index=True)
-    start_date = models.DateField()
-    expiry_date = models.DateField()
+    start_date = models.DateField(default=datetime.date.today)
+    expiry_date = models.DateField(default=datetime.date.today)
 
 
     def __str__(self):

@@ -33,19 +33,19 @@ class RetailerOrderedProductMapping(OrderedProductMapping):
         proxy = True
 
 
-class InventoryStatePos(PosInventoryState):
-    class Meta:
-        proxy = True
-        verbose_name = 'Inventory State'
-
-
-class InventoryPos(PosInventory):
-    class Meta:
-        proxy = True
-        verbose_name = 'Inventory'
-
-
-class InventoryChangePos(PosInventoryChange):
-    class Meta:
-        proxy = True
-        verbose_name = 'Inventory Change'
+# class InventoryStatePos(PosInventoryState):
+#     class Meta:
+#         proxy = True
+#         verbose_name = 'Inventory State'
+#
+#
+# class InventoryPos(PosInventory):
+#     class Meta:
+#         proxy = True
+#         verbose_name = 'Inventory'
+#
+#
+# class InventoryChangePos(PosInventoryChange):
+#     class Meta:
+#         proxy = True
+#         verbose_name = 'Inventory Change'

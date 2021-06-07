@@ -3,10 +3,13 @@ import logging
 import uuid
 
 from django.contrib.auth import get_user_model
+from django.conf import settings
+from django.utils import timezone
 from django.db import models, transaction
 from django.core.validators import RegexValidator
 from django.core.exceptions import ObjectDoesNotExist
 
+from retailer_backend.messages import *
 from global_config.models import GlobalConfig
 from accounts.models import User
 
@@ -174,3 +177,20 @@ class RewardLog(models.Model):
 
     def __str__(self):
         return "{} - {}".format(self.user, self.transaction_type)
+
+
+class PhoneOTP(models.Model):
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'])
+    phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False)
+    otp = models.CharField(max_length=10)
+    is_verified = models.BooleanField(default=False)
+    attempts = models.IntegerField(default=0)
+    expires_in = models.IntegerField(default=300)  # in seconds
+    created_at = models.DateTimeField(default=timezone.now)
+    last_otp = models.DateTimeField(default=timezone.now)
+    resend_in = models.IntegerField(default=getattr(settings, 'OTP_RESEND_IN', 30))  # in seconds
+
+
+class Token(models.Model):
+    user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
+    token = models.UUIDField()
