@@ -6,7 +6,6 @@ import requests
 from io import BytesIO
 
 from django.db import transaction
-from django.http import QueryDict
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
@@ -23,7 +22,7 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 
 from pos.models import RetailerProduct, RetailerProductImage
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, get_shop_id_from_token,
-                                  validate_data_format)
+                                  validate_data_format, PosInventoryCls)
 
 from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
@@ -68,8 +67,9 @@ class PosProductView(GenericAPIView):
             serializer = RetailerProductCreateSerializer(data=modified_data)
             if serializer.is_valid():
                 data = serializer.data
-                name, ean, mrp, sp, linked_pid, description = data['product_name'], data['product_ean_code'], data[
-                    'mrp'], data['selling_price'], data['linked_product_id'], data['description']
+                name, ean, mrp, sp, linked_pid, description, stock_qty = data['product_name'], data[
+                    'product_ean_code'], data['mrp'], data['selling_price'], data['linked_product_id'], data[
+                    'description'], data['stock_qty']
                 with transaction.atomic():
                     # Decide sku_type 2 = using GF product, 1 = new product
                     sku_type = 2 if linked_pid else 1
@@ -81,6 +81,8 @@ class PosProductView(GenericAPIView):
                     if 'images' in modified_data:
                         RetailerProductCls.create_images(product, modified_data['images'])
                     product.save()
+                    # Add Inventory
+                    PosInventoryCls.create_inventory(product, stock_qty, self.request.user)
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product created successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
@@ -104,8 +106,8 @@ class PosProductView(GenericAPIView):
             if serializer.is_valid():
                 data = serializer.data
                 product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop_id)
-                name, ean, mrp, sp, description = data['product_name'], data['product_ean_code'], data[
-                    'mrp'], data['selling_price'], data['description']
+                name, ean, mrp, sp, description, stock_qty = data['product_name'], data['product_ean_code'], data[
+                    'mrp'], data['selling_price'], data['description'], data['stock_qty']
 
                 with transaction.atomic():
                     # Update product
@@ -124,6 +126,9 @@ class PosProductView(GenericAPIView):
                     if 'images' in modified_data:
                         RetailerProductCls.update_images(product, modified_data['images'])
                     product.save()
+                    if 'stock_qty' in modified_data:
+                        # Update Inventory
+                        PosInventoryCls.update_stock_inventory(product, stock_qty, self.request.user)
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product updated successfully!', serializer.data, status.HTTP_200_OK, True)
             else:

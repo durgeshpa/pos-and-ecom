@@ -5,6 +5,7 @@ from django.dispatch import receiver
 
 from .tasks import update_shop_retailer_product_es
 from .models import RetailerProduct, RetailerProductImage
+from wms.models import PosInventory
 
 
 def sku_generator(shop_id):
@@ -28,6 +29,14 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
         Update elastic data on RetailerProduct update
     """
     update_shop_retailer_product_es(instance.shop.id, instance.id)
+
+
+@receiver(post_save, sender=PosInventory)
+def update_elasticsearch_inv(sender, instance=None, created=False, **kwargs):
+    """
+        Update elastic data on RetailerProduct update
+    """
+    update_shop_retailer_product_es(instance.product.shop.id, instance.product.id)
 
 
 # @receiver(post_save, sender=RetailerProductImage)

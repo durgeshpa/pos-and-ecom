@@ -4,6 +4,7 @@ from elasticsearch import Elasticsearch
 
 from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 from pos.models import RetailerProduct
+from wms.models import PosInventory, PosInventoryState
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 info_logger = logging.getLogger('file-info')
@@ -58,6 +59,10 @@ def update_es(products, shop_id):
             if product.linked_product.parent_product.parent_product_pro_category:
                 category = [str(c.category) for c in
                             product.linked_product.parent_product.parent_product_pro_category.filter(status=True)]
+
+        inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        pos_inv = PosInventory.objects.filter(product=product, inventory_state=inv_available).last()
+        stock_qty = pos_inv.quantity if pos_inv else 0
         params = {
             'id': product.id,
             'name': product.name,
@@ -72,6 +77,7 @@ def update_es(products, shop_id):
             'created_at': product.created_at,
             'modified_at': product.modified_at,
             'description': product.description if product.description else "",
-            'linked_product_id': product.linked_product.id if product.linked_product else ''
+            'linked_product_id': product.linked_product.id if product.linked_product else '',
+            'stock_qty': stock_qty
         }
         es.index(index=create_es_index('rp-{}'.format(shop_id)), id=params['id'], body=params)

@@ -38,7 +38,7 @@ class RetailerProduct(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return str(self.sku) + " - " + str(self.name)
+        return str(self.id) + ' - ' + str(self.sku) + " - " + str(self.name)
 
     @property
     def product_short_description(self):
