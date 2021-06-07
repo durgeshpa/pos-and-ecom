@@ -44,7 +44,7 @@ class ParentProductCls(object):
             for image in parent_product_pro_image:
                 ids.append(image['id'])
 
-        parent_image = ParentProductImage.objects.filter(parent_product=parent_product).exclude(
+        ParentProductImage.objects.filter(parent_product=parent_product).exclude(
                             id__in=ids).delete()
         if product_pro_image:
             for image in product_pro_image:
@@ -163,7 +163,7 @@ class ProductCls(object):
         for source_sku_data in packing_material_rt:
             pro_packing_sku = Product.objects.get(id=source_sku_data['packing_sku'])
             ProductPackingMapping.objects.create(sku_id=child_product, packing_sku=pro_packing_sku,
-                packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
+                            packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
 
     @classmethod
     def create_destination_product_mapping(cls, child_product, destination_product_repackaging):
