@@ -1,7 +1,7 @@
 from django.conf.urls import url
 from .views import ParentProductView, ParentProductBulkUploadView, ParentProductExportAsCSVView, ProductHSNView, \
     ActiveDeactivateSelectedProductView, ProductCappingView, ProductVendorMappingView, ChildProductView, TaxView, \
-    BrandView, CategoryView
+    BrandView, CategoryView, ProductSourceMappingView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
@@ -15,5 +15,6 @@ urlpatterns = [
     url(r'^tax/', TaxView.as_view(), name='tax'),
     url(r'^brand/', BrandView.as_view(), name='brand'),
     url(r'^category/', CategoryView.as_view(), name='category'),
+    url(r'^product-source/', ProductSourceMappingView.as_view(), name='product-source'),
 
 ]

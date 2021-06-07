@@ -2,7 +2,8 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage
+     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
+    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
@@ -33,18 +34,22 @@ class ParentProductCls(object):
         return parent_product
 
     @classmethod
-    def upload_parent_product_images(cls, parent_product, parent_product_pro_image):
+    def upload_parent_product_images(cls, parent_product,  parent_product_pro_image, product_pro_image):
         """
             Delete Existing Images of specific ParentProduct if any
             Create Parent Product Images
         """
-        parent_image = ParentProductImage.objects.filter(parent_product=parent_product)
-        if parent_image.exists():
-            parent_image.delete()
+        ids = []
+        if parent_product_pro_image:
+            for image in parent_product_pro_image:
+                ids.append(image['id'])
 
-        for image in parent_product_pro_image:
-            ParentProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
-                                              parent_product=parent_product)
+        ParentProductImage.objects.filter(parent_product=parent_product).exclude(
+                            id__in=ids).delete()
+        if product_pro_image:
+            for image in product_pro_image:
+                ParentProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
+                                                  parent_product=parent_product)
 
     @classmethod
     def create_parent_product_category(cls, parent_product, parent_product_pro_category):
@@ -140,6 +145,33 @@ class ProductCls(object):
         product_vendor_map.vendor = vendor_obj['vendor']
         product_vendor_map.save()
         return product_vendor_map
+
+    @classmethod
+    def create_source_product_mapping(cls, child_product, source_sku):
+        """
+            Create Source Product Mapping
+        """
+        for source_sku_data in source_sku:
+            pro_source_sku = Product.objects.get(id=source_sku_data['source_sku'])
+            ProductSourceMapping.objects.create(destination_sku=child_product, source_sku=pro_source_sku)
+
+    @classmethod
+    def packing_material_product_mapping(cls, child_product, packing_material_rt):
+        """
+            Create Packing Material Product Mapping
+        """
+        for source_sku_data in packing_material_rt:
+            pro_packing_sku = Product.objects.get(id=source_sku_data['packing_sku'])
+            ProductPackingMapping.objects.create(sku_id=child_product, packing_sku=pro_packing_sku,
+                            packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
+
+    @classmethod
+    def create_destination_product_mapping(cls, child_product, destination_product_repackaging):
+        """
+            Create Destination Product Mapping
+        """
+        for pro_des_data in destination_product_repackaging:
+            DestinationRepackagingCostMapping.objects.create(destination=child_product, raw_material=pro_des_data['raw_material'])
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):

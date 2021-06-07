@@ -232,6 +232,7 @@ class Product(BaseTimestampUserStatusModel):
     weight_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=WEIGHT_UNIT_CHOICES, default='gm')
     product_special_cess = models.FloatField(null=True, blank=False)
+    moving_average_buying_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     STATUS_CHOICES = (
         ('pending_approval', 'Pending Approval'),
         ('active', 'Active'),
