@@ -50,14 +50,14 @@ def notify():
     if date_config:
         last_date = date_config.value
         rewards = RewardLog.objects.filter(created_at__gte=last_date, created_at__lt=now_date,
-                                 transaction_type__in=['direct_reward', 'indirect_reward']).values('user').distinct()
+                                 transaction_type__in=['direct_reward', 'indirect_reward']).values('reward_user').distinct()
     else:
         rewards = RewardLog.objects.filter(created_at__lt=now_date, transaction_type__in=['direct_reward',
-                                                                                          'indirect_reward']).values('user').distinct()
+                                                                                          'indirect_reward']).values('reward_user').distinct()
     with transaction.atomic():
 
         for user in rewards:
-            reward_obj = RewardPoint.objects.filter(user=user['user']).last()
+            reward_obj = RewardPoint.objects.filter(reward_user=user['reward_user']).last()
             if reward_obj:
                 n_users = reward_obj.direct_users + reward_obj.indirect_users
                 total_points = (reward_obj.direct_earned + reward_obj.indirect_earned) - reward_obj.points_used
@@ -66,7 +66,7 @@ def notify():
                     used_reward_factor = int(conf_obj.value)
                 except:
                     used_reward_factor = 4
-                message = SendSms(phone=reward_obj.user.phone_number,
+                message = SendSms(phone=reward_obj.reward_user.phone_number,
                                   body="Congratulations, you have won {} reward points because {} friends"
                                        " shopped using your referral code! Shop at PepperTap store and avail discounts"
                                        " upto {} INR"

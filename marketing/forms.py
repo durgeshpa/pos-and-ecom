@@ -95,7 +95,7 @@ class RewardPointForm(forms.ModelForm):
     def save(self, commit=True):
         cleaned_data = self.cleaned_data
         user = get_current_user()
-        RewardLog.objects.create(user=self.instance.user, transaction_type='used_reward',
+        RewardLog.objects.create(reward_user=self.instance.user, transaction_type='used_reward',
                                  transaction_id=self.instance.id, points=cleaned_data['current_points_used'] * -1,
                                  discount=cleaned_data['discount_given'], changed_by=user)
         return super(RewardPointForm, self).save(commit=commit)

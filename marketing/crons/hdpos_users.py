@@ -114,7 +114,7 @@ def fetch_hdpos_users():
                     user_obj.save()
                     ReferralCode.generate_user_referral_code(user_obj)
                     RewardPoint.welcome_reward(user_obj)
-                    Profile.objects.get_or_create(user=user_obj)
+                    Profile.objects.get_or_create(profile_user=user_obj)
 
         if date_config:
             date_config.value = now_date

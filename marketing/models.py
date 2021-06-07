@@ -63,7 +63,8 @@ class Profile(models.Model):
     """
         Mlm User Profile
     """
-    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.OneToOneField(MLMUser, on_delete=models.CASCADE)
+    profile_user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     image = models.ImageField(upload_to='profile_pics', blank=True)
 
     def __str__(self):
@@ -74,8 +75,10 @@ class Referral(models.Model):
     """
     Parent - Child Referral Mapping
     """
-    referral_by = models.ForeignKey(User, related_name="referral_by", on_delete=models.CASCADE, null=True, blank=True)
-    referral_to = models.ForeignKey(User, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
+    referral_by = models.ForeignKey(MLMUser, related_name="referral_by", on_delete=models.CASCADE, null=True, blank=True)
+    referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
+    referral_by_user = models.ForeignKey(User, related_name="referral_by_user", on_delete=models.CASCADE, null=True, blank=True)
+    referral_to_user = models.ForeignKey(User, related_name="referral_to_user", on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -86,15 +89,16 @@ class Referral(models.Model):
         """
         parent_ref_obj = ReferralCode.objects.filter(referral_code=parent_referral_code).last()
         child_ref_obj = ReferralCode.objects.filter(referral_code=child_referral_code).last()
-        if parent_ref_obj and child_ref_obj and not Referral.objects.filter(referral_to=child_ref_obj.user).exists():
-            Referral.objects.create(referral_to=child_ref_obj.user, referral_by=parent_ref_obj.user)
+        if parent_ref_obj and child_ref_obj and not Referral.objects.filter(referral_to_user=child_ref_obj.user).exists():
+            Referral.objects.create(referral_to_user=child_ref_obj.user, referral_by_user=parent_ref_obj.user)
 
 
 class RewardPoint(models.Model):
     """
         All Reward Credited/Used Details Of Any User
     """
-    user = models.OneToOneField(User, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
+    reward_user = models.OneToOneField(User, related_name="reward_user_mlm", on_delete=models.CASCADE, null=True, blank=True)
     direct_users = models.IntegerField(default=0)
     indirect_users = models.IntegerField(default=0)
     direct_earned = models.IntegerField(default=0)
@@ -112,7 +116,7 @@ class RewardPoint(models.Model):
             Reward On User Registration
         """
         # Check existing user
-        if RewardPoint.objects.filter(user=user).exists():
+        if RewardPoint.objects.filter(reward_user=user).exists():
             return False
         # Get Welcome Reward Points From Config
         try:
@@ -124,10 +128,10 @@ class RewardPoint(models.Model):
         points = on_referral_points if referred else int(on_referral_points / 2)
         # Create Reward Point And Log
         with transaction.atomic():
-            reward_obj, created = RewardPoint.objects.get_or_create(user=user)
+            reward_obj, created = RewardPoint.objects.get_or_create(reward_user=user)
             reward_obj.direct_earned += points
             reward_obj.save()
-            RewardLog.objects.create(user=user, transaction_type='welcome_reward', transaction_id=user.id,
+            RewardLog.objects.create(reward_user=user, transaction_type='welcome_reward', transaction_id=user.id,
                                      points=points)
         # Send SMS To User For Discount That Can be Availed Using Welcome Rewards credited
         try:
@@ -158,7 +162,8 @@ class RewardLog(models.Model):
         ('indirect_reward', 'Indirect Reward'),
         ('purchase_reward', 'Purchase Reward')
     )
-    user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(MLMUser, on_delete=models.CASCADE)
+    reward_user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)
     transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=TRANSACTION_CHOICES)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
     points = models.IntegerField(default=0)

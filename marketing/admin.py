@@ -45,7 +45,7 @@ class MLMUserAdmin(admin.ModelAdmin):
 @admin.register(Referral)
 class ReferralAdmin(admin.ModelAdmin):
     list_display = [field.name for field in Referral._meta.get_fields()]
-    fields = ('referral_to', 'referral_by')
+    fields = ('referral_to_user', 'referral_by_user')
     list_per_page = 10
 
     def has_add_permission(self, request, obj=None):
