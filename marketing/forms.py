@@ -61,9 +61,9 @@ class RewardPointForm(forms.ModelForm):
                 used_reward_factor = int(conf_obj.value)
             except ObjectDoesNotExist:
                 used_reward_factor = 4
-            self.fields['phone'].initial = instance.user.phone_number
-            self.fields['name'].initial = instance.user.first_name
-            self.fields['email'].initial = instance.user.email
+            self.fields['phone'].initial = instance.reward_user.phone_number
+            self.fields['name'].initial = instance.reward_user.first_name
+            self.fields['email'].initial = instance.reward_user.email
             self.fields['redeemable_reward_points'].initial = int(
                 instance.direct_earned + instance.indirect_earned - instance.points_used)
             self.fields['maximum_available_discount'].initial = int(
@@ -95,7 +95,7 @@ class RewardPointForm(forms.ModelForm):
     def save(self, commit=True):
         cleaned_data = self.cleaned_data
         user = get_current_user()
-        RewardLog.objects.create(user=self.instance.user, transaction_type='used_reward',
+        RewardLog.objects.create(reward_user=self.instance.reward_user, transaction_type='used_reward',
                                  transaction_id=self.instance.id, points=cleaned_data['current_points_used'] * -1,
                                  discount=cleaned_data['discount_given'], changed_by=user)
         return super(RewardPointForm, self).save(commit=commit)
