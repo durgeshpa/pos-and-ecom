@@ -1,0 +1,1 @@
+CART_NOT_ACTIVE = 1

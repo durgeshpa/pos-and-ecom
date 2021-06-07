@@ -1612,7 +1612,7 @@ class OrderCancellation(object):
 
 @receiver(post_save, sender=Order)
 def order_cancellation(sender, instance=None, created=False, **kwargs):
-    if instance.order_status == 'CANCELLED':
+    if instance.order_status == 'CANCELLED' and instance.ordered_cart.cart_type != 'BASIC':
         pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no).exclude(status='picking_cancelled')
         if not pickup_obj:
             cancel_order(instance)

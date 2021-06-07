@@ -4,7 +4,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 # from django.conf import settings
 from django.utils.safestring import mark_safe
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from otp.sms import SendSms
 import datetime, re
@@ -79,7 +79,7 @@ class Shop(models.Model):
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     shop_code_bulk = models.CharField(max_length=1, blank=True, null=True)
     shop_code_discounted = models.CharField(max_length=1, blank=True, null=True)
-    warehouse_code = models.CharField(max_length=2, blank=True, null=True)
+    warehouse_code = models.CharField(max_length=3, blank=True, null=True)
     imei_no = models.CharField(max_length=20, null=True, blank=True)
     favourite_products = models.ManyToManyField(Product, through='shops.FavouriteProduct')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -208,6 +208,27 @@ class Shop(models.Model):
             ("is_delivery_boy", "Is Delivery Boy"),
             ("hide_related_users", "Hide Related User"),
         )
+
+
+def warehouse_code_generator():
+    """
+        This Function will create auto Incrementel Warehouse_code
+    """
+
+    latest_record = Shop.objects.filter(shop_type__shop_type='f').order_by('-id')[0]
+    return int(latest_record.warehouse_code)+1
+
+
+@receiver(pre_save, sender=Shop)
+def create_auto_warehouse_code_for_franchise(sender, instance=None, created=False, **kwargs):
+    """
+        Creating warehouse_code for a Franchise shop.
+        warehouse_code created when the shop is approved
+    """
+    if instance.shop_type.shop_type == 'f' and instance.approval_status == 2:
+        warehouse_code = warehouse_code_generator()
+        instance.warehouse_code = str(warehouse_code)
+        instance.shop_code = 'F'
 
 
 @receiver(post_save, sender=Shop)

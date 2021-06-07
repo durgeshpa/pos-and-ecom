@@ -1,8 +1,7 @@
-from retailer_backend.admin import InputFilter
 from dal import autocomplete
 from dal_admin_filters import AutocompleteFilter
 
-from marketing.models import MLMUser
+from accounts.models import User
 
 
 class UserFilter(AutocompleteFilter):
@@ -15,8 +14,8 @@ class MlmUserAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:
-            return MLMUser.objects.none()
-        qs = MLMUser.objects.filter()
+            return User.objects.none()
+        qs = User.objects.filter()
         if self.q:
             qs = qs.filter(phone_number=self.q)
         return qs

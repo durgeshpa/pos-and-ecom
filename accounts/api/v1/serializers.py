@@ -13,7 +13,7 @@ User =  get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('pk','id','first_name', 'last_name', 'phone_number', 'email', 'user_photo')
+        fields = ('pk','id','first_name', 'last_name', 'phone_number', 'email', 'is_whatsapp', 'user_photo')
         extra_kwargs = {
             'first_name': {'required': True},
             'last_name': {'required': True},
@@ -64,3 +64,23 @@ class DeliveryAppVersionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppVersion
         fields = ('app_version', 'update_recommended','force_update_required')
+
+
+class UserPhoneSerializer(serializers.ModelSerializer):
+    """
+         UserPhoneNumber Serializer
+    """
+    class Meta:
+        model = User
+        fields = ('phone_number', )
+
+
+class PosUserSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+
+    def get_name(self, obj):
+        return obj.first_name + ' ' + obj.last_name
+
+    class Meta:
+        model = User
+        fields = ('phone_number', 'name', 'email', 'is_whatsapp')

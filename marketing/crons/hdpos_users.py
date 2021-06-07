@@ -3,22 +3,25 @@ import datetime
 import pyodbc
 import sys
 import os
-from django.db import transaction
-from decouple import config
-from django.utils import timezone
 import traceback
 import re
+from decouple import config
+
+from django.db import transaction
+from django.utils import timezone
 
 from services.models import CronRunLog
 from global_config.models import GlobalConfig
-from marketing.models import MLMUser, RewardPoint
+from accounts.models import User
+
+from marketing.models import RewardPoint, ReferralCode, Profile
 
 
 cron_logger = logging.getLogger('cron_log')
 CONNECTION_PATH = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + config('HDPOS_DB_HOST') \
                   + ';DATABASE=' + config('HDPOS_DB_NAME') \
                   + ';UID=' + config('HDPOS_DB_USER') \
-                  +';PWD=' + config('HDPOS_DB_PASSWORD')
+                  + ';PWD=' + config('HDPOS_DB_PASSWORD')
 
 
 def fetch_hdpos_users_cron():
@@ -103,9 +106,15 @@ def fetch_hdpos_users():
             if not rule.search(str(row[0])):
                 continue
 
-            if not MLMUser.objects.filter(phone_number=row[0]).exists():
-                user_obj = MLMUser.objects.create(phone_number=row[0], email=row[1], name=row[2])
-                RewardPoint.welcome_reward(user_obj, 0)
+            if not User.objects.filter(phone_number=row[0]).exists():
+                with transaction.atomic():
+                    user_obj = User.objects.create_user(phone_number=row[0], email=row[1], first_name=row[2],
+                                                        last_name=row[3])
+                    user_obj.is_active = False
+                    user_obj.save()
+                    ReferralCode.generate_user_referral_code(user_obj)
+                    RewardPoint.welcome_reward(user_obj)
+                    Profile.objects.get_or_create(user=user_obj)
 
         if date_config:
             date_config.value = now_date

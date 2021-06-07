@@ -488,6 +488,10 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
         js = ('admin/js/product_no_of_pieces.js', 'admin/js/select2.min.js')
 
+    def get_queryset(self, request):
+        qs = super(CartAdmin, self).get_queryset(request)
+        return qs.exclude(cart_type='BASIC')
+
     def get_urls(self):
         from django.conf.urls import url
         urls = super(CartAdmin, self).get_urls()
@@ -1001,6 +1005,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
+        qs = qs.exclude(ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
         return qs.filter(
@@ -1195,6 +1200,7 @@ class OrderedProductAdmin(NestedModelAdmin):
 
     def get_queryset(self, request):
         qs = super(OrderedProductAdmin, self).get_queryset(request)
+        qs = qs.exclude(order__ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
         return qs.filter(
@@ -1493,6 +1499,7 @@ class ShipmentAdmin(NestedModelAdmin):
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)
+        qs = qs.exclude(order__ordered_cart__cart_type='BASIC')
         if request.user.is_superuser:
             return qs
         return qs.filter(
@@ -1998,6 +2005,7 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        qs = qs.exclude(shipment__order__ordered_cart__cart_type='BASIC')
         shipment_payments = ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
         shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
         credit_notes = Note.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')

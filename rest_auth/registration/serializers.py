@@ -1,6 +1,9 @@
+from requests.exceptions import HTTPError
+
 from django.http import HttpRequest
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
 
 try:
     from allauth.account import app_settings as allauth_settings
@@ -14,9 +17,13 @@ try:
 except ImportError:
     raise ImportError("allauth needs to be added to INSTALLED_APPS.")
 
-from rest_framework import serializers
-from requests.exceptions import HTTPError
+from marketing.models import ReferralCode
+from shops.models import Shop
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+from otp.models import PhoneOTP
+from otp.views import ValidateOTP
 UserModel = get_user_model()
+
 
 class SocialAccountSerializer(serializers.ModelSerializer):
     """
@@ -31,6 +38,7 @@ class SocialAccountSerializer(serializers.ModelSerializer):
             'last_login',
             'date_joined',
         )
+
 
 class SocialLoginSerializer(serializers.Serializer):
     access_token = serializers.CharField(required=False, allow_blank=True)
@@ -191,8 +199,19 @@ class RegisterSerializer(serializers.Serializer):
         return get_adapter().clean_password(password)
 
     def validate(self, data):
+        """
+        Check For Password Fields Match and OTP verification
+        """
         if data['password1'] != data['password2']:
             raise serializers.ValidationError(_("The two password fields didn't match."))
+
+        # OTP should be verified when registering with phone number
+        number = data['username']
+        user_otp = PhoneOTP.objects.filter(phone_number=number).last()
+        if user_otp and user_otp.is_verified:
+            pass
+        else:
+            raise serializers.ValidationError(_("Please verify your mobile number first!"))
         return data
 
     def custom_signup(self, request, user):
@@ -214,6 +233,67 @@ class RegisterSerializer(serializers.Serializer):
         self.cleaned_data = self.get_cleaned_data()
         adapter.save_user(request, user, self)
         self.custom_signup(request, user)
+        setup_user_email(request, user, [])
+        return user
+
+
+class OtpRegisterSerializer(serializers.Serializer):
+    username = serializers.CharField(
+        max_length=get_username_max_length(),
+        min_length=allauth_settings.USERNAME_MIN_LENGTH,
+        required=allauth_settings.USERNAME_REQUIRED
+    )
+    otp = serializers.CharField(required=True, max_length=10)
+    referral_code = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    shop_id = serializers.IntegerField(required=False)
+
+    def validate_username(self, username):
+        username = get_adapter().clean_username(username)
+        return username
+
+    def validate(self, data):
+        """
+        Verify OTP
+        """
+        phone_otps = PhoneOTP.objects.filter(phone_number=data['username'])
+        if phone_otps.exists():
+            phone_otp = phone_otps.last()
+            to_verify_otp = ValidateOTP()
+            msg, status_code = to_verify_otp.verify(data['otp'], phone_otp)
+            if status_code != 200:
+                message = msg['message'] if 'message' in msg else "Some error occured. Please try again later"
+                raise serializers.ValidationError(message)
+        else:
+            raise serializers.ValidationError("Invalid OTP")
+
+        if 'referral_code' in data and data['referral_code'] not in ['', None]:
+            user_ref_code = ReferralCode.objects.filter(referral_code=data['referral_code'])
+            if not user_ref_code:
+                raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Referral_code'])
+
+        if 'shop_id' in data and data['shop_id'] not in ['', None]:
+            # map a user for specific shop with shop_id
+            Shop_id = Shop.objects.filter(id=data['shop_id'])
+            if not Shop_id:
+                raise serializers.ValidationError(VALIDATION_ERROR_MESSAGES['Shop_id'])
+        return data
+
+
+    def get_cleaned_data(self):
+        return {
+            'username': self.validated_data.get('username', ''),
+            'password1': self.validated_data.get('password1', ''),
+            'email': self.validated_data.get('email', ''),
+            'first_name': self.validated_data.get('first_name', ''),
+            'last_name': self.validated_data.get('last_name', ''),
+            'imei_no': self.validated_data.get('imei_no', '')
+        }
+
+    def save(self, request):
+        adapter = get_adapter()
+        user = adapter.new_user(request)
+        self.cleaned_data = self.get_cleaned_data()
+        adapter.save_user(request, user, self)
         setup_user_email(request, user, [])
         return user
 

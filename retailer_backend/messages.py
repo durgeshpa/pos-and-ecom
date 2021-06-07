@@ -1,10 +1,10 @@
 VALIDATION_ERROR_MESSAGES = {
     'INVALID_MOBILE_NUMBER': 'Mobile Number is not valid',
     'INVALID_NAME': 'Invalid name. Only alphabets are allowed',
-    'OTP_ATTEMPTS_EXCEEDED': 'Exceeded maximum attempts! Please enter the new OTP',
-    'OTP_EXPIRED': 'OTP expired! Please enter the new OTP',
-    'OTP_NOT_MATCHED': 'OTP does not match',
-    'USER_NOT_EXIST': 'Invalid data',
+    'OTP_ATTEMPTS_EXCEEDED': "You have exceeded limit for OTP attempts or resends. Please try in {} minutes",
+    'OTP_EXPIRED': 'OTP expired! Please request a new OTP.',
+    'OTP_NOT_MATCHED': 'Incorrect OTP',
+    'INVALID_DATA': 'Invalid data',
     'INVALID_UNIT_NAME': 'Invalid unit name (eg: kg, litres)',
     'INVALID_VALUE': 'Invalid value. Only numbers are allowed',
     'INVALID_PRODUCT_NAME': 'Invalid product name. Special characters allowed are _ , @ . / # & + -',
@@ -41,7 +41,7 @@ VALIDATION_ERROR_MESSAGES = {
 
 SUCCESS_MESSAGES = {
     'USER_IMPORT_SUCCESSFULLY': 'User Import Successfully.',
-    'MOBILE_NUMBER_VERIFIED': 'Your mobile number verified successfully',
+    'MOBILE_NUMBER_VERIFIED': 'Verified Successfully',
     'USER_ALREADY_EXISTS': 'User already exists! Please login',
     'USER_SHOP_ADDED': 'Shop added successfully',
     'CHANGED_STATUS': 'Po_Status changed to %s',

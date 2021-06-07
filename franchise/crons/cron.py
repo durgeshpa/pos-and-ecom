@@ -18,8 +18,9 @@ from wms.common_functions import (CommonWarehouseInventoryFunctions,
 from wms.models import BinInventory, WarehouseInventory, InventoryState, InventoryType, Bin
 from franchise.models import get_default_virtual_bin_id, WmsInventoryHistory, HdposInventoryHistory
 from services.models import CronRunLog
-from marketing.models import Referral, RewardPoint, MLMUser, RewardLog
+from marketing.models import Referral, RewardPoint, RewardLog
 from global_config.models import GlobalConfig
+from accounts.models import User
 
 cron_logger = logging.getLogger('cron_log')
 CONNECTION_PATH = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=' + config('HDPOS_DB_HOST')\
@@ -401,7 +402,7 @@ def rewards_account(sales_obj, total_reward_percent, direct_reward_percent):
         Account for rewards to referrer (direct and indirect) w.r.t sales order
     """
     if sales_obj.phone_number and sales_obj.phone_number != '':
-        sales_user = MLMUser.objects.filter(phone_number=sales_obj.phone_number).last()
+        sales_user = User.objects.filter(phone_number=sales_obj.phone_number).last()
         if sales_user:
             self_reward_points = sales_obj.amount * 0.05
             self_reward(sales_user, self_reward_points, sales_obj.id)

@@ -1,31 +1,34 @@
 from django import forms
 from django.db import transaction
+from django.core.validators import RegexValidator
+from django.core.exceptions import ObjectDoesNotExist
 
 from accounts.middlewares import get_current_user
-from marketing.models import RewardPoint, RewardLog, MLMUser,Referral
 from global_config.models import GlobalConfig
+from accounts.models import User
+
+from .models import RewardPoint, RewardLog, ReferralCode
 
 
 class MLMUserForm(forms.ModelForm):
-
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    name = forms.CharField(required=False, label='Name')
+    phone_number = forms.CharField(validators=[phone_regex], max_length=10, required=True, label='Phone Number')
+    email = forms.EmailField(required=False, label='Email')
     referral_code = forms.CharField(required=False, label='Referral code')
 
     class Meta:
-        model = MLMUser
-        exclude = ('referral_code', 'status')
+        model = ReferralCode
+        fields = ("phone_number", "name", "email", "referral_code")
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        if self.data['phone_number']:
-            if MLMUser.objects.filter(phone_number=self.data['phone_number']).exists():
-                raise forms.ValidationError("Mobile Number is Already Exists.")
-        else:
-            raise forms.ValidationError("Please enter a valid Mobile Number.")
-
+        if User.objects.filter(phone_number=self.data['phone_number']).exists():
+            raise forms.ValidationError("Mobile Number Already Exists.")
         if cleaned_data['referral_code']:
-            """Check if value consists only of valid referral_code."""
-            user_id = MLMUser.objects.filter(referral_code=cleaned_data['referral_code'])
-            if not user_id:
+            try:
+                ReferralCode.objects.get(referral_code=cleaned_data['referral_code'])
+            except ObjectDoesNotExist:
                 raise forms.ValidationError("Please Enter Valid Referral Code.")
         return cleaned_data
 
@@ -56,33 +59,27 @@ class RewardPointForm(forms.ModelForm):
             try:
                 conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
                 used_reward_factor = int(conf_obj.value)
-            except:
+            except ObjectDoesNotExist:
                 used_reward_factor = 4
             self.fields['phone'].initial = instance.user.phone_number
-            self.fields['name'].initial = instance.user.name
+            self.fields['name'].initial = instance.user.first_name
             self.fields['email'].initial = instance.user.email
-            self.fields['redeemable_reward_points'].initial = instance.direct_earned + instance.indirect_earned \
-                                                              - instance.points_used
-            self.fields['maximum_available_discount'].initial = int((
-                        instance.direct_earned + instance.indirect_earned - instance.points_used) / used_reward_factor)
+            self.fields['redeemable_reward_points'].initial = int(
+                instance.direct_earned + instance.indirect_earned - instance.points_used)
+            self.fields['maximum_available_discount'].initial = int(
+                (instance.direct_earned + instance.indirect_earned - instance.points_used) / used_reward_factor)
 
     def clean(self):
         cleaned_data = self.cleaned_data
-
         if 'discount_given' not in cleaned_data:
             raise forms.ValidationError("Please Enter Discount Value")
-
         if int(cleaned_data['discount_given']) < 1:
             raise forms.ValidationError("Please Enter Discount Greater Than 0")
-
         try:
             conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
             used_reward_factor = int(conf_obj.value)
-        except:
+        except ObjectDoesNotExist:
             used_reward_factor = 4
-
-        # if int(cleaned_data['discount_given']) % used_reward_factor != 0:
-        #     raise forms.ValidationError("Invalid Discount. Should Be In Multiples Of {}".format(used_reward_factor))
 
         points_used = int(used_reward_factor * int(cleaned_data['discount_given']))
 
