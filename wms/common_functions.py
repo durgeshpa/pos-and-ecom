@@ -913,7 +913,7 @@ def cancel_order(instance):
         # get the queryset object form warehouse internal inventory model
         type_normal = InventoryType.objects.filter(inventory_type='normal').last()
         state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
-        transaction_id = instance.order_no
+        transaction_id = instance.ordered_cart.cart_no
         transaction_type = 'ordered'
         shop = instance.seller_shop
         ware_house_internal = WarehouseInternalInventoryChange.objects.filter(
