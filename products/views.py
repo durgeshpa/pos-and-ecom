@@ -2569,6 +2569,11 @@ def packing_material_inventory_sample_upload(request):
 
 
 class HSNAutocomplete(autocomplete.Select2QuerySetView):
+    """
+
+    HSN auto complete result set
+
+    """
     def get_queryset(self, *args, **kwargs):
         qs = hsn_queryset(self)
         return qs

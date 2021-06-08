@@ -246,7 +246,7 @@ def vendor_product_mapping(supplier, product_id, price, mrp, case_size, unit):
 
 def hsn_queryset(self):
     """
-    return query set from Product HSN which length is get 6 and lte 8
+    return query set from Product HSN which length is gte 6 and lte 8
     """
 
     qs = ProductHSN.objects.annotate(text_len=Length('product_hsn_code')).filter(text_len__gte=6,
