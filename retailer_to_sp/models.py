@@ -687,7 +687,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                         continue
 
             if len(products_available) > 0:
-                reserved_args = reserved_args_json_data(instance.seller_shop.id, instance.cart.id,
+                reserved_args = reserved_args_json_data(instance.seller_shop.id, instance.cart.cart_no,
                                                         products_available, 'reserved', None)
                 info_logger.info(f"reserved_bulk_order:{reserved_args}")
                 OrderManagement.create_reserved_order(reserved_args)
@@ -705,7 +705,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 order.received_by = user
                 order.order_status = 'ordered'
                 order.save()
-                reserved_args = reserved_args_json_data(instance.seller_shop.id, instance.cart.id,
+                reserved_args = reserved_args_json_data(instance.seller_shop.id, instance.cart.cart_no,
                                                         None, 'ordered', order.order_status)
                 sku_id = [i.cart_product.id for i in instance.cart.rt_cart_list.all()]
                 info_logger.info(f"ordered_bulk_order:{reserved_args}")

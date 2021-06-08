@@ -1504,7 +1504,7 @@ class OrderCancellation(object):
     def get_reserved_qty(self):
         reserved_qty_queryset = WarehouseInternalInventoryChange.objects \
             .values(r_sku=F('sku__id'),
-                    r_qty=F('quantity')).filter(transaction_id=self.order.order_no, transaction_type='reserved')
+                    r_qty=F('quantity')).filter(transaction_id=self.order.ordered_cart.cart_no, transaction_type='reserved')
         return reserved_qty_queryset
 
     def get_cart_products_price(self, products_list):
