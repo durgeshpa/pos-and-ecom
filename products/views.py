@@ -57,6 +57,7 @@ from products.models import (
     DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab,
     ProductPackingMapping
 )
+from products.utils import hsn_queryset
 from global_config.models import GlobalConfig
 
 logger = logging.getLogger(__name__)
@@ -2565,3 +2566,9 @@ def packing_material_inventory_sample_upload(request):
     writer.writerow(['88', 'Plastic Wrap, 1000gm', 'HOKBACFRT00000021', '20/08/2022', 'V2VZ01SR001-0001',
                      '0', '0', '0', '0'])
     return response
+
+
+class HSNAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = hsn_queryset(self)
+        return qs
