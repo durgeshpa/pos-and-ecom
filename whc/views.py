@@ -83,7 +83,7 @@ class AutoOrderProcessor:
         order = self.__place_order(auto_processing_entry.cart)
         auto_processing_entry.order = order
         info_logger.info("WarehouseConsolidation|place_order_by_grn| Order Placed, order id-{}"
-                         .format(auto_processing_entry.order_id))
+                         .format(order.order_no))
         return auto_processing_entry
 
     @transaction.atomic
@@ -300,7 +300,7 @@ class AutoOrderProcessor:
             putaway_batch_bin_dict[pbi.sku_id].append({'batch_id': pbi.batch_id, 'bin_id': pbi.bin_id, 'qty': pbi.putaway_quantity})
         self.__generate_picklist(auto_processing_entry.cart, auto_processing_entry.order, putaway_batch_bin_dict)
         info_logger.info("WarehouseConsolidation|generate_picklist| Picklist Generated, order id-{}"
-                         .format(auto_processing_entry.order_id))
+                         .format(auto_processing_entry.order.order_no))
         auto_processing_entry.order.order_status = 'PICKUP_CREATED'
         auto_processing_entry.order.save()
         info_logger.info("WarehouseConsolidation|generate_picklist| Order Status Changed | order id-{}, status-{}"
@@ -362,16 +362,15 @@ class AutoOrderProcessor:
 
     def __place_order(self, cart):
         order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=cart.seller_shop,
-                                                               transaction_id=cart.order_id,
+                                                               transaction_id=cart.cart_no,
                                                                warehouse_internal_inventory_release=None,
                                                                ).last()
         if order_reserve_obj is None:
             info_logger.info(
                 "WarehouseConsolidation|place_order_by_grn|place_order|Order Reserve Entry not found, order id-{}"
-                    .format(cart.order_id))
+                    .format(cart.cart_no))
             return False
-        order = Order.objects.create(last_modified_by=self.user, ordered_by=self.user, ordered_cart=cart,
-                                     order_no=cart.order_id)
+        order = Order.objects.create(last_modified_by=self.user, ordered_by=self.user, ordered_cart=cart)
 
         order.billing_address = Address.objects.filter(shop_name=cart.buyer_shop, address_type='billing').last()
         order.shipping_address = Address.objects.filter(shop_name=cart.buyer_shop, address_type='shipping').last()
@@ -383,12 +382,12 @@ class AutoOrderProcessor:
         cart.cart_status = 'ordered'
         cart.save()
         info_logger.info(
-            "WarehouseConsolidation|place_order_by_grn|place_order|Order Created, order id-{}".format(cart.order_id))
+            "WarehouseConsolidation|place_order_by_grn|place_order|Order Created, order id-{}".format(order.order_no))
 
         sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
         reserved_args = json.dumps({
             'shop_id': cart.seller_shop_id,
-            'transaction_id': cart.order_id,
+            'transaction_id': cart.cart_no,
             'transaction_type': 'ordered',
             'order_status': order.order_status
         })
@@ -396,7 +395,7 @@ class AutoOrderProcessor:
         if order_result is False:
             order.delete()
             info_logger.info("WarehouseConsolidation|place_order_by_grn|place_order|"
-                             "Blocking could not be released, order deleted, order id-{}".format(cart.order_id))
+                             "Blocking could not be released, order deleted, cart no-{}".format(cart.cart_no))
             return False
         info_logger.info(
             "WarehouseConsolidation|place_order_by_grn|place_order|Blocking released, cart id-{}".format(cart.id))
@@ -407,7 +406,7 @@ class AutoOrderProcessor:
         if len(product_quantity_dict) > 0:
             reserved_args = json.dumps({
                 'shop_id': cart.seller_shop_id,
-                'transaction_id': cart.order_id,
+                'transaction_id': cart.cart_no,
                 'products': product_quantity_dict,
                 'transaction_type': 'reserved'
             })
@@ -422,8 +421,8 @@ class AutoOrderProcessor:
         cart = Cart.objects.create(last_modified_by=self.user, cart_status='active', cart_type='AUTO',
                                    approval_status=False,
                                    seller_shop=seller_shop, buyer_shop=buyer_shop)
-        info_logger.info("WarehouseConsolidation|add_products_to_cart|Cart Created, cart id-{}, order id-{}"
-                         .format(cart.id, cart.order_id))
+        info_logger.info("WarehouseConsolidation|add_products_to_cart|Cart Created, cart id-{}, cart no-{}"
+                         .format(cart.id, cart.cart_no))
         for product_id, qty in product_quantity_dict.items():
             available_qty = available_stock.get(product_id, 0)
             info_logger.info("WarehouseConsolidation|add_products_to_cart|product id-{}, grned qty-{}, available qty-{}"

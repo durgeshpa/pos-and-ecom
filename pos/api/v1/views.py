@@ -19,6 +19,7 @@ from retailer_backend.utils import SmallOffsetPagination
 from products.models import Product
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
+from wms.models import PosInventoryChange, PosInventoryState
 
 from pos.models import RetailerProduct, RetailerProductImage
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, get_shop_id_from_token,
@@ -82,7 +83,9 @@ class PosProductView(GenericAPIView):
                         RetailerProductCls.create_images(product, modified_data['images'])
                     product.save()
                     # Add Inventory
-                    PosInventoryCls.create_inventory(product, stock_qty, self.request.user)
+                    PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
+                                                    stock_qty, self.request.user, product.sku,
+                                                    PosInventoryChange.STOCK_ADD)
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product created successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
@@ -128,7 +131,9 @@ class PosProductView(GenericAPIView):
                     product.save()
                     if 'stock_qty' in modified_data:
                         # Update Inventory
-                        PosInventoryCls.update_stock_inventory(product, stock_qty, self.request.user)
+                        PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
+                                                        PosInventoryState.AVAILABLE, stock_qty, self.request.user,
+                                                        product.sku, PosInventoryChange.STOCK_UPDATE)
                     serializer = RetailerProductResponseSerializer(product)
                     return api_response('Product updated successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
