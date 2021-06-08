@@ -20,7 +20,6 @@ from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import transaction
-from django.db.models.functions import Length
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import permission_required
 from admin_auto_filters.views import AutocompleteJsonView
@@ -58,6 +57,7 @@ from products.models import (
     DestinationRepackagingCostMapping, BulkUploadForProductAttributes, Repackaging, SlabProductPrice, PriceSlab,
     ProductPackingMapping
 )
+from products.utils import hsn_queryset
 from global_config.models import GlobalConfig
 
 logger = logging.getLogger(__name__)
@@ -2570,6 +2570,5 @@ def packing_material_inventory_sample_upload(request):
 
 class HSNAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = ProductHSN.objects.annotate(text_len=Length('product_hsn_code')).filter(text_len__gte=6,
-                                                                                                    text_len__lte=8)
+        qs = hsn_queryset(self)
         return qs
