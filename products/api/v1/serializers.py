@@ -737,6 +737,12 @@ class ChildProductSerializers(serializers.ModelSerializer):
             if error:
                 raise serializers.ValidationError("Product cannot be made active until an active Product Price exists")
 
+        if self.initial_data['repackaging_type'] == 'destination':
+            if not self.initial_data['source_product_pro'] or not self.initial_data['packing_material_rt'] \
+                    or not self.initial_data['destination_product_repackaging']:
+                raise serializers.ValidationError(
+                    _(f"Product Source Mapping, Package Material SKU & Destination Product Repackaging can not be empty."))
+
         return data
 
     @transaction.atomic
@@ -782,6 +788,9 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
         if self.initial_data['product_pro_image']:
             ProductCls.upload_child_product_images(child_product, self.initial_data['product_pro_image'])
+
+        if self.initial_data['repackaging_type'] == 'packing_material':
+            ProductCls.update_weight_inventory(child_product)
 
         if self.initial_data['repackaging_type'] == 'destination':
             ProductCls.create_source_product_mapping(child_product, self.initial_data['source_product_pro'])

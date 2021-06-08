@@ -7,6 +7,7 @@ from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
+from wms.models import Out, WarehouseInventory, BinInventory
 
 
 class ParentProductCls(object):
@@ -162,9 +163,8 @@ class ProductCls(object):
         """
         for source_sku_data in packing_material_rt:
             pro_packing_sku = Product.objects.get(id=source_sku_data['packing_sku'])
-            obj = ProductPackingMapping.objects.create(sku_id=child_product.id, packing_sku=pro_packing_sku,
-                            packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
-            return obj
+            ProductPackingMapping.objects.create(sku_id=child_product.id, packing_sku=pro_packing_sku,
+                                                 packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
 
     @classmethod
     def create_destination_product_mapping(cls, child_product, destination_product_repackaging):
@@ -180,6 +180,17 @@ class ProductCls(object):
                                                              packing_labour=pro_des_data['packing_labour'],
                                                              primary_pm_cost=pro_des_data['primary_pm_cost'],
                                                              secondary_pm_cost=pro_des_data['secondary_pm_cost'])
+
+    @classmethod
+    def update_weight_inventory(cls, child_product):
+        warehouse_inv = WarehouseInventory.objects.filter(sku=child_product)
+        for inv in warehouse_inv:
+            inv.weight = inv.quantity * child_product.weight_value
+            inv.save()
+        bin_inv = BinInventory.objects.filter(sku=child_product)
+        for inv in bin_inv:
+            inv.weight = inv.quantity * child_product.weight_value
+            inv.save()
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
