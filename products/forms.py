@@ -414,8 +414,10 @@ class DestinationRepackagingCostMappingForm(forms.ModelForm):
         }
 
 
+# query set from Product HSN which length is gte 6 and lte 8
 hsn_choices = ProductHSN.objects.annotate(text_len=Length('product_hsn_code')).filter(text_len__gte=6,
                                                                                             text_len__lte=8)
+
 class ParentProductForm(forms.ModelForm):
     """
     Parent Product Form
