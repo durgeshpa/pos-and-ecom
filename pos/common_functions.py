@@ -120,26 +120,47 @@ class OffersCls(object):
 class PosInventoryCls(object):
 
     @classmethod
-    def create_inventory(cls, product, stock_qty, user):
-        inv_new = PosInventoryState.objects.get(inventory_state=PosInventoryState.NEW)
-        inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
-        PosInventory.objects.create(product=product, quantity=stock_qty, inventory_state=inv_available)
-        PosInventoryChange.objects.create(product=product, quantity=stock_qty,
-                                          transaction_type=PosInventoryChange.STOCK_ADD, transaction_id=product.sku,
-                                          initial_state=inv_new, final_state=inv_available, changed_by=user)
+    def stock_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):
+        """
+            Create/Update available inventory for product
+        """
+        i_state_obj = PosInventoryState.objects.get(inventory_state=i_state)
+        f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
+        pos_inv, created = PosInventory.objects.get_or_create(product_id=pid, inventory_state=i_state_obj)
+        if not created and qty == pos_inv.quantity:
+            return
+        qty_change = qty - pos_inv.quantity
+        pos_inv.quantity = qty
+        pos_inv.save()
+        PosInventoryCls.create_inventory_change(pid, qty_change, transaction_type, transaction_id, i_state_obj,
+                                                f_state_obj, user)
 
     @classmethod
-    def update_stock_inventory(cls, product, stock_qty, user):
-        inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
-        pos_inv, created = PosInventory.objects.get_or_create(product=product, inventory_state=inv_available)
-        if not created and stock_qty == pos_inv.quantity:
-            return
-        qty_change = stock_qty - pos_inv.quantity
-        pos_inv.quantity = stock_qty
+    def order_inventory(cls, pid, i_state, f_state, qty, user, transaction_id, transaction_type):
+        """
+            Manage Order related product inventory (Order creation, cancellations, returns)
+        """
+        # Subtract qty from initial state inventory
+        i_state_obj = PosInventoryState.objects.get(inventory_state=i_state)
+        PosInventoryCls.qty_transaction(pid, i_state_obj, -1 * qty)
+        # Add qty to final state inventory
+        f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
+        PosInventoryCls.qty_transaction(pid, f_state_obj, qty)
+        # Record inventory change
+        PosInventoryCls.create_inventory_change(pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj,
+                                                user)
+
+    @classmethod
+    def qty_transaction(cls, pid, state_obj, qty):
+        pos_inv, created = PosInventory.objects.get_or_create(product_id=pid, inventory_state=state_obj)
+        pos_inv.quantity = pos_inv.quantity + qty
         pos_inv.save()
-        PosInventoryChange.objects.create(product=product, quantity=qty_change,
-                                          transaction_type=PosInventoryChange.STOCK_UPDATE, transaction_id=product.sku,
-                                          initial_state=inv_available, final_state=inv_available, changed_by=user)
+
+    @classmethod
+    def create_inventory_change(cls, pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj, user):
+        PosInventoryChange.objects.create(product_id=pid, quantity=qty, transaction_type=transaction_type,
+                                          transaction_id=transaction_id, initial_state=i_state_obj,
+                                          final_state=f_state_obj, changed_by=user)
 
 
 def api_response(msg, data=None, status_code=status.HTTP_406_NOT_ACCEPTABLE, success=False, extra_params=None):

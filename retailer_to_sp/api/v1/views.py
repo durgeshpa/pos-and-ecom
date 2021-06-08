@@ -65,10 +65,11 @@ from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZI
 from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
                                  create_invoice_data, whatsapp_opt_in, whatsapp_order_cancel,
                                  whatsapp_order_refund)
-from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType
+from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState,\
+    PosInventoryChange
 from pos.common_functions import get_shop_id_from_token, api_response, create_user_shop_mapping, \
     delete_cart_mapping, get_invoice_and_link, ORDER_STATUS_MAP, RetailerProductCls, validate_data_format, \
-    update_pos_customer
+    update_pos_customer, PosInventoryCls
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
@@ -1307,6 +1308,8 @@ class CartCentral(GenericAPIView):
             try:
                 product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, linked, None,
                                                                      ean)
+                PosInventoryCls.stock_inventory(product, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
+                                                self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
             except:
                 return {'error': "Product could not be created. Please check values provided"}
         else:
@@ -2291,7 +2294,7 @@ class ReservedOrder(generics.ListAPIView):
                 else:
                     reserved_args = json.dumps({
                         'shop_id': parent_mapping.parent.id,
-                        'transaction_id': cart.id,
+                        'transaction_id': cart.cart_no,
                         'products': products_available,
                         'transaction_type': 'reserved'
                     })
@@ -2390,8 +2393,16 @@ class OrderCentral(APIView):
             order.last_modified_by = self.request.user
             order.save()
             # cancel shipment
-            OrderedProduct.objects.filter(order=order).update(shipment_status='CANCELLED',
-                                                              last_modified_by=self.request.user)
+            ordered_product = OrderedProduct.objects.filter(order=order).last()
+            ordered_product.shipment_status = 'CANCELLED'
+            ordered_product.last_modified_by = self.request.user
+            ordered_product.save()
+            # Update inventory
+            ordered_products = ShipmentProducts.objects.filter(ordered_product=ordered_product)
+            for op in ordered_products:
+                PosInventoryCls.order_inventory(op.retailer_product.id, PosInventoryState.ORDERED,
+                                                PosInventoryState.AVAILABLE, op.shipped_qty, self.request.user,
+                                                order.order_no, PosInventoryChange.CANCELLED)
             order_number = order.order_no
             shop_name = order.seller_shop.shop_name
             phone_number = order.buyer.phone_number
@@ -2835,7 +2846,7 @@ class OrderCentral(APIView):
         sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
         reserved_args = json.dumps({
             'shop_id': parent_mapping.parent.id,
-            'transaction_id': cart.id,
+            'transaction_id': cart.cart_no,
             'transaction_type': 'ordered',
             'order_status': order.order_status
         })
@@ -2861,7 +2872,7 @@ class OrderCentral(APIView):
             Get Order Reserve For retail sp cart
         """
         return OrderReserveRelease.objects.filter(warehouse=parent_mapping.retailer.get_shop_parent.id,
-                                                  transaction_id=cart.id,
+                                                  transaction_id=cart.cart_no,
                                                   warehouse_internal_inventory_release=None).last()
 
     @staticmethod
@@ -2986,24 +2997,20 @@ class OrderCentral(APIView):
                                                           ).values('retailer_product', 'qty', 'product_type',
                                                                    'selling_price')
         for product_map in cart_products:
+            product_id = product_map['retailer_product']
+            qty = product_map['qty']
             # Order Item
             ordered_product_mapping = ShipmentProducts.objects.create(ordered_product=shipment,
-                                                                      retailer_product_id=product_map[
-                                                                          'retailer_product'],
-                                                                      product_type=product_map[
-                                                                          'product_type'],
+                                                                      retailer_product_id=product_id,
+                                                                      product_type=product_map['product_type'],
                                                                       selling_price=product_map['selling_price'],
-                                                                      shipped_qty=product_map['qty'],
-                                                                      picked_pieces=product_map['qty'],
-                                                                      delivered_qty=product_map['qty'])
+                                                                      shipped_qty=qty, picked_pieces=qty,
+                                                                      delivered_qty=qty)
             # Order Item Batch
-            OrderedProductBatch.objects.create(
-                ordered_product_mapping=ordered_product_mapping,
-                quantity=product_map['qty'],
-                pickup_quantity=product_map['qty'],
-                delivered_qty=product_map['qty'],
-                ordered_pieces=product_map['qty']
-            )
+            OrderedProductBatch.objects.create(ordered_product_mapping=ordered_product_mapping, quantity=qty,
+                                               pickup_quantity=qty, delivered_qty=qty, ordered_pieces=qty)
+            PosInventoryCls.order_inventory(product_id, PosInventoryState.AVAILABLE, PosInventoryState.ORDERED, qty,
+                                            self.request.user, order.order_no, PosInventoryChange.ORDERED)
         # Invoice Number Generate
         shipment.shipment_status = OrderedProduct.READY_TO_SHIP
         shipment.save()
@@ -4115,6 +4122,12 @@ class OrderReturnComplete(APIView):
             ordered_product.save()
             order.last_modified_by = self.request.user
             order.save()
+            # Update inventory
+            returned_products = ReturnItems.objects.filter(return_id=order_return)
+            for rp in returned_products:
+                PosInventoryCls.order_inventory(rp.ordered_product.retailer_product.id, PosInventoryState.ORDERED,
+                                                PosInventoryState.AVAILABLE, rp.return_qty, self.request.user, rp.id,
+                                                PosInventoryChange.RETURN)
             # complete return
             order_return.status = 'completed'
             order_return.refund_mode = refund_method
@@ -4966,7 +4979,7 @@ class ReleaseBlocking(APIView):
             sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
             reserved_args = json.dumps({
                 'shop_id': parent_mapping.parent.id,
-                'transaction_id': cart.id,
+                'transaction_id': cart.cart_no,
                 'transaction_type': 'released',
                 'order_status': 'available'
             })

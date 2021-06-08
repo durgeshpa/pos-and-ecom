@@ -313,6 +313,7 @@ class PosInventoryAdmin(admin.ModelAdmin):
     list_display = ('shop', 'product', 'quantity', 'inventory_state', 'created_at', 'modified_at')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'inventory_state__inventory_state')
+    list_per_page = 50
 
     @staticmethod
     def shop(obj):
@@ -334,6 +335,7 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
                     'changed_by', 'created_at')
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
+    list_per_page = 50
 
     @staticmethod
     def shop(obj):

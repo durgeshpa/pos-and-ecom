@@ -38,7 +38,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
     product_ean_code = serializers.CharField(required=True, max_length=100)
     stock_qty = serializers.IntegerField(min_value=0, default=0)
     linked_product_id = serializers.IntegerField(required=False, default=None, min_value=1, allow_null=True)
-    images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=5)
+    images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), max_length=3)
 
     @staticmethod
     def validate_linked_product_id(value):
@@ -120,8 +120,8 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             image_count = len(attrs['images'])
         if 'image_ids' in attrs and attrs['image_ids']:
             image_count += len(attrs['image_ids'])
-        if image_count > 5:
-            raise serializers.ValidationError("images : Ensure this field has no more than 5 elements.")
+        if image_count > 3:
+            raise serializers.ValidationError("images : Ensure this field has no more than 3 elements.")
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
             raise serializers.ValidationError("Selling Price cannot be greater than MRP")
