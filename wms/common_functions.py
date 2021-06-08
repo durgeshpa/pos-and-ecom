@@ -186,6 +186,11 @@ class CommonBinInventoryFunctions(object):
         bin_inv_obj.to_be_picked_qty = bin_inv_obj.to_be_picked_qty - qty_picked
         bin_inv_obj.save()
 
+    @classmethod
+    def add_to_be_picked_to_bin(cls, qty, bin_inv_obj):
+        bin_inv_obj.to_be_picked_qty = bin_inv_obj.to_be_picked_qty + qty
+        bin_inv_obj.save()
+
 
 class CommonPickupFunctions(object):
 
