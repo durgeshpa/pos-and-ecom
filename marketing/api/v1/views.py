@@ -21,7 +21,7 @@ class RewardsDashboard(GenericAPIView):
         user = self.request.user
         user_name = user.first_name if user.first_name else ''
         try:
-            rewards_obj = RewardPoint.objects.get(user=user)
+            rewards_obj = RewardPoint.objects.get(reward_user=user)
         except ObjectDoesNotExist:
             data = {"direct_users_count": '0', "indirect_users_count": '0', "direct_earned_points": '0',
                     "indirect_earned_points": '0', "total_earned_points": '0', 'total_points_used': '0',
@@ -43,7 +43,7 @@ class UploadProfile(GenericAPIView):
             Update User Profile
         """
         try:
-            profile = Profile.objects.get(user=self.request.user)
+            profile = Profile.objects.get(profile_user=self.request.user)
         except ObjectDoesNotExist:
             return Response({'is_success': False, 'message': ['User Profile Not Found'], 'response_data': None},
                             status=status.HTTP_200_OK)

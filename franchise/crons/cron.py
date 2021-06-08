@@ -418,9 +418,9 @@ def referrer_reward(sales_user, transaction_id, reward_points, direct_reward_per
 
     # Check if some user referred sales_user from referral_obj
 
-    referral_obj = Referral.objects.filter(referral_to=sales_user).last()
+    referral_obj = Referral.objects.filter(referral_to_user=sales_user).last()
     if referral_obj:
-        parent_referrer = referral_obj.referral_by
+        parent_referrer = referral_obj.referral_by_user
         # account for direct reward to user who referred sales_user
         direct_reward_points = int(reward_points * (direct_reward_percent / 100))
         direct_reward(parent_referrer, direct_reward_points, transaction_id)
@@ -431,53 +431,53 @@ def referrer_reward(sales_user, transaction_id, reward_points, direct_reward_per
 
 
 def self_reward(user, points, transaction_id):
-    reward_obj = RewardPoint.objects.filter(user=user).last()
+    reward_obj = RewardPoint.objects.filter(reward_user=user).last()
     if reward_obj:
         reward_obj.direct_earned += points
         reward_obj.save()
     else:
-        RewardPoint.objects.create(user=user, direct_earned=points)
+        RewardPoint.objects.create(reward_user=user, direct_earned=points)
 
-    RewardLog.objects.create(user=user, transaction_type='purchase_reward', transaction_id=transaction_id, points=points)
+    RewardLog.objects.create(reward_user=user, transaction_type='purchase_reward', transaction_id=transaction_id, points=points)
 
 
 def direct_reward(parent_referrer, direct_reward_points, transaction_id):
-    reward_obj = RewardPoint.objects.filter(user=parent_referrer).last()
+    reward_obj = RewardPoint.objects.filter(reward_user=parent_referrer).last()
     if reward_obj:
         reward_obj.direct_users += 1
         reward_obj.direct_earned += direct_reward_points
         reward_obj.save()
     else:
-        RewardPoint.objects.create(user=parent_referrer, direct_users=1, direct_earned=direct_reward_points)
+        RewardPoint.objects.create(reward_user=parent_referrer, direct_users=1, direct_earned=direct_reward_points)
 
-    RewardLog.objects.create(user=parent_referrer, transaction_type='direct_reward',
+    RewardLog.objects.create(reward_user=parent_referrer, transaction_type='direct_reward',
                              transaction_id=transaction_id, points=direct_reward_points)
 
 
 def indirect_reward(parent_referrer, indirect_reward_points, transaction_id):
-    referral_obj_indirect = Referral.objects.filter(referral_to=parent_referrer).last()
+    referral_obj_indirect = Referral.objects.filter(referral_to_user=parent_referrer).last()
     total_users = 0
     users = []
 
-    while referral_obj_indirect is not None and referral_obj_indirect.referral_by:
+    while referral_obj_indirect is not None and referral_obj_indirect.referral_by_user:
         total_users += 1
-        ancestor_user = referral_obj_indirect.referral_by
-        referral_obj_indirect = Referral.objects.filter(referral_to=ancestor_user).last()
+        ancestor_user = referral_obj_indirect.referral_by_user
+        referral_obj_indirect = Referral.objects.filter(referral_to_user=ancestor_user).last()
         users += [ancestor_user]
 
     if total_users > 0:
         indirect_reward_points_per_user = int(indirect_reward_points / total_users)
         for ancestor in users:
-            reward_obj = RewardPoint.objects.filter(user=ancestor).last()
+            reward_obj = RewardPoint.objects.filter(reward_user=ancestor).last()
             if reward_obj:
                 reward_obj.indirect_users += 1
                 reward_obj.indirect_earned += indirect_reward_points_per_user
                 reward_obj.save()
             else:
-                RewardPoint.objects.create(user=ancestor, indirect_users=1,
+                RewardPoint.objects.create(reward_user=ancestor, indirect_users=1,
                                            indirect_earned=indirect_reward_points_per_user)
 
-            RewardLog.objects.create(user=ancestor, transaction_type='indirect_reward',
+            RewardLog.objects.create(reward_user=ancestor, transaction_type='indirect_reward',
                                      transaction_id=transaction_id, points=indirect_reward_points_per_user)
 
 

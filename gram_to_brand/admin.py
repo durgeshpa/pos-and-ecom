@@ -21,7 +21,7 @@ from retailer_backend.filters import (BrandFilter, SupplierStateFilter, Supplier
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 from products.models import ProductVendorMapping, ParentProduct
 from barCodeGenerator import barcodeGen, merged_barcode_gen
-from .views import DownloadPurchaseOrder, GetMessage
+from .views import DownloadPurchaseOrder, GetMessage, DownloadPOItems
 from .common_functions import upload_cart_product_csv, moving_average_buying_price
 from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList, Document,
                      PickListItems, OrderedProductReserved, Po_Message)
@@ -83,7 +83,7 @@ class CartAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs
         if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return qs.filter(po_status='PDA')
+            return qs
         return qs.filter(
             Q(gf_shipping_address__shop_name__related_users=request.user) |
             Q(gf_shipping_address__shop_name__shop_owner=request.user)
@@ -173,6 +173,9 @@ class CartAdmin(admin.ModelAdmin):
                    url(r'^message-list/$',
                        self.admin_site.admin_view(GetMessage.as_view()),
                        name='message-list'),
+                   url(r'^download-po-items/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(DownloadPOItems.as_view()),
+                       name='download-po-items'),
                ] + urls
         return urls
 
@@ -187,7 +190,8 @@ class CartAdmin(admin.ModelAdmin):
         defaults = {}
         if request.user.is_superuser:
             defaults['form'] = POGenerationForm
-        elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
+        elif obj is not None and obj.po_status == 'PDA' \
+                and request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
             defaults['form'] = POGenerationAccountForm
         else:
             defaults['form'] = POGenerationForm

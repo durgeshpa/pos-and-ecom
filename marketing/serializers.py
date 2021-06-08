@@ -53,7 +53,7 @@ class RewardsSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def welcome_reward(obj):
-        return str(RewardLog.objects.filter(user=obj.user, transaction_type='welcome_reward').last().points)
+        return str(RewardLog.objects.filter(reward_user=obj.user, transaction_type='welcome_reward').last().points)
 
     @staticmethod
     def discount(obj):
