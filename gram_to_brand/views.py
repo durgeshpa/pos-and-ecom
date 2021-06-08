@@ -5,7 +5,6 @@ from io import StringIO
 
 import django_filters
 from decouple import config
-from django.contrib.sites.models import Site
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.db.models import F, Sum, Count, Subquery
