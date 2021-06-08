@@ -20,6 +20,7 @@ from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import transaction
+from django.db.models.functions import Length
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import permission_required
 from admin_auto_filters.views import AutocompleteJsonView
@@ -2565,3 +2566,10 @@ def packing_material_inventory_sample_upload(request):
     writer.writerow(['88', 'Plastic Wrap, 1000gm', 'HOKBACFRT00000021', '20/08/2022', 'V2VZ01SR001-0001',
                      '0', '0', '0', '0'])
     return response
+
+
+class HSNAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = ProductHSN.objects.annotate(text_len=Length('product_hsn_code')).filter(text_len__gte=6,
+                                                                                                    text_len__lte=8)
+        return qs

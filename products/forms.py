@@ -412,8 +412,12 @@ class DestinationRepackagingCostMappingForm(forms.ModelForm):
             'onChange': 'calc_final_fg_and_conversion_cost(this)'
         }
 
-
+from django.db.models.functions import Length
+warehouse_choices = ProductHSN.objects.annotate(text_len=Length('product_hsn_code')).filter(text_len__gte=6,
+                                                                                            text_len__lte=8)
 class ParentProductForm(forms.ModelForm):
+    product_hsn = forms.ModelChoiceField(queryset=warehouse_choices,
+                                         widget=autocomplete.ModelSelect2(url='admin:hsn-autocomplete',))
 
     class Meta:
         model = ParentProduct
