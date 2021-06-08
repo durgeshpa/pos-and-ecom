@@ -675,7 +675,7 @@ class ProductSourceMappingSerializers(serializers.ModelSerializer):
 class ProductPackingMappingSerializers(serializers.ModelSerializer):
     class Meta:
         model = ProductPackingMapping
-        fields = ('packing_sku', 'packing_sku_weight_per_unit_sku', 'sku_id')
+        fields = ('packing_sku', 'packing_sku_weight_per_unit_sku',)
 
 
 class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
@@ -757,7 +757,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
         if self.initial_data['repackaging_type'] == 'destination':
             ProductCls.create_source_product_mapping(child_product, self.initial_data['source_product_pro'])
             ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_material_rt'])
-            ProductCls.create_destination_product_mapping(child_product, self.initial_data['destination_product_repackaging'])
+            ProductCls.create_destination_product_mapping(child_product,
+                                                          self.initial_data['destination_product_repackaging'])
 
         return child_product
 

@@ -9,12 +9,12 @@ from django.core.exceptions import ValidationError
 
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
-     ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
+    ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping
 from categories.models import Category
 from shops.models import Shop
+
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
-
 
 VALID_IMAGE_EXTENSIONS = [
     ".jpg",
@@ -65,7 +65,7 @@ def get_validate_category(parent_product_pro_category):
             category = Category.objects.get(id=cat_data['category'])
         except Exception as e:
             logger.error(e)
-            return {'error': '{} category not found' .format(cat_data['category'])}
+            return {'error': '{} category not found'.format(cat_data['category'])}
         if category in cat_list:
             return {'error': '{} do not repeat same category for one product'.format(category)}
         cat_list.append(category)
@@ -170,10 +170,9 @@ def validate_data_format(request):
     try:
         data = json.loads(request.data["data"])
     except Exception as e:
-        return {'error': "Invalid Data Format",}
+        return {'error': "Invalid Data Format", }
 
     if request.FILES.getlist('product_pro_image'):
         data['product_pro_image'] = request.FILES.getlist('product_pro_image')
-
 
     return data

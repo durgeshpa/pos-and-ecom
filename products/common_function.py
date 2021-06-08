@@ -162,8 +162,9 @@ class ProductCls(object):
         """
         for source_sku_data in packing_material_rt:
             pro_packing_sku = Product.objects.get(id=source_sku_data['packing_sku'])
-            ProductPackingMapping.objects.create(sku_id=child_product, packing_sku=pro_packing_sku,
+            obj = ProductPackingMapping.objects.create(sku_id=child_product.id, packing_sku=pro_packing_sku,
                             packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
+            return obj
 
     @classmethod
     def create_destination_product_mapping(cls, child_product, destination_product_repackaging):
@@ -171,7 +172,14 @@ class ProductCls(object):
             Create Destination Product Mapping
         """
         for pro_des_data in destination_product_repackaging:
-            DestinationRepackagingCostMapping.objects.create(destination=child_product, raw_material=pro_des_data['raw_material'])
+            DestinationRepackagingCostMapping.objects.create(destination=child_product,
+                                                             raw_material=pro_des_data['raw_material'],
+                                                             wastage=pro_des_data['wastage'],
+                                                             fumigation=pro_des_data['fumigation'],
+                                                             label_printing=pro_des_data['label_printing'],
+                                                             packing_labour=pro_des_data['packing_labour'],
+                                                             primary_pm_cost=pro_des_data['primary_pm_cost'],
+                                                             secondary_pm_cost=pro_des_data['secondary_pm_cost'])
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
