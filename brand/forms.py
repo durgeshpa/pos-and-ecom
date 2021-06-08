@@ -1,4 +1,6 @@
 from django import forms
+from django.core.validators import EMPTY_VALUES, validate_email
+from django.utils.translation import ugettext_lazy as _
 
 from .models import Vendor, BrandPosition
 from django.urls import reverse
@@ -10,6 +12,8 @@ from shops.models import Shop
 class VendorForm(forms.ModelForm):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
     city = forms.ModelChoiceField(queryset=City.objects.all())
+    email_id = forms.CharField(max_length=255,
+                               widget= forms.Textarea(attrs={'placeholder': 'Enter comma separated email ids'}))
 
     class Media:
         js = ('https://code.jquery.com/jquery-3.2.1.js','admin/js/vendor/vendor_form.js',
@@ -21,7 +25,7 @@ class VendorForm(forms.ModelForm):
     class Meta:
         model = Vendor
         fields = '__all__'
-        exclude = ('email_id',)
+        # exclude = ('email_id',)
 
     def __init__(self, *args, **kwargs):
         super(VendorForm, self).__init__(*args, **kwargs)
@@ -36,7 +40,30 @@ class VendorForm(forms.ModelForm):
             'style':'width: 25%'
             }
 
+    def to_list(self, value):
 
+        """
+        normalizes the data to a list of the email strings.
+        """
+        if value in EMPTY_VALUES:
+            return []
+
+        value = [item.strip() for item in value.split(',') if item.strip()]
+
+        return list(set(value))
+
+    def clean(self):
+        cleaned_data = super(VendorForm, self).clean()
+        email_filed_value = cleaned_data.get('email_id')
+        email_list = self.to_list(email_filed_value)
+        if email_list in EMPTY_VALUES :
+            raise forms.ValidationError('This field is required.')
+        for email in email_list:
+            try:
+                validate_email(email)
+            except forms.ValidationError:
+                raise forms.ValidationError(_("'%s' is not a valid email address.") % email)
+        return cleaned_data
 
 
 class BrandForm(forms.ModelForm):
