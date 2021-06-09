@@ -1,5 +1,6 @@
 # python imports
 import logging
+import traceback
 
 # app imports
 from shops.models import Shop, warehouse_code_generator
@@ -22,18 +23,13 @@ def run():
 def set_warehouse_code():
     try:
         info_logger.info('refactor warehouse_code when shop_type is Franchise|started')
-        shop_franchise = Shop.objects.filter(shop_type__shop_type='f').order_by('-created_at')  # shop_type = Franchise
+        shop_franchise = Shop.objects.filter(shop_type__shop_type='f', approval_status=2).order_by('created_at')  # shop_type = Franchise
         count = 0
         if shop_franchise:
             for franchise in shop_franchise:
                 warehouse_code = str(format(count, '03d'))
-                franchise.warehouse_code = warehouse_code
-                franchise.shop_code = 'F'
-                franchise.save()
+                Shop.objects.filter(id=franchise.id).update(warehouse_code=warehouse_code, shop_code='F')
                 count += 1
-            info_logger.info('warehouse_code is successfully updated')
-        else:
-            info_logger.info('no Shop found with shop_type Franchise')
+                print("shop updated {} code {}".format(franchise.shop_name, franchise.warehouse_code))
     except Exception as e:
-        error_logger.error(e)
-        error_logger.error('Exception in warehouse_code_refactor')
+        traceback.print_exc()

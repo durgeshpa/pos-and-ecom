@@ -215,8 +215,8 @@ def warehouse_code_generator():
         This Function will create auto Incrementel Warehouse_code
     """
 
-    latest_record = Shop.objects.filter(shop_type__shop_type='f').order_by('-id')[0]
-    return int(latest_record.warehouse_code)+1
+    latest_record = Shop.objects.filter(shop_type__shop_type='f', approval_status=2).last()
+    return int(latest_record.warehouse_code) + 1
 
 
 @receiver(pre_save, sender=Shop)
@@ -225,7 +225,7 @@ def create_auto_warehouse_code_for_franchise(sender, instance=None, created=Fals
         Creating warehouse_code for a Franchise shop.
         warehouse_code created when the shop is approved
     """
-    if instance.shop_type.shop_type == 'f' and instance.approval_status == 2:
+    if instance.shop_type.shop_type == 'f' and instance.approval_status == 2 and not instance.warehouse_code:
         warehouse_code = warehouse_code_generator()
         instance.warehouse_code = str(warehouse_code)
         instance.shop_code = 'F'
