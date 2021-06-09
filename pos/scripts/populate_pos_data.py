@@ -13,6 +13,7 @@ from pos.common_functions import RetailerProductCls, PosInventoryCls
 from wms.models import PosInventoryState, PosInventoryChange, PosInventory
 from accounts.models import User
 from pos.models import RetailerProduct
+from pos.api.v1.serializers import ImageFileSerializer
 
 
 def run(*args):
@@ -92,7 +93,9 @@ def run(*args):
                             image = InMemoryUploadedFile(image, 'ImageField', "gmfact_image.jpeg", 'image/jpeg',
                                                          sys.getsizeof(image),
                                                          None)
-                            images += [image]
+                            serializer = ImageFileSerializer(data={'image': image})
+                            if serializer.is_valid():
+                                images += [image]
                         except:
                             pass
                     RetailerProductCls.create_images(product, images)
