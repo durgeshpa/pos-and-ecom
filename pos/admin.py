@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.conf.urls import url
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
+from django.utils.html import format_html
 
 from pos.models import RetailerProduct, RetailerProductImage, Payment, UserMappedShop
 from pos.views import upload_retailer_products_list, download_retailer_products_list_form_view, \
@@ -35,7 +36,7 @@ class RetailerProductImageAdmin(admin.TabularInline):
 
 class RetailerProductAdmin(admin.ModelAdmin):
     form = RetailerProductsForm
-    list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
+    list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
                     'linked_product', 'description', 'sku_type', 'status', 'created_at', 'modified_at')
     fields = ('shop', 'linked_product', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
               'description', 'sku_type', 'status', 'created_at', 'modified_at')
@@ -43,6 +44,13 @@ class RetailerProductAdmin(admin.ModelAdmin):
                        'description', 'sku_type', 'status', 'created_at', 'modified_at')
     list_per_page = 50
     inlines = [RetailerProductImageAdmin, ]
+
+    @staticmethod
+    def image(obj):
+        image = obj.retailer_product_image.last()
+        if image:
+            return format_html('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.format(
+                image.image.url, (image.image_alt_text or image.image_name), image.image.url))
 
     def has_add_permission(self, request, obj=None):
         return False

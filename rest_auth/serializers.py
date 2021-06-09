@@ -158,8 +158,8 @@ class OtpLoginSerializer(serializers.Serializer):
         if not user:
             raise serializers.ValidationError("User does not exist. Please sign up!")
         if attrs.get('app_type') == 2 and not (
-                Shop.objects.filter(shop_owner=user, shop_type__shop_type='f').exists() or Shop.objects.filter(
-            related_users=user, shop_type__shop_type='f').exists()):
+                Shop.objects.filter(shop_owner=user, shop_type__shop_type='f', approval_status=2).exists() or Shop.objects.filter(
+            related_users=user, shop_type__shop_type='f', approval_status=2).exists()):
             raise serializers.ValidationError("Shop Doesn't Exist!")
 
         phone_otps = PhoneOTP.objects.filter(phone_number=number)

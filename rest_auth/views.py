@@ -112,7 +112,7 @@ class LoginView(GenericAPIView):
         token = token if getattr(settings, 'REST_USE_JWT', False) else user.auth_token.key
         app_type = self.request.data.get('app_type', 0)
         shop_object = Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user),
-                                          shop_type__shop_type='f').last() if app_type == '2' else None
+                                          shop_type__shop_type='f', approval_status=2).last() if app_type == '2' else None
 
         response_serializer_class = self.get_response_serializer()
         response_serializer = response_serializer_class(instance={'user': user, 'token': token,
@@ -419,6 +419,7 @@ class RetailerUserDetailsView(GenericAPIView):
         **kwargs:- keyword argument
         """
         user = self.request.user
-        shop = Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f').last()
+        shop = Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f',
+                                   approval_status=2).last()
         serializer = self.serializer_class(UserModel.objects.get(id=request.user.id), context={'shop': shop})
         return Response(serializer.data)
