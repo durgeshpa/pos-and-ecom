@@ -200,17 +200,27 @@ class AddressInlineFormSet(BaseInlineFormSet):
     def clean(self):
         super(AddressInlineFormSet, self).clean()
         flag = 0
+        flag_bill = 0
         delete = False
         address_form = []
+        address_form_bill = []
         for form in self.forms:
             if form.cleaned_data and form.cleaned_data['address_type'] == 'shipping':
                 address_form.append(form.cleaned_data.get('DELETE'))
                 flag = 1
+            if form.cleaned_data and form.cleaned_data['address_type'] == 'billing':
+                address_form_bill.append(form.cleaned_data.get('DELETE'))
+                flag_bill = 1
 
         if address_form and all(address_form):
             raise forms.ValidationError('You cant delete all shipping address')
         elif flag==0:
             raise forms.ValidationError('Please add at least one shipping address')
+        if self.instance.shop_type and self.instance.shop_type.shop_type == 'f':
+            if address_form_bill and all(address_form_bill):
+                raise forms.ValidationError('You cant delete all billing address')
+            elif flag_bill == 0:
+                raise forms.ValidationError('Please add at least one billing address')
 
 class ShopTimingForm(forms.ModelForm):
     SUN = 'SUN'

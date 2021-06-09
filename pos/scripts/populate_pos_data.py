@@ -53,7 +53,7 @@ def run(*args):
             if gf_products_count > 1:
                 gf_products = Product.objects.filter(product_ean_code=row[0], product_mrp=round(Decimal(row[3]), 2))
                 gf_products_count = gf_products.count()
-                if gf_products_count == 1:
+                if gf_products_count >= 1:
                     sku_type = 2
                     gf_product = gf_products.last()
                     gf_product_id = gf_product.id
@@ -65,7 +65,7 @@ def run(*args):
                 row[0] = row[0].split('_')[0]
                 gf_products = Product.objects.filter(product_ean_code=row[0], product_mrp=round(Decimal(row[3]), 2))
                 gf_products_count = gf_products.count()
-                if gf_products_count == 1:
+                if gf_products_count >= 1:
                     sku_type = 2
                     gf_product = gf_products.last()
                     gf_product_id = gf_product.id
