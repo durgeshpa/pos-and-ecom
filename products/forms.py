@@ -800,6 +800,9 @@ class UploadMasterDataAdminForm(forms.Form):
                                 product_hsn_code=row['hsn']).exists() and not ProductHSN.objects.filter(
                                 product_hsn_code='0' + str(row['hsn'])).exists():
                             raise ValidationError(_(f"Row {row_num} | {row['hsn']} |'HSN' doesn't exist in the system."))
+                        if len(row['hsn']) < 6 or len(row['hsn']) > 8:
+                            raise ValidationError(
+                                _(f"Row {row_num} | {row['hsn']} |'HSN' code should be min 6 char and max 8 char."))
                 if 'tax_1(gst)' in header_list and 'tax_1(gst)' in row.keys():
                     if row['tax_1(gst)'] != '':
                         if not Tax.objects.filter(tax_name=row['tax_1(gst)']).exists():
