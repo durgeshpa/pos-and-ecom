@@ -50,20 +50,21 @@ def run(*args):
             sku_type = 1
             gf_products = Product.objects.filter(product_ean_code=row[0])
             gf_products_count = gf_products.count()
-            if gf_products_count > 1:
-                gf_products = Product.objects.filter(product_ean_code=row[0], product_mrp=round(Decimal(row[3]), 2))
-                gf_products_count = gf_products.count()
+            if gf_products_count >= 1:
+                gf_products_n = Product.objects.filter(product_ean_code=row[0], product_mrp=round(Decimal(row[3]), 2))
+                gf_products_count = gf_products_n.count()
                 if gf_products_count >= 1:
+                    sku_type = 2
+                    gf_product = gf_products_n.last()
+                    gf_product_id = gf_product.id
+                else:
                     sku_type = 2
                     gf_product = gf_products.last()
                     gf_product_id = gf_product.id
-            elif gf_products_count == 1:
-                sku_type = 2
-                gf_product = gf_products.last()
-                gf_product_id = gf_product.id
             else:
-                row[0] = row[0].split('_')[0]
-                gf_products = Product.objects.filter(product_ean_code=row[0], product_mrp=round(Decimal(row[3]), 2))
+                eans = [row[0].split('_')[0], row[0].split('_')[0] + '_' + str(int(Decimal(row[3])))]
+                gf_products = Product.objects.filter(product_ean_code__in=eans,
+                                                     product_mrp=round(Decimal(row[3]), 2))
                 gf_products_count = gf_products.count()
                 if gf_products_count >= 1:
                     sku_type = 2
