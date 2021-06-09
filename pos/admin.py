@@ -16,6 +16,7 @@ from retailer_to_sp.admin import CartProductMappingAdmin, OrderIDFilter, \
     SellerShopFilter
 from common.constants import FIFTY
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
+from retailer_backend.admin import InputFilter
 
 
 class RetailerProductImageAdmin(admin.TabularInline):
@@ -34,6 +35,24 @@ class RetailerProductImageAdmin(admin.TabularInline):
         return False
 
 
+class ProductEanSearch(InputFilter):
+    parameter_name = 'product_ean_search'
+    title = 'Product Ean Code'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(Q(product_ean_code__icontains=self.value()))
+
+
+class ProductInvEanSearch(InputFilter):
+    parameter_name = 'product_ean_search'
+    title = 'Product Ean Code'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(Q(product__product_ean_code__icontains=self.value()))
+
+
 class RetailerProductAdmin(admin.ModelAdmin):
     form = RetailerProductsForm
     list_display = ('id', 'shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code', 'image',
@@ -43,6 +62,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
     readonly_fields = ('shop', 'sku', 'name', 'mrp', 'selling_price', 'product_ean_code',
                        'description', 'sku_type', 'status', 'created_at', 'modified_at')
     list_per_page = 50
+    list_filter = [ProductEanSearch]
     inlines = [RetailerProductImageAdmin, ]
 
     @staticmethod
@@ -322,6 +342,7 @@ class PosInventoryAdmin(admin.ModelAdmin):
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'inventory_state__inventory_state')
     list_per_page = 50
+    list_filter = [ProductInvEanSearch]
 
     @staticmethod
     def shop(obj):
@@ -344,6 +365,7 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
     search_fields = ('product__sku', 'product__name', 'product__shop__id', 'product__shop__shop_name',
                      'transaction_type', 'transaction_id')
     list_per_page = 50
+    list_filter = [ProductInvEanSearch]
 
     @staticmethod
     def shop(obj):
