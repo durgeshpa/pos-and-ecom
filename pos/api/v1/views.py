@@ -87,7 +87,7 @@ class PosProductView(GenericAPIView):
                                                     stock_qty, self.request.user, product.sku,
                                                     PosInventoryChange.STOCK_ADD)
                     serializer = RetailerProductResponseSerializer(product)
-                    return api_response('Product created successfully!', serializer.data, status.HTTP_200_OK, True)
+                    return api_response('Product has been created successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
                 return api_response(serializer_error(serializer))
         else:
@@ -135,7 +135,7 @@ class PosProductView(GenericAPIView):
                                                         PosInventoryState.AVAILABLE, stock_qty, self.request.user,
                                                         product.sku, PosInventoryChange.STOCK_UPDATE)
                     serializer = RetailerProductResponseSerializer(product)
-                    return api_response('Product updated successfully!', serializer.data, status.HTTP_200_OK, True)
+                    return api_response('Product has been updated successfully!', serializer.data, status.HTTP_200_OK, True)
             else:
                 return api_response(serializer_error(serializer))
         else:
