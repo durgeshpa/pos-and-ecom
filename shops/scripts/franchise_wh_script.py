@@ -22,13 +22,15 @@ def run():
 def set_warehouse_code():
     try:
         info_logger.info('refactor warehouse_code when shop_type is Franchise|started')
-        shop_franchise = Shop.objects.filter(shop_type__shop_type='f')  # shop_type = Franchise
+        shop_franchise = Shop.objects.filter(shop_type__shop_type='f').order_by('-created_at')  # shop_type = Franchise
+        count = 0
         if shop_franchise:
             for franchise in shop_franchise:
-                if franchise.warehouse_code:
-                    franchise.warehouse_code = '0' + franchise.warehouse_code
-                    franchise.shop_code = 'F'
+                warehouse_code = str(format(count, '03d'))
+                franchise.warehouse_code = warehouse_code
+                franchise.shop_code = 'F'
                 franchise.save()
+                count += 1
             info_logger.info('warehouse_code is successfully updated')
         else:
             info_logger.info('no Shop found with shop_type Franchise')
