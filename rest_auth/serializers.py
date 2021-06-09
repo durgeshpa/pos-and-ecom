@@ -274,54 +274,55 @@ class RetailUserDetailsSerializer(serializers.ModelSerializer):
     shop_owner_name = serializers.SerializerMethodField()
     shop_shipping_address = serializers.SerializerMethodField()
 
-    @staticmethod
-    def get_shop_name(obj):
+    def get_shop_name(self, obj):
         """
         obj:-User object
         return:- shop name otherwise None
         """
-        try:
-            return obj.shop_owner_shop.all()[0].shop_name
-        except Exception as e:
-            error_logger.info(e)
-            return None
+        shop_name = None
+        shop = self.context.get('shop')
+        if shop:
+            shop_name = shop.shop_name
+        return shop_name
 
-    @staticmethod
-    def get_shop_image(obj):
+    def get_shop_image(self, obj):
         """
         obj:-User object
         return:- shop image otherwise None
         """
-        try:
-            return obj.shop_owner_shop.all()[0].shop_name_photos.all()[0].shop_photo.url
-        except Exception as e:
-            error_logger.info(e)
-            return None
+        shop = self.context.get('shop')
+        if shop:
+            try:
+                return shop.shop_name_photos.all()[0].shop_photo.url
+            except Exception as e:
+                error_logger.info(e)
+        return None
 
-    @staticmethod
-    def get_shop_owner_name(obj):
+    def get_shop_owner_name(self, obj):
         """
         obj:-User object
         return:- owner name otherwise None
         """
-        try:
-            return (obj.shop_owner_shop.all()[0].shop_owner.first_name
-                    + ' ' + obj.shop_owner_shop.all()[0].shop_owner.last_name)
-        except Exception as e:
-            error_logger.info(e)
-            return None
+        shop = self.context.get('shop')
+        if shop:
+            try:
+                return shop.shop_owner.first_name + ' ' + shop.shop_owner.last_name
+            except Exception as e:
+                error_logger.info(e)
+        return None
 
-    @staticmethod
-    def get_shop_shipping_address(obj):
+    def get_shop_shipping_address(self, obj):
         """
         obj:-User object
         return:- shipping address otherwise None
         """
-        try:
-            return obj.shop_owner_shop.all()[0].get_shop_shipping_address
-        except Exception as e:
-            error_logger.info(e)
-            return None
+        shop = self.context.get('shop')
+        if shop:
+            try:
+                return shop.get_shop_shipping_address
+            except Exception as e:
+                error_logger.info(e)
+        return None
 
     class Meta:
         model = UserModel

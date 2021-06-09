@@ -176,7 +176,7 @@ def get_warehouse_stock(shop_id=None, product=None, inventory_type=None):
 			visible=True
 		ean = product.product_ean_code
 		if ean and type(ean) == str:
-			ean = "".join(itertools.takewhile(str.isdigit, ean))
+			ean = ean.split('_')[0]
 		product_details = {
 			"sku": product.product_sku,
 			"parent_id": product.parent_product.parent_id,
