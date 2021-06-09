@@ -418,5 +418,7 @@ class RetailerUserDetailsView(GenericAPIView):
         *args:-  non keyword argument
         **kwargs:- keyword argument
         """
-        serializer = self.serializer_class(UserModel.objects.prefetch_related('shop_owner_shop').get(id=request.user.id))
+        user = self.request.user
+        shop = Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f').last()
+        serializer = self.serializer_class(UserModel.objects.get(id=request.user.id), context={'shop': shop})
         return Response(serializer.data)

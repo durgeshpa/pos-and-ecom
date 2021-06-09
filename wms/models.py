@@ -543,6 +543,9 @@ class PosInventory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        unique_together = ('product', 'inventory_state',)
+
 
 class PosInventoryChange(models.Model):
     ORDERED, CANCELLED, RETURN, STOCK_ADD, STOCK_UPDATE = 'ordered', 'order_cancelled', 'order_return', 'stock_add', \
