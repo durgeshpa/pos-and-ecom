@@ -21,7 +21,7 @@ from retailer_backend.filters import (BrandFilter, SupplierStateFilter, Supplier
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 from products.models import ProductVendorMapping, ParentProduct
 from barCodeGenerator import barcodeGen, merged_barcode_gen
-from .views import DownloadPurchaseOrder, GetMessage
+from .views import DownloadPurchaseOrder, GetMessage, DownloadPOItems
 from .common_functions import upload_cart_product_csv, moving_average_buying_price
 from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList, Document,
                      PickListItems, OrderedProductReserved, Po_Message)
@@ -118,6 +118,7 @@ class CartAdmin(admin.ModelAdmin):
             obj.po_raised_by = request.user
         obj.last_modified_by = request.user
         if is_approved:
+            obj.is_approve = True
             obj.approved_by = request.user
             obj.approved_at = datetime.datetime.now()
         obj.save()
@@ -173,6 +174,9 @@ class CartAdmin(admin.ModelAdmin):
                    url(r'^message-list/$',
                        self.admin_site.admin_view(GetMessage.as_view()),
                        name='message-list'),
+                   url(r'^download-po-items/(?P<pk>\d+)/$',
+                       self.admin_site.admin_view(DownloadPOItems.as_view()),
+                       name='download-po-items'),
                ] + urls
         return urls
 
