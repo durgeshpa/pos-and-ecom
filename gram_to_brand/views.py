@@ -629,11 +629,111 @@ def mail_to_vendor_on_po_approval(po_instance):
     """
     Send mail to vendor once po is approved.
     """
-    pass
-    # sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
-    # recipient_list = [po_instance.email]
-    # today = datetime.datetime.today().date()
-    # subject = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_SUBJECT'].format(today)
-    # body = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_BODY'].format(today)
-    # attachment_list = []
-    # send_mail(sender, recipient_list, subject, body, attachment_list)
+    sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
+    recipient_list = get_config("MAIL_DEV")
+    if config('OS_ENV') and config('OS_ENV') in ['Production']:
+        recipient_list = [po_instance.email]
+    vendor_name = po_instance.supplier_name.vendor_name
+    po_no = po_instance.po_no
+    subject = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_SUBJECT'].format(po_no,
+                                                                 vendor_name,
+                                                                 po_instance.brand.brand_name)
+    body = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_BODY']
+
+    filename = 'PO_PDF_{}_{}_{}.pdf'.format(po_no, datetime.datetime.today().date(), vendor_name)
+    template_name = 'admin/purchase_order/purchase_order.html'
+
+    cmd_option = {
+        'encoding': 'utf8',
+        'margin-top': 3
+    }
+
+    data = generate_pdf_data(po_instance)
+    response = PDFTemplateResponse(
+        request=None, template=template_name,
+        filename=filename, context=data,
+        show_content_in_browser=False, cmd_options=cmd_option
+    )
+    attachment = {'name': filename, 'type': 'application/pdf', 'value': response.rendered_content}
+    send_mail(sender, recipient_list, subject, body, [attachment])
+
+
+def generate_pdf_data(po_instance):
+    """
+    Takes PO(Cart) instance and generated the data required for PO PDF
+    """
+    products = po_instance.cart_list.all()
+    order = po_instance.order_cart_mapping
+    order_id = order.order_no
+    gram_factory_billing_gstin = po_instance.gf_billing_address.shop_name. \
+        shop_name_documents.filter(shop_document_type='gstin').last()
+    gram_factory_shipping_gstin = po_instance.gf_shipping_address.shop_name. \
+        shop_name_documents.filter(shop_document_type='gstin').last()
+    tax_inline, sum_amount, sum_qty = 0, 0, 0
+    gst_list = []
+    cess_list = []
+    surcharge_list = []
+    for m in products:
+        sum_qty = sum_qty + m.qty
+        sum_amount = sum_amount + m.total_price
+        inline_sum_amount = m.total_price
+        tax_percentage = 0
+        for n in m.cart_product.product_pro_tax.all():
+            tax_percentage += n.tax.tax_percentage
+        divisor = (1 + (tax_percentage / 100))
+        original_amount = (inline_sum_amount / divisor)
+        for n in m.cart_product.product_pro_tax.all():
+            if n.tax.tax_type == 'gst':
+                gst_list.append((original_amount * (n.tax.tax_percentage / 100)))
+            elif n.tax.tax_type == 'cess':
+                cess_list.append((original_amount * (n.tax.tax_percentage / 100)))
+            elif n.tax.tax_type == 'surcharge':
+                surcharge_list.append((original_amount * (n.tax.tax_percentage / 100)))
+    igst = sum(gst_list)
+    cgst = igst / 2
+    sgst = igst / 2
+    cess = sum(cess_list)
+    surcharge = sum(surcharge_list)
+    total_amount = sum_amount
+    data = {
+        "object": po_instance,
+        "products": products,
+        "shop": po_instance,
+        "sum_qty": sum_qty,
+        "sum_amount": sum_amount,
+        "url": get_config('SITE_URL'),
+        "scheme": get_config('CONNECTION'),
+        "igst": igst,
+        "cgst": cgst,
+        "sgst": sgst,
+        "cess": cess,
+        "surcharge": surcharge,
+        "total_amount": total_amount,
+        "order_id": order_id,
+        "gram_factory_billing_gstin": gram_factory_billing_gstin,
+        "gram_factory_shipping_gstin": gram_factory_shipping_gstin}
+    return data
+
+
+class DownloadPOItems(APIView):
+
+    permission_classes = (AllowAny,)
+    filename = 'purchase_order.pdf'
+
+    def get(self, request, *args, **kwargs):
+        pk = self.kwargs.get('pk')
+        cart = Cart.objects.filter(pk=int(pk)).last()
+        filename ="po_item_list_" + cart.po_no + ".csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(['parent_id', 'parent_name', 'id', 'product_name', 'sku', 'case_size', 'number_of_cases', 'mrp',
+                         'brand_to_gram_price_unit', 'brand_to_gram_price'])
+        po_items = CartProductMapping.objects.filter(cart=cart)
+
+        for p in po_items:
+            writer.writerow([p.cart_parent_product.parent_id, p.cart_parent_product.name, p.cart_product_id, p.cart_product.product_name,
+                             p.cart_product.product_sku, p.case_size, p.no_of_cases, p.cart_product.product_mrp,
+                             p.vendor_product.brand_to_gram_price_unit, p.price])
+
+        return response
