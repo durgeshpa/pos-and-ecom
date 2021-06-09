@@ -159,7 +159,7 @@ class CartAdmin(admin.ModelAdmin):
 
     class Media:
         js = (
-            'https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/po_generation_form.js'
         )
 
