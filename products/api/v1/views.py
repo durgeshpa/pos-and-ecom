@@ -1,22 +1,21 @@
 import logging
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.files.uploadedfile import InMemoryUploadedFile
-from django.core.validators import URLValidator
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
-    ParentProductImage, ProductVendorMapping, Product as ChildProduct, Tax, ProductSourceMapping
+    ParentProductImage, ProductVendorMapping, Product as ChildProduct, Tax, ProductSourceMapping, ProductPackingMapping, \
+    ProductSourceMapping
 from brand.models import Brand
 
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
-    CategorySerializers, ProductSourceMappingSerializers
+    CategorySerializers, ProductSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search
@@ -386,25 +385,40 @@ class ProductVendorMappingView(GenericAPIView):
         return self.queryset
 
 
-class ProductSourceMappingView(GenericAPIView):
-    """
-        Get ProductSourceMapping
-    """
+class SourceProductMappingView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ProductSourceMapping.objects.all()
-    serializer_class = ProductSourceMappingSerializers
+    queryset = ChildProduct.objects.filter(repackaging_type='source')
+    serializer_class = ProductSerializers
 
     def get(self, request):
         if request.GET.get('id'):
-            """ Get Parent Product for specific ID """
+            """ Get Source Product Mapping for specific ID """
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            brand = id_validation['data']
+            product_map = id_validation['data']
         else:
-            brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(brand, many=True)
-        return get_response('brand list!', serializer.data)
+            product_map = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product_map, many=True)
+        return get_response('source product mapping data!', serializer.data)
+
+
+class ProductPackingMappingView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ChildProduct.objects.filter(repackaging_type='packing_material')
+    serializer_class = ProductSerializers
+
+    def get(self, request):
+        if request.GET.get('id'):
+            """ Get product for specific ID """
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            pack_mat_product = id_validation['data']
+        else:
+            pack_mat_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(pack_mat_product, many=True)
+        return get_response('product packing material data!', serializer.data)
 
 
 class ChildProductView(GenericAPIView):
@@ -416,7 +430,6 @@ class ChildProductView(GenericAPIView):
         Update Child Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = ChildProduct.objects.select_related('updated_by').prefetch_related('product_pro_image',
                 'product_vendor_mapping', 'parent_product', 'parent_product__parent_product_pro_image',
                 'parent_product__parent_product_pro_category', 'parent_product__parent_product_pro_tax',

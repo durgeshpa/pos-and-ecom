@@ -23,6 +23,12 @@ from products.common_function import ParentProductCls, ProductCls
 from accounts.models import User
 
 
+class ProductSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ('id', 'product_sku', 'product_name')
+
+
 class BrandSerializers(serializers.ModelSerializer):
     class Meta:
         model = Brand
@@ -97,7 +103,7 @@ class ChildProductVendorMappingSerializers(serializers.ModelSerializer):
         fields = ('id', 'vendor',)
 
 
-class ChildProductSerializers(serializers.ModelSerializer):
+class ChildProductVendorSerializers(serializers.ModelSerializer):
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True)
 
     class Meta:
@@ -122,7 +128,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_product_pro_category = ParentProductCategorySerializers(many=True)
     parent_product_pro_tax = ParentProductTaxMappingSerializers(many=True)
     parent_id = serializers.CharField(read_only=True)
-    product_parent_product = ChildProductSerializers(many=True, required=False)
+    product_parent_product = ChildProductVendorSerializers(many=True, required=False)
     max_inventory = serializers.IntegerField(allow_null=True, max_value=999)
 
     def validate(self, data):
@@ -519,7 +525,7 @@ class ShopSerializers(serializers.ModelSerializer):
 
 
 class ProductCappingSerializers(serializers.ModelSerializer):
-    product = ChildProductSerializers(read_only=True)
+    product = ChildProductVendorSerializers(read_only=True)
     seller_shop = ShopSerializers(read_only=True)
 
     class Meta:
@@ -598,7 +604,7 @@ class ProductCappingSerializers(serializers.ModelSerializer):
 
 
 class ProductVendorMappingSerializers(serializers.ModelSerializer):
-    product = ChildProductSerializers(read_only=True)
+    product = ChildProductVendorSerializers(read_only=True)
     vendor = VendorSerializers(read_only=True)
 
     def validate(self, data):
