@@ -118,6 +118,7 @@ class CartAdmin(admin.ModelAdmin):
             obj.po_raised_by = request.user
         obj.last_modified_by = request.user
         if is_approved:
+            obj.is_approve = True
             obj.approved_by = request.user
             obj.approved_at = datetime.datetime.now()
         obj.save()
