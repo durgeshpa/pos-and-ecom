@@ -158,9 +158,8 @@ class CartAdmin(admin.ModelAdmin):
         return flag, status, is_approved
 
     class Media:
-        js = (
-            'https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
-            'admin/js/po_generation_form.js'
+        js = ('admin/js/po_generation_form.js', '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
+
         )
 
     def get_urls(self):
