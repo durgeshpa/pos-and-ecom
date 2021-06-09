@@ -53,7 +53,7 @@ class RetailerProductAdmin(admin.ModelAdmin):
         return self.readonly_fields
 
     def has_delete_permission(self, request, obj=None):
-        return True
+        return False
 
     change_list_template = 'admin/pos/pos_change_list.html'
 
@@ -326,7 +326,7 @@ class PosInventoryAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        return True
+        return False
 
 
 @admin.register(PosInventoryChange)
@@ -348,7 +348,7 @@ class PosInventoryChangeAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        return True
+        return False
 
 
 admin.site.register(RetailerProduct, RetailerProductAdmin)
