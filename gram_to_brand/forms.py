@@ -56,8 +56,9 @@ class POGenerationForm(forms.ModelForm):
     delivery_term = forms.CharField(widget=forms.Textarea(attrs={'rows': 2, 'cols': 33}), required=True)
 
     class Media:
-        js = ('/static/admin/js/po_generation_form.js', '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
-
+        js = (
+            '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+            '/static/admin/js/po_generation_form.js',
         )
 
     class Meta:
