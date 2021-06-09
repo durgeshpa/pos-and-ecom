@@ -116,6 +116,41 @@ class ProductCls(object):
         return child_product
 
     @classmethod
+    def create_source_product_mapping(cls, child_product, source_sku):
+        """
+            Create Source Product Mapping
+        """
+        for source_sku_data in source_sku:
+            ProductSourceMapping.objects.create(destination_sku=child_product, **source_sku_data)
+
+    @classmethod
+    def packing_material_product_mapping(cls, child_product, packing_material_rt):
+        """
+            Create Packing Material Product Mapping
+        """
+        for source_sku_data in packing_material_rt:
+            ProductPackingMapping.objects.create(sku_id=child_product.id, **source_sku_data)
+
+    @classmethod
+    def create_destination_product_mapping(cls, child_product, destination_product_repackaging):
+        """
+            Create Destination Product Mapping
+        """
+        for pro_des_data in destination_product_repackaging:
+            DestinationRepackagingCostMapping.objects.create(destination=child_product, **pro_des_data)
+
+    @classmethod
+    def update_weight_inventory(cls, child_product):
+        warehouse_inv = WarehouseInventory.objects.filter(sku=child_product)
+        for inv in warehouse_inv:
+            inv.weight = inv.quantity * child_product.weight_value
+            inv.save()
+        bin_inv = BinInventory.objects.filter(sku=child_product)
+        for inv in bin_inv:
+            inv.weight = inv.quantity * child_product.weight_value
+            inv.save()
+
+    @classmethod
     def create_product_capping(cls, product, seller_shop, **validated_data):
         """
             Create Product Capping
@@ -146,51 +181,6 @@ class ProductCls(object):
         product_vendor_map.vendor = vendor_obj['vendor']
         product_vendor_map.save()
         return product_vendor_map
-
-    @classmethod
-    def create_source_product_mapping(cls, child_product, source_sku):
-        """
-            Create Source Product Mapping
-        """
-        for source_sku_data in source_sku:
-            pro_source_sku = Product.objects.get(id=source_sku_data['source_sku'])
-            ProductSourceMapping.objects.create(destination_sku=child_product, source_sku=pro_source_sku)
-
-    @classmethod
-    def packing_material_product_mapping(cls, child_product, packing_material_rt):
-        """
-            Create Packing Material Product Mapping
-        """
-        for source_sku_data in packing_material_rt:
-            pro_packing_sku = Product.objects.get(id=source_sku_data['packing_sku'])
-            ProductPackingMapping.objects.create(sku_id=child_product.id, packing_sku=pro_packing_sku,
-                                                 packing_sku_weight_per_unit_sku=source_sku_data['packing_sku_weight_per_unit_sku'])
-
-    @classmethod
-    def create_destination_product_mapping(cls, child_product, destination_product_repackaging):
-        """
-            Create Destination Product Mapping
-        """
-        for pro_des_data in destination_product_repackaging:
-            DestinationRepackagingCostMapping.objects.create(destination=child_product,
-                                                             raw_material=pro_des_data['raw_material'],
-                                                             wastage=pro_des_data['wastage'],
-                                                             fumigation=pro_des_data['fumigation'],
-                                                             label_printing=pro_des_data['label_printing'],
-                                                             packing_labour=pro_des_data['packing_labour'],
-                                                             primary_pm_cost=pro_des_data['primary_pm_cost'],
-                                                             secondary_pm_cost=pro_des_data['secondary_pm_cost'])
-
-    @classmethod
-    def update_weight_inventory(cls, child_product):
-        warehouse_inv = WarehouseInventory.objects.filter(sku=child_product)
-        for inv in warehouse_inv:
-            inv.weight = inv.quantity * child_product.weight_value
-            inv.save()
-        bin_inv = BinInventory.objects.filter(sku=child_product)
-        for inv in bin_inv:
-            inv.weight = inv.quantity * child_product.weight_value
-            inv.save()
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):

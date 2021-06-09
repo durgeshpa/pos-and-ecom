@@ -17,10 +17,10 @@ from brand.models import Brand, Vendor
 from shops.models import Shop
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
     get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
-    get_validate_seller_shop, check_active_capping, validate_tax_type, get_validate_vendor
+    get_validate_seller_shop, check_active_capping, validate_tax_type, get_validate_vendor, get_validate_packing_material, \
+    get_destination_product_repack, get_source_product
 from products.common_function import ParentProductCls, ProductCls
 from accounts.models import User
-from global_config.views import get_config
 
 
 class ImageFileSerializer(serializers.Serializer):
@@ -146,8 +146,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
         if not 'product_hsn' in self.initial_data or not self.initial_data['product_hsn']:
             raise serializers.ValidationError(_('product_hsn is required'))
 
-        if not 'parent_product_pro_category' in self.initial_data or not self.initial_data[
-            'parent_product_pro_category']:
+        if not 'parent_product_pro_category' in self.initial_data or not \
+                self.initial_data['parent_product_pro_category']:
             raise serializers.ValidationError(_('parent_product_category is required'))
 
         if not 'parent_product_pro_tax' in self.initial_data or not self.initial_data['parent_product_pro_tax']:
@@ -183,8 +183,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
                   'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type', 'is_ars_applicable',
                   'max_inventory',
                   'is_lead_time_applicable', 'parent_product_pro_image', 'updated_by', 'product_parent_product',
-                  'product_pro_image'
-                  )
+                  'product_pro_image')
 
     @transaction.atomic
     def create(self, validated_data):
@@ -667,12 +666,19 @@ class ProductVendorMappingSerializers(serializers.ModelSerializer):
 
 
 class ProductSourceMappingSerializers(serializers.ModelSerializer):
+    source_sku = serializers.SlugRelatedField(queryset=Product.objects.filter(repackaging_type='source'),
+                                              slug_field='id')
+
     class Meta:
         model = ProductSourceMapping
-        fields = ('source_sku', 'destination_sku', 'status')
+        fields = ('source_sku', )
 
 
 class ProductPackingMappingSerializers(serializers.ModelSerializer):
+    packing_sku = serializers.SlugRelatedField(queryset=Product.objects.filter(repackaging_type='packing_material'),
+                                               slug_field='id')
+    packing_sku_weight_per_unit_sku = serializers.DecimalField(max_digits=10, decimal_places=2)
+
     class Meta:
         model = ProductPackingMapping
         fields = ('packing_sku', 'packing_sku_weight_per_unit_sku',)
@@ -692,9 +698,9 @@ class ChildProductSerializers(serializers.ModelSerializer):
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
-    source_product_pro = ProductSourceMappingSerializers(many=True, required=False)
-    packing_material_rt = ProductPackingMappingSerializers(many=True, required=False)
-    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, required=False)
+    source_product_pro = ProductSourceMappingSerializers(many=True, write_only=True, required=False)
+    packing_material_rt = ProductPackingMappingSerializers(many=True, write_only=True, required=False)
+    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, write_only=True, required=False)
 
     class Meta:
         model = Product
@@ -716,6 +722,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
                     parent_product_pro_image.exists():
                 raise serializers.ValidationError(
                     _(f"Parent Product Image Not Available. Please Upload Child Product Image(s)."))
+
         elif not 'product_pro_image' in self.initial_data or not self.initial_data['product_pro_image']:
             if parent_product_val['parent_product'] and parent_product_val['parent_product'].parent_product_pro_image. \
                     exists():
@@ -749,9 +756,9 @@ class ChildProductSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         """create a new Child Product with image category & tax"""
         validated_data.pop('product_pro_image', None)
-        validated_data.pop('source_product_pro', None)
-        validated_data.pop('packing_material_rt', None)
-        validated_data.pop('destination_product_repackaging', None)
+        source_product = validated_data.pop('source_product_pro', None)
+        packing_material = validated_data.pop('packing_material_rt', None)
+        destination_product_repack = validated_data.pop('destination_product_repackaging', None)
         try:
             child_product = ProductCls.create_child_product(self.initial_data['parent_product'], **validated_data)
         except Exception as e:
@@ -760,11 +767,13 @@ class ChildProductSerializers(serializers.ModelSerializer):
         if self.initial_data['product_pro_image']:
             ProductCls.upload_child_product_images(child_product, self.initial_data['product_pro_image'])
 
-        if self.initial_data['repackaging_type'] == 'destination':
-            ProductCls.create_source_product_mapping(child_product, self.initial_data['source_product_pro'])
-            ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_material_rt'])
-            ProductCls.create_destination_product_mapping(child_product,
-                                                          self.initial_data['destination_product_repackaging'])
+        if child_product.repackaging_type == 'packing_material':
+            ProductCls.update_weight_inventory(child_product)
+
+        if child_product.repackaging_type == 'destination':
+            ProductCls.create_source_product_mapping(child_product, source_product)
+            ProductCls.packing_material_product_mapping(child_product, packing_material)
+            ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
 
         return child_product
 
@@ -774,9 +783,9 @@ class ChildProductSerializers(serializers.ModelSerializer):
             This method is used to update an instance of the Child Product's attribute.
         """
         validated_data.pop('product_pro_image', None)
-        validated_data.pop('source_product_pro', None)
-        validated_data.pop('packing_material_rt', None)
-        validated_data.pop('destination_product_repackaging', None)
+        source_product = validated_data.pop('source_product_pro', None)
+        packing_material = validated_data.pop('packing_material_rt', None)
+        destination_product_repack = validated_data.pop('destination_product_repackaging', None)
         try:
             # call super to save modified instance along with the validated data
             child_product_obj = super().update(instance, validated_data)
@@ -789,14 +798,13 @@ class ChildProductSerializers(serializers.ModelSerializer):
         if self.initial_data['product_pro_image']:
             ProductCls.upload_child_product_images(child_product, self.initial_data['product_pro_image'])
 
-        if self.initial_data['repackaging_type'] == 'packing_material':
+        if child_product.repackaging_type == 'packing_material':
             ProductCls.update_weight_inventory(child_product)
 
-        if self.initial_data['repackaging_type'] == 'destination':
-            ProductCls.create_source_product_mapping(child_product, self.initial_data['source_product_pro'])
-            ProductCls.packing_material_product_mapping(child_product, self.initial_data['packing_material_rt'])
-            ProductCls.create_destination_product_mapping(child_product,
-                                                          self.initial_data['destination_product_repackaging'])
+        if child_product.repackaging_type == 'destination':
+            ProductCls.create_source_product_mapping(child_product, source_product)
+            ProductCls.packing_material_product_mapping(child_product, packing_material)
+            ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
 
         return child_product
 
