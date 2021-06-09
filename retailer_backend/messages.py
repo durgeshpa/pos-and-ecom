@@ -55,9 +55,9 @@ SUCCESS_MESSAGES = {
     'ARS_MAIL_PO_APPROVAL_BODY':'PFA the list of Auto PO’s generated on {}. '
                                 'Please note that these PO’s will not be placed until approved '
                                 'by concerned category managers by going to Seller Panel.',
-    'ARS_MAIL_VENDOR_SUBJECT': 'PO | Brand - {} | PO Number - {}',
-    'ARS_MAIL_VENDOR_BODY': 'Dear Partners, \n \n Find attached PO from Pepper Tap/Gram Factory. \n '
-                            'Note: Take Prior appointment before delivery and bring PO copy along with Original Invoice. \n '
+    'ARS_MAIL_VENDOR_SUBJECT': 'PO_{}_{}_{}',
+    'ARS_MAIL_VENDOR_BODY': 'Dear Partners, \n \n Find attached PO from Pepper Tap/Gram Factory. \n \n'
+                            'Note: Take Prior appointment before delivery and bring PO copy along with Original Invoice. \n \n '
                             'Thanks, \n Gram Factory',
     'ARS_MAIL_WAREHOUSE_SUBJECT': 'Summary of Auto PO’s approved and placed on {}',
     'ARS_MAIL_WAREHOUSE_BODY': 'PFA the list of Auto PO’s approved on {}. '

@@ -633,10 +633,14 @@ def mail_to_vendor_on_po_approval(po_instance):
     recipient_list = get_config("MAIL_DEV")
     if config('OS_ENV') and config('OS_ENV') in ['Production']:
         recipient_list = [po_instance.email]
-    subject = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_SUBJECT'].format(po_instance.brand.brand_name, po_instance.po_no)
+    vendor_name = po_instance.supplier_name.vendor_name
+    po_no = po_instance.po_no
+    subject = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_SUBJECT'].format(po_no,
+                                                                 vendor_name,
+                                                                 po_instance.brand.brand_name)
     body = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_BODY']
 
-    filename = 'purchase_order.pdf'
+    filename = 'PO_PDF_{}_{}_{}.pdf'.format(po_no, datetime.datetime.today().date(), vendor_name)
     template_name = 'admin/purchase_order/purchase_order.html'
 
     cmd_option = {
