@@ -35,7 +35,7 @@ class ParentProductCls(object):
         return parent_product
 
     @classmethod
-    def upload_parent_product_images(cls, parent_product,  parent_product_pro_image, product_pro_image):
+    def upload_parent_product_images(cls, parent_product,  parent_product_pro_image, product_images):
         """
             Delete Existing Images of specific ParentProduct if any
             Create Parent Product Images
@@ -47,8 +47,8 @@ class ParentProductCls(object):
 
         ParentProductImage.objects.filter(parent_product=parent_product).exclude(
                             id__in=ids).delete()
-        if product_pro_image:
-            for image in product_pro_image:
+        if product_images:
+            for image in product_images:
                 ParentProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
                                                   parent_product=parent_product)
 
@@ -92,18 +92,23 @@ class ProductCls(object):
         return Product.objects.create(parent_product=parent_product_obj['parent_product'], **validated_data)
 
     @classmethod
-    def upload_child_product_images(cls, child_product, product_pro_image):
+    def upload_child_product_images(cls, child_product, product_images, product_pro_image):
         """
            Delete Existing Images of specific ParentProduct if any
            Create Parent Product Images
         """
-        child_pro_image = ProductImage.objects.filter(product=child_product)
-        if child_pro_image.exists():
-            child_pro_image.delete()
+        ids = []
+        if product_pro_image:
+            for image in product_pro_image:
+                ids.append(image['id'])
 
-        for image in product_pro_image:
-            ProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
-                                        product=child_product)
+        ProductImage.objects.filter(product=child_product).exclude(
+            id__in=ids).delete()
+
+        if product_images:
+            for image in product_images:
+                ProductImage.objects.create(image=image, image_name=image.name.rsplit(".", 1)[0],
+                                            product=child_product)
 
     @classmethod
     def update_child_product(cls, parent_product, child_product):

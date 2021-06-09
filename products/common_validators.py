@@ -91,12 +91,12 @@ def get_validate_tax(parent_product_pro_tax):
     return {'tax': parent_product_pro_tax}
 
 
-def get_validate_images(parent_product_pro_image):
+def get_validate_images(product_images):
     """ ValidationError will be raised in case of invalid type or extension """
-    for image in parent_product_pro_image:
+    for image in product_images:
         if not valid_image_extension(image.name):
             return {'error': 'Not a valid Image The URL must have an image extensions (.jpg/.jpeg/.png)'}
-    return {'image': parent_product_pro_image}
+    return {'image': product_images}
 
 
 def is_ptr_applicable_validation(data):
@@ -172,8 +172,8 @@ def validate_data_format(request):
     except Exception as e:
         return {'error': "Invalid Data Format", }
 
-    if request.FILES.getlist('product_pro_image'):
-        data['product_pro_image'] = request.FILES.getlist('product_pro_image')
+    if request.FILES.getlist('product_images'):
+        data['product_images'] = request.FILES.getlist('product_images')
 
     return data
 
