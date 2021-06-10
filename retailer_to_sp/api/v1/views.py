@@ -253,9 +253,9 @@ class SearchProducts(APIView):
             Search Retailer Shop Catalogue
         """
         # Validate shop from token
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return api_response("Shop Doesn't Exist!")
+            return api_response(shop_id)
 
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
@@ -308,9 +308,9 @@ class SearchProducts(APIView):
             Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         """
         # Validate shop from token
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return api_response("Shop Doesn't Exist!")
+            return api_response(shop_id)
 
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
@@ -422,7 +422,7 @@ class SearchProducts(APIView):
             if results:
                 return api_response('Products Found', results, status.HTTP_200_OK, True)
             else:
-                return api_response('No Products Found', None, status.HTTP_200_OK)
+                return api_response('Product not found in GramFactory catalog. Please add new Product.', None, status.HTTP_200_OK)
 
     def gf_exact_search(self):
         """
@@ -904,9 +904,9 @@ class CartCentral(GenericAPIView):
         if msg:
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         # Check shop
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return api_response("Shop Doesn't Exist!")
+            return api_response(shop_id)
         # Check If Cart Exists
         try:
             cart = Cart.objects.get(id=pk, cart_status__in=['active', 'pending'], seller_shop_id=shop_id)
@@ -999,9 +999,9 @@ class CartCentral(GenericAPIView):
             List active carts for seller shop
         """
         # Check Shop
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {'error': "Shop Doesn't Exist!"}
+            return {'error': shop_id}
         search_text = self.request.GET.get('search_text')
         carts = Cart.objects.select_related('buyer').prefetch_related('rt_cart_list').filter(seller_shop_id=shop_id,
                                                                                              cart_status__in=['active', 'pending']).order_by('-modified_at')
@@ -1039,9 +1039,9 @@ class CartCentral(GenericAPIView):
             Input validation for cart type 'basic'
         """
         # check if shop exists
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {'error': "Shop Doesn't Exist!"}
+            return {'error': shop_id}
         try:
             cart = Cart.objects.get(seller_shop_id=shop_id, id=self.request.GET.get('cart_id'))
         except ObjectDoesNotExist:
@@ -1282,9 +1282,9 @@ class CartCentral(GenericAPIView):
             Input validation for add to cart for cart type 'basic'
         """
         # Check shop token
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {'error': "Shop Doesn't Exist!"}
+            return {'error': shop_id}
         shop = Shop.objects.get(id=shop_id)
 
         # Added Quantity check
@@ -1332,7 +1332,7 @@ class CartCentral(GenericAPIView):
             if not selling_price:
                 return {'error': "Please provide selling price to change price"}
             if product.mrp and Decimal(selling_price) > product.mrp:
-                return {'error': "Selling Price cannot be greater than MRP"}
+                return {'error': "Selling Price should be equal to OR less than MRP"}
         # activate product in cart
         if product.status != 'active':
             product.status = 'active'
@@ -1555,9 +1555,9 @@ class UserView(APIView):
             :param request: phone_number
         """
         # Check shop
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return api_response("Shop Doesn't Exist!")
+            return api_response(shop_id)
         # check phone_number
         phone_no = self.request.GET.get('phone_number')
         if not phone_no:
@@ -1609,9 +1609,9 @@ class CartUserView(APIView):
             Input validation for add to cart for cart type 'basic'
         """
         # Check shop token
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {'error': "Shop Doesn't Exist!"}
+            return {'error': shop_id}
         # Check cart
         cart = Cart.objects.filter(id=cart_id, seller_shop_id=shop_id).last()
         if not cart:
@@ -1692,9 +1692,9 @@ class CartCheckout(APIView):
             Checkout
             Delete any applied cart offers
         """
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return api_response("Shop Doesn't Exist!")
+            return api_response(shop_id)
 
         cart_id = self.request.GET.get('cart_id')
         try:
@@ -1715,9 +1715,9 @@ class CartCheckout(APIView):
             Add cart offer in checkout
             Input validation
         """
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {"error": "Shop Doesn't Exist!"}
+            return {"error": shop_id}
         cart_id = self.request.data.get('cart_id')
         try:
             cart = Cart.objects.get(pk=cart_id, seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
@@ -1736,9 +1736,9 @@ class CartCheckout(APIView):
             Get Checkout
             Input validation
         """
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {'error': "Shop Doesn't Exist!"}
+            return {'error': shop_id}
         cart_id = self.request.GET.get('cart_id')
         try:
             cart = Cart.objects.get(pk=cart_id, seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
@@ -2371,9 +2371,9 @@ class OrderCentral(APIView):
         """
         with transaction.atomic():
             # Check shop
-            shop_id = get_shop_id_from_token(self.request)
+            shop_id = get_shop_id_from_token(self.request.user)
             if not type(shop_id) == int:
-                return api_response("Shop Doesn't Exist!")
+                return api_response(shop_id)
             # Check if order exists
             try:
                 order = Order.objects.get(pk=pk, seller_shop_id=shop_id, order_status='ordered')
@@ -2609,9 +2609,9 @@ class OrderCentral(APIView):
             Get order validate
         """
         # Check shop
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {'error': "Shop Doesn't Exist!"}
+            return {'error': shop_id}
         # Check if order exists
         try:
             order = Order.objects.get(pk=self.request.GET.get('order_id'), seller_shop_id=shop_id)
@@ -2670,13 +2670,10 @@ class OrderCentral(APIView):
             Input validation for cart type 'basic'
         """
         # Check if seller shop exists
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {'error': "Shop Doesn't Exist!"}
-        try:
-            shop = Shop.objects.get(id=shop_id)
-        except ObjectDoesNotExist:
-            return {'error': "Shop Doesn't Exist!"}
+            return {'error': shop_id}
+        shop = Shop.objects.get(id=shop_id)
         # Check Billing Address
         if not shop.shop_name_address_mapping.filter(address_type='billing').exists():
             return {'error': "Shop Billing Address Doesn't Exist!"}
@@ -3306,9 +3303,9 @@ class OrderListCentral(GenericAPIView):
            Input validation for cart type 'basic'
         """
         # Check if seller shop exist
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {'error': "Shop Doesn't Exist!"}
+            return {'error': shop_id}
         return {'shop_id': shop_id}
 
     def get_serialize_process_sp(self, order, parent_mapping):
@@ -3380,9 +3377,9 @@ class OrderedItemCentralDashBoard(APIView):
            Input validation for cart type 'basic'
         """
         # Check if seller shop exist
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {'error': "Shop Doesn't Exist!"}
+            return {'error': shop_id}
         # get a order_overview
         order = self.get_basic_orders_count(shop_id)
         return {'order': order}
@@ -3656,9 +3653,9 @@ class OrderReturns(APIView):
             Validate order return creation
         """
         # check shop
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {"error": "Shop Doesn't Exist!"}
+            return {"error": shop_id}
         return_items = self.request.data.get('return_items')
         if not return_items or type(return_items) != list:
             return {'error': "Provide return item details"}
@@ -3943,9 +3940,9 @@ class OrderReturnsCheckout(APIView):
             Validate returns checkout offers apply
         """
         # check shop
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {"error": "Shop Doesn't Exist!"}
+            return {"error": shop_id}
         # check order
         order_id = self.request.data.get('order_id')
         try:
@@ -4004,9 +4001,9 @@ class OrderReturnsCheckout(APIView):
             Input validation
         """
         # check shop
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {"error": "Shop Doesn't Exist!"}
+            return {"error": shop_id}
         # check order
         order_id = self.request.GET.get('order_id')
         try:
@@ -4078,9 +4075,9 @@ class OrderReturnComplete(APIView):
             Complete return on order
         """
         # check shop
-        shop_id = get_shop_id_from_token(self.request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return api_response("Shop Doesn't Exist!")
+            return api_response(shop_id)
         # check order
         order_id = self.request.data.get('order_id')
         try:

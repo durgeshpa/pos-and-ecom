@@ -4,6 +4,7 @@ import json
 from rest_framework.response import Response
 from rest_framework import status
 from django.urls import reverse
+from django.db.models import Q
 
 from retailer_to_sp.models import CartProductMapping, Order
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
@@ -185,24 +186,19 @@ def delete_cart_mapping(cart, product, cart_type='retail'):
             CartProductMapping.objects.filter(cart=cart, retailer_product=product).delete()
 
 
-def get_shop_id_from_token(request):
+def get_pos_shop(user):
+    return Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f', approval_status=2,
+                               pos_enabled=1).last()
+
+
+def get_shop_id_from_token(user):
     """
-        If Token is valid get shop_id from token
+        Get shop_id from user
     """
-    if request.user.id:
-        if Shop.objects.filter(shop_owner_id=request.user.id, shop_type__shop_type='f',
-                               approval_status=2).exists():
-            shop = Shop.objects.filter(shop_owner_id=request.user.id, shop_type__shop_type='f',
-                                       approval_status=2)
-        else:
-            if Shop.objects.filter(related_users=request.user.id, shop_type__shop_type='f',
-                                   approval_status=2).exists():
-                shop = Shop.objects.filter(related_users=request.user.id, shop_type__shop_type='f',
-                                           approval_status=2)
-            else:
-                return "Please Provide a Valid TOKEN"
-        return int(shop.values()[0].get('id'))
-    return "Please provide Token"
+    shop = get_pos_shop(user)
+    if not shop:
+        return "No Approved Franchise Shop exists for the User!"
+    return shop.id
 
 
 def serializer_error(serializer):

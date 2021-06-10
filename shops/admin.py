@@ -211,9 +211,10 @@ class ShopCityFilter(InputFilter):
 
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
+    change_form_template = 'admin/shops/shop/change_form.html'
     resource_class = ShopResource
     form = ShopForm
-    fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'approval_status']
+    fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'pos_enabled', 'approval_status']
     actions = ["export_as_csv", "disable_shop"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,

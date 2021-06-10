@@ -47,20 +47,18 @@ class RetailerProductCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
-        sp, mrp, name, shop_id, linked_pid, ean = attrs['selling_price'], attrs['mrp'], attrs['product_name'], attrs[
-            'shop_id'], attrs['linked_product_id'], attrs['product_ean_code']
+        sp, mrp, shop_id, linked_pid, ean = attrs['selling_price'], attrs['mrp'], attrs['shop_id'], attrs[
+            'linked_product_id'], attrs['product_ean_code']
 
         if sp > mrp:
-            raise serializers.ValidationError("Selling Price cannot be greater than MRP")
+            raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
-        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
-            raise serializers.ValidationError("Product {} with same mrp & ean code already exists.".format(name))
-
-        if linked_pid and RetailerProduct.objects.filter(shop=shop_id, mrp=mrp, linked_product_id=linked_pid).exists():
-            raise serializers.ValidationError(
-                "Product {} with same mrp & linked GF product already exists.".format(name))
         if not attrs['product_ean_code'].isdigit():
             raise serializers.ValidationError("Product Ean Code should be a number")
+
+        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exists():
+            raise serializers.ValidationError("Product already exists in catalog.")
+
         return attrs
 
 
@@ -112,7 +110,6 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
 
         sp = attrs['selling_price'] if attrs['selling_price'] else product.selling_price
         mrp = attrs['mrp'] if attrs['mrp'] else product.mrp
-        name = attrs['product_name'] if attrs['product_name'] else product.name
         ean = attrs['product_ean_code'] if attrs['product_ean_code'] else product.product_ean_code
 
         image_count = 0
@@ -124,18 +121,15 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             raise serializers.ValidationError("images : Ensure this field has no more than 3 elements.")
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
-            raise serializers.ValidationError("Selling Price cannot be greater than MRP")
+            raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
-        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
-            raise serializers.ValidationError("Product {} with same mrp & ean code already exists.".format(name))
-
-        if product.linked_product_id and RetailerProduct.objects.filter(
-                shop=shop_id, mrp=mrp, linked_product_id=product.linked_product_id).exclude(id=pid).exists():
-            raise serializers.ValidationError(
-                "Product {} with same mrp & linked GF product already exists.".format(name))
         if 'product_ean_code' in attrs and attrs['product_ean_code']:
             if not attrs['product_ean_code'].isdigit():
                 raise serializers.ValidationError("Product Ean Code should be a number")
+
+        if RetailerProduct.objects.filter(shop=shop_id, product_ean_code=ean, mrp=mrp).exclude(id=pid).exists():
+            raise serializers.ValidationError("Product already exists in catalog.")
+
         return attrs
 
 

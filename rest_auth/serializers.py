@@ -30,7 +30,7 @@ from .utils import import_callable
 from otp.models import PhoneOTP
 from otp.views import ValidateOTP
 from marketing.models import ReferralCode, RewardPoint, Referral, Profile
-from retailer_to_sp.models import Shop
+from pos.common_functions import get_shop_id_from_token
 
 # Get the UserModel
 UserModel = get_user_model()
@@ -157,10 +157,10 @@ class OtpLoginSerializer(serializers.Serializer):
         user = UserModel.objects.filter(phone_number=number).last()
         if not user:
             raise serializers.ValidationError("User does not exist. Please sign up!")
-        if attrs.get('app_type') == 2 and not (
-                Shop.objects.filter(shop_owner=user, shop_type__shop_type='f', approval_status=2).exists() or Shop.objects.filter(
-            related_users=user, shop_type__shop_type='f', approval_status=2).exists()):
-            raise serializers.ValidationError("Shop Doesn't Exist!")
+        if attrs.get('app_type') == 2:
+            shop_id = get_shop_id_from_token(user)
+            if not type(shop_id) == int:
+                raise serializers.ValidationError(shop_id)
 
         phone_otps = PhoneOTP.objects.filter(phone_number=number)
         if phone_otps.exists():
