@@ -3,8 +3,8 @@ from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework import status
 
-from retailer_to_sp.models import Shop
 from .models import PhoneOTP
+from pos.common_functions import get_shop_id_from_token
 
 UserModel = get_user_model()
 
@@ -38,21 +38,21 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         number = attrs.get('phone_number')
         action = attrs.get('action')
         app_type = attrs.get('app_type')
-        user = UserModel.objects.filter(phone_number=number)
+        user = UserModel.objects.filter(phone_number=number).last()
         # If registration specific otp
         if action != 1:
             # If user already exists
-            if user.exists():
+            if user:
                 raise serializers.ValidationError("User already exists! Please login")
         # If login specific otp and user does not exists
-        elif not user.exists():
+        elif not user:
             raise serializers.ValidationError("User does not exists! Please Register")
         # If user exists and pos login request
         elif app_type == 2:
             # check shop for pos login
-            if not (Shop.objects.filter(shop_owner=user.last(), shop_type__shop_type='f').exists() or
-                    Shop.objects.filter(related_users=user.last(), shop_type__shop_type='f').exists()):
-                raise serializers.ValidationError("Shop Doesn't Exist!")
+            shop_id = get_shop_id_from_token(user)
+            if not type(shop_id) == int:
+                raise serializers.ValidationError(shop_id)
         return attrs
 
 

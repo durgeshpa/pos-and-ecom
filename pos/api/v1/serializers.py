@@ -51,7 +51,7 @@ class RetailerProductCreateSerializer(serializers.Serializer):
             'linked_product_id'], attrs['product_ean_code']
 
         if sp > mrp:
-            raise serializers.ValidationError("Selling Price cannot be greater than MRP")
+            raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
         if not attrs['product_ean_code'].isdigit():
             raise serializers.ValidationError("Product Ean Code should be a number")
@@ -121,7 +121,7 @@ class RetailerProductUpdateSerializer(serializers.Serializer):
             raise serializers.ValidationError("images : Ensure this field has no more than 3 elements.")
 
         if (attrs['selling_price'] or attrs['mrp']) and sp > mrp:
-            raise serializers.ValidationError("Selling Price cannot be greater than MRP")
+            raise serializers.ValidationError("Selling Price should be equal to OR less than MRP")
 
         if 'product_ean_code' in attrs and attrs['product_ean_code']:
             if not attrs['product_ean_code'].isdigit():

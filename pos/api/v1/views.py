@@ -60,7 +60,7 @@ class PosProductView(GenericAPIView):
         msg = validate_data_format(request)
         if msg:
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if type(shop_id) == int:
             modified_data = self.validate_create(shop_id)
             if 'error' in modified_data:
@@ -91,7 +91,7 @@ class PosProductView(GenericAPIView):
             else:
                 return api_response(serializer_error(serializer))
         else:
-            return api_response("Shop Doesn't Exist")
+            return api_response(shop_id)
 
     def put(self, request, *args, **kwargs):
         """
@@ -100,7 +100,7 @@ class PosProductView(GenericAPIView):
         msg = validate_data_format(request)
         if msg:
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if type(shop_id) == int:
             modified_data, success_msg = self.validate_update(shop_id)
             if 'error' in modified_data:
@@ -139,7 +139,7 @@ class PosProductView(GenericAPIView):
             else:
                 return api_response(serializer_error(serializer))
         else:
-            return api_response("Shop Doesn't Exist")
+            return api_response(shop_id)
 
     def validate_create(self, shop_id):
         # Validate product data
@@ -218,7 +218,7 @@ class CouponOfferCreation(GenericAPIView):
         """
             Get Offer / Offers List
         """
-        shop_id = get_shop_id_from_token(request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if type(shop_id) == int:
             coupon_id = request.GET.get('id')
             if coupon_id:
@@ -230,7 +230,7 @@ class CouponOfferCreation(GenericAPIView):
             else:
                 return self.get_offers_list(request, shop_id)
         else:
-            return api_response("Shop Doesn't Exist")
+            return api_response(shop_id)
 
     def post(self, request, *args, **kwargs):
         """
@@ -239,7 +239,7 @@ class CouponOfferCreation(GenericAPIView):
         msg = validate_data_format(request)
         if msg:
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if type(shop_id) == int:
             serializer = OfferCreateSerializer(data=request.data)
             if serializer.is_valid():
@@ -247,7 +247,7 @@ class CouponOfferCreation(GenericAPIView):
             else:
                 return api_response(serializer_error(serializer))
         else:
-            return api_response("Shop Doesn't Exist")
+            return api_response(shop_id)
 
     def put(self, request, *args, **kwargs):
         """
@@ -256,7 +256,7 @@ class CouponOfferCreation(GenericAPIView):
         msg = validate_data_format(request)
         if msg:
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(request)
+        shop_id = get_shop_id_from_token(self.request.user)
         if type(shop_id) == int:
             data = request.data
             data['shop_id'] = shop_id
@@ -266,7 +266,7 @@ class CouponOfferCreation(GenericAPIView):
             else:
                 return api_response(serializer_error(serializer))
         else:
-            return api_response("Shop Doesn't Exist")
+            return api_response(shop_id)
 
     def create_offer(self, data, shop_id):
         offer_type = data['offer_type']

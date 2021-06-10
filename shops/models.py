@@ -86,6 +86,7 @@ class Shop(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     approval_status = models.IntegerField(choices=APPROVAL_STATUS_CHOICES, default=1)
     status = models.BooleanField(default=False)
+    pos_enabled = models.BooleanField(default=False, verbose_name='Enabled For POS')
 
     # last_order_at = models.DateTimeField(auto_now_add=True)
     # last_login_at = models.DateTimeField(auto_now_add=True)

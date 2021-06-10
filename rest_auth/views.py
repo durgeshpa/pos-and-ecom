@@ -22,6 +22,7 @@ from otp.sms import SendSms
 from otp.models import PhoneOTP
 from accounts.tokens import account_activation_token
 from shops.models import Shop
+from pos.common_functions import get_pos_shop
 
 from .app_settings import (UserDetailsSerializer, LoginSerializer, PasswordResetSerializer,
                            PasswordResetConfirmSerializer, PasswordChangeSerializer, create_token)
@@ -111,8 +112,7 @@ class LoginView(GenericAPIView):
         """
         token = token if getattr(settings, 'REST_USE_JWT', False) else user.auth_token.key
         app_type = self.request.data.get('app_type', 0)
-        shop_object = Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user),
-                                          shop_type__shop_type='f', approval_status=2).last() if app_type == '2' else None
+        shop_object = get_pos_shop(user) if app_type == '2' else None
 
         response_serializer_class = self.get_response_serializer()
         response_serializer = response_serializer_class(instance={'user': user, 'token': token,
@@ -419,7 +419,5 @@ class RetailerUserDetailsView(GenericAPIView):
         **kwargs:- keyword argument
         """
         user = self.request.user
-        shop = Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f',
-                                   approval_status=2).last()
-        serializer = self.serializer_class(UserModel.objects.get(id=request.user.id), context={'shop': shop})
+        serializer = self.serializer_class(user, context={'shop': get_pos_shop(user)})
         return Response(serializer.data)
