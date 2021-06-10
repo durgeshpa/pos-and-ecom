@@ -25,11 +25,10 @@ class CardDataSerializer(serializers.ModelSerializer):
     """Serializer for CardData"""
 
     items = CardItemSerializer(many=True)
-
     class Meta:
         model = CardData
         fields = '__all__'
-
+    
     def create(self, validated_data):
         request = self.context.get("request")
         data = request.data
@@ -37,19 +36,22 @@ class CardDataSerializer(serializers.ModelSerializer):
         items = validated_data.pop("items")
         new_card_data = CardData.objects.create(**validated_data)
         for item in items:
-            CardItem.objects.create(card_data=new_card_data, **item)
-        # app = app_models.Application.objects.filter(id=app_id).first()
+            CardItem.objects.create(card_data=new_card_data,**item)
         app = get_object_or_404(Application, id=app_id)
-        # if card already exists use that card else create a new card.
         card = Card.objects.filter(name=data.get("name")).first()
         if card:
-            # create a new version with this card
             latest_version = card.versions.all().order_by('-version_number').first().version_number + 1
-            CardVersion.objects.create(version_number=latest_version, card=card, card_data=new_card_data)
+            CardVersion.objects.create(version_number=latest_version,
+                                                            card=card,
+                                                            card_data=new_card_data,
+                                                            )
         else:
-            Card.objects.create(app=app, name=data["name"], type=data["type"])
+            new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
+            CardVersion.objects.create(version_number=1,
+                                                            card=new_card,
+                                                            card_data=new_card_data,
+                                                            )
         return new_card_data
-
 
 class CardSerializer(serializers.ModelSerializer):
     """Serializer for Card"""
@@ -59,6 +61,7 @@ class CardSerializer(serializers.ModelSerializer):
 
     def getCardData(self, card):
         """custom serializer method to get cardData"""
+
         latest_version = card.versions.all().order_by('-version_number').first()
         card_data = latest_version.card_data
         card_data = CardDataSerializer(card_data)
@@ -110,5 +113,3 @@ class ApplicationDataSerializer(serializers.ModelSerializer):
         pages = Page.objects.filter(app_pages__app=instance.id)
         data['pages'] = ApplicationPageSerializer(pages, many=True).data
         return data
-
-

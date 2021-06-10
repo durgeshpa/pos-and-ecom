@@ -5,14 +5,26 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics
 from django.shortcuts import get_object_or_404
-
+from rest_framework import status
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer
 from ...choices import CARD_TYPE_CHOICES
 from ...models import Application, Card
 
+from .pagination import PaginationHandlerMixin
+from rest_framework.pagination import LimitOffsetPagination
 
-class CardView(APIView):
+class BasicPagination(LimitOffsetPagination):
+    limit_query_param = "limit"
+    offset_query_param = "offset"
+    max_limit = 20
+    default_limit = 10
+
+
+class CardView(APIView, PaginationHandlerMixin):
     """CardView to get and post cards"""
+
+    pagination_class = BasicPagination
+    serializer_class = CardSerializer
 
     def get(self, request, format=None):
         """Get all cards"""
@@ -34,16 +46,20 @@ class CardView(APIView):
                 queryset = queryset.filter(app=app)
             except:
                 raise NotFound(f"app with app_id {app_id} not found")
-
+        
         if query_params.get('card_type'):
             card_type = query_params.get('card_type')
-            if card_type not in [x[0] for x in CARD_TYPE_CHOICES]:
-                raise ValidationError(
-                    f"card_type not valid. card_type must be one of {[x[0] for x in CARD_TYPE_CHOICES]}")
+            if card_type not in [ x[0] for x in Card.CARD_TYPE_CHOICES] :
+                raise ValidationError(f"card_type not valid. card_type must be one of {[ x[0] for x in Card.CARD_TYPE_CHOICES]}")
             else:
                 queryset = queryset.filter(type=card_type)
-
-        cards = CardSerializer(queryset, many=True)
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            cards = self.get_paginated_response(self.serializer_class(page,
+                                                    many=True).data)
+        else:
+            cards = self.serializer_class(queryset, many=True)
 
         message = {
             "is_success": "true",
@@ -65,14 +81,14 @@ class CardView(APIView):
                 "message": "OK",
                 "card_data": serializer.data
             }
-            return Response(message)
+            return Response(message, status=status.HTTP_201_CREATED)
 
         else:
             message = {
                 "is_success": "false",
-                "message": "ERROR",
+                "message": "please check the fields",
             }
-            return Response(message)
+            return Response(message, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CardDetailView(RetrieveAPIView):
@@ -95,5 +111,3 @@ class ApplicationDetailView(RetrieveAPIView):
     lookup_field = 'id'
     queryset = Application.objects.all()
     serializer_class = ApplicationDataSerializer
-
-
