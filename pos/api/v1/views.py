@@ -102,7 +102,7 @@ class PosProductView(GenericAPIView):
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         shop_id = get_shop_id_from_token(request)
         if type(shop_id) == int:
-            modified_data = self.validate_update(shop_id)
+            modified_data, success_msg = self.validate_update(shop_id)
             if 'error' in modified_data:
                 return api_response(modified_data['error'])
             serializer = RetailerProductUpdateSerializer(data=modified_data)
@@ -135,7 +135,7 @@ class PosProductView(GenericAPIView):
                                                         PosInventoryState.AVAILABLE, stock_qty, self.request.user,
                                                         product.sku, PosInventoryChange.STOCK_UPDATE)
                     serializer = RetailerProductResponseSerializer(product)
-                    return api_response('Product has been updated successfully!', serializer.data, status.HTTP_200_OK, True)
+                    return api_response(success_msg, serializer.data, status.HTTP_200_OK, True)
             else:
                 return api_response(serializer_error(serializer))
         else:
@@ -172,16 +172,27 @@ class PosProductView(GenericAPIView):
         return p_data
 
     def validate_update(self, shop_id):
+        success_msg = 'Product has been updated successfully!'
         # Validate product data
         try:
             p_data = json.loads(self.request.data["data"])
         except (KeyError, ValueError):
             return {'error': "Invalid Data Format"}
+        if len(p_data) == 2:
+            if 'selling_price' in p_data:
+                success_msg = 'Price has been updated successfully!'
+            elif 'status' in p_data:
+                if p_data['status'] == 'active':
+                    success_msg = 'Product has been activated successfully!'
+                else:
+                    success_msg = 'Product has been deactivated successfully.'
+            elif 'stock_qty' in p_data:
+                success_msg = 'Quantity has been updated successfully!'
         # Update product data with shop id and images
         p_data['shop_id'] = shop_id
         if self.request.FILES.getlist('images'):
             p_data['images'] = self.request.FILES.getlist('images')
-        return p_data
+        return p_data, success_msg
 
     @staticmethod
     def get_sku_type(mrp, name, ean, linked_pid=None):

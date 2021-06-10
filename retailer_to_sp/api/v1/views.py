@@ -422,7 +422,7 @@ class SearchProducts(APIView):
             if results:
                 return api_response('Products Found', results, status.HTTP_200_OK, True)
             else:
-                return api_response('No Products Found', None, status.HTTP_200_OK)
+                return api_response('Product not found in GramFactory catalog. Please add new Product.', None, status.HTTP_200_OK)
 
     def gf_exact_search(self):
         """
