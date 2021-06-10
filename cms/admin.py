@@ -1,4 +1,4 @@
-import admin
+from django.contrib import admin
 from cms.models import Card, CardVersion, CardData, CardItem, Application
 
 admin.site.register(Application)
