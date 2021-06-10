@@ -70,7 +70,7 @@ class PosProductView(GenericAPIView):
                 data = serializer.data
                 name, ean, mrp, sp, linked_pid, description, stock_qty = data['product_name'], data[
                     'product_ean_code'], data['mrp'], data['selling_price'], data['linked_product_id'], data[
-                    'description'], data['stock_qty']
+                                                                             'description'], data['stock_qty']
                 with transaction.atomic():
                     # Decide sku_type 2 = using GF product, 1 = new product
                     sku_type = 2 if linked_pid else 1
@@ -87,7 +87,8 @@ class PosProductView(GenericAPIView):
                                                     stock_qty, self.request.user, product.sku,
                                                     PosInventoryChange.STOCK_ADD)
                     serializer = RetailerProductResponseSerializer(product)
-                    return api_response('Product has been created successfully!', serializer.data, status.HTTP_200_OK, True)
+                    return api_response('Product has been created successfully!', serializer.data, status.HTTP_200_OK,
+                                        True)
             else:
                 return api_response(serializer_error(serializer))
         else:
@@ -178,7 +179,7 @@ class PosProductView(GenericAPIView):
             p_data = json.loads(self.request.data["data"])
         except (KeyError, ValueError):
             return {'error': "Invalid Data Format"}
-        if len(p_data) == 2:
+        if 'product_name' not in p_data:
             if 'selling_price' in p_data:
                 success_msg = 'Price has been updated successfully!'
             elif 'status' in p_data:
@@ -291,12 +292,16 @@ class CouponOfferCreation(GenericAPIView):
         if serializer.is_valid():
             with transaction.atomic():
                 data.update(serializer.data)
+                success_msg = 'Offer has been updated successfully!'
+                if 'coupon_name' not in data and 'is_active' in data:
+                    success_msg = 'Offer has been activated successfully!' if data[
+                        'is_active'] else 'Offer has been deactivated successfully!'
                 if offer_type == 1:
-                    return self.update_coupon(data, shop_id)
+                    return self.update_coupon(data, shop_id, success_msg)
                 elif offer_type == 2:
-                    return self.update_combo(data, shop_id)
+                    return self.update_combo(data, shop_id, success_msg)
                 else:
-                    return self.update_free_product_offer(data, shop_id)
+                    return self.update_free_product_offer(data, shop_id, success_msg)
         else:
             return api_response(serializer_error(serializer))
 
@@ -356,7 +361,7 @@ class CouponOfferCreation(GenericAPIView):
             coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', data['coupon_name'], coupon_code, shop,
                                                      start_date, expiry_date)
             data['id'] = coupon.id
-            return api_response("Coupon Offer created successfully!", data, status.HTTP_200_OK, True)
+            return api_response("Coupon Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
     @staticmethod
     def create_combo_offer(data, shop_id):
@@ -396,7 +401,7 @@ class CouponOfferCreation(GenericAPIView):
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'catalog', combo_offer_name, combo_code, shop,
                                                  start_date, expiry_date)
         data['id'] = coupon.id
-        return api_response("Combo Offer created successfully!", data, status.HTTP_200_OK, True)
+        return api_response("Combo Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
     @staticmethod
     def create_free_product_offer(data, shop_id):
@@ -420,7 +425,7 @@ class CouponOfferCreation(GenericAPIView):
                                                         rule__free_product_qty=free_product_qty,
                                                         shop=shop_id, rule__coupon_ruleset__is_active=True)
         if coupon_rule_product_qty:
-            return api_response("Offer already exists for same quantity of free product. Please check.")
+            return api_response("Offer already exists for same quantity of free product")
 
         discount_amount_str = str(discount_amount).rstrip('0').rstrip('.')
         coupon_code = str(free_product_qty) + " " + str(
@@ -433,10 +438,10 @@ class CouponOfferCreation(GenericAPIView):
         coupon = OffersCls.rule_set_cart_mapping(coupon_obj.id, 'cart', coupon_name, coupon_code, shop, start_date,
                                                  expiry_date)
         data['id'] = coupon.id
-        return api_response("Free Product Offer Created Successfully!", data, status.HTTP_200_OK, True)
+        return api_response("Free Product Offer has been created successfully!", data, status.HTTP_200_OK, True)
 
     @staticmethod
-    def update_coupon(data, shop_id):
+    def update_coupon(data, shop_id, success_msg):
         try:
             coupon = Coupon.objects.get(id=data['id'], shop=shop_id)
         except ObjectDoesNotExist:
@@ -456,10 +461,10 @@ class CouponOfferCreation(GenericAPIView):
             rule.is_active = coupon.is_active = data['is_active']
         rule.save()
         coupon.save()
-        return api_response("Coupon Offer Updated Successfully!", None, status.HTTP_200_OK, True)
+        return api_response(success_msg, None, status.HTTP_200_OK, True)
 
     @staticmethod
-    def update_combo(data, shop_id):
+    def update_combo(data, shop_id, success_msg):
         try:
             coupon = Coupon.objects.get(id=data['id'], shop=shop_id)
         except ObjectDoesNotExist:
@@ -486,10 +491,10 @@ class CouponOfferCreation(GenericAPIView):
         rule.save()
         rule_set_product_mapping.save()
         coupon.save()
-        return api_response("Combo Offer Updated Successfully!", None, status.HTTP_200_OK, True)
+        return api_response(success_msg, None, status.HTTP_200_OK, True)
 
     @staticmethod
-    def update_free_product_offer(data, shop_id):
+    def update_free_product_offer(data, shop_id, success_msg):
         try:
             coupon = Coupon.objects.get(id=data['id'], shop=shop_id)
         except ObjectDoesNotExist:
@@ -509,4 +514,4 @@ class CouponOfferCreation(GenericAPIView):
             rule.is_active = coupon.is_active = data['is_active']
         rule.save()
         coupon.save()
-        return api_response("Free Product Offer Updated Successfully!", None, status.HTTP_200_OK, True)
+        return api_response(success_msg, None, status.HTTP_200_OK, True)
