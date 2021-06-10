@@ -1,7 +1,9 @@
 from django.urls import path
+from . import views
 
-from .views import ApplicationDetailView, ApplicationView
 urlpatterns = [
-    path('apps/', ApplicationView.as_view(), name = 'apps'),
-    path('apps/<id>', ApplicationDetailView.as_view(), name = 'app_detail')
+    path('apps/', views.ApplicationView.as_view(), name = 'apps'),
+    path('apps/<id>', views.ApplicationDetailView.as_view(), name = 'app_detail'),
+	path("cards/", views.CardView.as_view(), name="cards" ),
+	path("cards/<id>", views.CardDetailView.as_view(), name="card_detail")
 ]
