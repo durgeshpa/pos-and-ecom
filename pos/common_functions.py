@@ -143,19 +143,21 @@ class PosInventoryCls(object):
         """
         # Subtract qty from initial state inventory
         i_state_obj = PosInventoryState.objects.get(inventory_state=i_state)
-        PosInventoryCls.qty_transaction(pid, i_state_obj, -1 * qty)
+        PosInventoryCls.qty_transaction(pid, i_state_obj, -1 * qty, transaction_id)
         # Add qty to final state inventory
         f_state_obj = i_state_obj if i_state == f_state else PosInventoryState.objects.get(inventory_state=f_state)
-        PosInventoryCls.qty_transaction(pid, f_state_obj, qty)
+        PosInventoryCls.qty_transaction(pid, f_state_obj, qty, transaction_id)
         # Record inventory change
         PosInventoryCls.create_inventory_change(pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj,
                                                 user)
 
     @classmethod
-    def qty_transaction(cls, pid, state_obj, qty):
+    def qty_transaction(cls, pid, state_obj, qty, transaction_id):
         pos_inv = PosInventory.objects.select_for_update().get(product_id=pid, inventory_state=state_obj)
+        info_logger.info('initial ' + str(state_obj) + ' inv for product ' + str(pid) + ': ' + transaction_id + ' ' + str(pos_inv.quantity))
         pos_inv.quantity = pos_inv.quantity + qty
         pos_inv.save()
+        info_logger.info('final ' + str(state_obj) + ' inv for product ' + str(pid) + ': ' + transaction_id + ' ' + str(pos_inv.quantity))
 
     @classmethod
     def create_inventory_change(cls, pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj, user):
