@@ -25,6 +25,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 from dal import autocomplete
 
 from barCodeGenerator import merged_barcode_gen
+from common import constants
 from products.models import Product
 from gram_to_brand.models import (
     Order, CartProductMapping, Cart,
@@ -177,7 +178,6 @@ class DownloadPurchaseOrder(APIView):
     PDF Download object
     """
     filename = 'purchase_order.pdf'
-    template_name = 'admin/purchase_order/purchase_order.html'
 
     def get(self, request, *args, **kwargs):
         order_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
@@ -191,7 +191,7 @@ class DownloadPurchaseOrder(APIView):
             shop_name_documents.filter(shop_document_type='gstin').last()
         gram_factory_shipping_gstin = shop.gf_shipping_address.shop_name. \
             shop_name_documents.filter(shop_document_type='gstin').last()
-
+        shop_id = order_obj.gf_billing_address.shop_name_id
         tax_inline, sum_amount, sum_qty = 0, 0, 0
         gst_list = []
         cess_list = []
@@ -254,12 +254,18 @@ class DownloadPurchaseOrder(APIView):
             "order_id": order_id,
             "gram_factory_billing_gstin": gram_factory_billing_gstin,
             "gram_factory_shipping_gstin": gram_factory_shipping_gstin}
+
+        template_name = 'admin/purchase_order/purchase_order.html'
+        gf_shops = get_config('GF_SHOPS', constants.GF_SHOPS)
+        if shop_id in gf_shops:
+            template_name = 'admin/purchase_order/purchase_order_gf.html'
+
         cmd_option = {
             'encoding': 'utf8',
             'margin-top': 3
         }
         response = PDFTemplateResponse(
-            request=request, template=self.template_name,
+            request=request, template=template_name,
             filename=self.filename, context=data,
             show_content_in_browser=False, cmd_options=cmd_option
         )
