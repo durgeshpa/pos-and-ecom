@@ -29,8 +29,8 @@ class CardData(models.Model):
     image = models.ImageField(upload_to="cards/data/images", null=True, blank=True)
     header = models.CharField(max_length=255)
     header_action = models.URLField(blank=True, null=True)
-    sub_header = models.CharField(max_length=255)
-    footer = models.CharField(max_length=255)
+    sub_header = models.CharField(max_length=255, null=True, blank=True)
+    footer = models.CharField(max_length=255, null=True, blank=True)
     scroll_type = models.CharField(max_length=10, choices=SCROLL_CHOICES, default="noscroll")
     is_scrollable_x = models.BooleanField(default=False)
     is_scrollable_y = models.BooleanField(default=False)
@@ -45,6 +45,7 @@ class CardItem(models.Model):
     card_data = models.ForeignKey(CardData, on_delete=models.CASCADE, related_name="items")
     image = models.ImageField(upload_to="cards/items/images", null=True, blank=True)
     content = models.TextField()
+    action = models.URLField(blank=True, null=True)
     priority = models.IntegerField(default=1)
     row = models.IntegerField(default=1)
 
@@ -105,4 +106,3 @@ class ApplicationPage(models.Model):
 
     def __str__(self):
         return f"{self.app.name} - {self.page.name}"
-
