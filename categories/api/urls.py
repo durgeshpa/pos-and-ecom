@@ -5,4 +5,5 @@ from django.conf.urls import url,include
 urlpatterns = [
     url(r'^v1/', include('categories.api.v1.urls')),
     url(r'^v2/', include('categories.api.v2.urls')),
+    url(r'^v3/', include('categories.api.v3.urls')),
 ]

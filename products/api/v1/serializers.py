@@ -50,6 +50,7 @@ class ProductHSNSerializers(serializers.ModelSerializer):
 class CategorySerializers(serializers.ModelSerializer):
     class Meta:
         model = Category
+
         fields = ('id', 'category_name',)
 
 
@@ -130,8 +131,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_id = serializers.CharField(read_only=True)
     product_parent_product = ChildProductVendorSerializers(many=True, required=False)
     max_inventory = serializers.IntegerField(allow_null=True, max_value=999)
-    ptr_percent = serializers.SerializerMethodField()
-    ptr_type = serializers.SerializerMethodField()
+    ptr_percent = serializers.SerializerMethodField(read_only=True)
+    ptr_type = serializers.SerializerMethodField(read_only=True)
 
     def get_ptr_percent(self, obj):
         if obj.is_ptr_applicable:
@@ -196,7 +197,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'status', 'product_hsn', 'parent_brand',
                   'parent_product_pro_tax', 'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type',
                   'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'parent_product_pro_image',
-                  'updated_by', 'product_parent_product', 'product_images')
+                  'updated_by', 'updated_at', 'product_parent_product', 'product_images')
 
     @transaction.atomic
     def create(self, validated_data):
@@ -723,7 +724,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
                   'product_special_cess', 'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image',
                   'repackaging_type', 'product_pro_image', 'parent_product', 'product_vendor_mapping',
                   'updated_by', 'source_product_pro', 'packing_material_rt', 'destination_product_repackaging',
-                  'product_images')
+                  'product_images', 'updated_at')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
