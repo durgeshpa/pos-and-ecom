@@ -39,3 +39,5 @@ TIME_FORMAT = "%d%m%y_%H%M"
 
 #Default number of records for Bulk Create
 BULK_CREATE_NO_OF_RECORDS = 500
+GF_SHOPS = [33877]
+ADDISTRO_SHOPS = [599]
