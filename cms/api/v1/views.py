@@ -49,8 +49,8 @@ class CardView(APIView, PaginationHandlerMixin):
         
         if query_params.get('card_type'):
             card_type = query_params.get('card_type')
-            if card_type not in [ x[0] for x in Card.CARD_TYPE_CHOICES] :
-                raise ValidationError(f"card_type not valid. card_type must be one of {[ x[0] for x in Card.CARD_TYPE_CHOICES]}")
+            if card_type not in [ x[0] for x in CARD_TYPE_CHOICES] :
+                raise ValidationError(f"card_type not valid. card_type must be one of {[ x[0] for x in CARD_TYPE_CHOICES]}")
             else:
                 queryset = queryset.filter(type=card_type)
         

@@ -9,7 +9,7 @@ import pdb
 class TestCard(APITestCase):
 
     def setUp(self):
-        self.current_user = get_user_model().objects.create_user(username='testuser', password='12345')
+        self.current_user = get_user_model().objects.create_user(phone_number='6266218245', password='goldfish1234')
 
         card_data_data = {
             "header": "new header",
