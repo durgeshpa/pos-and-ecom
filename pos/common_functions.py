@@ -154,10 +154,10 @@ class PosInventoryCls(object):
     @classmethod
     def qty_transaction(cls, pid, state_obj, qty, transaction_id):
         pos_inv = PosInventory.objects.select_for_update().get(product_id=pid, inventory_state=state_obj)
-        info_logger.info('initial ' + str(state_obj) + ' inv for product ' + str(pid) + ': ' + transaction_id + ' ' + str(pos_inv.quantity))
+        info_logger.info('initial ' + str(state_obj) + ' inv for product ' + str(pid) + ': ' + str(transaction_id) + ' ' + str(pos_inv.quantity))
         pos_inv.quantity = pos_inv.quantity + qty
         pos_inv.save()
-        info_logger.info('final ' + str(state_obj) + ' inv for product ' + str(pid) + ': ' + transaction_id + ' ' + str(pos_inv.quantity))
+        info_logger.info('final ' + str(state_obj) + ' inv for product ' + str(pid) + ': ' + str(transaction_id) + ' ' + str(pos_inv.quantity))
 
     @classmethod
     def create_inventory_change(cls, pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj, user):
