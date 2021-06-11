@@ -69,7 +69,7 @@ from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, In
     PosInventoryChange
 from pos.common_functions import get_shop_id_from_token, api_response, create_user_shop_mapping, \
     delete_cart_mapping, get_invoice_and_link, ORDER_STATUS_MAP, RetailerProductCls, validate_data_format, \
-    update_pos_customer, PosInventoryCls
+    update_pos_customer, PosInventoryCls, RewardCls
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
@@ -1599,7 +1599,12 @@ class CartUserView(APIView):
             cart.buyer = customer
             cart.last_modified_by = self.request.user
             cart.save()
-            return api_response('Customer Detail Success', PosUserSerializer(customer).data, status.HTTP_200_OK, True)
+            data = PosUserSerializer(customer).data
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, 0)
+            # Reward detail for customer
+            data['reward_detail'] = RewardCls.reward_detail_cart(cart, 0)
+            return api_response('Customer Detail Success', data, status.HTTP_200_OK, True)
         else:
             return api_response('Provide a valid cart_type')
 
@@ -1658,6 +1663,8 @@ class CartCheckout(APIView):
         # Check spot discount
         spot_discount = self.request.data.get('spot_discount')
         with transaction.atomic():
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             if spot_discount:
                 offers = BasicCartOffers.apply_spot_discount(cart, spot_discount,
                                                              self.request.data.get('is_percentage'))
@@ -1685,6 +1692,11 @@ class CartCheckout(APIView):
         with transaction.atomic():
             # Get Offers Applicable, Verify applied offers, Apply highest discount on cart if auto apply
             offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
+            # Redeem reward points on order
+            redeem_points = self.request.GET.get('redeem_points')
+            if redeem_points:
+                # Refresh redeem reward
+                RewardCls.checkout_redeem_points(cart, int(redeem_points))
             return api_response("Cart Checkout", self.serialize(cart, offers), status.HTTP_200_OK, True)
 
     def delete(self, request):
@@ -1701,6 +1713,8 @@ class CartCheckout(APIView):
             cart = Cart.objects.get(pk=cart_id, seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
+        # Refresh redeem reward
+        RewardCls.checkout_redeem_points(cart, cart.redeem_points)
         cart_products = cart.rt_cart_list.all()
         cart_value = 0
         for product_map in cart_products:
@@ -2574,6 +2588,8 @@ class OrderCentral(APIView):
         with transaction.atomic():
             # Update Cart To Ordered
             self.update_cart_basic(cart)
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, cart.redeem_points)
             order = self.create_basic_order(cart, shop)
             self.auto_process_order(order, payment_method)
             return api_response('Ordered Successfully!', BasicOrderListSerializer(Order.objects.get(id=order.id)).data,

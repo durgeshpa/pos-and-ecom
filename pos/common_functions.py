@@ -6,12 +6,14 @@ from rest_framework import status
 from django.urls import reverse
 from django.db.models import Q
 
-from retailer_to_sp.models import CartProductMapping, Order
+from retailer_to_sp.models import CartProductMapping, Order, Cart
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
 from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
 from shops.models import Shop
 from accounts.models import User
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
+from marketing.models import RewardPoint
+from global_config.models import GlobalConfig
 
 from pos.models import RetailerProduct, UserMappedShop, RetailerProductImage
 
@@ -257,3 +259,37 @@ def update_pos_customer(ph_no, shop_id, email, name, is_whatsapp):
     customer.is_whatsapp = True if is_whatsapp else False
     customer.save()
     return customer
+
+
+class RewardCls(object):
+
+    @classmethod
+    def get_user_redeemable_points(cls, user):
+        value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
+        points = 0
+        if user:
+            obj = RewardPoint.objects.filter(reward_user=user).last()
+            if obj:
+                points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
+        return points, value_factor
+
+    @classmethod
+    def checkout_redeem_points(cls, cart, redeem_points):
+        redeem_points_value = 0
+        if cart.buyer:
+            obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
+            if obj:
+                points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
+                redeem_points = min(redeem_points, points)
+                value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
+                redeem_points_value = redeem_points / value_factor
+        redeem_points = redeem_points if redeem_points_value else 0
+        Cart.objects.filter(id=cart.id).update(redeem_points=redeem_points, redeem_points_value=redeem_points_value)
+
+    @classmethod
+    def reward_detail_cart(cls, cart, points):
+        data = dict()
+        data['redeem_applied'] = 1 if points else 0
+        data['available_points'], data['value_factor'] = RewardCls.get_user_redeemable_points(cart.buyer)
+        data['cart_redeem_points'] = points
+        return data
