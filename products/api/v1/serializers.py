@@ -11,7 +11,7 @@ from rest_framework import serializers
 
 from products.models import Product, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage, \
     ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, Tax, ProductSourceMapping, \
-    ProductPackingMapping, DestinationRepackagingCostMapping
+    ProductPackingMapping, DestinationRepackagingCostMapping, ProductLog
 from categories.models import Category
 from brand.models import Brand, Vendor
 from shops.models import Shop
@@ -118,10 +118,19 @@ class UserSerializers(serializers.ModelSerializer):
         fields = ('id', 'first_name', 'phone_number',)
 
 
+class LogSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = ProductLog
+
+        fields = ('update_at', 'updated_by')
+
+
 class ParentProductSerializers(serializers.ModelSerializer):
     """Handles creating, reading and updating parent product items."""
     parent_brand = BrandSerializers(read_only=True)
-    updated_by = UserSerializers(read_only=True)
+    updated_by = UserSerializers(write_only=True, required=False)
+    updated_at = serializers.DateTimeField(write_only=True, required=False)
+    parent_product_logs = LogSerializers(many=True, read_only=True)
     product_hsn = ProductHSNSerializers(read_only=True)
     parent_product_pro_image = ParentProductImageSerializers(many=True, read_only=True)
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
@@ -197,7 +206,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'status', 'product_hsn', 'parent_brand',
                   'parent_product_pro_tax', 'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type',
                   'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'parent_product_pro_image',
-                  'updated_by', 'updated_at', 'product_parent_product', 'product_images')
+                  'updated_by', 'updated_at', 'product_parent_product', 'product_images', 'parent_product_logs')
 
     @transaction.atomic
     def create(self, validated_data):
@@ -708,7 +717,9 @@ class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
 class ChildProductSerializers(serializers.ModelSerializer):
     """ Handles creating, reading and updating child product items."""
     parent_product = ParentProductSerializers(read_only=True)
-    updated_by = UserSerializers(read_only=True)
+    updated_by = UserSerializers(write_only=True, required=False)
+    updated_at = serializers.DateTimeField(write_only=True, required=False)
+    child_product_logs = LogSerializers(many=True, read_only=True)
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
@@ -724,7 +735,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
                   'product_special_cess', 'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image',
                   'repackaging_type', 'product_pro_image', 'parent_product', 'product_vendor_mapping',
                   'updated_by', 'source_product_pro', 'packing_material_rt', 'destination_product_repackaging',
-                  'product_images', 'updated_at')
+                  'product_images', 'updated_at', 'child_product_logs')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
@@ -832,6 +843,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
             ProductCls.packing_material_product_mapping(child_product, packing_material)
             ProductCls.create_destination_product_mapping(child_product, destination_product_repack)
 
+        ProductCls.create_child_product_log(child_product)
         return child_product
 
 

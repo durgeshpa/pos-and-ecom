@@ -29,7 +29,7 @@ debug_logger = logging.getLogger('file-debug')
 
 class BrandView(GenericAPIView):
     """
-        Get Brand
+        Get Brand List
     """
     authentication_classes = (authentication.TokenAuthentication,)
     queryset = Brand.objects.all()
@@ -50,21 +50,15 @@ class BrandView(GenericAPIView):
 
 class CategoryView(GenericAPIView):
     """
-        Get Brand
+        Get Category List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Category.objects.all()
+    permission_classes = (AllowAny,)
+    queryset = Category.objects.values('id', 'category_name')
     serializer_class = CategorySerializers
 
     def get(self, request):
-        if request.GET.get('id'):
-            """ Get Category for specific ID """
-            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            category = id_validation['data']
-        else:
-            category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
         return get_response('category list!', serializer.data)
 
@@ -160,12 +154,13 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
         'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
         'parent_product_pro_category__category', 'product_parent_product__product_vendor_mapping',
-        'parent_product_pro_tax__tax', 'product_parent_product__product_vendor_mapping__vendor'). \
+        'parent_product_pro_tax__tax', 'product_parent_product__product_vendor_mapping__vendor', 'parent_product_logs'). \
         only('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'is_ptr_applicable', 'updated_by',
-             'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code',
+             'ptr_percent', 'ptr_type', 'status', 'parent_brand__brand_name', 'parent_brand__brand_code', 'updated_at',
              'product_hsn__product_hsn_code', 'is_lead_time_applicable', 'is_ars_applicable', 'max_inventory').order_by('-id')
     serializer_class = ParentProductSerializers
 
@@ -198,6 +193,7 @@ class ParentProductView(GenericAPIView):
         serializer = self.serializer_class(data=modified_data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
+            info_logger.info("Parent Product Created Successfully.")
             return get_response('parent product created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
@@ -222,8 +218,7 @@ class ParentProductView(GenericAPIView):
         serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            dict_data = {'updated_by': serializer.data['updated_by'], 'updated_at': serializer.data['updated_at'], 'product_id': serializer.data['id']}
-            info_logger.info("parent product update info ", dict_data)
+            info_logger.info("Parent Product Updated Successfully.")
             return get_response('parent product updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
@@ -293,13 +288,15 @@ class ChildProductView(GenericAPIView):
         Update Child Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     queryset = ChildProduct.objects.select_related('updated_by').prefetch_related('product_pro_image',
         'product_vendor_mapping', 'parent_product', 'parent_product__parent_product_pro_image',
         'parent_product__parent_product_pro_category', 'parent_product__parent_product_pro_tax',
         'parent_product__parent_product_pro_category__category', 'destination_product_repackaging',
         'parent_product__product_parent_product__product_vendor_mapping', 'source_product_pro',
         'packing_material_rt', 'parent_product__parent_product_pro_tax__tax', 'parent_product__parent_brand',
-        'parent_product__product_hsn','parent_product__product_parent_product__product_vendor_mapping',
+        'parent_product__product_hsn','parent_product__product_parent_product__product_vendor_mapping', 'child_product_logs',
+        'parent_product__parent_product_logs',
         'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_vendor_mapping__vendor').order_by('-id')
 
     serializer_class = ChildProductSerializers
@@ -334,6 +331,7 @@ class ChildProductView(GenericAPIView):
         serializer = self.serializer_class(data=modified_data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
+            info_logger.info("Child Product Created Successfully.")
             return get_response('child product created successfully!', serializer.data['id'])
         return get_response(serializer_error(serializer), False)
 
@@ -357,10 +355,9 @@ class ChildProductView(GenericAPIView):
 
         serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
         if serializer.is_valid():
-            dict_data = {'updated_by': serializer.data['updated_by'], 'updated_at': serializer.data['updated_at'], 'product_id': self.instance}
-            info_logger.info("child product update info ", dict_data)
             serializer.save(updated_by=request.user)
-            return get_response('child product updated!', serializer.data)
+            info_logger.info("Child Product Updated Successfully.")
+            return get_response('child product updated Successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def search_filter_product_list(self):

@@ -1,3 +1,4 @@
+import logging
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -8,6 +9,11 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
 from wms.models import Out, WarehouseInventory, BinInventory
+
+# Get an instance of a logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 class ParentProductCls(object):
@@ -85,8 +91,14 @@ class ParentProductCls(object):
         """
             Create Parent Product Log
         """
-        return ProductLog.objects.create(parent_product=log_obj,
-                                         update_at=log_obj.updated_at, updated_by=log_obj.updated_by)
+        parent_product_log = ProductLog.objects.create(parent_product=log_obj, update_at=log_obj.updated_at,
+                                                       updated_by=log_obj.updated_by)
+
+        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
+                     'product_id': log_obj}
+        info_logger.info("parent product update info ", dict_data)
+
+        return parent_product_log
 
 
 class ProductCls(object):
@@ -200,8 +212,14 @@ class ProductCls(object):
         """
             Create Child Product Log
         """
-        return ProductLog.objects.create(child_product=log_obj,
-                                         update_at=log_obj.updated_at, updated_by=log_obj.updated_by)
+        child_product_log = ProductLog.objects.create(child_product=log_obj,
+                                                      update_at=log_obj.updated_at, updated_by=log_obj.updated_by)
+
+        dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
+                     'child_product': log_obj}
+        info_logger.info("child product update info ", dict_data)
+
+        return child_product_log
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):
