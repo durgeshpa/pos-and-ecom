@@ -53,7 +53,6 @@ class CategoryView(GenericAPIView):
         Get Category List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = Category.objects.values('id', 'category_name')
     serializer_class = CategorySerializers
 
@@ -154,7 +153,6 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
         'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
         'parent_product_pro_category__category', 'product_parent_product__product_vendor_mapping',
@@ -288,7 +286,6 @@ class ChildProductView(GenericAPIView):
         Update Child Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = ChildProduct.objects.select_related('updated_by').prefetch_related('product_pro_image',
         'product_vendor_mapping', 'parent_product', 'parent_product__parent_product_pro_image',
         'parent_product__parent_product_pro_category', 'parent_product__parent_product_pro_tax',
@@ -332,7 +329,7 @@ class ChildProductView(GenericAPIView):
         if serializer.is_valid():
             serializer.save(created_by=request.user)
             info_logger.info("Child Product Created Successfully.")
-            return get_response('child product created successfully!', serializer.data['id'])
+            return get_response('child product created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
