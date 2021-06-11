@@ -147,6 +147,7 @@ def get_daily_average(warehouse, parent_product):
     for given parent product and warehouse,
     only the days where product is available and visible on app are to be considered in calculating the average
     """
+
     rolling_avg_days = get_config('ROLLING_AVG_DAYS', 30)
     starting_avg_from = datetime.datetime.today().date() - datetime.timedelta(days=rolling_avg_days)
     avg_days = WarehouseInventoryHistoric.objects.filter(warehouse=warehouse,
@@ -251,7 +252,7 @@ def initiate_ars():
     brand_product_dict = {}
     for item in product_vendor_mappings:
         parent_product = item.product.parent_product
-        brand = parent_product.parent_brand_id
+        brand = parent_product.parent_brand_id if parent_product.parent_brand.brand_parent is None else parent_product.parent_brand.brand_parent_id
 
         for warehouse in warehouse_list:
             if brand_product_dict.get(brand) is None:
@@ -418,7 +419,6 @@ def create_po_from_demand(demand):
         parent_retailer_mapping = ParentRetailerMapping.objects.filter(retailer=demand.warehouse).last()
 
         product = get_child_product_with_latest_grn(parent_retailer_mapping.parent_id, demand_product.product_id)
-
         info_logger.info("create_po_from_demand|Parent Product-{}, Child Product to be added in PO-{}"
                          .format(demand_product.product, product))
 
@@ -454,11 +454,10 @@ def create_po_from_demand(demand):
             info_logger.info("create_po_from_demand|Vendor Product Mapping does not exist | "
                              "vendor-{}, parent product-{}, product-{}"
                             .format(demand.vendor, demand_product.product, product))
-            demand.status = VendorDemand.STATUS_CHOICE.FAILED
-            demand.comment = 'Vendor Product Mapping does not exist'
-            demand.save()
-            raise Exception('Vendor Product Mapping does not exist| vendor-{}, parent product-{}, product-{}'
-                            .format(demand.vendor, demand_product.product, product))
+            continue
+    if cart_instance.products.count() == 0:
+        raise Exception('PO could not be raised | No product added in PO | demand id -{}'
+                        .format(demand.id))
     demand.status = VendorDemand.STATUS_CHOICE.DEMAND_CREATED
     demand.po = cart_instance
     demand.status = VendorDemand.STATUS_CHOICE.PO_CREATED
