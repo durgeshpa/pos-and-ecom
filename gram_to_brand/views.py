@@ -178,6 +178,7 @@ class DownloadPurchaseOrder(APIView):
     PDF Download object
     """
     filename = 'purchase_order.pdf'
+    template_name = 'admin/purchase_order/purchase_order.html'
 
     def get(self, request, *args, **kwargs):
         order_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
@@ -192,6 +193,10 @@ class DownloadPurchaseOrder(APIView):
         gram_factory_shipping_gstin = shop.gf_shipping_address.shop_name. \
             shop_name_documents.filter(shop_document_type='gstin').last()
         shop_id = order_obj.gf_billing_address.shop_name_id
+        gf_shops = get_config('GF_SHOPS', constants.GF_SHOPS)
+        is_gf_shop = False
+        if shop_id in gf_shops:
+            is_gf_shop = True
         tax_inline, sum_amount, sum_qty = 0, 0, 0
         gst_list = []
         cess_list = []
@@ -201,28 +206,10 @@ class DownloadPurchaseOrder(APIView):
             sum_amount = sum_amount + m.total_price
             inline_sum_amount = m.total_price
             tax_percentage = 0
-            # if m.cart_product.parent_product:
-            #     tax_percentage = m.cart_product.parent_product.gst + m.cart_product.parent_product.cess + \
-            #                      m.cart_product.parent_product.surcharge
-            # else:
-            #     for n in m.cart_product.product_pro_tax.all():
-            #         tax_percentage += n.tax.tax_percentage
             for n in m.cart_product.product_pro_tax.all():
                 tax_percentage += n.tax.tax_percentage
             divisor = (1 + (tax_percentage / 100))
             original_amount = (inline_sum_amount / divisor)
-            # if m.cart_product.parent_product:
-            #     gst_list.append((original_amount * (m.cart_product.parent_product.gst / 100)))
-            #     cess_list.append((original_amount * (m.cart_product.parent_product.cess / 100)))
-            #     surcharge_list.append((original_amount * (m.cart_product.parent_product.surcharge / 100)))
-            # else:
-            #     for n in m.cart_product.product_pro_tax.all():
-            #         if n.tax.tax_type == 'gst':
-            #             gst_list.append((original_amount * (n.tax.tax_percentage / 100)))
-            #         elif n.tax.tax_type == 'cess':
-            #             cess_list.append((original_amount * (n.tax.tax_percentage / 100)))
-            #         elif n.tax.tax_type == 'surcharge':
-            #             surcharge_list.append((original_amount * (n.tax.tax_percentage / 100)))
             for n in m.cart_product.product_pro_tax.all():
                 if n.tax.tax_type == 'gst':
                     gst_list.append((original_amount * (n.tax.tax_percentage / 100)))
@@ -253,19 +240,17 @@ class DownloadPurchaseOrder(APIView):
             "total_amount": total_amount,
             "order_id": order_id,
             "gram_factory_billing_gstin": gram_factory_billing_gstin,
-            "gram_factory_shipping_gstin": gram_factory_shipping_gstin}
+            "gram_factory_shipping_gstin": gram_factory_shipping_gstin,
+            "is_gf_shop" : is_gf_shop
+        }
 
-        template_name = 'admin/purchase_order/purchase_order.html'
-        gf_shops = get_config('GF_SHOPS', constants.GF_SHOPS)
-        if shop_id in gf_shops:
-            template_name = 'admin/purchase_order/purchase_order_gf.html'
 
         cmd_option = {
             'encoding': 'utf8',
             'margin-top': 3
         }
         response = PDFTemplateResponse(
-            request=request, template=template_name,
+            request=request, template=self.template_name,
             filename=self.filename, context=data,
             show_content_in_browser=False, cmd_options=cmd_option
         )
