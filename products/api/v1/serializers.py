@@ -140,18 +140,6 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_id = serializers.CharField(read_only=True)
     product_parent_product = ChildProductVendorSerializers(many=True, required=False)
     max_inventory = serializers.IntegerField(allow_null=True, max_value=999)
-    # ptr_percent = serializers.SerializerMethodField(read_only=True)
-    # ptr_type = serializers.SerializerMethodField(read_only=True)
-    #
-    # def get_ptr_percent(self, obj):
-    #     if obj.is_ptr_applicable:
-    #         return obj.ptr_type_text
-    #     return '-'
-    #
-    # def get_ptr_type(self, obj):
-    #     if obj.is_ptr_applicable:
-    #         return obj.ptr_percent
-    #     return '-'
 
     def validate(self, data):
         """
