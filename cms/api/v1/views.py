@@ -1,9 +1,10 @@
+from django.core.checks import messages
 from django.db.models import query
 from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.generics import RetrieveAPIView, ListAPIView, CreateAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import generics
+from rest_framework import generics, serializers
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer
@@ -98,16 +99,60 @@ class CardDetailView(RetrieveAPIView):
     serializer_class = CardSerializer
 
 
-class ApplicationView(ListAPIView, CreateAPIView):
+class ApplicationView(APIView):
     """Application view for get and post"""
 
-    queryset = Application.objects.all()
     serializer_class = ApplicationSerializer
 
+    def get(self, request, format = None):
+        """GET Application data"""
+        apps = Application.objects.all()
+        serializer = self.serializer_class(apps, many = True)
+        message = {
+            "is_success":True,
+            "message": "OK",
+            "data": serializer.data
+        }
+        return Response(message, status = status.HTTP_200_OK)
 
-class ApplicationDetailView(RetrieveAPIView):
+    def post(self, reqeust):
+        """POST Application Data"""
+        serializer = self.serializer_class(data = reqeust.data)
+        if serializer.is_valid():
+            serializer.save(created_by = reqeust.user)
+            message = {
+                "is_success": True,
+                "message": "OK",
+                "data": serializer.data
+            }
+            return Response(message, status = status.HTTP_201_CREATED)
+        message = {
+            "is_success": False,
+            "message": "Data is not valid",
+            "error": serializer.errors
+        }
+        return Response(message, status = status.HTTP_400_BAD_REQUEST)
+
+
+class ApplicationDetailView(APIView):
     """Get application details by id"""
 
-    lookup_field = 'id'
-    queryset = Application.objects.all()
     serializer_class = ApplicationDataSerializer
+
+    def get(self, request, id, format = None):
+        """Get details of specific application"""
+        try:
+            app = Application.objects.get(id = id)
+        except Exception:
+            message = {
+                "is_success": False,
+                "message": "No application exist for this id."
+            }
+            return Response(message, status = status.HTTP_204_NO_CONTENT)
+        serializer = self.serializer_class(app)
+        message = {
+            "is_success": True,
+            "message": "OK",
+            "data": serializer.data
+        }
+        return Response(message, status = status.HTTP_200_OK)

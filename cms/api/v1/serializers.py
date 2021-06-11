@@ -79,8 +79,9 @@ class ApplicationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Application
         fields = '__all__'
+        read_only_fields = ['created_by']
 
-
+        
 class ApplicationPageSerializer(serializers.ModelSerializer):
     """Page Serializer"""
 
