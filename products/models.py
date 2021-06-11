@@ -181,6 +181,7 @@ class ParentProductSKUGenerator(models.Model):
     brand_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three characters for SKU")
     last_auto_increment = models.CharField(max_length=8)
 
+
 class ParentProductCategory(BaseTimeModel):
     parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_pro_category', on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='parent_category_pro_category', on_delete=models.CASCADE)
