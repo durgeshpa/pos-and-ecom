@@ -64,7 +64,7 @@ class CardView(APIView, PaginationHandlerMixin):
         message = {
             "is_success": "true",
             "message": "OK",
-            "cards": cards.data
+            "data": cards.data
         }
         return Response(message)
 
@@ -79,7 +79,7 @@ class CardView(APIView, PaginationHandlerMixin):
             message = {
                 "is_success": "true",
                 "message": "OK",
-                "card_data": serializer.data
+                "data": serializer.data
             }
             return Response(message, status=status.HTTP_201_CREATED)
 
