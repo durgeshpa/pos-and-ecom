@@ -3,7 +3,7 @@ from rest_framework.response import Response
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
-    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping
+    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, ProductLog
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
@@ -79,6 +79,14 @@ class ParentProductCls(object):
         for tax_data in parent_product_pro_tax:
             tax = Tax.objects.get(id=tax_data['tax'])
             ParentProductTaxMapping.objects.create(parent_product=parent_product, tax=tax)
+
+    @classmethod
+    def create_parent_product_log(cls, log_obj):
+        """
+            Create Parent Product Log
+        """
+        return ProductLog.objects.create(parent_product=log_obj,
+                                         update_at=log_obj.updated_at, updated_by=log_obj.updated_by)
 
 
 class ProductCls(object):
@@ -186,6 +194,14 @@ class ProductCls(object):
         product_vendor_map.vendor = vendor_obj['vendor']
         product_vendor_map.save()
         return product_vendor_map
+
+    @classmethod
+    def create_child_product_log(cls, log_obj):
+        """
+            Create Child Product Log
+        """
+        return ProductLog.objects.create(child_product=log_obj,
+                                         update_at=log_obj.updated_at, updated_by=log_obj.updated_by)
 
 
 def get_response(msg, data=None, success=False, status_code=status.HTTP_200_OK):

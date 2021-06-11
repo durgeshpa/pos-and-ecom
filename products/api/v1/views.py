@@ -222,7 +222,7 @@ class ParentProductView(GenericAPIView):
         serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            dict_data = {'updated_by': request.user, 'updated_at': "", 'product_id': self.instance}
+            dict_data = {'updated_by': serializer.data['updated_by'], 'updated_at': serializer.data['updated_at'], 'product_id': serializer.data['id']}
             info_logger.info("parent product update info ", dict_data)
             return get_response('parent product updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
@@ -334,7 +334,7 @@ class ChildProductView(GenericAPIView):
         serializer = self.serializer_class(data=modified_data)
         if serializer.is_valid():
             serializer.save(created_by=request.user)
-            return get_response('child product created successfully!', serializer.data)
+            return get_response('child product created successfully!', serializer.data['id'])
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
@@ -357,7 +357,7 @@ class ChildProductView(GenericAPIView):
 
         serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
         if serializer.is_valid():
-            dict_data = {'updated_by': request.user, 'updated_at': "", 'product_id': self.instance}
+            dict_data = {'updated_by': serializer.data['updated_by'], 'updated_at': serializer.data['updated_at'], 'product_id': self.instance}
             info_logger.info("child product update info ", dict_data)
             serializer.save(updated_by=request.user)
             return get_response('child product updated!', serializer.data)

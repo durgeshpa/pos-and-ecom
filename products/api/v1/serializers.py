@@ -240,7 +240,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError(error)
 
         self.create_parent_tax_image_cat(parent_product)
-
+        ParentProductCls.create_parent_product_log(parent_product)
         return parent_product
 
     # crete parent product image, tax & category
