@@ -172,6 +172,8 @@ class Cart(models.Model):
         max_length=50, choices=CART_TYPES, null=True, default=RETAIL)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    redeem_points = models.IntegerField(default=0)
+    redeem_points_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     class Meta:
         verbose_name = 'Order Items Detail'

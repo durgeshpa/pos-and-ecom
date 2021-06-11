@@ -3,13 +3,13 @@ import datetime
 
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
-from django.db.models import Q, Sum
+from django.db.models import Q
 
 from pos.models import RetailerProduct, RetailerProductImage
 from retailer_to_sp.models import CartProductMapping, Cart, Order, OrderedProduct, OrderReturn, ReturnItems, \
     OrderedProductMapping
 from accounts.api.v1.serializers import PosUserSerializer
-from pos.common_functions import get_invoice_and_link
+from pos.common_functions import get_invoice_and_link, RewardCls
 from products.models import Product
 from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
@@ -190,13 +190,11 @@ class BasicCartSerializer(serializers.ModelSerializer):
     items_count = serializers.SerializerMethodField('items_count_dt')
     total_quantity = serializers.SerializerMethodField('total_quantity_dt')
     total_amount = serializers.SerializerMethodField('total_amount_dt')
-    total_discount = serializers.SerializerMethodField()
-    sub_total = serializers.SerializerMethodField('sub_total_dt')
 
     class Meta:
         model = Cart
         fields = ('id', 'cart_no', 'cart_status', 'rt_cart_list', 'items_count', 'total_quantity', 'total_amount',
-                  'total_discount', 'sub_total', 'created_at', 'modified_at')
+                  'created_at', 'modified_at')
 
     def rt_cart_list_dt(self, obj):
         """
@@ -285,25 +283,6 @@ class BasicCartSerializer(serializers.ModelSerializer):
             total_amount += Decimal(cart_pro.selling_price) * Decimal(cart_pro.qty)
         return total_amount
 
-    def get_total_discount(self, obj):
-        """
-            Discount on cart
-        """
-        discount = 0
-        offers = obj.offers
-        if offers:
-            array = list(filter(lambda d: d['type'] in ['discount'], offers))
-            for i in array:
-                discount += i['discount_value']
-        return round(discount, 2)
-
-    def sub_total_dt(self, obj):
-        """
-            Final To be paid amount
-        """
-        sub_total = float(self.total_amount_dt(obj)) - self.get_total_discount(obj)
-        return round(sub_total, 2)
-
 
 class CheckoutSerializer(serializers.ModelSerializer):
     """
@@ -313,6 +292,11 @@ class CheckoutSerializer(serializers.ModelSerializer):
     total_amount = serializers.SerializerMethodField()
     amount_payable = serializers.SerializerMethodField()
     buyer = PosUserSerializer()
+    reward_detail = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_reward_detail(obj):
+        return RewardCls.reward_detail_cart(obj, obj.redeem_points)
 
     def get_total_amount(self, obj):
         """
@@ -339,12 +323,13 @@ class CheckoutSerializer(serializers.ModelSerializer):
         """
             Get Payable amount - (Total - Discount)
         """
-        sub_total = float(self.get_total_amount(obj)) - self.get_total_discount(obj)
+        sub_total = float(self.get_total_amount(obj)) - self.get_total_discount(obj) - float(obj.redeem_points_value)
         return round(sub_total, 2)
 
     class Meta:
         model = Cart
-        fields = ('id', 'total_amount', 'total_discount', 'amount_payable', 'buyer')
+        fields = ('id', 'total_amount', 'total_discount', 'redeem_points_value', 'amount_payable', 'buyer',
+                  'reward_detail')
 
 
 class BasicOrderListSerializer(serializers.ModelSerializer):
