@@ -82,6 +82,7 @@ class Referral(models.Model):
     referral_to = models.ForeignKey(MLMUser, related_name="referral_to", on_delete=models.CASCADE, null=True, blank=True)
     referral_by_user = models.ForeignKey(User, related_name="referral_by_user", on_delete=models.CASCADE, null=True, blank=True)
     referral_to_user = models.ForeignKey(User, related_name="referral_to_user", on_delete=models.CASCADE, null=True, blank=True)
+    user_count_considered = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

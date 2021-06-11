@@ -76,7 +76,7 @@ from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer,
     PosShopSerializer
 from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment, UserMappedShop
 from retailer_backend.settings import AWS_MEDIA_URL
-from pos.tasks import update_es
+from pos.tasks import update_es, order_loyalty_points
 from pos import error_code
 from accounts.api.v1.serializers import PosUserSerializer
 from global_config.models import GlobalConfig
@@ -3011,6 +3011,7 @@ class OrderCentral(APIView):
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
         pdf_generation_retailer(self.request, order.id)
+        order_loyalty_points.delay(order.order_amount, order.buyer.id, order.order_no, self.request.user.id)
 
 
 # class CreateOrder(APIView):

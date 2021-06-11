@@ -6,10 +6,11 @@ from rangefilter.filter import DateTimeRangeFilter
 from franchise.models import FranchiseSales
 from global_config.models import GlobalConfig
 from accounts.models import User
+from retailer_to_sp.models import Order, OrderedProduct
 
 from .models import Referral, RewardPoint, Profile, RewardLog, ReferralCode
 from .forms import RewardPointForm, MLMUserForm
-from .filters import UserFilter, MlmUserAutocomplete
+from .filters import UserFilter, MlmUserAutocomplete, ReferralToUserFilter, ReferralByUserFilter, RewardUserFilter
 
 
 @admin.register(ReferralCode)
@@ -47,6 +48,7 @@ class ReferralAdmin(admin.ModelAdmin):
     list_display = ['referral_to_user', 'referral_by_user', 'created_at']
     fields = ('referral_to_user', 'referral_by_user')
     list_per_page = 10
+    list_filter = [ReferralByUserFilter, ReferralToUserFilter]
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -57,13 +59,16 @@ class ReferralAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    class Media:
+        pass
+
 
 @admin.register(RewardPoint)
 class RewardPointAdmin(admin.ModelAdmin):
     form = RewardPointForm
     list_display = ("reward_user", "email_id", "redeemable_reward_points", "max_available_discount_inr", "created_at",
                     "modified_at", "direct_users", "indirect_users", "direct_earned", "indirect_earned", "points_used")
-    list_filter = [UserFilter]
+    list_filter = [RewardUserFilter]
     list_per_page = 10
 
     try:
@@ -108,7 +113,7 @@ class RewardPointAdmin(admin.ModelAdmin):
 class RewardLogAdmin(admin.ModelAdmin):
     list_display = ('reward_user', 'transaction_type', 'transaction_id', 'transaction_points', 'created_at', 'discount',
                     'changed_by', 'purchase_user', 'purchase_invoice', 'user_purchase_shop_location')
-    list_filter = [UserFilter, ('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter)]
+    list_filter = [RewardUserFilter, ('transaction_type', DropdownFilter), ('created_at', DateTimeRangeFilter)]
     list_per_page = 10
 
     def has_add_permission(self, request, obj=None):
@@ -124,22 +129,43 @@ class RewardLogAdmin(admin.ModelAdmin):
     @staticmethod
     def purchase_user(obj):
         if obj.transaction_type in ['direct_reward', 'indirect_reward', 'purchase_reward']:
-            sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
-            return sales_obj.phone_number if sales_obj else '-'
+            try:
+                sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
+                return sales_obj.phone_number if sales_obj else '-'
+            except:
+                try:
+                    order = Order.objects.get(order_no=obj.transaction_id)
+                    return order.buyer.phone_number
+                except:
+                    return '-'
         return '-'
 
     @staticmethod
     def user_purchase_shop_location(obj):
         if obj.transaction_type in ['direct_reward', 'indirect_reward', 'purchase_reward']:
-            sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
-            return sales_obj.shop_loc if sales_obj else '-'
+            try:
+                sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
+                return sales_obj.shop_loc if sales_obj else '-'
+            except:
+                try:
+                    order = Order.objects.get(order_no=obj.transaction_id)
+                    return order.seller_shop
+                except:
+                    return '-'
         return '-'
 
     @staticmethod
     def purchase_invoice(obj):
         if obj.transaction_type in ['direct_reward', 'indirect_reward', 'purchase_reward']:
-            sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
-            return sales_obj.invoice_number if sales_obj else '-'
+            try:
+                sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
+                return sales_obj.invoice_number if sales_obj else '-'
+            except:
+                try:
+                    order = OrderedProduct.objects.get(order__order_no=obj.transaction_id)
+                    return order.invoice_no
+                except:
+                    return '-'
         return '-'
 
     def get_urls(self):
