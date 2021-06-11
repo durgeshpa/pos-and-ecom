@@ -152,6 +152,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
         related_name='parent_product_updated_by',
         on_delete=models.DO_NOTHING
     )
+
     @property
     def ptr_type_text(self):
         if self.ptr_type is not None and self.ptr_type in self.PTR_TYPE_CHOICES:
@@ -1018,3 +1019,14 @@ class ProductPackingMapping(models.Model):
 
     def __str__(self):
         return self.packing_sku.product_sku
+
+
+class ProductLog(models.Model):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_logs', blank=True, null=True, on_delete=models.CASCADE)
+    child_product = models.ForeignKey(Product, related_name='child_product_logs', blank=True, null=True, on_delete=models.CASCADE)
+    update_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='products_updated_by',
+        on_delete=models.DO_NOTHING
+    )

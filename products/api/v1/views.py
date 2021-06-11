@@ -78,7 +78,6 @@ class ParentProductView(GenericAPIView):
         Update Parent Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = ParentProducts.objects.select_related('parent_brand', 'product_hsn', 'updated_by').prefetch_related(
         'parent_product_pro_image', 'parent_product_pro_category', 'parent_product_pro_tax', 'product_parent_product',
         'parent_product_pro_category__category', 'product_parent_product__product_vendor_mapping',
@@ -141,6 +140,8 @@ class ParentProductView(GenericAPIView):
         serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
+            dict_data = {'updated_by': request.user, 'updated_at': "", 'product_id': self.instance}
+            info_logger.info("parent product update info ", dict_data)
             return get_response('parent product updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
@@ -315,7 +316,6 @@ class ProductCappingView(GenericAPIView):
 
 class ProductVendorMappingView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = ProductVendorMapping.objects.select_related('vendor', 'product')
     serializer_class = ProductVendorMappingSerializers
 
@@ -438,6 +438,7 @@ class ChildProductView(GenericAPIView):
                 'packing_material_rt', 'parent_product__parent_product_pro_tax__tax', 'parent_product__parent_brand',
                 'parent_product__product_hsn','parent_product__product_parent_product__product_vendor_mapping',
                 'parent_product__product_parent_product__product_vendor_mapping__vendor', 'product_vendor_mapping__vendor').order_by('-id')
+
     serializer_class = ChildProductSerializers
 
     def get(self, request):
@@ -469,7 +470,7 @@ class ChildProductView(GenericAPIView):
 
         serializer = self.serializer_class(data=modified_data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(created_by=request.user)
             return get_response('child product created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
@@ -493,7 +494,9 @@ class ChildProductView(GenericAPIView):
 
         serializer = self.serializer_class(instance=parent_product_instance, data=modified_data)
         if serializer.is_valid():
-            serializer.save()
+            dict_data = {'updated_by': request.user, 'updated_at': "", 'product_id': self.instance}
+            info_logger.info("child product update info ", dict_data)
+            serializer.save(updated_by=request.user)
             return get_response('child product updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
@@ -523,7 +526,6 @@ class ChildProductView(GenericAPIView):
 
 class ProductHSNView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = ProductHSN.objects.all()
     serializer_class = ProductHSNSerializers
 
@@ -565,7 +567,6 @@ class ProductHSNView(GenericAPIView):
 
 class TaxView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = Tax.objects.all()
     serializer_class = TaxSerializers
 
