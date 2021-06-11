@@ -270,6 +270,11 @@ class DownloadDebitNote(APIView):
         pk = self.kwargs.get('pk')
         a = GRNOrder.objects.get(pk=pk)
         shop = a
+        shop_id = order_obj.order.ordered_cart.gf_billing_address.shop_name_id
+        gf_shops = get_config('GF_SHOPS', constants.GF_SHOPS)
+        is_gf_shop = False
+        if shop_id in gf_shops:
+            is_gf_shop = True
         debit_note_id = a.grn_order_brand_note.all()
         products = a.grn_order_grn_order_product.all()
         product_list = {}
@@ -333,7 +338,8 @@ class DownloadDebitNote(APIView):
             "order_id": order_id, "total_amount_int": total_amount_int,
             "debit_note_id": debit_note_id,
             "gram_factory_billing_gstin": gram_factory_billing_gstin,
-            "gram_factory_shipping_gstin": gram_factory_shipping_gstin
+            "gram_factory_shipping_gstin": gram_factory_shipping_gstin,
+            "is_gf_shop": is_gf_shop
         }
         cmd_option = {'encoding': 'utf8', 'margin-top': 3}
         response = PDFTemplateResponse(
