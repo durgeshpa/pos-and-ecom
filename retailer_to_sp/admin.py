@@ -4,6 +4,7 @@ import logging
 import datetime
 from operator import or_
 from functools import reduce
+from dateutil.relativedelta import relativedelta
 
 # django imports
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
@@ -20,6 +21,7 @@ from django.utils.translation import ugettext_lazy as _
 from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter, RelatedDropdownFilter)
 from django.utils.safestring import mark_safe
 from django.shortcuts import redirect
+from global_config.models import GlobalConfig
 
 # app imports
 from rangefilter.filter import DateTimeRangeFilter
@@ -1368,11 +1370,14 @@ class ShipmentAdmin(NestedModelAdmin):
         search_term:- search strings
 
         """
-
+        order_config = GlobalConfig.objects.filter(key='plan_shipment_month').last()
+        to_date = datetime.date.today()
+        from_date = to_date + relativedelta(months=-(order_config.value))
         queryset, use_distinct = super(ShipmentAdmin, self).get_search_results(
             request, queryset, search_term)
         if queryset:
-            return queryset, use_distinct
+            return queryset.filter(
+            created_at__lte=to_date, created_at__gte=from_date), use_distinct
         else:
             search_words = search_term.split(',')
             if search_words:
@@ -1381,7 +1386,8 @@ class ShipmentAdmin(NestedModelAdmin):
                              for word in search_words]
                 queryset |= self.model.objects.filter(reduce(or_, q_objects))
 
-            return queryset, use_distinct
+            return queryset.filter(
+            created_at__lte=to_date, created_at__gte=from_date), use_distinct
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -1491,14 +1497,15 @@ class ShipmentAdmin(NestedModelAdmin):
                 list(shipment_products_dict), total_shipped_qty,
                 total_ordered_qty)
 
-    def get_queryset(self, request):
-        qs = super(ShipmentAdmin, self).get_queryset(request)
-        if request.user.is_superuser:
-            return qs
-        return qs.filter(
-            Q(order__seller_shop__related_users=request.user) |
-            Q(order__seller_shop__shop_owner=request.user)
-                )
+    # def get_queryset(self, request):
+    #     qs = super(ShipmentAdmin, self).get_queryset(request).filter(
+    #         created_at__lte='2021-06-12', created_at__gte='2021-05-01')
+    #     if request.user.is_superuser:
+    #         return qs
+    #     return qs.filter(
+    #         Q(order__seller_shop__related_users=request.user) |
+    #         Q(order__seller_shop__shop_owner=request.user)
+    #             )
 
 
 class DeliveryBoySearch(InputFilter):
