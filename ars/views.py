@@ -148,7 +148,7 @@ def get_daily_average(warehouse, parent_product):
     for given parent product and warehouse,
     only the days where product is available and visible on app are to be considered in calculating the average
     """
-    
+
     rolling_avg_days = get_config('ROLLING_AVG_DAYS', 30)
     starting_avg_from = datetime.datetime.today().date() - datetime.timedelta(days=rolling_avg_days)
     avg_days = WarehouseInventoryHistoric.objects.filter(warehouse=warehouse,
@@ -252,6 +252,7 @@ def initiate_ars():
                                                          retailer__shop_type__shop_type='sp', status=True)
     parent_retailer_dict = {item.parent_id:item.retailer for item in shop_mappings}
     is_whc_on = get_config('is_wh_consolidation_on')
+    whc_source_dest_mapping = {}
     if is_whc_on:
         whc_source_dest_mapping_qs = SourceDestinationMapping.objects.all()
         whc_source_dest_mapping = {item.source_wh_id: item.dest_wh_id for item in whc_source_dest_mapping_qs}
