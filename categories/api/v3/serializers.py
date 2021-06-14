@@ -5,6 +5,7 @@ from rest_framework import serializers
 from categories.models import Category
 from products.api.v1.serializers import UserSerializers
 from categories.common_function import CategoryCls
+from categories.common_validators import get_validate_category
 
 
 class ParentCategorySerializers(serializers.ModelSerializer):
@@ -15,7 +16,6 @@ class ParentCategorySerializers(serializers.ModelSerializer):
 
 
 class CategoryCrudSerializers(serializers.ModelSerializer):
-
     cat_parent = ParentCategorySerializers(many=True, read_only=True)
     category_slug = serializers.SlugField(required=False, allow_null=True, allow_blank=True)
     updated_by = UserSerializers(write_only=True, required=False)
@@ -24,7 +24,7 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
         model = Category
         prepopulated_fields = {'category_slug': ('category_name',)}
         fields = ('id', 'category_name', 'category_desc', 'cat_parent', 'category_slug',
-                  'category_sku_part', 'category_image', 'updated_by', 'status')
+                  'category_sku_part', 'category_image', 'updated_by', 'status',)
 
     def validate(self, data):
         """
@@ -32,6 +32,12 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
         """
         if not 'category_slug' in self.initial_data or not self.initial_data['category_slug']:
             data['category_slug'] = slugify(data.get('category_name'))
+
+        if 'category_parent' in self.initial_data or self.initial_data['category_parent']:
+            cat_val = get_validate_category(self.initial_data['category_parent'])
+            if 'error' in cat_val:
+                raise serializers.ValidationError(cat_val['error'])
+            data['category_parent'] = cat_val['category']
 
         return data
 

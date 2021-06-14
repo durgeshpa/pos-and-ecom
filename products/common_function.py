@@ -19,28 +19,6 @@ debug_logger = logging.getLogger('file-debug')
 class ParentProductCls(object):
 
     @classmethod
-    def create_parent_product(cls, parent_brand, product_hsn,  **validated_data):
-        """
-            Create Parent Product
-        """
-        parent_brand_obj = get_validate_parent_brand(parent_brand)
-        product_hsn_obj = get_validate_product_hsn(product_hsn)
-        return ParentProduct.objects.create(parent_brand=parent_brand_obj['parent_brand'],
-                                            product_hsn=product_hsn_obj['product_hsn'], **validated_data)
-
-    @classmethod
-    def update_parent_product(cls, parent_brand, product_hsn, parent_product):
-        """
-            Update Parent Product
-        """
-        parent_brand_obj = get_validate_parent_brand(parent_brand)
-        product_hsn_obj = get_validate_product_hsn(product_hsn)
-        parent_product.parent_brand = parent_brand_obj['parent_brand']
-        parent_product.product_hsn = product_hsn_obj['product_hsn']
-        parent_product.save()
-        return parent_product
-
-    @classmethod
     def upload_parent_product_images(cls, parent_product,  parent_product_pro_image, product_images):
         """
             Delete Existing Images of specific ParentProduct if any

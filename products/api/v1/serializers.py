@@ -174,10 +174,12 @@ class ParentProductSerializers(serializers.ModelSerializer):
         parent_brand_val = get_validate_parent_brand(self.initial_data['parent_brand'])
         if 'error' in parent_brand_val:
             raise serializers.ValidationError(parent_brand_val['error'])
+        data['parent_brand'] = parent_brand_val['parent_brand']
 
         product_hsn_val = get_validate_product_hsn(self.initial_data['product_hsn'])
         if 'error' in product_hsn_val:
             raise serializers.ValidationError(_(f'{product_hsn_val["error"]}'))
+        data['product_hsn'] = product_hsn_val['product_hsn']
 
         category_val = get_validate_category(self.initial_data['parent_product_pro_category'])
         if 'error' in category_val:
@@ -212,8 +214,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         validated_data.pop('product_parent_product', None)
 
         try:
-            parent_product = ParentProductCls.create_parent_product(self.initial_data['parent_brand'],
-                                                                    self.initial_data['product_hsn'], **validated_data)
+            parent_product = ParentProduct.objects.create(**validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -234,10 +235,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
 
         try:
             # call super to save modified instance along with the validated data
-            parent_product_obj = super().update(instance, validated_data)
-            parent_product = ParentProductCls.update_parent_product(self.initial_data['parent_brand'],
-                                                                    self.initial_data['product_hsn'],
-                                                                    parent_product_obj)
+            parent_product = super().update(instance, validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
