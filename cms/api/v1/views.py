@@ -1,3 +1,4 @@
+from sys import version_info
 from django.core.checks import messages
 from django.db.models import query
 from rest_framework.exceptions import ValidationError, NotFound
@@ -7,9 +8,9 @@ from rest_framework.response import Response
 from rest_framework import generics, serializers
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer
+from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer
 from ...choices import CARD_TYPE_CHOICES
-from ...models import Application, Card, Page
+from ...models import Application, Card, Page, PageVersion
 
 from .pagination import PaginationHandlerMixin
 from rest_framework.pagination import LimitOffsetPagination
@@ -192,3 +193,29 @@ class PageView(APIView):
             "error": serializer.errors
         }
         return Response(message, status = status.HTTP_400_BAD_REQUEST)
+
+
+class PageDetailView(APIView):
+    """Specific Page Details"""
+    serializer_class = PageDetailSerializer
+
+    def get(self, request, id, format = None):
+        """Get page specific details"""
+        
+        query_params = request.query_params
+        try:
+            page = Page.objects.get(id = id)
+        except Exception:
+            message = {
+                "is_success": False,
+                "message": "No pages exist for this id."
+            }
+            return Response(message, status = status.HTTP_204_NO_CONTENT)
+        serializer = self.serializer_class(page)
+        message = {
+            "is_success": True,
+            "message": "OK",
+            "data": serializer.data
+        }
+        return Response(message, status = status.HTTP_200_OK)
+        

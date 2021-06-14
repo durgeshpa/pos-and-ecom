@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import fields
 from django.http import request
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
@@ -134,6 +135,14 @@ class PageApplicationSerializer(serializers.ModelSerializer):
         fields = ('id', 'name',) 
 
 
+class PageCardSerializer(serializers.ModelSerializer):
+    """ Serializer for Page Card Mapping"""
+    
+    class Meta:
+        model = PageCard
+        fields = ('card_version', 'card_pos', 'card_priority')
+
+
 class PageSerializer(serializers.ModelSerializer):
     """Page Serializer"""
 
@@ -166,6 +175,19 @@ class PageSerializer(serializers.ModelSerializer):
             PageCard.objects.create(page_version = new_page_version, **card)
         return new_page
         
-        
+
+class PageDetailSerializer(serializers.ModelSerializer):
+    """Serializer for Specific Page"""
+
+    class Meta:
+        model = Page
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        data =  super().to_representation(instance)
+        page = PageVersion.objects.select_related('page')
+        page_versions = page.filter(page_id = instance.id)
+        data['versions'] = PageVersionSerializer(page_versions, many = True).data
+        return data
 
         
