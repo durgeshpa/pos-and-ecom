@@ -11,7 +11,7 @@ from rest_framework import serializers
 
 from products.models import Product, ParentProductTaxMapping, ParentProduct, ParentProductCategory, ParentProductImage, \
     ProductHSN, ProductCapping, ProductVendorMapping, ProductImage, ProductPrice, ProductHSN, Tax, ProductSourceMapping, \
-    ProductPackingMapping, DestinationRepackagingCostMapping, ProductLog
+    ProductPackingMapping, DestinationRepackagingCostMapping, CentralLog
 from categories.models import Category
 from brand.models import Brand, Vendor
 from shops.models import Shop
@@ -120,7 +120,7 @@ class UserSerializers(serializers.ModelSerializer):
 
 class LogSerializers(serializers.ModelSerializer):
     class Meta:
-        model = ProductLog
+        model = CentralLog
 
         fields = ('update_at', 'updated_by')
 

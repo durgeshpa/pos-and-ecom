@@ -1022,12 +1022,13 @@ class ProductPackingMapping(models.Model):
         return self.packing_sku.product_sku
 
 
-class ProductLog(models.Model):
-    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_logs', blank=True, null=True, on_delete=models.CASCADE)
-    child_product = models.ForeignKey(Product, related_name='child_product_logs', blank=True, null=True, on_delete=models.CASCADE)
+class CentralLog(models.Model):
+    parent_product = models.ForeignKey(ParentProduct, related_name='parent_product_log', blank=True, null=True, on_delete=models.CASCADE)
+    child_product = models.ForeignKey(Product, related_name='child_product_log', blank=True, null=True, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, related_name='category_product_log', blank=True, null=True, on_delete=models.CASCADE)
     update_at = models.DateTimeField(auto_now_add=True)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
-        related_name='products_updated_by',
+        related_name='updated_by',
         on_delete=models.DO_NOTHING
     )

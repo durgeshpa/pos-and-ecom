@@ -7,12 +7,14 @@ from rest_framework import status
 
 from shops.models import Shop, ParentRetailerMapping
 from wms.common_functions import get_stock_available_category_list
-from .serializers import CategorySerializer,CategoryDataSerializer, BrandSerializer, AllCategorySerializer, SubbCategorySerializer
-from categories.models import Category,CategoryData,CategoryPosation
+from .serializers import CategorySerializer, CategoryDataSerializer, BrandSerializer, AllCategorySerializer, \
+    SubbCategorySerializer
+from categories.models import Category, CategoryData, CategoryPosation
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
-from rest_framework.permissions import (AllowAny,IsAuthenticated)
+from rest_framework.permissions import (AllowAny, IsAuthenticated)
 from brand.models import Brand
+
 
 class GetAllSubCategoryListView(viewsets.ModelViewSet):
     permission_classes = (AllowAny,)
@@ -25,33 +27,36 @@ class GetAllSubCategoryListView(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+
 class GetCategoryListBySlot(APIView):
     permission_classes = (AllowAny,)
 
-    def get(self,*args,**kwargs):
+    def get(self, *args, **kwargs):
         slot_name = self.kwargs.get("slot_name")
         if slot_name:
             category_data = CategoryData.objects.filter(category_pos__posation_name=slot_name)
         else:
             category_data = CategoryData.objects.all()
-        category_data_serializer = CategoryDataSerializer(category_data,many=True)
+        category_data_serializer = CategoryDataSerializer(category_data, many=True)
         is_success = True if category_data else False
-        return Response({ "message":[""],"response_data": category_data_serializer.data,"is_success":is_success})
+        return Response({"message": [""], "response_data": category_data_serializer.data, "is_success": is_success})
+
 
 class GetcategoryBrandListView(APIView):
-
     permission_classes = (AllowAny,)
+
     def get(self, *args, **kwargs):
         category_id = kwargs.get('category')
         category = Category.objects.get(pk=category_id)
-        brands = Brand.objects.filter(categories = category_id)
-        category_brand_serializer = BrandSerializer(brands,many=True)
+        brands = Brand.objects.filter(categories=category_id)
+        category_brand_serializer = BrandSerializer(brands, many=True)
         is_success = True if brands else False
-        return Response({"message":[""], "response_data": category_brand_serializer.data ,"is_success":is_success })
+        return Response({"message": [""], "response_data": category_brand_serializer.data, "is_success": is_success})
+
 
 class GetSubCategoriesListView(APIView):
-
     permission_classes = (AllowAny,)
+
     def get(self, *args, **kwargs):
         category_id = kwargs.get('category')
         shop_id = self.request.GET.get('shop_id')
@@ -64,17 +69,19 @@ class GetSubCategoriesListView(APIView):
             categories_with_products = get_stock_available_category_list()
         category = Category.objects.get(pk=category_id)
         sub_categories = category.cat_parent.filter(status=True, id__in=categories_with_products)
-        sub_category_data_serializer = SubbCategorySerializer(sub_categories,many=True)
+        sub_category_data_serializer = SubbCategorySerializer(sub_categories, many=True)
 
         is_success = True if sub_categories else False
-        return Response({"message":[""], "response_data": sub_category_data_serializer.data ,"is_success":is_success })
+        return Response({"message": [""], "response_data": sub_category_data_serializer.data, "is_success": is_success})
+
 
 class GetAllCategoryListView(APIView):
-
     permission_classes = (AllowAny,)
+
     def get(self, *args, **kwargs):
         categories = Category.objects.filter(category_parent=None, status=True)
-        category_subcategory_serializer = AllCategorySerializer(categories,many=True)
+        category_subcategory_serializer = AllCategorySerializer(categories, many=True)
 
         is_success = True if categories else False
-        return Response({ "message":[""],"response_data": category_subcategory_serializer.data,"is_success":is_success})
+        return Response(
+            {"message": [""], "response_data": category_subcategory_serializer.data, "is_success": is_success})

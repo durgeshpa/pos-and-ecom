@@ -1,11 +1,5 @@
 import logging
 import json
-import sys
-import requests
-from io import BytesIO
-from django.core.files.uploadedfile import InMemoryUploadedFile
-from django.core.validators import URLValidator
-from django.core.exceptions import ValidationError
 
 from brand.models import Brand, Vendor
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \

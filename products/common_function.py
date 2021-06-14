@@ -4,7 +4,7 @@ from rest_framework.response import Response
 
 from products.models import Product, Tax, ParentProductTaxMapping, ParentProduct, ParentProductCategory, \
      ParentProductImage, ProductHSN, ProductCapping, ProductVendorMapping, ChildProductImage, ProductImage, \
-    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, ProductLog
+    ProductSourceMapping, DestinationRepackagingCostMapping, ProductPackingMapping, CentralLog
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_product,\
     get_validate_seller_shop, get_validate_vendor, get_validate_parent_product
 from categories.models import Category
@@ -91,7 +91,7 @@ class ParentProductCls(object):
         """
             Create Parent Product Log
         """
-        parent_product_log = ProductLog.objects.create(parent_product=log_obj, update_at=log_obj.updated_at,
+        parent_product_log = CentralLog.objects.create(parent_product=log_obj, update_at=log_obj.updated_at,
                                                        updated_by=log_obj.updated_by)
 
         dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
@@ -212,7 +212,7 @@ class ProductCls(object):
         """
             Create Child Product Log
         """
-        child_product_log = ProductLog.objects.create(child_product=log_obj,
+        child_product_log = CentralLog.objects.create(child_product=log_obj,
                                                       update_at=log_obj.updated_at, updated_by=log_obj.updated_by)
 
         dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
