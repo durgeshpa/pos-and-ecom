@@ -14,13 +14,14 @@ from accounts.models import User
 from addresses.models import Address
 from ars.models import ProductDemand, VendorDemand, VendorDemandProducts
 from global_config.views import get_config
-from gram_to_brand.models import Cart, CartProductMapping, GRNOrderProductMapping
+from gram_to_brand.models import Cart, CartProductMapping, GRNOrderProductMapping, VendorShopMapping
 from products.models import ProductVendorMapping, ParentProduct
 from retailer_backend.common_function import bulk_create, send_mail
 from retailer_backend.messages import SUCCESS_MESSAGES
 from retailer_to_sp.models import Order
 from services.models import WarehouseInventoryHistoric
 from shops.models import ParentRetailerMapping, Shop
+from whc.models import SourceDestinationMapping
 from wms.common_functions import get_inventory_in_stock
 from wms.models import Putaway, WarehouseInventory, InventoryState, InventoryType
 
@@ -147,7 +148,7 @@ def get_daily_average(warehouse, parent_product):
     for given parent product and warehouse,
     only the days where product is available and visible on app are to be considered in calculating the average
     """
-
+    return 1000
     rolling_avg_days = get_config('ROLLING_AVG_DAYS', 30)
     starting_avg_from = datetime.datetime.today().date() - datetime.timedelta(days=rolling_avg_days)
     avg_days = WarehouseInventoryHistoric.objects.filter(warehouse=warehouse,
@@ -238,59 +239,74 @@ def initiate_ars():
     info_logger.info("initiate_ars|Started| Day of Week {} ".format(datetime.date.today().isoweekday()))
 
     min_inventory_factor = get_config('ARS_MIN_INVENTORY_FACTOR', 70)
-    warehouse_ids_as_string = get_config('ARS_WAREHOUSES')
-    if warehouse_ids_as_string is None or len(warehouse_ids_as_string) == 0:
-        return
-    warehouse_ids = warehouse_ids_as_string.split(",")
-    warehouse_list = Shop.objects.filter(id__in=warehouse_ids)
 
     product_vendor_mappings = ProductVendorMapping.objects.filter(
+                                                            product__parent_product__parent_id='PHPCHUL1624',
                                                             product__parent_product__is_ars_applicable=True,
                                                             vendor__ordering_days__contains=datetime.date.today().isoweekday(),
                                                             is_default=True, status=True)
+    vendor_warehouse_mapping_qs = VendorShopMapping.objects.all()
+    vendor_warehouse_mapping = {item.vendor_id : item.shop_id for item in vendor_warehouse_mapping_qs}
+    gf_shop_ids = vendor_warehouse_mapping_qs.distinct('shop_id').values_list('shop_id', flat=True)
+    shop_mappings = ParentRetailerMapping.objects.filter(parent__id__in=gf_shop_ids,
+                                                         retailer__shop_type__shop_type='sp', status=True)
+    parent_retailer_dict = {item.parent_id:item.retailer for item in shop_mappings}
+    is_whc_on = get_config('is_wh_consolidation_on')
+    if is_whc_on:
+        whc_source_dest_mapping_qs = SourceDestinationMapping.objects.all()
+        whc_source_dest_mapping = {item.source_wh_id: item.dest_wh_id for item in whc_source_dest_mapping_qs}
 
     brand_product_dict = {}
     for item in product_vendor_mappings:
         parent_product = item.product.parent_product
         brand = parent_product.parent_brand_id if parent_product.parent_brand.brand_parent is None else parent_product.parent_brand.brand_parent_id
 
-        for warehouse in warehouse_list:
-            if brand_product_dict.get(brand) is None:
-                brand_product_dict[brand] = {warehouse.id: {item.vendor_id: {}}}
-            elif brand_product_dict[brand].get(warehouse.id) is None:
-                brand_product_dict[brand][warehouse.id] = {item.vendor_id: {}}
-            elif brand_product_dict[brand][warehouse.id].get(item.vendor_id) is None:
-                brand_product_dict[brand][warehouse.id][item.vendor_id] = {}
-            if parent_product not in brand_product_dict[brand][warehouse.id][item.vendor_id].keys():
-                is_eligible_to_raise_demand = False
-                daily_average = get_daily_average(warehouse, parent_product)
-                if daily_average <= 0:
-                    continue
-                current_inventory = get_current_inventory(warehouse, parent_product)
-                max_inventory_in_days = parent_product.max_inventory
-                if parent_product.is_lead_time_applicable:
-                    max_inventory_in_days = max_inventory_in_days + item.vendor.lead_time
-                demand = (daily_average * max_inventory_in_days) - current_inventory
+        gf_shop_id = vendor_warehouse_mapping.get(item.vendor_id)
+        if gf_shop_id is None:
+            info_logger.info('initiate_ars | No shop mapped for this vendor. Vendor id {}'.format(item.vendor_id))
+            continue
+        warehouse = parent_retailer_dict.get(gf_shop_id)
+        if warehouse is None:
+            info_logger.info('initiate_ars | No retailer shop mapped for this shop. Shop id {}'.format(gf_shop_id))
+            continue
 
-                if demand <= 0:
-                    continue
+        if brand_product_dict.get(brand) is None:
+            brand_product_dict[brand] = {warehouse.id: {item.vendor_id: {}}}
+        elif brand_product_dict[brand].get(warehouse.id) is None:
+            brand_product_dict[brand][warehouse.id] = {item.vendor_id: {}}
+        elif brand_product_dict[brand][warehouse.id].get(item.vendor_id) is None:
+            brand_product_dict[brand][warehouse.id][item.vendor_id] = {}
+        if parent_product not in brand_product_dict[brand][warehouse.id][item.vendor_id].keys():
+            is_eligible_to_raise_demand = False
+            max_inventory_in_days = parent_product.max_inventory
+            if parent_product.is_lead_time_applicable:
+                max_inventory_in_days = max_inventory_in_days + item.vendor.lead_time
 
-                min_inventory_in_days = max_inventory_in_days * min_inventory_factor / 100
-                max_inventory = max_inventory_in_days * daily_average
-                min_inventory = min_inventory_in_days * daily_average
+            daily_average = get_daily_average(warehouse, parent_product)
+            current_inventory = get_current_inventory(warehouse, parent_product)
+            demand = (daily_average * max_inventory_in_days) - current_inventory
+            demand = 0 if demand < 0 else demand
+            if whc_source_dest_mapping.get(warehouse.id) is not None:
+                dest_warehouse = whc_source_dest_mapping.get(warehouse.id)
 
-                if demand >= (max_inventory - min_inventory):
-                    is_eligible_to_raise_demand = True
+                daily_average = get_daily_average(dest_warehouse, parent_product)
+                current_inventory = get_current_inventory(dest_warehouse, parent_product)
+                demand += (daily_average * max_inventory_in_days) - current_inventory
+                demand = 0 if demand < 0 else demand
+            min_inventory_in_days = max_inventory_in_days * min_inventory_factor / 100
+            max_inventory = max_inventory_in_days * daily_average
+            min_inventory = min_inventory_in_days * daily_average
+            if demand >= (max_inventory - min_inventory):
+                is_eligible_to_raise_demand = True
 
-                if is_eligible_to_raise_demand:
-                    brand_product_dict[brand][warehouse.id][item.vendor_id][parent_product.id] = demand
+            if is_eligible_to_raise_demand:
+                brand_product_dict[brand][warehouse.id][item.vendor_id][parent_product.id] = demand
 
     for brand, warehouse_demand_dict in brand_product_dict.items():
         for wh, vendor_demand_dict in warehouse_demand_dict.items():
             for vendor, product_demand_dict in vendor_demand_dict.items():
                 with transaction.atomic():
                     if len(product_demand_dict) > 0:
-
                         existing_demand_raised = VendorDemand.objects.filter(brand_id=brand,
                                                                              vendor_id=vendor,
                                                                              warehouse_id=wh,
@@ -313,8 +329,7 @@ def get_child_product_with_latest_grn(warehouse_id, parent_product_id):
     In case there are more than one child products with same GRN time then it returns the child product with greater MRP
     """
     child_product_with_latest_grn = None
-    products = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_billing_address__shop_name_id=warehouse_id,
-                                                     product__parent_product_id=parent_product_id).order_by('-created_at')
+    products = GRNOrderProductMapping.objects.filter(product__parent_product_id=parent_product_id).order_by('-created_at')
     if products.exists():
         child_product_with_latest_grn = products[0].product
         created_at = child_product_with_latest_grn.created_at
