@@ -148,7 +148,7 @@ def get_daily_average(warehouse, parent_product):
     for given parent product and warehouse,
     only the days where product is available and visible on app are to be considered in calculating the average
     """
-    return 1000
+    
     rolling_avg_days = get_config('ROLLING_AVG_DAYS', 30)
     starting_avg_from = datetime.datetime.today().date() - datetime.timedelta(days=rolling_avg_days)
     avg_days = WarehouseInventoryHistoric.objects.filter(warehouse=warehouse,
