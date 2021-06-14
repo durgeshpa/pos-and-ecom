@@ -241,7 +241,6 @@ def initiate_ars():
     min_inventory_factor = get_config('ARS_MIN_INVENTORY_FACTOR', 70)
 
     product_vendor_mappings = ProductVendorMapping.objects.filter(
-                                                            product__parent_product__parent_id='PHPCHUL1624',
                                                             product__parent_product__is_ars_applicable=True,
                                                             vendor__ordering_days__contains=datetime.date.today().isoweekday(),
                                                             is_default=True, status=True)
