@@ -1,10 +1,11 @@
-from django.db import models
-from django.db.models import fields
-from django.http import request
+import logging
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
 
 
 class CardAppSerializer(serializers.ModelSerializer):
@@ -48,12 +49,15 @@ class CardDataSerializer(serializers.ModelSerializer):
                                                             card=card,
                                                             card_data=new_card_data,
                                                             )
+            info_logger.info(f"Create New Card Version version-{latest_version} for card  id-{card.id}, name-{card.name}")
         else:
             new_card = Card.objects.create(app=app,name=data["name"], type=data["type"])
             CardVersion.objects.create(version_number=1,
                                                             card=new_card,
                                                             card_data=new_card_data,
                                                             )
+            info_logger.info(f"Created New Card with ID {new_card.id}")
+        
         return new_card_data
 
 class CardSerializer(serializers.ModelSerializer):

@@ -1,4 +1,4 @@
-from sys import version_info
+import logging
 from django.core.checks import messages
 from django.db.models import query
 from rest_framework.exceptions import ValidationError, NotFound
@@ -14,6 +14,11 @@ from ...models import Application, Card, Page, PageVersion
 
 from .pagination import PaginationHandlerMixin
 from rest_framework.pagination import LimitOffsetPagination
+
+
+
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
 
 class BasicPagination(LimitOffsetPagination):
     limit_query_param = "limit"
@@ -32,7 +37,6 @@ class CardView(APIView, PaginationHandlerMixin):
         """Get all cards"""
 
         query_params = request.query_params
-
         queryset = Card.objects.all()
 
         if query_params.get('id'):
@@ -72,7 +76,7 @@ class CardView(APIView, PaginationHandlerMixin):
 
     def post(self, request):
         """Create a new card"""
-
+        info_logger.info("CardView POST API called.")
         data = request.data
         card_data = data.pop("card_data")
         serializer = CardDataSerializer(data=card_data, context={'request': request})
@@ -90,6 +94,8 @@ class CardView(APIView, PaginationHandlerMixin):
                 "is_success": "false",
                 "message": "please check the fields",
             }
+            error_logger.error(serializer.errors)
+            info_logger.error(f"Failed To Create New Card")
             return Response(message, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -118,7 +124,9 @@ class ApplicationView(APIView):
 
     def post(self, request):
         """POST Application Data"""
-        serializer = self.serializer_class(data = request.data)
+
+        info_logger.info("ApplicationView POST API called.")
+        serializer = self.serializer_class(data = reqeust.data)
         if serializer.is_valid():
             serializer.save(created_by = request.user)
             message = {
@@ -132,6 +140,7 @@ class ApplicationView(APIView):
             "message": "Data is not valid",
             "error": serializer.errors
         }
+        error_logger.error(serializer.errors)
         return Response(message, status = status.HTTP_400_BAD_REQUEST)
 
 
