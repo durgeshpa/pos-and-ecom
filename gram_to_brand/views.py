@@ -44,6 +44,14 @@ import logging
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 
+
+class VendorAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Vendor.objects.all()
+        if self.q:
+            qs = qs.filter(vendor_name__startswith=self.q)
+        return qs
+
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = None

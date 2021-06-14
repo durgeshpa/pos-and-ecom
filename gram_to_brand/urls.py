@@ -5,13 +5,15 @@ from .views import (SupplierAutocomplete, ShippingAddressAutocomplete, BillingAd
                     DownloadPurchaseOrder,
                     GRNProductPriceMappingData, GRNProductAutocomplete, GRNProductMappingData, GRNProduct1MappingData,
                     GRNOrderAutocomplete,
-                    GRNedProductData, ApproveView, DisapproveView, DownloadDebitNote, MergedBarcode, ParentProductAutocomplete,
-                    FetchLastGRNProduct)
+                    GRNedProductData, ApproveView, DisapproveView, DownloadDebitNote, MergedBarcode,
+                    ParentProductAutocomplete,
+                    FetchLastGRNProduct, VendorAutocomplete)
 
 
 from django.conf.urls import url,include
 
 urlpatterns = [
+    url(r'^vendor-autocomplete/$',VendorAutocomplete.as_view(),name='vendor-autocomplete',),
     url(r'^supplier-autocomplete/$',SupplierAutocomplete.as_view(),name='supplier-autocomplete',),
     url(r'^shipping-address-autocomplete/$',ShippingAddressAutocomplete.as_view(),name='shipping-address-autocomplete',),
     url(r'^billing-address-autocomplete/$',BillingAddressAutocomplete.as_view(),name='billing-address-autocomplete',),
