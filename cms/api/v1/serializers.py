@@ -1,7 +1,9 @@
+from django.db import models
+from django.http import request
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 
-from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageVersion
+from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage
 
 
 class CardAppSerializer(serializers.ModelSerializer):
@@ -114,3 +116,56 @@ class ApplicationDataSerializer(serializers.ModelSerializer):
         pages = Page.objects.filter(app_pages__app=instance.id)
         data['pages'] = ApplicationPageSerializer(pages, many=True).data
         return data
+
+
+class PageVersionSerializer(serializers.ModelSerializer):
+    """Serializer for Page Version"""
+
+    class Meta:
+        model = PageVersion
+        fields = ('id', 'version_no', 'published_on',)
+
+
+class PageApplicationSerializer(serializers.ModelSerializer):
+    """Serializer for Application of the Page"""
+
+    class Meta:
+        model = Application
+        fields = ('id', 'name',) 
+
+
+class PageSerializer(serializers.ModelSerializer):
+    """Page Serializer"""
+
+    class Meta:
+        model = Page
+        fields = '__all__'
+        depth = 1
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        page_version = PageVersion.objects.filter(page = instance.id)
+        data['version'] = PageVersionSerializer(page_version, many = True).data
+        app = ApplicationPage.objects.select_related('app').get(page = instance.id).app
+        data['application'] = PageApplicationSerializer(app).data
+        return data
+
+    def create(self, validated_data):
+        data = self.context.get("request").data
+        app_id = data.get("app_id")
+        cards = data.get("cards")
+        # Create new Page
+        new_page = Page.objects.create(**validated_data)
+        # Mapping Page and Application
+        app = get_object_or_404(Application, id = app_id)
+        ApplicationPage.objects.create(app = app, page = new_page)
+        # Creating Page Version
+        new_page_version = PageVersion.objects.create(page = new_page, version_no = 1)
+        # Mapping Cards of Pages
+        for card in cards:
+            PageCard.objects.create(page_version = new_page_version, **card)
+        return new_page
+        
+        
+
+        

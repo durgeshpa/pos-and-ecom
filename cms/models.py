@@ -71,6 +71,7 @@ class Page(models.Model):
     start_date = models.DateField(auto_now_add=False)
     expiry_date = models.DateField(auto_now_add=False)
     status = models.CharField(max_length=255, choices=PAGE_STATE_CHOICES, default='Draft')
+    active_version_no = models.IntegerField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.name} - id {self.id}"

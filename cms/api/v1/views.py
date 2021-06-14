@@ -7,9 +7,9 @@ from rest_framework.response import Response
 from rest_framework import generics, serializers
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer
+from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer
 from ...choices import CARD_TYPE_CHOICES
-from ...models import Application, Card
+from ...models import Application, Card, Page
 
 from .pagination import PaginationHandlerMixin
 from rest_framework.pagination import LimitOffsetPagination
@@ -115,11 +115,11 @@ class ApplicationView(APIView):
         }
         return Response(message, status = status.HTTP_200_OK)
 
-    def post(self, reqeust):
+    def post(self, request):
         """POST Application Data"""
-        serializer = self.serializer_class(data = reqeust.data)
+        serializer = self.serializer_class(data = request.data)
         if serializer.is_valid():
-            serializer.save(created_by = reqeust.user)
+            serializer.save(created_by = request.user)
             message = {
                 "is_success": True,
                 "message": "OK",
@@ -156,3 +156,39 @@ class ApplicationDetailView(APIView):
             "data": serializer.data
         }
         return Response(message, status = status.HTTP_200_OK)
+
+
+class PageView(APIView):
+    """Get and Post Page data"""
+    serializer_class = PageSerializer
+
+    def get(self, request, format = None):
+        """Get list of all Pages"""
+
+        pages = Page.objects.all()
+        serializer = self.serializer_class(pages, many = True)
+        message = {
+            "is_success":True,
+            "message": "OK",
+            "data": serializer.data
+        }
+        return Response(message, status = status.HTTP_200_OK)
+
+    def post(self, request):
+        """ Save Page data"""
+        
+        serializer = self.serializer_class(data = request.data,context = {'request':request})
+        if serializer.is_valid():
+            serializer.save()
+            message = {
+                "is_success": True,
+                "message": "OK",
+                "data": serializer.data
+            }
+            return Response(message, status = status.HTTP_201_CREATED)
+        message = {
+            "is_success": False,
+            "message": "Data is not valid",
+            "error": serializer.errors
+        }
+        return Response(message, status = status.HTTP_400_BAD_REQUEST)
