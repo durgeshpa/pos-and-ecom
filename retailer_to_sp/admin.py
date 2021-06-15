@@ -247,13 +247,12 @@ class InvoiceSearch(InputFilter):
     title = 'Invoice No.'
 
     def queryset(self, request, queryset):
-        if self.value() is not None:
+        if self.value():
             invoice_no = self.value().split(',')
-            if invoice_no is None:
-                return queryset
             return queryset.filter(
                 Q(invoice__invoice_no__in=invoice_no)
             )
+        return queryset
 
 class OrderInvoiceSearch(InputFilter):
     parameter_name = 'invoice_no'
@@ -272,13 +271,12 @@ class ShipmentOrderIdSearch(InputFilter):
     title = 'Order Id'
 
     def queryset(self, request, queryset):
-        if self.value() is not None:
+        if self.value():
             order_id = self.value().split(',')
-            if order_id is None:
-                return
             return queryset.filter(
                 Q(order__order_no__in=order_id)
             )
+        return queryset
 
 
 class ShipmentSellerShopSearch(InputFilter):
@@ -286,13 +284,12 @@ class ShipmentSellerShopSearch(InputFilter):
     title = 'Seller Shop'
 
     def queryset(self, request, queryset):
-        if self.value() is not None:
+        if self.value():
             seller_shop_name = self.value()
-            if seller_shop_name is None:
-                return
             return queryset.filter(
                 Q(order__seller_shop__shop_name__icontains=seller_shop_name)
             )
+        return queryset
 
 class SellerShopFilter(AutocompleteFilter):
     field_name = 'seller_shop'
@@ -1376,9 +1373,6 @@ class ShipmentAdmin(NestedModelAdmin):
         search_term:- search strings
 
         """
-        #order_config = GlobalConfig.objects.filter(key='plan_shipment_month').last()
-        #to_date = datetime.date.today()+datetime.timedelta(days=1)
-        #from_date = to_date + relativedelta(months=-(order_config.value))
         queryset, use_distinct = super(ShipmentAdmin, self).get_search_results(
             request, queryset, search_term)
         if queryset:
