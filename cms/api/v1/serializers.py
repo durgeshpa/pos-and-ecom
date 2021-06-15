@@ -1,6 +1,7 @@
 import logging
 from django.db import models
 from django.db.models import fields
+from django.http import request
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
@@ -92,7 +93,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class ApplicationSerializer(serializers.ModelSerializer):
     """Application Serializer"""
-    created_by = UserSerializer()
+    created_by = UserSerializer(required = False)
 
     class Meta:
         model = Application
