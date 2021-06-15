@@ -119,10 +119,11 @@ class UserSerializers(serializers.ModelSerializer):
 
 
 class LogSerializers(serializers.ModelSerializer):
+
     class Meta:
         model = CentralLog
 
-        fields = ('update_at', 'updated_by', 'child_product', 'parent_product')
+        fields = ('update_at', 'updated_by',)
 
 
 class ParentProductSerializers(serializers.ModelSerializer):

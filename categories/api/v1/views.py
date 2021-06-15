@@ -108,9 +108,9 @@ class CategoryView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Category.objects.filter(category_parent=None).select_related('updated_by').prefetch_related(
-        'sub_category', 'category_product_log').only('id', 'category_name', 'category_desc', 'category_image', 'category_sku_part',
-        'updated_by', 'status', 'category_slug')
+    queryset = Category.objects.select_related('updated_by', 'category_parent').prefetch_related('category_product_log', 'sub_category').\
+        only('id', 'category_name', 'category_desc', 'category_image', 'category_sku_part', 'updated_by',
+             'category_parent', 'status', 'category_slug').order_by('-id')
     serializer_class = CategoryCrudSerializers
 
     def get(self, request):
@@ -181,26 +181,3 @@ class CategoryView(GenericAPIView):
             self.queryset = self.queryset.filter(status=cat_status)
 
         return self.queryset
-
-
-class GetSubCategoryById(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
-    queryset = Category.objects.exclude(category_parent=None).prefetch_related('category_product_log').only('id',
-            'category_name', 'category_desc', 'category_image', 'category_sku_part', 'updated_by', 'status',
-            'category_slug')
-    serializer_class = CategorySerializer
-
-    def get(self, request):
-
-        info_logger.info("SUB Category GET api called.")
-        if request.GET.get('id'):
-            """ Get Category for specific ID with SubCategory"""
-            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            category = id_validation['data']
-            serializer = self.serializer_class(category, many=True)
-            return get_response('sub category Details!', serializer.data)
-        else:
-            return get_response('provide id', False)

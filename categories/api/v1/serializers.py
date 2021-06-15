@@ -6,16 +6,9 @@ from categories.models import Category,CategoryPosation,CategoryData
 from brand.models import Brand
 from categories.models import Category
 from products.models import CentralLog
-from products.api.v1.serializers import UserSerializers
+from products.api.v1.serializers import UserSerializers, LogSerializers
 from categories.common_function import CategoryCls
 from categories.common_validators import get_validate_category
-
-
-class LogSerializers(serializers.ModelSerializer):
-    class Meta:
-        model = CentralLog
-
-        fields = ('update_at', 'updated_by', 'category')
 
 
 class SubCategorySerializer(serializers.Serializer):
@@ -79,16 +72,26 @@ class ParentCategorySerializers(serializers.ModelSerializer):
         fields = ('id', 'category_name',)
 
 
+class SubCategorySerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model = Category
+
+        fields = ('id', 'category_name', 'category_name', 'category_desc', 'category_slug',
+                  'category_sku_part', 'category_image', 'status',)
+
+
 class CategoryCrudSerializers(serializers.ModelSerializer):
-    sub_category = ParentCategorySerializers(many=True, read_only=True)
+    sub_category = SubCategorySerializers(many=True, read_only=True)
+    category_parent = ParentCategorySerializers(read_only=True)
     category_slug = serializers.SlugField(required=False, allow_null=True, allow_blank=True)
     updated_by = UserSerializers(write_only=True, required=False)
     category_product_log = LogSerializers(many=True, read_only=True)
 
     class Meta:
         model = Category
-        fields = ('id', 'category_name', 'category_desc', 'sub_category', 'category_slug',
-                  'category_sku_part', 'category_image', 'updated_by', 'status', 'category_product_log')
+        fields = ('id', 'category_name', 'category_desc', 'category_slug', 'category_sku_part', 'category_image',
+                  'updated_by', 'status', 'category_parent', 'category_product_log', 'sub_category')
 
     def validate(self, data):
         """
@@ -97,7 +100,7 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
         if not 'category_slug' in self.initial_data or not self.initial_data['category_slug']:
             data['category_slug'] = slugify(data.get('category_name'))
 
-        if 'category_parent' in self.initial_data or self.initial_data['category_parent']:
+        if 'category_parent' in self.initial_data and self.initial_data['category_parent'] is not None:
             cat_val = get_validate_category(self.initial_data['category_parent'])
             if 'error' in cat_val:
                 raise serializers.ValidationError(cat_val['error'])
@@ -121,3 +124,5 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
         CategoryCls.create_category_log(category)
 
         return category
+
+
