@@ -250,7 +250,7 @@ class InvoiceSearch(InputFilter):
         if self.value() is not None:
             invoice_no = self.value().split(',')
             if invoice_no is None:
-                return
+                return queryset.filter()
             return queryset.filter(
                 Q(invoice__invoice_no__in=invoice_no)
             )
@@ -1376,14 +1376,13 @@ class ShipmentAdmin(NestedModelAdmin):
         search_term:- search strings
 
         """
-        order_config = GlobalConfig.objects.filter(key='plan_shipment_month').last()
-        to_date = datetime.date.today()+datetime.timedelta(days=1)
-        from_date = to_date + relativedelta(months=-(order_config.value))
+        #order_config = GlobalConfig.objects.filter(key='plan_shipment_month').last()
+        #to_date = datetime.date.today()+datetime.timedelta(days=1)
+        #from_date = to_date + relativedelta(months=-(order_config.value))
         queryset, use_distinct = super(ShipmentAdmin, self).get_search_results(
             request, queryset, search_term)
         if queryset:
-            return queryset.filter(
-            created_at__lte=to_date, created_at__gte=from_date), use_distinct
+            return queryset, use_distinct
         else:
             search_words = search_term.split(',')
             if search_words:
@@ -1392,8 +1391,7 @@ class ShipmentAdmin(NestedModelAdmin):
                              for word in search_words]
                 queryset |= self.model.objects.filter(reduce(or_, q_objects))
 
-            return queryset.filter(
-            created_at__lte=to_date, created_at__gte=from_date), use_distinct
+            return queryset, use_distinct
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -1452,20 +1450,28 @@ class ShipmentAdmin(NestedModelAdmin):
 
 
     def pincode(self, obj):
-        return obj.order.shipping_address.pincode
+        try:
+            return obj.order.shipping_address.pincode
+        except:
+            return obj.order.seller_shop.shipping_address.pincode
 
     def seller_shop(self, obj):
         return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
         address = obj.order.shipping_address
+        if address is None:
+            address = obj.order.seller_shop.shipping_address
         address_line = address.address_line1
         contact = address.address_contact_number
         shop_name = address.shop_name.shop_name
         return str("%s, %s(%s)") % (shop_name, address_line, contact)
 
     def invoice_city(self, obj):
-        city = obj.order.shipping_address.city
+        try:
+            city = obj.order.shipping_address.city
+        except:
+            city = obj.order.seller_shop.shipping_address.city
         return str(city)
 
     def start_qc(self,obj):
@@ -1503,15 +1509,19 @@ class ShipmentAdmin(NestedModelAdmin):
                 list(shipment_products_dict), total_shipped_qty,
                 total_ordered_qty)
 
-    # def get_queryset(self, request):
-    #     qs = super(ShipmentAdmin, self).get_queryset(request).filter(
-    #         created_at__lte='2021-06-12', created_at__gte='2021-05-01')
-    #     if request.user.is_superuser:
-    #         return qs
-    #     return qs.filter(
-    #         Q(order__seller_shop__related_users=request.user) |
-    #         Q(order__seller_shop__shop_owner=request.user)
-    #             )
+    def get_queryset(self, request):
+        order_config = GlobalConfig.objects.filter(key='plan_shipment_month').last()
+        to_date = datetime.date.today() + datetime.timedelta(days=1)
+        from_date = to_date + relativedelta(months=-(order_config.value))
+        qs = super(ShipmentAdmin, self).get_queryset(request).filter(
+            created_at__lte=to_date, created_at__gte=from_date)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(order__seller_shop__related_users=request.user) |
+            Q(order__seller_shop__shop_owner=request.user)
+                ).filter(
+            created_at__lte=to_date, created_at__gte=from_date)
 
 
 class DeliveryBoySearch(InputFilter):
