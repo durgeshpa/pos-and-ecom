@@ -1367,9 +1367,6 @@ class ShipmentAdmin(NestedModelAdmin):
         search_term:- search strings
 
         """
-        #order_config = GlobalConfig.objects.filter(key='plan_shipment_month').last()
-        #to_date = datetime.date.today()+datetime.timedelta(days=1)
-        #from_date = to_date + relativedelta(months=-(order_config.value))
         queryset, use_distinct = super(ShipmentAdmin, self).get_search_results(
             request, queryset, search_term)
         if queryset:
