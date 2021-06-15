@@ -7,17 +7,6 @@ from categories.models import Category
 logger = logging.getLogger(__name__)
 
 
-def get_validate_category(category_id):
-    """ validate ids that belong to a Category model  """
-
-    try:
-        category = Category.objects.get(id=category_id)
-    except Exception as e:
-        logger.error(e)
-        return {'error': '{} category not found'.format(category_id)}
-    return {'category': category}
-
-
 def validate_data_format(request):
     # Validate category data
     try:
@@ -29,3 +18,17 @@ def validate_data_format(request):
         data['category_image'] = request.FILES['category_image']
 
     return data
+
+
+def get_validate_category(category_id):
+    """ validate ids that belong to a Category model  """
+
+    try:
+        category = Category.objects.get(id=category_id)
+    except Exception as e:
+        logger.error(e)
+        return {'error': '{} category not found'.format(category_id)}
+    return {'category': category}
+
+
+

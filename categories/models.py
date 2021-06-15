@@ -39,7 +39,7 @@ class Category(BaseTimestampUserStatusModel):
     category_name = models.CharField(max_length=255, unique=True)
     category_slug = models.SlugField(unique=True)
     category_desc = models.TextField(null=True, blank=True)
-    category_parent = models.ForeignKey('self', related_name='cat_parent', blank=True, null=True, on_delete=models.CASCADE)
+    category_parent = models.ForeignKey('self', related_name='sub_category', blank=True, null=True, on_delete=models.CASCADE)
     category_sku_part = models.CharField(max_length=3, unique=True, validators=[CapitalAlphabets],
                                          help_text="Please enter three characters for SKU")
     category_image = models.FileField(upload_to='category_img_file', null=True, blank=True)

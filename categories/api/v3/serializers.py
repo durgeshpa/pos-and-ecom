@@ -16,14 +16,14 @@ class ParentCategorySerializers(serializers.ModelSerializer):
 
 
 class CategoryCrudSerializers(serializers.ModelSerializer):
-    cat_parent = ParentCategorySerializers(many=True, read_only=True)
+    sub_category = ParentCategorySerializers(many=True, read_only=True)
     category_slug = serializers.SlugField(required=False, allow_null=True, allow_blank=True)
     updated_by = UserSerializers(write_only=True, required=False)
 
     class Meta:
         model = Category
         prepopulated_fields = {'category_slug': ('category_name',)}
-        fields = ('id', 'category_name', 'category_desc', 'cat_parent', 'category_slug',
+        fields = ('id', 'category_name', 'category_desc', 'sub_category', 'category_slug',
                   'category_sku_part', 'category_image', 'updated_by', 'status',)
 
     def validate(self, data):

@@ -24,8 +24,9 @@ class CategoryView(GenericAPIView):
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    queryset = Category.objects.filter(category_parent=None).select_related('updated_by'). \
-        prefetch_related('cat_parent',).only('id', 'category_name', 'category_desc', 'category_image', 'category_sku_part', 'updated_by', 'status', 'category_slug')
+    queryset = Category.objects.filter(category_parent=None).select_related('updated_by').prefetch_related(
+        'sub_category',).only('id', 'category_name', 'category_desc', 'category_image', 'category_sku_part',
+                              'updated_by', 'status', 'category_slug')
     serializer_class = CategoryCrudSerializers
 
     def get(self, request):
