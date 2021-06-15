@@ -17,6 +17,7 @@ from brand.models import Brand, Vendor
 from addresses.models import Address, State
 from retailer_to_gram.models import (Cart as GramMapperRetailerCart, Order as GramMapperRetailerOrder)
 from base.models import (BaseOrder, BaseCart, BaseShipment)
+from shops.models import Shop
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
@@ -563,5 +564,12 @@ class PickListItems(models.Model):
     pick_qty = models.PositiveIntegerField(default=0)
     return_qty = models.PositiveIntegerField(default=0)
     damage_qty = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
+class VendorShopMapping(models.Model):
+    vendor = models.OneToOneField(Vendor, related_name='vendor_shop_mapping', on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, related_name='shop_vendor_mappings', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
