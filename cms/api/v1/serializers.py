@@ -181,8 +181,8 @@ class PageVersionDetailSerializer(serializers.ModelSerializer):
     def getPageCardMapping(self, obj):
         """custom serializer to get Page Card Mapping"""
 
-        page_card = PageCard.objects.filter(page_version__id = self.instance.id).first()
-        cards = PageCardSerializer(page_card)
+        page_card = PageCard.objects.filter(page_version__id = self.instance.id)
+        cards = PageCardSerializer(page_card, many = True)
         return cards.data
 
 
