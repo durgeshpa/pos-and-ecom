@@ -250,7 +250,7 @@ class InvoiceSearch(InputFilter):
         if self.value() is not None:
             invoice_no = self.value().split(',')
             if invoice_no is None:
-                return queryset.filter()
+                return queryset
             return queryset.filter(
                 Q(invoice__invoice_no__in=invoice_no)
             )
