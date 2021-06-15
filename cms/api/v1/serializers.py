@@ -1,6 +1,9 @@
 import logging
+from django.db import models
+from django.db.models import fields
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
+from django.contrib.auth import get_user_model
 
 from ...models import CardData, Card, CardVersion, CardItem, Application, Page, PageCard, PageVersion, ApplicationPage
 
@@ -80,8 +83,16 @@ class CardSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class UserSerializer(serializers.ModelSerializer):
+    """Serializer for User"""
+
+    class Meta:
+        model = get_user_model()
+        fields = ('id', 'first_name', 'last_name', 'phone_number', 'email', 'user_photo')
+
 class ApplicationSerializer(serializers.ModelSerializer):
     """Application Serializer"""
+    created_by = UserSerializer()
 
     class Meta:
         model = Application
@@ -100,7 +111,7 @@ class ApplicationPageSerializer(serializers.ModelSerializer):
         """ Adding Page Version Details """
         data = super().to_representation(instance)
         page_version = PageVersion.objects.filter(page=instance.id).order_by('-version_no').first()
-        data['version'] = page_version.version_no
+        data['latest_version'] = page_version.version_no
         data['created_on'] = page_version.created_on
         if page_version.published_on:
             data['published_on'] = page_version.published_on
@@ -109,10 +120,11 @@ class ApplicationPageSerializer(serializers.ModelSerializer):
 
 class ApplicationDataSerializer(serializers.ModelSerializer):
     """Specific Application Serializer"""
+    created_by = UserSerializer()
 
     class Meta:
         model = Application
-        fields = '__all__'
+        fields = ('id','name','created_on','status','created_by')
 
     def to_representation(self, instance):
         """ Page Version Details"""

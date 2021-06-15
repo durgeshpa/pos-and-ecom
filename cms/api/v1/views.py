@@ -1,3 +1,4 @@
+from functools import partial
 import logging
 from django.core.checks import messages
 from django.db.models import query
@@ -166,6 +167,33 @@ class ApplicationDetailView(APIView):
             "data": serializer.data
         }
         return Response(message, status = status.HTTP_200_OK)
+    
+    def patch(self, request, id):
+        """Update an application detail"""
+        try:
+            app = Application.objects.get(id = id)
+        except Exception:
+            message = {
+                "is_success": False,
+                "message": "No application exist for this id."
+            }
+            return Response(message, status = status.HTTP_204_NO_CONTENT)
+        serializer = self.serializer_class(data=request.data, instance=app, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            message = {
+                "is_success": True,
+                "message": "OK",
+                "data": serializer.data
+            }
+            return Response(message, status = status.HTTP_201_CREATED)
+        message = {
+            "is_success": False,
+            "message": "Data is not valid",
+            "error": serializer.errors
+        }
+        error_logger.error(serializer.errors)
+        return Response(message, status = status.HTTP_400_BAD_REQUEST)
 
 
 class PageView(APIView):
