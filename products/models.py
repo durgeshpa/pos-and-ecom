@@ -828,6 +828,7 @@ class ProductPriceCSV(models.Model):
         verbose_name = _("Product Price CSV")
         verbose_name_plural = _("Product Price CSVS")
 
+
 class ProductVendorMapping(BaseTimeModel):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
@@ -872,6 +873,7 @@ class ProductVendorMapping(BaseTimeModel):
     def sku(self):
         return self.product.product_sku
 
+
 @receiver(pre_save, sender=Product)
 def create_product_sku(sender, instance=None, created=False, **kwargs):
     # product = Product.objects.get(pk=instance.product_id)
@@ -890,6 +892,7 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code, parent_cat_sku_code=parent_cat_sku_code, brand_sku_code=brand_sku_code, last_auto_increment=last_sku_increment)
         instance.product_sku = "%s%s%s%s"%(cat_sku_code, parent_cat_sku_code, brand_sku_code, last_sku_increment)
         # product.save()
+
 
 class ProductCapping(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_capping',
@@ -914,6 +917,7 @@ class ProductCapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+
 class BulkProductTaxUpdate(models.Model):
     file = models.FileField(upload_to='products/producttaxmapping/')
     updated_by = models.ForeignKey(
@@ -929,6 +933,7 @@ class BulkProductTaxUpdate(models.Model):
     def __str__(self):
         return "Product Tax Mapping updated at %s by %s" % (self.created_at,
                                                             self.updated_by)
+
 
 class BulkUploadForGSTChange(BaseTimeModel):
     file = models.FileField(upload_to='products/producttaxmapping/')

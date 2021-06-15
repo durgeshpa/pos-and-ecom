@@ -220,6 +220,24 @@ class ParentProductView(GenericAPIView):
             return get_response('parent product updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
+    def delete(self, request):
+        """ Delete Parent Product with image """
+
+        info_logger.info("Parent Product DELETE api called.")
+        if not request.data.get('parent_product_id'):
+            return get_response('please provide parent_product_id', False)
+        try:
+            for id in request.data.get('parent_product_id'):
+                parent_product_id = self.queryset.get(id=int(id))
+                try:
+                    parent_product_id.delete()
+                except:
+                    return get_response(f'can not delete parent_product {parent_product_id.name}', False)
+        except ObjectDoesNotExist as e:
+            error_logger.error(e)
+            return get_response(f'please provide a valid parent_product_id {id}', False)
+        return get_response('parent product were deleted successfully!', True)
+
     def search_filter_parent_product(self):
 
         category = self.request.GET.get('category')
