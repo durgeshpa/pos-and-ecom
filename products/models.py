@@ -834,7 +834,7 @@ class ProductVendorMapping(BaseTimeModel):
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
     product_price = models.FloatField(verbose_name='Brand to Gram Price (Per Piece)',null=True,blank=True) #(Per piece)
     product_price_pack = models.FloatField(verbose_name='Brand to Gram Price (Per Pack)',null=True,blank=True)
-    brand_to_gram_price_unit = models.CharField(max_length = 100 ,default="Per Piece")
+    brand_to_gram_price_unit = models.CharField(max_length=100, default="Per Piece")
     product_mrp = models.FloatField(null=True,blank=True)
     case_size = models.PositiveIntegerField(default=0)
     status = models.BooleanField(default=True)
