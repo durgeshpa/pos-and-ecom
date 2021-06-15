@@ -15,6 +15,7 @@ from ...models import Application, Card, Page, PageVersion
 from .pagination import PaginationHandlerMixin
 from rest_framework.pagination import LimitOffsetPagination
 
+from django.core.cache import cache
 
 
 info_logger = logging.getLogger('file-info')
@@ -37,7 +38,13 @@ class CardView(APIView, PaginationHandlerMixin):
         """Get all cards"""
 
         query_params = request.query_params
-        queryset = Card.objects.all()
+        if cache.get('cards'):
+            info_logger.info("----------USING CACHED CARDS @GET cards/--------")
+            queryset = cache.get('cards')
+        else:
+            queryset = Card.objects.all()
+            info_logger.info("-----CACHING CARDS  @GET cards/----------")
+            cache.set('cards', queryset)
 
         if query_params.get('id'):
             card_id = query_params.get('id')
@@ -82,6 +89,10 @@ class CardView(APIView, PaginationHandlerMixin):
         serializer = CardDataSerializer(data=card_data, context={'request': request})
         if serializer.is_valid(raise_exception=True):
             serializer.save()
+
+            cache.delete('cards')
+            info_logger.info("-----------CARDS CACHE INVALIDATED  @POST cards/-----------")
+
             message = {
                 "is_success": "true",
                 "message": "OK",
@@ -175,7 +186,15 @@ class PageView(APIView):
     def get(self, request, format = None):
         """Get list of all Pages"""
 
-        pages = Page.objects.all()
+        if cache.get('pages'):
+            info_logger.info("----------USING CACHED PAGES @GET pages/--------")
+            pages = cache.get('pages')
+        else:
+            pages = Page.objects.all()
+            info_logger.info("-----CACHING PAGES  @GET pages/----------")
+            cache.set('pages', pages)
+
+        
         serializer = self.serializer_class(pages, many = True)
         message = {
             "is_success":True,
@@ -190,6 +209,9 @@ class PageView(APIView):
         serializer = self.serializer_class(data = request.data,context = {'request':request})
         if serializer.is_valid():
             serializer.save()
+            cache.delete('pages')
+            info_logger.info("-----------PAGES CACHE INVALIDATED  @POST pages/-----------")
+
             message = {
                 "is_success": True,
                 "message": "OK",
@@ -237,4 +259,3 @@ class PageDetailView(APIView):
             "data": serializer.data
         }
         return Response(message, status = status.HTTP_200_OK)
-        

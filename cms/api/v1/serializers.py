@@ -32,6 +32,15 @@ class CardDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardData
         fields = '__all__'
+
+    def to_representation(self, instance):
+        """ Add card_id to data """
+        data = super().to_representation(instance)
+        card_version = CardVersion.objects.all().filter(card_data=instance).first()
+        data['card_id'] = card_version.card.id
+      
+        return data
+
     
     def create(self, validated_data):
         request = self.context.get("request")
@@ -216,5 +225,3 @@ class PageDetailSerializer(serializers.ModelSerializer):
         apps = ApplicationPage.objects.get(page__id = instance.id).app
         data['applications'] = PageApplicationSerializer(apps).data
         return data
-
-        
