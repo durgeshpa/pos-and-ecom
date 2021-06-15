@@ -476,7 +476,7 @@ class ActiveDeactivateSelectedProductView(UpdateAPIView):
             data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return get_response('parent product updated successfully!', serializer.data)
+            return get_response('parent product updated successfully!', True)
         return get_response(serializer_error(serializer), False)
 
 
