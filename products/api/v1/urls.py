@@ -1,10 +1,11 @@
 from django.conf.urls import url
 from .views import ParentProductView, ParentProductBulkUploadView, ParentProductExportAsCSVView, ProductHSNView, \
     ActiveDeactivateSelectedProductView, ProductCappingView, ProductVendorMappingView, ChildProductView, TaxView, \
-    BrandView, CategoryView, ProductPackingMappingView, SourceProductMappingView
+    BrandView, CategoryView, ProductPackingMappingView, SourceProductMappingView, ParentProductGetView
 
 urlpatterns = [
     url(r'^parent-product/', ParentProductView.as_view(), name='parent-product'),
+    url(r'^get-parent-product/', ParentProductGetView.as_view(), name='get-parent-product'),
     url(r'^child-product/', ChildProductView.as_view(), name='child-product'),
     url(r'^parent-bulk-product/', ParentProductBulkUploadView.as_view(), name='parent-bulk-product'),
     url(r'^parent-download-bulk-product/', ParentProductExportAsCSVView.as_view(), name='parent-download-bulk-product'),

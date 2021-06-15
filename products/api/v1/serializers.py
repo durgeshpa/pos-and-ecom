@@ -29,6 +29,12 @@ class ProductSerializers(serializers.ModelSerializer):
         fields = ('id', 'product_sku', 'product_name')
 
 
+class GetParentProductSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = ParentProduct
+        fields = ('id', 'name')
+
+
 class BrandSerializers(serializers.ModelSerializer):
     class Meta:
         model = Brand

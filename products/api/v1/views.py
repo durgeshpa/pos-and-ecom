@@ -15,7 +15,7 @@ from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
-    CategorySerializers, ProductSerializers
+    CategorySerializers, ProductSerializers, GetParentProductSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search
@@ -60,6 +60,20 @@ class CategoryView(GenericAPIView):
         category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
         return get_response('category list!', serializer.data)
+
+
+class ParentProductGetView(GenericAPIView):
+    """
+        Get Parent List
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ParentProducts.objects.values('id', 'name')
+    serializer_class = GetParentProductSerializers
+
+    def get(self, request):
+        product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product, many=True)
+        return get_response('product list!', serializer.data)
 
 
 class ProductHSNView(GenericAPIView):
