@@ -290,9 +290,11 @@ def initiate_ars():
                 dest_warehouse = whc_source_dest_mapping.get(warehouse.id)
 
                 daily_average = get_daily_average(dest_warehouse, parent_product)
-                current_inventory = get_current_inventory(dest_warehouse, parent_product)
-                demand += (daily_average * max_inventory_in_days) - current_inventory
+                current_inventory += get_current_inventory(dest_warehouse, parent_product)
+                demand = (daily_average * max_inventory_in_days) - current_inventory
                 demand = 0 if demand < 0 else demand
+            if demand <= 0:
+                continue
             min_inventory_in_days = max_inventory_in_days * min_inventory_factor / 100
             max_inventory = max_inventory_in_days * daily_average
             min_inventory = min_inventory_in_days * daily_average
