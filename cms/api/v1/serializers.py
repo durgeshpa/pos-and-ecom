@@ -1,4 +1,5 @@
 import logging
+from django.db.models.query import Prefetch
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 
@@ -192,6 +193,8 @@ class PageDetailSerializer(serializers.ModelSerializer):
         page = PageVersion.objects.select_related('page')
         page_versions = page.filter(page_id = instance.id)
         data['versions'] = PageVersionSerializer(page_versions, many = True).data
+        apps = ApplicationPage.objects.get(page__id = instance.id).app
+        data['applications'] = PageApplicationSerializer(apps).data
         return data
 
         
