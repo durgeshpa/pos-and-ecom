@@ -126,7 +126,7 @@ class ApplicationView(APIView):
         """POST Application Data"""
 
         info_logger.info("ApplicationView POST API called.")
-        serializer = self.serializer_class(data = reqeust.data)
+        serializer = self.serializer_class(data = request.data)
         if serializer.is_valid():
             serializer.save(created_by = request.user)
             message = {
@@ -220,7 +220,17 @@ class PageDetailView(APIView):
                 "message": "No pages exist for this id."
             }
             return Response(message, status = status.HTTP_204_NO_CONTENT)
-        serializer = self.serializer_class(page)
+        page_version = None
+        if query_params.get('version'):
+            try:
+                page_version = PageVersion.objects.get(page = page, version_no = query_params.get('version'))
+            except Exception:
+                message = {
+                    "is_success": False,
+                    "message": "This version of page doesnot exist."
+                }
+                return Response(message, status = status.HTTP_204_NO_CONTENT)
+        serializer = self.serializer_class(page, context = {'page_version': page_version})
         message = {
             "is_success": True,
             "message": "OK",

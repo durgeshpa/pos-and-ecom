@@ -1,5 +1,4 @@
 import logging
-from django.db.models.query import Prefetch
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 
@@ -148,13 +147,29 @@ class PageCardSerializer(serializers.ModelSerializer):
         fields = ('card_version', 'card_pos', 'card_priority')
 
 
+class PageVersionDetailSerializer(serializers.ModelSerializer):
+    """Serializer for Page Version Details"""
+
+    cards = serializers.SerializerMethodField('getPageCardMapping', required = False)
+
+    class Meta:
+        model = PageVersion
+        fields = ('id', 'version_no', 'published_on', 'cards')
+
+    def getPageCardMapping(self, obj):
+        """custom serializer to get Page Card Mapping"""
+
+        page_card = PageCard.objects.filter(page_version__id = self.instance.id).first()
+        cards = PageCardSerializer(page_card)
+        return cards.data
+
+
 class PageSerializer(serializers.ModelSerializer):
     """Page Serializer"""
 
     class Meta:
         model = Page
         fields = '__all__'
-        depth = 1
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -190,9 +205,14 @@ class PageDetailSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data =  super().to_representation(instance)
-        page = PageVersion.objects.select_related('page')
-        page_versions = page.filter(page_id = instance.id)
-        data['versions'] = PageVersionSerializer(page_versions, many = True).data
+        if self.context.get('page_version'):
+            data.pop('active_version_no')
+            data['version'] = PageVersionDetailSerializer(self.context.get('page_version')).data
+            pass
+        else:
+            page = PageVersion.objects.select_related('page')
+            page_versions = page.filter(page_id = instance.id)
+            data['versions'] = PageVersionSerializer(page_versions, many = True).data
         apps = ApplicationPage.objects.get(page__id = instance.id).app
         data['applications'] = PageApplicationSerializer(apps).data
         return data
