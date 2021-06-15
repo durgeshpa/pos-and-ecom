@@ -122,7 +122,7 @@ class LogSerializers(serializers.ModelSerializer):
     class Meta:
         model = CentralLog
 
-        fields = ('update_at', 'updated_by')
+        fields = ('update_at', 'updated_by', 'child_product', 'parent_product')
 
 
 class ParentProductSerializers(serializers.ModelSerializer):
@@ -130,7 +130,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
     parent_brand = BrandSerializers(read_only=True)
     updated_by = UserSerializers(write_only=True, required=False)
     updated_at = serializers.DateTimeField(write_only=True, required=False)
-    parent_product_logs = LogSerializers(many=True, read_only=True)
+    parent_product_log = LogSerializers(many=True, read_only=True)
     product_hsn = ProductHSNSerializers(read_only=True)
     parent_product_pro_image = ParentProductImageSerializers(many=True, read_only=True)
     product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
@@ -196,7 +196,7 @@ class ParentProductSerializers(serializers.ModelSerializer):
         fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'status', 'product_hsn', 'parent_brand',
                   'parent_product_pro_tax', 'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type',
                   'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'parent_product_pro_image',
-                  'updated_by', 'updated_at', 'product_parent_product', 'product_images', 'parent_product_logs')
+                  'updated_by', 'updated_at', 'product_parent_product', 'product_images', 'parent_product_log')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

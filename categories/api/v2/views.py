@@ -61,7 +61,7 @@ class GetSubCategoriesListView(APIView):
     def get(self, *args, **kwargs):
         category_id = kwargs.get('category')
         category = Category.objects.get(pk=category_id)
-        sub_categories = category.cat_parent.filter(status=True)
+        sub_categories = category.sub_category.filter(status=True)
         sub_category_data_serializer = CategorySerializer(sub_categories,many=True)
 
         is_success = True if sub_categories else False
@@ -86,8 +86,8 @@ class GetAllCategoryListView(APIView):
         for c in all_active_categories:
             if c.id in categories_with_products:
                 categories_to_return.append(c)
-            elif c.cat_parent.filter(status=True).count() > 0:
-                for sub_category in c.cat_parent.filter(status=True):
+            elif c.sub_category.filter(status=True).count() > 0:
+                for sub_category in c.sub_category.filter(status=True):
                     if sub_category.id in categories_with_products:
                         categories_to_return.append(c)
                         break
