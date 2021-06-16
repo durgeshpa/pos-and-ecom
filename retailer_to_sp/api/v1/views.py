@@ -67,9 +67,8 @@ from common.common_utils import (create_file_name, single_pdf_file, create_merge
                                  whatsapp_order_refund)
 from wms.models import WarehouseInternalInventoryChange, OrderReserveRelease, InventoryType, PosInventoryState,\
     PosInventoryChange
-from pos.common_functions import get_shop_id_from_token, api_response, create_user_shop_mapping, \
-    delete_cart_mapping, get_invoice_and_link, ORDER_STATUS_MAP, RetailerProductCls, validate_data_format, \
-    update_pos_customer, PosInventoryCls, RewardCls
+from pos.common_functions import api_response, delete_cart_mapping, ORDER_STATUS_MAP, RetailerProductCls, \
+    update_pos_customer, PosInventoryCls, RewardCls, filter_pos_shop
 from pos.offers import BasicCartOffers
 from pos.api.v1.serializers import BasicCartSerializer, BasicCartListSerializer, CheckoutSerializer, \
     BasicOrderSerializer, BasicOrderListSerializer, OrderReturnCheckoutSerializer, OrderedDashBoardSerializer, \
@@ -81,6 +80,7 @@ from pos import error_code
 from accounts.api.v1.serializers import PosUserSerializer
 from global_config.models import GlobalConfig
 from elasticsearch import Elasticsearch
+from pos.common_functions import check_pos_shop
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
@@ -207,7 +207,7 @@ class ProductsList(generics.ListCreateAPIView):
 class SearchProducts(APIView):
     permission_classes = (AllowAny,)
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         """
             Search and get catalogue products from ElasticSearch
             Inputs
@@ -241,22 +241,19 @@ class SearchProducts(APIView):
             return self.gf_search()
         # Retailer Shop Catalogue
         elif index_type == '3':
-            return self.rp_search()
+            return self.rp_search(request, *args, **kwargs)
         # Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         elif index_type == '4':
-            return self.rp_gf_search()
+            return self.rp_gf_search(request, *args, **kwargs)
         else:
             return api_response("Please Provide A Valid Index Type")
 
-    def rp_search(self):
+    @check_pos_shop
+    def rp_search(self, request, *args, **kwargs):
         """
             Search Retailer Shop Catalogue
         """
-        # Validate shop from token
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return api_response(shop_id)
-
+        shop_id = kwargs['shop'].id
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
         if search_type == '1':
@@ -303,15 +300,12 @@ class SearchProducts(APIView):
                     "query_string": {"query": "*" + keyword + "*", "fields": ["name"], "minimum_should_match": 2}}
         return self.process_rp(output_type, body, shop_id)
 
-    def rp_gf_search(self):
+    @check_pos_shop
+    def rp_gf_search(self, request, *args, **kwargs):
         """
             Search Retailer Shop Catalogue - Followed by GramFactory Catalogue If Products not found
         """
-        # Validate shop from token
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return api_response(shop_id)
-
+        shop_id = kwargs['shop'].id
         search_type = self.request.GET.get('search_type', '1')
         # Exact Search
         if search_type == '1':
@@ -839,7 +833,7 @@ class CartCentral(GenericAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     pagination_class = SmallOffsetPagination
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         """
             Get Cart
             Inputs:
@@ -851,13 +845,13 @@ class CartCentral(GenericAPIView):
             return self.get_retail_cart()
         elif cart_type == '2':
             if self.request.GET.get('cart_id'):
-                return self.get_basic_cart()
+                return self.get_basic_cart(request, *args, **kwargs)
             else:
-                return self.get_basic_cart_list()
+                return self.get_basic_cart_list(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid cart_type')
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         """
             Add To Cart
             Inputs
@@ -866,18 +860,15 @@ class CartCentral(GenericAPIView):
                 shop_id (Buyer shop id for 'retail', Shop id for selling shop in case of 'basic')
                 qty (Quantity of product to be added)
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         cart_type = self.request.data.get('cart_type', '1')
         if cart_type == '1':
             return self.retail_add_to_cart()
         elif cart_type == '2':
-            return self.basic_add_to_cart()
+            return self.basic_add_to_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid cart_type')
 
-    def put(self, request, pk):
+    def put(self, request, *args, **kwargs):
         """
             Add/Update Item To Basic Cart
             Inputs
@@ -887,29 +878,21 @@ class CartCentral(GenericAPIView):
                 cart_id
                 qty
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         cart_type = self.request.data.get('cart_type')
         if cart_type == '2':
-            return self.basic_add_to_cart(pk)
+            return self.basic_add_to_cart(request, *args, **kwargs)
         else:
             return api_response('Please provide a valid cart_type')
 
-    def delete(self, request, pk):
+    @check_pos_shop
+    def delete(self, request, *args, **kwargs):
         """
             Update Cart Status To deleted For Basic Cart
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        # Check shop
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return api_response(shop_id)
         # Check If Cart Exists
         try:
-            cart = Cart.objects.get(id=pk, cart_status__in=['active', 'pending'], seller_shop_id=shop_id)
+            cart = Cart.objects.get(id=kwargs['pk'], cart_status__in=['active', 'pending'],
+                                    seller_shop=kwargs['shop'])
         except:
             return api_response("Active Cart Not Found")
         Cart.objects.filter(id=cart.id).update(cart_status=Cart.DELETED)
@@ -970,16 +953,16 @@ class CartCentral(GenericAPIView):
         else:
             return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
 
-    def get_basic_cart(self):
+    @check_pos_shop
+    def get_basic_cart(self, request, *args, **kwargs):
         """
             Get Cart
             For cart_type "basic"
         """
-        # basic validations for inputs
-        initial_validation = self.get_basic_validate()
-        if 'error' in initial_validation:
-            return api_response(initial_validation['error'])
-        cart = initial_validation['cart']
+        try:
+            cart = Cart.objects.get(seller_shop=kwargs['shop'], id=self.request.GET.get('cart_id'))
+        except ObjectDoesNotExist:
+            return api_response("Cart Not Found!")
         # Refresh cart prices
         self.refresh_cart_prices(cart)
         # Refresh - add/remove/update combo, get nearest cart offer over cart value
@@ -994,16 +977,13 @@ class CartCentral(GenericAPIView):
                 product_mapping.selling_price = product_mapping.retailer_product.selling_price
                 product_mapping.save()
 
-    def get_basic_cart_list(self):
+    @check_pos_shop
+    def get_basic_cart_list(self, request, *args, **kwargs):
         """
             List active carts for seller shop
         """
-        # Check Shop
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return api_response(shop_id)
         search_text = self.request.GET.get('search_text')
-        carts = Cart.objects.select_related('buyer').prefetch_related('rt_cart_list').filter(seller_shop_id=shop_id,
+        carts = Cart.objects.select_related('buyer').prefetch_related('rt_cart_list').filter(seller_shop=kwargs['shop'],
                                                                                              cart_status__in=['active', 'pending']).order_by('-modified_at')
         if search_text:
             carts = carts.filter(Q(cart_no__icontains=search_text) |
@@ -1032,21 +1012,6 @@ class CartCentral(GenericAPIView):
             return {'error': "Shop Mapping Doesn't Exist!"}
         return {'buyer_shop': parent_mapping.retailer, 'seller_shop': parent_mapping.parent,
                 'shop_type': parent_mapping.parent.shop_type.shop_type}
-
-    def get_basic_validate(self):
-        """
-            Get Cart
-            Input validation for cart type 'basic'
-        """
-        # check if shop exists
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {'error': shop_id}
-        try:
-            cart = Cart.objects.get(seller_shop_id=shop_id, id=self.request.GET.get('cart_id'))
-        except ObjectDoesNotExist:
-            return {'error': "Cart Not Found!"}
-        return {'cart': cart}
 
     @staticmethod
     def filter_cart_products(cart, seller_shop):
@@ -1208,21 +1173,23 @@ class CartCentral(GenericAPIView):
         else:
             return api_response(['Sorry shop is not associated with any Gramfactory or any SP'], None, status.HTTP_200_OK)
 
-    def basic_add_to_cart(self, cart_id=None):
+    @check_pos_shop
+    def basic_add_to_cart(self, request, *args, **kwargs):
         """
             Add To Cart
             For cart type 'basic'
         """
         with transaction.atomic():
             # basic validations for inputs
-            initial_validation = self.post_basic_validate(cart_id)
+            cart_id = kwargs['pk'] if 'pk' in kwargs else None
+            shop = kwargs['shop']
+            initial_validation = self.post_basic_validate(shop, cart_id)
             if 'error' in initial_validation:
                 e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
                 extra_params = {'error_code': e_code} if e_code else {}
                 return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False,
                                     extra_params)
             product = initial_validation['product']
-            shop = initial_validation['shop']
             qty = initial_validation['quantity']
             cart = initial_validation['cart']
 
@@ -1276,17 +1243,11 @@ class CartCentral(GenericAPIView):
         return {'product': product, 'buyer_shop': parent_mapping.retailer, 'seller_shop': parent_mapping.parent,
                 'quantity': qty, 'shop_type': parent_mapping.parent.shop_type.shop_type}
 
-    def post_basic_validate(self, cart_id=None):
+    def post_basic_validate(self, shop, cart_id=None):
         """
             Add To Cart
             Input validation for add to cart for cart type 'basic'
         """
-        # Check shop token
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {'error': shop_id}
-        shop = Shop.objects.get(id=shop_id)
-
         # Added Quantity check
         qty = self.request.data.get('qty')
         if qty is None or not str(qty).isdigit() or qty < 0 or (qty == 0 and not cart_id):
@@ -1305,7 +1266,7 @@ class CartCentral(GenericAPIView):
                 if not linked_product:
                     return {'error': f"GramFactory product not found for given {linked_pid}"}
                 mrp, linked = linked_product.product_mrp, 2
-            product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, linked, None, ean)
+            product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, linked, None, ean)
             PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE, 0,
                                             self.request.user, product.sku, PosInventoryChange.STOCK_ADD)
         else:
@@ -1337,7 +1298,7 @@ class CartCentral(GenericAPIView):
         if product.status != 'active':
             product.status = 'active'
             product.save()
-        return {'product': product, 'shop': shop, 'quantity': qty, 'cart': cart}
+        return {'product': product, 'quantity': qty, 'cart': cart}
 
     def post_update_retail_sp_cart(self, seller_shop, buyer_shop):
         """
@@ -1549,15 +1510,12 @@ class UserView(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get(self, request):
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
         """
             Get Customer Details - POS Shop
             :param request: phone_number
         """
-        # Check shop
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return api_response(shop_id)
         # check phone_number
         phone_no = self.request.GET.get('phone_number')
         if not phone_no:
@@ -1576,17 +1534,15 @@ class CartUserView(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def put(self, request, pk):
+    @check_pos_shop
+    def put(self, request, *args, **kwargs):
         """
             Update buyer in cart
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         cart_type = request.data.get('cart_type', '1')
         if cart_type == '2':
             # Input validation
-            initial_validation = self.put_basic_validate(pk)
+            initial_validation = self.put_basic_validate(kwargs['pk'], kwargs['shop'])
             if 'error' in initial_validation:
                 e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
                 extra_params = {'error_code': e_code} if e_code else {}
@@ -1608,17 +1564,13 @@ class CartUserView(APIView):
         else:
             return api_response('Provide a valid cart_type')
 
-    def put_basic_validate(self, cart_id):
+    def put_basic_validate(self, cart_id, shop):
         """
             Add To Cart
             Input validation for add to cart for cart type 'basic'
         """
-        # Check shop token
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {'error': shop_id}
         # Check cart
-        cart = Cart.objects.filter(id=cart_id, seller_shop_id=shop_id).last()
+        cart = Cart.objects.filter(id=cart_id, seller_shop=shop).last()
         if not cart:
             return {'error': "Cart Doesn't Exist!"}
         elif cart.cart_status == Cart.ORDERED:
@@ -1642,7 +1594,8 @@ class CartCheckout(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request):
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
         """
             Checkout
             Apply Any Available Cart Offer - Either coupon or spot discount
@@ -1652,11 +1605,8 @@ class CartCheckout(APIView):
             spot_discount
             is_percentage (spot discount type)
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         # Input validation
-        initial_validation = self.post_validate()
+        initial_validation = self.post_validate(kwargs['shop'])
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
         cart = initial_validation['cart']
@@ -1678,15 +1628,16 @@ class CartCheckout(APIView):
             else:
                 return api_response('Not Applicable', self.serialize(cart), status.HTTP_200_OK)
 
-    def get(self, request):
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
         """
             Get Checkout Amount Info, Offers Applied-Applicable
         """
-        # Input validation
-        initial_validation = self.get_validate()
-        if 'error' in initial_validation:
-            return api_response(initial_validation['error'])
-        cart = initial_validation['cart']
+        cart_id = self.request.GET.get('cart_id')
+        try:
+            cart = Cart.objects.get(pk=cart_id, seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'])
+        except ObjectDoesNotExist:
+            return api_response("Cart Does Not Exist / Already Closed")
         # Auto apply highest applicable discount
         auto_apply = self.request.GET.get('auto_apply')
         with transaction.atomic():
@@ -1699,18 +1650,14 @@ class CartCheckout(APIView):
                 RewardCls.checkout_redeem_points(cart, int(redeem_points))
             return api_response("Cart Checkout", self.serialize(cart, offers), status.HTTP_200_OK, True)
 
-    def delete(self, request):
+    @check_pos_shop
+    def delete(self, request, *args, **kwargs):
         """
             Checkout
             Delete any applied cart offers
         """
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return api_response(shop_id)
-
-        cart_id = self.request.GET.get('cart_id')
         try:
-            cart = Cart.objects.get(pk=cart_id, seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
+            cart = Cart.objects.get(pk=kwargs['pk'], seller_shop=kwargs['shop'], cart_status__in=['active', 'pending'])
         except ObjectDoesNotExist:
             return api_response("Cart Does Not Exist / Already Closed")
         # Refresh redeem reward
@@ -1724,17 +1671,14 @@ class CartCheckout(APIView):
             Cart.objects.filter(pk=cart.id).update(offers=offers_list)
             return api_response("Removed Offer From Cart Successfully", self.serialize(cart), status.HTTP_200_OK, True)
 
-    def post_validate(self):
+    def post_validate(self, shop):
         """
             Add cart offer in checkout
             Input validation
         """
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {"error": shop_id}
         cart_id = self.request.data.get('cart_id')
         try:
-            cart = Cart.objects.get(pk=cart_id, seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
+            cart = Cart.objects.get(pk=cart_id, seller_shop=shop, cart_status__in=['active', 'pending'])
         except ObjectDoesNotExist:
             return {'error': "Cart Does Not Exist / Already Closed"}
         if not self.request.data.get('coupon_id') and not self.request.data.get('spot_discount'):
@@ -1743,21 +1687,6 @@ class CartCheckout(APIView):
             return {'error': "Please Provide Only One Of Coupon Id, Spot Discount"}
         if self.request.data.get('spot_discount') and self.request.data.get('is_percentage') not in [0, 1]:
             return {'error': "Please Provide A Valid Spot Discount Type"}
-        return {'cart': cart}
-
-    def get_validate(self):
-        """
-            Get Checkout
-            Input validation
-        """
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {'error': shop_id}
-        cart_id = self.request.GET.get('cart_id')
-        try:
-            cart = Cart.objects.get(pk=cart_id, seller_shop_id=shop_id, cart_status__in=['active', 'pending'])
-        except ObjectDoesNotExist:
-            return {'error': "Cart Does Not Exist / Already Closed"}
         return {'cart': cart}
 
     def serialize(self, cart, offers=None):
@@ -2349,7 +2278,7 @@ class OrderCentral(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         """
             Get Order Details
             Inputs
@@ -2360,37 +2289,31 @@ class OrderCentral(APIView):
         if cart_type == '1':
             return self.get_retail_order()
         elif cart_type == '2':
-            return self.get_basic_order()
+            return self.get_basic_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid cart_type')
 
-    def put(self, request, pk):
+    def put(self, request, *args, **kwargs):
         """
             allowed updates to order status
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         cart_type = request.data.get('cart_type', '1')
         if cart_type == '1':
-            return self.put_retail_order(pk)
+            return self.put_retail_order(kwargs['pk'])
         elif cart_type == '2':
-            return self.put_basic_order(pk)
+            return self.put_basic_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid cart_type')
 
-    def put_basic_order(self, pk):
+    @check_pos_shop
+    def put_basic_order(self, request, *args, **kwargs):
         """
             Cancel POS order
         """
         with transaction.atomic():
-            # Check shop
-            shop_id = get_shop_id_from_token(self.request.user)
-            if not type(shop_id) == int:
-                return api_response(shop_id)
             # Check if order exists
             try:
-                order = Order.objects.get(pk=pk, seller_shop_id=shop_id, order_status='ordered')
+                order = Order.objects.get(pk=kwargs['pk'], seller_shop=kwargs['shop'], order_status='ordered')
             except ObjectDoesNotExist:
                 return api_response('Order Not Found To Cancel!')
             # check input status validity
@@ -2438,7 +2361,7 @@ class OrderCentral(APIView):
         order.save()
         return api_response(["Order Cancelled Successfully!"], None, status.HTTP_200_OK, True)
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         """
             Place Order
             Inputs
@@ -2452,14 +2375,11 @@ class OrderCentral(APIView):
                 basic
                     shop_id (Seller shop id)
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         cart_type = self.request.data.get('cart_type', '1')
         if cart_type == '1':
             return self.post_retail_order()
         elif cart_type == '2':
-            return self.post_basic_order()
+            return self.post_basic_order(request, *args, **kwargs)
         else:
             return api_response('Provide a valid cart_type')
 
@@ -2484,16 +2404,16 @@ class OrderCentral(APIView):
         else:
             return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
 
-    def get_basic_order(self):
+    @check_pos_shop
+    def get_basic_order(self, request, *args, **kwargs):
         """
             Get Order
             For Basic Cart
         """
-        # basic validation for inputs
-        initial_validation = self.get_basic_validate()
-        if 'error' in initial_validation:
-            return api_response(initial_validation['error'])
-        order = initial_validation['order']
+        try:
+            order = Order.objects.get(pk=self.request.GET.get('order_id'), seller_shop=kwargs['shop'])
+        except ObjectDoesNotExist:
+            return api_response("Order Not Found!")
         return api_response('Order', self.get_serialize_process_basic(order), status.HTTP_200_OK, True)
 
     def post_retail_order(self):
@@ -2570,18 +2490,19 @@ class OrderCentral(APIView):
         else:
             return api_response(['Sorry shop is not associated with any GramFactory or any SP'], None, status.HTTP_200_OK)
 
-    def post_basic_order(self):
+    @check_pos_shop
+    def post_basic_order(self, request, *args, **kwargs):
         """
             Place Order
             For basic cart
         """
+        shop = kwargs['shop']
         # basic validations for inputs
-        initial_validation = self.post_basic_validate()
+        initial_validation = self.post_basic_validate(shop)
         if 'error' in initial_validation:
             e_code = initial_validation['error_code'] if 'error_code' in initial_validation else None
             extra_params = {'error_code': e_code} if e_code else {}
             return api_response(initial_validation['error'], None, status.HTTP_406_NOT_ACCEPTABLE, False, extra_params)
-        shop = initial_validation['shop']
         cart = initial_validation['cart']
         payment_method = initial_validation['payment_method']
 
@@ -2619,21 +2540,6 @@ class OrderCentral(APIView):
         except ObjectDoesNotExist:
             return {'error': 'Order Not Found!'}
         return {'parent_mapping': parent_mapping, 'shop_type': shop_type, 'order': order}
-
-    def get_basic_validate(self):
-        """
-            Get order validate
-        """
-        # Check shop
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {'error': shop_id}
-        # Check if order exists
-        try:
-            order = Order.objects.get(pk=self.request.GET.get('order_id'), seller_shop_id=shop_id)
-        except ObjectDoesNotExist:
-            return {'error': 'Order Not Found!'}
-        return {'order': order}
 
     def post_retail_validate(self):
         """
@@ -2680,16 +2586,11 @@ class OrderCentral(APIView):
         return {'parent_mapping': parent_mapping, 'shop_type': parent_mapping.parent.shop_type.shop_type,
                 'billing_add': billing_address, 'shipping_add': shipping_address}
 
-    def post_basic_validate(self):
+    def post_basic_validate(self, shop):
         """
             Place Order
             Input validation for cart type 'basic'
         """
-        # Check if seller shop exists
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {'error': shop_id}
-        shop = Shop.objects.get(id=shop_id)
         # Check Billing Address
         if not shop.shop_name_address_mapping.filter(address_type='billing').exists():
             return {'error': "Shop Billing Address Doesn't Exist!"}
@@ -2724,7 +2625,7 @@ class OrderCentral(APIView):
                 validators.validate_email(email)
             except:
                 return {'error': "Please provide a valid customer email"}
-        return {'shop': shop, 'cart': cart, 'payment_method': payment_method}
+        return {'cart': cart, 'payment_method': payment_method}
 
     def retail_capping_check(self, cart, parent_mapping):
         """
@@ -3229,7 +3130,7 @@ class OrderListCentral(GenericAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     pagination_class = SmallOffsetPagination
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         """
             Get Order List
             Inputs
@@ -3240,7 +3141,7 @@ class OrderListCentral(GenericAPIView):
         if cart_type == '1':
             return self.get_retail_order_list()
         elif cart_type == '2':
-            return self.get_basic_order_list()
+            return self.get_basic_order_list(request, *args, **kwargs)
         else:
             return api_response('Provide a valid cart_type')
 
@@ -3291,20 +3192,16 @@ class OrderListCentral(GenericAPIView):
         shop_type = parent_mapping.parent.shop_type.shop_type
         return {'parent_mapping': parent_mapping, 'shop_type': shop_type}
 
-    def get_basic_order_list(self):
+    @check_pos_shop
+    def get_basic_order_list(self, request, *args, **kwargs):
         """
             Get Order
             For Basic Cart
         """
-        # basic validation for inputs
-        initial_validation = self.get_basic_validate()
-        if 'error' in initial_validation:
-            return api_response(initial_validation['error'])
-        shop_id = initial_validation['shop_id']
         # Search, Paginate, Return Orders
         search_text = self.request.GET.get('search_text')
         order_status = self.request.GET.get('order_status')
-        qs = Order.objects.select_related('buyer').filter(seller_shop_id=shop_id)
+        qs = Order.objects.select_related('buyer').filter(seller_shop=kwargs['shop'])
         if order_status:
             order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
             qs = qs.filter(order_status=order_status_actual) if order_status_actual else qs
@@ -3313,17 +3210,6 @@ class OrderListCentral(GenericAPIView):
                            Q(buyer__first_name__icontains=search_text) |
                            Q(buyer__phone_number__icontains=search_text))
         return api_response('Order', self.get_serialize_process_basic(qs), status.HTTP_200_OK, True)
-
-    def get_basic_validate(self):
-        """
-           Get Order
-           Input validation for cart type 'basic'
-        """
-        # Check if seller shop exist
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {'error': shop_id}
-        return {'shop_id': shop_id}
 
     def get_serialize_process_sp(self, order, parent_mapping):
         """
@@ -3361,7 +3247,7 @@ class OrderedItemCentralDashBoard(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         """
             Get Order, Product & User Counts(Overview)
             Inputs
@@ -3373,96 +3259,62 @@ class OrderedItemCentralDashBoard(APIView):
         if cart_type == '1':
             return self.get_retail_order_overview()
         elif cart_type == '2':
-            return self.get_basic_order_overview()
+            return self.get_basic_order_overview(request, *args, **kwargs)
         else:
             return api_response('Provide a valid app_type')
 
-    def get_basic_order_overview(self):
+    @check_pos_shop
+    def get_basic_order_overview(self, request, *args, **kwargs):
         """
             Get Shop Name, Order, Product, & User Counts
             For Basic Cart
         """
-        # basic validation for inputs
-        initial_validation = self.get_basic_list_validate()
-        if 'error' in initial_validation:
-            return api_response(initial_validation['error'])
-        order = initial_validation['order']
+        order = self.get_basic_orders_count(kwargs['shop'])
         return api_response('Dashboard', self.get_serialize_process(order), status.HTTP_200_OK, True)
 
-    def get_basic_list_validate(self):
-        """
-           Input validation for cart type 'basic'
-        """
-        # Check if seller shop exist
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {'error': shop_id}
-        # get a order_overview
-        order = self.get_basic_orders_count(shop_id)
-        return {'order': order}
-
-    def get_basic_orders_count(self, shop_id):
+    def get_basic_orders_count(self, shop):
         """
           Get Basic Order Overview based on filters
         """
-        # filter for date range
-        filters = self.request.GET.get('filters')
-        filters = int(filters) if filters else ''
+        # orders for shop
+        orders = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop).exclude(
+            order_status=Order.CANCELLED)
+        # products for shop
+        products = RetailerProduct.objects.filter(shop=shop)
+
         # order status filter
         order_status = self.request.GET.get('order_status')
-        today_date = datetime.today()
-
-        # get total orders for shop_id
-        orders = Order.objects.prefetch_related('rt_return_order').filter(seller_shop=shop_id).exclude(order_status=Order.CANCELLED)
-        # get total products for shop_id
-        products = RetailerProduct.objects.filter(shop=shop_id)
-        # get total users registered with shop_id
-        users = UserMappedShop.objects.filter(shop_id=shop_id)
-
         if order_status:
             order_status_actual = ORDER_STATUS_MAP.get(int(order_status), None)
-            # get total orders for given shop_id & order_status
             orders = orders.filter(order_status=order_status_actual) if order_status_actual else orders
 
-        # filter order, product & user by get modified date
+        # filter for date range
+        filters = int(self.request.GET.get('filters')) if self.request.GET.get('filters') else None
+        today_date = datetime.today()
         if filters == 1:  # today
-            # filter order, product & user on modified date today
             orders = orders.filter(created_at__date=today_date)
             products = products.filter(created_at__date=today_date)
-            users = users.filter(created_at__date=today_date)
-
         elif filters == 2:  # yesterday
             yesterday = today_date - timedelta(days=1)
             orders = orders.filter(created_at__date=yesterday)
             products = products.filter(created_at__date=yesterday)
-            users = users.filter(created_at__date=yesterday)
-
         elif filters == 3:  # this week
             orders = orders.filter(created_at__week=today_date.isocalendar()[1])
             products = products.filter(created_at__week=today_date.isocalendar()[1])
-            users = users.filter(created_at__week=today_date.isocalendar()[1])
-
         elif filters == 4:  # last week
-            lastweek = today_date - timedelta(weeks=1)
-            orders = orders.filter(created_at__week=lastweek.isocalendar()[1])
-            products = products.filter(created_at__week=lastweek.isocalendar()[1])
-            users = users.filter(created_at__week=lastweek.isocalendar()[1])
-
+            last_week = today_date - timedelta(weeks=1)
+            orders = orders.filter(created_at__week=last_week.isocalendar()[1])
+            products = products.filter(created_at__week=last_week.isocalendar()[1])
         elif filters == 5:  # this month
             orders = orders.filter(created_at__month=today_date.month)
             products = products.filter(created_at__month=today_date.month)
-            users = users.filter(created_at__month=today_date.month)
-
         elif filters == 6:  # last month
-            lastmonth = today_date - timedelta(days=30)
-            orders = orders.filter(created_at__month=lastmonth.month)
-            products = products.filter(created_at__month=lastmonth.month)
-            users = users.filter(created_at__month=lastmonth.month)
-
+            last_month = today_date - timedelta(days=30)
+            orders = orders.filter(created_at__month=last_month.month)
+            products = products.filter(created_at__month=last_month.month)
         elif filters == 7:  # this year
             orders = orders.filter(created_at__year=today_date.year)
             products = products.filter(created_at__year=today_date.year)
-            users = users.filter(created_at__year=today_date.year)
 
         total_final_amount = 0
         for order in orders:
@@ -3474,11 +3326,9 @@ class OrderedItemCentralDashBoard(APIView):
                         order_amt -= ret.refund_amount if ret.refund_amount > 0 else 0
             total_final_amount += order_amt
 
-        # counts of order for shop_id with total_final_amount, users, & products
+        # counts of order for shop_id with total_final_amount & products
         order_count = orders.count()
-        # users_count = users.count()
         products_count = products.count()
-        shop = Shop.objects.get(id=shop_id)
         overview = [{"shop_name": shop.shop_name, "orders": order_count, "products": products_count,
                      "revenue": total_final_amount}]
         return overview
@@ -3586,7 +3436,8 @@ class OrderReturns(APIView):
         Place return for an order
     """
 
-    def post(self, request):
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
         """
             Returns for any order
             Inputs
@@ -3594,11 +3445,8 @@ class OrderReturns(APIView):
             return_items - dict - product_id, qty
             refund_amount
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         # Input validation
-        initial_validation = self.post_validate()
+        initial_validation = self.post_validate(kwargs['shop'])
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
         order = initial_validation['order']
@@ -3665,21 +3513,17 @@ class OrderReturns(APIView):
                                                                                  'changed_products': changed_products}).data,
                             status.HTTP_200_OK, True)
 
-    def post_validate(self):
+    def post_validate(self, shop):
         """
             Validate order return creation
         """
-        # check shop
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {"error": shop_id}
         return_items = self.request.data.get('return_items')
         if not return_items or type(return_items) != list:
             return {'error': "Provide return item details"}
         # check if order exists
         order_id = self.request.data.get('order_id')
         try:
-            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop_id=shop_id,
+            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop=shop,
                                                                           order_status__in=['ordered',
                                                                                             Order.PARTIALLY_RETURNED])
         except ObjectDoesNotExist:
@@ -3952,39 +3796,40 @@ class OrderReturnsCheckout(APIView):
     #             return api_response(offers['error'])
     #         return api_response("Applied Successfully" if offers['applied'] else "Not Applicable", self.serialize(order))
 
-    def post_validate(self):
-        """
-            Validate returns checkout offers apply
-        """
-        # check shop
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {"error": shop_id}
-        # check order
-        order_id = self.request.data.get('order_id')
-        try:
-            order = Order.objects.get(pk=order_id, seller_shop_id=shop_id)
-        except ObjectDoesNotExist:
-            return {'error': "Order Does Not Exist"}
-        # check if return created
-        try:
-            order_return = OrderReturn.objects.get(order=order, status='created')
-        except ObjectDoesNotExist:
-            return {'error': "Order Return Created Does Not Exist"}
-        if not self.request.data.get('coupon_id') and not self.request.data.get('spot_discount'):
-            return {'error': "Provide Coupon Id/Spot Discount"}
-        if self.request.data.get('coupon_id') and self.request.data.get('spot_discount'):
-            return {'error': "Provide either of coupon_id or spot_discount"}
-        if self.request.data.get('spot_discount') and self.request.data.get('is_percentage') not in [0, 1]:
-            return {'error': "Provide a valid spot discount type"}
-        return {'order': order, 'order_return': order_return}
+    # def post_validate(self):
+    #     """
+    #         Validate returns checkout offers apply
+    #     """
+    #     # check shop
+    #     shop_id = get_shop_id_from_token(self.request.user)
+    #     if not type(shop_id) == int:
+    #         return {"error": shop_id}
+    #     # check order
+    #     order_id = self.request.data.get('order_id')
+    #     try:
+    #         order = Order.objects.get(pk=order_id, seller_shop_id=shop_id)
+    #     except ObjectDoesNotExist:
+    #         return {'error': "Order Does Not Exist"}
+    #     # check if return created
+    #     try:
+    #         order_return = OrderReturn.objects.get(order=order, status='created')
+    #     except ObjectDoesNotExist:
+    #         return {'error': "Order Return Created Does Not Exist"}
+    #     if not self.request.data.get('coupon_id') and not self.request.data.get('spot_discount'):
+    #         return {'error': "Provide Coupon Id/Spot Discount"}
+    #     if self.request.data.get('coupon_id') and self.request.data.get('spot_discount'):
+    #         return {'error': "Provide either of coupon_id or spot_discount"}
+    #     if self.request.data.get('spot_discount') and self.request.data.get('is_percentage') not in [0, 1]:
+    #         return {'error': "Provide a valid spot discount type"}
+    #     return {'order': order, 'order_return': order_return}
 
-    def get(self, request):
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
         """
             Get Return Checkout Amount Info, Offers Applied-Applicable
         """
         # Input validation
-        initial_validation = self.get_validate()
+        initial_validation = self.get_validate(kwargs['shop'])
         if 'error' in initial_validation:
             return api_response(initial_validation['error'])
         order = initial_validation['order']
@@ -4012,19 +3857,15 @@ class OrderReturnsCheckout(APIView):
         #     return api_response("Return Checkout", self.serialize(order, offers['total_offers'], offers['spot_discount']))
         return api_response("Return Checkout", self.serialize(order), status.HTTP_200_OK, True)
 
-    def get_validate(self):
+    def get_validate(self, shop):
         """
             Get Return Checkout
             Input validation
         """
-        # check shop
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return {"error": shop_id}
         # check order
         order_id = self.request.GET.get('order_id')
         try:
-            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop_id=shop_id,
+            order = Order.objects.prefetch_related('rt_return_order').get(pk=order_id, seller_shop=shop,
                                                                           order_status__in=['ordered',
                                                                                             Order.PARTIALLY_RETURNED])
         except ObjectDoesNotExist:
@@ -4087,18 +3928,15 @@ class OrderReturnComplete(APIView):
         Complete created return on an order
     """
 
-    def post(self, request):
+    @check_pos_shop
+    def post(self, request, *args, **kwargs):
         """
             Complete return on order
         """
-        # check shop
-        shop_id = get_shop_id_from_token(self.request.user)
-        if not type(shop_id) == int:
-            return api_response(shop_id)
         # check order
         order_id = self.request.data.get('order_id')
         try:
-            order = Order.objects.get(pk=order_id, seller_shop_id=shop_id,
+            order = Order.objects.get(pk=order_id, seller_shop=kwargs['shop'],
                                       order_status__in=['ordered', Order.PARTIALLY_RETURNED])
         except ObjectDoesNotExist:
             return api_response("Order Does Not Exist / Still Open / Already Returned")
@@ -5439,8 +5277,11 @@ class PosUserShopsList(APIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        shops = Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f', status=True,
-                                    approval_status=Shop.APPROVED).distinct('id')
+        search_text = request.GET.get('search_text')
+        shops_qs = filter_pos_shop(user)
+        if search_text:
+            shops_qs = shops_qs.filter(shop_name=search_text)
+        shops = shops_qs.distinct('id')
         request_shops = self.pagination_class().paginate_queryset(shops, self.request)
         data = PosShopSerializer(request_shops, many=True).data
         if data:
@@ -5454,14 +5295,10 @@ class PosShopUsersList(APIView):
     permission_classes = (permissions.IsAuthenticated,)
     pagination_class = SmallOffsetPagination
 
+    @check_pos_shop
     def get(self, request, *args, **kwargs):
-        shop_id = request.GET.get('shop_id')
-        user = request.user
-        if not Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f', status=True,
-                                   approval_status=Shop.APPROVED, id=shop_id).exists():
-            return api_response("Shop not Mapped/Approved for this user")
+        shop = kwargs['shop']
         data = dict()
-        shop = Shop.objects.get(pk=shop_id, shop_type__shop_type='f')
         data['shop_owner'] = PosUserSerializer(shop.shop_owner).data
         related_users = shop.related_users.filter(is_staff=False)
         request_users = self.pagination_class().paginate_queryset(related_users, self.request)

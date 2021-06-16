@@ -22,8 +22,8 @@ from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, C
 from wms.models import PosInventoryChange, PosInventoryState
 
 from pos.models import RetailerProduct, RetailerProductImage
-from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, get_shop_id_from_token,
-                                  validate_data_format, PosInventoryCls)
+from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
+                                  check_pos_shop)
 
 from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdateSerializer,
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
@@ -53,94 +53,82 @@ class PosProductView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
 
+    @check_pos_shop
     def post(self, request, *args, **kwargs):
         """
             Create Product
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(self.request.user)
-        if type(shop_id) == int:
-            modified_data = self.validate_create(shop_id)
-            if 'error' in modified_data:
-                return api_response(modified_data['error'])
-            serializer = RetailerProductCreateSerializer(data=modified_data)
-            if serializer.is_valid():
-                data = serializer.data
-                name, ean, mrp, sp, linked_pid, description, stock_qty = data['product_name'], data[
-                    'product_ean_code'], data['mrp'], data['selling_price'], data['linked_product_id'], data[
-                                                                             'description'], data['stock_qty']
-                with transaction.atomic():
-                    # Decide sku_type 2 = using GF product, 1 = new product
-                    sku_type = 2 if linked_pid else 1
-                    # sku_type = self.get_sku_type(mrp, name, ean, linked_pid)
-                    # Create product
-                    product = RetailerProductCls.create_retailer_product(shop_id, name, mrp, sp, linked_pid, sku_type,
-                                                                         description, ean)
-                    # Upload images
-                    if 'images' in modified_data:
-                        RetailerProductCls.create_images(product, modified_data['images'])
-                    product.save()
-                    # Add Inventory
-                    PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
-                                                    stock_qty, self.request.user, product.sku,
-                                                    PosInventoryChange.STOCK_ADD)
-                    serializer = RetailerProductResponseSerializer(product)
-                    return api_response('Product has been created successfully!', serializer.data, status.HTTP_200_OK,
-                                        True)
-            else:
-                return api_response(serializer_error(serializer))
+        shop = kwargs['shop']
+        modified_data = self.validate_create(shop.id)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+        serializer = RetailerProductCreateSerializer(data=modified_data)
+        if serializer.is_valid():
+            data = serializer.data
+            name, ean, mrp, sp, linked_pid, description, stock_qty = data['product_name'], data[
+                'product_ean_code'], data['mrp'], data['selling_price'], data['linked_product_id'], data[
+                                                                         'description'], data['stock_qty']
+            with transaction.atomic():
+                # Decide sku_type 2 = using GF product, 1 = new product
+                sku_type = 2 if linked_pid else 1
+                # sku_type = self.get_sku_type(mrp, name, ean, linked_pid)
+                # Create product
+                product = RetailerProductCls.create_retailer_product(shop.id, name, mrp, sp, linked_pid, sku_type,
+                                                                     description, ean)
+                # Upload images
+                if 'images' in modified_data:
+                    RetailerProductCls.create_images(product, modified_data['images'])
+                product.save()
+                # Add Inventory
+                PosInventoryCls.stock_inventory(product.id, PosInventoryState.NEW, PosInventoryState.AVAILABLE,
+                                                stock_qty, self.request.user, product.sku,
+                                                PosInventoryChange.STOCK_ADD)
+                serializer = RetailerProductResponseSerializer(product)
+                return api_response('Product has been created successfully!', serializer.data, status.HTTP_200_OK,
+                                    True)
         else:
-            return api_response(shop_id)
+            return api_response(serializer_error(serializer))
 
+    @check_pos_shop
     def put(self, request, *args, **kwargs):
         """
             Update product
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(self.request.user)
-        if type(shop_id) == int:
-            modified_data, success_msg = self.validate_update(shop_id)
-            if 'error' in modified_data:
-                return api_response(modified_data['error'])
-            serializer = RetailerProductUpdateSerializer(data=modified_data)
-            if serializer.is_valid():
-                data = serializer.data
-                product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop_id)
-                name, ean, mrp, sp, description, stock_qty = data['product_name'], data['product_ean_code'], data[
-                    'mrp'], data['selling_price'], data['description'], data['stock_qty']
+        shop = kwargs['shop']
+        modified_data, success_msg = self.validate_update(shop.id)
+        if 'error' in modified_data:
+            return api_response(modified_data['error'])
+        serializer = RetailerProductUpdateSerializer(data=modified_data)
+        if serializer.is_valid():
+            data = serializer.data
+            product = RetailerProduct.objects.get(id=data['product_id'], shop_id=shop.id)
+            name, ean, mrp, sp, description, stock_qty = data['product_name'], data['product_ean_code'], data[
+                'mrp'], data['selling_price'], data['description'], data['stock_qty']
 
-                with transaction.atomic():
-                    # Update product
-                    product.product_ean_code = ean if ean else product.product_ean_code
-                    product.mrp = mrp if mrp else product.mrp
-                    product.name = name if name else product.name
-                    # product.sku_type = self.get_sku_type(product.mrp, product.name, product.product_ean_code,
-                    #                                      product.linked_product.id if product.linked_product else None)
-                    product.selling_price = sp if sp else product.selling_price
-                    product.status = data['status'] if data['status'] else product.status
-                    product.description = description if description else product.description
-                    # Update images
-                    if 'image_ids' in modified_data:
-                        RetailerProductImage.objects.filter(product=product).exclude(
-                            id__in=modified_data['image_ids']).delete()
-                    if 'images' in modified_data:
-                        RetailerProductCls.update_images(product, modified_data['images'])
-                    product.save()
-                    if 'stock_qty' in modified_data:
-                        # Update Inventory
-                        PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
-                                                        PosInventoryState.AVAILABLE, stock_qty, self.request.user,
-                                                        product.sku, PosInventoryChange.STOCK_UPDATE)
-                    serializer = RetailerProductResponseSerializer(product)
-                    return api_response(success_msg, serializer.data, status.HTTP_200_OK, True)
-            else:
-                return api_response(serializer_error(serializer))
+            with transaction.atomic():
+                # Update product
+                product.product_ean_code = ean if ean else product.product_ean_code
+                product.mrp = mrp if mrp else product.mrp
+                product.name = name if name else product.name
+                product.selling_price = sp if sp else product.selling_price
+                product.status = data['status'] if data['status'] else product.status
+                product.description = description if description else product.description
+                # Update images
+                if 'image_ids' in modified_data:
+                    RetailerProductImage.objects.filter(product=product).exclude(
+                        id__in=modified_data['image_ids']).delete()
+                if 'images' in modified_data:
+                    RetailerProductCls.update_images(product, modified_data['images'])
+                product.save()
+                if 'stock_qty' in modified_data:
+                    # Update Inventory
+                    PosInventoryCls.stock_inventory(product.id, PosInventoryState.AVAILABLE,
+                                                    PosInventoryState.AVAILABLE, stock_qty, self.request.user,
+                                                    product.sku, PosInventoryChange.STOCK_UPDATE)
+                serializer = RetailerProductResponseSerializer(product)
+                return api_response(success_msg, serializer.data, status.HTTP_200_OK, True)
         else:
-            return api_response(shop_id)
+            return api_response(serializer_error(serializer))
 
     def validate_create(self, shop_id):
         # Validate product data
@@ -215,59 +203,45 @@ class CouponOfferCreation(GenericAPIView):
     permission_classes = (AllowAny,)
     pagination_class = SmallOffsetPagination
 
+    @check_pos_shop
     def get(self, request, *args, **kwargs):
         """
             Get Offer / Offers List
         """
-        shop_id = get_shop_id_from_token(self.request.user)
-        if type(shop_id) == int:
-            coupon_id = request.GET.get('id')
-            if coupon_id:
-                serializer = OfferGetSerializer(data={'id': coupon_id, 'shop_id': shop_id})
-                if serializer.is_valid():
-                    return self.get_offer(coupon_id)
-                else:
-                    return api_response(serializer_error(serializer))
+        shop, coupon_id = kwargs['shop'], request.GET.get('id')
+        if coupon_id:
+            serializer = OfferGetSerializer(data={'id': coupon_id, 'shop_id': shop.id})
+            if serializer.is_valid():
+                return self.get_offer(coupon_id)
             else:
-                return self.get_offers_list(request, shop_id)
+                return api_response(serializer_error(serializer))
         else:
-            return api_response(shop_id)
+            return self.get_offers_list(request, shop.id)
 
+    @check_pos_shop
     def post(self, request, *args, **kwargs):
         """
             Create Any Offer
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(self.request.user)
-        if type(shop_id) == int:
-            serializer = OfferCreateSerializer(data=request.data)
-            if serializer.is_valid():
-                return self.create_offer(serializer.data, shop_id)
-            else:
-                return api_response(serializer_error(serializer))
+        serializer = OfferCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            return self.create_offer(serializer.data, kwargs['shop'].id)
         else:
-            return api_response(shop_id)
+            return api_response(serializer_error(serializer))
 
+    @check_pos_shop
     def put(self, request, *args, **kwargs):
         """
            Update Any Offer
         """
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        shop_id = get_shop_id_from_token(self.request.user)
-        if type(shop_id) == int:
-            data = request.data
-            data['shop_id'] = shop_id
-            serializer = OfferUpdateSerializer(data=data)
-            if serializer.is_valid():
-                return self.update_offer(serializer.data, shop_id)
-            else:
-                return api_response(serializer_error(serializer))
+        shop = kwargs['shop']
+        data = request.data
+        data['shop_id'] = shop.id
+        serializer = OfferUpdateSerializer(data=data)
+        if serializer.is_valid():
+            return self.update_offer(serializer.data, shop.id)
         else:
-            return api_response(shop_id)
+            return api_response(serializer_error(serializer))
 
     def create_offer(self, data, shop_id):
         offer_type = data['offer_type']
