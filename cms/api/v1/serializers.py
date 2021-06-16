@@ -70,7 +70,7 @@ class CardAppSerializer(serializers.ModelSerializer):
 class CardItemSerializer(serializers.ModelSerializer):
     """Serializer for CardItem"""
     image = Base64ImageField(
-        max_length=None, use_url=True,
+        max_length=None, use_url=True,required=False
     )
 
     class Meta:
@@ -256,17 +256,35 @@ class PageSerializer(serializers.ModelSerializer):
         data = self.context.get("request").data
         app_id = data.get("app_id")
         cards = data.get("cards")
-        # Create new Page
-        new_page = Page.objects.create(**validated_data)
-        # Mapping Page and Application
+        # Get app details
         app = get_object_or_404(Application, id = app_id)
-        ApplicationPage.objects.create(app = app, page = new_page)
-        # Creating Page Version
-        new_page_version = PageVersion.objects.create(page = new_page, version_no = 1)
+        # Checking page exist with name and app
+        app_page = ApplicationPage.objects.select_related('page').filter(app = app)
+        page = app_page.filter(page__name = data.get("name")).first()
+        if page:
+            page = page.page
+            latest_page_version = PageVersion.objects.filter(page = page).order_by('-version_no').first()
+            if page.state == 'Draft':
+                PageCard.objects.filter(page_version = latest_page_version).delete()
+            else:
+                latest_page_version = PageVersion.objects.create(page = page, version_no = latest_page_version.version_no + 1)
+                page.state = "Draft"
+                page.save()
+        else:
+            # Create new Page
+            page = Page.objects.create(**validated_data)
+            # Mapping Page and Application
+            app = get_object_or_404(Application, id = app_id)
+            ApplicationPage.objects.create(app = app, page = page)
+            # Creating Page Version
+            latest_page_version = PageVersion.objects.create(page = page, version_no = 1)
         # Mapping Cards of Pages
         for card in cards:
-            PageCard.objects.create(page_version = new_page_version, **card)
-        return new_page
+           PageCard.objects.create(page_version = latest_page_version, **card)
+        return page
+
+
+        
         
 
 class PageDetailSerializer(serializers.ModelSerializer):
