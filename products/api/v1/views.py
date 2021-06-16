@@ -4,7 +4,6 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView, CreateAPIView, UpdateAPIView
-from rest_framework.permissions import AllowAny
 
 from products.models import ParentProduct as ParentProducts, ProductHSN, ProductCapping as ProductCappings, \
     ParentProductImage, ProductVendorMapping, Product as ChildProduct, Tax, ProductSourceMapping, ProductPackingMapping, \
@@ -13,9 +12,9 @@ from brand.models import Brand
 
 from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductBulkUploadSerializers, \
-    ParentProductExportAsCSVSerializers, ActiveDeactivateSelectedProductSerializers, ProductHSNSerializers, \
+    ParentProductExportAsCSVSerializers, ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
-    CategorySerializers, ProductSerializers, GetParentProductSerializers
+    CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
@@ -476,10 +475,10 @@ class ParentProductExportAsCSVView(CreateAPIView):
         return get_response(serializer_error(serializer), False)
 
 
-class ActiveDeactivateSelectedProductView(UpdateAPIView):
+class ActiveDeactiveSelectedParentProductView(UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     parent_product_list = ParentProducts.objects.values('id',)
-    serializer_class = ActiveDeactivateSelectedProductSerializers
+    serializer_class = ActiveDeactiveSelectedParentProductSerializers
 
     def put(self, request):
         """ PUT API for Activate or Deactivate Selected Parent Product """
@@ -488,8 +487,25 @@ class ActiveDeactivateSelectedProductView(UpdateAPIView):
         serializer = self.serializer_class(instance=self.parent_product_list.filter(
             id__in=request.data['parent_product_id_list']), data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(updated_by=request.user)
             return get_response('parent product updated successfully!', None)
+        return get_response(serializer_error(serializer), None)
+
+
+class ActiveDeactiveSelectedChildProductView(UpdateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    child_product_list = ChildProduct.objects.values('id',)
+    serializer_class = ActiveDeactiveSelectedChildProductSerializers
+
+    def put(self, request):
+        """ PUT API for Activate or Deactivate Selected Parent Product """
+
+        info_logger.info("Child Product ActiveDeactivateSelectedProduct PUT api called.")
+        serializer = self.serializer_class(instance=self.child_product_list.filter(
+            id__in=request.data['child_product_id_list']), data=request.data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            return get_response('child product updated successfully!', None)
         return get_response(serializer_error(serializer), None)
 
 

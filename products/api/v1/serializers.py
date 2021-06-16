@@ -6,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from django.http import HttpResponse
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 
 from rest_framework import serializers
 
@@ -492,7 +493,7 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
         return response
 
 
-class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
+class ActiveDeactiveSelectedParentProductSerializers(serializers.ModelSerializer):
     is_active = serializers.BooleanField(required=True)
     parent_product_id_list = serializers.ListField(
         child=serializers.IntegerField(min_value=1)
@@ -505,7 +506,7 @@ class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
     def validate(self, data):
 
         if data.get('is_active') is None:
-            raise serializers.ValidationError('This field is required')
+            raise serializers.ValidationError('is_active field is required')
 
         if not 'parent_product_id_list' in data or not data['parent_product_id_list']:
             raise serializers.ValidationError(_('atleast one parent_product id must be selected '))
@@ -530,9 +531,56 @@ class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
 
         try:
             parent_products = ParentProduct.objects.filter(id__in=validated_data['parent_product_id_list'])
-            parent_products.update(status=parent_product_status)
+            parent_products.update(status=parent_product_status, updated_by=validated_data['updated_by'],
+                                   updated_at=timezone.now())
             for parent_product_obj in parent_products:
-                Product.objects.filter(parent_product=parent_product_obj).update(status=product_status)
+                Product.objects.filter(parent_product=parent_product_obj).update(status=product_status,
+                                        updated_by=validated_data['updated_by'], updated_at=timezone.now())
+        except Exception as e:
+            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
+        return validated_data
+
+
+class ActiveDeactiveSelectedChildProductSerializers(serializers.ModelSerializer):
+    is_active = serializers.BooleanField(required=True)
+    child_product_id_list = serializers.ListField(
+        child=serializers.IntegerField(min_value=1)
+    )
+
+    class Meta:
+        model = Product
+        fields = ('child_product_id_list', 'is_active',)
+
+    def validate(self, data):
+
+        if data.get('is_active') is None:
+            raise serializers.ValidationError('is_active field is required')
+
+        if not 'child_product_id_list' in data or not data['child_product_id_list']:
+            raise serializers.ValidationError(_('atleast one child product id must be selected '))
+
+        for id in data.get('child_product_id_list'):
+            try:
+                Product.objects.get(id=id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'child product not found for id {id}')
+
+        return data
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+
+        if validated_data['is_active']:
+            product_status = "active"
+        else:
+            product_status = "deactivated"
+
+        try:
+            child_products = Product.objects.filter(id__in=validated_data['child_product_id_list'])
+            child_products.update(status=product_status, updated_by=validated_data['updated_by'],
+                                  updated_at=timezone.now())
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
