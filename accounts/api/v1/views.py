@@ -1,18 +1,18 @@
-from django.shortcuts import render
-from rest_framework.views import APIView
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
+
 from rest_framework import authentication, permissions, generics
 from rest_framework.response import Response
 from .serializers import (UserSerializer, UserDocumentSerializer, 
     AppVersionSerializer, DeliveryAppVersionSerializer)
 from rest_framework.views import APIView
-from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import AllowAny
 from accounts.models import UserDocument, AppVersion
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.core.exceptions import ObjectDoesNotExist
 
-User =  get_user_model()
+User = get_user_model()
+
 
 class UserDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -21,11 +21,8 @@ class UserDetail(APIView):
 
     def get(self, request, format=None):
         user = UserSerializer(self.request.user)
-        msg = {'is_success': True,
-                'message': None,
-                'response_data': user.data}
-        return Response(msg,
-                        status=status.HTTP_200_OK)
+        msg = {'is_success': True, 'message': None, 'response_data': user.data}
+        return Response(msg, status=status.HTTP_200_OK)
 
     def put(self, request, format=None):
         user = self.request.user

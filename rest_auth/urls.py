@@ -21,5 +21,4 @@ urlpatterns = [
     url(r'^user/$', UserDetailsView.as_view(), name='rest_user_details'),
     url(r'^password/change/$', PasswordChangeView.as_view(),
         name='rest_password_change'),
-    url(r'^api/', include('rest_auth.api.urls')),
 ]
