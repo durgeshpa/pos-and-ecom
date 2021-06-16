@@ -493,9 +493,9 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
 
 
 class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
-    is_active = serializers.BooleanField()
+    is_active = serializers.BooleanField(required=True)
     parent_product_id_list = serializers.ListField(
-        child=serializers.IntegerField()
+        child=serializers.IntegerField(min_value=1)
     )
 
     class Meta:
@@ -518,6 +518,7 @@ class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
 
         return data
 
+    @transaction.atomic
     def update(self, instance, validated_data):
 
         if validated_data['is_active']:

@@ -28,20 +28,19 @@ def tax_search(queryset, search_text):
     return queryset
 
 
-# search using category_name
+# search using category name
 def category_search(queryset, search_text):
-    queryset = queryset.filter(Q(category_name__icontains=search_text))
+    queryset = queryset.filter(category_name__icontains=search_text)
     return queryset
 
 
 # search using brand name
 def brand_search(queryset, search_text):
-    queryset = queryset.filter(Q(brand_name__icontains=search_text))
+    queryset = queryset.filter(brand_name__icontains=search_text)
     return queryset
 
 
-# search using name
-def parent_product__name_search(queryset, search_text):
-    queryset = queryset.filter(Q(name__icontains=search_text))
-
+# search using parent product name
+def parent_product_name_search(queryset, search_text):
+    queryset = queryset.filter(name__icontains=search_text)
     return queryset

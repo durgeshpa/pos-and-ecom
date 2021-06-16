@@ -19,7 +19,7 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
-    category_search, brand_search, parent_product__name_search
+    category_search, brand_search, parent_product_name_search
 from categories.models import Category
 
 # Get an instance of a logger
@@ -76,7 +76,7 @@ class ParentProductGetView(GenericAPIView):
     def get(self, request):
         search_text = self.request.GET.get('search_text')
         if search_text:
-            self.queryset = parent_product__name_search(self.queryset, search_text)
+            self.queryset = parent_product_name_search(self.queryset, search_text)
         product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(product, many=True)
         msg = "" if product else "no product found"
@@ -478,15 +478,14 @@ class ParentProductExportAsCSVView(CreateAPIView):
 class ActiveDeactivateSelectedProductView(UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
-    parent_product_list = ParentProducts.objects.all()
+    parent_product_list = ParentProducts.objects.values('id',)
 
     def put(self, request):
         """ PUT API for Activate or Deactivate Selected Parent Product """
 
         info_logger.info("Parent Product ActiveDeactivateSelectedProduct PUT api called.")
         serializer = ActiveDeactivateSelectedProductSerializers(instance=self.parent_product_list.filter(
-            id__in=request.data['parent_product_id_list']),
-            data=request.data, partial=True)
+            id__in=request.data['parent_product_id_list']), data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return get_response('parent product updated successfully!', True)
