@@ -146,7 +146,7 @@ class TaxView(GenericAPIView):
             product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_tax, many=True)
-        msg = "" if product_tax else "no product txt found"
+        msg = "" if product_tax else "no product tax found"
         return get_response(msg, serializer.data)
 
     def post(self, request, *args, **kwargs):
