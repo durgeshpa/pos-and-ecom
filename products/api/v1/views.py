@@ -358,7 +358,7 @@ class ChildProductView(GenericAPIView):
             child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(child_product, many=True)
-        msg = "" if child_product else "no product found"
+        msg = "" if child_product else "no child product found"
         return get_response(msg, serializer.data)
 
     def post(self, request):
@@ -463,12 +463,13 @@ class ParentProductBulkUploadView(CreateAPIView):
 class ParentProductExportAsCSVView(CreateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (AllowAny,)
+    serializer_class = ParentProductExportAsCSVSerializers
 
     def post(self, request):
         """ POST API for Download Selected Parent Product CSV with Image Category & Tax """
 
         info_logger.info("Parent Product ExportAsCSV POST api called.")
-        serializer = ParentProductExportAsCSVSerializers(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             response = serializer.save()
             return response
@@ -477,14 +478,14 @@ class ParentProductExportAsCSVView(CreateAPIView):
 
 class ActiveDeactivateSelectedProductView(UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     parent_product_list = ParentProducts.objects.values('id',)
+    serializer_class = ActiveDeactivateSelectedProductSerializers
 
     def put(self, request):
         """ PUT API for Activate or Deactivate Selected Parent Product """
 
         info_logger.info("Parent Product ActiveDeactivateSelectedProduct PUT api called.")
-        serializer = ActiveDeactivateSelectedProductSerializers(instance=self.parent_product_list.filter(
+        serializer = self.serializer_class(instance=self.parent_product_list.filter(
             id__in=request.data['parent_product_id_list']), data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()

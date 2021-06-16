@@ -3,14 +3,10 @@ from io import StringIO
 
 from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
-from django_filters import BooleanFilter
-from nested_admin.nested import NestedTabularInline
 from rangefilter.filter import DateTimeRangeFilter
 from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter
 from django.contrib import admin, messages
-from django.contrib.admin import TabularInline, SimpleListFilter
-from django.core.exceptions import ValidationError
-from django.db.models import Q
+from django.contrib.admin import TabularInline
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponse
 from django.conf.urls import url
@@ -66,9 +62,11 @@ from wms.models import Out, WarehouseInventory, BinInventory
 
 info_logger = logging.getLogger('file-info')
 
+
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
     field_name = 'product' # name of the foreign key field
+
     def queryset(self, request, queryset):
         if self.value() is not None:
             return queryset.filter(
@@ -79,11 +77,13 @@ class ProductFilter(AutocompleteFilter):
 class ShopFilter(AutocompleteFilter):
     title = 'Seller Shop' # display title
     field_name = 'seller_shop' # name of the foreign key field
+
     def queryset(self, request, queryset):
         if self.value() is not None:
             return queryset.filter(
                 Q(seller_shop_id=self.value())
             )
+
 
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']
@@ -94,6 +94,7 @@ class ProductImageMainAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 class CategorySearch(InputFilter):
     parameter_name = 'category'
     title = 'Category'
@@ -103,6 +104,7 @@ class CategorySearch(InputFilter):
             return queryset.filter(
                 Q(parent_product__parent_product_pro_category__category__category_name__icontains=self.value())
             )
+
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
@@ -252,6 +254,7 @@ class VendorFilter(AutocompleteFilter):
     title = 'Vendor Name' # display title
     field_name = 'vendor' # name of the foreign key field
 
+
 class ExportProductVendor:
     def export_as_csv_product_vendormapping(self, request, queryset):
         meta = self.model._meta
@@ -265,6 +268,7 @@ class ExportProductVendor:
             row = writer.writerow([getattr(obj, field) for field in list_display])
         return response
     export_as_csv_product_vendormapping.short_description = "Download CSV of selected Productvendormapping"
+
 
 class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
   
@@ -306,6 +310,7 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
             '/ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',  # jquery
             'admin/js/product_vendor_mapping_form.js'
         )
+
 
 class SizeAdmin(admin.ModelAdmin,  ExportCsvMixin):
     resource_class = SizeResource
@@ -353,6 +358,7 @@ class TaxAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ["export_as_csv"]
     search_fields = ['tax_name']
 
+
 class ProductSearch(InputFilter):
     parameter_name = 'product_sku'
     title = 'Product (Id or SKU)'
@@ -379,7 +385,6 @@ class ProductSKUSearch(InputFilter):
             return queryset.filter(
                 Q(product__product_sku__icontains=product_sku)
             )
-
 
 
 class ProductOptionAdmin(admin.TabularInline):
@@ -419,6 +424,7 @@ class ProductImageAdmin(admin.TabularInline):
     formset = ProductImageFormSet
     model = ProductImage
 
+
 class ProductTaxInlineFormSet(BaseInlineFormSet):
    def clean(self):
       super(ProductTaxInlineFormSet, self).clean()
@@ -431,6 +437,7 @@ class ProductTaxInlineFormSet(BaseInlineFormSet):
       if 'gst' not in tax_list_type:
           raise ValidationError('Please fill the GST tax value')
 
+
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
     extra = 6
@@ -441,9 +448,10 @@ class ProductTaxMappingAdmin(admin.TabularInline):
     class Media:
         pass
 
+
 class ParentProductCategoryAdmin(TabularInline):
     model = ParentProductCategory
-    autocomplete_fields = ['category']
+    autocomplete_fields = ['category',]
     formset = RequiredInlineFormSet  # or AtLeastOneFormSet
 
 
@@ -453,7 +461,9 @@ def deactivate_selected_products(modeladmin, request, queryset):
     for record in queryset:
         Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='deactivated')
 
+
 deactivate_selected_products.short_description = "Deactivate Selected Products"
+
 
 def parent_tax_script_qa4():
     pr = ParentProductTaxMapping.objects.all().values_list('parent_product', flat=True).distinct('parent_product')
@@ -500,15 +510,19 @@ def parent_tax_script_qa4():
                 tax=Tax.objects.get(id=8)
             ).save()
 
+
 def approve_selected_products(modeladmin, request, queryset):
     queryset.update(status=True)
     for record in queryset:
         Product.objects.filter(parent_product__parent_id=record.parent_id).update(status='active')
+
+
 approve_selected_products.short_description = "Approve Selected Products"
 
 
 class ParentProductImageAdmin(admin.TabularInline):
     model = ParentProductImage
+
 
 class ParentProductTaxInlineFormSet(BaseInlineFormSet):
    def clean(self):
@@ -704,6 +718,8 @@ def approve_selected_child_products(modeladmin, request, queryset):
         price_fail = price_fail.strip(',')
         modeladmin.message_user(request, "Products" + price_fail + " were not be approved due to non existent active Product Price",
                                 level=messages.ERROR)
+
+
 approve_selected_child_products.short_description = "Approve Selected Products"
 
 
@@ -1125,6 +1141,7 @@ class MRPSearch(InputFilter):
                 Q(mrp__icontains=mrp)
             )
 
+
 class ExportProductPrice:
     def export_as_csv_productprice(self, request, queryset):
         meta = self.model._meta
@@ -1265,6 +1282,7 @@ class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_display = ['product_hsn_code']
     actions = ['export_as_csv']
     search_fields = ['product_hsn_code']
+
 
 class ProductCappingAdmin(admin.ModelAdmin):
     form = ProductCappingForm
@@ -1493,6 +1511,7 @@ class RepackagingAdmin(admin.ModelAdmin, ExportRepackaging):
     class Media:
         js = ("admin/js/repackaging.js",)
 
+
 class PriceSlabAdmin(TabularInline):
     """
     This class is used to create Price Slabs from admin panel
@@ -1512,6 +1531,7 @@ class PriceSlabAdmin(TabularInline):
                                        'offer_price_start_date', 'offer_price_end_date')
     class Media:
         pass
+
 
 class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 

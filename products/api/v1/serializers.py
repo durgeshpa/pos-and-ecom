@@ -416,7 +416,7 @@ class ParentProductBulkUploadSerializers(serializers.ModelSerializer):
 
 class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
     parent_product_id_list = serializers.ListField(
-        child=serializers.IntegerField()
+        child=serializers.IntegerField(required=True)
     )
 
     class Meta:
@@ -451,8 +451,8 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
     def product_category(self, obj):
         try:
             if obj.parent_product_pro_category.exists():
-                cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
-                return "\n".join(cats)
+                categorys = [str(cat.category) for cat in obj.parent_product_pro_category.filter(status=True)]
+                return "\n".join(categorys)
             return ''
         except:
             return ''
@@ -466,9 +466,9 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
     def create(self, validated_data):
         meta = ParentProduct._meta
         field_names = [
-            'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn',
-            'product_gst', 'product_cess', 'product_surcharge', 'product_image', 'status',
-            'product_type', 'is_ptr_applicable', 'ptr_type', 'ptr_percent'
+            'parent_id', 'name', 'parent_brand', 'product_category', 'product_hsn', 'product_gst', 'product_cess',
+            'product_surcharge', 'product_image', 'status', 'product_type', 'is_ptr_applicable', 'ptr_type',
+            'ptr_percent', 'is_ars_applicable', 'is_lead_time_applicable', 'max_inventory'
         ]
 
         response = HttpResponse(content_type='text/csv')
