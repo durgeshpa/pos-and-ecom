@@ -1001,7 +1001,7 @@ class CartCentral(GenericAPIView):
         # Check Shop
         shop_id = get_shop_id_from_token(self.request.user)
         if not type(shop_id) == int:
-            return {'error': shop_id}
+            return api_response(shop_id)
         search_text = self.request.GET.get('search_text')
         carts = Cart.objects.select_related('buyer').prefetch_related('rt_cart_list').filter(seller_shop_id=shop_id,
                                                                                              cart_status__in=['active', 'pending']).order_by('-modified_at')
