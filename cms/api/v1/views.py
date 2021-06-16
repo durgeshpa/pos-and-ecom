@@ -43,6 +43,10 @@ class CardView(APIView, PaginationHandlerMixin):
             info_logger.info("-----CACHING CARDS  @GET cards/----------")
             cache.set('cards', queryset)
 
+        if query_params.get('name'):
+            name = query_params.get('name')
+            queryset = queryset.filter(name__icontains=name)
+
         if query_params.get('id'):
             card_id = query_params.get('id')
             queryset = queryset.filter(id=card_id)
