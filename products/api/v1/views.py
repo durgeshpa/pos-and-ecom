@@ -18,7 +18,8 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     CategorySerializers, ProductSerializers, GetParentProductSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
-from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, category_search
+from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
+    category_search, brand_search, parent_product__name_search
 from categories.models import Category
 
 # Get an instance of a logger
@@ -32,20 +33,17 @@ class BrandView(GenericAPIView):
         Get Brand List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Brand.objects.all()
+    queryset = Brand.objects.values('id', 'brand_name', 'brand_code')
     serializer_class = BrandSerializers
 
     def get(self, request):
-        if request.GET.get('id'):
-            """ Get Brand for specific ID """
-            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
-            if 'error' in id_validation:
-                return get_response(id_validation['error'])
-            brand = id_validation['data']
-        else:
-            brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = brand_search(self.queryset, search_text)
+        brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(brand, many=True)
-        return get_response('brand list!', serializer.data)
+        msg = "" if brand else "no brand found"
+        return get_response(msg, serializer.data)
 
 
 class CategoryView(GenericAPIView):
@@ -58,17 +56,13 @@ class CategoryView(GenericAPIView):
     serializer_class = CategorySerializers
 
     def get(self, request):
-        self.queryset = self.search_filter_category()
-        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(category, many=True)
-        return get_response('category list!', serializer.data)
-
-    def search_filter_category(self):
         search_text = self.request.GET.get('search_text')
-        # search using category name based on criteria that matches
         if search_text:
             self.queryset = category_search(self.queryset, search_text)
-        return self.queryset
+        category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        msg = "" if category else "no category found"
+        return get_response(msg, serializer.data)
 
 
 class ParentProductGetView(GenericAPIView):
@@ -80,14 +74,18 @@ class ParentProductGetView(GenericAPIView):
     serializer_class = GetParentProductSerializers
 
     def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = parent_product__name_search(self.queryset, search_text)
         product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(product, many=True)
-        return get_response('product list!', serializer.data)
+        msg = "" if product else "no product found"
+        return get_response(msg, serializer.data)
 
 
 class ProductHSNView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ProductHSN.objects.all()
+    queryset = ProductHSN.objects.values('id', 'product_hsn_code')
     serializer_class = ProductHSNSerializers
 
     def get(self, request):
@@ -128,7 +126,7 @@ class ProductHSNView(GenericAPIView):
 
 class TaxView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Tax.objects.all()
+    queryset = Tax.objects.values('id', 'tax_name', 'tax_type', 'tax_percentage')
     serializer_class = TaxSerializers
 
     def get(self, request):
@@ -143,7 +141,7 @@ class TaxView(GenericAPIView):
             product_tax = id_validation['data']
         else:
             """ GET Tax List """
-            self.queryset = self.search_filter_product_hsn()
+            self.queryset = self.search_filter_product_tax()
             product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_tax, many=True)
@@ -159,9 +157,9 @@ class TaxView(GenericAPIView):
             return get_response('product HSN created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    def search_filter_product_hsn(self):
+    def search_filter_product_tax(self):
         search_text = self.request.GET.get('search_text')
-        # search using product_hsn_code based on criteria that matches
+        # search using tax_name based on criteria that matches
         if search_text:
             self.queryset = tax_search(self.queryset, search_text)
         return self.queryset
