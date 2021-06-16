@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from rest_framework import status
 
 from cms.choices import CARD_TYPE_CHOICES, SCROLL_CHOICES, STATUS_CHOICES, PAGE_STATE_CHOICES
 
@@ -70,7 +71,8 @@ class Page(models.Model):
     name = models.CharField(max_length=255)
     start_date = models.DateField(auto_now_add=False)
     expiry_date = models.DateField(auto_now_add=False)
-    status = models.CharField(max_length=255, choices=PAGE_STATE_CHOICES, default='Draft')
+    state = models.CharField(max_length=255, choices=PAGE_STATE_CHOICES, default='Draft')
+    status = models.CharField(max_length=255, choices=STATUS_CHOICES, default='Active')
     active_version_no = models.IntegerField(blank=True, null=True)
 
     def __str__(self):

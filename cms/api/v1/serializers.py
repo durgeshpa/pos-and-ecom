@@ -1,7 +1,5 @@
 import logging
-from django.db import models
-from django.db.models import fields
-from django.http import request
+from datetime import datetime
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
@@ -238,3 +236,21 @@ class PageDetailSerializer(serializers.ModelSerializer):
         apps = ApplicationPage.objects.get(page__id = instance.id).app
         data['applications'] = PageApplicationSerializer(apps).data
         return data
+    
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        page = Page.objects.get(id = instance.id)
+        if validated_data.get('state'):
+            state = validated_data.get('state')
+            if state == "Published":
+                instance.state = "Published"
+                if validated_data.get('active_version_no'):
+                    instance.active_version_no = validated_data.get('active_version_no')
+                else:
+                    page_version = PageVersion.objects.filter(page = page).order_by('-version_no').first()
+                    page_version.published_on = datetime.now()
+                    page_version.save()
+                    instance.active_version_no = page_version.version_no
+        return super().update(instance, validated_data)

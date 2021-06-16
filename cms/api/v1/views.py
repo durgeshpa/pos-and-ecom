@@ -1,12 +1,8 @@
-from functools import partial
 import logging
-from django.core.checks import messages
-from django.db.models import query
 from rest_framework.exceptions import ValidationError, NotFound
-from rest_framework.generics import RetrieveAPIView, ListAPIView, CreateAPIView
+from rest_framework.generics import RetrieveAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import generics, serializers
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from .serializers import CardDataSerializer, CardSerializer, ApplicationSerializer, ApplicationDataSerializer, PageSerializer, PageDetailSerializer
@@ -287,3 +283,30 @@ class PageDetailView(APIView):
             "data": serializer.data
         }
         return Response(message, status = status.HTTP_200_OK)
+
+
+    def patch(self, request, id):
+        """Update Specific Page Details such as publishing page and change status"""
+        try:
+            page = Page.objects.get(id = id)
+        except Exception:
+            message = {
+                "is_success": False,
+                "message": "No pages exist for this id."
+            }
+            return Response(message, status = status.HTTP_204_NO_CONTENT)
+        serializer = PageDetailSerializer(data=request.data, instance=page, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            message = {
+                "is_success": True,
+                "message": "OK",
+                "data": serializer.data
+            }
+            return Response(message, status = status.HTTP_201_CREATED)
+        message = {
+            "is_success": False,
+            "message": "Data is not valid",
+            "error": serializer.errors
+        }
+        return Response(message, status = status.HTTP_400_BAD_REQUEST)
