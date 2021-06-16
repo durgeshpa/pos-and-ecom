@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .models import PhoneOTP
-from pos.common_functions import get_shop_id_from_token
+from pos.common_functions import filter_pos_shop
 
 UserModel = get_user_model()
 
@@ -50,9 +50,9 @@ class SendSmsOTPSerializer(serializers.ModelSerializer):
         # If user exists and pos login request
         elif app_type == 2:
             # check shop for pos login
-            shop_id = get_shop_id_from_token(user)
-            if not type(shop_id) == int:
-                raise serializers.ValidationError(shop_id)
+            qs = filter_pos_shop(user)
+            if not qs.exists():
+                raise serializers.ValidationError("No Approved Franchise Shop Found For This User!")
         return attrs
 
 

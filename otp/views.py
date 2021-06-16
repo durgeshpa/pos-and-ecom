@@ -10,7 +10,6 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 
 from retailer_backend.messages import *
-from pos.common_functions import validate_data_format
 
 from .sms import SendSms, SendVoiceSms
 from .models import PhoneOTP
@@ -26,11 +25,6 @@ class ValidateOTP(CreateAPIView):
     serializer_class = PhoneOTPValidateSerializer
 
     def post(self, request, *args, **kwargs):
-        # Validate request data format
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-
         # Validate request data
         serializer = self.serializer_class(data=request.data, context={'request': request})
         if serializer.is_valid():
@@ -151,10 +145,6 @@ class SendSmsOTP(CreateAPIView):
     serializer_class = SendSmsOTPSerializer
 
     def post(self, request, *args, **kwargs):
-        # Validate request data format
-        msg = validate_data_format(request)
-        if msg:
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         # Validate request data
         serializer = self.serializer_class(data=request.data, context={'request': request})
         if serializer.is_valid():

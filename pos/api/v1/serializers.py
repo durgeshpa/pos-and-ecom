@@ -978,6 +978,12 @@ class CouponListSerializer(serializers.ModelSerializer):
 
 
 class PosShopSerializer(serializers.ModelSerializer):
+    shop_id = serializers.SerializerMethodField()
+
+    @staticmethod
+    def shop_id(obj):
+        return obj.id
+
     class Meta:
         model = Shop
-        fields = ('id', 'shop_name')
+        fields = ('shop_id', 'shop_name')

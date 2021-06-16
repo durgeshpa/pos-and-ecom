@@ -30,7 +30,7 @@ from .utils import import_callable
 from otp.models import PhoneOTP
 from otp.views import ValidateOTP
 from marketing.models import ReferralCode, RewardPoint, Referral, Profile
-from pos.common_functions import get_shop_id_from_token
+from pos.common_functions import filter_pos_shop
 
 # Get the UserModel
 UserModel = get_user_model()
@@ -158,9 +158,9 @@ class OtpLoginSerializer(serializers.Serializer):
         if not user:
             raise serializers.ValidationError("User does not exist. Please sign up!")
         if attrs.get('app_type') == 2:
-            shop_id = get_shop_id_from_token(user)
-            if not type(shop_id) == int:
-                raise serializers.ValidationError(shop_id)
+            qs = filter_pos_shop(user)
+            if not qs.exists():
+                raise serializers.ValidationError("No Approved Franchise Shop Found For This User!")
 
         phone_otps = PhoneOTP.objects.filter(phone_number=number)
         if phone_otps.exists():
@@ -277,51 +277,45 @@ class RetailUserDetailsSerializer(serializers.ModelSerializer):
     def get_shop_name(self, obj):
         """
         obj:-User object
-        return:- shop name otherwise None
+        return:- shop name
         """
-        shop_name = None
         shop = self.context.get('shop')
-        if shop:
-            shop_name = shop.shop_name
-        return shop_name
+        return shop.shop_name
 
     def get_shop_image(self, obj):
         """
         obj:-User object
-        return:- shop image otherwise None
+        return:- shop image
         """
         shop = self.context.get('shop')
-        if shop:
-            try:
-                return shop.shop_name_photos.all()[0].shop_photo.url
-            except Exception as e:
-                error_logger.info(e)
+        try:
+            return shop.shop_name_photos.all()[0].shop_photo.url
+        except Exception as e:
+            error_logger.info(e)
         return None
 
     def get_shop_owner_name(self, obj):
         """
         obj:-User object
-        return:- owner name otherwise None
+        return:- owner name
         """
         shop = self.context.get('shop')
-        if shop:
-            try:
-                return shop.shop_owner.first_name + ' ' + shop.shop_owner.last_name
-            except Exception as e:
-                error_logger.info(e)
+        try:
+            return shop.shop_owner.first_name + ' ' + shop.shop_owner.last_name
+        except Exception as e:
+            error_logger.info(e)
         return None
 
     def get_shop_shipping_address(self, obj):
         """
         obj:-User object
-        return:- shipping address otherwise None
+        return:- shipping address
         """
         shop = self.context.get('shop')
-        if shop:
-            try:
-                return shop.get_shop_shipping_address
-            except Exception as e:
-                error_logger.info(e)
+        try:
+            return shop.get_shop_shipping_address
+        except Exception as e:
+            error_logger.info(e)
         return None
 
     class Meta:

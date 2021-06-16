@@ -25,6 +25,7 @@ urlpatterns = [
     url('^user/$', UserView.as_view()),
     # CART CHECKOUT
     url('^cart/checkout/$', CartCheckout.as_view()),
+    url('^cart/checkout/(?P<pk>\d+)/$', CartCheckout.as_view()),
     # ORDER
     url('^reserved-order/$', ReservedOrder.as_view(), name='reserved_order'),
     url('^order/$', OrderCentral.as_view()),

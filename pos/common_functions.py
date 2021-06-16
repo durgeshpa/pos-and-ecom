@@ -1,5 +1,6 @@
 import logging
 import json
+from functools import wraps
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -34,15 +35,16 @@ cron_logger = logging.getLogger('cron_log')
 class RetailerProductCls(object):
 
     @classmethod
-    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description, product_ean_code, status='active'):
+    def create_retailer_product(cls, shop_id, name, mrp, selling_price, linked_product_id, sku_type, description,
+                                product_ean_code, product_status='active'):
         """
             General Response For API
         """
-        if status is None:
-            status = 'active'
+        product_status = 'active' if product_status is None else product_status
         return RetailerProduct.objects.create(shop_id=shop_id, name=name, linked_product_id=linked_product_id,
-                                              mrp=mrp, sku_type=sku_type, selling_price=selling_price, description=description,
-                                              product_ean_code=product_ean_code, status=status)
+                                              mrp=mrp, sku_type=sku_type, selling_price=selling_price,
+                                              description=description, product_ean_code=product_ean_code,
+                                              status=product_status)
 
     @classmethod
     def create_images(cls, product, images):
@@ -156,10 +158,14 @@ class PosInventoryCls(object):
     @classmethod
     def qty_transaction(cls, pid, state_obj, qty, transaction_id):
         pos_inv, _ = PosInventory.objects.select_for_update().get_or_create(product_id=pid, inventory_state=state_obj)
-        info_logger.info('initial ' + str(state_obj) + ' inv for product ' + str(pid) + ': ' + str(transaction_id) + ' ' + str(pos_inv.quantity))
+        info_logger.info(
+            'initial ' + str(state_obj) + ' inv for product ' + str(pid) + ': ' + str(transaction_id) + ' ' + str(
+                pos_inv.quantity))
         pos_inv.quantity = pos_inv.quantity + qty
         pos_inv.save()
-        info_logger.info('final ' + str(state_obj) + ' inv for product ' + str(pid) + ': ' + str(transaction_id) + ' ' + str(pos_inv.quantity))
+        info_logger.info(
+            'final ' + str(state_obj) + ' inv for product ' + str(pid) + ': ' + str(transaction_id) + ' ' + str(
+                pos_inv.quantity))
 
     @classmethod
     def create_inventory_change(cls, pid, qty, transaction_type, transaction_id, i_state_obj, f_state_obj, user):
@@ -188,21 +194,6 @@ def delete_cart_mapping(cart, product, cart_type='retail'):
     elif cart_type == 'basic':
         if CartProductMapping.objects.filter(cart=cart, retailer_product=product).exists():
             CartProductMapping.objects.filter(cart=cart, retailer_product=product).delete()
-
-
-def get_pos_shop(user):
-    return Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f', approval_status=2,
-                               pos_enabled=1).last()
-
-
-def get_shop_id_from_token(user):
-    """
-        Get shop_id from user
-    """
-    shop = get_pos_shop(user)
-    if not shop:
-        return "No Approved Franchise Shop exists for the User!"
-    return shop.id
 
 
 def serializer_error(serializer):
@@ -293,3 +284,32 @@ class RewardCls(object):
         data['available_points'], data['value_factor'] = RewardCls.get_user_redeemable_points(cart.buyer)
         data['cart_redeem_points'] = points
         return data
+
+
+def filter_pos_shop(user):
+    return Shop.objects.filter(Q(shop_owner=user) | Q(related_users=user), shop_type__shop_type='f', status=True,
+                               approval_status=2, pos_enabled=1)
+
+
+def check_pos_shop(view_func):
+    """
+        Decorator to validate pos request
+    """
+
+    @wraps(view_func)
+    def _wrapped_view_func(self, request, *args, **kwargs):
+        # data format
+        if request.method == 'POST':
+            msg = validate_data_format(request)
+            if msg:
+                return api_response(msg)
+        shop_id = request.META.get('HTTP_SHOP_ID', None)
+        user = request.user
+        try:
+            qs = filter_pos_shop(user)
+            kwargs['shop'] = qs.get(id=shop_id)
+        except:
+            return api_response("Franchise Shop Id Not Approved / Invalid!")
+        return view_func(self, request, *args, **kwargs)
+
+    return _wrapped_view_func
