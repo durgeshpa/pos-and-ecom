@@ -507,7 +507,7 @@ class ActiveDeactivateSelectedProductSerializers(serializers.ModelSerializer):
         if data.get('is_active') is None:
             raise serializers.ValidationError('This field is required')
 
-        if len(data.get('parent_product_id_list')) == 0:
+        if not 'parent_product_id_list' in data or not data['parent_product_id_list']:
             raise serializers.ValidationError(_('atleast one parent_product id must be selected '))
 
         for id in data.get('parent_product_id_list'):

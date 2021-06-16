@@ -51,7 +51,6 @@ class CategoryView(GenericAPIView):
         Get Category List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = Category.objects.values('id', 'category_name')
     serializer_class = CategorySerializers
 
@@ -114,6 +113,7 @@ class ProductHSNView(GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
+            info_logger.info("product HSN created successfully ")
             return get_response('product HSN created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
@@ -156,7 +156,8 @@ class TaxView(GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return get_response('product HSN created successfully!', serializer.data)
+            info_logger.info("product Tax created successfully ")
+            return get_response('product Tax created successfully!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def search_filter_product_tax(self):
@@ -446,7 +447,6 @@ class ChildProductView(GenericAPIView):
 
 class ParentProductBulkUploadView(CreateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     serializer_class = ParentProductBulkUploadSerializers
 
     def post(self, request, *args, **kwargs):
@@ -462,7 +462,6 @@ class ParentProductBulkUploadView(CreateAPIView):
 
 class ParentProductExportAsCSVView(CreateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     serializer_class = ParentProductExportAsCSVSerializers
 
     def post(self, request):
@@ -472,6 +471,7 @@ class ParentProductExportAsCSVView(CreateAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             response = serializer.save()
+            info_logger.info("Parent Product CSVExpored successfully ")
             return response
         return get_response(serializer_error(serializer), False)
 
@@ -495,7 +495,6 @@ class ActiveDeactivateSelectedProductView(UpdateAPIView):
 
 class ProductCappingView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
     queryset = ProductCappings.objects.select_related('product', 'seller_shop').order_by('-id')
     serializer_class = ProductCappingSerializers
     """

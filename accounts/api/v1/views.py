@@ -49,6 +49,7 @@ class UserDetail(APIView):
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
+
 class UserDocumentView(generics.ListCreateAPIView):
     serializer_class = UserDocumentSerializer
     authentication_classes = (authentication.TokenAuthentication,)
@@ -90,6 +91,7 @@ class UserDocumentView(generics.ListCreateAPIView):
                 'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
+
 
 class CheckAppVersion(APIView):
     permission_classes = (AllowAny,)
