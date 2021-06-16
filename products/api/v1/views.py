@@ -104,7 +104,8 @@ class ProductHSNView(GenericAPIView):
             product_hsn = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_hsn, many=True)
-        return get_response('product hsn list!', serializer.data)
+        msg = "" if product_hsn else "no product hsn found"
+        return get_response(msg, serializer.data)
 
     def post(self, request, *args, **kwargs):
         """ POST API for ProductHSN Creation """
@@ -145,7 +146,8 @@ class TaxView(GenericAPIView):
             product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(product_tax, many=True)
-        return get_response('product tax list!', serializer.data)
+        msg = "" if product_tax else "no product txt found"
+        return get_response(msg, serializer.data)
 
     def post(self, request, *args, **kwargs):
         """ POST API for Tax Creation """
@@ -198,7 +200,8 @@ class ParentProductView(GenericAPIView):
             self.queryset = self.search_filter_parent_product()
             parent_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(parent_product, many=True)
-        return get_response('parent product list!', serializer.data)
+        msg = "" if parent_product else "no product product found"
+        return get_response(msg, serializer.data)
 
     def post(self, request):
         """ POST API for Parent Product Creation with Image Category & Tax """
@@ -295,7 +298,8 @@ class SourceProductMappingView(GenericAPIView):
         else:
             product_map = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(product_map, many=True)
-        return get_response('source product mapping data!', serializer.data)
+        msg = "" if product_map else "no product mapping found"
+        return get_response(msg, serializer.data)
 
 
 class ProductPackingMappingView(GenericAPIView):
@@ -313,7 +317,8 @@ class ProductPackingMappingView(GenericAPIView):
         else:
             pack_mat_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(pack_mat_product, many=True)
-        return get_response('product packing material data!', serializer.data)
+        msg = "" if pack_mat_product else "no product package mapping found"
+        return get_response(msg, serializer.data)
 
 
 class ChildProductView(GenericAPIView):
@@ -353,7 +358,8 @@ class ChildProductView(GenericAPIView):
             child_product = SmallOffsetPagination().paginate_queryset(self.queryset, request)
 
         serializer = self.serializer_class(child_product, many=True)
-        return get_response('child product list!', serializer.data)
+        msg = "" if child_product else "no product found"
+        return get_response(msg, serializer.data)
 
     def post(self, request):
         """ POST API for Child Product """
