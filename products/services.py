@@ -26,3 +26,10 @@ def product_hsn_search(queryset, search_text):
 def tax_search(queryset, search_text):
     queryset = queryset.filter(Q(tax_name__icontains=search_text) | Q(tax_type__icontains=search_text))
     return queryset
+
+
+# search using category_name
+def category_search(queryset, search_text):
+    queryset = queryset.filter(Q(category_name__icontains=search_text))
+    return queryset
+

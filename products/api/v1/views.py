@@ -18,7 +18,7 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     CategorySerializers, ProductSerializers, GetParentProductSerializers
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
-from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search
+from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, category_search
 from categories.models import Category
 
 # Get an instance of a logger
@@ -53,13 +53,22 @@ class CategoryView(GenericAPIView):
         Get Category List
     """
     authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
     queryset = Category.objects.values('id', 'category_name')
     serializer_class = CategorySerializers
 
     def get(self, request):
+        self.queryset = self.search_filter_category()
         category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
         serializer = self.serializer_class(category, many=True)
         return get_response('category list!', serializer.data)
+
+    def search_filter_category(self):
+        search_text = self.request.GET.get('search_text')
+        # search using category name based on criteria that matches
+        if search_text:
+            self.queryset = category_search(self.queryset, search_text)
+        return self.queryset
 
 
 class ParentProductGetView(GenericAPIView):
