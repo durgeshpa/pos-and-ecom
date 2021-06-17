@@ -86,27 +86,27 @@
         </th>
         <th>
           <div class="text">
-            <a href="#">Trip Start Time %</a>
+            <a href="#">Trip Start Time</a>
           </div>
         </th>
         <th>
           <div class="text">
-            <a href="#">Trip End Time %</a>
+            <a href="#">Trip End Time</a>
           </div>
         </th>
         <th>
           <div class="text">
-            <a href="#">Opening Kms %</a>
+            <a href="#">Opening Kms</a>
           </div>
         </th>
         <th>
           <div class="text">
-            <a href="#">Closing Kms %</a>
+            <a href="#">Closing Kms</a>
           </div>
         </th>
         <th>
           <div class="text">
-            <a href="#">Km Run %</a>
+            <a href="#">Km Run</a>
           </div>
         </th>
 
@@ -114,7 +114,24 @@
     </thead>
 
     <tbody>
+
+      <tr style="font-weight:bold; border-top:2px solid #DDDDDD;">
+            <td> Total </td>
+            <td> -- </td>
+            <td> {{ summary_total.delivered_cnt | intcomma }} </td>
+            <td> {{ summary_total.returned_cnt | default:0 }} </td>
+            <td> {{ summary_total.pending_cnt | intcomma }} </td>
+            <td> {{ summary_total.rescheduled_cnt | default:0 }} </td>
+            <td> {{ summary_total.total_shipments | intcomma }} </td>
+            <td> {% percentof summary_total.delivered_cnt summary_total.total_shipments %} </td>
+            <td> {% percentof summary_total.returned_cnt summary_total.total_shipments %} </td>
+            <td> {% percentof summary_total.rescheduled_shipments summary_total.total_shipments %} </td>
+            <td> {{ summary_total.invoice_amount | default:0 | intcomma }} </td>
+            <td> {{ summary_total.delivered_amount | default:0 | intcomma }} </td>
+            <td> {% percentof summary_total.delivered_amount summary_total.invoice_amount %}<td>
+        </tr>
       {% for row in summary %}
+
       <tr class="{% cycle 'row1' 'row2' %}">
         <td> {{ row.dispatch_no }} </td>
         <td> {{ row.delivery_boy }} </td>
