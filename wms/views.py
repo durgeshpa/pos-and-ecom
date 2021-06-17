@@ -865,7 +865,7 @@ def release_blocking_with_cron():
         order_status = 'available'
         release_type = 'cron'
         common_release_for_inventory(sku_id, shop_id, transaction_type, transaction_id, order_status, order_product,
-                                     release_type)
+                                     release_type, None)
 
 
 def pickup_entry_exists_for_order(order_id):

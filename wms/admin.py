@@ -189,8 +189,8 @@ class TransactionIDFilter(InputFilter):
         return queryset
 
 
-class OrderNumberFilterForOrderRelease(InputFilter):
-    title = 'Order Number'
+class CartNumberFilterForOrderRelease(InputFilter):
+    title = 'Cart Number'
     parameter_name = 'warehouse_internal_inventory_release'
 
     def queryset(self, request, queryset):
@@ -865,7 +865,7 @@ class OrderReleaseAdmin(admin.ModelAdmin):
         'release_time', 'created_at')
 
     search_fields = ('sku__product_sku',)
-    list_filter = [Warehouse, SKUFilter, TransactionIDFilter, OrderNumberFilterForOrderRelease, 'release_type']
+    list_filter = [Warehouse, SKUFilter, TransactionIDFilter, CartNumberFilterForOrderRelease, 'release_type']
     list_per_page = 50
 
     def cart_number(self, obj):

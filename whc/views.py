@@ -389,7 +389,8 @@ class AutoOrderProcessor:
             'shop_id': cart.seller_shop_id,
             'transaction_id': cart.cart_no,
             'transaction_type': 'ordered',
-            'order_status': order.order_status
+            'order_status': order.order_status,
+            'order_number': order.order_no
         })
         order_result = OrderManagement.release_blocking_from_order(reserved_args, sku_id)
         if order_result is False:
