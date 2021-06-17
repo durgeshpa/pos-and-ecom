@@ -127,7 +127,7 @@ class ExportCsvMixin:
         else:
             writer.writerow(field_names)
         for obj in queryset:
-            items= [getattr(obj, field) for field in field_names]
+            items = [getattr(obj, field) for field in field_names]
             if self.model._meta.db_table == 'products_product':
                 items.append(obj.product_brand)
                 items.append(self.product_category(obj))

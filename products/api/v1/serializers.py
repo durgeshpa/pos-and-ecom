@@ -18,7 +18,8 @@ from brand.models import Brand, Vendor
 from shops.models import Shop
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
     get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
-    get_validate_seller_shop, check_active_capping, validate_tax_type, get_validate_vendor, get_validate_packing_material, \
+    get_validate_seller_shop, check_active_capping, validate_tax_type, get_validate_vendor, \
+    get_validate_packing_material, \
     get_destination_product_repack, get_source_product
 from products.common_function import ParentProductCls, ProductCls
 from accounts.models import User
@@ -126,7 +127,6 @@ class UserSerializers(serializers.ModelSerializer):
 
 
 class LogSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = CentralLog
 
@@ -202,7 +202,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
     class Meta:
         model = ParentProduct
         fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'status', 'product_hsn', 'parent_brand',
-                  'parent_product_pro_tax', 'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent', 'ptr_type',
+                  'parent_product_pro_tax', 'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent',
+                  'ptr_type',
                   'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'parent_product_pro_image',
                   'updated_by', 'updated_at', 'product_parent_product', 'product_images', 'parent_product_log')
 
@@ -535,7 +536,9 @@ class ActiveDeactiveSelectedParentProductSerializers(serializers.ModelSerializer
                                    updated_at=timezone.now())
             for parent_product_obj in parent_products:
                 Product.objects.filter(parent_product=parent_product_obj).update(status=product_status,
-                                        updated_by=validated_data['updated_by'], updated_at=timezone.now())
+                                                                                 updated_by=validated_data[
+                                                                                     'updated_by'],
+                                                                                 updated_at=timezone.now())
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
@@ -580,7 +583,8 @@ class ActiveDeactiveSelectedChildProductSerializers(serializers.ModelSerializer)
             try:
                 child_products = Product.objects.filter(id__in=validated_data['child_product_id_list'])
                 for child_product_obj in child_products:
-                    parent_sku = ParentProduct.objects.filter(parent_id=child_product_obj.parent_product.parent_id).last()
+                    parent_sku = ParentProduct.objects.filter(
+                        parent_id=child_product_obj.parent_product.parent_id).last()
 
                     if not ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
                                                        product_id=child_product_obj.id).exists():
@@ -771,7 +775,7 @@ class ProductSourceMappingSerializers(serializers.ModelSerializer):
 
     class Meta:
         model = ProductSourceMapping
-        fields = ('source_sku', )
+        fields = ('source_sku',)
 
 
 class ProductPackingMappingSerializers(serializers.ModelSerializer):
@@ -804,7 +808,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
                                            write_only=True)
     source_product_pro = ProductSourceMappingSerializers(many=True, write_only=True, required=False)
     packing_material_rt = ProductPackingMappingSerializers(many=True, write_only=True, required=False)
-    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, write_only=True, required=False)
+    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, write_only=True,
+                                                                                   required=False)
 
     class Meta:
         model = Product
@@ -830,7 +835,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
         elif not 'product_images' in self.initial_data or not self.initial_data['product_images']:
             if not 'product_pro_image' in self.initial_data or not self.initial_data['product_pro_image']:
-                if parent_product_val['parent_product'] and parent_product_val['parent_product'].parent_product_pro_image. \
+                if parent_product_val['parent_product'] and parent_product_val[
+                    'parent_product'].parent_product_pro_image. \
                         exists():
                     data['use_parent_image'] = True
                 else:
@@ -873,7 +879,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
         if 'product_images' in self.initial_data or self.initial_data['product_images']:
             product_pro_image = None
-            ProductCls.upload_child_product_images(child_product, self.initial_data['product_images'], product_pro_image)
+            ProductCls.upload_child_product_images(child_product, self.initial_data['product_images'],
+                                                   product_pro_image)
 
         if child_product.repackaging_type == 'packing_material':
             ProductCls.update_weight_inventory(child_product)
@@ -936,3 +943,82 @@ class ProductHSNSerializers(serializers.ModelSerializer):
     class Meta:
         model = ProductHSN
         fields = ['id', 'product_hsn_code', ]
+
+
+class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
+    child_product_id_list = serializers.ListField(
+        child=serializers.IntegerField(required=True)
+    )
+
+    class Meta:
+        model = Product
+        fields = ('child_product_id_list',)
+
+    def validate(self, data):
+
+        if len(data.get('child_product_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one child_product id must be selected '))
+
+        for id in data.get('child_product_id_list'):
+            try:
+                Product.objects.get(id=id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'child_product not found for id {id}')
+
+        return data
+
+    def product_category(self, obj):
+        try:
+            if obj.parent_product_pro_category.exists():
+                cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
+                return "\n".join(cats)
+            return ''
+        except:
+            return ''
+
+    def create(self, validated_data):
+        meta = Product._meta
+        exclude_fields = ['created_at', 'modified_at']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        field_names.extend(['is_ptr_applicable', 'ptr_type', 'ptr_percent'])
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+
+        field_names_dest = field_names.copy()
+        cost_params = ['raw_material', 'wastage', 'fumigation', 'label_printing', 'packing_labour',
+                       'primary_pm_cost', 'secondary_pm_cost', 'final_fg_cost', 'conversion_cost']
+        add_fields = ['product_brand', 'product_category', 'image', 'source skus', 'packing_sku',
+                      'packing_sku_weight_per_unit_sku'] + cost_params
+
+        for field_name in add_fields:
+            field_names_dest.append(field_name)
+
+        writer.writerow(field_names_dest)
+
+        for id in validated_data['child_product_id_list']:
+            obj = Product.objects.filter(id=id).last()
+            items = [getattr(obj, field) for field in field_names]
+            items.append(obj.product_brand)
+            items.append(self.product_category(obj))
+
+            if obj.use_parent_image and obj.parent_product.parent_product_pro_image.last():
+                items.append(obj.parent_product.parent_product_pro_image.last().image.url)
+            elif obj.product_pro_image.last():
+                items.append(obj.product_pro_image.last().image.url)
+            else:
+                items.append('-')
+
+            if obj.repackaging_type == 'destination':
+                source_skus = [str(psm.source_sku) for psm in ProductSourceMapping.objects.filter(
+                    destination_sku_id=obj.id, status=True)]
+                items.append("\n".join(source_skus))
+                packing_sku = ProductPackingMapping.objects.filter(sku_id=obj.id).last()
+                items.append(str(packing_sku) if packing_sku else '-')
+                items.append(str(packing_sku.packing_sku_weight_per_unit_sku) if packing_sku else '-')
+                cost_obj = DestinationRepackagingCostMapping.objects.filter(destination_id=obj.id).last()
+                for param in cost_params:
+                    items.append(str(getattr(cost_obj, param)))
+            writer.writerow(items)
+        return response

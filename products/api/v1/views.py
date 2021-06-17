@@ -14,7 +14,9 @@ from retailer_backend.utils import SmallOffsetPagination
 from .serializers import ParentProductSerializers, BrandSerializers, ParentProductBulkUploadSerializers, \
     ParentProductExportAsCSVSerializers, ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
-    CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers
+    CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
+    ChildProductExportAsCSVSerializers
+
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
 from products.services import parent_product_search, child_product_search, product_hsn_search, tax_search, \
@@ -462,6 +464,22 @@ class ParentProductBulkUploadView(CreateAPIView):
 class ParentProductExportAsCSVView(CreateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     serializer_class = ParentProductExportAsCSVSerializers
+
+    def post(self, request):
+        """ POST API for Download Selected Parent Product CSV with Image Category & Tax """
+
+        info_logger.info("Parent Product ExportAsCSV POST api called.")
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            info_logger.info("Parent Product CSVExpored successfully ")
+            return response
+        return get_response(serializer_error(serializer), False)
+
+
+class ChildProductExportAsCSVView(CreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    serializer_class = ChildProductExportAsCSVSerializers
 
     def post(self, request):
         """ POST API for Download Selected Parent Product CSV with Image Category & Tax """
