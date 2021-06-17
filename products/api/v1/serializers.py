@@ -588,15 +588,13 @@ class ActiveDeactiveSelectedChildProductSerializers(serializers.ModelSerializer)
                         continue
                     if parent_sku.status:
                         child_product_obj.status = 'active'
-                        child_product_obj.updated_by = validated_data['updated_by']
-                        child_product_obj.updated_at = timezone.now()
                         child_product_obj.save()
                     else:
-                        ParentProduct.objects.filter(parent_id=child_product_obj.parent_product.parent_id).update \
-                            (status=parent_product_status, updated_by=validated_data['updated_by'],
-                             updated_at=timezone.now())
-                        child_product_obj.update(status=product_status, updated_by=validated_data['updated_by'],
-                                                 updated_at=timezone.now())
+                        parent_sku.status = True
+                        child_product_obj.status = 'active'
+                        parent_sku.save()
+                        child_product_obj.save()
+
                 if product_price_not_approved != '':
                     not_approved = product_price_not_approved.strip(',')
                     raise serializers.ValidationError("Products" + not_approved + " were not be approved due to non "
