@@ -212,3 +212,35 @@ def get_destination_product_repack(destination_product_repack):
             return {'error': '{} do not repeat same category for one product'.format(category)}
         cat_list.append(category)
     return {'category': destination_product_repack}
+
+
+def product_category(obj):
+    try:
+        if obj.parent_product_pro_category.exists():
+            cats = [str(cat.category) for cat in obj.parent_product_pro_category.filter(status=True)]
+            return "\n".join(cats)
+        return ''
+    except:
+        return ''
+
+
+def product_gst(obj):
+    product_gst = validate_tax_type(obj, 'gst')
+    return product_gst
+
+
+def product_cess(obj):
+    product_cess = validate_tax_type(obj, 'cess')
+    return product_cess
+
+
+def product_surcharge(obj):
+    product_surcharge = validate_tax_type(obj, 'surcharge')
+    return product_surcharge
+
+
+def product_image(obj):
+    if obj.parent_product_pro_image.exists():
+        return "{}".format(obj.parent_product_pro_image.last().image.url)
+    else:
+        return '-'

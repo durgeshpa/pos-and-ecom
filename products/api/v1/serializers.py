@@ -18,9 +18,9 @@ from brand.models import Brand, Vendor
 from shops.models import Shop
 from products.common_validators import get_validate_parent_brand, get_validate_product_hsn, get_validate_parent_product, \
     get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
-    get_validate_seller_shop, check_active_capping, validate_tax_type, get_validate_vendor, \
-    get_validate_packing_material, \
-    get_destination_product_repack, get_source_product
+    get_validate_seller_shop, check_active_capping, \
+    get_validate_packing_material, get_destination_product_repack, get_source_product, product_category, product_gst, \
+    product_cess, product_surcharge, product_image
 from products.common_function import ParentProductCls, ProductCls
 from accounts.models import User
 
@@ -438,33 +438,6 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
 
         return data
 
-    def product_gst(self, obj):
-        product_gst = validate_tax_type(obj, 'gst')
-        return product_gst
-
-    def product_cess(self, obj):
-        product_cess = validate_tax_type(obj, 'cess')
-        return product_cess
-
-    def product_surcharge(self, obj):
-        product_surcharge = validate_tax_type(obj, 'surcharge')
-        return product_surcharge
-
-    def product_category(self, obj):
-        try:
-            if obj.parent_product_pro_category.exists():
-                categorys = [str(cat.category) for cat in obj.parent_product_pro_category.filter(status=True)]
-                return "\n".join(categorys)
-            return ''
-        except:
-            return ''
-
-    def product_image(self, obj):
-        if obj.parent_product_pro_image.exists():
-            return "{}".format(obj.parent_product_pro_image.last().image.url)
-        else:
-            return '-'
-
     def create(self, validated_data):
         meta = ParentProduct._meta
         field_names = [
@@ -487,7 +460,7 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
                     if field == 'ptr_type':
                         val = getattr(obj, 'ptr_type_text')
                 except:
-                    val = eval("self.{}(obj)".format(field))
+                    val = eval("{}(obj)".format(field))
                 finally:
                     row.append(val)
             writer.writerow(row)
@@ -967,15 +940,6 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
 
         return data
 
-    def product_category(self, obj):
-        try:
-            if obj.parent_product_pro_category.exists():
-                cats = [str(c.category) for c in obj.parent_product_pro_category.filter(status=True)]
-                return "\n".join(cats)
-            return ''
-        except:
-            return ''
-
     def create(self, validated_data):
         meta = Product._meta
         exclude_fields = ['created_at', 'modified_at']
@@ -1001,7 +965,7 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
             obj = Product.objects.filter(id=id).last()
             items = [getattr(obj, field) for field in field_names]
             items.append(obj.product_brand)
-            items.append(self.product_category(obj))
+            items.append(product_category(obj))
 
             if obj.use_parent_image and obj.parent_product.parent_product_pro_image.last():
                 items.append(obj.parent_product.parent_product_pro_image.last().image.url)
