@@ -2035,6 +2035,7 @@ class SQCount(Subquery):
     template = "(SELECT count(*) FROM (%(subquery)s) _count)"
     output_field = IntegerField()
 
+
 class DeliveryPerformanceDashboard(admin.ModelAdmin):
     """
     Admin class for representing Delivery Performance Dashboard
@@ -2072,25 +2073,27 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
         returned_status_list = ['FULLY_RETURNED_AND_COMPLETED', 'FULLY_RETURNED_AND_VERIFIED',
                                 'FULLY_RETURNED_AND_CLOSED']
         pending_status_list = ['OUT_FOR_DELIVERY']
-        response.context_data['summary'] = list(
-            qs.annotate(**metrics,
-                        delivered_cnt=SQCount(self.invoice_count_subquery(delivered_status_list)),
-                        returned_cnt=SQCount(self.invoice_count_subquery(returned_status_list)),
-                        pending_cnt=SQCount(self.invoice_count_subquery(pending_status_list)),
-                        rescheduled_cnt=SQCount(self.rescheduled_count_subquery()),
-                        total_shipments=SQCount(self.invoice_count_subquery()),
-                        ).order_by('-id')
-        )
-        response.context_data['summary_total'] = dict(
-            qs.aggregate(**metrics,
-                        delivered_cnt=Sum(SQCount(self.invoice_count_subquery(delivered_status_list))),
-                        returned_cnt=Sum(SQCount(self.invoice_count_subquery(returned_status_list))),
-                        pending_cnt=Sum(SQCount(self.invoice_count_subquery(pending_status_list))),
-                        rescheduled_cnt=Sum(SQCount(self.rescheduled_count_subquery())),
-                        total_shipments=Sum(SQCount(self.invoice_count_subquery())),
-                        )
-        )
 
+        sum_total = dict(qs.aggregate(**metrics))
+        qs = qs.annotate(**metrics,
+                         delivered_cnt=SQCount(self.invoice_count_subquery(delivered_status_list)),
+                         returned_cnt=SQCount(self.invoice_count_subquery(returned_status_list)),
+                         pending_cnt=SQCount(self.invoice_count_subquery(pending_status_list)),
+                         rescheduled_cnt=SQCount(self.rescheduled_count_subquery()),
+                         total_shipments=SQCount(self.invoice_count_subquery()),
+                         ).order_by('-id')
+        
+        response.context_data['summary'] = list(qs)
+
+        sum_total.update(dict(
+            qs.aggregate(delivered_tot=Sum('delivered_cnt'),
+                        returned_tot=Sum('returned_cnt'),
+                        pending_tot=Sum('pending_cnt'),
+                        rescheduled_tot=Sum('rescheduled_cnt'),
+                        grand_total_shipments=Sum('total_shipments'),
+                        )
+        ))
+        response.context_data['summary_total'] = sum_total
         return response
 
     def invoice_count_subquery(self, status_list=None):

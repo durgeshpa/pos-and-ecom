@@ -118,14 +118,14 @@
       <tr style="font-weight:bold; border-top:2px solid #DDDDDD;">
             <td> Total </td>
             <td> -- </td>
-            <td> {{ summary_total.delivered_cnt | intcomma }} </td>
-            <td> {{ summary_total.returned_cnt | default:0 }} </td>
-            <td> {{ summary_total.pending_cnt | intcomma }} </td>
-            <td> {{ summary_total.rescheduled_cnt | default:0 }} </td>
-            <td> {{ summary_total.total_shipments | intcomma }} </td>
-            <td> {% percentof summary_total.delivered_cnt summary_total.total_shipments %} </td>
-            <td> {% percentof summary_total.returned_cnt summary_total.total_shipments %} </td>
-            <td> {% percentof summary_total.rescheduled_shipments summary_total.total_shipments %} </td>
+            <td> {{ summary_total.delivered_tot | intcomma }} </td>
+            <td> {{ summary_total.returned_tot | default:0 }} </td>
+            <td> {{ summary_total.pending_tot | intcomma }} </td>
+            <td> {{ summary_total.rescheduled_tot | default:0 }} </td>
+            <td> {{ summary_total.grand_total_shipments | intcomma }} </td>
+            <td> {% percentof summary_total.delivered_tot summary_total.grand_total_shipments %} </td>
+            <td> {% percentof summary_total.returned_tot summary_total.grand_total_shipments %} </td>
+            <td> {% percentof summary_total.rescheduled_tot summary_total.grand_total_shipments %} </td>
             <td> {{ summary_total.invoice_amount | default:0 | intcomma }} </td>
             <td> {{ summary_total.delivered_amount | default:0 | intcomma }} </td>
             <td> {% percentof summary_total.delivered_amount summary_total.invoice_amount %}<td>
@@ -142,7 +142,7 @@
         <td> {{ row.total_shipments | intcomma }} </td>
         <td> {% percentof row.delivered_cnt row.total_shipments %} </td>
         <td> {% percentof row.returned_cnt row.total_shipments %} </td>
-        <td> {% percentof row.rescheduled_shipments row.total_shipments %} </td>
+        <td> {% percentof row.rescheduled_cnt row.total_shipments %} </td>
         <td> {{ row.invoice_amount | default:0 | intcomma }} </td>
         <td> {{ row.delivered_amount | default:0 | intcomma }} </td>
         <td> {% percentof row.delivered_amount row.invoice_amount %}</td>
