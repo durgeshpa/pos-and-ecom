@@ -586,14 +586,15 @@ class ActiveDeactiveSelectedChildProductSerializers(serializers.ModelSerializer)
                                                        product_id=child_product_obj.id).exists():
                         product_price_not_approved += ' ' + str(child_product_obj.product_sku) + ','
                         continue
-                    if parent_sku.status:
-                        child_product_obj.status = product_status
-                        child_product_obj.save()
-                    else:
+
+                    if not parent_sku.status:
                         parent_sku.status = parent_product_status
+                        parent_sku.updated_by = validated_data['updated_by']
                         parent_sku.save()
-                        child_product_obj.status = product_status
-                        child_product_obj.save()
+
+                    child_product_obj.status = product_status
+                    child_product_obj.updated_by = validated_data['updated_by']
+                    child_product_obj.save()
 
                 if product_price_not_approved != '':
                     not_approved = product_price_not_approved.strip(',')
