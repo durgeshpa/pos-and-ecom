@@ -11,8 +11,8 @@ from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFi
 from dal_admin_filters import AutocompleteFilter
 from django.contrib import messages, admin
 from django.core.exceptions import ValidationError
-from django.db.models import Q
-from django.db.models import F, Sum, OuterRef, Subquery
+from django.db.models import Q, Count, FloatField
+from django.db.models import F, Sum, OuterRef, Subquery, IntegerField
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponse
 from django.urls import reverse
@@ -21,6 +21,7 @@ from django.utils.translation import ugettext_lazy as _
 from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter, RelatedDropdownFilter)
 from django.utils.safestring import mark_safe
 from django.shortcuts import redirect
+
 from global_config.models import GlobalConfig
 
 # app imports
@@ -47,7 +48,7 @@ from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCa
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch)
+                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -2023,8 +2024,87 @@ class InvoiceAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+class SQCount(Subquery):
+    """
+    Subclass of subquery to count no of rows
+    """
+    template = "(SELECT count(*) FROM (%(subquery)s) _count)"
+    output_field = IntegerField()
 
-# admin.site.register(Return, ReturnAdmin)
+class DeliveryPerformanceDashboard(admin.ModelAdmin):
+    """
+    Admin class for representing Delivery Performance Dashboard
+    """
+    change_list_template = 'admin/retailer_to_sp/delivery_performance_change_list.html'
+    list_per_page = FIFTY
+    list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch]
+
+    def has_add_permission(self, request):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        response = super().changelist_view(
+            request,
+            extra_context=extra_context,
+        )
+
+        try:
+            current_month = datetime.datetime.now().month
+            current_year = datetime.datetime.now().year
+            qs = response.context_data['cl'].queryset
+            qs = qs.filter(created_at__month=current_month, created_at__year=current_year)
+        except (AttributeError, KeyError):
+            return response
+
+        metrics = {
+            'invoice_amount': Sum(F('rt_invoice_trip__rt_order_product_order_product_mapping__effective_price') *
+                                  F('rt_invoice_trip__rt_order_product_order_product_mapping__shipped_qty'), output_field=FloatField()),
+            'delivered_amount': Sum(F('rt_invoice_trip__rt_order_product_order_product_mapping__effective_price') *
+                                    F('rt_invoice_trip__rt_order_product_order_product_mapping__delivered_qty'), output_field=FloatField())
+        }
+        delivered_status_list = ['PARTIALLY_DELIVERED_AND_COMPLETED', 'FULLY_DELIVERED_AND_COMPLETED',
+                                 'PARTIALLY_DELIVERED_AND_VERIFIED', 'FULLY_DELIVERED_AND_VERIFIED',
+                                 'PARTIALLY_DELIVERED_AND_CLOSED', 'FULLY_DELIVERED_AND_CLOSED']
+        returned_status_list = ['FULLY_RETURNED_AND_COMPLETED', 'FULLY_RETURNED_AND_VERIFIED',
+                                'FULLY_RETURNED_AND_CLOSED']
+        pending_status_list = ['OUT_FOR_DELIVERY']
+        response.context_data['summary'] = list(
+            qs.annotate(**metrics,
+                        delivered_cnt=SQCount(self.invoice_count_subquery(delivered_status_list)),
+                        returned_cnt=SQCount(self.invoice_count_subquery(returned_status_list)),
+                        pending_cnt=SQCount(self.invoice_count_subquery(pending_status_list)),
+                        rescheduled_cnt=SQCount(self.rescheduled_count_subquery()),
+                        total_shipments=SQCount(self.invoice_count_subquery()),
+                        ).order_by('-id')
+        )
+        response.context_data['summary_total'] = dict(
+            qs.aggregate(**metrics,
+                        delivered_cnt=Sum(SQCount(self.invoice_count_subquery(delivered_status_list))),
+                        returned_cnt=Sum(SQCount(self.invoice_count_subquery(returned_status_list))),
+                        pending_cnt=Sum(SQCount(self.invoice_count_subquery(pending_status_list))),
+                        rescheduled_cnt=Sum(SQCount(self.rescheduled_count_subquery())),
+                        total_shipments=Sum(SQCount(self.invoice_count_subquery())),
+                        )
+        )
+
+        return response
+
+    def invoice_count_subquery(self, status_list=None):
+        """
+        Returns subquery for counting invoices by given trip id and statuses
+        """
+        query = OrderedProduct.objects.filter(trip=OuterRef('pk'))
+        if status_list is not None:
+            query = query.filter(shipment_status__in=status_list)
+        return query.values('pk')
+
+    def rescheduled_count_subquery(self):
+        """
+        Returns subquery for counting invoices rescheduled in a trip
+        """
+        return ShipmentRescheduling.objects.filter(trip=OuterRef('pk')).values('pk')
+
+
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -2039,3 +2119,4 @@ admin.site.register(Shipment, ShipmentAdmin)
 admin.site.register(Feedback, FeedbackAdmin)
 admin.site.register(PickerDashboard, PickerDashboardAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
+admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
