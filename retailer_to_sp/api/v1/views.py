@@ -2841,7 +2841,8 @@ class OrderCentral(APIView):
             'shop_id': parent_mapping.parent.id,
             'transaction_id': cart.cart_no,
             'transaction_type': 'ordered',
-            'order_status': order.order_status
+            'order_status': order.order_status,
+            'order_number': order.order_no
         })
         order_result = OrderManagement.release_blocking_from_order(reserved_args, sku_id)
         return False if order_result is False else True
