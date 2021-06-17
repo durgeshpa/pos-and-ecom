@@ -5280,7 +5280,7 @@ class PosUserShopsList(APIView):
         search_text = request.GET.get('search_text')
         shops_qs = filter_pos_shop(user)
         if search_text:
-            shops_qs = shops_qs.filter(shop_name=search_text)
+            shops_qs = shops_qs.filter(shop_name__icontains=search_text)
         shops = shops_qs.distinct('id')
         request_shops = self.pagination_class().paginate_queryset(shops, self.request)
         data = PosShopSerializer(request_shops, many=True).data
