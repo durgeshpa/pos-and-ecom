@@ -573,17 +573,47 @@ class ActiveDeactiveSelectedChildProductSerializers(serializers.ModelSerializer)
     def update(self, instance, validated_data):
 
         if validated_data['is_active']:
+            parent_product_status = True
             product_status = "active"
+            product_price_not_approved = ''
+
+            try:
+                child_products = Product.objects.filter(id__in=validated_data['child_product_id_list'])
+                for child_product_obj in child_products:
+                    parent_sku = ParentProduct.objects.filter(parent_id=child_product_obj.parent_product.parent_id).last()
+
+                    if not ProductPrice.objects.filter(approval_status=ProductPrice.APPROVED,
+                                                       product_id=child_product_obj.id).exists():
+                        product_price_not_approved += ' ' + str(child_product_obj.product_sku) + ','
+                        continue
+                    if parent_sku.status:
+                        child_product_obj.status = 'active'
+                        child_product_obj.updated_by = validated_data['updated_by']
+                        child_product_obj.updated_at = timezone.now()
+                        child_product_obj.save()
+                    else:
+                        ParentProduct.objects.filter(parent_id=child_product_obj.parent_product.parent_id).update \
+                            (status=parent_product_status, updated_by=validated_data['updated_by'],
+                             updated_at=timezone.now())
+                        child_product_obj.update(status=product_status, updated_by=validated_data['updated_by'],
+                                                 updated_at=timezone.now())
+                if product_price_not_approved != '':
+                    not_approved = product_price_not_approved.strip(',')
+                    raise serializers.ValidationError("Products" + not_approved + " were not be approved due to non "
+                                                                                  "existent active Product Price")
+
+            except Exception as e:
+                error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+                raise serializers.ValidationError(error)
         else:
             product_status = "deactivated"
-
-        try:
-            child_products = Product.objects.filter(id__in=validated_data['child_product_id_list'])
-            child_products.update(status=product_status, updated_by=validated_data['updated_by'],
-                                  updated_at=timezone.now())
-        except Exception as e:
-            error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-            raise serializers.ValidationError(error)
+            try:
+                child_products = Product.objects.filter(id__in=validated_data['child_product_id_list'])
+                child_products.update(status=product_status, updated_by=validated_data['updated_by'],
+                                      updated_at=timezone.now())
+            except Exception as e:
+                error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
+                raise serializers.ValidationError(error)
 
         return validated_data
 

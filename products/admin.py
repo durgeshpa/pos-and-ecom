@@ -311,32 +311,6 @@ class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
             'admin/js/product_vendor_mapping_form.js'
         )
 
-
-class SizeAdmin(admin.ModelAdmin,  ExportCsvMixin):
-    resource_class = SizeResource
-    actions = ["export_as_csv"]
-    prepopulated_fields = {'size_name': ('size_value', 'size_unit')}
-    search_fields = ['size_name']
-
-
-class FragranceAdmin(admin.ModelAdmin, ExportCsvMixin):
-    resource_class = FragranceResource
-    actions = ["export_as_csv"]
-    search_fields = ['fragrance_name']
-
-
-class FlavorAdmin(admin.ModelAdmin, ExportCsvMixin):
-    resource_class = FlavorResource
-    actions = ["export_as_csv"]
-    search_fields = ['flavor_name']
-
-
-class ColorAdmin(admin.ModelAdmin, ExportCsvMixin):
-    resource_class = ColorResource
-    actions = ["export_as_csv"]
-    search_fields = ['color_name']
-
-
 class PackageSizeAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = PackageSizeResource
     actions = ["export_as_csv"]
@@ -1011,14 +985,6 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         return urls
 
     actions = [deactivate_selected_child_products, approve_selected_child_products, 'export_as_csv']
-    # list_display = [
-    #     'product_sku', 'product_name', 'product_short_description',
-    #     'product_brand', 'product_gf_code', 'product_images'
-    # ]
-    # list_display = [
-    #     'product_sku', 'product_name',
-    #     'product_brand', 'product_images'
-    # ]
     list_display = [
         'product_sku', 'product_name', 'parent_product', 'parent_name',
         'product_brand', 'product_category', 'product_ean_code', 'product_hsn', 'product_gst',
@@ -1716,10 +1682,6 @@ class ProductSlabPriceAdmin(admin.ModelAdmin, ExportProductPrice):
 
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
-admin.site.register(Size, SizeAdmin)
-admin.site.register(Fragrance, FragranceAdmin)
-admin.site.register(Flavor, FlavorAdmin)
-admin.site.register(Color, ColorAdmin)
 admin.site.register(PackageSize, PackageSizeAdmin)
 admin.site.register(Weight, WeightAdmin)
 admin.site.register(Tax, TaxAdmin)

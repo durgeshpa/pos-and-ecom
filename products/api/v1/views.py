@@ -498,7 +498,7 @@ class ActiveDeactiveSelectedChildProductView(UpdateAPIView):
     serializer_class = ActiveDeactiveSelectedChildProductSerializers
 
     def put(self, request):
-        """ PUT API for Activate or Deactivate Selected Parent Product """
+        """ PUT API for Activate or Deactivate Selected Child Product """
 
         info_logger.info("Child Product ActiveDeactivateSelectedProduct PUT api called.")
         serializer = self.serializer_class(instance=self.child_product_list.filter(
