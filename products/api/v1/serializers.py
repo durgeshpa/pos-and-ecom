@@ -588,15 +588,12 @@ class ActiveDeactiveSelectedChildProductSerializers(serializers.ModelSerializer)
                         continue
                     if parent_sku.status:
                         child_product_obj.status = product_status
-                        child_product_obj.save(updated_by=validated_data['updated_by'],
-                                               updated_at=timezone.now())
+                        child_product_obj.save()
                     else:
                         parent_sku.status = parent_product_status
+                        parent_sku.save()
                         child_product_obj.status = product_status
-                        parent_sku.save(updated_by=validated_data['updated_by'],
-                                        updated_at=timezone.now())
-                        child_product_obj.save(updated_by=validated_data['updated_by'],
-                                               updated_at=timezone.now())
+                        child_product_obj.save()
 
                 if product_price_not_approved != '':
                     not_approved = product_price_not_approved.strip(',')
