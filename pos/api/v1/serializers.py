@@ -981,7 +981,7 @@ class PosShopSerializer(serializers.ModelSerializer):
     shop_id = serializers.SerializerMethodField()
 
     @staticmethod
-    def shop_id(obj):
+    def get_shop_id(obj):
         return obj.id
 
     class Meta:
