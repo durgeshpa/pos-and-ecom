@@ -457,8 +457,14 @@ class TeamListView(generics.ListAPIView):
             data.append(rt)
             store_added_total += store_added
             shops_considered += buyer_shops
-        avg_order_total = round(ordered_amount_total/shops_ordered_total, 2)
-        avg_order_line_items_total = round(no_of_ordered_sku_total/shops_ordered_total, 2)
+        try:
+            avg_order_total = round(ordered_amount_total/shops_ordered_total, 2)
+        except:
+            avg_order_total = 0
+        try:
+            avg_order_line_items_total = round(no_of_ordered_sku_total/shops_ordered_total, 2)
+        except:
+            avg_order_line_items_total = 0
         dt = {
             'ordered_sku_pieces': ordered_sku_pieces_total,
             'ordered_amount': ordered_amount_total,
