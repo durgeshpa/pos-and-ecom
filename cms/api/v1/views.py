@@ -86,6 +86,7 @@ class CardView(APIView, PaginationHandlerMixin):
         """Create a new card"""
         info_logger.info("CardView POST API called.")
         data = request.data
+        data._mutable = True
         card_data = data.pop("card_data")
         serializer = CardDataSerializer(data=card_data, context={'request': request})
         if serializer.is_valid(raise_exception=True):
