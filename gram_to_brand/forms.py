@@ -15,8 +15,9 @@ from brand.models import Brand, Vendor
 from addresses.models import State, Address
 from products.models import Product, ProductVendorMapping, ParentProduct
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+from shops.models import Shop
 from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BEST_BEFORE_MONTH_CHOICE,
-                     BEST_BEFORE_YEAR_CHOICE, Document)
+                     BEST_BEFORE_YEAR_CHOICE, Document, VendorShopMapping)
 
 
 class OrderForm(forms.ModelForm):
@@ -468,3 +469,17 @@ class DocumentFormset(forms.models.BaseInlineFormSet):
 
             if form.cleaned_data.get('document_image') is None:
                 raise ValidationError("Document Image is Required.")
+
+
+class VendorShopMappingForm(forms.ModelForm):
+    vendor = forms.ModelChoiceField(
+        queryset=Vendor.objects.all(),
+        widget=autocomplete.ModelSelect2(url='vendor-autocomplete')
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='gf', status=True)
+    )
+
+    class Meta:
+        model = VendorShopMapping
+        fields = ('vendor', 'shop')

@@ -44,6 +44,14 @@ import logging
 logger = logging.getLogger(__name__)
 info_logger = logging.getLogger('file-info')
 
+
+class VendorAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Vendor.objects.all()
+        if self.q:
+            qs = qs.filter(vendor_name__startswith=self.q)
+        return qs
+
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = None
@@ -629,7 +637,10 @@ def mail_to_vendor_on_po_approval(po_instance):
     sender = get_config("ARS_MAIL_SENDER", "consultant1@gramfactory.com")
     recipient_list = get_config("MAIL_DEV")
     if config('OS_ENV') and config('OS_ENV') in ['Production']:
-        recipient_list = [po_instance.email]
+        if get_config("MAIL_TO_VENDOR", False):
+            recipient_list = [po_instance.supplier_name.email_id]
+        else:
+            recipient_list = get_config("ARS_MAIL_PO_ARROVAL_RECIEVER")
     vendor_name = po_instance.supplier_name.vendor_name
     po_no = po_instance.po_no
     subject = SUCCESS_MESSAGES['ARS_MAIL_VENDOR_SUBJECT'].format(po_no,
