@@ -284,9 +284,6 @@ class PageSerializer(serializers.ModelSerializer):
         return page
 
 
-        
-        
-
 class PageDetailSerializer(serializers.ModelSerializer):
     """Serializer for Specific Page"""
 
@@ -308,8 +305,6 @@ class PageDetailSerializer(serializers.ModelSerializer):
         data['applications'] = PageApplicationSerializer(apps).data
         return data
     
-    def create(self, validated_data):
-        pass
 
     def update(self, instance, validated_data):
         page = Page.objects.get(id = instance.id)
