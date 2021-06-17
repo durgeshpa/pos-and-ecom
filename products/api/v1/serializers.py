@@ -569,7 +569,7 @@ class ActiveDeactiveSelectedChildProductSerializers(serializers.ModelSerializer)
 
         return data
 
-    @transaction.atomic
+    # @transaction.atomic
     def update(self, instance, validated_data):
 
         if validated_data['is_active']:
@@ -587,18 +587,16 @@ class ActiveDeactiveSelectedChildProductSerializers(serializers.ModelSerializer)
                         product_price_not_approved += ' ' + str(child_product_obj.product_sku) + ','
                         continue
                     if parent_sku.status:
-                        child_product_obj.status = 'active'
-                        child_product_obj.updated_by = validated_data['updated_by']
-                        child_product_obj.updated_at = timezone.now()
-                        child_product_obj.save()
+                        child_product_obj.status = product_status
+                        child_product_obj.save(updated_by=validated_data['updated_by'],
+                                               updated_at=timezone.now())
                     else:
-                        parent_sku.status = True
-                        parent_sku.updated_by = validated_data['updated_by']
-                        parent_sku.updated_at = timezone.now()
-                        child_product_obj.status = 'active'
-                        child_product_obj.updated_by = validated_data['updated_by']
-                        child_product_obj.updated_at = timezone.now()
-                        child_product_obj.save()
+                        parent_sku.status = parent_product_status
+                        child_product_obj.status = product_status
+                        parent_sku.save(updated_by=validated_data['updated_by'],
+                                        updated_at=timezone.now())
+                        child_product_obj.save(updated_by=validated_data['updated_by'],
+                                               updated_at=timezone.now())
 
                 if product_price_not_approved != '':
                     not_approved = product_price_not_approved.strip(',')
