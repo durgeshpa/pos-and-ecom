@@ -598,7 +598,8 @@ class OrderManagement(object):
         shop_id = params['shop_id']
         transaction_type = params['transaction_type']
         order_status = params['order_status']
-        common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
+        order_no = params['order_number'] if 'order_number' in params else None
+        common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status, order_no)
 
     @classmethod
     def release_blocking_from_order(cls, reserved_args, sku_id=False):
@@ -607,7 +608,8 @@ class OrderManagement(object):
         shop_id = params['shop_id']
         transaction_type = params['transaction_type']
         order_status = params['order_status']
-        result = common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
+        order_no = params['order_number']
+        result = common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status, order_no)
         if result is False:
             return False
 
@@ -836,7 +838,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_sta
                                                                                       transaction_id, True, weight)
 
 
-def common_for_release(prod_list, shop_id, transaction_type, transaction_id, order_status):
+def common_for_release(prod_list, shop_id, transaction_type, transaction_id, order_status, order_no=None):
     """
 
     :param prod_list:
@@ -844,6 +846,7 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
     :param transaction_type:
     :param transaction_id:
     :param order_status:
+    :param order_no:
     :return:
     """
     order_reserve_release = OrderReserveRelease.objects.filter(transaction_id=transaction_id,
@@ -856,14 +859,15 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
             # call function for release inventory
             release_type = 'manual'
             result = common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status,
-                                         order_product, release_type)
+                                         order_product, release_type, order_no)
             if result is False:
                 return False
     else:
         return False
 
 
-def common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status, order_product, release_type):
+def common_release_for_inventory(prod_list, shop_id, transaction_type, transaction_id, order_status, order_product,
+                                 release_type, order_no=None):
     """
 
     :param prod_list:
@@ -893,7 +897,7 @@ def common_release_for_inventory(prod_list, shop_id, transaction_type, transacti
                 shop, product, type_normal, reserved_state, -1*transaction_quantity, transaction_type, transaction_id)
         if order_status != 'available':
             CommonWarehouseInventoryFunctions.create_warehouse_inventory_with_transaction_log(
-                shop, product, type_normal, ordered_state, transaction_quantity, transaction_type, transaction_id)
+                shop, product, type_normal, ordered_state, transaction_quantity, transaction_type, order_no)
 
         order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=shop,
                                                                sku=product,
@@ -918,7 +922,7 @@ def cancel_order(instance):
         # get the queryset object form warehouse internal inventory model
         type_normal = InventoryType.objects.filter(inventory_type='normal').last()
         state_ordered = InventoryState.objects.filter(inventory_state='ordered').last()
-        transaction_id = instance.ordered_cart.cart_no
+        transaction_id = instance.order_no
         transaction_type = 'ordered'
         shop = instance.seller_shop
         ware_house_internal = WarehouseInternalInventoryChange.objects.filter(
