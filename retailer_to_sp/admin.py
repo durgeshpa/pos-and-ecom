@@ -2040,8 +2040,8 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
     """
     Admin class for representing Delivery Performance Dashboard
     """
+    date_hierarchy = 'created_at'
     change_list_template = 'admin/retailer_to_sp/delivery_performance_change_list.html'
-    list_per_page = FIFTY
     list_filter = [ DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch]
 
     def has_add_permission(self, request):
@@ -2052,12 +2052,19 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
             request,
             extra_context=extra_context,
         )
-
         try:
-            current_month = datetime.datetime.now().month
-            current_year = datetime.datetime.now().year
             qs = response.context_data['cl'].queryset
-            qs = qs.filter(created_at__month=current_month, created_at__year=current_year)
+            if request.GET:
+                if request.GET.get('created_at__year'):
+                    q_year = request.GET.get('created_at__year')
+                    qs = qs.filter(created_at__year=q_year)
+                if request.GET.get('created_at__month'):
+                    q_month = request.GET.get('created_at__month')
+                    qs = qs.filter(created_at__month=q_month)
+            else:
+                q_month = datetime.datetime.now().month
+                q_year = datetime.datetime.now().year
+                qs = qs.filter(created_at__month=q_month, created_at__year=q_year)
         except (AttributeError, KeyError):
             return response
 
