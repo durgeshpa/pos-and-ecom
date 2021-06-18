@@ -15,7 +15,7 @@ from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
 from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
-from wms.models import PosInventory, PosInventoryState
+from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -618,14 +618,37 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
     """
     order_total = serializers.SerializerMethodField()
     discount_amount = serializers.SerializerMethodField()
+    redeem_points = serializers.SerializerMethodField()
     redeem_points_value = serializers.SerializerMethodField()
     received_amount = serializers.SerializerMethodField()
     refunded_amount = serializers.SerializerMethodField()
+    refunded_points = serializers.SerializerMethodField()
     refunded_points_value = serializers.SerializerMethodField()
     current_amount = serializers.SerializerMethodField()
     refund_amount = serializers.SerializerMethodField()
+    refund_points = serializers.SerializerMethodField()
     refund_points_value = serializers.SerializerMethodField()
     buyer = PosUserSerializer()
+
+    @staticmethod
+    def get_refund_points(obj):
+        ongoing_return = obj.rt_return_order.filter(status='created').last()
+        return round(ongoing_return.refund_points, 2) if ongoing_return else 0
+
+    @staticmethod
+    def get_redeem_points(obj):
+        return obj.ordered_cart.redeem_points
+
+    @staticmethod
+    def get_refunded_points(obj):
+        previous_refund_pts = 0
+        redeem_factor = obj.ordered_cart.redeem_factor
+        if redeem_factor:
+            if obj.order_status == Order.PARTIALLY_RETURNED:
+                previous_returns = obj.rt_return_order.filter(status='completed')
+                for ret in previous_returns:
+                    previous_refund_pts += ret.refund_points
+        return previous_refund_pts
 
     @staticmethod
     def get_redeem_points_value(obj):
@@ -659,11 +682,9 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
     def get_refunded_points_value(self, obj):
         previous_refund = 0
         redeem_factor = obj.ordered_cart.redeem_factor
-        if obj.order_status == Order.PARTIALLY_RETURNED:
-            previous_returns = obj.rt_return_order.filter(status='completed')
-            for ret in previous_returns:
-                previous_refund += round(ret.refund_points / redeem_factor, 2)
-        return round(previous_refund, 2)
+        if redeem_factor:
+            previous_refund = round(self.get_refunded_points(obj) / redeem_factor, 2)
+        return previous_refund
 
     def get_cart_offers(self, obj):
         """
@@ -694,17 +715,18 @@ class OrderReturnCheckoutSerializer(serializers.ModelSerializer):
             refund points value
         """
         refund_points_value = 0
-        ongoing_return = obj.rt_return_order.filter(status='created').last()
-        if ongoing_return:
-            redeem_factor = obj.ordered_cart.redeem_factor
-            refund_points_value = round(ongoing_return.refund_points / redeem_factor, 2)
+        redeem_factor = obj.ordered_cart.redeem_factor
+        if redeem_factor:
+            ongoing_return = obj.rt_return_order.filter(status='created').last()
+            if ongoing_return:
+                refund_points_value = round(ongoing_return.refund_points / redeem_factor, 2)
         return refund_points_value
 
     class Meta:
         model = Order
-        fields = ('id', 'order_total', 'discount_amount', 'redeem_points_value', 'received_amount', 'refunded_amount',
-                  'refunded_points_value', 'current_amount', 'refund_amount', 'refund_points_value', 'buyer',
-                  'order_status')
+        fields = ('id', 'order_total', 'discount_amount', 'redeem_points', 'redeem_points_value', 'received_amount',
+                  'refunded_amount', 'refunded_points', 'refunded_points_value', 'current_amount', 'refund_amount',
+                  'refund_points', 'refund_points_value', 'buyer', 'order_status')
 
 
 def coupon_name_validation(coupon_name):
@@ -1020,3 +1042,37 @@ class PosShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
         fields = ('shop_id', 'shop_name')
+
+
+class InventoryReportSerializer(serializers.ModelSerializer):
+    product_id = serializers.SerializerMethodField()
+    product_name = serializers.SerializerMethodField()
+    stock = serializers.SerializerMethodField()
+    stock_value = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_product_id(obj):
+        return obj.product.id
+
+    @staticmethod
+    def get_product_name(obj):
+        return obj.product.name
+
+    @staticmethod
+    def get_stock(obj):
+        return obj.quantity
+
+    @staticmethod
+    def get_stock_value(obj):
+        sp = obj.product.selling_price
+        return round(float(obj.quantity) * float(sp), 2) if obj.quantity > 0 else 0
+
+    class Meta:
+        model = PosInventory
+        fields = ('product_id', 'product_name', 'stock', 'stock_value')
+
+
+class InventoryLogReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PosInventoryChange
+        fields = ('created_at', 'transaction_type', 'transaction_id', 'quantity')
