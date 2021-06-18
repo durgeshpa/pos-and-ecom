@@ -83,6 +83,9 @@
         <td> {{ row.assigned_cnt | intcomma }} </td>
         <td> {{ row.order_amt | intcomma }} </td>
         <td> {{ row.invoice_amt | intcomma }} </td>
+        <td> {% percentof row.invoice_amt row.order_amt %} </td>
+        <td> {{ row.picked_order_cnt | intcomma }} </td>
+
       </tr>
       {% endfor %}
  </tbody>

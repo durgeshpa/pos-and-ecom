@@ -2143,14 +2143,13 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
         except (AttributeError, KeyError):
             return response
 
-
         response.context_data['summary'] = list(
             qs.annotate(assigned_cnt=Count('picker_user'),
                         order_amt=Sum(F('picker_user__order__order_amount')),
                         invoice_amt=Sum(F('picker_user__shipment__rt_order_product_order_product_mapping__effective_price') *
                                         F('picker_user__shipment__rt_order_product_order_product_mapping__shipped_qty'),
                                         output_field=FloatField()),
-                        
+                        picked_order_cnt=Count('picker_user', filter=Q(picker_user__picking_status='picking_complete'),)
         ))
         return response
 
