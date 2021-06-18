@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import authentication
@@ -11,6 +13,13 @@ from shops.models import Shop, ParentRetailerMapping
 from retailer_backend.utils import SmallOffsetPagination
 from products.services import brand_search
 from products.common_function import get_response, serializer_error
+from products.common_validators import validate_id
+from categories.common_validators import validate_data_format
+
+# Get an instance of a logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 class GetSlotBrandListView(APIView):
@@ -102,10 +111,70 @@ class BrandView(GenericAPIView):
     serializer_class = BrandCrudSerializers
 
     def get(self, request):
+
+        info_logger.info("Brand GET api called.")
+        if request.GET.get('id'):
+            """ Get brand for specific ID with SubBrand"""
+            id_validation = validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+            category = id_validation['data']
+        else:
+            """ GET API for Brand LIST with SubBrand """
+            self.queryset = self.search_filter_category()
+            category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(category, many=True)
+        return get_response('category list!', serializer.data)
+
+    def post(self, request):
+        """ POST API for Brand Creation """
+
+        info_logger.info("Brand POST api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        serializer = self.serializer_class(data=modified_data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return get_response('brand created successfully!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def put(self, request):
+        """ PUT API for Category Updation  """
+
+        info_logger.info("Category PUT api called.")
+        modified_data = validate_data_format(self.request)
+        if 'error' in modified_data:
+            return get_response(modified_data['error'])
+
+        if not modified_data['id']:
+            return get_response('please provide id to update category', False)
+
+        # validations for input id
+        id_instance = validate_id(self.queryset, int(modified_data['id']))
+        if 'error' in id_instance:
+            return get_response(id_instance['error'])
+        category_instance = id_instance['data'].last()
+
+        serializer = self.serializer_class(instance=category_instance, data=modified_data)
+        if serializer.is_valid():
+            serializer.save(updated_by=request.user)
+            info_logger.info("category Updated Successfully.")
+            return get_response('category updated!', serializer.data)
+        return get_response(serializer_error(serializer), False)
+
+    def search_filter_category(self):
+
+        brand_status = self.request.GET.get('status')
         search_text = self.request.GET.get('search_text')
+
+        # search based on Brand name
         if search_text:
             self.queryset = brand_search(self.queryset, search_text)
-        brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(brand, many=True)
-        msg = "" if brand else "no brand found"
-        return get_response(msg, serializer.data)
+
+        # filter based on status
+        if brand_status is not None:
+            self.queryset = self.queryset.filter(status=brand_status)
+
+        return self.queryset

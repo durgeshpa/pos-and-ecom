@@ -1,13 +1,9 @@
 import logging
-from django.shortcuts import render
 
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView, RetrieveAPIView, UpdateAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import authentication
 from rest_framework.generics import GenericAPIView
-from rest_framework.permissions import AllowAny
 from retailer_backend.utils import SmallOffsetPagination
 
 from shops.models import Shop, ParentRetailerMapping
