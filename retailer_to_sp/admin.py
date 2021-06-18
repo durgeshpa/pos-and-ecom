@@ -2115,46 +2115,42 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
         return ShipmentRescheduling.objects.filter(trip=OuterRef('pk')).values('pk')
 
 
-class PickerPerformanceDashboard(admin.ModelAdmin):
-    """
-    Admin class for representing Delivery Performance Dashboard
-    """
-    change_list_template = 'admin/retailer_to_sp/picker_performance_change_list.html'
-    list_per_page = FIFTY
-
-    def has_add_permission(self, request):
-        return False
-
-    def changelist_view(self, request, extra_context=None):
-        response = super().changelist_view(
-            request,
-            extra_context=extra_context,
-        )
-
-        try:
-            current_month = datetime.datetime.now().month
-            current_year = datetime.datetime.now().year
-            qs = response.context_data['cl'].queryset
-            # qs = qs.filter(picking_status__in=['picking_assigned','picking_complete', 'picking_in_progress'],
-            #                created_at__month=current_month, created_at__year=current_year
-            #                )
-            qs = qs.filter(groups__name='Picker Boy', picker_user__created_at__month=current_month,
-                           picker_user__created_at__year=current_year)
-        except (AttributeError, KeyError):
-            return response
-
-        response.context_data['summary'] = list(
-            qs.annotate(assigned_cnt=Count('picker_user'),
-                        order_amt=Sum(F('picker_user__order__order_amount')),
-                        invoice_amt=Sum(F('picker_user__shipment__rt_order_product_order_product_mapping__effective_price') *
-                                        F('picker_user__shipment__rt_order_product_order_product_mapping__shipped_qty'),
-                                        output_field=FloatField()),
-                        picked_order_cnt=Count('picker_user', filter=Q(picker_user__picking_status='picking_complete'),)
-        ))
-        return response
-
-    def order_count_subquery(self):
-        return PickerDashboard.objects.filter(picker_boy=OuterRef('pk')).values('pk')
+# class PickerPerformanceDashboard(admin.ModelAdmin):
+#     """
+#     Admin class for representing Delivery Performance Dashboard
+#     """
+#     change_list_template = 'admin/retailer_to_sp/picker_performance_change_list.html'
+#     list_per_page = FIFTY
+#
+#     def has_add_permission(self, request):
+#         return False
+#
+#     def changelist_view(self, request, extra_context=None):
+#         response = super().changelist_view(
+#             request,
+#             extra_context=extra_context,
+#         )
+#
+#         try:
+#             current_month = datetime.datetime.now().month
+#             current_year = datetime.datetime.now().year
+#             qs = response.context_data['cl'].queryset
+#             qs = qs.filter(groups__name='Picker Boy', picker_user__created_at__month=current_month,
+#                            picker_user__created_at__year=current_year)
+#         except (AttributeError, KeyError):
+#             return response
+#
+#         response.context_data['summary'] = list(
+#             qs.annotate(assigned_cnt=Count('picker_user'),
+#                         order_amt=Sum(F('picker_user__order__order_amount')),
+#                         invoice_amt=Sum(F('picker_user__order__rt_order_order_product__invoice__invoice_amount'),
+#                                         output_field=FloatField()),
+#                         picked_order_cnt=Count('picker_user', filter=Q(picker_user__picking_status='picking_complete'),)
+#         ))
+#         return response
+#
+#     def order_count_subquery(self):
+#         return PickerDashboard.objects.filter(picker_boy=OuterRef('pk')).values('pk')
 
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
@@ -2171,4 +2167,4 @@ admin.site.register(Feedback, FeedbackAdmin)
 admin.site.register(PickerDashboard, PickerDashboardAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
-admin.site.register(PickerPerformance, PickerPerformanceDashboard)
+#admin.site.register(PickerPerformance, PickerPerformanceDashboard)
