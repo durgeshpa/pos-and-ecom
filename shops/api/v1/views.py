@@ -913,7 +913,7 @@ class DayBeatPlan(viewsets.ModelViewSet):
                         return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date'],
                                          'is_success': False},
                                         status=status.HTTP_200_OK)
-                    return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
+                    return Response({"detail": SUCCESS_MESSAGES["2001"], "data": [],
                                      'is_success': True},
                                     status=status.HTTP_200_OK)
                 else:
