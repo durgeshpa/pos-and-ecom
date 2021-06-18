@@ -1645,9 +1645,9 @@ class CartCheckout(APIView):
             offers = BasicCartOffers.refresh_offers_checkout(cart, auto_apply, None)
             # Redeem reward points on order
             redeem_points = self.request.GET.get('redeem_points')
-            if redeem_points:
-                # Refresh redeem reward
-                RewardCls.checkout_redeem_points(cart, int(redeem_points))
+            redeem_points = redeem_points if redeem_points else cart.redeem_points
+            # Refresh redeem reward
+            RewardCls.checkout_redeem_points(cart, int(redeem_points))
             return api_response("Cart Checkout", self.serialize(cart, offers), status.HTTP_200_OK, True)
 
     @check_pos_shop
@@ -2758,7 +2758,8 @@ class OrderCentral(APIView):
             'shop_id': parent_mapping.parent.id,
             'transaction_id': cart.cart_no,
             'transaction_type': 'ordered',
-            'order_status': order.order_status
+            'order_status': order.order_status,
+            'order_number': order.order_no
         })
         order_result = OrderManagement.release_blocking_from_order(reserved_args, sku_id)
         return False if order_result is False else True
@@ -2870,6 +2871,11 @@ class OrderCentral(APIView):
         """
             Auto process add payment, shipment, invoice for retailer and customer
         """
+        # Redeem loyalty points
+        redeem_factor = order.ordered_cart.redeem_factor
+        redeem_points = order.ordered_cart.redeem_points
+        if redeem_points:
+            RewardCls.redeem_points_on_order(redeem_points, redeem_factor, order.buyer, self.request.user, order.order_no)
         # Add free products
         offers = order.ordered_cart.offers
         product_qty_map = {}
@@ -2928,7 +2934,8 @@ class OrderCentral(APIView):
         shipment.shipment_status = 'FULLY_DELIVERED_AND_VERIFIED'
         shipment.save()
         pdf_generation_retailer(self.request, order.id)
-        order_loyalty_points.delay(order.order_amount, order.buyer.id, order.order_no, self.request.user.id)
+        order_loyalty_points.delay(order.order_amount, order.buyer.id, order.order_no, 'order_credit',
+                                   'order_direct_credit', 'order_indirect_credit', self.request.user.id)
 
 
 # class CreateOrder(APIView):
@@ -3561,35 +3568,51 @@ class OrderReturns(APIView):
         return {'order': order, 'return_reason': return_reason, 'return_items': return_details,
                 'ordered_product': ordered_product}
 
-    def update_refund_amount(self, order, new_cart_value, order_return):
+    @staticmethod
+    def update_refund_amount(order, new_cart_value, order_return):
         """
             Calculate refund amount
             Without offers applied on order
         """
-        # # previous offer on order
-        # order_offer = {}
-        # applied_offers = order.ordered_cart.offers
-        # if applied_offers:
-        #     for offer in applied_offers:
-        #         if offer['coupon_type'] == 'cart' and offer['type'] == 'discount' and offer['applied']:
-        #             order_offer = self.modify_applied_cart_offer(offer, new_cart_value)
-        # discount = order_offer['discount_value'] if order_offer else 0
-        # refund_amount = round(float(order.total_final_amount) - float(new_cart_value) + discount, 2)
-        previous_refund = 0
+        # Cart redeem points factor
+        redeem_factor = order.ordered_cart.redeem_factor
+
+        # previous returns
+        prev_refund_amount = 0
+        prev_refund_points = 0
         if order.order_status == Order.PARTIALLY_RETURNED:
             previous_returns = order.rt_return_order.filter(status='completed')
             for ret in previous_returns:
-                previous_refund += ret.refund_amount if ret.refund_amount > 0 else 0
+                prev_refund_amount += ret.refund_amount if ret.refund_amount > 0 else 0
+                prev_refund_points += ret.refund_points
+        prev_refund_points_value = round(prev_refund_points / redeem_factor, 2) if prev_refund_points else 0
+        prev_refund_total = prev_refund_points_value + prev_refund_amount
 
-        refund_amount = round(float(order.order_amount) - previous_refund - float(new_cart_value), 2)
-        # refund_amount_provided = self.request.data.get('refund_amount')
-        # if refund_amount_provided and refund_amount_provided <= refund_amount:
-        #     refund_amount = refund_amount_provided
+        # Order values
+        cart_redeem_points = order.ordered_cart.redeem_points
+        redeem_value = round(cart_redeem_points / redeem_factor, 2) if cart_redeem_points else 0
+        order_amount = float(order.order_amount)
+        order_total = order_amount + redeem_value
+
+        # Current total refund value
+        total_refund_value = round(order_total - prev_refund_total - float(new_cart_value), 2)
+
+        if total_refund_value < 0:
+            refund_amount = total_refund_value
+            refund_points = 0
+        # Refund cash first, then points
+        else:
+            refund_amount = min(order_amount - prev_refund_total, total_refund_value)
+            refund_amount = max(refund_amount, 0)
+            refund_points_value = total_refund_value - refund_amount
+            refund_points = int(refund_points_value * redeem_factor)
+
         order_return.refund_amount = refund_amount
-        # order_return.offers = [order_offer] if order_offer else []
+        order_return.refund_points = refund_points
         order_return.save()
 
-    def modify_applied_cart_offer(self, offer, new_cart_value):
+    @staticmethod
+    def modify_applied_cart_offer(offer, new_cart_value):
         """
             Modify cart discount according to new cart value on returns
         """
@@ -3970,6 +3993,8 @@ class OrderReturnComplete(APIView):
             ordered_product.save()
             order.last_modified_by = self.request.user
             order.save()
+            # Return redeem points if any
+            RewardCls.adjust_points_on_return(order_return, self.request.user)
             # Update inventory
             returned_products = ReturnItems.objects.filter(return_id=order_return)
             for rp in returned_products:

@@ -15,6 +15,7 @@ from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html_join, format_html
+from material.frontend.templatetags.material_frontend import verbose_name_plural
 
 from celery.task import task
 from accounts.middlewares import get_current_user
@@ -173,7 +174,7 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     redeem_points = models.IntegerField(default=0)
-    redeem_points_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    redeem_factor = models.IntegerField(default=0)
 
     class Meta:
         verbose_name = 'Order Items Detail'
@@ -200,11 +201,15 @@ class Cart(models.Model):
         item_effective_total = 0
         for m in self.rt_cart_list.all():
             item_effective_total += (m.item_effective_prices * m.no_of_pieces)
+        redeem_points_value = 0
+        if self.redeem_factor:
+            redeem_points_value = round(self.redeem_points / self.redeem_factor, 2)
         # else:
         #     for m in self.rt_cart_list.all():
         #         if m.cart_product_price:
         #             item_effective_total += (m.cart_product_price.price_to_retailer * m.no_of_pieces)
-        return round(item_effective_total, 2)
+        order_amount = round(float(item_effective_total) - float(redeem_points_value), 2)
+        return order_amount
 
     @property
     def mrp_subtotal(self):
@@ -690,7 +695,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
 
             if len(products_available) > 0:
                 reserved_args = reserved_args_json_data(instance.seller_shop.id, instance.cart.cart_no,
-                                                        products_available, 'reserved', None)
+                                                        products_available, 'reserved', None, None)
                 info_logger.info(f"reserved_bulk_order:{reserved_args}")
                 OrderManagement.create_reserved_order(reserved_args)
                 info_logger.info("reserved_bulk_order_success")
@@ -708,7 +713,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 order.order_status = 'ordered'
                 order.save()
                 reserved_args = reserved_args_json_data(instance.seller_shop.id, instance.cart.cart_no,
-                                                        None, 'ordered', order.order_status)
+                                                        None, 'ordered', order.order_status, order.order_no)
                 sku_id = [i.cart_product.id for i in instance.cart.rt_cart_list.all()]
                 info_logger.info(f"ordered_bulk_order:{reserved_args}")
                 OrderManagement.release_blocking(reserved_args, sku_id)
@@ -1340,6 +1345,29 @@ class Trip(models.Model):
     @property
     def total_trip_shipments(self):
         return self.rt_invoice_trip.count()
+
+    @property
+    def total_delivered_shipments(self):
+        delivered_status_list = ['PARTIALLY_DELIVERED_AND_COMPLETED','FULLY_DELIVERED_AND_COMPLETED',
+                                 'PARTIALLY_DELIVERED_AND_VERIFIED', 'FULLY_DELIVERED_AND_VERIFIED',
+                                 'PARTIALLY_DELIVERED_AND_CLOSED', 'FULLY_DELIVERED_AND_CLOSED']
+        return self.rt_invoice_trip.filter(shipment_status__in=delivered_status_list).count()
+
+
+    @property
+    def total_returned_shipments(self):
+        returned_status_list = ['FULLY_RETURNED_AND_COMPLETED', 'FULLY_RETURNED_AND_VERIFIED',
+                                'FULLY_RETURNED_AND_CLOSED']
+        return self.rt_invoice_trip.filter(shipment_status__in=returned_status_list).count()
+
+
+    @property
+    def total_pending_shipments(self):
+        return self.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY').count()
+
+    @property
+    def total_rescheduled_shipments(self):
+        return self.rescheduling_shipment_trip.count()
 
     @property
     def total_trip_amount_value(self):
@@ -2638,6 +2666,7 @@ class OrderReturn(models.Model):
         null=True, blank=True, verbose_name='Reason for Return',
     )
     refund_amount = models.FloatField(default=0)
+    refund_points = models.IntegerField(default=0)
     refund_mode = models.CharField(max_length=50, choices=PAYMENT_MODE_POS, default="cash")
     status = models.CharField(max_length=200, choices=RETURN_STATUS, default='created')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -2926,3 +2955,9 @@ def franchise_inventory_update(shipment, warehouse):
             product_batch_inventory_update_franchise(warehouse, bin_obj, shipment_product_batch, initial_type,
                                                      final_type, initial_stage, final_stage)
 
+
+class DeliveryData(Trip):
+    class Meta:
+        proxy = True
+        verbose_name = 'Delivery Performance Dashboard'
+        verbose_name_plural = 'Delivery Performance Dashboard'

@@ -1501,6 +1501,7 @@ class OrderCancellation(object):
             .filter(ordered_product_id__in=shipment_id_list)
         return [i['product_id'] for i in shipment_products]
 
+    # Todiscussusage
     def get_reserved_qty(self):
         reserved_qty_queryset = WarehouseInternalInventoryChange.objects \
             .values(r_sku=F('sku__id'),

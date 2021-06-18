@@ -103,11 +103,11 @@ class RewardPoint(models.Model):
     """
     user = models.ForeignKey(MLMUser, related_name="reward_user", on_delete=models.CASCADE, null=True, blank=True)
     reward_user = models.OneToOneField(User, related_name="reward_user_mlm", on_delete=models.CASCADE, null=True, blank=True)
-    direct_users = models.IntegerField(default=0)
-    indirect_users = models.IntegerField(default=0)
-    direct_earned = models.IntegerField(default=0)
-    indirect_earned = models.IntegerField(default=0)
-    points_used = models.IntegerField(default=0)
+    direct_users = models.PositiveIntegerField(default=0)
+    indirect_users = models.PositiveIntegerField(default=0)
+    direct_earned = models.PositiveIntegerField(default=0)
+    indirect_earned = models.PositiveIntegerField(default=0)
+    points_used = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -115,7 +115,7 @@ class RewardPoint(models.Model):
         verbose_name_plural = "Rewards Dashboard"
 
     @staticmethod
-    def welcome_reward(user, referred=0):
+    def welcome_reward(user, referred=0, changed_by=None):
         """
             Reward On User Registration
         """
@@ -136,7 +136,7 @@ class RewardPoint(models.Model):
             reward_obj.direct_earned += points
             reward_obj.save()
             RewardLog.objects.create(reward_user=user, transaction_type='welcome_reward', transaction_id=user.id,
-                                     points=points)
+                                     points=points, changed_by=changed_by)
         # Send SMS To User For Discount That Can be Availed Using Welcome Rewards credited
         try:
             conf_obj = GlobalConfig.objects.get(key='used_reward_factor')
@@ -160,11 +160,16 @@ class RewardLog(models.Model):
         Logs For Credited/Used Rewards Transactions
     """
     TRANSACTION_CHOICES = (
-        ('welcome_reward', "Welcome Reward"),
-        ('used_reward', 'Used Reward'),
-        ('direct_reward', 'Direct Reward'),
-        ('indirect_reward', 'Indirect Reward'),
-        ('purchase_reward', 'Purchase Reward')
+        ('welcome_reward', "User - Welcome Credit"),
+        ('used_reward', 'Reward Point - Purchase Debit'),
+        ('direct_reward', 'Hdpos Sales - Direct Credit'),
+        ('indirect_reward', 'Hdpos Sales - Indirect Credit'),
+        ('purchase_reward', 'Hdpos Sales - Purchase Credit'),
+        ('order_credit', 'Order Credit'),
+        ('order_direct_credit', 'Order Direct Credit'),
+        ('order_indirect_credit', 'Order Indirect Credit'),
+        ('order_debit', 'Order Debit'),
+        ('order_return', 'Order Return Credit')
     )
     user = models.ForeignKey(MLMUser, on_delete=models.CASCADE, null=True, blank=True)
     reward_user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)

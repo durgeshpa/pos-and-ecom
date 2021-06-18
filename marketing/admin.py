@@ -6,7 +6,7 @@ from rangefilter.filter import DateTimeRangeFilter
 from franchise.models import FranchiseSales
 from global_config.models import GlobalConfig
 from accounts.models import User
-from retailer_to_sp.models import Order, OrderedProduct
+from retailer_to_sp.models import Order, OrderedProduct, OrderReturn
 
 from .models import Referral, RewardPoint, Profile, RewardLog, ReferralCode
 from .forms import RewardPointForm, MLMUserForm
@@ -34,7 +34,7 @@ class MLMUserAdmin(admin.ModelAdmin):
             user_referral_code = ReferralCode.objects.get(user=user_obj).referral_code
             Referral.store_parent_referral_user(form.cleaned_data.get('referral_code'), user_referral_code)
         referred = 1 if form.cleaned_data.get('referral_code') else 0
-        RewardPoint.welcome_reward(user_obj, referred)
+        RewardPoint.welcome_reward(user_obj, referred, request.user)
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -128,44 +128,40 @@ class RewardLogAdmin(admin.ModelAdmin):
 
     @staticmethod
     def purchase_user(obj):
-        if obj.transaction_type in ['direct_reward', 'indirect_reward', 'purchase_reward']:
-            try:
-                sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
-                return sales_obj.phone_number if sales_obj else '-'
-            except:
-                try:
-                    order = Order.objects.get(order_no=obj.transaction_id)
-                    return order.buyer.phone_number
-                except:
-                    return '-'
+        if obj.transaction_type in ['used_reward', 'purchase_reward', 'order_credit', 'order_debit', 'order_return']:
+            return obj.reward_user
+        if obj.transaction_type in ['direct_reward', 'indirect_reward']:
+            sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
+            return sales_obj.phone_number if sales_obj else '-'
+        if obj.transaction_type in ['order_direct_credit', 'order_indirect_credit']:
+            order = Order.objects.get(order_no=obj.transaction_id)
+            return order.buyer
         return '-'
 
     @staticmethod
     def user_purchase_shop_location(obj):
         if obj.transaction_type in ['direct_reward', 'indirect_reward', 'purchase_reward']:
-            try:
-                sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
-                return sales_obj.shop_loc if sales_obj else '-'
-            except:
-                try:
-                    order = Order.objects.get(order_no=obj.transaction_id)
-                    return order.seller_shop
-                except:
-                    return '-'
+            sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
+            return sales_obj.shop_loc if sales_obj else '-'
+        if obj.transaction_type in ['order_direct_credit', 'order_indirect_credit', 'order_credit', 'order_debit']:
+            order = Order.objects.get(order_no=obj.transaction_id)
+            return order.seller_shop
+        if obj.transaction_type in ['order_return']:
+            order = Order.objects.get(rt_return_order__id=obj.transaction_id)
+            return order.seller_shop
         return '-'
 
     @staticmethod
     def purchase_invoice(obj):
         if obj.transaction_type in ['direct_reward', 'indirect_reward', 'purchase_reward']:
-            try:
-                sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
-                return sales_obj.invoice_number if sales_obj else '-'
-            except:
-                try:
-                    order = OrderedProduct.objects.get(order__order_no=obj.transaction_id)
-                    return order.invoice_no
-                except:
-                    return '-'
+            sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
+            return sales_obj.invoice_number if sales_obj else '-'
+        if obj.transaction_type in ['order_direct_credit', 'order_indirect_credit', 'order_credit', 'order_debit']:
+            order = OrderedProduct.objects.get(order__order_no=obj.transaction_id)
+            return order.invoice_no
+        if obj.transaction_type in ['order_return']:
+            order = OrderedProduct.objects.get(order__rt_return_order__id=obj.transaction_id)
+            return order.invoice_no
         return '-'
 
     def get_urls(self):
