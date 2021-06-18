@@ -48,7 +48,7 @@ from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCa
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData)
+                     ResponseComment, BulkOrder, RoundAmount, OrderedProductBatch, DeliveryData, PickerPerformance)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
@@ -2115,6 +2115,51 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
         return ShipmentRescheduling.objects.filter(trip=OuterRef('pk')).values('pk')
 
 
+class PickerPerformanceDashboard(admin.ModelAdmin):
+    """
+    Admin class for representing Delivery Performance Dashboard
+    """
+    change_list_template = 'admin/retailer_to_sp/picker_performance_change_list.html'
+    list_per_page = FIFTY
+
+    def has_add_permission(self, request):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        response = super().changelist_view(
+            request,
+            extra_context=extra_context,
+        )
+
+        try:
+            current_month = datetime.datetime.now().month
+            current_year = datetime.datetime.now().year
+            qs = response.context_data['cl'].queryset
+            qs = qs.filter(created_at__month=current_month, created_at__year=current_year)
+        except (AttributeError, KeyError):
+            return response
+
+        picking_status_list = ['picking_assigned']
+        qs = qs.annotate(
+
+                         ).order_by('picker_boy').distinct('picker_boy')
+        # qs = qs.aggregate(
+        #                  assigned_order_cnt=Count("pk"),
+        #                  )
+
+        response.context_data['summary'] = list(qs)
+        return response
+
+    # def assigned_count_subquery(self, query, status_list=None):
+    #     """
+    #     Returns subquery for counting invoices by given trip id and statuses
+    #     """
+    #     query = PickerDashboard.objects.filter(picker_boy=)
+    #     if status_list is not None:
+    #         query = query.filter(picking_status__in=status_list)
+    #     return query.values('pk')
+
+
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -2130,3 +2175,4 @@ admin.site.register(Feedback, FeedbackAdmin)
 admin.site.register(PickerDashboard, PickerDashboardAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(DeliveryData, DeliveryPerformanceDashboard)
+admin.site.register(PickerPerformance, PickerPerformanceDashboard)

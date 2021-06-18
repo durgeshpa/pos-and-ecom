@@ -2856,3 +2856,10 @@ class DeliveryData(Trip):
         proxy = True
         verbose_name = 'Delivery Performance Dashboard'
         verbose_name_plural = 'Delivery Performance Dashboard'
+
+
+class PickerPerformance(PickerDashboard):
+    class Meta:
+        proxy = True
+        verbose_name = 'Picker Performance Dashboard'
+        verbose_name_plural = 'Picker Performance Dashboard'
