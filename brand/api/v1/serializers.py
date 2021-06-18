@@ -75,8 +75,8 @@ class BrandCrudSerializers(serializers.ModelSerializer):
         """
             category_slug validation.
         """
-        if not 'category_slug' in self.initial_data or not self.initial_data['category_slug']:
-            data['category_slug'] = slugify(data.get('category_name'))
+        if not 'brand_slug' in self.initial_data or not self.initial_data['brand_slug']:
+            data['brand_slug'] = slugify(data.get('brand_slug'))
 
         if 'brand_parent' in self.initial_data and self.initial_data['brand_parent'] is not None:
             brand_val = get_validate_parent_brand(self.initial_data['brand_parent'])
@@ -89,12 +89,12 @@ class BrandCrudSerializers(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         try:
-            category = Brand.objects.create(**validated_data)
+            brand = Brand.objects.create(**validated_data)
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)
 
-        return category
+        return brand
 
     @transaction.atomic
     def update(self, instance, validated_data):

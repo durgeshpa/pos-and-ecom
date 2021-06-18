@@ -28,7 +28,7 @@ CHOICES = (
 
 
 def validate_image(image):
-    file_size = image.file.size
+    file_size = image.size
     if file_size > 300 * 300:
         raise ValidationError("Max size of file is 300 * 300" )
 

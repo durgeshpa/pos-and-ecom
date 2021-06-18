@@ -14,7 +14,7 @@ from retailer_backend.utils import SmallOffsetPagination
 from products.services import brand_search
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id
-from categories.common_validators import validate_data_format
+from brand.common_validators import validate_data_format
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')

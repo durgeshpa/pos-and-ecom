@@ -35,3 +35,8 @@ def validate_data_format(request):
             data['brand_logo'] = image
         except:
             pass
+
+    if request.FILES.getlist('brand_logo'):
+        data['brand_logo'] = request.FILES['brand_logo']
+
+    return data
