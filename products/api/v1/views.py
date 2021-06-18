@@ -34,7 +34,7 @@ class BrandView(GenericAPIView):
         Get Brand List
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Brand.objects.values('id', 'brand_name', 'brand_code')
+    queryset = Brand.objects.values('id', 'brand_name')
     serializer_class = BrandSerializers
 
     def get(self, request):
@@ -332,7 +332,7 @@ class ChildProductView(GenericAPIView):
         Update Child Product
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = ChildProduct.objects.select_related('updated_by').prefetch_related('product_pro_image',
+    queryset = ChildProduct.objects.prefetch_related('product_pro_image',
         'product_vendor_mapping', 'parent_product', 'parent_product__parent_product_pro_image',
         'parent_product__parent_product_pro_category', 'parent_product__parent_product_pro_tax',
         'parent_product__parent_product_pro_category__category', 'destination_product_repackaging',

@@ -40,7 +40,7 @@ class GetParentProductSerializers(serializers.ModelSerializer):
 class BrandSerializers(serializers.ModelSerializer):
     class Meta:
         model = Brand
-        fields = ('id', 'brand_name', 'brand_code')
+        fields = ('id', 'brand_name',)
 
 
 class VendorSerializers(serializers.ModelSerializer):
@@ -136,8 +136,6 @@ class LogSerializers(serializers.ModelSerializer):
 class ParentProductSerializers(serializers.ModelSerializer):
     """Handles creating, reading and updating parent product items."""
     parent_brand = BrandSerializers(read_only=True)
-    updated_by = UserSerializers(write_only=True, required=False)
-    updated_at = serializers.DateTimeField(write_only=True, required=False)
     parent_product_log = LogSerializers(many=True, read_only=True)
     product_hsn = ProductHSNSerializers(read_only=True)
     parent_product_pro_image = ParentProductImageSerializers(many=True, read_only=True)
@@ -203,9 +201,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
         model = ParentProduct
         fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'status', 'product_hsn', 'parent_brand',
                   'parent_product_pro_tax', 'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent',
-                  'ptr_type',
-                  'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'parent_product_pro_image',
-                  'updated_by', 'updated_at', 'product_parent_product', 'product_images', 'parent_product_log')
+                  'ptr_type', 'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'parent_product_pro_image',
+                  'product_parent_product', 'product_images', 'parent_product_log')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -771,8 +768,6 @@ class DestinationRepackagingCostMappingSerializers(serializers.ModelSerializer):
 class ChildProductSerializers(serializers.ModelSerializer):
     """ Handles creating, reading and updating child product items."""
     parent_product = ParentProductSerializers(read_only=True)
-    updated_by = UserSerializers(write_only=True, required=False)
-    updated_at = serializers.DateTimeField(write_only=True, required=False)
     child_product_logs = LogSerializers(many=True, read_only=True)
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
@@ -789,8 +784,8 @@ class ChildProductSerializers(serializers.ModelSerializer):
         fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp',
                   'product_special_cess', 'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image',
                   'repackaging_type', 'product_pro_image', 'parent_product', 'product_vendor_mapping',
-                  'updated_by', 'source_product_pro', 'packing_material_rt', 'destination_product_repackaging',
-                  'product_images', 'updated_at', 'child_product_logs')
+                  'source_product_pro', 'packing_material_rt', 'destination_product_repackaging',
+                  'product_images', 'child_product_logs')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
