@@ -36,7 +36,8 @@ def category_search(queryset, search_text):
 
 # search using brand name
 def brand_search(queryset, search_text):
-    queryset = queryset.filter(brand_name__icontains=search_text)
+    queryset = queryset.filter(Q(brand_name__icontains=search_text) | Q(brand_code__icontains=search_text)
+                               | Q(brand_parent__brand_name__icontains=search_text))
     return queryset
 
 

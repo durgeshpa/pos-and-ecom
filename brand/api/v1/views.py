@@ -105,7 +105,7 @@ class BrandView(GenericAPIView):
         Update Brand
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Brand.objects.select_related('brand_parent', 'updated_by').prefetch_related('categories', 'brand_child', 'brand_log').\
+    queryset = Brand.objects.select_related('brand_parent', 'updated_by').prefetch_related('brand_child', 'brand_log').\
         only('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'updated_by', 'brand_slug',
              'brand_logo', 'status').order_by('-id')
     serializer_class = BrandCrudSerializers
@@ -118,13 +118,14 @@ class BrandView(GenericAPIView):
             id_validation = validate_id(self.queryset, int(request.GET.get('id')))
             if 'error' in id_validation:
                 return get_response(id_validation['error'])
-            category = id_validation['data']
+            brand = id_validation['data']
         else:
             """ GET API for Brand LIST with SubBrand """
-            self.queryset = self.search_filter_category()
-            category = SmallOffsetPagination().paginate_queryset(self.queryset, request)
-        serializer = self.serializer_class(category, many=True)
-        return get_response('category list!', serializer.data)
+            self.queryset = self.search_filter_brand()
+            brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(brand, many=True)
+        msg = "" if brand else "no brand found"
+        return get_response(msg, serializer.data)
 
     def post(self, request):
         """ POST API for Brand Creation """
@@ -141,7 +142,7 @@ class BrandView(GenericAPIView):
         return get_response(serializer_error(serializer), False)
 
     def put(self, request):
-        """ PUT API for Category Updation  """
+        """ PUT API for Brand Updation  """
 
         info_logger.info("Category PUT api called.")
         modified_data = validate_data_format(self.request)
@@ -149,7 +150,7 @@ class BrandView(GenericAPIView):
             return get_response(modified_data['error'])
 
         if not modified_data['id']:
-            return get_response('please provide id to update category', False)
+            return get_response('please provide id to update brand', False)
 
         # validations for input id
         id_instance = validate_id(self.queryset, int(modified_data['id']))
@@ -164,12 +165,12 @@ class BrandView(GenericAPIView):
             return get_response('category updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
-    def search_filter_category(self):
+    def search_filter_brand(self):
 
         brand_status = self.request.GET.get('status')
         search_text = self.request.GET.get('search_text')
 
-        # search based on Brand name
+        # search based on Brand Name, Brand Code & Parent Brand Name
         if search_text:
             self.queryset = brand_search(self.queryset, search_text)
 

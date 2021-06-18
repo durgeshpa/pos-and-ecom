@@ -67,9 +67,9 @@ class Vendor(models.Model):
     GST_document = models.FileField(upload_to='vendor/gst_doc', null=True)
     pan_card = models.FileField(upload_to='vendor/pan_card', null=True)
     cancelled_cheque = models.FileField(upload_to='vendor/cancelled_cheque', null=True)
-    list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi',null=True,blank=True)
+    list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi',null=True, blank=True)
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
-    vendor_products_brand = ArrayField(models.PositiveIntegerField(),null=True, blank=True,editable=False)
+    vendor_products_brand = ArrayField(models.PositiveIntegerField(),null=True, blank=True, editable=False)
     ordering_days = MultiSelectField(max_length=50, choices=ORDERING_DAY_CHOICES, null=True)
     lead_time = models.PositiveSmallIntegerField(verbose_name='Lead Time(In Days)', validators=[MaxValueValidator(999)])
 
@@ -116,7 +116,7 @@ class Brand(BaseTimestampUserStatusModel):
 
 
 class BrandPosition(SortableMixin):
-    shop = models.ForeignKey(Shop,blank=True, on_delete=models.CASCADE, null=True)
+    shop = models.ForeignKey(Shop, blank=True, on_delete=models.CASCADE, null=True)
     position_name = models.CharField(max_length=255)
     brand_position_order = models.PositiveIntegerField(default=0, editable=False, db_index=True)
 
@@ -130,8 +130,8 @@ class BrandPosition(SortableMixin):
 
 
 class BrandData(SortableMixin):
-    slot = SortableForeignKey(BrandPosition,related_name='brand_data',null=True,blank=True, on_delete=models.CASCADE)
-    brand_data = models.ForeignKey(Brand,related_name='brand_position_data',null=True,blank=True, on_delete=models.CASCADE)
+    slot = SortableForeignKey(BrandPosition, related_name='brand_data', null=True, blank=True, on_delete=models.CASCADE)
+    brand_data = models.ForeignKey(Brand, related_name='brand_position_data', null=True, blank=True, on_delete=models.CASCADE)
     brand_data_order = models.PositiveIntegerField(default=0, editable=False, db_index=True)
 
     def __str__(self):
