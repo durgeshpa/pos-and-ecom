@@ -84,3 +84,18 @@ class PosUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('phone_number', 'name', 'email', 'is_whatsapp')
+
+
+class PosShopUserSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    active = serializers.SerializerMethodField()
+
+    def get_name(self, obj):
+        return obj.first_name + ' ' + obj.last_name
+
+    def get_active(self, obj):
+        return True
+
+    class Meta:
+        model = User
+        fields = ('phone_number', 'name', 'email', 'active')
