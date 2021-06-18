@@ -3702,7 +3702,7 @@ class OrderReturns(APIView):
             return {'error': "Provide product product_id, qty, new_sp for each product"}
         product_id = return_product['product_id']
         qty = return_product['qty']
-        new_sp = return_product['new_sp']
+        new_sp = float(return_product['new_sp'])
         if qty < 0 or new_sp < 0:
             return {'error': "Provide valid qty and new_sp for product {}".format(product_id)}
         # ordered product
@@ -3712,7 +3712,7 @@ class OrderReturns(APIView):
         except:
             return {'error': "{} is not a purchased product in this order".format(product_id)}
         # Last selling price, previous returns account
-        order_sp = ordered_product_map.selling_price
+        order_sp = float(ordered_product_map.selling_price)
         previous_ret_qty = 0
         if order_status == Order.PARTIALLY_RETURNED:
             previous_returns = ReturnItems.objects.filter(return_id__status='completed',

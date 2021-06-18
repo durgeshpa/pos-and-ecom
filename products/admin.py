@@ -59,7 +59,7 @@ from .views import (CityAutocomplete, MultiPhotoUploadView,
                     bulk_product_vendor_csv_upload_view, all_product_mapped_to_vendor,
                     get_slab_product_price_sample_csv, slab_product_price_csv_upload, PackingMaterialCheck,
                     packing_material_inventory, packing_material_inventory_download,
-                    packing_material_inventory_sample_upload)
+                    packing_material_inventory_sample_upload, HSNAutocomplete)
 
 from .filters import BulkTaxUpdatedBySearch, SourceSKUSearch, SourceSKUName, DestinationSKUSearch, DestinationSKUName
 from wms.models import Out, WarehouseInventory, BinInventory
@@ -673,6 +673,11 @@ class ParentProductAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(ParentProductMultiPhotoUploadView.as_view()),
                 name='parent_product_multiple_photos_upload'
             ),
+           url(
+               r'^hsn-autocomplete/$',
+               self.admin_site.admin_view(HSNAutocomplete.as_view()),
+               name="hsn-autocomplete"
+           ),
         ] + urls
         return urls
 

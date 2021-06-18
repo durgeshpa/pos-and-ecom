@@ -207,3 +207,5 @@ class ProductFilter(AutocompleteFilter):
     field_name = 'product'
     autocomplete_url = 'admin:product_autocomplete'
 
+
+
