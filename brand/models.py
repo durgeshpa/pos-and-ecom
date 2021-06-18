@@ -7,18 +7,16 @@ from model_utils import Choices
 
 from addresses.models import City,State
 from retailer_backend.validators import ( AddressNameValidator, PinCodeValidator)
-from django.core.validators import RegexValidator, MaxValueValidator
+from django.core.validators import MaxValueValidator
 from retailer_backend.validators import CapitalAlphabets
 from django.utils.translation import ugettext_lazy as _
 from shops.models import Shop
 from categories.models import BaseTimeModel, BaseTimestampUserStatusModel, Category
-from django.contrib.postgres.fields import JSONField
 from django.contrib.postgres.fields import ArrayField
-from django.db.models import Case, CharField, Value, When, F
 from django.contrib.auth import get_user_model
 
 VENDOR_REG_PAYMENT = (
-    ("paid","Paid"),
+    ("paid", "Paid"),
     ("unpaid", "Un-Paid"),
 )
 
@@ -28,14 +26,12 @@ CHOICES = (
     ('inactive', 'Inactive'),
   )
 
+
 def validate_image(image):
     file_size = image.file.size
     if file_size > 300 * 300:
         raise ValidationError("Max size of file is 300 * 300" )
 
-    #limit_mb = 8
-    #if file_size > limit_mb * 1024 * 1024:
-    #    raise ValidationError("Max size of file is %s MB" % limit_mb)
 
 # Create your models here.
 class Vendor(models.Model):
@@ -80,35 +76,22 @@ class Vendor(models.Model):
     def __str__(self):
         return self.vendor_name
 
-    # def get_parent_or_self(self, obj):
-    #     if isinstance(obj.product.product_brand, str):
-    #         parent = obj.product.parent_product.parent_brand.brand_parent
-    #         brand = obj.product.parent_product.parent_brand
-    #         while parent is not None:
-    #             brand = parent
-    #             parent = parent.brand_parent
-    #         return brand.id
-    #     parent = obj.product.product_brand.brand_parent
-    #     brand = obj.product.product_brand
-    #     while parent is not None:
-    #         brand = parent
-    #         parent = parent.brand_parent
-    #     return brand.id
-
 
 class Brand(BaseTimestampUserStatusModel):
     brand_name = models.CharField(max_length=20)
     brand_slug = models.SlugField(blank=True, null=True)
-    brand_logo = models.FileField(validators=[validate_image], blank=False,null=True)
-    brand_parent = models.ForeignKey('self', related_name='brnd_parent', null=True, blank=True,on_delete=models.CASCADE, limit_choices_to={'brand_parent': None},)
+    brand_logo = models.FileField(validators=[validate_image], blank=False, null=True)
+    brand_parent = models.ForeignKey('self', related_name='brand_child', null=True, blank=True, on_delete=models.CASCADE, limit_choices_to={'brand_parent': None},)
     brand_description = models.TextField(null=True, blank=True)
-    brand_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three character for SKU")
+    brand_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three "
+                                                                                         "character for SKU")
     categories = models.ManyToManyField(Category, blank=True)
     updated_by = models.ForeignKey(
         get_user_model(), null=True,
         related_name='brand_updated_by',
         on_delete=models.DO_NOTHING
     )
+
     def __str__(self):
         full_path = [self.brand_name]
         k = self.brand_parent
@@ -131,12 +114,8 @@ class Brand(BaseTimestampUserStatusModel):
         else:
             super(Brand, self).clean(*args, **kwargs)
 
-    # class Meta:
-    #     unique_together = ('brand_name', 'brand_slug',)
-
 
 class BrandPosition(SortableMixin):
-    #page = models.ForeignKey(Page,on_delete=models.CASCADE, null=True)
     shop = models.ForeignKey(Shop,blank=True, on_delete=models.CASCADE, null=True)
     position_name = models.CharField(max_length=255)
     brand_position_order = models.PositiveIntegerField(default=0, editable=False, db_index=True)
@@ -148,6 +127,7 @@ class BrandPosition(SortableMixin):
         ordering = ['brand_position_order']
         verbose_name = _("Brand Position")
         verbose_name_plural = _("Brand Positions")
+
 
 class BrandData(SortableMixin):
     slot = SortableForeignKey(BrandPosition,related_name='brand_data',null=True,blank=True, on_delete=models.CASCADE)

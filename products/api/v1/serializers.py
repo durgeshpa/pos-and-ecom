@@ -430,11 +430,11 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
         if len(data.get('parent_product_id_list')) == 0:
             raise serializers.ValidationError(_('Atleast one parent_product id must be selected '))
 
-        for id in data.get('parent_product_id_list'):
+        for p_id in data.get('parent_product_id_list'):
             try:
-                ParentProduct.objects.get(id=id)
+                ParentProduct.objects.get(id=p_id)
             except ObjectDoesNotExist:
-                raise serializers.ValidationError(f'parent_product not found for id {id}')
+                raise serializers.ValidationError(f'parent_product not found for id {p_id}')
 
         return data
 
@@ -451,8 +451,8 @@ class ParentProductExportAsCSVSerializers(serializers.ModelSerializer):
 
         writer = csv.writer(response)
         writer.writerow(field_names)
-        for id in validated_data['parent_product_id_list']:
-            obj = ParentProduct.objects.filter(id=id).last()
+        for p_id in validated_data['parent_product_id_list']:
+            obj = ParentProduct.objects.filter(id=p_id).last()
             row = []
             for field in field_names:
                 try:
@@ -485,11 +485,11 @@ class ActiveDeactiveSelectedParentProductSerializers(serializers.ModelSerializer
         if not 'parent_product_id_list' in data or not data['parent_product_id_list']:
             raise serializers.ValidationError(_('atleast one parent_product id must be selected '))
 
-        for id in data.get('parent_product_id_list'):
+        for p_id in data.get('parent_product_id_list'):
             try:
-                ParentProduct.objects.get(id=id)
+                ParentProduct.objects.get(id=p_id)
             except ObjectDoesNotExist:
-                raise serializers.ValidationError(f'parent_product not found for id {id}')
+                raise serializers.ValidationError(f'parent_product not found for id {p_id}')
 
         return data
 
@@ -537,11 +537,11 @@ class ActiveDeactiveSelectedChildProductSerializers(serializers.ModelSerializer)
         if not 'child_product_id_list' in data or not data['child_product_id_list']:
             raise serializers.ValidationError(_('atleast one child product id must be selected '))
 
-        for id in data.get('child_product_id_list'):
+        for p_id in data.get('child_product_id_list'):
             try:
-                Product.objects.get(id=id)
+                Product.objects.get(id=p_id)
             except ObjectDoesNotExist:
-                raise serializers.ValidationError(f'child product not found for id {id}')
+                raise serializers.ValidationError(f'child product not found for id {p_id}')
 
         return data
 

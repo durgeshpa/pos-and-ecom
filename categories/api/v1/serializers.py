@@ -5,7 +5,6 @@ from rest_framework import serializers
 from categories.models import Category,CategoryPosation,CategoryData
 from brand.models import Brand
 from categories.models import Category
-from products.models import CentralLog
 from products.api.v1.serializers import UserSerializers, LogSerializers
 from categories.common_function import CategoryCls
 from categories.common_validators import get_validate_category
@@ -86,12 +85,12 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
     category_parent = ParentCategorySerializers(read_only=True)
     category_slug = serializers.SlugField(required=False, allow_null=True, allow_blank=True)
     updated_by = UserSerializers(write_only=True, required=False)
-    category_product_log = LogSerializers(many=True, read_only=True)
+    category_log = LogSerializers(many=True, read_only=True)
 
     class Meta:
         model = Category
         fields = ('id', 'category_name', 'category_desc', 'category_slug', 'category_sku_part', 'category_image',
-                  'updated_by', 'status', 'category_parent', 'category_product_log', 'sub_category')
+                  'updated_by', 'status', 'category_parent', 'category_log', 'sub_category')
 
     def validate(self, data):
         """

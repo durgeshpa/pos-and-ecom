@@ -1,11 +1,16 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import authentication
+from rest_framework.generics import GenericAPIView
 
 from wms.common_functions import get_stock_available_brand_list
-from .serializers import BrandDataSerializer, SubBrandSerializer
+from .serializers import BrandDataSerializer, SubBrandSerializer, BrandCrudSerializers
 from brand.models import Brand, BrandData
 from rest_framework.permissions import AllowAny
 from shops.models import Shop, ParentRetailerMapping
+from retailer_backend.utils import SmallOffsetPagination
+from products.services import brand_search
+from products.common_function import get_response, serializer_error
 
 
 class GetSlotBrandListView(APIView):
@@ -51,6 +56,7 @@ class GetSlotBrandListView(APIView):
 
         return Response({"message": [""], "response_data": brand_data_serializer.data, "is_success": is_success})
 
+
 class GetSubBrandsListView(APIView):
 
     permission_classes = (AllowAny,)
@@ -81,23 +87,25 @@ class GetSubBrandsListView(APIView):
         return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success":is_success })
 
 
-'''class GetAllBrandListView(ListCreateAPIView):
-    queryset = Brand.objects.filter(active_status='active')
-    serializer_class = BrandSerializer
+class BrandView(GenericAPIView):
+    """
+        Get Brand
+        Add Brand
+        Search Brand
+        List Brand
+        Update Brand
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Brand.objects.select_related('brand_parent', 'updated_by').prefetch_related('categories', 'brand_child', 'brand_log').\
+        only('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'updated_by', 'brand_slug',
+             'brand_logo', 'status').order_by('-id')
+    serializer_class = BrandCrudSerializers
 
-    @list_route
-    def roots(self, request):
-        queryset = Brand.objects.filter(active_status='active')
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-'''
-
-'''class GetSlotBrandListView(ListCreateAPIView):
-    queryset = BrandData.objects.all().order_by('brand_data_order')
-    serializer_class = BrandPositionSerializer
-    @list_route
-    def roots(self, request):
-        queryset = BrandData.objects.all().order_by('brand_data_order')
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-'''
+    def get(self, request):
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = brand_search(self.queryset, search_text)
+        brand = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(brand, many=True)
+        msg = "" if brand else "no brand found"
+        return get_response(msg, serializer.data)
