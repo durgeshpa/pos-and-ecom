@@ -20,7 +20,7 @@ from products.common_validators import get_validate_parent_brand, get_validate_p
     get_validate_images, get_validate_category, get_validate_tax, is_ptr_applicable_validation, get_validate_product, \
     get_validate_seller_shop, check_active_capping, \
     get_validate_packing_material, get_destination_product_repack, get_source_product, product_category, product_gst, \
-    product_cess, product_surcharge, product_image
+    product_cess, product_surcharge, product_image, get_validate_vendor
 from products.common_function import ParentProductCls, ProductCls
 from accounts.models import User
 
@@ -201,8 +201,8 @@ class ParentProductSerializers(serializers.ModelSerializer):
         model = ParentProduct
         fields = ('id', 'parent_id', 'name', 'inner_case_size', 'product_type', 'status', 'product_hsn', 'parent_brand',
                   'parent_product_pro_tax', 'parent_product_pro_category', 'is_ptr_applicable', 'ptr_percent',
-                  'ptr_type', 'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'parent_product_pro_image',
-                  'product_parent_product', 'product_images', 'parent_product_log')
+                  'ptr_type', 'is_ars_applicable', 'max_inventory', 'is_lead_time_applicable', 'product_images',
+                  'parent_product_pro_image', 'product_parent_product',  'parent_product_log')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -506,9 +506,7 @@ class ActiveDeactiveSelectedParentProductSerializers(serializers.ModelSerializer
                                    updated_at=timezone.now())
             for parent_product_obj in parent_products:
                 Product.objects.filter(parent_product=parent_product_obj).update(status=product_status,
-                                                                                 updated_by=validated_data[
-                                                                                     'updated_by'],
-                                                                                 updated_at=timezone.now())
+                                       updated_by=validated_data['updated_by'], updated_at=timezone.now())
         except Exception as e:
             error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
             raise serializers.ValidationError(error)

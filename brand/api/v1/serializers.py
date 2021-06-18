@@ -98,7 +98,12 @@ class BrandCrudSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        brand = super().update(instance, validated_data)
+        try:
+            brand = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': e.args[0] if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
+
         BrandCls.create_brand_log(brand)
 
         return brand

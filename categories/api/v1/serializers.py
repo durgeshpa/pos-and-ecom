@@ -119,9 +119,14 @@ class CategoryCrudSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        category = super().update(instance, validated_data)
-        CategoryCls.create_category_log(category)
+        try:
+            category = super().update(instance, validated_data)
+        except Exception as e:
+            error = {'message': e.args[0] if len(e.args) > 0 else 'Unknown Error'}
+            raise serializers.ValidationError(error)
 
+        CategoryCls.create_category_log(category)
+        
         return category
 
 
