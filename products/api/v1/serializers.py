@@ -772,20 +772,17 @@ class ChildProductSerializers(serializers.ModelSerializer):
     product_vendor_mapping = ChildProductVendorMappingSerializers(many=True, required=False)
     product_sku = serializers.CharField(required=False)
     product_pro_image = ProductImageSerializers(many=True, read_only=True)
-    product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(),
-                                           write_only=True)
+    product_images = serializers.ListField(required=False, default=None, child=serializers.ImageField(), write_only=True)
     source_product_pro = ProductSourceMappingSerializers(many=True, write_only=True, required=False)
     packing_material_rt = ProductPackingMappingSerializers(many=True, write_only=True, required=False)
-    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, write_only=True,
-                                                                                   required=False)
+    destination_product_repackaging = DestinationRepackagingCostMappingSerializers(many=True, write_only=True, required=False)
 
     class Meta:
         model = Product
-        fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp',
-                  'product_special_cess', 'weight_value', 'weight_unit', 'reason_for_child_sku', 'use_parent_image',
-                  'repackaging_type', 'product_pro_image', 'parent_product', 'product_vendor_mapping',
-                  'source_product_pro', 'packing_material_rt', 'destination_product_repackaging',
-                  'product_images', 'child_product_logs')
+        fields = ('id', 'product_sku', 'product_name', 'product_ean_code', 'status', 'product_mrp', 'weight_value',
+                  'weight_unit', 'reason_for_child_sku', 'use_parent_image', 'product_special_cess', 'repackaging_type',
+                  'product_pro_image', 'parent_product', 'product_vendor_mapping', 'source_product_pro',
+                  'packing_material_rt', 'destination_product_repackaging', 'product_images', 'child_product_logs')
 
     def validate(self, data):
         if not 'parent_product' in self.initial_data or self.initial_data['parent_product'] is None:
@@ -862,9 +859,7 @@ class ChildProductSerializers(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        """
-            This method is used to update an instance of the Child Product's attribute.
-        """
+        """ This method is used to update an instance of the Child Product's attribute."""
         validated_data.pop('product_images', None)
         source_product = validated_data.pop('source_product_pro', None)
         packing_material = validated_data.pop('packing_material_rt', None)
