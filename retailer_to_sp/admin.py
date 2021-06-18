@@ -2135,30 +2135,27 @@ class PickerPerformanceDashboard(admin.ModelAdmin):
             current_month = datetime.datetime.now().month
             current_year = datetime.datetime.now().year
             qs = response.context_data['cl'].queryset
-            qs = qs.filter(created_at__month=current_month, created_at__year=current_year)
+            # qs = qs.filter(picking_status__in=['picking_assigned','picking_complete', 'picking_in_progress'],
+            #                created_at__month=current_month, created_at__year=current_year
+            #                )
+            qs = qs.filter(groups__name='Picker Boy', picker_user__created_at__month=current_month,
+                           picker_user__created_at__year=current_year)
         except (AttributeError, KeyError):
             return response
 
-        picking_status_list = ['picking_assigned']
-        qs = qs.annotate(
 
-                         ).order_by('picker_boy').distinct('picker_boy')
-        # qs = qs.aggregate(
-        #                  assigned_order_cnt=Count("pk"),
-        #                  )
-
-        response.context_data['summary'] = list(qs)
+        response.context_data['summary'] = list(
+            qs.annotate(assigned_cnt=Count('picker_user'),
+                        order_amt=Sum(F('picker_user__order__order_amount')),
+                        invoice_amt=Sum(F('picker_user__shipment__rt_order_product_order_product_mapping__effective_price') *
+                                        F('picker_user__shipment__rt_order_product_order_product_mapping__shipped_qty'),
+                                        output_field=FloatField()),
+                        
+        ))
         return response
 
-    # def assigned_count_subquery(self, query, status_list=None):
-    #     """
-    #     Returns subquery for counting invoices by given trip id and statuses
-    #     """
-    #     query = PickerDashboard.objects.filter(picker_boy=)
-    #     if status_list is not None:
-    #         query = query.filter(picking_status__in=status_list)
-    #     return query.values('pk')
-
+    def order_count_subquery(self):
+        return PickerDashboard.objects.filter(picker_boy=OuterRef('pk')).values('pk')
 
 admin.site.register(Cart, CartAdmin)
 admin.site.register(BulkOrder, BulkOrderAdmin)

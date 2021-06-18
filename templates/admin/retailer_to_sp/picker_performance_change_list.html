@@ -78,9 +78,11 @@
         </tr>
       {% for row in summary %}
       <tr class="{% cycle 'row1' 'row2' %}">
-        <td> {{ row.picker_boy.phone_number }} </td>
-        <td> {{ row.picker_boy.get_full_name }} </td>
-        <td> {{ row.assigned_order_cnt | intcomma }} </td>
+        <td> {{ row.phone_number }} </td>
+        <td> {{ row.get_full_name }} </td>
+        <td> {{ row.assigned_cnt | intcomma }} </td>
+        <td> {{ row.order_amt | intcomma }} </td>
+        <td> {{ row.invoice_amt | intcomma }} </td>
       </tr>
       {% endfor %}
  </tbody>
