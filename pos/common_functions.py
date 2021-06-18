@@ -13,7 +13,7 @@ from coupon.models import RuleSetProductMapping, Coupon, CouponRuleSet
 from shops.models import Shop
 from accounts.models import User
 from wms.models import PosInventory, PosInventoryChange, PosInventoryState
-from marketing.models import RewardPoint
+from marketing.models import RewardPoint, RewardLog, Referral
 from global_config.models import GlobalConfig
 
 from pos.models import RetailerProduct, UserMappedShop, RetailerProductImage
@@ -266,16 +266,17 @@ class RewardCls(object):
 
     @classmethod
     def checkout_redeem_points(cls, cart, redeem_points):
-        redeem_points_value = 0
+        value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
         if cart.buyer:
             obj = RewardPoint.objects.filter(reward_user=cart.buyer).last()
             if obj:
                 points = max(obj.direct_earned + obj.indirect_earned - obj.points_used, 0)
                 redeem_points = min(redeem_points, points)
-                value_factor = GlobalConfig.objects.get(key='used_reward_factor').value
-                redeem_points_value = redeem_points / value_factor
-        redeem_points = redeem_points if redeem_points_value else 0
-        Cart.objects.filter(id=cart.id).update(redeem_points=redeem_points, redeem_points_value=redeem_points_value)
+            else:
+                redeem_points = 0
+        else:
+            redeem_points = 0
+        Cart.objects.filter(id=cart.id).update(redeem_points=redeem_points, redeem_factor=value_factor)
 
     @classmethod
     def reward_detail_cart(cls, cart, points):
@@ -284,6 +285,126 @@ class RewardCls(object):
         data['available_points'], data['value_factor'] = RewardCls.get_user_redeemable_points(cart.buyer)
         data['cart_redeem_points'] = points
         return data
+
+    @classmethod
+    def order_buyer_points(cls, amount, user, tid, t_type, changed_by=None):
+        """
+            Loyalty points to buyer on placing order
+        """
+        # Calculate number of points
+        points = RewardCls.get_loyalty_points(amount, 'self_reward_percent')
+
+        # Add to user direct reward points
+        reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
+        if reward_obj:
+            reward_obj.direct_earned += points
+            reward_obj.save()
+        else:
+            RewardPoint.objects.create(reward_user=user, direct_earned=points)
+
+        # Log transaction
+        RewardCls.create_reward_log(user, t_type, tid, points, changed_by)
+
+    @classmethod
+    def order_direct_referrer_points(cls, amount, user, tid, t_type, count_considered, changed_by=None):
+        """
+            Loyalty points to user who referred buyer
+        """
+        # Calculate number of points
+        points = RewardCls.get_loyalty_points(amount, 'direct_reward_percent')
+
+        # Add to user direct reward points
+        reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
+        if reward_obj:
+            if not count_considered:
+                reward_obj.direct_users = 1
+            reward_obj.direct_earned += points
+            reward_obj.save()
+        else:
+            RewardPoint.objects.create(reward_user=user, direct_users=1, direct_earned=points)
+
+        # Log transaction
+        RewardCls.create_reward_log(user, t_type, tid, points, changed_by)
+
+    @classmethod
+    def order_indirect_referrer_points(cls, amount, user, tid, t_type, count_considered, changed_by=None):
+        """
+            Loyalty points to ancestor referrers of user who referred buyer
+            user: user who referred buyer
+        """
+        # Calculate number of points
+        points = RewardCls.get_loyalty_points(amount, 'indirect_reward_percent')
+
+        # Record Number of ancestors
+        referral_obj_indirect = Referral.objects.select_for_update().filter(referral_to_user=user).last()
+        total_users = 0
+        users = []
+        while referral_obj_indirect is not None and referral_obj_indirect.referral_by_user:
+            total_users += 1
+            ancestor_user = referral_obj_indirect.referral_by_user
+            referral_obj_indirect = Referral.objects.filter(referral_to_user=ancestor_user).last()
+            users += [ancestor_user]
+
+        # Add to each ancestor's indirect reward points
+        if total_users > 0:
+            points_per_user = int(points / total_users)
+            for ancestor in users:
+                reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=ancestor).last()
+                if reward_obj:
+                    if not count_considered:
+                        reward_obj.indirect_users += 1
+                    reward_obj.indirect_earned += points_per_user
+                    reward_obj.save()
+                else:
+                    RewardPoint.objects.create(reward_user=ancestor, indirect_users=1, indirect_earned=points_per_user)
+
+                # Log transaction
+                RewardCls.create_reward_log(ancestor, t_type, tid, points_per_user, changed_by)
+
+    @classmethod
+    def get_loyalty_points(cls, amount, key):
+        """
+            Loyalty points for an amount based on percentage (key)
+        """
+        factor = GlobalConfig.objects.get(key=key).value / 100
+        return int(float(amount) * factor)
+
+    @classmethod
+    def create_reward_log(cls, user, t_type, tid, points, changed_by=None, discount=0):
+        """
+            Log transaction on reward points
+        """
+        RewardLog.objects.create(reward_user=user, transaction_type=t_type, transaction_id=tid, points=points,
+                                 changed_by=changed_by, discount=discount)
+
+    @classmethod
+    def redeem_points_on_order(cls, points, redeem_factor, user, changed_by, tid):
+        """
+            Deduct from loyalty points if used for order
+        """
+        # Add to user used points
+        reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
+        reward_obj.points_used += int(points)
+        reward_obj.save()
+        # Log transaction
+        RewardCls.create_reward_log(user, 'order_debit', tid, points, changed_by, round(points / redeem_factor, 2))
+
+    @classmethod
+    def adjust_points_on_return(cls, order_return, changed_by):
+        if order_return.refund_points:
+            order = order_return.order
+            user = order.buyer
+            points = order_return.refund_points
+            # Add to user direct reward points
+            reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
+            if reward_obj:
+                reward_obj.direct_earned += points
+                reward_obj.save()
+            else:
+                RewardPoint.objects.create(reward_user=user, direct_earned=points)
+
+            # Log transaction
+            RewardCls.create_reward_log(user, 'order_return', order_return.id, points, changed_by)
 
 
 def filter_pos_shop(user):

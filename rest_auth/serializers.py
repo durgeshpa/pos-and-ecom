@@ -203,7 +203,7 @@ class MlmResponseSerializer(serializers.Serializer):
             # welcome reward for new user
             referral_code = obj['referral_code']
             referred = 1 if obj['referral_code'] != '' else 0
-            RewardPoint.welcome_reward(obj['user'], referred)
+            RewardPoint.welcome_reward(obj['user'], referred, obj['user'])
             # add parent referrer if referral code provided
             if referral_code != '':
                 Referral.store_parent_referral_user(referral_code, user_referral_code)
