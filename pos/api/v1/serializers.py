@@ -15,7 +15,7 @@ from retailer_backend.validators import ProductNameValidator
 from coupon.models import Coupon, CouponRuleSet, RuleSetProductMapping, DiscountValue
 from retailer_backend.utils import SmallOffsetPagination
 from shops.models import Shop
-from wms.models import PosInventory, PosInventoryState
+from wms.models import PosInventory, PosInventoryState, PosInventoryChange
 
 
 class RetailerProductImageSerializer(serializers.ModelSerializer):
@@ -1020,3 +1020,37 @@ class PosShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
         fields = ('shop_id', 'shop_name')
+
+
+class InventoryReportSerializer(serializers.ModelSerializer):
+    product_id = serializers.SerializerMethodField()
+    product_name = serializers.SerializerMethodField()
+    stock = serializers.SerializerMethodField()
+    stock_value = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_product_id(obj):
+        return obj.product.id
+
+    @staticmethod
+    def get_product_name(obj):
+        return obj.product.name
+
+    @staticmethod
+    def get_stock(obj):
+        return obj.quantity
+
+    @staticmethod
+    def get_stock_value(obj):
+        sp = obj.product.selling_price
+        return round(float(obj.quantity) * float(sp), 2) if obj.quantity > 0 else 0
+
+    class Meta:
+        model = PosInventory
+        fields = ('product_id', 'product_name', 'stock', 'stock_value')
+
+
+class InventoryLogReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PosInventoryChange
+        fields = ('created_at', 'transaction_type', 'transaction_id', 'quantity')

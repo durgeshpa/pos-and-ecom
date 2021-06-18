@@ -3947,6 +3947,8 @@ class OrderReturnsCheckout(APIView):
 
 
 class OrderReturnComplete(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
     """
         Complete created return on an order
     """

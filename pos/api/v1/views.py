@@ -9,17 +9,16 @@ from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.validators import URLValidator
+from django.db.models import Q
 
-from rest_framework import status, authentication
+from rest_framework import status, authentication, permissions
 from rest_framework.generics import GenericAPIView
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
 
 from retailer_backend.utils import SmallOffsetPagination
 from products.models import Product
 from shops.models import Shop
 from coupon.models import CouponRuleSet, RuleSetProductMapping, DiscountValue, Coupon
-from wms.models import PosInventoryChange, PosInventoryState
+from wms.models import PosInventoryChange, PosInventoryState, PosInventory
 
 from pos.models import RetailerProduct, RetailerProductImage
 from pos.common_functions import (RetailerProductCls, OffersCls, serializer_error, api_response, PosInventoryCls,
@@ -29,7 +28,8 @@ from .serializers import (RetailerProductCreateSerializer, RetailerProductUpdate
                           RetailerProductResponseSerializer, CouponOfferSerializer, FreeProductOfferSerializer,
                           ComboOfferSerializer, CouponOfferUpdateSerializer, ComboOfferUpdateSerializer,
                           CouponListSerializer, FreeProductOfferUpdateSerializer, OfferCreateSerializer,
-                          OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer)
+                          OfferUpdateSerializer, CouponGetSerializer, OfferGetSerializer, ImageFileSerializer,
+                          InventoryReportSerializer, InventoryLogReportSerializer)
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -51,7 +51,7 @@ OFFER_UPDATE_SERIALIZERS_MAP = {
 
 class PosProductView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     @check_pos_shop
     def post(self, request, *args, **kwargs):
@@ -200,7 +200,7 @@ class PosProductView(GenericAPIView):
 
 class CouponOfferCreation(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (AllowAny,)
+    permission_classes = (permissions.IsAuthenticated,)
     pagination_class = SmallOffsetPagination
 
     @check_pos_shop
@@ -284,8 +284,7 @@ class CouponOfferCreation(GenericAPIView):
         coupon = CouponGetSerializer(Coupon.objects.get(id=coupon_id)).data
         coupon.update(coupon['details'])
         coupon.pop('details')
-        msg = {"is_success": True, "message": "Offer", "response_data": coupon}
-        return Response(msg, status=200)
+        return api_response("Offers", coupon, status.HTTP_200_OK, True)
 
     def get_offers_list(self, request, shop_id):
         """
@@ -300,8 +299,7 @@ class CouponOfferCreation(GenericAPIView):
         for coupon in data:
             coupon.update(coupon['details'])
             coupon.pop('details')
-        msg = {"is_success": True, "message": "Offers List", "response_data": data}
-        return Response(msg, status=200)
+        return api_response("Offers List", data, status.HTTP_200_OK, True)
 
     @staticmethod
     def create_coupon(data, shop_id):
@@ -489,3 +487,69 @@ class CouponOfferCreation(GenericAPIView):
         rule.save()
         coupon.save()
         return api_response(success_msg, None, status.HTTP_200_OK, True)
+
+
+class InventoryReport(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        """
+            Get Products Available Inventory report for shop
+        """
+        shop = kwargs['shop']
+        inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        inv = PosInventory.objects.filter(product__shop=shop, inventory_state=inv_available)
+
+        # Search by product name
+        if request.GET.get('search_text'):
+            inv = inv.filter(product__name__icontains=request.GET.get('search_text'))
+
+        inv = inv.order_by('-modified_at')
+        objects = self.pagination_class().paginate_queryset(inv, self.request)
+        data = InventoryReportSerializer(objects, many=True).data
+        msg = "Inventory Report Fetched Successfully!" if data else "No Product Inventory Found For This Shop!"
+        return api_response(msg, data, status.HTTP_200_OK, True)
+
+
+class InventoryLogReport(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
+
+    @check_pos_shop
+    def get(self, request, *args, **kwargs):
+        """
+            Get inventory logs for a product
+        """
+        shop = kwargs['shop']
+        # Validate product id w.r.t. shop
+        if 'pk' not in kwargs:
+            return api_response("Please provide a Product Id to fetch inventory log for")
+        pk = kwargs['pk']
+        try:
+            product = RetailerProduct.objects.get(pk=kwargs['pk'], shop=shop)
+        except ObjectDoesNotExist:
+            return api_response("Product Id Invalid")
+
+        # Inventory
+        inv_available = PosInventoryState.objects.get(inventory_state=PosInventoryState.AVAILABLE)
+        inv = PosInventory.objects.filter(product=product, inventory_state=inv_available).last()
+        inv_data = InventoryReportSerializer(inv).data
+
+        # Inventory Logs
+        logs = PosInventoryChange.objects.filter(product_id=pk)
+        search_text = request.GET.get('search_text')
+        if search_text:
+            logs = logs.filter(Q(transaction_type__icontains=search_text) | Q(transaction_id__icontains=search_text))
+        logs = logs.order_by('-modified_at')
+        objects = self.pagination_class().paginate_queryset(logs, self.request)
+        logs_data = InventoryLogReportSerializer(objects, many=True).data
+
+        # Merge data
+        data = dict()
+        data['product_inventory'] = inv_data
+        data['logs'] = logs_data
+        return api_response("Inventory Report Fetched Successfully!", data, status.HTTP_200_OK, True)
