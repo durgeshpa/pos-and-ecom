@@ -1,0 +1,90 @@
+<!-- sales/templates/admin/sale_summary_change_list.html -->
+
+{% extends "admin/change_list.html" %}
+
+{% block content_title %}
+    <h1> Picker Performance Dashboard </h1>
+{% endblock %}
+
+{% load mathfilters %}
+{% load app_filters%}
+{% load humanize %}
+
+<!-- ... -->
+
+{% block result_list %}
+
+<div class="results">
+    <table>
+
+    <thead>
+      <tr>
+        <th>
+          <div class="text">
+            <a href="#">Picker No.</a>
+          </div>
+        </th><th>
+          <div class="text">
+            <a href="#">Picker</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Assigned Order Count</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Order Amt</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Inv Amt</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Fill Rate</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Picked Order Count</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Picked Sku Count</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Picked Pieces</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Average Picking Time</a>
+          </div>
+        </th>
+
+      </tr>
+    </thead>
+
+
+<tbody>
+<tr style="font-weight:bold; border-top:2px solid #DDDDDD;">
+        </tr>
+      {% for row in summary %}
+      <tr class="{% cycle 'row1' 'row2' %}">
+        <td> {{ row.picker_boy.phone_number }} </td>
+        <td> {{ row.picker_boy.get_full_name }} </td>
+        <td> {{ row.assigned_order_cnt | intcomma }} </td>
+      </tr>
+      {% endfor %}
+ </tbody>
+  </table>
+</div>
+{% endblock %}
+{% block pagination %}{% endblock %}
