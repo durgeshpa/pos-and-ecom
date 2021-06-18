@@ -14,6 +14,12 @@ from rest_framework.pagination import LimitOffsetPagination
 
 from django.core.cache import cache
 
+from cms.permissions import ( has_cards_create_permission,
+                              has_apps_create_permission,
+                              has_pages_create_permission,
+                              has_pages_status_change_permission,
+                              has_apps_status_change_permission
+                              )
 
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -84,9 +90,10 @@ class CardView(APIView, PaginationHandlerMixin):
 
     def post(self, request):
         """Create a new card"""
+        has_cards_create_permission(request.user)
         info_logger.info("CardView POST API called.")
         data = request.data
-        data._mutable = True
+        # data._mutable = True
         card_data = data.pop("card_data")
         serializer = CardDataSerializer(data=card_data, context={'request': request})
         if serializer.is_valid(raise_exception=True):
@@ -137,6 +144,7 @@ class ApplicationView(APIView):
 
     def post(self, request):
         """POST Application Data"""
+        has_apps_create_permission(request.user)
 
         info_logger.info("ApplicationView POST API called.")
         serializer = self.serializer_class(data = request.data)
@@ -182,6 +190,9 @@ class ApplicationDetailView(APIView):
     
     def patch(self, request, id):
         """Update an application detail"""
+
+        has_apps_status_change_permission(request.user)
+
         try:
             app = Application.objects.get(id = id)
         except Exception:
@@ -234,6 +245,7 @@ class PageView(APIView):
 
     def post(self, request):
         """ Save Page data"""
+        has_pages_create_permission(request.user)
         
         serializer = self.serializer_class(data = request.data,context = {'request':request})
         if serializer.is_valid():
@@ -292,6 +304,7 @@ class PageDetailView(APIView):
 
     def patch(self, request, id):
         """Update Specific Page Details such as publishing page and change status"""
+        has_pages_status_change_permission(request.user)
         try:
             page = Page.objects.get(id = id)
         except Exception:
