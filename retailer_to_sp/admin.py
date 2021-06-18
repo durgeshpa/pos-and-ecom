@@ -2082,7 +2082,7 @@ class DeliveryPerformanceDashboard(admin.ModelAdmin):
                          rescheduled_cnt=SQCount(self.rescheduled_count_subquery()),
                          total_shipments=SQCount(self.invoice_count_subquery()),
                          ).order_by('-id')
-        
+
         response.context_data['summary'] = list(qs)
 
         sum_total.update(dict(
