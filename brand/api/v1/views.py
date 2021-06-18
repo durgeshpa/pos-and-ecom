@@ -105,8 +105,8 @@ class BrandView(GenericAPIView):
         Update Brand
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Brand.objects.select_related('brand_parent', 'updated_by').prefetch_related('brand_child', 'brand_log').\
-        only('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'updated_by', 'brand_slug',
+    queryset = Brand.objects.select_related('brand_parent').prefetch_related('brand_child', 'brand_log').\
+        only('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'brand_slug',
              'brand_logo', 'status').order_by('-id')
     serializer_class = BrandCrudSerializers
 
@@ -144,7 +144,7 @@ class BrandView(GenericAPIView):
     def put(self, request):
         """ PUT API for Brand Updation  """
 
-        info_logger.info("Category PUT api called.")
+        info_logger.info("Brand PUT api called.")
         modified_data = validate_data_format(self.request)
         if 'error' in modified_data:
             return get_response(modified_data['error'])
@@ -156,13 +156,13 @@ class BrandView(GenericAPIView):
         id_instance = validate_id(self.queryset, int(modified_data['id']))
         if 'error' in id_instance:
             return get_response(id_instance['error'])
-        category_instance = id_instance['data'].last()
+        brand_instance = id_instance['data'].last()
 
-        serializer = self.serializer_class(instance=category_instance, data=modified_data)
+        serializer = self.serializer_class(instance=brand_instance, data=modified_data)
         if serializer.is_valid():
             serializer.save(updated_by=request.user)
-            info_logger.info("category Updated Successfully.")
-            return get_response('category updated!', serializer.data)
+            info_logger.info("brand Updated Successfully.")
+            return get_response('brand updated!', serializer.data)
         return get_response(serializer_error(serializer), False)
 
     def search_filter_brand(self):

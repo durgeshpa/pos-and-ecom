@@ -63,17 +63,17 @@ class BrandCrudSerializers(serializers.ModelSerializer):
     brand_child = SubBrandSerializer(many=True, read_only=True)
     brand_parent = ParentBrandSerializers(read_only=True)
     brand_slug = serializers.SlugField(required=False, allow_null=True, allow_blank=True)
-    updated_by = UserSerializers(write_only=True, required=False)
     brand_log = LogSerializers(many=True, read_only=True)
+    brand_logo = serializers.ImageField(required=True)
 
     class Meta:
         model = Brand
-        fields = ('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'updated_by', 'brand_slug',
+        fields = ('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'brand_slug',
                   'brand_logo', 'status', 'brand_child', 'brand_log')
 
     def validate(self, data):
         """
-            category_slug validation.
+            brand_slug validation.
         """
         if not 'brand_slug' in self.initial_data or not self.initial_data['brand_slug']:
             data['brand_slug'] = slugify(data.get('brand_slug'))

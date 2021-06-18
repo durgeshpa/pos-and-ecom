@@ -14,8 +14,7 @@ class CategoryCls(object):
             Create Category Log
         """
         try:
-            category_log = CentralLog.objects.create(category=log_obj, update_at=log_obj.updated_at,
-                                                     updated_by=log_obj.updated_by)
+            category_log = CentralLog.objects.create(category=log_obj, updated_by=log_obj.updated_by)
         except Exception as e:
             error_logger.info("category update info ", e)
 

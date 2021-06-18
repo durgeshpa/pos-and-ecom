@@ -69,8 +69,7 @@ class ParentProductCls(object):
         """
             Create Parent Product Log
         """
-        parent_product_log = CentralLog.objects.create(parent_product=log_obj, update_at=log_obj.updated_at,
-                                                       updated_by=log_obj.updated_by)
+        parent_product_log = CentralLog.objects.create(parent_product=log_obj, updated_by=log_obj.updated_by)
 
         dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
                      'product_id': log_obj}
@@ -190,8 +189,7 @@ class ProductCls(object):
         """
             Create Child Product Log
         """
-        child_product_log = CentralLog.objects.create(child_product=log_obj,
-                                                      update_at=log_obj.updated_at, updated_by=log_obj.updated_by)
+        child_product_log = CentralLog.objects.create(child_product=log_obj, updated_by=log_obj.updated_by)
 
         dict_data = {'updated_by': log_obj.updated_by, 'updated_at': log_obj.updated_at,
                      'child_product': log_obj}
