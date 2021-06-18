@@ -1,0 +1,181 @@
+<!-- sales/templates/admin/sale_summary_change_list.html -->
+
+{% extends "admin/change_list.html" %}
+
+{% block content_title %}
+    <h1> Delivery Performance Dashboard </h1>
+{% endblock %}
+
+{% load mathfilters %}
+{% load app_filters%}
+{% load humanize %}
+
+<!-- ... -->
+
+{% block result_list %}
+
+<div class="results">
+    <table>
+
+    <thead>
+      <tr>
+        <th>
+          <div class="text">
+            <a href="#">Trip Id</a>
+          </div>
+        </th><th>
+          <div class="text">
+            <a href="#">FE</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Delivered Count</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Returned Count</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Pending Delivery</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Rescheduled</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Total</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Delivery %</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Returned %</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Rescheduled %</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Invoice Amt</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Delivered Amt</a>
+          </div>
+        </th>
+
+        <th>
+          <div class="text">
+            <a href="#">Delivered Value %</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Trip Start Time</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Trip End Time</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Opening Kms</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Closing Kms</a>
+          </div>
+        </th>
+        <th>
+          <div class="text">
+            <a href="#">Km Run</a>
+          </div>
+        </th>
+
+      </tr>
+    </thead>
+
+    <tbody>
+
+      <tr style="font-weight:bold; border-top:2px solid #DDDDDD;">
+            <td> Total </td>
+            <td> -- </td>
+            <td> {{ summary_total.delivered_tot | intcomma }} </td>
+            <td> {{ summary_total.returned_tot | default:0 }} </td>
+            <td> {{ summary_total.pending_tot | intcomma }} </td>
+            <td> {{ summary_total.rescheduled_tot | default:0 }} </td>
+            <td> {{ summary_total.grand_total_shipments | intcomma }} </td>
+            <td> {% percentof summary_total.delivered_tot summary_total.grand_total_shipments %} </td>
+            <td> {% percentof summary_total.returned_tot summary_total.grand_total_shipments %} </td>
+            <td> {% percentof summary_total.rescheduled_tot summary_total.grand_total_shipments %} </td>
+            <td> {{ summary_total.invoice_amount | default:0 | intcomma }} </td>
+            <td> {{ summary_total.delivered_amount | default:0 | intcomma }} </td>
+            <td> {% percentof summary_total.delivered_amount summary_total.invoice_amount %}<td>
+        </tr>
+      {% for row in summary %}
+
+      <tr class="{% cycle 'row1' 'row2' %}">
+        <td> {{ row.dispatch_no }} </td>
+        <td> {{ row.delivery_boy }} </td>
+        <td> {{ row.delivered_cnt | intcomma }} </td>
+        <td> {{ row.returned_cnt | intcomma }} </td>
+        <td> {{ row.pending_cnt | intcomma }} </td>
+        <td> {{ row.rescheduled_cnt | intcomma }} </td>
+        <td> {{ row.total_shipments | intcomma }} </td>
+        <td> {% percentof row.delivered_cnt row.total_shipments %} </td>
+        <td> {% percentof row.returned_cnt row.total_shipments %} </td>
+        <td> {% percentof row.rescheduled_cnt row.total_shipments %} </td>
+        <td> {{ row.invoice_amount | default:0 | intcomma }} </td>
+        <td> {{ row.delivered_amount | default:0 | intcomma }} </td>
+        <td> {% percentof row.delivered_amount row.invoice_amount %}</td>
+        <td> {{ row.starts_at }} </td>
+        <td> {{ row.completed_at }} </td>
+        <td> {{ row.opening_kms }} </td>
+        <td> {{ row.closing_kms }} </td>
+        <td> {{ row.closing_kms|sub:row.opening_kms }} </td>
+      </tr>
+      {% endfor %}
+
+      <tr style="font-weight:bold; border-top:2px solid #DDDDDD;">
+            <td> Total </td>
+            <td> -- </td>
+            <td> {{ summary_total.delivered_cnt | intcomma }} </td>
+            <td> {{ summary_total.returned_cnt | default:0 }} </td>
+            <td> {{ summary_total.pending_cnt | intcomma }} </td>
+            <td> {{ summary_total.rescheduled_cnt | default:0 }} </td>
+            <td> {{ summary_total.total_shipments | intcomma }} </td>
+            <td> {% percentof summary_total.delivered_cnt summary_total.total_shipments %} </td>
+            <td> {% percentof summary_total.returned_cnt summary_total.total_shipments %} </td>
+            <td> {% percentof summary_total.rescheduled_shipments summary_total.total_shipments %} </td>
+            <td> {{ summary_total.invoice_amount | default:0 | intcomma }} </td>
+            <td> {{ summary_total.delivered_amount | default:0 | intcomma }} </td>
+            <td> {% percentof summary_total.delivered_amount summary_total.invoice_amount %}<td>
+        </tr>
+    </tbody>
+
+  </table>
+</div>
+
+<!-- ... -->
+
+{% endblock %}
+
+{% block pagination %}{% endblock %}
