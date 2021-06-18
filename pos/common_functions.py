@@ -425,12 +425,15 @@ def check_pos_shop(view_func):
             if msg:
                 return api_response(msg)
         shop_id = request.META.get('HTTP_SHOP_ID', None)
+        if not shop_id:
+            return api_response("No Shop Selected!")
         user = request.user
-        try:
-            qs = filter_pos_shop(user)
-            kwargs['shop'] = qs.get(id=shop_id)
-        except:
+        qs = filter_pos_shop(user)
+        qs = qs.filter(id=shop_id)
+        shop = qs.last()
+        if not shop:
             return api_response("Franchise Shop Id Not Approved / Invalid!")
+        kwargs['shop'] = shop
         return view_func(self, request, *args, **kwargs)
 
     return _wrapped_view_func
