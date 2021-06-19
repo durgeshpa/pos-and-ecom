@@ -169,7 +169,10 @@ class RewardLog(models.Model):
         ('order_direct_credit', 'Order Direct Credit'),
         ('order_indirect_credit', 'Order Indirect Credit'),
         ('order_debit', 'Order Debit'),
-        ('order_return', 'Order Return Credit')
+        ('order_return_credit', 'Order Return Credit'),
+        ('order_cancel_credit', 'Order Cancel Credit'),
+        ('order_return_debit', 'Order Return Debit'),
+        ('order_cancel_debit', 'Order Cancel Debit')
     )
     user = models.ForeignKey(MLMUser, on_delete=models.CASCADE, null=True, blank=True)
     reward_user = models.ForeignKey(User, related_name='reward_log_user', on_delete=models.CASCADE, null=True, blank=True)

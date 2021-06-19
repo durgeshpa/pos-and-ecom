@@ -5,7 +5,7 @@ from functools import wraps
 from rest_framework.response import Response
 from rest_framework import status
 from django.urls import reverse
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 from retailer_to_sp.models import CartProductMapping, Order, Cart
 from retailer_to_gram.models import (CartProductMapping as GramMappedCartProductMapping)
@@ -294,6 +294,8 @@ class RewardCls(object):
         # Calculate number of points
         points = RewardCls.get_loyalty_points(amount, 'self_reward_percent')
 
+        if not points:
+            return
         # Add to user direct reward points
         reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
         if reward_obj:
@@ -313,6 +315,8 @@ class RewardCls(object):
         # Calculate number of points
         points = RewardCls.get_loyalty_points(amount, 'direct_reward_percent')
 
+        if not points:
+            return
         # Add to user direct reward points
         reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
         if reward_obj:
@@ -335,6 +339,8 @@ class RewardCls(object):
         # Calculate number of points
         points = RewardCls.get_loyalty_points(amount, 'indirect_reward_percent')
 
+        if not points:
+            return
         # Record Number of ancestors
         referral_obj_indirect = Referral.objects.select_for_update().filter(referral_to_user=user).last()
         total_users = 0
@@ -387,24 +393,50 @@ class RewardCls(object):
         reward_obj.points_used += int(points)
         reward_obj.save()
         # Log transaction
-        RewardCls.create_reward_log(user, 'order_debit', tid, points, changed_by, round(points / redeem_factor, 2))
+        RewardCls.create_reward_log(user, 'order_debit', tid, int(points) * -1, changed_by, round(points / redeem_factor, 2))
 
     @classmethod
-    def adjust_points_on_return(cls, order_return, changed_by):
-        if order_return.refund_points:
-            order = order_return.order
-            user = order.buyer
-            points = order_return.refund_points
-            # Add to user direct reward points
+    def adjust_points_on_return_cancel(cls, points_credit, user, tid, t_type_credit, t_type_debit, changed_by,
+                                       new_order_value, order_no, return_ids=None):
+        # Credit redeem points
+        if points_credit:
+            # Undo from points used
             reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
             if reward_obj:
-                reward_obj.direct_earned += points
+                reward_obj.points_used -= points_credit
                 reward_obj.save()
             else:
-                RewardPoint.objects.create(reward_user=user, direct_earned=points)
+                RewardPoint.objects.create(reward_user=user, direct_earned=points_credit)
 
             # Log transaction
-            RewardCls.create_reward_log(user, 'order_return', order_return.id, points, changed_by)
+            RewardCls.create_reward_log(user, t_type_credit, tid, points_credit, changed_by)
+
+        # Debit points (credited on placing order) based on remaining order value
+        credit_log = RewardLog.objects.filter(transaction_id=order_no, transaction_type='order_credit').last()
+        points_debit = credit_log.points if credit_log else 0
+
+        if t_type_debit == 'order_return_debit':
+            points_debit -= RewardCls.get_loyalty_points(new_order_value, 'self_reward_percent')
+
+            points_already_debited = 0
+            points_already_debited_log = RewardLog.objects.filter(transaction_id__in=return_ids,
+                                                                  transaction_type='order_return_debit')
+            if points_already_debited_log:
+                points_already_debited = points_already_debited_log.aggregate(points=Sum('points'))['points']
+
+            points_debit -= points_already_debited
+
+        if points_debit:
+            # Deduct from user direct reward points
+            reward_obj = RewardPoint.objects.select_for_update().filter(reward_user=user).last()
+            if reward_obj:
+                reward_obj.direct_earned -= points_debit
+                reward_obj.save()
+            else:
+                RewardPoint.objects.create(reward_user=user, direct_earned=points_debit)
+
+            # Log transaction
+            RewardCls.create_reward_log(user, t_type_debit, tid, points_debit * -1, changed_by)
 
 
 def filter_pos_shop(user):

@@ -545,10 +545,10 @@ class BasicOrderSerializer(serializers.ModelSerializer):
                         product['already_returned_qty'] = product['already_returned_qty'] + return_item[
                             'return_qty'] if 'return_qty' in product else return_item['return_qty']
                     if 'new_sp' in product:
-                        if return_item['new_sp'] < product['new_sp']:
-                            product['new_sp'] = return_item['new_sp']
+                        if float(return_item['new_sp']) < float(product['new_sp']):
+                            product['new_sp'] = float(return_item['new_sp'])
                     else:
-                        product['new_sp'] = return_item['new_sp']
+                        product['new_sp'] = float(return_item['new_sp'])
             product['display_text'] = ''
             # map purchased product with free product
             if product['retailer_product']['id'] in product_offer_map:

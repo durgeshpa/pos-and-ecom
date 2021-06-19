@@ -2336,6 +2336,11 @@ class OrderCentral(APIView):
                 PosInventoryCls.order_inventory(op.retailer_product.id, PosInventoryState.ORDERED,
                                                 PosInventoryState.AVAILABLE, op.shipped_qty, self.request.user,
                                                 order.order_no, PosInventoryChange.CANCELLED)
+            # Refund redeemed loyalty points
+            # Deduct loyalty points awarded on order
+            RewardCls.adjust_points_on_return_cancel(order.ordered_cart.redeem_points, order.buyer, order.order_no,
+                                                     'order_cancel_credit', 'order_cancel_debit', self.request.user,
+                                                     0, order.order_no)
             order_number = order.order_no
             shop_name = order.seller_shop.shop_name
             phone_number = order.buyer.phone_number
@@ -3996,7 +4001,17 @@ class OrderReturnComplete(APIView):
             order.last_modified_by = self.request.user
             order.save()
             # Return redeem points if any
-            RewardCls.adjust_points_on_return(order_return, self.request.user)
+            # Deduct order credit points based on remaining order value
+            return_ids = []
+            refund_amount = 0
+            returns = OrderReturn.objects.filter(order=order)
+            for ret in returns:
+                return_ids += [ret.id]
+                refund_amount += ret.refund_amount
+            new_paid_amount = order.order_amount - refund_amount
+            RewardCls.adjust_points_on_return_cancel(order_return.refund_points, order.buyer, order_return.id,
+                                                     'order_return_credit', 'order_return_debit', self.request.user,
+                                                     new_paid_amount, order.order_no, return_ids)
             # Update inventory
             returned_products = ReturnItems.objects.filter(return_id=order_return)
             for rp in returned_products:
