@@ -77,7 +77,7 @@ from pos.models import RetailerProduct, PAYMENT_MODE_POS, Payment as PosPayment,
 from retailer_backend.settings import AWS_MEDIA_URL
 from pos.tasks import update_es, order_loyalty_points
 from pos import error_code
-from accounts.api.v1.serializers import PosUserSerializer
+from accounts.api.v1.serializers import PosUserSerializer, PosShopUserSerializer
 from global_config.models import GlobalConfig
 from elasticsearch import Elasticsearch
 from pos.common_functions import check_pos_shop
@@ -3952,6 +3952,8 @@ class OrderReturnsCheckout(APIView):
 
 
 class OrderReturnComplete(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
     """
         Complete created return on an order
     """
@@ -5339,8 +5341,8 @@ class PosShopUsersList(APIView):
     def get(self, request, *args, **kwargs):
         shop = kwargs['shop']
         data = dict()
-        data['shop_owner'] = PosUserSerializer(shop.shop_owner).data
+        data['shop_owner'] = PosShopUserSerializer(shop.shop_owner).data
         related_users = shop.related_users.filter(is_staff=False)
         request_users = self.pagination_class().paginate_queryset(related_users, self.request)
-        data['related_users'] = PosUserSerializer(request_users, many=True).data
+        data['related_users'] = PosShopUserSerializer(request_users, many=True).data
         return api_response("Shop Users", data, status.HTTP_200_OK, True)
