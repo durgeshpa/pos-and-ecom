@@ -128,8 +128,9 @@ class RewardLogAdmin(admin.ModelAdmin):
 
     @staticmethod
     def purchase_user(obj):
-        if obj.transaction_type in ['used_reward', 'purchase_reward', 'order_credit', 'order_debit', 'order_return',
-                                    'order_cancel']:
+        if obj.transaction_type in ['used_reward', 'purchase_reward', 'order_credit', 'order_debit',
+                                    'order_return_credit', 'order_return_debit', 'order_cancel_credit',
+                                    'order_cancel_debit']:
             return obj.reward_user
         if obj.transaction_type in ['direct_reward', 'indirect_reward']:
             sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
@@ -145,10 +146,10 @@ class RewardLogAdmin(admin.ModelAdmin):
             sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
             return sales_obj.shop_loc if sales_obj else '-'
         if obj.transaction_type in ['order_direct_credit', 'order_indirect_credit', 'order_credit', 'order_debit',
-                                    'order_cancel']:
+                                    'order_cancel_credit', 'order_cancel_debit']:
             order = Order.objects.get(order_no=obj.transaction_id)
             return order.seller_shop
-        if obj.transaction_type in ['order_return']:
+        if obj.transaction_type in ['order_return_credit', 'order_return_debit']:
             order = Order.objects.get(rt_return_order__id=obj.transaction_id)
             return order.seller_shop
         return '-'
@@ -159,10 +160,10 @@ class RewardLogAdmin(admin.ModelAdmin):
             sales_obj = FranchiseSales.objects.filter(pk=obj.transaction_id).last()
             return sales_obj.invoice_number if sales_obj else '-'
         if obj.transaction_type in ['order_direct_credit', 'order_indirect_credit', 'order_credit', 'order_debit',
-                                    'order_cancel']:
+                                    'order_cancel_credit', 'order_cancel_debit']:
             order = OrderedProduct.objects.get(order__order_no=obj.transaction_id)
             return order.invoice_no
-        if obj.transaction_type in ['order_return']:
+        if obj.transaction_type in ['order_return_credit', 'order_return_debit']:
             order = OrderedProduct.objects.get(order__rt_return_order__id=obj.transaction_id)
             return order.invoice_no
         return '-'
