@@ -4481,12 +4481,15 @@ def pdf_generation_retailer(request, order_id):
             }
             total += ordered_p['product_sub_total']
             product_listing.append(ordered_p)
+        cart = ordered_product.order.ordered_cart
         product_listing = sorted(product_listing, key=itemgetter('id'))
         # Total payable amount
         total_amount = ordered_product.order.order_amount
         total_amount_int = round(total_amount)
+        # redeem value
+        redeem_value = round(cart.redeem_points / cart.redeem_factor, 2) if cart.redeem_factor else 0
         # Total discount
-        discount = total - total_amount
+        discount = total - total_amount - redeem_value
         # Total payable amount in words
         amt = [num2words(i) for i in str(total_amount_int).split('.')]
         rupees = amt[0]
@@ -4507,7 +4510,7 @@ def pdf_generation_retailer(request, order_id):
                 'discount': discount, "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
                 "sum_qty": sum_qty, "nick_name": nick_name, "address_line1": address_line1, "city": city,
                 "state": state,
-                "pincode": pincode, "address_contact_number": address_contact_number}
+                "pincode": pincode, "address_contact_number": address_contact_number, "reward_value": redeem_value}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
