@@ -45,6 +45,7 @@ WEIGHT_UNIT_CHOICES = (
 CAPPING_TYPE_CHOICES = Choices((0, 'DAILY', 'Daily'), (1, 'WEEKLY', 'Weekly'),
                                    (2, 'MONTHLY', 'Monthly'))
 
+
 class Size(models.Model):
     size_value = models.CharField(max_length=255, validators=[ValueValidator], null=True, blank=True)
     size_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=SIZE_UNIT_CHOICES, default = 'mm')
@@ -56,6 +57,7 @@ class Size(models.Model):
     def __str__(self):
         return self.size_name
 
+
 class Color(models.Model):
     color_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     color_code = models.CharField(max_length=255, null=True, blank=True)
@@ -65,6 +67,7 @@ class Color(models.Model):
 
     def __str__(self):
         return self.color_name
+
 
 class Fragrance(models.Model):
     fragrance_name = models.CharField(max_length=255, validators=[ProductNameValidator])
@@ -76,6 +79,7 @@ class Fragrance(models.Model):
     def __str__(self):
         return self.fragrance_name
 
+
 class Flavor(models.Model):
     flavor_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     flavor_code = models.CharField(max_length=255, null=True, blank=True)
@@ -85,6 +89,7 @@ class Flavor(models.Model):
 
     def __str__(self):
         return self.flavor_name
+
 
 class Weight(models.Model):
     weight_value = models.CharField(max_length=255, null=True, blank=True)
@@ -96,6 +101,7 @@ class Weight(models.Model):
 
     def __str__(self):
         return self.weight_name
+
 
 class PackageSize(models.Model):
     pack_size_value = models.CharField(max_length=255, null=True, blank=True)
@@ -115,6 +121,7 @@ class PackageSize(models.Model):
         verbose_name = _("Package Size")
         verbose_name_plural = _("Package Sizes")
 
+
 class ProductHSN(BaseTimestampUserStatusModel):
     product_hsn_code = models.CharField(max_length=255)
     updated_by = models.ForeignKey(
@@ -122,8 +129,10 @@ class ProductHSN(BaseTimestampUserStatusModel):
         related_name='product_hsn_updated_by',
         on_delete=models.DO_NOTHING
     )
+
     def __str__(self):
         return self.product_hsn_code
+
 
 class ParentProduct(BaseTimestampUserStatusModel):
     parent_id = models.CharField(max_length=255, validators=[ParentIDValidator])
@@ -176,6 +185,7 @@ class ParentProduct(BaseTimestampUserStatusModel):
     def __str__(self):
         return "{}-{}".format(self.parent_id, self.name)
 
+
 class ParentProductSKUGenerator(models.Model):
     cat_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three characters for SKU")
     brand_sku_code = models.CharField(max_length=3, validators=[CapitalAlphabets], help_text="Please enter three characters for SKU")
@@ -225,6 +235,7 @@ def create_parent_product_id(sender, instance=None, created=False, **kwargs):
     parent_product.parent_id = "P%s%s%s"%(cat_sku_code, brand_sku_code, last_sku_increment)
     parent_product.save()
 
+
 class Product(BaseTimestampUserStatusModel):
     product_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255, blank=True)
@@ -263,6 +274,7 @@ class Product(BaseTimestampUserStatusModel):
         related_name='product_updated_by',
         on_delete=models.DO_NOTHING
     )
+
     def save(self, *args, **kwargs):
         self.product_slug = slugify(self.product_name)
         super(Product, self).save(*args, **kwargs)
@@ -418,7 +430,7 @@ class Product(BaseTimestampUserStatusModel):
             parent_brand = None
         # parent_brand = self.product_brand.brand_parent.id if self.product_brand.brand_parent else None
         product_brand_id = self.parent_product.parent_brand.id if self.parent_product else None
-        brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
+        brand_coupons = Coupon.objects.filter(coupon_type='brand', is_active=True, expiry_date__gte=date).filter(Q(rule__brand_ruleset__brand = product_brand_id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
         for x in brand_coupons:
             product_coupons.append(x.coupon_code)
         return product_coupons
@@ -461,7 +473,7 @@ class ProductSourceMapping(models.Model):
 
 class ProductOption(models.Model):
     product = models.ForeignKey(Product, related_name='product_opt_product', on_delete=models.CASCADE)
-    size = models.ForeignKey(Size,related_name='size_pro_option',null=True,blank=True,on_delete=models.CASCADE)
+    size = models.ForeignKey(Size, related_name='size_pro_option',null=True,blank=True,on_delete=models.CASCADE)
     color = models.ForeignKey(Color,related_name='color_pro_option',null=True,blank=True,on_delete=models.CASCADE)
     fragrance = models.ForeignKey(Fragrance,related_name='fragrance_pro_option',null=True,blank=True,on_delete=models.CASCADE)
     flavor = models.ForeignKey(Flavor,related_name='flavor_pro_option',null=True,blank=True,on_delete=models.CASCADE)
@@ -605,7 +617,6 @@ class ProductPrice(models.Model):
         if per_piece_price:
             return per_piece_price * case_size
 
-
     def get_per_piece_price(self, qty):
 
         """
@@ -627,6 +638,7 @@ class SlabProductPrice(ProductPrice):
 
     class Meta:
         proxy = True
+
 
 class PriceSlab(models.Model):
     product_price = models.ForeignKey(ProductPrice, related_name='price_slabs', on_delete=models.CASCADE)
@@ -689,12 +701,14 @@ class ProductCategory(models.Model):
         verbose_name = _("Product Category")
         verbose_name_plural = _("Product Categories")
 
+
 class ProductCategoryHistory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_cat_history',on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_cat_history',on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
 
 class ProductImage(BaseTimeModel):
     product = models.ForeignKey(Product,related_name='product_pro_image',on_delete=models.CASCADE)
@@ -714,7 +728,7 @@ class ProductImage(BaseTimeModel):
         return self.image.name
 
 
-class Tax(BaseTimeModel):
+class Tax(BaseTimestampUserStatusModel):
     TAX_CHOICES = (
             ("cess", "Cess"),
             ("gst", "GST"),
@@ -722,11 +736,18 @@ class Tax(BaseTimeModel):
             ("tcs", "TCS")
         )
 
-    tax_name = models.CharField(max_length=255,validators=[ProductNameValidator])
+    tax_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     tax_type = models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
     tax_percentage = models.FloatField(default=0)
-    tax_start_at = models.DateField(null=True,blank=True)
-    tax_end_at = models.DateField(null=True,blank=True)
+    tax_start_at = models.DateField(null=True, blank=True)
+    tax_end_at = models.DateField(null=True, blank=True)
+
+    updated_by = models.ForeignKey(
+        get_user_model(), null=True,
+        related_name='tax_updated_by',
+        on_delete=models.DO_NOTHING
+    )
+
     def __str__(self):
         return self.tax_name
 
@@ -734,9 +755,10 @@ class Tax(BaseTimeModel):
         verbose_name = _("Tax")
         verbose_name_plural = _("Taxes")
 
+
 class ProductTaxMapping(BaseTimeModel):
-    product = models.ForeignKey(Product,related_name='product_pro_tax',on_delete=models.CASCADE)
-    tax = models.ForeignKey(Tax,related_name='tax_pro_tax',on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_pro_tax',on_delete=models.CASCADE)
+    tax = models.ForeignKey(Tax, related_name='tax_pro_tax', on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
 
     def __str__(self):
@@ -753,15 +775,6 @@ class ProductTaxMapping(BaseTimeModel):
 
     def get_products_tcs(self):
         return self.product.product_pro_tax.filter(tax__tax_type='tcs')
-# class ProductSurcharge(models.Model):
-#     product = models.ForeignKey(Product, related_name='product_pro_surcharge',on_delete=models.CASCADE)
-#     surcharge_name = models.CharField(max_length=255, validators=[NameValidator])
-#     surcharge_percentage = models.FloatField(default=0)
-#     surcharge_start_at = models.DateTimeField(null=True, blank=True)
-#     surcharge_end_at = models.DateTimeField(null=True, blank=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     modified_at = models.DateTimeField(auto_now=True)
-#     status = models.BooleanField(default=True)
 
 
 class ParentProductTaxMapping(BaseTimeModel):
@@ -813,6 +826,7 @@ class ProductCSV(models.Model):
         verbose_name = _("Product CSV")
         verbose_name_plural = _("Product CSVS")
 
+
 class ProductPriceCSV(models.Model):
     file = models.FileField(upload_to='products/price/')
     country = models.ForeignKey(Country,null=True,blank=True, on_delete=models.CASCADE)
@@ -830,17 +844,17 @@ class ProductPriceCSV(models.Model):
 
 
 class ProductVendorMapping(BaseTimeModel):
-    vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
-    product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
-    product_price = models.FloatField(verbose_name='Brand to Gram Price (Per Piece)',null=True,blank=True) #(Per piece)
-    product_price_pack = models.FloatField(verbose_name='Brand to Gram Price (Per Pack)',null=True,blank=True)
+    vendor = models.ForeignKey(Vendor, related_name='vendor_brand_mapping', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_vendor_mapping', on_delete=models.CASCADE)
+    product_price = models.FloatField(verbose_name='Brand to Gram Price (Per Piece)', null=True, blank=True) #(Per piece)
+    product_price_pack = models.FloatField(verbose_name='Brand to Gram Price (Per Pack)', null=True, blank=True)
     brand_to_gram_price_unit = models.CharField(max_length=100, default="Per Piece")
-    product_mrp = models.FloatField(null=True,blank=True)
+    product_mrp = models.FloatField(null=True, blank=True)
     case_size = models.PositiveIntegerField(default=0)
     status = models.BooleanField(default=True)
     is_default = models.BooleanField(default=False)
 
-    def save_vendor(self,vendor):
+    def save_vendor(self, vendor):
         if vendor.vendor_products_brand is None:
             parent_brands = []
             parent_brand = parent_brands.append(self.product.parent_product.parent_brand_id)
@@ -855,11 +869,10 @@ class ProductVendorMapping(BaseTimeModel):
        
         if self.product_price:
             self.brand_to_gram_price_unit = "Per Piece"
-            
         else:
             self.brand_to_gram_price_unit = "Per Pack"
            
-        ProductVendorMapping.objects.filter(product=self.product,vendor=self.vendor,status=True).update(status=False)
+        ProductVendorMapping.objects.filter(product=self.product, vendor=self.vendor, status=True).update(status=False)
         if self.is_default:
             ProductVendorMapping.objects.filter(product__parent_product=self.product.parent_product, is_default=True)\
                                         .update(is_default=False)
@@ -947,6 +960,7 @@ class BulkUploadForGSTChange(BaseTimeModel):
 
 class BulkUploadForProductAttributes(BaseTimeModel):
     file = models.FileField(upload_to='products/product_attributes/')
+
     def __str__(self):
         return f"BulkUpload for product_tax_attribute updated at {self.created_at} by {self.updated_by}"
 

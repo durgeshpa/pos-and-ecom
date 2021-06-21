@@ -999,7 +999,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     autocomplete_fields = ['parent_product']
 
-    def product_images(self,obj):
+    def product_images(self, obj):
         if obj.product_pro_image.exists():
             return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
                              format(obj.product_pro_image.last().image.url,

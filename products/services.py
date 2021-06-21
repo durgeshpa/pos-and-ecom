@@ -45,3 +45,4 @@ def brand_search(queryset, search_text):
 def parent_product_name_search(queryset, search_text):
     queryset = queryset.filter(name__icontains=search_text)
     return queryset
+

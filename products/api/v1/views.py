@@ -15,7 +15,7 @@ from .serializers import ParentProductSerializers, BrandSerializers, ParentProdu
     ParentProductExportAsCSVSerializers, ActiveDeactiveSelectedParentProductSerializers, ProductHSNSerializers, \
     ProductCappingSerializers, ProductVendorMappingSerializers, ChildProductSerializers, TaxSerializers, \
     CategorySerializers, ProductSerializers, GetParentProductSerializers, ActiveDeactiveSelectedChildProductSerializers, \
-    ChildProductExportAsCSVSerializers
+    ChildProductExportAsCSVSerializers, TaxCrudSerializers
 
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id, validate_data_format
@@ -126,10 +126,26 @@ class ProductHSNView(GenericAPIView):
         return self.queryset
 
 
+class GetTaxView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = Tax.objects.values('id', 'tax_type', 'tax_percentage')
+    serializer_class = TaxSerializers
+
+    def get(self, request):
+        """ GET Tax List """
+        search_text = self.request.GET.get('search_text')
+        if search_text:
+            self.queryset = tax_search(self.queryset, search_text)
+        product_tax = SmallOffsetPagination().paginate_queryset(self.queryset, request)
+        serializer = self.serializer_class(product_tax, many=True)
+        msg = "" if product_tax else "no product tax found"
+        return get_response(msg, serializer.data)
+
+
 class TaxView(GenericAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Tax.objects.values('id', 'tax_name', 'tax_type', 'tax_percentage')
-    serializer_class = TaxSerializers
+    queryset = Tax.objects.values('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at')
+    serializer_class = TaxCrudSerializers
 
     def get(self, request):
         """ GET API for Tax """
@@ -694,3 +710,12 @@ class ProductVendorMappingView(GenericAPIView):
         if product_status is not None:
             self.queryset = self.queryset.filter(product__status=product_status)
         return self.queryset
+
+
+class BulkUploadProductAttributes(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    queryset = ProductVendorMapping.objects.select_related('vendor', 'product')
+    serializer_class = ProductVendorMappingSerializers
+
+
+

@@ -6,7 +6,7 @@ from rest_framework import authentication
 from rest_framework.generics import GenericAPIView
 
 from wms.common_functions import get_stock_available_brand_list
-from .serializers import BrandDataSerializer, SubBrandSerializer, BrandCrudSerializers
+from .serializers import BrandDataSerializer, SubBrandSerializer, BrandCrudSerializers, ProductVendorMapSerializers
 from brand.models import Brand, BrandData
 from rest_framework.permissions import AllowAny
 from shops.models import Shop, ParentRetailerMapping
@@ -15,6 +15,7 @@ from products.services import brand_search
 from products.common_function import get_response, serializer_error
 from products.common_validators import validate_id
 from brand.common_validators import validate_data_format
+from products.models import ParentProduct
 
 # Get an instance of a logger
 info_logger = logging.getLogger('file-info')
@@ -105,9 +106,9 @@ class BrandView(GenericAPIView):
         Update Brand
     """
     authentication_classes = (authentication.TokenAuthentication,)
-    queryset = Brand.objects.select_related('brand_parent').prefetch_related('brand_child', 'brand_log').\
-        only('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'brand_slug',
-             'brand_logo', 'status').order_by('-id')
+    permission_classes = (AllowAny,)
+    queryset = Brand.objects.select_related('brand_parent').prefetch_related('brand_child', 'brand_log',).only('id', 'brand_name', 'brand_code', 'brand_parent', 'brand_description', 'brand_slug','brand_logo', 'status').order_by('-id')
+
     serializer_class = BrandCrudSerializers
 
     def get(self, request):
@@ -179,3 +180,36 @@ class BrandView(GenericAPIView):
             self.queryset = self.queryset.filter(status=brand_status)
 
         return self.queryset
+
+
+class BrandVendorMappingView(GenericAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (AllowAny,)
+    queryset = ParentProduct.objects.select_related('parent_brand').prefetch_related(
+        'product_parent_product', 'product_parent_product__product_vendor_mapping',
+        'product_parent_product__product_vendor_mapping__vendor',).only('parent_brand',).order_by('-id')
+    serializer_class = ProductVendorMapSerializers
+
+    def get(self, request):
+
+        info_logger.info("BrandVendorMappingView GET api called.")
+        if request.GET.get('id'):
+            """ Get brand vendor mapping for specific Brand ID """
+            id_validation = self.validate_id(self.queryset, int(request.GET.get('id')))
+            if 'error' in id_validation:
+                return get_response(id_validation['error'])
+
+            brand = id_validation['data']
+            serializer = self.serializer_class(brand, many=True)
+            msg = "" if brand else "no brand found"
+            return get_response(msg, serializer.data)
+        else:
+            msg = "please provide brand id"
+            return get_response(msg, None)
+
+    def validate_id(self, queryset, brand_id):
+        """ validation only ids that belong to a selected related model """
+        if not queryset.filter(parent_brand=brand_id).exists():
+            return {'error': 'please provide a valid brand id'}
+        return {'data': queryset.filter(parent_brand=brand_id)}
+

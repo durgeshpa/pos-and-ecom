@@ -93,7 +93,7 @@ class ProductImageSerializers(serializers.ModelSerializer):
 class TaxSerializers(serializers.ModelSerializer):
     class Meta:
         model = Tax
-        fields = ('id', 'tax_name', 'tax_type', 'tax_percentage')
+        fields = ('id', 'tax_type', 'tax_percentage')
 
 
 class ParentProductTaxMappingSerializers(serializers.ModelSerializer):
@@ -974,3 +974,22 @@ class ChildProductExportAsCSVSerializers(serializers.ModelSerializer):
                     items.append(str(getattr(cost_obj, param)))
             writer.writerow(items)
         return response
+
+
+class TaxCrudSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Tax
+        fields = ('id', 'tax_name', 'tax_type', 'tax_percentage', 'tax_start_at', 'tax_end_at')
+
+    def validate(self, data):
+
+        if len(data.get('child_product_id_list')) == 0:
+            raise serializers.ValidationError(_('Atleast one child_product id must be selected '))
+
+        for id in data.get('child_product_id_list'):
+            try:
+                Product.objects.get(id=id)
+            except ObjectDoesNotExist:
+                raise serializers.ValidationError(f'child_product not found for id {id}')
+
+        return data

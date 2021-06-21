@@ -776,6 +776,7 @@ def products_vendor_mapping(request,pk=None):
         writer.writerow(["Make sure you have selected vendor before downloading CSV file"])
     return response
 
+
 def cart_products_mapping(request,pk=None):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
     current_time = datetime.datetime.now()
@@ -1392,10 +1393,12 @@ def set_child_with_parent_sample_excel_file(request):
     info_logger.info("Child Parent Mapping Sample Excel File has been Successfully Downloaded")
     return response
 
+
 def get_ptr_type_text(ptr_type=None):
     if ptr_type is not None and ptr_type in ParentProduct.PTR_TYPE_CHOICES:
         return ParentProduct.PTR_TYPE_CHOICES[ptr_type]
     return ''
+
 
 def set_parent_data_sample_excel_file(request, *args):
     """
@@ -1415,11 +1418,12 @@ def set_parent_data_sample_excel_file(request, *args):
     # Sheet header, first row
     row_num = 1
 
-    columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)', 'brand_case_size',
+    columns = ['parent_id', 'parent_name', 'product_type', 'hsn', 'tax_1(gst)', 'tax_2(cess)', 'tax_3(surcharge)',
                'inner_case_size', 'brand_id', 'brand_name', 'sub_brand_id', 'sub_brand_name',
-               'category_id', 'category_name', 'sub_category_id', 'sub_category_name',
-               'status', 'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
+               'category_id', 'category_name', 'sub_category_id', 'sub_category_name', 'status',
+               'is_ptr_applicable', 'ptr_type', 'ptr_percent', 'is_ars_applicable', 'max_inventory_in_days',
                'is_lead_time_applicable']
+
     mandatory_columns = ['parent_id', 'parent_name', 'status']
 
     for col_num, column_title in enumerate(columns, 1):
@@ -1431,11 +1435,10 @@ def set_parent_data_sample_excel_file(request, *args):
             ft = Font(color="00000000", name="Arial", b=True)
         cell.font = ft
 
-    parent_products = ParentProductCategory.objects.values('parent_product__id','parent_product__parent_id',
+    parent_products = ParentProductCategory.objects.values('parent_product__id', 'parent_product__parent_id',
                                                            'parent_product__name',
                                                            'parent_product__product_type',
                                                            'parent_product__product_hsn__product_hsn_code',
-                                                           'parent_product__brand_case_size',
                                                            'parent_product__inner_case_size',
                                                            'parent_product__parent_brand__id',
                                                            'parent_product__parent_brand__brand_name',
@@ -1468,7 +1471,6 @@ def set_parent_data_sample_excel_file(request, *args):
             if tax.tax.tax_type == 'surcharge':
                 tax_list[2] = tax.tax.tax_name
         row.extend(tax_list)
-        row.append(product['parent_product__brand_case_size'])
         row.append(product['parent_product__inner_case_size'])
 
         if product['parent_product__parent_brand__brand_parent_id']:
@@ -1834,6 +1836,7 @@ def FetchAllParentCategoriesWithID(request):
         data['categories'].append(category.category_name + "@" + str(category.id))
 
     return JsonResponse(data, safe=False)
+
 
 def FetchAllProductBrands(request):
     data = { 'brands': [] }
